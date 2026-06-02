@@ -1,18 +1,43 @@
 import SwiftUI
 
+enum SidebarSection: String, CaseIterable, Identifiable {
+    case overview = "Overview"
+    case workout = "Workout"
+    case data = "Data"
+    case ai = "AI"
+    case settings = "Settings"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .overview: "heart.text.clipboard"
+        case .workout: "figure.strengthtraining.traditional"
+        case .data: "chart.xyaxis.line"
+        case .ai: "brain"
+        case .settings: "gearshape"
+        }
+    }
+}
+
 struct MacContentView: View {
+    @State private var selectedSection: SidebarSection? = .overview
+
     var body: some View {
         NavigationSplitView {
-            List {
-                Label("Overview", systemImage: "heart.text.clipboard")
-                Label("Workout", systemImage: "figure.strengthtraining.traditional")
-                Label("Data", systemImage: "chart.xyaxis.line")
-                Label("AI", systemImage: "brain")
-                Label("Settings", systemImage: "gearshape")
+            List(SidebarSection.allCases, selection: $selectedSection) { section in
+                Label(section.rawValue, systemImage: section.icon)
+                    .tag(section)
             }
             .navigationTitle("VitalStride")
         } detail: {
-            Text("Select a section")
+            if let section = selectedSection {
+                Text(section.rawValue)
+                    .font(.largeTitle)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                Text("Select a section")
+            }
         }
     }
 }
