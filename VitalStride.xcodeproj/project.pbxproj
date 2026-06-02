@@ -293,7 +293,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.watchos;
 				PRODUCT_NAME = "VitalStrideWatch Watch App";
 				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = 4;
 				WATCHOS_DEPLOYMENT_TARGET = 11.0;
@@ -393,7 +393,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.watchos;
 				PRODUCT_NAME = "VitalStrideWatch Watch App";
 				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = 4;
 				WATCHOS_DEPLOYMENT_TARGET = 11.0;

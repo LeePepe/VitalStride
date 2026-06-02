@@ -68,3 +68,4 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         WATCHOS_DEPLOYMENT_TARGET: "11.0"
+        SKIP_INSTALL: false
