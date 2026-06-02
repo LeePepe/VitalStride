@@ -114,6 +114,7 @@ targets:
       - path: "VitalStrideWatch Watch App/Sources"
       - path: VitalStride/Resources
       - path: "VitalStrideWatch Watch App/Assets.xcassets"
+      - path: "VitalStrideWatch Watch App/Resources"
       - path: Shared/Models
     dependencies:
       - sdk: HealthKit.framework

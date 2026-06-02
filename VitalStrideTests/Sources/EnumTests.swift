@@ -89,12 +89,21 @@ struct EnumTests {
     @Test("WorkoutType has all expected cases")
     func workoutTypeCases() {
         let cases = WorkoutType.allCases
-        #expect(cases.count == 1)
+        #expect(cases.count == 12)
         #expect(cases.contains(.strength))
+        #expect(cases.contains(.running))
+        #expect(cases.contains(.cycling))
+        #expect(cases.contains(.swimming))
+        #expect(cases.contains(.yoga))
+        #expect(cases.contains(.hiking))
+        #expect(cases.contains(.walking))
+        #expect(cases.contains(.other))
     }
 
-    @Test("WorkoutType raw value matches expected string")
-    func workoutTypeRawValue() {
+    @Test("WorkoutType raw values match expected strings")
+    func workoutTypeRawValues() {
         #expect(WorkoutType.strength.rawValue == "strength")
+        #expect(WorkoutType.running.rawValue == "running")
+        #expect(WorkoutType.other.rawValue == "other")
     }
 }

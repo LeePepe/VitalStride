@@ -3,20 +3,27 @@ import SwiftUI
 
 @main
 struct VitalStrideWatchApp: App {
-    private let container: ModelContainer
+    private let container: ModelContainer?
+    private let containerError: String?
 
     init() {
         do {
             container = try ModelContainerConfiguration.makeContainer()
+            containerError = nil
         } catch {
-            fatalError("Failed to initialize ModelContainer: \(error.localizedDescription)")
+            container = nil
+            containerError = error.localizedDescription
         }
     }
 
     var body: some Scene {
         WindowGroup {
-            WatchContentView()
+            if let container {
+                WatchContentView()
+                    .modelContainer(container)
+            } else {
+                DataStoreErrorView(errorMessage: containerError ?? "Unknown error")
+            }
         }
-        .modelContainer(container)
     }
 }
