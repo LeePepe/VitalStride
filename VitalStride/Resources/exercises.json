@@ -371,7 +371,7 @@
   {
     "id": "550e8400-e29b-41d4-a716-446655440042",
     "nameEn": "Cable Pull-Through",
-    "nameZh": "绳索拉伸",
+    "nameZh": "绳索体前屈",
     "muscleGroup": "legs",
     "equipment": "cable",
     "primaryMuscles": ["glutes", "hamstrings"],
@@ -560,7 +560,7 @@
   {
     "id": "550e8400-e29b-41d4-a716-446655440063",
     "nameEn": "Dumbbell Man Maker",
-    "nameZh": "哑铃人体制造机",
+    "nameZh": "哑铃综合训练",
     "muscleGroup": "fullBody",
     "equipment": "dumbbell",
     "primaryMuscles": ["pectoralis major", "anterior deltoid", "quadriceps"],

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		02642378D9BF2F904191BBEB /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 1E44844FA434AFA16F0D508E /* InfoPlist.strings */; };
 		0B55E2B4E2EF2CD19AD897E2 /* VitalStrideWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5161EBA086096752446678 /* VitalStrideWatchApp.swift */; };
+		16DCED58417EEE34C696B02A /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = EB421E42AE345C630DCD8E41 /* exercises.json */; };
 		1B73C01B4D0DFC6DAC51D1C0 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A18F09E32A54EF7AD32B7912 /* InfoPlist.strings */; };
 		5BC82AE5EF8EBDC442F87625 /* VitalStrideMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E2999CCCA6100A9F2ED6BB /* VitalStrideMacApp.swift */; };
 		67175014078591B2774B9C67 /* VitalStrideApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 071236CB53D23D49D2A21097 /* VitalStrideApp.swift */; };
@@ -24,6 +25,7 @@
 		C345EC8122C5E16B66D7D30D /* ExercisesJSONTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF8FF056F3AAB8539DFB623B /* ExercisesJSONTests.swift */; };
 		DC2A0C4CD5C4C072B5908F47 /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = EB421E42AE345C630DCD8E41 /* exercises.json */; };
 		EA2925A7C0F167DD4CBEC374 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 675947C2C88283D7D81E0FD0 /* Assets.xcassets */; };
+		FB094960A059410BEE953ADE /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 1E44844FA434AFA16F0D508E /* InfoPlist.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -328,7 +330,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				9C33F574F875DF0EBF073483 /* Assets.xcassets in Resources */,
+				FB094960A059410BEE953ADE /* InfoPlist.strings in Resources */,
 				1B73C01B4D0DFC6DAC51D1C0 /* InfoPlist.strings in Resources */,
+				16DCED58417EEE34C696B02A /* exercises.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

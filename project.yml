@@ -96,6 +96,7 @@ targets:
         com.apple.developer.healthkit.access: []
     sources:
       - path: "VitalStrideWatch Watch App/Sources"
+      - path: VitalStride/Resources
       - path: "VitalStrideWatch Watch App/Assets.xcassets"
       - path: "VitalStrideWatch Watch App/Resources"
     dependencies:
