@@ -1,21 +1,42 @@
 import SwiftUI
 
 enum SidebarSection: String, CaseIterable, Identifiable {
-    case overview = "Overview"
-    case workout = "Workout"
-    case data = "Data"
+    case overview = "概览"
+    case workout = "训练"
+    case data = "数据"
     case ai = "AI"
-    case settings = "Settings"
+    case settings = "设置"
 
     var id: String { rawValue }
 
     var icon: String {
         switch self {
-        case .overview: "heart.text.clipboard"
-        case .workout: "figure.strengthtraining.traditional"
-        case .data: "chart.xyaxis.line"
+        case .overview: "chart.bar.fill"
+        case .workout: "dumbbell.fill"
+        case .data: "heart.text.square.fill"
         case .ai: "brain"
-        case .settings: "gearshape"
+        case .settings: "gearshape.fill"
+        }
+    }
+
+    var accessibilityName: String {
+        switch self {
+        case .overview: "概览"
+        case .workout: "训练"
+        case .data: "数据"
+        case .ai: "AI 助手"
+        case .settings: "设置"
+        }
+    }
+
+    @ViewBuilder
+    var detailView: some View {
+        switch self {
+        case .overview: MacOverviewPlaceholder()
+        case .workout: MacWorkoutPlaceholder()
+        case .data: MacDataPlaceholder()
+        case .ai: MacAIPlaceholder()
+        case .settings: MacSettingsPlaceholder()
         }
     }
 }
@@ -28,15 +49,16 @@ struct MacContentView: View {
             List(SidebarSection.allCases, selection: $selectedSection) { section in
                 Label(section.rawValue, systemImage: section.icon)
                     .tag(section)
+                    .accessibilityLabel(section.accessibilityName)
             }
             .navigationTitle("VitalStride")
         } detail: {
             if let section = selectedSection {
-                Text(section.rawValue)
-                    .font(.largeTitle)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                section.detailView
             } else {
-                Text("Select a section")
+                Text("请选择一个功能区域")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
             }
         }
     }

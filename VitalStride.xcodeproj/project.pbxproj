@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		02642378D9BF2F904191BBEB /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 1E44844FA434AFA16F0D508E /* InfoPlist.strings */; };
+		A1E2C3D4E5F6A1B200000001 /* PlaceholderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E2C3D4E5F6A1B200000002 /* PlaceholderViews.swift */; };
+		A1E2C3D4E5F6A1B200000003 /* PlaceholderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E2C3D4E5F6A1B200000004 /* PlaceholderViews.swift */; };
 		0B55E2B4E2EF2CD19AD897E2 /* VitalStrideWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5161EBA086096752446678 /* VitalStrideWatchApp.swift */; };
 		1B73C01B4D0DFC6DAC51D1C0 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A18F09E32A54EF7AD32B7912 /* InfoPlist.strings */; };
 		5BC82AE5EF8EBDC442F87625 /* VitalStrideMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E2999CCCA6100A9F2ED6BB /* VitalStrideMacApp.swift */; };
@@ -24,6 +26,8 @@
 
 /* Begin PBXFileReference section */
 		0616F5149BB0EB168F9F981A /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		A1E2C3D4E5F6A1B200000002 /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
+		A1E2C3D4E5F6A1B200000004 /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
 		071236CB53D23D49D2A21097 /* VitalStrideApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideApp.swift; sourceTree = "<group>"; };
 		193733B006ED472D5112547F /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		22CA0368F18F14F2CEAC6279 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -85,6 +89,7 @@
 			isa = PBXGroup;
 			children = (
 				DFB417E93D025427554CBB31 /* ContentView.swift */,
+				A1E2C3D4E5F6A1B200000002 /* PlaceholderViews.swift */,
 				071236CB53D23D49D2A21097 /* VitalStrideApp.swift */,
 			);
 			name = Sources;
@@ -162,6 +167,7 @@
 			isa = PBXGroup;
 			children = (
 				DD97B72E45FF000CBB6CB02E /* MacContentView.swift */,
+				A1E2C3D4E5F6A1B200000004 /* PlaceholderViews.swift */,
 				53E2999CCCA6100A9F2ED6BB /* VitalStrideMacApp.swift */,
 			);
 			name = Sources;
@@ -295,6 +301,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				76FB5A8A11D2069B5E954920 /* MacContentView.swift in Sources */,
+				A1E2C3D4E5F6A1B200000003 /* PlaceholderViews.swift in Sources */,
 				5BC82AE5EF8EBDC442F87625 /* VitalStrideMacApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -304,6 +311,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B3B7DFDD012B532133BEA402 /* ContentView.swift in Sources */,
+				A1E2C3D4E5F6A1B200000001 /* PlaceholderViews.swift in Sources */,
 				67175014078591B2774B9C67 /* VitalStrideApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

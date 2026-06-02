@@ -3,21 +3,30 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         TabView {
-            Tab("Overview", systemImage: "heart.text.clipboard") {
-                Text("Overview")
+            Tab("概览", systemImage: "chart.bar.fill") {
+                OverviewPlaceholder()
             }
-            Tab("Workout", systemImage: "figure.strengthtraining.traditional") {
-                Text("Workout")
+            .accessibilityLabel("概览")
+
+            Tab("训练", systemImage: "dumbbell.fill") {
+                WorkoutPlaceholder()
             }
-            Tab("Data", systemImage: "chart.xyaxis.line") {
-                Text("Data")
+            .accessibilityLabel("训练")
+
+            Tab("数据", systemImage: "heart.text.square.fill") {
+                DataPlaceholder()
             }
+            .accessibilityLabel("数据")
+
             Tab("AI", systemImage: "brain") {
-                Text("AI")
+                AIPlaceholder()
             }
-            Tab("Settings", systemImage: "gearshape") {
-                Text("Settings")
+            .accessibilityLabel("AI 助手")
+
+            Tab("设置", systemImage: "gearshape.fill") {
+                SettingsPlaceholder()
             }
+            .accessibilityLabel("设置")
         }
     }
 }
