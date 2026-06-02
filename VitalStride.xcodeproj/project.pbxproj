@@ -8,26 +8,38 @@
 
 /* Begin PBXBuildFile section */
 		02642378D9BF2F904191BBEB /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 1E44844FA434AFA16F0D508E /* InfoPlist.strings */; };
-		A1E2C3D4E5F6A1B200000001 /* PlaceholderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E2C3D4E5F6A1B200000002 /* PlaceholderViews.swift */; };
-		A1E2C3D4E5F6A1B200000003 /* PlaceholderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E2C3D4E5F6A1B200000004 /* PlaceholderViews.swift */; };
 		0B55E2B4E2EF2CD19AD897E2 /* VitalStrideWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5161EBA086096752446678 /* VitalStrideWatchApp.swift */; };
+		16DCED58417EEE34C696B02A /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = EB421E42AE345C630DCD8E41 /* exercises.json */; };
 		1B73C01B4D0DFC6DAC51D1C0 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A18F09E32A54EF7AD32B7912 /* InfoPlist.strings */; };
 		5BC82AE5EF8EBDC442F87625 /* VitalStrideMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E2999CCCA6100A9F2ED6BB /* VitalStrideMacApp.swift */; };
 		67175014078591B2774B9C67 /* VitalStrideApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 071236CB53D23D49D2A21097 /* VitalStrideApp.swift */; };
 		6DD9EA5894C16A881C94A162 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 193733B006ED472D5112547F /* HealthKit.framework */; };
 		76FB5A8A11D2069B5E954920 /* MacContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD97B72E45FF000CBB6CB02E /* MacContentView.swift */; };
+		8AF3CE23ECE9F1C9882ADA63 /* PlaceholderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = E261D81A8ABD9951B539D30B /* PlaceholderViews.swift */; };
 		96343A2A26C10DDBD084321B /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3C1602AD27E06391177A4A4 /* WatchContentView.swift */; };
 		9C33F574F875DF0EBF073483 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C59FE92FB9187A2F490E733E /* Assets.xcassets */; };
 		ACFCFCD2F630CFD1D9C8E427 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 28F9B1C238C968D436D8F621 /* Assets.xcassets */; };
 		B3B7DFDD012B532133BEA402 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFB417E93D025427554CBB31 /* ContentView.swift */; };
+		B420E412DFE15F4E4D74B631 /* PlaceholderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 721B264DB6885B2380DA38E2 /* PlaceholderViews.swift */; };
 		BE7FE5DFE1252469CEA058CF /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 193733B006ED472D5112547F /* HealthKit.framework */; };
+		C345EC8122C5E16B66D7D30D /* ExercisesJSONTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF8FF056F3AAB8539DFB623B /* ExercisesJSONTests.swift */; };
+		DC2A0C4CD5C4C072B5908F47 /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = EB421E42AE345C630DCD8E41 /* exercises.json */; };
 		EA2925A7C0F167DD4CBEC374 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 675947C2C88283D7D81E0FD0 /* Assets.xcassets */; };
+		FB094960A059410BEE953ADE /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 1E44844FA434AFA16F0D508E /* InfoPlist.strings */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E287CA334D51B5B485267B80 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 05D27E8A4B6AC68E00793EFF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 014DB075EC88DB68BB66224D;
+			remoteInfo = VitalStride;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		0616F5149BB0EB168F9F981A /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
-		A1E2C3D4E5F6A1B200000002 /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
-		A1E2C3D4E5F6A1B200000004 /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
 		071236CB53D23D49D2A21097 /* VitalStrideApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideApp.swift; sourceTree = "<group>"; };
 		193733B006ED472D5112547F /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		22CA0368F18F14F2CEAC6279 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -38,11 +50,16 @@
 		58C946AE957021F69C8E2C60 /* VitalStrideWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "VitalStrideWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		62752D819DEC3C928DEE3CB1 /* VitalStrideMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitalStrideMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		675947C2C88283D7D81E0FD0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		721B264DB6885B2380DA38E2 /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
 		882C2018EAA4873543CD639B /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		9AF574AE878C5FC5709F5411 /* VitalStrideTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = VitalStrideTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9D2F46A6B7B993E95FDAA5C5 /* VitalStride.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VitalStride.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C59FE92FB9187A2F490E733E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DD97B72E45FF000CBB6CB02E /* MacContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacContentView.swift; sourceTree = "<group>"; };
 		DFB417E93D025427554CBB31 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		E261D81A8ABD9951B539D30B /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
+		EB421E42AE345C630DCD8E41 /* exercises.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = exercises.json; sourceTree = "<group>"; };
+		EF8FF056F3AAB8539DFB623B /* ExercisesJSONTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisesJSONTests.swift; sourceTree = "<group>"; };
 		F3C1602AD27E06391177A4A4 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -78,18 +95,17 @@
 		17E6C9B6A8116CE05BD63862 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				2D5161EBA086096752446678 /* VitalStrideWatchApp.swift */,
-				F3C1602AD27E06391177A4A4 /* WatchContentView.swift */,
+				EF8FF056F3AAB8539DFB623B /* ExercisesJSONTests.swift */,
 			);
 			name = Sources;
-			path = "VitalStrideWatch Watch App/Sources";
+			path = VitalStrideTests/Sources;
 			sourceTree = "<group>";
 		};
 		38376C392227BD26A61E2EB0 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
 				DFB417E93D025427554CBB31 /* ContentView.swift */,
-				A1E2C3D4E5F6A1B200000002 /* PlaceholderViews.swift */,
+				721B264DB6885B2380DA38E2 /* PlaceholderViews.swift */,
 				071236CB53D23D49D2A21097 /* VitalStrideApp.swift */,
 			);
 			name = Sources;
@@ -109,6 +125,7 @@
 			children = (
 				9D2F46A6B7B993E95FDAA5C5 /* VitalStride.app */,
 				62752D819DEC3C928DEE3CB1 /* VitalStrideMac.app */,
+				9AF574AE878C5FC5709F5411 /* VitalStrideTests.xctest */,
 				58C946AE957021F69C8E2C60 /* VitalStrideWatch Watch App.app */,
 			);
 			name = Products;
@@ -125,6 +142,7 @@
 		AF80BC86C5B13EAB8D92DB02 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				EB421E42AE345C630DCD8E41 /* exercises.json */,
 				1E44844FA434AFA16F0D508E /* InfoPlist.strings */,
 			);
 			name = Resources;
@@ -155,6 +173,7 @@
 				38376C392227BD26A61E2EB0 /* Sources */,
 				F5E36055BE7023DF511A5352 /* Sources */,
 				17E6C9B6A8116CE05BD63862 /* Sources */,
+				E4D6ADC58A2DA3E73149E632 /* Sources */,
 				B3378ED2D8A67C2D50B13DAD /* VitalStride */,
 				AB684A45C0D2385FE180FA9C /* VitalStrideMac */,
 				4F76D572EDEF9D524C3C458D /* VitalStrideWatch Watch App */,
@@ -163,11 +182,21 @@
 			);
 			sourceTree = "<group>";
 		};
+		E4D6ADC58A2DA3E73149E632 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				2D5161EBA086096752446678 /* VitalStrideWatchApp.swift */,
+				F3C1602AD27E06391177A4A4 /* WatchContentView.swift */,
+			);
+			name = Sources;
+			path = "VitalStrideWatch Watch App/Sources";
+			sourceTree = "<group>";
+		};
 		F5E36055BE7023DF511A5352 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
 				DD97B72E45FF000CBB6CB02E /* MacContentView.swift */,
-				A1E2C3D4E5F6A1B200000004 /* PlaceholderViews.swift */,
+				E261D81A8ABD9951B539D30B /* PlaceholderViews.swift */,
 				53E2999CCCA6100A9F2ED6BB /* VitalStrideMacApp.swift */,
 			);
 			name = Sources;
@@ -215,6 +244,24 @@
 			productReference = 58C946AE957021F69C8E2C60 /* VitalStrideWatch Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
+		E43685623584B2F760F1AF45 /* VitalStrideTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 798C86DC0902C08E381398E0 /* Build configuration list for PBXNativeTarget "VitalStrideTests" */;
+			buildPhases = (
+				D01BB8AF6B4DAF060314D766 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1DD8CFAE288ACD705A0A5718 /* PBXTargetDependency */,
+			);
+			name = VitalStrideTests;
+			packageProductDependencies = (
+			);
+			productName = VitalStrideTests;
+			productReference = 9AF574AE878C5FC5709F5411 /* VitalStrideTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		F192035F877F1B2AA721CDCF /* VitalStrideMac */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5944BFE0054AF2F9448917CA /* Build configuration list for PBXNativeTarget "VitalStrideMac" */;
@@ -261,6 +308,7 @@
 			targets = (
 				014DB075EC88DB68BB66224D /* VitalStride */,
 				F192035F877F1B2AA721CDCF /* VitalStrideMac */,
+				E43685623584B2F760F1AF45 /* VitalStrideTests */,
 				6868D7B2B319ADA46F70B615 /* VitalStrideWatch Watch App */,
 			);
 		};
@@ -273,6 +321,7 @@
 			files = (
 				ACFCFCD2F630CFD1D9C8E427 /* Assets.xcassets in Resources */,
 				02642378D9BF2F904191BBEB /* InfoPlist.strings in Resources */,
+				DC2A0C4CD5C4C072B5908F47 /* exercises.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -281,7 +330,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				9C33F574F875DF0EBF073483 /* Assets.xcassets in Resources */,
+				FB094960A059410BEE953ADE /* InfoPlist.strings in Resources */,
 				1B73C01B4D0DFC6DAC51D1C0 /* InfoPlist.strings in Resources */,
+				16DCED58417EEE34C696B02A /* exercises.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -301,7 +352,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				76FB5A8A11D2069B5E954920 /* MacContentView.swift in Sources */,
-				A1E2C3D4E5F6A1B200000003 /* PlaceholderViews.swift in Sources */,
+				8AF3CE23ECE9F1C9882ADA63 /* PlaceholderViews.swift in Sources */,
 				5BC82AE5EF8EBDC442F87625 /* VitalStrideMacApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -311,8 +362,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				B3B7DFDD012B532133BEA402 /* ContentView.swift in Sources */,
-				A1E2C3D4E5F6A1B200000001 /* PlaceholderViews.swift in Sources */,
+				B420E412DFE15F4E4D74B631 /* PlaceholderViews.swift in Sources */,
 				67175014078591B2774B9C67 /* VitalStrideApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D01BB8AF6B4DAF060314D766 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C345EC8122C5E16B66D7D30D /* ExercisesJSONTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -326,6 +385,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1DD8CFAE288ACD705A0A5718 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 014DB075EC88DB68BB66224D /* VitalStride */;
+			targetProxy = E287CA334D51B5B485267B80 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		1E44844FA434AFA16F0D508E /* InfoPlist.strings */ = {
@@ -349,6 +416,23 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		20B1FCCF086ADB7FB28C0555 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VitalStride.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VitalStride";
+			};
+			name = Release;
+		};
 		24E9B7081BE4E2CD4D68F33F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -454,6 +538,23 @@
 				WATCHOS_DEPLOYMENT_TARGET = 11.0;
 			};
 			name = Release;
+		};
+		66435532182BFF1C3F322AD9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VitalStride.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VitalStride";
+			};
+			name = Debug;
 		};
 		8928BC1F8D1BBC8007751648 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -616,6 +717,15 @@
 			buildConfigurations = (
 				F4932DBAEA8504D27664F13B /* Debug */,
 				A357B764ACA00B7F4C898B2A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		798C86DC0902C08E381398E0 /* Build configuration list for PBXNativeTarget "VitalStrideTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				66435532182BFF1C3F322AD9 /* Debug */,
+				20B1FCCF086ADB7FB28C0555 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
