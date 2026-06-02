@@ -1,0 +1,30 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserdata
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Xcode workspace
+*.xcworkspace/xcuserdata/
+xcuserdata/
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+
+# OS
+.DS_Store
+.Trashes
+Thumbs.db
+
+# IDE
+*.swp
+*~
+.idea/
+.vscode/
