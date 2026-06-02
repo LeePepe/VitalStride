@@ -16,11 +16,11 @@ struct ModelTests {
     func workoutCreation() throws {
         let context = ModelContext(container)
         let now = Date()
-        let workout = Workout(type: "strength", startDate: now, source: .recorded)
+        let workout = Workout(type: .strength, startDate: now, source: .recorded)
         context.insert(workout)
         try context.save()
 
-        #expect(workout.type == "strength")
+        #expect(workout.type == .strength)
         #expect(workout.startDate == now)
         #expect(workout.endDate == nil)
         #expect(workout.source == .recorded)
@@ -32,11 +32,12 @@ struct ModelTests {
         let context = ModelContext(container)
         let start = Date()
         let end = start.addingTimeInterval(3600)
-        let workout = Workout(type: "strength", startDate: start, endDate: end, source: .imported)
+        let workout = Workout(type: .strength, startDate: start, endDate: end, totalCalories: 250.0, source: .imported)
         context.insert(workout)
         try context.save()
 
         #expect(workout.endDate == end)
+        #expect(workout.totalCalories == 250.0)
         #expect(workout.source == .imported)
     }
 

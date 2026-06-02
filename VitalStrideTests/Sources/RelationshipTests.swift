@@ -35,7 +35,7 @@ struct RelationshipTests {
         context.insert(workoutExercise)
 
         let workout = Workout(
-            type: "strength",
+            type: .strength,
             startDate: Date(),
             source: .recorded,
             exercises: [workoutExercise]
@@ -57,7 +57,7 @@ struct RelationshipTests {
         context.insert(workoutExercise)
 
         let workout = Workout(
-            type: "strength",
+            type: .strength,
             startDate: Date(),
             exercises: [workoutExercise]
         )
@@ -139,7 +139,7 @@ struct RelationshipTests {
         context.insert(we2)
 
         let workout = Workout(
-            type: "strength",
+            type: .strength,
             startDate: Date(),
             exercises: [we1, we2]
         )

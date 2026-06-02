@@ -85,4 +85,16 @@ struct EnumTests {
         let decodedEquip = try decoder.decode(Equipment.self, from: equipData)
         #expect(decodedEquip == equipment)
     }
+
+    @Test("WorkoutType has all expected cases")
+    func workoutTypeCases() {
+        let cases = WorkoutType.allCases
+        #expect(cases.count == 1)
+        #expect(cases.contains(.strength))
+    }
+
+    @Test("WorkoutType raw value matches expected string")
+    func workoutTypeRawValue() {
+        #expect(WorkoutType.strength.rawValue == "strength")
+    }
 }
