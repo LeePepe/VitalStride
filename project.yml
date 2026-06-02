@@ -32,11 +32,15 @@ targets:
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.leepepe.VitalStride
+        com.apple.developer.icloud-services:
+          - CloudKit
     sources:
       - path: VitalStride/Sources
       - path: VitalStride/Resources
       - path: VitalStride/Assets.xcassets
-      - path: VitalStride/Resources
+      - path: Shared/Models
     dependencies:
       - sdk: HealthKit.framework
     settings:
@@ -61,6 +65,14 @@ targets:
     sources:
       - path: VitalStrideMac/Sources
       - path: VitalStrideMac/Assets.xcassets
+      - path: Shared/Models
+    entitlements:
+      path: VitalStrideMac/VitalStrideMac.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.leepepe.VitalStride
+        com.apple.developer.icloud-services:
+          - CloudKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vitalstride.mac
@@ -94,11 +106,15 @@ targets:
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.leepepe.VitalStride
+        com.apple.developer.icloud-services:
+          - CloudKit
     sources:
       - path: "VitalStrideWatch Watch App/Sources"
       - path: VitalStride/Resources
       - path: "VitalStrideWatch Watch App/Assets.xcassets"
-      - path: "VitalStrideWatch Watch App/Resources"
+      - path: Shared/Models
     dependencies:
       - sdk: HealthKit.framework
     settings:

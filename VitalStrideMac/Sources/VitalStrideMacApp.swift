@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 @main
@@ -6,5 +7,6 @@ struct VitalStrideMacApp: App {
         WindowGroup {
             MacContentView()
         }
+        .modelContainer(try! ModelContainerConfiguration.makeContainer())
     }
 }
