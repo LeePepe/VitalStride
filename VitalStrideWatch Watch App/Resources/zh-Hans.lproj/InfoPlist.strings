@@ -1,0 +1,2 @@
+"NSHealthShareUsageDescription" = "VitalStride 需要读取您的健康与运动数据（心率、步数、睡眠、训练记录等），用于展示训练历史、计算活动摘要，以及提供 AI 训练分析与建议。";
+"NSHealthUpdateUsageDescription" = "VitalStride 需要写入训练摘要至 Apple 健康，以保存您在 App 内完成的 Recorded Workout 数据，确保健康数据在各 App 间保持完整一致。";

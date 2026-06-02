@@ -1,0 +1,2 @@
+"NSHealthShareUsageDescription" = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
+"NSHealthUpdateUsageDescription" = "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps.";

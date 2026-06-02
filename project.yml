@@ -17,9 +17,17 @@ targets:
   VitalStride:
     type: application
     platform: iOS
+    entitlements:
+      path: VitalStride/VitalStride.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
     sources:
       - path: VitalStride/Sources
       - path: VitalStride/Assets.xcassets
+      - path: VitalStride/Resources
+    dependencies:
+      - sdk: HealthKit.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vitalstride.ios
@@ -33,6 +41,8 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SUPPORTED_INTERFACE_ORIENTATIONS: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         SUPPORTED_INTERFACE_ORIENTATIONS~ipad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations."
+        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps."
 
   VitalStrideMac:
     type: application
@@ -54,9 +64,17 @@ targets:
   VitalStrideWatch Watch App:
     type: application
     platform: watchOS
+    entitlements:
+      path: "VitalStrideWatch Watch App/VitalStrideWatch.entitlements"
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
     sources:
       - path: "VitalStrideWatch Watch App/Sources"
       - path: "VitalStrideWatch Watch App/Assets.xcassets"
+      - path: "VitalStrideWatch Watch App/Resources"
+    dependencies:
+      - sdk: HealthKit.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vitalstride.watchos
@@ -69,3 +87,5 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         WATCHOS_DEPLOYMENT_TARGET: "11.0"
         SKIP_INSTALL: false
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations."
+        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps."
