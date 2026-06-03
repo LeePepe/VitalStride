@@ -40,10 +40,7 @@ targets:
       - path: VitalStride/Sources
       - path: VitalStride/Resources
       - path: VitalStride/Assets.xcassets
-      - path: Shared/Models
-      - path: Shared/Enums
-      - path: Shared/Persistence
-      - path: Shared/Views
+      - path: Shared
     dependencies:
       - sdk: HealthKit.framework
     settings:
@@ -69,10 +66,7 @@ targets:
     sources:
       - path: VitalStrideMac/Sources
       - path: VitalStrideMac/Assets.xcassets
-      - path: Shared/Models
-      - path: Shared/Enums
-      - path: Shared/Persistence
-      - path: Shared/Views
+      - path: Shared
     entitlements:
       path: VitalStrideMac/VitalStrideMac.entitlements
       properties:
@@ -122,10 +116,7 @@ targets:
       - path: VitalStride/Resources
       - path: "VitalStrideWatch Watch App/Assets.xcassets"
       - path: "VitalStrideWatch Watch App/Resources"
-      - path: Shared/Models
-      - path: Shared/Enums
-      - path: Shared/Persistence
-      - path: Shared/Views
+      - path: Shared
     dependencies:
       - sdk: HealthKit.framework
     settings:
