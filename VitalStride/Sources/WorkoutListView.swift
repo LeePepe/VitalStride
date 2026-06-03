@@ -16,7 +16,7 @@ struct WorkoutListView: View {
     ) private var workouts: [Workout]
     @State private var showingStartOptions = false
     @State private var showingActiveWorkout = false
-    @State private var pendingStart = false
+    @State private var pendingSource: WorkoutStartSource?
 
     var body: some View {
         NavigationStack {
@@ -46,18 +46,19 @@ struct WorkoutListView: View {
                 }
             }
             .sheet(isPresented: $showingStartOptions, onDismiss: {
-                if pendingStart {
-                    pendingStart = false
+                if pendingSource != nil {
                     showingActiveWorkout = true
                 }
             }) {
-                StartWorkoutView {
-                    pendingStart = true
+                StartWorkoutView { source in
+                    pendingSource = source
                     showingStartOptions = false
                 }
             }
-            .fullScreenCover(isPresented: $showingActiveWorkout) {
-                ActiveWorkoutView()
+            .fullScreenCover(isPresented: $showingActiveWorkout, onDismiss: {
+                pendingSource = nil
+            }) {
+                ActiveWorkoutView(source: pendingSource ?? .blank)
             }
         }
     }

@@ -1,6 +1,12 @@
 import SwiftData
 import SwiftUI
 
+enum WorkoutStartSource {
+    case blank
+    case fromWorkout(Workout)
+    case fromTemplate(WorkoutTemplate)
+}
+
 struct StartWorkoutView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(
@@ -9,7 +15,7 @@ struct StartWorkoutView: View {
         order: .reverse
     ) private var recentWorkouts: [Workout]
     @Query(sort: \WorkoutTemplate.name) private var templates: [WorkoutTemplate]
-    let onStart: () -> Void
+    let onStart: (WorkoutStartSource) -> Void
 
     var body: some View {
         NavigationStack {
@@ -17,7 +23,7 @@ struct StartWorkoutView: View {
                 Section {
                     Button {
                         dismiss()
-                        onStart()
+                        onStart(.blank)
                     } label: {
                         Label {
                             VStack(alignment: .leading) {
@@ -39,7 +45,7 @@ struct StartWorkoutView: View {
                         ForEach(recentWorkouts.prefix(5)) { workout in
                             Button {
                                 dismiss()
-                                onStart()
+                                onStart(.fromWorkout(workout))
                             } label: {
                                 HistoryWorkoutRow(workout: workout)
                             }
@@ -52,7 +58,7 @@ struct StartWorkoutView: View {
                         ForEach(templates) { template in
                             Button {
                                 dismiss()
-                                onStart()
+                                onStart(.fromTemplate(template))
                             } label: {
                                 TemplateRow(template: template)
                             }
@@ -107,6 +113,6 @@ private struct TemplateRow: View {
 }
 
 #Preview {
-    StartWorkoutView {}
+    StartWorkoutView { _ in }
         .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
 }

@@ -10,6 +10,11 @@ struct ActiveWorkoutView: View {
     @State private var showingDiscardAlert = false
     @State private var restEndDate: Date?
     private let startTime = Date()
+    let source: WorkoutStartSource
+
+    init(source: WorkoutStartSource = .blank) {
+        self.source = source
+    }
 
     var body: some View {
         NavigationStack {
@@ -115,6 +120,7 @@ struct ActiveWorkoutView: View {
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
+                        .frame(minHeight: 44)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 6)
@@ -167,6 +173,37 @@ struct ActiveWorkoutView: View {
         guard workout == nil else { return }
         let newWorkout = Workout(type: .strength, startDate: startTime)
         modelContext.insert(newWorkout)
+
+        switch source {
+        case .blank:
+            break
+        case .fromWorkout(let sourceWorkout):
+            let sourceExercises = (sourceWorkout.exercises ?? []).sorted { $0.order < $1.order }
+            for (index, srcExercise) in sourceExercises.enumerated() {
+                let workoutExercise = WorkoutExercise(order: index, exercise: srcExercise.exercise)
+                workoutExercise.workout = newWorkout
+                modelContext.insert(workoutExercise)
+                let srcSets = (srcExercise.sets ?? []).sorted { $0.order < $1.order }
+                for (setIndex, srcSet) in srcSets.enumerated() {
+                    let newSet = ExerciseSet(
+                        order: setIndex,
+                        weight: srcSet.weight,
+                        reps: srcSet.reps,
+                        setType: srcSet.setType
+                    )
+                    newSet.workoutExercise = workoutExercise
+                    modelContext.insert(newSet)
+                }
+            }
+        case .fromTemplate(let template):
+            let templateExercises = (template.exercises ?? []).sorted { $0.order < $1.order }
+            for (index, templateExercise) in templateExercises.enumerated() {
+                let workoutExercise = WorkoutExercise(order: index, exercise: templateExercise.exercise)
+                workoutExercise.workout = newWorkout
+                modelContext.insert(workoutExercise)
+            }
+        }
+
         workout = newWorkout
     }
 
@@ -204,7 +241,7 @@ private struct ActiveExerciseSection: View {
     @State private var setType: SetType = .working
 
     private var sortedSets: [ExerciseSet] {
-        workoutExercise.sets ?? []
+        (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
     }
 
     var body: some View {
@@ -262,14 +299,19 @@ private struct ActiveExerciseSection: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2)
             }
+            .accessibilityLabel("添加组")
+            .frame(minWidth: 44, minHeight: 44)
             .disabled(weightText.isEmpty || repsText.isEmpty)
         }
     }
 
     private func addSet() {
         guard let weight = Double(weightText),
-              let reps = Int(repsText) else { return }
-        let newSet = ExerciseSet(weight: weight, reps: reps, setType: setType)
+              let reps = Int(repsText),
+              weight.isFinite, weight >= 0,
+              reps > 0 else { return }
+        let order = workoutExercise.sets?.count ?? 0
+        let newSet = ExerciseSet(order: order, weight: weight, reps: reps, setType: setType)
         newSet.workoutExercise = workoutExercise
         modelContext.insert(newSet)
         repsText = ""

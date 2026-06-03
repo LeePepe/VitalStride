@@ -3,6 +3,7 @@ import SwiftData
 
 @Model
 final class ExerciseSet {
+    var order: Int = 0
     var weight: Double = 0.0
     var reps: Int = 0
     var setType: SetType = SetType.working
@@ -10,11 +11,13 @@ final class ExerciseSet {
     var workoutExercise: WorkoutExercise?
 
     init(
+        order: Int = 0,
         weight: Double,
         reps: Int,
         setType: SetType = .working,
         restDuration: TimeInterval? = nil
     ) {
+        self.order = order
         self.weight = weight
         self.reps = reps
         self.setType = setType
