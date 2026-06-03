@@ -9,7 +9,7 @@ struct ContentView: View {
             .accessibilityLabel("概览")
 
             Tab("训练", systemImage: "dumbbell.fill") {
-                WorkoutPlaceholder()
+                WorkoutListView()
             }
             .accessibilityLabel("训练")
 

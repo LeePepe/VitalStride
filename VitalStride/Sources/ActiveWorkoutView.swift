@@ -1,0 +1,370 @@
+import SwiftData
+import SwiftUI
+
+struct ActiveWorkoutView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @State private var workout: Workout?
+    @State private var showingExercisePicker = false
+    @State private var showingFinishAlert = false
+    @State private var showingDiscardAlert = false
+    @State private var restEndDate: Date?
+    private let startTime = Date()
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                workoutTimer
+                restTimerBanner
+                exerciseList
+                addExerciseButton
+            }
+            .navigationTitle("训练中")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("放弃", role: .destructive) {
+                        showingDiscardAlert = true
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") {
+                        showingFinishAlert = true
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+            .sheet(isPresented: $showingExercisePicker) {
+                ExercisePickerView { exercise in
+                    addExercise(exercise)
+                }
+            }
+            .alert("完成训练？", isPresented: $showingFinishAlert) {
+                Button("完成") { finishWorkout() }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("训练将被保存到历史记录")
+            }
+            .alert("放弃训练？", isPresented: $showingDiscardAlert) {
+                Button("放弃", role: .destructive) { discardWorkout() }
+                Button("继续训练", role: .cancel) {}
+            } message: {
+                Text("训练数据将不会保存")
+            }
+            .onAppear { setupWorkout() }
+            .task(id: restEndDate) {
+                guard let restEnd = restEndDate else { return }
+                let remaining = restEnd.timeIntervalSinceNow
+                guard remaining > 0 else {
+                    restEndDate = nil
+                    return
+                }
+                try? await Task.sleep(for: .seconds(remaining))
+                restEndDate = nil
+            }
+        }
+    }
+
+    // MARK: - Subviews
+
+    @ViewBuilder
+    private var workoutTimer: some View {
+        TimelineView(.periodic(from: startTime, by: 1)) { context in
+            let elapsed = context.date.timeIntervalSince(startTime)
+            let totalSeconds = Int(elapsed)
+            let hours = totalSeconds / 3600
+            let minutes = (totalSeconds % 3600) / 60
+            let seconds = totalSeconds % 60
+            HStack {
+                Image(systemName: "timer")
+                    .foregroundStyle(.secondary)
+                if hours > 0 {
+                    Text(String(format: "%d:%02d:%02d", hours, minutes, seconds))
+                        .font(.title3.monospacedDigit())
+                } else {
+                    Text(String(format: "%02d:%02d", minutes, seconds))
+                        .font(.title3.monospacedDigit())
+                }
+                Spacer()
+                let exerciseCount = workout?.exercises?.count ?? 0
+                let setCount = workout?.exercises?
+                    .reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
+                Text("\(exerciseCount) 动作 · \(setCount) 组")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .background(.bar)
+        }
+    }
+
+    @ViewBuilder
+    private var restTimerBanner: some View {
+        if let restEnd = restEndDate {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let remaining = max(0, Int(restEnd.timeIntervalSince(context.date)))
+                if remaining > 0 {
+                    HStack {
+                        Image(systemName: "bed.double.fill")
+                        Text("休息中 \(remaining)s")
+                            .monospacedDigit()
+                        Spacer()
+                        Button("跳过") {
+                            restEndDate = nil
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 6)
+                    .background(.blue.opacity(0.1))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var exerciseList: some View {
+        let exercises = (workout?.exercises ?? []).sorted { $0.order < $1.order }
+        if exercises.isEmpty {
+            ContentUnavailableView(
+                "添加第一个动作",
+                systemImage: "figure.strengthtraining.traditional",
+                description: Text("点击下方按钮选择训练动作")
+            )
+        } else {
+            List {
+                ForEach(exercises) { workoutExercise in
+                    ActiveExerciseSection(
+                        workoutExercise: workoutExercise,
+                        onSetCompleted: {
+                            restEndDate = Date().addingTimeInterval(90)
+                        }
+                    )
+                }
+            }
+            .listStyle(.insetGrouped)
+        }
+    }
+
+    private var addExerciseButton: some View {
+        Button {
+            showingExercisePicker = true
+        } label: {
+            Label("添加动作", systemImage: "plus.circle.fill")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+        }
+        .buttonStyle(.bordered)
+        .padding()
+    }
+
+    // MARK: - Actions
+
+    private func setupWorkout() {
+        guard workout == nil else { return }
+        let newWorkout = Workout(type: .strength, startDate: startTime)
+        modelContext.insert(newWorkout)
+        workout = newWorkout
+    }
+
+    private func addExercise(_ exercise: Exercise) {
+        guard let workout else { return }
+        let order = workout.exercises?.count ?? 0
+        let workoutExercise = WorkoutExercise(order: order, exercise: exercise)
+        workoutExercise.workout = workout
+        modelContext.insert(workoutExercise)
+    }
+
+    private func finishWorkout() {
+        workout?.endDate = Date()
+        try? modelContext.save()
+        dismiss()
+    }
+
+    private func discardWorkout() {
+        if let workout {
+            modelContext.delete(workout)
+            try? modelContext.save()
+        }
+        dismiss()
+    }
+}
+
+// MARK: - Active Exercise Section
+
+private struct ActiveExerciseSection: View {
+    let workoutExercise: WorkoutExercise
+    let onSetCompleted: () -> Void
+    @Environment(\.modelContext) private var modelContext
+    @State private var weightText = ""
+    @State private var repsText = ""
+    @State private var setType: SetType = .working
+
+    private var sortedSets: [ExerciseSet] {
+        workoutExercise.sets ?? []
+    }
+
+    var body: some View {
+        Section {
+            ForEach(Array(sortedSets.enumerated()), id: \.element.persistentModelID) { index, exerciseSet in
+                HStack {
+                    Text("第 \(index + 1) 组")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 60, alignment: .leading)
+                    Text("\(exerciseSet.weight, specifier: "%.1f") kg")
+                    Text("×")
+                        .foregroundStyle(.secondary)
+                    Text("\(exerciseSet.reps) 次")
+                    Spacer()
+                    if exerciseSet.setType == .warmup {
+                        Text("热身")
+                            .font(.caption)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.orange.opacity(0.15))
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+            setInputRow
+        } header: {
+            Text(workoutExercise.exercise?.localizedName ?? "动作")
+        }
+    }
+
+    private var setInputRow: some View {
+        HStack(spacing: 8) {
+            TextField("kg", text: $weightText)
+                .keyboardType(.decimalPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 70)
+
+            TextField("次数", text: $repsText)
+                .keyboardType(.numberPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 60)
+
+            Picker("", selection: $setType) {
+                Text("正式").tag(SetType.working)
+                Text("热身").tag(SetType.warmup)
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+
+            Spacer()
+
+            Button {
+                addSet()
+            } label: {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2)
+            }
+            .disabled(weightText.isEmpty || repsText.isEmpty)
+        }
+    }
+
+    private func addSet() {
+        guard let weight = Double(weightText),
+              let reps = Int(repsText) else { return }
+        let newSet = ExerciseSet(weight: weight, reps: reps, setType: setType)
+        newSet.workoutExercise = workoutExercise
+        modelContext.insert(newSet)
+        repsText = ""
+        onSetCompleted()
+    }
+}
+
+// MARK: - Exercise Picker
+
+struct ExercisePickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
+    @State private var searchText = ""
+    let onSelect: (Exercise) -> Void
+
+    private var grouped: [(MuscleGroup, [Exercise])] {
+        let filtered = searchText.isEmpty ? exercises : exercises.filter { exercise in
+            exercise.nameEn.localizedCaseInsensitiveContains(searchText) ||
+            exercise.nameZh.localizedCaseInsensitiveContains(searchText)
+        }
+        let dict = Dictionary(grouping: filtered) { $0.muscleGroup }
+        return MuscleGroup.allCases.compactMap { group in
+            guard let items = dict[group], !items.isEmpty else { return nil }
+            return (group, items)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if exercises.isEmpty {
+                    ContentUnavailableView(
+                        "动作库为空",
+                        systemImage: "tray",
+                        description: Text("请先导入预置动作库")
+                    )
+                } else if grouped.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
+                } else {
+                    List {
+                        ForEach(grouped, id: \.0) { group, items in
+                            Section(muscleGroupName(group)) {
+                                ForEach(items) { exercise in
+                                    Button {
+                                        onSelect(exercise)
+                                        dismiss()
+                                    } label: {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(exercise.localizedName)
+                                            Text(equipmentName(exercise.equipment))
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .searchable(text: $searchText, prompt: "搜索动作")
+            .navigationTitle("选择动作")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+private func muscleGroupName(_ group: MuscleGroup) -> String {
+    switch group {
+    case .chest: "胸"
+    case .back: "背"
+    case .shoulders: "肩"
+    case .legs: "腿"
+    case .arms: "臂"
+    case .core: "核心"
+    case .fullBody: "全身"
+    }
+}
+
+private func equipmentName(_ equipment: Equipment) -> String {
+    switch equipment {
+    case .barbell: "杠铃"
+    case .dumbbell: "哑铃"
+    case .machine: "固定器械"
+    case .bodyweight: "自重"
+    case .cable: "绳索"
+    }
+}
+
+#Preview {
+    ActiveWorkoutView()
+        .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
+}
