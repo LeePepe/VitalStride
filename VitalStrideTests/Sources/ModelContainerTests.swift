@@ -22,6 +22,8 @@ struct ModelContainerTests {
         #expect(entityNames.contains("Exercise"))
         #expect(entityNames.contains("WorkoutTemplate"))
         #expect(entityNames.contains("TemplateExercise"))
+        #expect(entityNames.contains("HealthSample"))
+        #expect(entityNames.contains("HealthKitAnchor"))
     }
 
     @Test("Test container supports CRUD operations")
