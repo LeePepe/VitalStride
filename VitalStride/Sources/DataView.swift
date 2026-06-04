@@ -62,7 +62,8 @@ private struct DataSectionCard<Destination: View, Content: View>: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .contain)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(String(localized: "轻点查看详情", comment: "Card navigation a11y hint"))
     }
 }
 
@@ -80,12 +81,17 @@ private struct PlaceholderChart: View {
 }
 
 private struct PlaceholderSummary: View {
+    let range: TimeRange
+
     var body: some View {
         HStack {
+            Text(range.formattedInterval)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+            Spacer()
             Text(String(localized: "统计摘要", comment: "Stats summary placeholder"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Spacer()
         }
     }
 }
@@ -94,13 +100,19 @@ private struct PlaceholderSummary: View {
 
 private struct SectionDetailPlaceholder: View {
     let title: String
+    let range: TimeRange
 
     var body: some View {
-        Text(title)
-            .font(.title2)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle(title)
+        VStack(spacing: 8) {
+            Text(title)
+                .font(.title2)
+                .foregroundStyle(.secondary)
+            Text(range.formattedInterval)
+                .font(.subheadline)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationTitle(title)
     }
 }
 
@@ -114,11 +126,12 @@ private struct HeartRateSection: View {
             title: String(localized: "心率", comment: "Heart rate section"),
             systemImage: "heart.fill",
             destination: SectionDetailPlaceholder(
-                title: String(localized: "心率", comment: "Heart rate detail")
+                title: String(localized: "心率", comment: "Heart rate detail"),
+                range: range
             )
         ) {
             PlaceholderChart()
-            PlaceholderSummary()
+            PlaceholderSummary(range: range)
         }
     }
 }
@@ -131,11 +144,12 @@ private struct StepsSection: View {
             title: String(localized: "步数", comment: "Steps section"),
             systemImage: "figure.walk",
             destination: SectionDetailPlaceholder(
-                title: String(localized: "步数", comment: "Steps detail")
+                title: String(localized: "步数", comment: "Steps detail"),
+                range: range
             )
         ) {
             PlaceholderChart()
-            PlaceholderSummary()
+            PlaceholderSummary(range: range)
         }
     }
 }
@@ -148,11 +162,12 @@ private struct BodyWeightSection: View {
             title: String(localized: "体重", comment: "Body weight section"),
             systemImage: "scalemass.fill",
             destination: SectionDetailPlaceholder(
-                title: String(localized: "体重", comment: "Body weight detail")
+                title: String(localized: "体重", comment: "Body weight detail"),
+                range: range
             )
         ) {
             PlaceholderChart()
-            PlaceholderSummary()
+            PlaceholderSummary(range: range)
         }
     }
 }
@@ -165,11 +180,12 @@ private struct SleepSection: View {
             title: String(localized: "睡眠", comment: "Sleep section"),
             systemImage: "bed.double.fill",
             destination: SectionDetailPlaceholder(
-                title: String(localized: "睡眠", comment: "Sleep detail")
+                title: String(localized: "睡眠", comment: "Sleep detail"),
+                range: range
             )
         ) {
             PlaceholderChart()
-            PlaceholderSummary()
+            PlaceholderSummary(range: range)
         }
     }
 }
@@ -182,11 +198,12 @@ private struct ActiveEnergySection: View {
             title: String(localized: "活动能量", comment: "Active energy section"),
             systemImage: "flame.fill",
             destination: SectionDetailPlaceholder(
-                title: String(localized: "活动能量", comment: "Active energy detail")
+                title: String(localized: "活动能量", comment: "Active energy detail"),
+                range: range
             )
         ) {
             PlaceholderChart()
-            PlaceholderSummary()
+            PlaceholderSummary(range: range)
         }
     }
 }
