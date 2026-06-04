@@ -118,24 +118,6 @@ private struct SectionDetailPlaceholder: View {
 
 // MARK: - Sections
 
-private struct StepsSection: View {
-    let range: TimeRange
-
-    var body: some View {
-        DataSectionCard(
-            title: String(localized: "步数", comment: "Steps section"),
-            systemImage: "figure.walk",
-            destination: SectionDetailPlaceholder(
-                title: String(localized: "步数", comment: "Steps detail"),
-                range: range
-            )
-        ) {
-            PlaceholderChart()
-            PlaceholderSummary(range: range)
-        }
-    }
-}
-
 private struct BodyWeightSection: View {
     let range: TimeRange
 
