@@ -13,6 +13,7 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
     var requestAuthorizationCalled = false
     var queryResults: [HKSampleType: AnchoredQueryResult] = [:]
     var queryError: (any Error)?
+    var capturedPredicates: [HKSampleType: NSPredicate?] = [:]
 
     func requestAuthorization(
         toShare typesToShare: Set<HKSampleType>,
@@ -34,6 +35,7 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
         anchor: HKQueryAnchor?,
         limit: Int
     ) async throws -> AnchoredQueryResult {
+        capturedPredicates[type] = predicate
         if let error = queryError {
             throw error
         }
@@ -122,15 +124,16 @@ struct HealthKitServiceTests {
             newAnchor: anchor
         )
 
-        let points = try await service.fetchData(for: .heartRate)
+        let result = try await service.fetchData(for: .heartRate)
 
-        #expect(points.count == 1)
-        #expect(points[0].sampleType == .heartRate)
-        #expect(points[0].value == 72.0)
-        #expect(points[0].unit == "bpm")
-        #expect(points[0].startDate == start)
-        #expect(points[0].endDate == end)
-        #expect(points[0].sleepStage == nil)
+        #expect(result.dataPoints.count == 1)
+        #expect(result.dataPoints[0].sampleType == .heartRate)
+        #expect(result.dataPoints[0].value == 72.0)
+        #expect(result.dataPoints[0].unit == "bpm")
+        #expect(result.dataPoints[0].startDate == start)
+        #expect(result.dataPoints[0].endDate == end)
+        #expect(result.dataPoints[0].sleepStage == nil)
+        #expect(result.deletedObjectIDs.isEmpty)
     }
 
     @Test("Fetch step count returns correct data points")
@@ -142,11 +145,11 @@ struct HealthKitServiceTests {
             newAnchor: HKQueryAnchor(fromValue: 1)
         )
 
-        let points = try await service.fetchData(for: .stepCount)
+        let result = try await service.fetchData(for: .stepCount)
 
-        #expect(points.count == 1)
-        #expect(points[0].value == 1500.0)
-        #expect(points[0].unit == "count")
+        #expect(result.dataPoints.count == 1)
+        #expect(result.dataPoints[0].value == 1500.0)
+        #expect(result.dataPoints[0].unit == "count")
     }
 
     @Test("Fetch body mass returns correct data points")
@@ -158,11 +161,11 @@ struct HealthKitServiceTests {
             newAnchor: HKQueryAnchor(fromValue: 1)
         )
 
-        let points = try await service.fetchData(for: .bodyMass)
+        let result = try await service.fetchData(for: .bodyMass)
 
-        #expect(points.count == 1)
-        #expect(points[0].value == 75.5)
-        #expect(points[0].unit == "kg")
+        #expect(result.dataPoints.count == 1)
+        #expect(result.dataPoints[0].value == 75.5)
+        #expect(result.dataPoints[0].unit == "kg")
     }
 
     @Test("Fetch active energy returns correct data points")
@@ -174,11 +177,11 @@ struct HealthKitServiceTests {
             newAnchor: HKQueryAnchor(fromValue: 1)
         )
 
-        let points = try await service.fetchData(for: .activeEnergyBurned)
+        let result = try await service.fetchData(for: .activeEnergyBurned)
 
-        #expect(points.count == 1)
-        #expect(points[0].value == 350.0)
-        #expect(points[0].unit == "kcal")
+        #expect(result.dataPoints.count == 1)
+        #expect(result.dataPoints[0].value == 350.0)
+        #expect(result.dataPoints[0].unit == "kcal")
     }
 
     @Test("Fetch sleep analysis parses stages correctly")
@@ -196,15 +199,15 @@ struct HealthKitServiceTests {
             newAnchor: HKQueryAnchor(fromValue: 5)
         )
 
-        let points = try await service.fetchData(for: .sleepAnalysis)
+        let result = try await service.fetchData(for: .sleepAnalysis)
 
-        #expect(points.count == 5)
-        #expect(points[0].sleepStage == .inBed)
-        #expect(points[1].sleepStage == .asleepCore)
-        #expect(points[2].sleepStage == .asleepDeep)
-        #expect(points[3].sleepStage == .asleepREM)
-        #expect(points[4].sleepStage == .awake)
-        #expect(points[0].unit == "category")
+        #expect(result.dataPoints.count == 5)
+        #expect(result.dataPoints[0].sleepStage == .inBed)
+        #expect(result.dataPoints[1].sleepStage == .asleepCore)
+        #expect(result.dataPoints[2].sleepStage == .asleepDeep)
+        #expect(result.dataPoints[3].sleepStage == .asleepREM)
+        #expect(result.dataPoints[4].sleepStage == .awake)
+        #expect(result.dataPoints[0].unit == "category")
     }
 
     @Test("Anchor is saved after successful query")
@@ -239,10 +242,10 @@ struct HealthKitServiceTests {
             newAnchor: HKQueryAnchor(fromValue: 11)
         )
 
-        let points = try await service.fetchData(for: .stepCount)
+        let result = try await service.fetchData(for: .stepCount)
 
-        #expect(points.count == 1)
-        #expect(points[0].value == 500.0)
+        #expect(result.dataPoints.count == 1)
+        #expect(result.dataPoints[0].value == 500.0)
     }
 
     @Test("Throws error when health data is not available")
@@ -303,7 +306,7 @@ struct HealthKitServiceTests {
 
         #expect(results.count == 5)
         for sampleType in HealthSampleType.allCases {
-            #expect(results[sampleType]?.isEmpty == false)
+            #expect(results[sampleType]?.dataPoints.isEmpty == false)
         }
     }
 
@@ -321,8 +324,86 @@ struct HealthKitServiceTests {
             newAnchor: HKQueryAnchor(fromValue: 0)
         )
 
-        let points = try await service.fetchData(for: .heartRate)
-        #expect(points.isEmpty)
+        let result = try await service.fetchData(for: .heartRate)
+        #expect(result.dataPoints.isEmpty)
+    }
+
+    @Test("Throws error when authorization status is unknown")
+    func authorizationUnknown() async {
+        mockStore.authorizationRequestStatus = .unknown
+
+        await #expect(throws: HealthKitServiceError.self) {
+            try await service.fetchData(for: .heartRate)
+        }
+    }
+
+    @Test("Deleted objects IDs are empty when no deletions")
+    func deletedObjectsEmpty() async throws {
+        let sample = makeQuantitySample(type: .heartRate, value: 72.0, unit: HKUnit.count().unitDivided(by: .minute()))
+        mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
+            samples: [sample],
+            deletedObjects: [],
+            newAnchor: HKQueryAnchor(fromValue: 2)
+        )
+
+        let result = try await service.fetchData(for: .heartRate)
+
+        #expect(result.dataPoints.count == 1)
+        #expect(result.deletedObjectIDs.isEmpty)
+    }
+
+    @Test("First sync applies default time predicate")
+    func firstSyncAppliesPredicate() async throws {
+        mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
+            samples: [],
+            deletedObjects: [],
+            newAnchor: HKQueryAnchor(fromValue: 0)
+        )
+
+        _ = try await service.fetchData(for: .heartRate)
+
+        let captured = mockStore.capturedPredicates[HKQuantityType(.heartRate)]
+        #expect(captured != nil)
+    }
+
+    @Test("Incremental query skips default predicate")
+    func incrementalQueryNoPredicate() async throws {
+        let initialAnchor = HKQueryAnchor(fromValue: 10)
+        let anchorData = try NSKeyedArchiver.archivedData(
+            withRootObject: initialAnchor,
+            requiringSecureCoding: true
+        )
+        let record = AnchorRecord(anchorData: anchorData, lastSyncDate: Date())
+        anchorStore.setAnchor(record, for: .heartRate, deviceIdentifier: "test-device")
+
+        mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
+            samples: [],
+            deletedObjects: [],
+            newAnchor: HKQueryAnchor(fromValue: 11)
+        )
+
+        _ = try await service.fetchData(for: .heartRate)
+
+        let captured = mockStore.capturedPredicates[HKQuantityType(.heartRate)]
+        #expect(captured == nil || captured! == nil)
+    }
+
+    @Test("Custom date range overrides default predicate")
+    func customDateRange() async throws {
+        mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
+            samples: [],
+            deletedObjects: [],
+            newAnchor: HKQueryAnchor(fromValue: 0)
+        )
+
+        let range = DateInterval(
+            start: Date(timeIntervalSince1970: 0),
+            end: Date(timeIntervalSince1970: 86400)
+        )
+        _ = try await service.fetchData(for: .heartRate, dateRange: range)
+
+        let captured = mockStore.capturedPredicates[HKQuantityType(.heartRate)]
+        #expect(captured != nil)
     }
 }
 

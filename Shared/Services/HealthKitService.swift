@@ -100,7 +100,12 @@ final class HealthKitService: Sendable {
         try await healthStore.requestAuthorization(toShare: [], read: Self.readTypes)
     }
 
-    func fetchData(for sampleType: HealthSampleType) async throws -> [HealthDataPoint] {
+    static let defaultFirstSyncWindow: TimeInterval = 30 * 24 * 3600
+
+    func fetchData(
+        for sampleType: HealthSampleType,
+        dateRange: DateInterval? = nil
+    ) async throws -> HealthFetchResult {
         guard type(of: healthStore).isHealthDataAvailable else {
             throw HealthKitServiceError.healthDataNotAvailable
         }
@@ -110,7 +115,7 @@ final class HealthKitService: Sendable {
             toShare: [],
             read: [hkType]
         )
-        guard status != .shouldRequest else {
+        guard status == .unnecessary else {
             throw HealthKitServiceError.authorizationNotDetermined
         }
 
@@ -124,10 +129,21 @@ final class HealthKitService: Sendable {
             nil
         }
 
+        let predicate: NSPredicate? = if let dateRange {
+            HKQuery.predicateForSamples(withStart: dateRange.start, end: dateRange.end)
+        } else if isFirstSync {
+            HKQuery.predicateForSamples(
+                withStart: Date(timeIntervalSinceNow: -Self.defaultFirstSyncWindow),
+                end: Date()
+            )
+        } else {
+            nil
+        }
+
         do {
             let result = try await healthStore.executeAnchoredQuery(
                 type: hkType,
-                predicate: nil,
+                predicate: predicate,
                 anchor: queryAnchor,
                 limit: HKObjectQueryNoLimit
             )
@@ -139,27 +155,28 @@ final class HealthKitService: Sendable {
             let dataPoints = result.samples.compactMap { sample in
                 convertToDataPoint(sample, sampleType: sampleType)
             }
+            let deletedIDs = result.deletedObjects.map(\.uuid)
 
             logQuery(sampleType: sampleType, count: dataPoints.count, start: start, isFirstSync: isFirstSync, error: nil)
-            return dataPoints
+            return HealthFetchResult(dataPoints: dataPoints, deletedObjectIDs: deletedIDs)
         } catch {
             logQuery(sampleType: sampleType, count: 0, start: start, isFirstSync: isFirstSync, error: error)
             throw HealthKitServiceError.queryFailed(underlying: error)
         }
     }
 
-    func fetchAllData() async throws -> [HealthSampleType: [HealthDataPoint]] {
-        try await withThrowingTaskGroup(of: (HealthSampleType, [HealthDataPoint]).self) { group in
+    func fetchAllData(dateRange: DateInterval? = nil) async throws -> [HealthSampleType: HealthFetchResult] {
+        try await withThrowingTaskGroup(of: (HealthSampleType, HealthFetchResult).self) { group in
             for sampleType in HealthSampleType.allCases {
                 group.addTask {
-                    let points = try await self.fetchData(for: sampleType)
-                    return (sampleType, points)
+                    let result = try await self.fetchData(for: sampleType, dateRange: dateRange)
+                    return (sampleType, result)
                 }
             }
 
-            var results: [HealthSampleType: [HealthDataPoint]] = [:]
-            for try await (sampleType, points) in group {
-                results[sampleType] = points
+            var results: [HealthSampleType: HealthFetchResult] = [:]
+            for try await (sampleType, result) in group {
+                results[sampleType] = result
             }
             return results
         }

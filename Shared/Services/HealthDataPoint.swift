@@ -20,6 +20,11 @@ enum SleepStage: String, Sendable, Codable, CaseIterable {
     case awake
 }
 
+struct HealthFetchResult: Sendable {
+    let dataPoints: [HealthDataPoint]
+    let deletedObjectIDs: [UUID]
+}
+
 enum HealthKitServiceError: Error, Sendable {
     case healthDataNotAvailable
     case authorizationNotDetermined
