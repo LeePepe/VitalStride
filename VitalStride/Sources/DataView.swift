@@ -40,7 +40,7 @@ struct DataView: View {
 
 // MARK: - Section Card Container
 
-private struct DataSectionCard<Destination: View, Content: View>: View {
+struct DataSectionCard<Destination: View, Content: View>: View {
     let title: String
     let systemImage: String
     let destination: Destination
@@ -117,24 +117,6 @@ private struct SectionDetailPlaceholder: View {
 }
 
 // MARK: - Sections
-
-private struct HeartRateSection: View {
-    let range: TimeRange
-
-    var body: some View {
-        DataSectionCard(
-            title: String(localized: "心率", comment: "Heart rate section"),
-            systemImage: "heart.fill",
-            destination: SectionDetailPlaceholder(
-                title: String(localized: "心率", comment: "Heart rate detail"),
-                range: range
-            )
-        ) {
-            PlaceholderChart()
-            PlaceholderSummary(range: range)
-        }
-    }
-}
 
 private struct StepsSection: View {
     let range: TimeRange
