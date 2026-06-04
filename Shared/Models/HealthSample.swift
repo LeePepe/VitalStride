@@ -4,6 +4,7 @@ import SwiftData
 @Model
 final class HealthSample {
     var id: UUID = UUID()
+    var healthKitUUID: UUID = UUID()
     var sampleType: HealthSampleType = HealthSampleType.heartRate
     var value: Double = 0.0
     var unit: String?
@@ -12,6 +13,7 @@ final class HealthSample {
     var sourceDevice: String?
 
     init(
+        healthKitUUID: UUID,
         sampleType: HealthSampleType,
         value: Double,
         unit: String? = nil,
@@ -20,6 +22,7 @@ final class HealthSample {
         sourceDevice: String? = nil
     ) {
         self.id = UUID()
+        self.healthKitUUID = healthKitUUID
         self.sampleType = sampleType
         self.value = value
         self.unit = unit

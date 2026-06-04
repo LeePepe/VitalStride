@@ -17,7 +17,9 @@ struct HealthSampleTests {
         let context = ModelContext(container)
         let start = Date()
         let end = start.addingTimeInterval(60)
+        let hkUUID = UUID()
         let sample = HealthSample(
+            healthKitUUID: hkUUID,
             sampleType: .heartRate,
             value: 72.0,
             unit: "count/min",
@@ -28,6 +30,7 @@ struct HealthSampleTests {
         context.insert(sample)
         try context.save()
 
+        #expect(sample.healthKitUUID == hkUUID)
         #expect(sample.sampleType == .heartRate)
         #expect(sample.value == 72.0)
         #expect(sample.unit == "count/min")
@@ -42,6 +45,7 @@ struct HealthSampleTests {
         let start = Date()
         let end = start.addingTimeInterval(3600)
         let sample = HealthSample(
+            healthKitUUID: UUID(),
             sampleType: .stepCount,
             value: 1500.0,
             unit: "count",
@@ -62,6 +66,7 @@ struct HealthSampleTests {
         let context = ModelContext(container)
         let now = Date()
         let sample = HealthSample(
+            healthKitUUID: UUID(),
             sampleType: .bodyMass,
             value: 75.5,
             unit: "kg",
@@ -82,6 +87,7 @@ struct HealthSampleTests {
         let start = Date()
         let end = start.addingTimeInterval(28800)
         let sample = HealthSample(
+            healthKitUUID: UUID(),
             sampleType: .sleepAnalysis,
             value: 1.0,
             startDate: start,
@@ -101,6 +107,7 @@ struct HealthSampleTests {
         let start = Date()
         let end = start.addingTimeInterval(1800)
         let sample = HealthSample(
+            healthKitUUID: UUID(),
             sampleType: .activeEnergyBurned,
             value: 350.0,
             unit: "kcal",
@@ -122,6 +129,7 @@ struct HealthSampleTests {
         let context = ModelContext(container)
         let now = Date()
         let sample = HealthSample(
+            healthKitUUID: UUID(),
             sampleType: .heartRate,
             value: 85.0,
             unit: "count/min",
@@ -142,6 +150,7 @@ struct HealthSampleTests {
         let context = ModelContext(container)
         let now = Date()
         let sample1 = HealthSample(
+            healthKitUUID: UUID(),
             sampleType: .heartRate,
             value: 70.0,
             unit: "count/min",
@@ -149,6 +158,7 @@ struct HealthSampleTests {
             endDate: now
         )
         let sample2 = HealthSample(
+            healthKitUUID: UUID(),
             sampleType: .heartRate,
             value: 80.0,
             unit: "count/min",
@@ -160,6 +170,32 @@ struct HealthSampleTests {
         try context.save()
 
         #expect(sample1.id != sample2.id)
+        #expect(sample1.healthKitUUID != sample2.healthKitUUID)
+    }
+
+    @Test("HealthSample healthKitUUID enables dedup lookup")
+    func healthSampleDedupByHealthKitUUID() throws {
+        let context = ModelContext(container)
+        let now = Date()
+        let hkUUID = UUID()
+        let sample = HealthSample(
+            healthKitUUID: hkUUID,
+            sampleType: .heartRate,
+            value: 72.0,
+            unit: "count/min",
+            startDate: now,
+            endDate: now
+        )
+        context.insert(sample)
+        try context.save()
+
+        var descriptor = FetchDescriptor<HealthSample>(
+            predicate: #Predicate { $0.healthKitUUID == hkUUID }
+        )
+        descriptor.fetchLimit = 1
+        let results = try context.fetch(descriptor)
+        #expect(results.count == 1)
+        #expect(results.first?.healthKitUUID == hkUUID)
     }
 }
 
@@ -178,6 +214,7 @@ struct HealthKitAnchorTests {
         let syncDate = Date()
         let anchor = HealthKitAnchor(
             sampleType: .heartRate,
+            deviceIdentifier: "test-device-1",
             anchorData: anchorData,
             lastSyncDate: syncDate
         )
@@ -185,6 +222,7 @@ struct HealthKitAnchorTests {
         try context.save()
 
         #expect(anchor.sampleType == .heartRate)
+        #expect(anchor.deviceIdentifier == "test-device-1")
         #expect(anchor.anchorData == anchorData)
         #expect(anchor.lastSyncDate == syncDate)
     }
@@ -195,6 +233,7 @@ struct HealthKitAnchorTests {
         let anchorData = Data([0xAA, 0xBB])
         let anchor = HealthKitAnchor(
             sampleType: .stepCount,
+            deviceIdentifier: "test-device-1",
             anchorData: anchorData
         )
         context.insert(anchor)
@@ -206,15 +245,17 @@ struct HealthKitAnchorTests {
         #expect(results.first?.sampleType == .stepCount)
     }
 
-    @Test("HealthKitAnchor distinct sampleType per anchor")
+    @Test("HealthKitAnchor distinct sampleType per device")
     func anchorDistinctSampleTypes() throws {
         let context = ModelContext(container)
         let anchor1 = HealthKitAnchor(
             sampleType: .bodyMass,
+            deviceIdentifier: "test-device-1",
             anchorData: Data([0x01])
         )
         let anchor2 = HealthKitAnchor(
             sampleType: .heartRate,
+            deviceIdentifier: "test-device-1",
             anchorData: Data([0x02])
         )
         context.insert(anchor1)
@@ -232,6 +273,7 @@ struct HealthKitAnchorTests {
         for sampleType in HealthSampleType.allCases {
             let anchor = HealthKitAnchor(
                 sampleType: sampleType,
+                deviceIdentifier: "test-device-1",
                 anchorData: Data([0x00])
             )
             context.insert(anchor)
@@ -241,6 +283,33 @@ struct HealthKitAnchorTests {
         let descriptor = FetchDescriptor<HealthKitAnchor>()
         let results = try context.fetch(descriptor)
         #expect(results.count == HealthSampleType.allCases.count)
+    }
+
+    @Test("HealthKitAnchor per-device isolation")
+    func anchorPerDeviceIsolation() throws {
+        let context = ModelContext(container)
+        let anchor1 = HealthKitAnchor(
+            sampleType: .heartRate,
+            deviceIdentifier: "iphone-15",
+            anchorData: Data([0x01])
+        )
+        let anchor2 = HealthKitAnchor(
+            sampleType: .heartRate,
+            deviceIdentifier: "apple-watch-9",
+            anchorData: Data([0x02])
+        )
+        context.insert(anchor1)
+        context.insert(anchor2)
+        try context.save()
+
+        let descriptor = FetchDescriptor<HealthKitAnchor>()
+        let results = try context.fetch(descriptor)
+        #expect(results.count == 2)
+
+        let iPhoneAnchor = results.first { $0.deviceIdentifier == "iphone-15" }
+        let watchAnchor = results.first { $0.deviceIdentifier == "apple-watch-9" }
+        #expect(iPhoneAnchor?.anchorData == Data([0x01]))
+        #expect(watchAnchor?.anchorData == Data([0x02]))
     }
 }
 
