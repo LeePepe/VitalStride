@@ -228,8 +228,8 @@ struct HealthKitServiceTests {
         #expect(record?.lastSyncDate != nil)
     }
 
-    @Test("Query returns full dataset even with saved anchor")
-    func queryIgnoresSavedAnchor() async throws {
+    @Test("Query without dateRange uses saved anchor for incremental fetch")
+    func queryUsesSavedAnchor() async throws {
         let initialAnchor = HKQueryAnchor(fromValue: 10)
         let anchorData = try NSKeyedArchiver.archivedData(
             withRootObject: initialAnchor,
@@ -249,9 +249,35 @@ struct HealthKitServiceTests {
         #expect(result.dataPoints.count == 1)
         #expect(result.dataPoints[0].value == 500.0)
         let capturedAnchor = mockStore.capturedAnchors[HKQuantityType(.stepCount)]
+        #expect(capturedAnchor != nil)
+        #expect(capturedAnchor! != nil)
+    }
+
+    @Test("Query with dateRange passes nil anchor for full fetch")
+    func queryWithDateRangeIgnoresAnchor() async throws {
+        let initialAnchor = HKQueryAnchor(fromValue: 10)
+        let anchorData = try NSKeyedArchiver.archivedData(
+            withRootObject: initialAnchor,
+            requiringSecureCoding: true
+        )
+        let record = AnchorRecord(anchorData: anchorData, lastSyncDate: Date())
+        anchorStore.setAnchor(record, for: .stepCount, deviceIdentifier: "test-device")
+
+        mockStore.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
+            samples: [makeQuantitySample(type: .stepCount, value: 500.0, unit: .count())],
+            deletedObjectUUIDs: [],
+            newAnchor: HKQueryAnchor(fromValue: 11)
+        )
+
+        let dateRange = DateInterval(
+            start: Date(timeIntervalSinceNow: -86400),
+            end: Date()
+        )
+        let result = try await service.fetchData(for: .stepCount, dateRange: dateRange)
+
+        #expect(result.dataPoints.count == 1)
+        let capturedAnchor = mockStore.capturedAnchors[HKQuantityType(.stepCount)]
         #expect(capturedAnchor == nil || capturedAnchor! == nil)
-        let captured = mockStore.capturedPredicates[HKQuantityType(.stepCount)]
-        #expect(captured != nil)
     }
 
     @Test("Throws error when health data is not available")

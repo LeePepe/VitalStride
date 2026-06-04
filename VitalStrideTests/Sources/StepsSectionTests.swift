@@ -28,8 +28,8 @@ private let testCalendar: Calendar = {
     return cal
 }()
 
-private func date(_ year: Int, _ month: Int, _ day: Int, hour: Int = 0) -> Date {
-    testCalendar.date(from: DateComponents(year: year, month: month, day: day, hour: hour))!
+private func date(_ year: Int, _ month: Int, _ day: Int, hour: Int = 0, minute: Int = 0) -> Date {
+    testCalendar.date(from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute))!
 }
 
 // MARK: - StepsAggregator.aggregateByDay Tests
@@ -178,6 +178,97 @@ struct AggregateByDayTests {
 
         #expect(result.count == 1)
         #expect(result[0].totalSteps == 4200)
+    }
+
+    @Test("Sample spanning midnight splits proportionally between days")
+    func midnightOverlapSplit() {
+        let points = [
+            makeStepPoint(
+                date: date(2026, 6, 1, hour: 22),
+                value: 1000,
+                endDate: date(2026, 6, 2, hour: 2)
+            ),
+        ]
+        let interval = DateInterval(start: date(2026, 6, 1), end: date(2026, 6, 3))
+
+        let result = StepsAggregator.aggregateByDay(
+            dataPoints: points, in: interval, calendar: testCalendar
+        )
+
+        #expect(result.count == 2)
+        #expect(result[0].totalSteps == 500)
+        #expect(result[1].totalSteps == 500)
+    }
+
+    @Test("Sample spanning multiple days splits proportionally")
+    func multiDayOverlapSplit() {
+        let points = [
+            makeStepPoint(
+                date: date(2026, 6, 1, hour: 12),
+                value: 3000,
+                endDate: date(2026, 6, 3, hour: 12)
+            ),
+        ]
+        let interval = DateInterval(start: date(2026, 6, 1), end: date(2026, 6, 4))
+
+        let result = StepsAggregator.aggregateByDay(
+            dataPoints: points, in: interval, calendar: testCalendar
+        )
+
+        #expect(result.count == 3)
+        #expect(result[0].totalSteps == 750)
+        #expect(result[1].totalSteps == 1500)
+        #expect(result[2].totalSteps == 750)
+    }
+}
+
+// MARK: - StepsAggregator.splitAcrossDays Tests
+
+@Suite("StepsAggregator — splitAcrossDays")
+struct SplitAcrossDaysTests {
+    @Test("Same-day sample returns single contribution")
+    func sameDaySample() {
+        let point = makeStepPoint(
+            date: date(2026, 6, 1, hour: 10),
+            value: 500,
+            endDate: date(2026, 6, 1, hour: 11)
+        )
+
+        let result = StepsAggregator.splitAcrossDays(point: point, calendar: testCalendar)
+
+        #expect(result.count == 1)
+        #expect(result[0].day == date(2026, 6, 1))
+        #expect(result[0].value == 500)
+    }
+
+    @Test("Point-in-time sample (start == end) returns single contribution")
+    func pointSample() {
+        let point = makeStepPoint(
+            date: date(2026, 6, 1, hour: 10),
+            value: 200
+        )
+
+        let result = StepsAggregator.splitAcrossDays(point: point, calendar: testCalendar)
+
+        #expect(result.count == 1)
+        #expect(result[0].value == 200)
+    }
+
+    @Test("Midnight-spanning sample returns two contributions")
+    func midnightSpan() {
+        let point = makeStepPoint(
+            date: date(2026, 6, 1, hour: 20),
+            value: 600,
+            endDate: date(2026, 6, 2, hour: 4)
+        )
+
+        let result = StepsAggregator.splitAcrossDays(point: point, calendar: testCalendar)
+
+        #expect(result.count == 2)
+        #expect(result[0].day == date(2026, 6, 1))
+        #expect(result[1].day == date(2026, 6, 2))
+        let total = result.map(\.value).reduce(0, +)
+        #expect(abs(total - 600) < 0.01)
     }
 }
 

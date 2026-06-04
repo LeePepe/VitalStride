@@ -26,7 +26,7 @@ enum StepsAggregator {
         in interval: DateInterval,
         calendar: Calendar = .current
     ) -> [DailyStepData] {
-        var dailyMap: [Date: Int] = [:]
+        var dailyMap: [Date: Double] = [:]
         var current = calendar.startOfDay(for: interval.start)
         let end = calendar.startOfDay(for: interval.end)
         while current < end {
@@ -36,14 +36,48 @@ enum StepsAggregator {
         }
 
         for point in dataPoints where point.sampleType == .stepCount {
-            let day = calendar.startOfDay(for: point.startDate)
-            guard dailyMap[day] != nil else { continue }
-            dailyMap[day]! += Int(point.value)
+            let contributions = splitAcrossDays(point: point, calendar: calendar)
+            for (day, value) in contributions {
+                guard dailyMap[day] != nil else { continue }
+                dailyMap[day]! += value
+            }
         }
 
         return dailyMap
-            .map { DailyStepData(date: $0.key, totalSteps: $0.value) }
+            .map { DailyStepData(date: $0.key, totalSteps: Int($0.value.rounded())) }
             .sorted { $0.date < $1.date }
+    }
+
+    static func splitAcrossDays(
+        point: HealthDataPoint,
+        calendar: Calendar
+    ) -> [(day: Date, value: Double)] {
+        let startDay = calendar.startOfDay(for: point.startDate)
+        let endDay = calendar.startOfDay(for: point.endDate)
+
+        if startDay == endDay || point.startDate == point.endDate {
+            return [(startDay, point.value)]
+        }
+
+        let totalDuration = point.endDate.timeIntervalSince(point.startDate)
+        guard totalDuration > 0 else { return [(startDay, point.value)] }
+
+        var results: [(day: Date, value: Double)] = []
+        var dayStart = startDay
+
+        while dayStart <= endDay {
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: dayStart) else { break }
+            let segmentStart = max(point.startDate, dayStart)
+            let segmentEnd = min(point.endDate, nextDay)
+            let segmentDuration = segmentEnd.timeIntervalSince(segmentStart)
+            if segmentDuration > 0 {
+                let fraction = segmentDuration / totalDuration
+                results.append((dayStart, point.value * fraction))
+            }
+            dayStart = nextDay
+        }
+
+        return results
     }
 
     static func computeStatistics(from data: [DailyStepData]) -> StepsStatistics {
@@ -332,7 +366,9 @@ struct StepsDetailView: View {
                 Text("按日明细", comment: "Daily breakdown section header")
             }
         }
+        #if os(iOS)
         .listStyle(.insetGrouped)
+        #endif
         .navigationTitle(String(localized: "步数", comment: "Steps detail title"))
         .onAppear {
             logger.info("detail_opened range=\(range.rawValue) days=\(dailyData.count)")

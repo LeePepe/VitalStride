@@ -132,11 +132,20 @@ final class HealthKitService: Sendable {
             )
         }
 
+        let queryAnchor: HKQueryAnchor? = if dateRange == nil, let record = existingRecord {
+            try? NSKeyedUnarchiver.unarchivedObject(
+                ofClass: HKQueryAnchor.self,
+                from: record.anchorData
+            )
+        } else {
+            nil
+        }
+
         do {
             let result = try await healthStore.executeAnchoredQuery(
                 type: hkType,
                 predicate: predicate,
-                anchor: nil,
+                anchor: queryAnchor,
                 limit: HKObjectQueryNoLimit
             )
 
