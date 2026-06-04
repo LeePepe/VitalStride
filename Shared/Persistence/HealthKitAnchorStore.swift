@@ -5,7 +5,7 @@ struct AnchorRecord: Codable {
     let lastSyncDate: Date
 }
 
-final class HealthKitAnchorStore {
+final class HealthKitAnchorStore: @unchecked Sendable {
     private let defaults: UserDefaults
     private let keyPrefix: String
 
