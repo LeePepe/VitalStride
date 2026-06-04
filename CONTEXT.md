@@ -74,7 +74,7 @@ _Avoid_: Report、Recommendation
 - 一个 **Workout Template** 包含有序的 **Exercise** 列表及目标组数/重量
 - **Imported Workout** 只存 **Local Store**，不触及 HealthKit
 - **Recorded Workout** 摘要写入 HealthKit，详细数据存 **Local Store**
-- **HealthKit Source** 数据通过 anchor query + observer 同步到 **Local Store**
+- **HealthKit Source** 数据通过 HealthKit API 直接查询，不持久化到 Local Store
 - **Local Store** 通过 CloudKit 在 iOS/macOS/watchOS 三端同步
 
 ## Example Dialogue

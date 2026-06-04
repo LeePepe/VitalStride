@@ -8,8 +8,6 @@ enum ModelContainerConfiguration {
         Exercise.self,
         WorkoutTemplate.self,
         TemplateExercise.self,
-        HealthSample.self,
-        HealthKitAnchor.self,
     ]
 
     static let cloudKitContainerIdentifier = "iCloud.com.leepepe.VitalStride"

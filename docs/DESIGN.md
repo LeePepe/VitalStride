@@ -74,7 +74,7 @@
 
 | 场景 | 读 HealthKit | 写 HealthKit | 存 SwiftData |
 |------|:-----------:|:-----------:|:-----------:|
-| 读取已有训练/健康数据 | ✅ | — | ✅ (本地副本) |
+| 读取已有训练/健康数据 | ✅ | — | ❌ (直接查 HealthKit) |
 | App 内发起力量训练 | — | ✅ (摘要) | ✅ (完整详细数据) |
 | 导入 GPX/FIT 文件 | — | ❌ | ✅ (全部数据) |
 
@@ -82,7 +82,7 @@
 
 **Layer 1: Anchor Query（按需拉取）— 优先实现**
 - 每次进入页面时，使用 HKAnchoredObjectQuery 拉取上次 anchor 之后的新增/修改样本
-- anchor token 持久化到 SwiftData
+- anchor token 持久化到 UserDefaults（device-local，不参与 CloudKit 同步）
 - 延迟极低（通常 <100ms），保证数据可用
 
 **Layer 2: Observer Query + BGHealthQuery（后台增量）— 后续实现**
