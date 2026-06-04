@@ -27,7 +27,7 @@ protocol HealthStoreProviding: Sendable {
 
 struct AnchoredQueryResult: Sendable {
     let samples: [HKSample]
-    let deletedObjects: [HKDeletedObject]
+    let deletedObjectUUIDs: [UUID]
     let newAnchor: HKQueryAnchor?
 }
 
@@ -57,7 +57,7 @@ extension HKHealthStore: HealthStoreProviding {
                 }
                 continuation.resume(returning: AnchoredQueryResult(
                     samples: samples ?? [],
-                    deletedObjects: deletedObjects ?? [],
+                    deletedObjectUUIDs: (deletedObjects ?? []).map(\.uuid),
                     newAnchor: newAnchor
                 ))
             }
@@ -123,28 +123,20 @@ final class HealthKitService: Sendable {
         let existingRecord = anchorStore.anchor(for: sampleType, deviceIdentifier: deviceIdentifier)
         let isFirstSync = existingRecord == nil
 
-        let queryAnchor: HKQueryAnchor? = if let anchorData = existingRecord?.anchorData {
-            try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: anchorData)
-        } else {
-            nil
-        }
-
         let predicate: NSPredicate? = if let dateRange {
             HKQuery.predicateForSamples(withStart: dateRange.start, end: dateRange.end)
-        } else if isFirstSync {
+        } else {
             HKQuery.predicateForSamples(
                 withStart: Date(timeIntervalSinceNow: -Self.defaultFirstSyncWindow),
                 end: Date()
             )
-        } else {
-            nil
         }
 
         do {
             let result = try await healthStore.executeAnchoredQuery(
                 type: hkType,
                 predicate: predicate,
-                anchor: queryAnchor,
+                anchor: nil,
                 limit: HKObjectQueryNoLimit
             )
 
@@ -155,10 +147,9 @@ final class HealthKitService: Sendable {
             let dataPoints = result.samples.compactMap { sample in
                 convertToDataPoint(sample, sampleType: sampleType)
             }
-            let deletedIDs = result.deletedObjects.map(\.uuid)
 
             logQuery(sampleType: sampleType, count: dataPoints.count, start: start, isFirstSync: isFirstSync, error: nil)
-            return HealthFetchResult(dataPoints: dataPoints, deletedObjectIDs: deletedIDs)
+            return HealthFetchResult(dataPoints: dataPoints, deletedObjectIDs: result.deletedObjectUUIDs)
         } catch {
             logQuery(sampleType: sampleType, count: 0, start: start, isFirstSync: isFirstSync, error: error)
             throw HealthKitServiceError.queryFailed(underlying: error)

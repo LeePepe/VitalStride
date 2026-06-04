@@ -14,6 +14,7 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
     var queryResults: [HKSampleType: AnchoredQueryResult] = [:]
     var queryError: (any Error)?
     var capturedPredicates: [HKSampleType: NSPredicate?] = [:]
+    var capturedAnchors: [HKSampleType: HKQueryAnchor?] = [:]
 
     func requestAuthorization(
         toShare typesToShare: Set<HKSampleType>,
@@ -36,12 +37,13 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
         limit: Int
     ) async throws -> AnchoredQueryResult {
         capturedPredicates[type] = predicate
+        capturedAnchors[type] = anchor
         if let error = queryError {
             throw error
         }
         return queryResults[type] ?? AnchoredQueryResult(
             samples: [],
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: nil
         )
     }
@@ -120,7 +122,7 @@ struct HealthKitServiceTests {
         let anchor = HKQueryAnchor(fromValue: 1)
         mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
             samples: [sample],
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: anchor
         )
 
@@ -141,7 +143,7 @@ struct HealthKitServiceTests {
         let sample = makeQuantitySample(type: .stepCount, value: 1500.0, unit: .count())
         mockStore.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
             samples: [sample],
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: HKQueryAnchor(fromValue: 1)
         )
 
@@ -157,7 +159,7 @@ struct HealthKitServiceTests {
         let sample = makeQuantitySample(type: .bodyMass, value: 75.5, unit: .gramUnit(with: .kilo))
         mockStore.queryResults[HKQuantityType(.bodyMass)] = AnchoredQueryResult(
             samples: [sample],
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: HKQueryAnchor(fromValue: 1)
         )
 
@@ -173,7 +175,7 @@ struct HealthKitServiceTests {
         let sample = makeQuantitySample(type: .activeEnergyBurned, value: 350.0, unit: .kilocalorie())
         mockStore.queryResults[HKQuantityType(.activeEnergyBurned)] = AnchoredQueryResult(
             samples: [sample],
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: HKQueryAnchor(fromValue: 1)
         )
 
@@ -195,7 +197,7 @@ struct HealthKitServiceTests {
         ]
         mockStore.queryResults[HKCategoryType(.sleepAnalysis)] = AnchoredQueryResult(
             samples: samples,
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: HKQueryAnchor(fromValue: 5)
         )
 
@@ -215,7 +217,7 @@ struct HealthKitServiceTests {
         let anchor = HKQueryAnchor(fromValue: 42)
         mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
             samples: [],
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: anchor
         )
 
@@ -226,8 +228,8 @@ struct HealthKitServiceTests {
         #expect(record?.lastSyncDate != nil)
     }
 
-    @Test("Incremental query uses existing anchor")
-    func incrementalQuery() async throws {
+    @Test("Query returns full dataset even with saved anchor")
+    func queryIgnoresSavedAnchor() async throws {
         let initialAnchor = HKQueryAnchor(fromValue: 10)
         let anchorData = try NSKeyedArchiver.archivedData(
             withRootObject: initialAnchor,
@@ -238,7 +240,7 @@ struct HealthKitServiceTests {
 
         mockStore.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
             samples: [makeQuantitySample(type: .stepCount, value: 500.0, unit: .count())],
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: HKQueryAnchor(fromValue: 11)
         )
 
@@ -246,6 +248,10 @@ struct HealthKitServiceTests {
 
         #expect(result.dataPoints.count == 1)
         #expect(result.dataPoints[0].value == 500.0)
+        let capturedAnchor = mockStore.capturedAnchors[HKQuantityType(.stepCount)]
+        #expect(capturedAnchor == nil || capturedAnchor! == nil)
+        let captured = mockStore.capturedPredicates[HKQuantityType(.stepCount)]
+        #expect(captured != nil)
     }
 
     @Test("Throws error when health data is not available")
@@ -283,7 +289,7 @@ struct HealthKitServiceTests {
             if sampleType == .sleepAnalysis {
                 mockStore.queryResults[hkType] = AnchoredQueryResult(
                     samples: [makeSleepSample(value: .asleepCore)],
-                    deletedObjects: [],
+                    deletedObjectUUIDs: [],
                     newAnchor: HKQueryAnchor(fromValue: 1)
                 )
             } else {
@@ -296,7 +302,7 @@ struct HealthKitServiceTests {
                 }
                 mockStore.queryResults[hkType] = AnchoredQueryResult(
                     samples: [makeQuantitySample(type: identifier, value: 1.0, unit: sampleType.hkUnit)],
-                    deletedObjects: [],
+                    deletedObjectUUIDs: [],
                     newAnchor: HKQueryAnchor(fromValue: 1)
                 )
             }
@@ -320,7 +326,7 @@ struct HealthKitServiceTests {
     func emptyResult() async throws {
         mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
             samples: [],
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: HKQueryAnchor(fromValue: 0)
         )
 
@@ -342,7 +348,7 @@ struct HealthKitServiceTests {
         let sample = makeQuantitySample(type: .heartRate, value: 72.0, unit: HKUnit.count().unitDivided(by: .minute()))
         mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
             samples: [sample],
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: HKQueryAnchor(fromValue: 2)
         )
 
@@ -352,11 +358,30 @@ struct HealthKitServiceTests {
         #expect(result.deletedObjectIDs.isEmpty)
     }
 
+    @Test("Deleted object UUIDs are returned to caller")
+    func deletedObjectsReturned() async throws {
+        let deletedID1 = UUID()
+        let deletedID2 = UUID()
+        let sample = makeQuantitySample(type: .heartRate, value: 72.0, unit: HKUnit.count().unitDivided(by: .minute()))
+        mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
+            samples: [sample],
+            deletedObjectUUIDs: [deletedID1, deletedID2],
+            newAnchor: HKQueryAnchor(fromValue: 3)
+        )
+
+        let result = try await service.fetchData(for: .heartRate)
+
+        #expect(result.dataPoints.count == 1)
+        #expect(result.deletedObjectIDs.count == 2)
+        #expect(result.deletedObjectIDs.contains(deletedID1))
+        #expect(result.deletedObjectIDs.contains(deletedID2))
+    }
+
     @Test("First sync applies default time predicate")
     func firstSyncAppliesPredicate() async throws {
         mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
             samples: [],
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: HKQueryAnchor(fromValue: 0)
         )
 
@@ -366,8 +391,8 @@ struct HealthKitServiceTests {
         #expect(captured != nil)
     }
 
-    @Test("Incremental query skips default predicate")
-    func incrementalQueryNoPredicate() async throws {
+    @Test("Query always applies date predicate even with saved anchor")
+    func alwaysAppliesDatePredicate() async throws {
         let initialAnchor = HKQueryAnchor(fromValue: 10)
         let anchorData = try NSKeyedArchiver.archivedData(
             withRootObject: initialAnchor,
@@ -378,21 +403,21 @@ struct HealthKitServiceTests {
 
         mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
             samples: [],
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: HKQueryAnchor(fromValue: 11)
         )
 
         _ = try await service.fetchData(for: .heartRate)
 
         let captured = mockStore.capturedPredicates[HKQuantityType(.heartRate)]
-        #expect(captured == nil || captured! == nil)
+        #expect(captured != nil)
     }
 
     @Test("Custom date range overrides default predicate")
     func customDateRange() async throws {
         mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
             samples: [],
-            deletedObjects: [],
+            deletedObjectUUIDs: [],
             newAnchor: HKQueryAnchor(fromValue: 0)
         )
 
