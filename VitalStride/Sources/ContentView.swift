@@ -4,7 +4,7 @@ struct ContentView: View {
     var body: some View {
         TabView {
             Tab("概览", systemImage: "chart.bar.fill") {
-                OverviewPlaceholder()
+                OverviewView()
             }
             .accessibilityLabel("概览")
 
