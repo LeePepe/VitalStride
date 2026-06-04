@@ -37,9 +37,9 @@ targets:
         com.apple.developer.icloud-services:
           - CloudKit
     sources:
-      - path: VitalStride/Sources
-      - path: VitalStride/Resources
-      - path: VitalStride/Assets.xcassets
+      - path: VitalStride
+        excludes:
+          - "*.entitlements"
       - path: Shared
     dependencies:
       - sdk: HealthKit.framework
@@ -64,8 +64,9 @@ targets:
     type: application
     platform: macOS
     sources:
-      - path: VitalStrideMac/Sources
-      - path: VitalStrideMac/Assets.xcassets
+      - path: VitalStrideMac
+        excludes:
+          - "*.entitlements"
       - path: Shared
     entitlements:
       path: VitalStrideMac/VitalStrideMac.entitlements
@@ -89,7 +90,7 @@ targets:
     type: bundle.unit-test
     platform: iOS
     sources:
-      - path: VitalStrideTests/Sources
+      - path: VitalStrideTests
     dependencies:
       - target: VitalStride
     settings:
@@ -112,10 +113,10 @@ targets:
         com.apple.developer.icloud-services:
           - CloudKit
     sources:
-      - path: "VitalStrideWatch Watch App/Sources"
+      - path: "VitalStrideWatch Watch App"
+        excludes:
+          - "*.entitlements"
       - path: VitalStride/Resources
-      - path: "VitalStrideWatch Watch App/Assets.xcassets"
-      - path: "VitalStrideWatch Watch App/Resources"
       - path: Shared
     dependencies:
       - sdk: HealthKit.framework

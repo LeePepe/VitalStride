@@ -9,41 +9,40 @@
 /* Begin PBXBuildFile section */
 		01554C50459216609FF79359 /* ExerciseSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 938F50FC09E60280C7A7F537 /* ExerciseSet.swift */; };
 		01EFE3D5A4C3077D42137228 /* Exercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AA2554F283591756DFE2965 /* Exercise.swift */; };
-		02642378D9BF2F904191BBEB /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 1E44844FA434AFA16F0D508E /* InfoPlist.strings */; };
 		043CF31DB5AF369AFE927FD5 /* MuscleGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE6C445209C7B191B39DAE98 /* MuscleGroup.swift */; };
-		0B55E2B4E2EF2CD19AD897E2 /* VitalStrideWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5161EBA086096752446678 /* VitalStrideWatchApp.swift */; };
 		0C23EAE5A48220A5E29760B9 /* Equipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D600C48BB20A7020A162B2 /* Equipment.swift */; };
+		0CCF636707C70165D24494F2 /* VitalStrideApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB4C9A242BEAD1E0445C937 /* VitalStrideApp.swift */; };
 		101C321571822DFCFBCE91FA /* SetType.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C25971EA2F4706C5537041 /* SetType.swift */; };
-		126582AB5759E2272C310C0C /* WorkoutListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A43C41979CBE53710FCF526 /* WorkoutListView.swift */; };
+		12A433540C8B86B2F89298E5 /* EnumTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B254B7B0D02CADEF442964 /* EnumTests.swift */; };
 		12CDBB81C65AF82BEAAEE506 /* DataStoreErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0370F8DB0A827D70A0A4607B /* DataStoreErrorView.swift */; };
-		16DCED58417EEE34C696B02A /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = EB421E42AE345C630DCD8E41 /* exercises.json */; };
-		1B73C01B4D0DFC6DAC51D1C0 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A18F09E32A54EF7AD32B7912 /* InfoPlist.strings */; };
+		221FE0EF38B52019483DA001 /* WorkoutDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C5574C1FC8DDE5C487EE9D9 /* WorkoutDetailView.swift */; };
 		24748D02F57E66E81E0F25A4 /* Workout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B57B30FBE0AD13BB07DD3156 /* Workout.swift */; };
+		28DF13D76D0CFED226684AF1 /* RelationshipTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01517EF3D1E025ABF280B721 /* RelationshipTests.swift */; };
 		3000AEB41B45A418899053C6 /* WorkoutExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02FF0750D3E63AAA723ED31 /* WorkoutExercise.swift */; };
+		33F32CC3B767F8D4AB763238 /* MacContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0033F83E9F4931C560DBD87C /* MacContentView.swift */; };
 		437DB0DCB6CD86485F3A5007 /* WorkoutSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BC2439D6E3F3651F11F60A /* WorkoutSource.swift */; };
 		458D06CA45AB46B8022D52D3 /* TemplateExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ADD1FD316A4B61294EEB8E2 /* TemplateExercise.swift */; };
-		4DEE8F9B5F7B04BD7FB32E85 /* WorkoutDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39C8FC703D269FD6E3B9FA67 /* WorkoutDetailView.swift */; };
 		57982ADD6D57B3B6DE630D06 /* Equipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D600C48BB20A7020A162B2 /* Equipment.swift */; };
-		5BC82AE5EF8EBDC442F87625 /* VitalStrideMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E2999CCCA6100A9F2ED6BB /* VitalStrideMacApp.swift */; };
+		5C2F14BD585175EA3F92A35E /* PlaceholderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50CB5BB1779B8A7CF53E598 /* PlaceholderViews.swift */; };
+		5FE8A772B8B11B7699F05167 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 18AA3D0CBD054FC6EB8E6E36 /* InfoPlist.strings */; };
 		6113F4812B6006315FB791EF /* Workout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B57B30FBE0AD13BB07DD3156 /* Workout.swift */; };
+		614503EFA888692CA1F1088D /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524E9CAE68FFB5B851E45752 /* ModelTests.swift */; };
 		6346F42701BA4DCB9F951FD7 /* DataStoreErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0370F8DB0A827D70A0A4607B /* DataStoreErrorView.swift */; };
+		63E739A5D206085086CE682A /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = 57B895D91910D9E2DC71130D /* exercises.json */; };
 		654F499C95DCCD4E9D42000A /* WorkoutTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD6CBB4B8DB35E9942A3ADA /* WorkoutTemplate.swift */; };
-		67175014078591B2774B9C67 /* VitalStrideApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 071236CB53D23D49D2A21097 /* VitalStrideApp.swift */; };
 		68B5B0ABCCFEDADE35ECB80E /* SetType.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C25971EA2F4706C5537041 /* SetType.swift */; };
 		6DD9EA5894C16A881C94A162 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 193733B006ED472D5112547F /* HealthKit.framework */; };
 		6F675A5C74B023E76C785DD9 /* WorkoutSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BC2439D6E3F3651F11F60A /* WorkoutSource.swift */; };
 		70172CBF29CE027197E4B353 /* WorkoutTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD6CBB4B8DB35E9942A3ADA /* WorkoutTemplate.swift */; };
-		76FB5A8A11D2069B5E954920 /* MacContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD97B72E45FF000CBB6CB02E /* MacContentView.swift */; };
-		78888BA70E972F5799721BDF /* EnumTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A050A9A835B419E5ACB29DE7 /* EnumTests.swift */; };
-		7997596F8FEC69D4F914D242 /* ActiveWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9554ADC9FC53D70DC2F0EAB /* ActiveWorkoutView.swift */; };
+		7072A3941A8351E4BD9A6EDF /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3FE8B00D1964DA58C3120CBD /* InfoPlist.strings */; };
 		7DB882A21082800C633EE5F8 /* TemplateExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ADD1FD316A4B61294EEB8E2 /* TemplateExercise.swift */; };
 		80D4099CFC685385DB3E3DD2 /* SetType.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C25971EA2F4706C5537041 /* SetType.swift */; };
-		8AF3CE23ECE9F1C9882ADA63 /* PlaceholderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = E261D81A8ABD9951B539D30B /* PlaceholderViews.swift */; };
+		815258714EA0D8B7FCB7D992 /* WorkoutListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADF0FD53B5A37E442F6ED623 /* WorkoutListView.swift */; };
 		8C37CF233ECE8141B1852643 /* ModelContainerConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2D1B656D2FD06AFC7B59480 /* ModelContainerConfiguration.swift */; };
+		8E457F91B4CE17842B9CE25E /* VitalStrideWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D06A0789305603E086A2383 /* VitalStrideWatchApp.swift */; };
 		9012AA4FB8A77D298CE2FDF5 /* Exercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AA2554F283591756DFE2965 /* Exercise.swift */; };
-		96343A2A26C10DDBD084321B /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3C1602AD27E06391177A4A4 /* WatchContentView.swift */; };
 		991E7098402A03B81AC72803 /* WorkoutExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02FF0750D3E63AAA723ED31 /* WorkoutExercise.swift */; };
-		9AB4F723EFEB0783FE30870E /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B04C18A600A7AF1EB3B8F282 /* ModelTests.swift */; };
+		99CB7CC1AA03F3D18942C7C7 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDA307CA9D61759C0A1A4E6 /* WatchContentView.swift */; };
 		9C33F574F875DF0EBF073483 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C59FE92FB9187A2F490E733E /* Assets.xcassets */; };
 		9EB776759C28F0BBA16428EB /* WorkoutType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3429B0AFF73FC5C92B2D08F0 /* WorkoutType.swift */; };
 		9ED118191FECD56AC3F44BD6 /* DataStoreErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0370F8DB0A827D70A0A4607B /* DataStoreErrorView.swift */; };
@@ -51,28 +50,29 @@
 		A15DC42BCE27034144775AB0 /* ModelContainerConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2D1B656D2FD06AFC7B59480 /* ModelContainerConfiguration.swift */; };
 		A47B05CF8C2B9CDCFEC8231F /* TemplateExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ADD1FD316A4B61294EEB8E2 /* TemplateExercise.swift */; };
 		A73EDDD6AB628111BC6E7575 /* ExerciseSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 938F50FC09E60280C7A7F537 /* ExerciseSet.swift */; };
+		A9EFB85A810FDA7E5BF3BD57 /* VitalStrideMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EC3F9204735BAE46DFFDF0 /* VitalStrideMacApp.swift */; };
 		ACFCFCD2F630CFD1D9C8E427 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 28F9B1C238C968D436D8F621 /* Assets.xcassets */; };
+		AD9D71EA3A1F8AE0A2C68C15 /* StartWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE096029B6F02694FFF32984 /* StartWorkoutView.swift */; };
 		B36C0278DD6D2BB1F261BCAD /* WorkoutTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD6CBB4B8DB35E9942A3ADA /* WorkoutTemplate.swift */; };
-		B3B7DFDD012B532133BEA402 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFB417E93D025427554CBB31 /* ContentView.swift */; };
-		B420E412DFE15F4E4D74B631 /* PlaceholderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 721B264DB6885B2380DA38E2 /* PlaceholderViews.swift */; };
 		B4F90EB133CBC25FE99ACD66 /* ExerciseSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 938F50FC09E60280C7A7F537 /* ExerciseSet.swift */; };
 		BE7FE5DFE1252469CEA058CF /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 193733B006ED472D5112547F /* HealthKit.framework */; };
-		C345EC8122C5E16B66D7D30D /* ExercisesJSONTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF8FF056F3AAB8539DFB623B /* ExercisesJSONTests.swift */; };
+		BF00D52AEECCBAE0B0751F36 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 18AA3D0CBD054FC6EB8E6E36 /* InfoPlist.strings */; };
 		C94A1550E3312887805D3C32 /* WorkoutSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BC2439D6E3F3651F11F60A /* WorkoutSource.swift */; };
 		CAD0050D3911D4B579D4C421 /* MuscleGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE6C445209C7B191B39DAE98 /* MuscleGroup.swift */; };
 		CB9265F44E2F4C98B90A0A7D /* ModelContainerConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2D1B656D2FD06AFC7B59480 /* ModelContainerConfiguration.swift */; };
+		D3A685EB9782EDB77B9EE544 /* ExercisesJSONTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F052E6A365C4391D3E607AE4 /* ExercisesJSONTests.swift */; };
+		D4B0786E1D9CFAB9F4A1FE34 /* PlaceholderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C5500BA2B8CED72FFB4F0E4 /* PlaceholderViews.swift */; };
 		D64DC8861E4BF020FD4C3601 /* MuscleGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE6C445209C7B191B39DAE98 /* MuscleGroup.swift */; };
 		D6EFE0C88AAAF3ACD4540668 /* WorkoutType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3429B0AFF73FC5C92B2D08F0 /* WorkoutType.swift */; };
-		DBD4BC32EBBEFF37A1EADFAD /* StartWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50A585FBE919A92B267FF50D /* StartWorkoutView.swift */; };
-		DC2A0C4CD5C4C072B5908F47 /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = EB421E42AE345C630DCD8E41 /* exercises.json */; };
+		DAED4935D4341258B4B8266D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FFE6FD111BCCB764102CEF5 /* ContentView.swift */; };
+		E68DBA49DC9C0A4E75F339FD /* ModelContainerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A787CF4DB49927AFBC5DDF /* ModelContainerTests.swift */; };
 		E7E6C59A47F79995B04666D6 /* Equipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D600C48BB20A7020A162B2 /* Equipment.swift */; };
 		EA2925A7C0F167DD4CBEC374 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 675947C2C88283D7D81E0FD0 /* Assets.xcassets */; };
-		ED33FE13C8BDF2D84B10A8A6 /* ModelContainerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21E9AA31CDC8E64263F95A48 /* ModelContainerTests.swift */; };
+		EB47D5EDAD27C2DC300CE4A5 /* ActiveWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A82A8BC200FD8437E939A67D /* ActiveWorkoutView.swift */; };
 		F048B9B9AA1EF14E323788C1 /* WorkoutType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3429B0AFF73FC5C92B2D08F0 /* WorkoutType.swift */; };
 		F620FC05EC3EF63AE0DD163C /* Workout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B57B30FBE0AD13BB07DD3156 /* Workout.swift */; };
-		F6AB9F52459A061544115F11 /* RelationshipTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1CEBF40EF955614C3940F9 /* RelationshipTests.swift */; };
 		F872D96937ADE91D6B8BEFB4 /* WorkoutExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02FF0750D3E63AAA723ED31 /* WorkoutExercise.swift */; };
-		FB094960A059410BEE953ADE /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 1E44844FA434AFA16F0D508E /* InfoPlist.strings */; };
+		FBE027F17938BB052D0AF52F /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = 57B895D91910D9E2DC71130D /* exercises.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -86,49 +86,49 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0033F83E9F4931C560DBD87C /* MacContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacContentView.swift; sourceTree = "<group>"; };
+		01517EF3D1E025ABF280B721 /* RelationshipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelationshipTests.swift; sourceTree = "<group>"; };
 		0370F8DB0A827D70A0A4607B /* DataStoreErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStoreErrorView.swift; sourceTree = "<group>"; };
-		0616F5149BB0EB168F9F981A /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
-		071236CB53D23D49D2A21097 /* VitalStrideApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideApp.swift; sourceTree = "<group>"; };
 		12BC2439D6E3F3651F11F60A /* WorkoutSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSource.swift; sourceTree = "<group>"; };
 		193733B006ED472D5112547F /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
-		21E9AA31CDC8E64263F95A48 /* ModelContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelContainerTests.swift; sourceTree = "<group>"; };
-		22CA0368F18F14F2CEAC6279 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		28F9B1C238C968D436D8F621 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		2D5161EBA086096752446678 /* VitalStrideWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideWatchApp.swift; sourceTree = "<group>"; };
 		3429B0AFF73FC5C92B2D08F0 /* WorkoutType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutType.swift; sourceTree = "<group>"; };
-		35AC78693FA2C57D3D8D47C8 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		39C8FC703D269FD6E3B9FA67 /* WorkoutDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDetailView.swift; sourceTree = "<group>"; };
-		3A1CEBF40EF955614C3940F9 /* RelationshipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelationshipTests.swift; sourceTree = "<group>"; };
+		3FFE6FD111BCCB764102CEF5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		4AA2554F283591756DFE2965 /* Exercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exercise.swift; sourceTree = "<group>"; };
 		4ADD1FD316A4B61294EEB8E2 /* TemplateExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateExercise.swift; sourceTree = "<group>"; };
-		50A585FBE919A92B267FF50D /* StartWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartWorkoutView.swift; sourceTree = "<group>"; };
-		53E2999CCCA6100A9F2ED6BB /* VitalStrideMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideMacApp.swift; sourceTree = "<group>"; };
+		4C5574C1FC8DDE5C487EE9D9 /* WorkoutDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDetailView.swift; sourceTree = "<group>"; };
+		524E9CAE68FFB5B851E45752 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
+		53447E75FDC24C1697A01E8E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		57B895D91910D9E2DC71130D /* exercises.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = exercises.json; sourceTree = "<group>"; };
 		58C946AE957021F69C8E2C60 /* VitalStrideWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "VitalStrideWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		5A43C41979CBE53710FCF526 /* WorkoutListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutListView.swift; sourceTree = "<group>"; };
 		5CD6CBB4B8DB35E9942A3ADA /* WorkoutTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTemplate.swift; sourceTree = "<group>"; };
 		62752D819DEC3C928DEE3CB1 /* VitalStrideMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitalStrideMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		675947C2C88283D7D81E0FD0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		721B264DB6885B2380DA38E2 /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
-		882C2018EAA4873543CD639B /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		7C5500BA2B8CED72FFB4F0E4 /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
+		7D06A0789305603E086A2383 /* VitalStrideWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideWatchApp.swift; sourceTree = "<group>"; };
+		7F05DE8F5FD72DDE805405B9 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		92A787CF4DB49927AFBC5DDF /* ModelContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelContainerTests.swift; sourceTree = "<group>"; };
 		938F50FC09E60280C7A7F537 /* ExerciseSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSet.swift; sourceTree = "<group>"; };
 		9AF574AE878C5FC5709F5411 /* VitalStrideTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = VitalStrideTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9BB4C9A242BEAD1E0445C937 /* VitalStrideApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideApp.swift; sourceTree = "<group>"; };
 		9D2F46A6B7B993E95FDAA5C5 /* VitalStride.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VitalStride.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A050A9A835B419E5ACB29DE7 /* EnumTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnumTests.swift; sourceTree = "<group>"; };
 		A1C25971EA2F4706C5537041 /* SetType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetType.swift; sourceTree = "<group>"; };
-		B04C18A600A7AF1EB3B8F282 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
+		A82A8BC200FD8437E939A67D /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
+		ADF0FD53B5A37E442F6ED623 /* WorkoutListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutListView.swift; sourceTree = "<group>"; };
+		B50CB5BB1779B8A7CF53E598 /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
 		B57B30FBE0AD13BB07DD3156 /* Workout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workout.swift; sourceTree = "<group>"; };
+		BCDA307CA9D61759C0A1A4E6 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
 		C02FF0750D3E63AAA723ED31 /* WorkoutExercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutExercise.swift; sourceTree = "<group>"; };
 		C0D600C48BB20A7020A162B2 /* Equipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Equipment.swift; sourceTree = "<group>"; };
 		C59FE92FB9187A2F490E733E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CE6C445209C7B191B39DAE98 /* MuscleGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleGroup.swift; sourceTree = "<group>"; };
+		D1EC3F9204735BAE46DFFDF0 /* VitalStrideMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideMacApp.swift; sourceTree = "<group>"; };
 		D2D1B656D2FD06AFC7B59480 /* ModelContainerConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelContainerConfiguration.swift; sourceTree = "<group>"; };
-		D9554ADC9FC53D70DC2F0EAB /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
-		DD97B72E45FF000CBB6CB02E /* MacContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacContentView.swift; sourceTree = "<group>"; };
-		DFB417E93D025427554CBB31 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		E261D81A8ABD9951B539D30B /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
-		EB421E42AE345C630DCD8E41 /* exercises.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = exercises.json; sourceTree = "<group>"; };
-		EF8FF056F3AAB8539DFB623B /* ExercisesJSONTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisesJSONTests.swift; sourceTree = "<group>"; };
-		F3C1602AD27E06391177A4A4 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
+		D344548ECC2B711E8DC1897B /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		D8B254B7B0D02CADEF442964 /* EnumTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnumTests.swift; sourceTree = "<group>"; };
+		E26E9AB2D8171575BA5C9094 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		EE096029B6F02694FFF32984 /* StartWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartWorkoutView.swift; sourceTree = "<group>"; };
+		F052E6A365C4391D3E607AE4 /* ExercisesJSONTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisesJSONTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,26 +151,16 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		0C889E5C492580BDC58CBA66 /* Resources */ = {
+		032E119FA003BB7D8D465B9E /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				A18F09E32A54EF7AD32B7912 /* InfoPlist.strings */,
+				D8B254B7B0D02CADEF442964 /* EnumTests.swift */,
+				F052E6A365C4391D3E607AE4 /* ExercisesJSONTests.swift */,
+				92A787CF4DB49927AFBC5DDF /* ModelContainerTests.swift */,
+				524E9CAE68FFB5B851E45752 /* ModelTests.swift */,
+				01517EF3D1E025ABF280B721 /* RelationshipTests.swift */,
 			);
-			name = Resources;
-			path = "VitalStrideWatch Watch App/Resources";
-			sourceTree = "<group>";
-		};
-		17E6C9B6A8116CE05BD63862 /* Sources */ = {
-			isa = PBXGroup;
-			children = (
-				A050A9A835B419E5ACB29DE7 /* EnumTests.swift */,
-				EF8FF056F3AAB8539DFB623B /* ExercisesJSONTests.swift */,
-				21E9AA31CDC8E64263F95A48 /* ModelContainerTests.swift */,
-				B04C18A600A7AF1EB3B8F282 /* ModelTests.swift */,
-				3A1CEBF40EF955614C3940F9 /* RelationshipTests.swift */,
-			);
-			name = Sources;
-			path = VitalStrideTests/Sources;
+			path = Sources;
 			sourceTree = "<group>";
 		};
 		1DE05301661FE45B4E8CFE18 /* Shared */ = {
@@ -192,25 +182,20 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		38376C392227BD26A61E2EB0 /* Sources */ = {
+		404662489D53688383433FD1 /* VitalStrideTests */ = {
 			isa = PBXGroup;
 			children = (
-				D9554ADC9FC53D70DC2F0EAB /* ActiveWorkoutView.swift */,
-				DFB417E93D025427554CBB31 /* ContentView.swift */,
-				721B264DB6885B2380DA38E2 /* PlaceholderViews.swift */,
-				50A585FBE919A92B267FF50D /* StartWorkoutView.swift */,
-				071236CB53D23D49D2A21097 /* VitalStrideApp.swift */,
-				39C8FC703D269FD6E3B9FA67 /* WorkoutDetailView.swift */,
-				5A43C41979CBE53710FCF526 /* WorkoutListView.swift */,
+				032E119FA003BB7D8D465B9E /* Sources */,
 			);
-			name = Sources;
-			path = VitalStride/Sources;
+			path = VitalStrideTests;
 			sourceTree = "<group>";
 		};
 		4F76D572EDEF9D524C3C458D /* VitalStrideWatch Watch App */ = {
 			isa = PBXGroup;
 			children = (
 				C59FE92FB9187A2F490E733E /* Assets.xcassets */,
+				E009C998F308E65ADE6E61A5 /* Resources */,
+				EBFB6124FB9D78EC2C686594 /* Sources */,
 			);
 			path = "VitalStrideWatch Watch App";
 			sourceTree = "<group>";
@@ -247,22 +232,27 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		A51664DD3EC0AFD8F33897FA /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A82A8BC200FD8437E939A67D /* ActiveWorkoutView.swift */,
+				3FFE6FD111BCCB764102CEF5 /* ContentView.swift */,
+				7C5500BA2B8CED72FFB4F0E4 /* PlaceholderViews.swift */,
+				EE096029B6F02694FFF32984 /* StartWorkoutView.swift */,
+				9BB4C9A242BEAD1E0445C937 /* VitalStrideApp.swift */,
+				4C5574C1FC8DDE5C487EE9D9 /* WorkoutDetailView.swift */,
+				ADF0FD53B5A37E442F6ED623 /* WorkoutListView.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
 		AB684A45C0D2385FE180FA9C /* VitalStrideMac */ = {
 			isa = PBXGroup;
 			children = (
 				675947C2C88283D7D81E0FD0 /* Assets.xcassets */,
+				B32068258417D77CD88C3B77 /* Sources */,
 			);
 			path = VitalStrideMac;
-			sourceTree = "<group>";
-		};
-		AF80BC86C5B13EAB8D92DB02 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				EB421E42AE345C630DCD8E41 /* exercises.json */,
-				1E44844FA434AFA16F0D508E /* InfoPlist.strings */,
-			);
-			name = Resources;
-			path = VitalStride/Resources;
 			sourceTree = "<group>";
 		};
 		B22A7D307DC20707965AD5A6 /* Frameworks */ = {
@@ -273,10 +263,22 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		B32068258417D77CD88C3B77 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				0033F83E9F4931C560DBD87C /* MacContentView.swift */,
+				B50CB5BB1779B8A7CF53E598 /* PlaceholderViews.swift */,
+				D1EC3F9204735BAE46DFFDF0 /* VitalStrideMacApp.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
 		B3378ED2D8A67C2D50B13DAD /* VitalStride */ = {
 			isa = PBXGroup;
 			children = (
 				28F9B1C238C968D436D8F621 /* Assets.xcassets */,
+				DF909699BECD318894C3AD98 /* Resources */,
+				A51664DD3EC0AFD8F33897FA /* Sources */,
 			);
 			path = VitalStride;
 			sourceTree = "<group>";
@@ -296,40 +298,40 @@
 		DA9BBD3DA585F24745B41651 = {
 			isa = PBXGroup;
 			children = (
-				AF80BC86C5B13EAB8D92DB02 /* Resources */,
-				0C889E5C492580BDC58CBA66 /* Resources */,
 				1DE05301661FE45B4E8CFE18 /* Shared */,
-				38376C392227BD26A61E2EB0 /* Sources */,
-				F5E36055BE7023DF511A5352 /* Sources */,
-				17E6C9B6A8116CE05BD63862 /* Sources */,
-				E4D6ADC58A2DA3E73149E632 /* Sources */,
 				B3378ED2D8A67C2D50B13DAD /* VitalStride */,
 				AB684A45C0D2385FE180FA9C /* VitalStrideMac */,
+				404662489D53688383433FD1 /* VitalStrideTests */,
 				4F76D572EDEF9D524C3C458D /* VitalStrideWatch Watch App */,
 				B22A7D307DC20707965AD5A6 /* Frameworks */,
 				709A8293A9188956CF675353 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		E4D6ADC58A2DA3E73149E632 /* Sources */ = {
+		DF909699BECD318894C3AD98 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				2D5161EBA086096752446678 /* VitalStrideWatchApp.swift */,
-				F3C1602AD27E06391177A4A4 /* WatchContentView.swift */,
+				57B895D91910D9E2DC71130D /* exercises.json */,
+				18AA3D0CBD054FC6EB8E6E36 /* InfoPlist.strings */,
 			);
-			name = Sources;
-			path = "VitalStrideWatch Watch App/Sources";
+			path = Resources;
 			sourceTree = "<group>";
 		};
-		F5E36055BE7023DF511A5352 /* Sources */ = {
+		E009C998F308E65ADE6E61A5 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				DD97B72E45FF000CBB6CB02E /* MacContentView.swift */,
-				E261D81A8ABD9951B539D30B /* PlaceholderViews.swift */,
-				53E2999CCCA6100A9F2ED6BB /* VitalStrideMacApp.swift */,
+				3FE8B00D1964DA58C3120CBD /* InfoPlist.strings */,
 			);
-			name = Sources;
-			path = VitalStrideMac/Sources;
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		EBFB6124FB9D78EC2C686594 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				7D06A0789305603E086A2383 /* VitalStrideWatchApp.swift */,
+				BCDA307CA9D61759C0A1A4E6 /* WatchContentView.swift */,
+			);
+			path = Sources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -449,8 +451,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				ACFCFCD2F630CFD1D9C8E427 /* Assets.xcassets in Resources */,
-				02642378D9BF2F904191BBEB /* InfoPlist.strings in Resources */,
-				DC2A0C4CD5C4C072B5908F47 /* exercises.json in Resources */,
+				5FE8A772B8B11B7699F05167 /* InfoPlist.strings in Resources */,
+				FBE027F17938BB052D0AF52F /* exercises.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -459,9 +461,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				9C33F574F875DF0EBF073483 /* Assets.xcassets in Resources */,
-				FB094960A059410BEE953ADE /* InfoPlist.strings in Resources */,
-				1B73C01B4D0DFC6DAC51D1C0 /* InfoPlist.strings in Resources */,
-				16DCED58417EEE34C696B02A /* exercises.json in Resources */,
+				7072A3941A8351E4BD9A6EDF /* InfoPlist.strings in Resources */,
+				BF00D52AEECCBAE0B0751F36 /* InfoPlist.strings in Resources */,
+				63E739A5D206085086CE682A /* exercises.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -484,13 +486,13 @@
 				0C23EAE5A48220A5E29760B9 /* Equipment.swift in Sources */,
 				9012AA4FB8A77D298CE2FDF5 /* Exercise.swift in Sources */,
 				01554C50459216609FF79359 /* ExerciseSet.swift in Sources */,
-				76FB5A8A11D2069B5E954920 /* MacContentView.swift in Sources */,
+				33F32CC3B767F8D4AB763238 /* MacContentView.swift in Sources */,
 				CB9265F44E2F4C98B90A0A7D /* ModelContainerConfiguration.swift in Sources */,
 				043CF31DB5AF369AFE927FD5 /* MuscleGroup.swift in Sources */,
-				8AF3CE23ECE9F1C9882ADA63 /* PlaceholderViews.swift in Sources */,
+				5C2F14BD585175EA3F92A35E /* PlaceholderViews.swift in Sources */,
 				80D4099CFC685385DB3E3DD2 /* SetType.swift in Sources */,
 				458D06CA45AB46B8022D52D3 /* TemplateExercise.swift in Sources */,
-				5BC82AE5EF8EBDC442F87625 /* VitalStrideMacApp.swift in Sources */,
+				A9EFB85A810FDA7E5BF3BD57 /* VitalStrideMacApp.swift in Sources */,
 				6113F4812B6006315FB791EF /* Workout.swift in Sources */,
 				991E7098402A03B81AC72803 /* WorkoutExercise.swift in Sources */,
 				C94A1550E3312887805D3C32 /* WorkoutSource.swift in Sources */,
@@ -503,23 +505,23 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7997596F8FEC69D4F914D242 /* ActiveWorkoutView.swift in Sources */,
-				B3B7DFDD012B532133BEA402 /* ContentView.swift in Sources */,
+				EB47D5EDAD27C2DC300CE4A5 /* ActiveWorkoutView.swift in Sources */,
+				DAED4935D4341258B4B8266D /* ContentView.swift in Sources */,
 				12CDBB81C65AF82BEAAEE506 /* DataStoreErrorView.swift in Sources */,
 				57982ADD6D57B3B6DE630D06 /* Equipment.swift in Sources */,
 				9F7B3EE24433BB31D094F486 /* Exercise.swift in Sources */,
 				A73EDDD6AB628111BC6E7575 /* ExerciseSet.swift in Sources */,
 				8C37CF233ECE8141B1852643 /* ModelContainerConfiguration.swift in Sources */,
 				CAD0050D3911D4B579D4C421 /* MuscleGroup.swift in Sources */,
-				B420E412DFE15F4E4D74B631 /* PlaceholderViews.swift in Sources */,
+				D4B0786E1D9CFAB9F4A1FE34 /* PlaceholderViews.swift in Sources */,
 				68B5B0ABCCFEDADE35ECB80E /* SetType.swift in Sources */,
-				DBD4BC32EBBEFF37A1EADFAD /* StartWorkoutView.swift in Sources */,
+				AD9D71EA3A1F8AE0A2C68C15 /* StartWorkoutView.swift in Sources */,
 				A47B05CF8C2B9CDCFEC8231F /* TemplateExercise.swift in Sources */,
-				67175014078591B2774B9C67 /* VitalStrideApp.swift in Sources */,
+				0CCF636707C70165D24494F2 /* VitalStrideApp.swift in Sources */,
 				24748D02F57E66E81E0F25A4 /* Workout.swift in Sources */,
-				4DEE8F9B5F7B04BD7FB32E85 /* WorkoutDetailView.swift in Sources */,
+				221FE0EF38B52019483DA001 /* WorkoutDetailView.swift in Sources */,
 				F872D96937ADE91D6B8BEFB4 /* WorkoutExercise.swift in Sources */,
-				126582AB5759E2272C310C0C /* WorkoutListView.swift in Sources */,
+				815258714EA0D8B7FCB7D992 /* WorkoutListView.swift in Sources */,
 				437DB0DCB6CD86485F3A5007 /* WorkoutSource.swift in Sources */,
 				654F499C95DCCD4E9D42000A /* WorkoutTemplate.swift in Sources */,
 				D6EFE0C88AAAF3ACD4540668 /* WorkoutType.swift in Sources */,
@@ -530,11 +532,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				78888BA70E972F5799721BDF /* EnumTests.swift in Sources */,
-				C345EC8122C5E16B66D7D30D /* ExercisesJSONTests.swift in Sources */,
-				ED33FE13C8BDF2D84B10A8A6 /* ModelContainerTests.swift in Sources */,
-				9AB4F723EFEB0783FE30870E /* ModelTests.swift in Sources */,
-				F6AB9F52459A061544115F11 /* RelationshipTests.swift in Sources */,
+				12A433540C8B86B2F89298E5 /* EnumTests.swift in Sources */,
+				D3A685EB9782EDB77B9EE544 /* ExercisesJSONTests.swift in Sources */,
+				E68DBA49DC9C0A4E75F339FD /* ModelContainerTests.swift in Sources */,
+				614503EFA888692CA1F1088D /* ModelTests.swift in Sources */,
+				28DF13D76D0CFED226684AF1 /* RelationshipTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -550,8 +552,8 @@
 				D64DC8861E4BF020FD4C3601 /* MuscleGroup.swift in Sources */,
 				101C321571822DFCFBCE91FA /* SetType.swift in Sources */,
 				7DB882A21082800C633EE5F8 /* TemplateExercise.swift in Sources */,
-				0B55E2B4E2EF2CD19AD897E2 /* VitalStrideWatchApp.swift in Sources */,
-				96343A2A26C10DDBD084321B /* WatchContentView.swift in Sources */,
+				8E457F91B4CE17842B9CE25E /* VitalStrideWatchApp.swift in Sources */,
+				99CB7CC1AA03F3D18942C7C7 /* WatchContentView.swift in Sources */,
 				F620FC05EC3EF63AE0DD163C /* Workout.swift in Sources */,
 				3000AEB41B45A418899053C6 /* WorkoutExercise.swift in Sources */,
 				6F675A5C74B023E76C785DD9 /* WorkoutSource.swift in Sources */,
@@ -571,20 +573,20 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
-		1E44844FA434AFA16F0D508E /* InfoPlist.strings */ = {
+		18AA3D0CBD054FC6EB8E6E36 /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				22CA0368F18F14F2CEAC6279 /* en */,
-				0616F5149BB0EB168F9F981A /* zh-Hans */,
+				53447E75FDC24C1697A01E8E /* en */,
+				D344548ECC2B711E8DC1897B /* zh-Hans */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
-		A18F09E32A54EF7AD32B7912 /* InfoPlist.strings */ = {
+		3FE8B00D1964DA58C3120CBD /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				35AC78693FA2C57D3D8D47C8 /* en */,
-				882C2018EAA4873543CD639B /* zh-Hans */,
+				E26E9AB2D8171575BA5C9094 /* en */,
+				7F05DE8F5FD72DDE805405B9 /* zh-Hans */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
