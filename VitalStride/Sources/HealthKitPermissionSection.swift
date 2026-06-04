@@ -66,11 +66,11 @@ struct HealthKitPermissionSection: View {
     private var statusText: String {
         switch authorizationStatus {
         case .shouldRequest:
-            return "未授权"
+            return "待授权"
         case .unknown:
             return "未知"
         case .unnecessary:
-            return "已授权"
+            return "已请求授权"
         case .none:
             return "检查中…"
         @unknown default:

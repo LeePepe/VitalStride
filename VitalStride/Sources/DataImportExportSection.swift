@@ -6,6 +6,7 @@ struct DataImportExportSection: View {
     @State private var showingFileExporter = false
     @State private var importedFiles: [ImportedFileRecord] = []
     @State private var importError: String?
+    @State private var exportError: String?
     @State private var exportRange: ExportRange = .all
 
     var body: some View {
@@ -70,6 +71,14 @@ struct DataImportExportSection: View {
         ) { result in
             handleExportResult(result)
         }
+        .alert("导出失败", isPresented: Binding(
+            get: { exportError != nil },
+            set: { if !$0 { exportError = nil } }
+        )) {
+            Button("确定", role: .cancel) {}
+        } message: {
+            Text(exportError ?? "")
+        }
     }
 
     private func handleImportResult(_ result: Result<[URL], any Error>) {
@@ -91,9 +100,9 @@ struct DataImportExportSection: View {
     private func handleExportResult(_ result: Result<URL, any Error>) {
         switch result {
         case .success:
-            break
-        case .failure:
-            break
+            exportError = nil
+        case .failure(let error):
+            exportError = error.localizedDescription
         }
     }
 }

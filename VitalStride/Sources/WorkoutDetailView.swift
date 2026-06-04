@@ -3,6 +3,7 @@ import SwiftUI
 
 struct WorkoutDetailView: View {
     let workout: Workout
+    @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
 
     private var sortedExercises: [WorkoutExercise] {
         (workout.exercises ?? []).sorted { $0.order < $1.order }
@@ -49,7 +50,7 @@ struct WorkoutDetailView: View {
                                 Text("第 \(index + 1) 组")
                                     .foregroundStyle(.secondary)
                                     .frame(width: 60, alignment: .leading)
-                                Text("\(exerciseSet.weight, specifier: "%.1f") kg")
+                                Text("\(displayWeight(exerciseSet.weight), specifier: "%.1f") \(weightUnit.rawValue)")
                                 Text("×")
                                     .foregroundStyle(.secondary)
                                 Text("\(exerciseSet.reps) 次")
@@ -72,7 +73,7 @@ struct WorkoutDetailView: View {
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                                 Spacer()
-                                Text("\(totalVolume, specifier: "%.0f") kg")
+                                Text("\(displayWeight(totalVolume), specifier: "%.0f") \(weightUnit.rawValue)")
                                     .font(.footnote.bold())
                             }
                         }
@@ -81,6 +82,10 @@ struct WorkoutDetailView: View {
             }
         }
         .navigationTitle("训练详情")
+    }
+
+    private func displayWeight(_ kgValue: Double) -> Double {
+        weightUnit == .lb ? kgValue * 2.20462 : kgValue
     }
 }
 
