@@ -79,6 +79,8 @@ private struct RecentWorkoutRow: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 4)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
     }
 
     private func workoutTypeLabel(_ type: WorkoutType) -> String {

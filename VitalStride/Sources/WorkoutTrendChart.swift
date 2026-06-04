@@ -30,40 +30,11 @@ struct WorkoutTrendChart: View {
     @State private var timeRange: TrendTimeRange = .week
 
     private var chartData: [DailyWorkoutData] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let dayCount = timeRange.dayCount
-
-        var dailyMap: [Date: Int] = [:]
-        for offset in 0..<dayCount {
-            if let date = calendar.date(byAdding: .day, value: -offset, to: today) {
-                dailyMap[date] = 0
-            }
-        }
-
-        let rangeStart = calendar.date(byAdding: .day, value: -(dayCount - 1), to: today) ?? today
-        for workout in workouts {
-            let workoutDay = calendar.startOfDay(for: workout.startDate)
-            guard workoutDay >= rangeStart, workoutDay <= today else { continue }
-            let minutes: Int
-            if let endDate = workout.endDate {
-                minutes = max(1, Int(endDate.timeIntervalSince(workout.startDate)) / 60)
-            } else {
-                minutes = 0
-            }
-            dailyMap[workoutDay, default: 0] += minutes
-        }
-
-        return dailyMap
-            .map { DailyWorkoutData(date: $0.key, totalMinutes: $0.value) }
-            .sorted { $0.date < $1.date }
+        WorkoutAggregator.computeDailyTrendData(from: workouts, dayCount: timeRange.dayCount)
     }
 
     private var averageMinutes: Double {
-        let data = chartData
-        guard !data.isEmpty else { return 0 }
-        let total = data.reduce(0) { $0 + $1.totalMinutes }
-        return Double(total) / Double(data.count)
+        WorkoutAggregator.computeAverage(from: chartData)
     }
 
     var body: some View {
@@ -83,12 +54,13 @@ struct WorkoutTrendChart: View {
 
             Chart {
                 ForEach(chartData) { item in
-                    BarMark(
+                    LineMark(
                         x: .value("日期", item.date, unit: .day),
                         y: .value("时长", item.totalMinutes)
                     )
-                    .foregroundStyle(.blue.gradient)
-                    .cornerRadius(4)
+                    .foregroundStyle(.blue)
+                    .interpolationMethod(.catmullRom)
+                    .symbol(Circle().strokeBorder(lineWidth: 1.5))
                 }
 
                 if averageMinutes > 0 {

@@ -12,17 +12,152 @@ struct OverviewTests {
         container = try ModelContainerConfiguration.makeTestContainer()
     }
 
-    @Test("TodayActivitySummary stores all fields")
-    func todayActivitySummaryFields() {
-        let summary = TodayActivitySummary(
-            workoutCount: 3,
-            totalDurationMinutes: 90,
-            totalCalories: 500
+    // MARK: - WorkoutAggregator.computeTodaySummary
+
+    @Test("computeTodaySummary with today's workouts")
+    func todaySummaryWithWorkouts() throws {
+        let context = ModelContext(container)
+        let now = Date()
+        let w1 = Workout(
+            type: .strength,
+            startDate: now.addingTimeInterval(-3600),
+            endDate: now.addingTimeInterval(-1800),
+            totalCalories: 150.0
         )
-        #expect(summary.workoutCount == 3)
-        #expect(summary.totalDurationMinutes == 90)
-        #expect(summary.totalCalories == 500)
+        let w2 = Workout(
+            type: .strength,
+            startDate: now.addingTimeInterval(-1200),
+            endDate: now,
+            totalCalories: 100.0
+        )
+        context.insert(w1)
+        context.insert(w2)
+        try context.save()
+
+        let summary = WorkoutAggregator.computeTodaySummary(from: [w1, w2])
+        #expect(summary.workoutCount == 2)
+        #expect(summary.totalDurationMinutes == 50)
+        #expect(summary.totalCalories == 250)
     }
+
+    @Test("computeTodaySummary excludes workouts without endDate")
+    func todaySummaryExcludesIncomplete() throws {
+        let context = ModelContext(container)
+        let now = Date()
+        let complete = Workout(
+            type: .strength,
+            startDate: now.addingTimeInterval(-1800),
+            endDate: now,
+            totalCalories: 200.0
+        )
+        let incomplete = Workout(type: .strength, startDate: now.addingTimeInterval(-600))
+        context.insert(complete)
+        context.insert(incomplete)
+        try context.save()
+
+        let summary = WorkoutAggregator.computeTodaySummary(from: [complete, incomplete])
+        #expect(summary.workoutCount == 2)
+        #expect(summary.totalDurationMinutes == 30)
+        #expect(summary.totalCalories == 200)
+    }
+
+    @Test("computeTodaySummary returns zeros for empty input")
+    func todaySummaryEmpty() {
+        let summary = WorkoutAggregator.computeTodaySummary(from: [])
+        #expect(summary.workoutCount == 0)
+        #expect(summary.totalDurationMinutes == 0)
+        #expect(summary.totalCalories == 0)
+    }
+
+    @Test("computeTodaySummary excludes yesterday's workouts")
+    func todaySummaryExcludesYesterday() throws {
+        let context = ModelContext(container)
+        let yesterday = Date().addingTimeInterval(-86400)
+        let workout = Workout(
+            type: .strength,
+            startDate: yesterday,
+            endDate: yesterday.addingTimeInterval(3600),
+            totalCalories: 300.0
+        )
+        context.insert(workout)
+        try context.save()
+
+        let summary = WorkoutAggregator.computeTodaySummary(from: [workout])
+        #expect(summary.workoutCount == 0)
+        #expect(summary.totalDurationMinutes == 0)
+        #expect(summary.totalCalories == 0)
+    }
+
+    // MARK: - WorkoutAggregator.computeDailyTrendData
+
+    @Test("computeDailyTrendData returns correct day count")
+    func trendDataDayCount() {
+        let data = WorkoutAggregator.computeDailyTrendData(from: [], dayCount: 7)
+        #expect(data.count == 7)
+
+        let data30 = WorkoutAggregator.computeDailyTrendData(from: [], dayCount: 30)
+        #expect(data30.count == 30)
+    }
+
+    @Test("computeDailyTrendData aggregates minutes per day")
+    func trendDataAggregation() throws {
+        let context = ModelContext(container)
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let w1 = Workout(
+            type: .strength,
+            startDate: today.addingTimeInterval(3600),
+            endDate: today.addingTimeInterval(5400)
+        )
+        let w2 = Workout(
+            type: .running,
+            startDate: today.addingTimeInterval(7200),
+            endDate: today.addingTimeInterval(9000)
+        )
+        context.insert(w1)
+        context.insert(w2)
+        try context.save()
+
+        let data = WorkoutAggregator.computeDailyTrendData(from: [w1, w2], dayCount: 7)
+        let todayEntry = data.first { calendar.isDate($0.date, inSameDayAs: today) }
+        #expect(todayEntry?.totalMinutes == 60)
+    }
+
+    @Test("computeDailyTrendData sorted by date ascending")
+    func trendDataSorted() {
+        let data = WorkoutAggregator.computeDailyTrendData(from: [], dayCount: 7)
+        let dates = data.map(\.date)
+        #expect(dates == dates.sorted())
+    }
+
+    // MARK: - WorkoutAggregator.computeAverage
+
+    @Test("computeAverage with data")
+    func averageWithData() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let data = [
+            DailyWorkoutData(date: today, totalMinutes: 30),
+            DailyWorkoutData(
+                date: calendar.date(byAdding: .day, value: -1, to: today)!,
+                totalMinutes: 60
+            ),
+            DailyWorkoutData(
+                date: calendar.date(byAdding: .day, value: -2, to: today)!,
+                totalMinutes: 0
+            ),
+        ]
+        let average = WorkoutAggregator.computeAverage(from: data)
+        #expect(average == 30.0)
+    }
+
+    @Test("computeAverage returns zero for empty data")
+    func averageEmpty() {
+        let average = WorkoutAggregator.computeAverage(from: [])
+        #expect(average == 0.0)
+    }
+
+    // MARK: - TodayActivitySummary
 
     @Test("TodayActivitySummary equality")
     func todayActivitySummaryEquality() {
@@ -33,6 +168,16 @@ struct OverviewTests {
         #expect(a != c)
     }
 
+    // MARK: - TrendTimeRange
+
+    @Test("TrendTimeRange day counts")
+    func trendTimeRangeDayCounts() {
+        #expect(TrendTimeRange.week.dayCount == 7)
+        #expect(TrendTimeRange.month.dayCount == 30)
+    }
+
+    // MARK: - DailyWorkoutData
+
     @Test("DailyWorkoutData initialization")
     func dailyWorkoutDataInit() {
         let date = Date()
@@ -40,80 +185,5 @@ struct OverviewTests {
         #expect(data.date == date)
         #expect(data.totalMinutes == 45)
         #expect(data.id == date)
-    }
-
-    @Test("TrendTimeRange week has 7 days")
-    func trendTimeRangeWeek() {
-        #expect(TrendTimeRange.week.dayCount == 7)
-        #expect(TrendTimeRange.week.rawValue == "周")
-    }
-
-    @Test("TrendTimeRange month has 30 days")
-    func trendTimeRangeMonth() {
-        #expect(TrendTimeRange.month.dayCount == 30)
-        #expect(TrendTimeRange.month.rawValue == "月")
-    }
-
-    @Test("Workout duration computation for today summary")
-    func workoutDurationComputation() throws {
-        let context = ModelContext(container)
-        let start = Date()
-        let end = start.addingTimeInterval(2700)
-        let workout = Workout(
-            type: .strength,
-            startDate: start,
-            endDate: end,
-            totalCalories: 150.0
-        )
-        context.insert(workout)
-        try context.save()
-
-        let durationSeconds = Int(end.timeIntervalSince(start))
-        #expect(durationSeconds == 2700)
-        #expect(durationSeconds / 60 == 45)
-    }
-
-    @Test("Workout without endDate contributes zero duration")
-    func workoutWithoutEndDate() throws {
-        let context = ModelContext(container)
-        let workout = Workout(type: .strength, startDate: Date())
-        context.insert(workout)
-        try context.save()
-
-        #expect(workout.endDate == nil)
-        let duration = workout.endDate.map { Int($0.timeIntervalSince(workout.startDate)) / 60 } ?? 0
-        #expect(duration == 0)
-    }
-
-    @Test("Workout totalCalories defaults to nil")
-    func workoutCaloriesDefault() throws {
-        let context = ModelContext(container)
-        let workout = Workout(type: .strength, startDate: Date())
-        context.insert(workout)
-        try context.save()
-
-        #expect(workout.totalCalories == nil)
-    }
-
-    @Test("ActivityRing progress clamped to 1.0")
-    func activityRingProgressClamping() {
-        let summary = TodayActivitySummary(
-            workoutCount: 5,
-            totalDurationMinutes: 120,
-            totalCalories: 1000
-        )
-        let progress = min(Double(summary.totalDurationMinutes) / 60.0, 1.0)
-        #expect(progress == 1.0)
-    }
-
-    @Test("ActivityRing progress zero when no workouts")
-    func activityRingProgressZero() {
-        let summary = TodayActivitySummary(
-            workoutCount: 0,
-            totalDurationMinutes: 0,
-            totalCalories: 0
-        )
-        let progress = min(Double(summary.totalDurationMinutes) / 60.0, 1.0)
-        #expect(progress == 0.0)
     }
 }

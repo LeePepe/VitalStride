@@ -110,7 +110,11 @@ struct ActivityRing: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityHidden(true)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("今日活动进度")
+        .accessibilityValue("\(Int(progress * 100))%")
     }
 }
 

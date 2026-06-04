@@ -2,45 +2,73 @@ import SwiftData
 import SwiftUI
 
 struct OverviewView: View {
-    @Query(
-        filter: #Predicate<Workout> { $0.endDate != nil },
-        sort: \Workout.startDate,
-        order: .reverse
-    ) private var completedWorkouts: [Workout]
-
-    private var todaySummary: TodayActivitySummary {
-        let calendar = Calendar.current
-        let todayWorkouts = completedWorkouts.filter {
-            calendar.isDateInToday($0.startDate)
-        }
-        let totalSeconds = todayWorkouts.reduce(0) { total, workout in
-            guard let endDate = workout.endDate else { return total }
-            return total + Int(endDate.timeIntervalSince(workout.startDate))
-        }
-        let totalCalories = todayWorkouts.reduce(0.0) { $0 + ($1.totalCalories ?? 0) }
-        return TodayActivitySummary(
-            workoutCount: todayWorkouts.count,
-            totalDurationMinutes: totalSeconds / 60,
-            totalCalories: Int(totalCalories)
-        )
-    }
-
-    private var recentWorkouts: [Workout] {
-        Array(completedWorkouts.prefix(5))
-    }
-
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    ActivitySummaryCard(summary: todaySummary)
-                    RecentWorkoutsSection(workouts: recentWorkouts)
-                    WorkoutTrendChart(workouts: completedWorkouts)
+                    OverviewTodaySummary()
+                    OverviewRecentWorkouts()
+                    OverviewTrendSection()
                 }
                 .padding()
             }
             .navigationTitle("概览")
         }
+    }
+}
+
+private struct OverviewTodaySummary: View {
+    @Query private var todayWorkouts: [Workout]
+
+    init() {
+        let startOfDay = Calendar.current.startOfDay(for: Date())
+        _todayWorkouts = Query(
+            filter: #Predicate<Workout> { workout in
+                workout.startDate >= startOfDay && workout.endDate != nil
+            },
+            sort: \Workout.startDate
+        )
+    }
+
+    var body: some View {
+        ActivitySummaryCard(
+            summary: WorkoutAggregator.computeTodaySummary(from: todayWorkouts)
+        )
+    }
+}
+
+private struct OverviewRecentWorkouts: View {
+    @Query(
+        filter: #Predicate<Workout> { $0.endDate != nil },
+        sort: \Workout.startDate,
+        order: .reverse
+    ) private var recentWorkouts: [Workout]
+
+    var body: some View {
+        RecentWorkoutsSection(workouts: Array(recentWorkouts.prefix(5)))
+    }
+}
+
+private struct OverviewTrendSection: View {
+    @Query private var trendWorkouts: [Workout]
+
+    init() {
+        let calendar = Calendar.current
+        let rangeStart = calendar.date(
+            byAdding: .day,
+            value: -30,
+            to: calendar.startOfDay(for: Date())
+        ) ?? Date()
+        _trendWorkouts = Query(
+            filter: #Predicate<Workout> { workout in
+                workout.startDate >= rangeStart && workout.endDate != nil
+            },
+            sort: \Workout.startDate
+        )
+    }
+
+    var body: some View {
+        WorkoutTrendChart(workouts: trendWorkouts)
     }
 }
 
