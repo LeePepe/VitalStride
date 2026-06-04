@@ -236,6 +236,7 @@ private struct ActiveExerciseSection: View {
     let workoutExercise: WorkoutExercise
     let onSetCompleted: () -> Void
     @Environment(\.modelContext) private var modelContext
+    @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     @State private var weightText = ""
     @State private var repsText = ""
     @State private var setType: SetType = .working
@@ -251,7 +252,7 @@ private struct ActiveExerciseSection: View {
                     Text("第 \(index + 1) 组")
                         .foregroundStyle(.secondary)
                         .frame(width: 60, alignment: .leading)
-                    Text("\(exerciseSet.weight, specifier: "%.1f") kg")
+                    Text("\(displayWeight(exerciseSet.weight), specifier: "%.1f") \(weightUnit.rawValue)")
                     Text("×")
                         .foregroundStyle(.secondary)
                     Text("\(exerciseSet.reps) 次")
@@ -274,7 +275,7 @@ private struct ActiveExerciseSection: View {
 
     private var setInputRow: some View {
         HStack(spacing: 8) {
-            TextField("kg", text: $weightText)
+            TextField(weightUnit.rawValue, text: $weightText)
                 .keyboardType(.decimalPad)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 70)
@@ -310,12 +311,17 @@ private struct ActiveExerciseSection: View {
               let reps = Int(repsText),
               weight.isFinite, weight >= 0,
               reps > 0 else { return }
+        let storageWeight = weightUnit == .lb ? weight / 2.20462 : weight
         let order = workoutExercise.sets?.count ?? 0
-        let newSet = ExerciseSet(order: order, weight: weight, reps: reps, setType: setType)
+        let newSet = ExerciseSet(order: order, weight: storageWeight, reps: reps, setType: setType)
         newSet.workoutExercise = workoutExercise
         modelContext.insert(newSet)
         repsText = ""
         onSetCompleted()
+    }
+
+    private func displayWeight(_ kgValue: Double) -> Double {
+        weightUnit == .lb ? kgValue * 2.20462 : kgValue
     }
 }
 

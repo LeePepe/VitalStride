@@ -24,7 +24,7 @@ struct ContentView: View {
             .accessibilityLabel("AI 助手")
 
             Tab("设置", systemImage: "gearshape.fill") {
-                SettingsPlaceholder()
+                SettingsView()
             }
             .accessibilityLabel("设置")
         }
