@@ -28,3 +28,17 @@ final class Workout {
         self.exercises = exercises
     }
 }
+
+// MARK: - Calculation Helpers
+
+extension Workout {
+    var overallWorkingVolume: Double {
+        (exercises ?? []).reduce(0.0) { $0 + $1.workingVolume }
+    }
+
+    var hasWorkingSets: Bool {
+        (exercises ?? []).contains { exercise in
+            (exercise.sets ?? []).contains { $0.setType == .working }
+        }
+    }
+}

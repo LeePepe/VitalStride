@@ -107,13 +107,13 @@ struct WorkoutListView: View {
     }
 
     private func deleteWorkout(_ workout: Workout) {
-        logger.info("Deleting workout source=\(workout.source.rawValue, privacy: .public)")
+        logger.info("Deleting workout source=\(workout.source.rawValue, privacy: .private)")
         modelContext.delete(workout)
         do {
             try modelContext.save()
             workoutToDelete = nil
         } catch {
-            logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .private)")
             modelContext.rollback()
             workoutToDelete = nil
             showingDeleteError = true

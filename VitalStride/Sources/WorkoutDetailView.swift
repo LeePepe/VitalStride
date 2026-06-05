@@ -164,44 +164,15 @@ struct WorkoutDetailView: View {
     }
 
     private func deleteWorkout() {
-        logger.info("Deleting workout from detail source=\(workout.source.rawValue, privacy: .public)")
+        logger.info("Deleting workout from detail source=\(workout.source.rawValue, privacy: .private)")
         modelContext.delete(workout)
         do {
             try modelContext.save()
             dismiss()
         } catch {
-            logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .private)")
             modelContext.rollback()
             showingDeleteError = true
-        }
-    }
-}
-
-// MARK: - Workout Calculation Helpers
-
-extension WorkoutExercise {
-    var totalSetsCount: Int {
-        sets?.count ?? 0
-    }
-
-    var totalRepsCount: Int {
-        (sets ?? []).reduce(0) { $0 + $1.reps }
-    }
-
-    var workingVolume: Double {
-        (sets ?? []).filter { $0.setType == .working }
-            .reduce(0.0) { $0 + $1.weight * Double($1.reps) }
-    }
-}
-
-extension Workout {
-    var overallWorkingVolume: Double {
-        (exercises ?? []).reduce(0.0) { $0 + $1.workingVolume }
-    }
-
-    var hasWorkingSets: Bool {
-        (exercises ?? []).contains { exercise in
-            (exercise.sets ?? []).contains { $0.setType == .working }
         }
     }
 }
