@@ -14,9 +14,11 @@ enum ModelContainerConfiguration {
 
     static func makeContainer() throws -> ModelContainer {
         let schema = Schema(allModelTypes)
-        let configuration = ModelConfiguration(
-            cloudKitDatabase: .private(cloudKitContainerIdentifier)
-        )
+        // TODO: Re-enable CloudKit when paid Apple Developer account is active
+        // let configuration = ModelConfiguration(
+        //     cloudKitDatabase: .private(cloudKitContainerIdentifier)
+        // )
+        let configuration = ModelConfiguration()
         return try ModelContainer(for: schema, configurations: [configuration])
     }
 

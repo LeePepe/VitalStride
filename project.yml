@@ -32,10 +32,11 @@ targets:
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
-        com.apple.developer.icloud-container-identifiers:
-          - iCloud.com.leepepe.VitalStride
-        com.apple.developer.icloud-services:
-          - CloudKit
+        # TODO: Re-enable when paid Apple Developer account is active
+        # com.apple.developer.icloud-container-identifiers:
+        #   - iCloud.com.leepepe.VitalStride
+        # com.apple.developer.icloud-services:
+        #   - CloudKit
     sources:
       - path: VitalStride
         excludes:
@@ -78,10 +79,11 @@ targets:
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
-        com.apple.developer.icloud-container-identifiers:
-          - iCloud.com.leepepe.VitalStride
-        com.apple.developer.icloud-services:
-          - CloudKit
+        # TODO: Re-enable when paid Apple Developer account is active
+        # com.apple.developer.icloud-container-identifiers:
+        #   - iCloud.com.leepepe.VitalStride
+        # com.apple.developer.icloud-services:
+        #   - CloudKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vitalstride.mac
@@ -116,10 +118,11 @@ targets:
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
-        com.apple.developer.icloud-container-identifiers:
-          - iCloud.com.leepepe.VitalStride
-        com.apple.developer.icloud-services:
-          - CloudKit
+        # TODO: Re-enable when paid Apple Developer account is active
+        # com.apple.developer.icloud-container-identifiers:
+        #   - iCloud.com.leepepe.VitalStride
+        # com.apple.developer.icloud-services:
+        #   - CloudKit
     sources:
       - path: "VitalStrideWatch Watch App"
         excludes:
