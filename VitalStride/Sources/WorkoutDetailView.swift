@@ -108,6 +108,7 @@ struct WorkoutDetailView: View {
                             }
                         }
                         .accessibilityElement(children: .combine)
+                        .accessibilityLabel(exerciseSubtotalA11yLabel(workoutExercise))
                     }
                 }
             }
@@ -137,6 +138,16 @@ struct WorkoutDetailView: View {
         } message: {
             Text(String(localized: "确定删除这次训练？", comment: "Delete confirmation message"))
         }
+    }
+
+    private func exerciseSubtotalA11yLabel(_ exercise: WorkoutExercise) -> String {
+        var parts: [String] = []
+        parts.append(String(localized: "总组数", comment: "Per-exercise total sets a11y") + " \(exercise.totalSetsCount) " + String(localized: "组", comment: "Sets unit a11y"))
+        parts.append(String(localized: "总次数", comment: "Per-exercise total reps a11y") + " \(exercise.totalRepsCount) " + String(localized: "次", comment: "Reps unit a11y"))
+        if exercise.workingVolume > 0 {
+            parts.append(String(localized: "总训练量", comment: "Per-exercise total volume a11y") + " \(Int(displayWeight(exercise.workingVolume))) \(weightUnit.a11yName)")
+        }
+        return parts.joined(separator: "，")
     }
 
     private func displayWeight(_ kgValue: Double) -> Double {
