@@ -22,6 +22,7 @@ struct WorkoutListView: View {
     @State private var showingActiveWorkout = false
     @State private var pendingSource: WorkoutStartSource?
     @State private var workoutToDelete: Workout?
+    @State private var showingDeleteError = false
 
     var body: some View {
         NavigationStack {
@@ -79,6 +80,14 @@ struct WorkoutListView: View {
             } message: {
                 Text(String(localized: "确定删除这次训练？", comment: "Delete confirmation message"))
             }
+            .alert(
+                String(localized: "删除失败", comment: "Delete failure alert title"),
+                isPresented: $showingDeleteError
+            ) {
+                Button(String(localized: "好", comment: "OK button")) {}
+            } message: {
+                Text(String(localized: "无法删除训练记录，请稍后重试。", comment: "Delete failure message"))
+            }
             .sheet(isPresented: $showingStartOptions, onDismiss: {
                 if pendingSource != nil {
                     showingActiveWorkout = true
@@ -100,8 +109,15 @@ struct WorkoutListView: View {
     private func deleteWorkout(_ workout: Workout) {
         logger.info("Deleting workout source=\(workout.source.rawValue, privacy: .public)")
         modelContext.delete(workout)
-        try? modelContext.save()
-        workoutToDelete = nil
+        do {
+            try modelContext.save()
+            workoutToDelete = nil
+        } catch {
+            logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .public)")
+            modelContext.rollback()
+            workoutToDelete = nil
+            showingDeleteError = true
+        }
     }
 }
 

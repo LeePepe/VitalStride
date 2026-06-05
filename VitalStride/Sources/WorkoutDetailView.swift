@@ -10,6 +10,7 @@ struct WorkoutDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     @State private var showingDeleteAlert = false
+    @State private var showingDeleteError = false
 
     private var sortedExercises: [WorkoutExercise] {
         (workout.exercises ?? []).sorted { $0.order < $1.order }
@@ -138,6 +139,14 @@ struct WorkoutDetailView: View {
         } message: {
             Text(String(localized: "确定删除这次训练？", comment: "Delete confirmation message"))
         }
+        .alert(
+            String(localized: "删除失败", comment: "Delete failure alert title"),
+            isPresented: $showingDeleteError
+        ) {
+            Button(String(localized: "好", comment: "OK button")) {}
+        } message: {
+            Text(String(localized: "无法删除训练记录，请稍后重试。", comment: "Delete failure message"))
+        }
     }
 
     private func exerciseSubtotalA11yLabel(_ exercise: WorkoutExercise) -> String {
@@ -157,8 +166,14 @@ struct WorkoutDetailView: View {
     private func deleteWorkout() {
         logger.info("Deleting workout from detail source=\(workout.source.rawValue, privacy: .public)")
         modelContext.delete(workout)
-        try? modelContext.save()
-        dismiss()
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .public)")
+            modelContext.rollback()
+            showingDeleteError = true
+        }
     }
 }
 
