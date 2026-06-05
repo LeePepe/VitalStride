@@ -38,6 +38,7 @@
 		48EC90971F593AE654DBB08A /* HealthKitAnchorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B03FA06B6A9689851063A97 /* HealthKitAnchorStore.swift */; };
 		52C71AA40F31A5574D3CBFEC /* HealthKitServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97AABE49D975C1A283CCD79 /* HealthKitServiceTests.swift */; };
 		55577BEA685D421C9E6228CC /* WorkoutTrendChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = D65B3BF6E9968F7D07CB9E8C /* WorkoutTrendChart.swift */; };
+		56C51E23EE54414EB853FC8D /* UnitPreferencesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19AC4D8E93A529FDA6AA3F7 /* UnitPreferencesSection.swift */; };
 		57982ADD6D57B3B6DE630D06 /* Equipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D600C48BB20A7020A162B2 /* Equipment.swift */; };
 		5C2F14BD585175EA3F92A35E /* PlaceholderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50CB5BB1779B8A7CF53E598 /* PlaceholderViews.swift */; };
 		5DA7767D9FE78E3D44EFD2CD /* StepsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1023DE772B441A49A3161D1 /* StepsSection.swift */; };
@@ -635,6 +636,7 @@
 				5DA7767D9FE78E3D44EFD2CD /* StepsSection.swift in Sources */,
 				458D06CA45AB46B8022D52D3 /* TemplateExercise.swift in Sources */,
 				3DB7DFE68717DAED00E2DB40 /* TimeRange.swift in Sources */,
+				56C51E23EE54414EB853FC8D /* UnitPreferencesSection.swift in Sources */,
 				A9EFB85A810FDA7E5BF3BD57 /* VitalStrideMacApp.swift in Sources */,
 				6113F4812B6006315FB791EF /* Workout.swift in Sources */,
 				991E7098402A03B81AC72803 /* WorkoutExercise.swift in Sources */,
@@ -1038,6 +1040,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health data (heart rate, steps, sleep, activity energy) to display training history and activity summaries.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1059,6 +1062,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health data (heart rate, steps, sleep, activity energy) to display training history and activity summaries.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

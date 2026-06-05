@@ -97,6 +97,7 @@ enum EnergyAggregator {
 struct ActiveEnergySection: View {
     let range: TimeRange
 
+    @AppStorage("energyUnit") private var energyUnit: EnergyUnit = .kcal
     @State private var dailyData: [DailyEnergyData] = []
     @State private var statistics: EnergyStatistics = .empty
     @State private var selectedDate: Date?
@@ -104,6 +105,10 @@ struct ActiveEnergySection: View {
     @State private var errorMessage: String?
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveEnergySection")
+
+    private func displayValue(_ kcal: Double) -> Int {
+        Int(energyUnit.convert(fromKcal: kcal).rounded())
+    }
 
     var body: some View {
         DataSectionCard(
@@ -152,11 +157,8 @@ struct ActiveEnergySection: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(
-                    "\(Int(day.totalEnergy.rounded()).formatted(.number)) "
-                        + String(localized: "kcal", comment: "Kilocalorie unit")
-                )
-                .font(.caption.weight(.semibold))
+                Text("\(displayValue(day.totalEnergy).formatted(.number)) \(energyUnit.abbreviation)")
+                    .font(.caption.weight(.semibold))
             }
             .accessibilityElement(children: .combine)
         }
@@ -173,7 +175,7 @@ struct ActiveEnergySection: View {
                     ),
                     y: .value(
                         String(localized: "能量", comment: "Energy axis"),
-                        item.totalEnergy
+                        energyUnit.convert(fromKcal: item.totalEnergy)
                     )
                 )
                 .foregroundStyle(.orange.gradient)
@@ -185,8 +187,8 @@ struct ActiveEnergySection: View {
         .chartYAxis {
             AxisMarks { value in
                 AxisValueLabel {
-                    if let kcal = value.as(Int.self) {
-                        Text(kcal.formatted(.number.notation(.compactName)))
+                    if let v = value.as(Int.self) {
+                        Text(v.formatted(.number.notation(.compactName)))
                     }
                 }
                 AxisGridLine()
@@ -227,17 +229,17 @@ struct ActiveEnergySection: View {
         HStack(spacing: 0) {
             statisticItem(
                 label: String(localized: "日均", comment: "Daily average"),
-                value: Int(statistics.dailyAverage.rounded())
+                value: displayValue(statistics.dailyAverage)
             )
             Spacer()
             statisticItem(
                 label: String(localized: "最高", comment: "Maximum single day"),
-                value: Int(statistics.maxSingleDay.rounded())
+                value: displayValue(statistics.maxSingleDay)
             )
             Spacer()
             statisticItem(
                 label: String(localized: "总计", comment: "Total energy"),
-                value: Int(statistics.totalEnergy.rounded())
+                value: displayValue(statistics.totalEnergy)
             )
         }
     }
@@ -250,7 +252,7 @@ struct ActiveEnergySection: View {
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value.formatted(.number))
                     .font(.subheadline.weight(.medium))
-                Text(String(localized: "kcal", comment: "Kilocalorie"))
+                Text(energyUnit.abbreviation)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -259,15 +261,20 @@ struct ActiveEnergySection: View {
     }
 
     private var chartAccessibilityValue: String {
+        let unitName = energyUnit.accessibilityName
         if let selectedDate,
            let day = dailyData.first(where: { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }) {
+            let formatted = displayValue(day.totalEnergy).formatted(.number)
             return String(
-                localized: "\(day.date.formatted(.dateTime.month().day())) \(Int(day.totalEnergy.rounded()).formatted(.number)) 千卡",
+                localized: "\(day.date.formatted(.dateTime.month().day())) \(formatted) \(unitName)",
                 comment: "Selected day a11y value"
             )
         }
+        let avg = displayValue(statistics.dailyAverage).formatted(.number)
+        let max = displayValue(statistics.maxSingleDay).formatted(.number)
+        let total = displayValue(statistics.totalEnergy).formatted(.number)
         return String(
-            localized: "日均 \(Int(statistics.dailyAverage.rounded()).formatted(.number)) 千卡，最高 \(Int(statistics.maxSingleDay.rounded()).formatted(.number)) 千卡，总计 \(Int(statistics.totalEnergy.rounded()).formatted(.number)) 千卡",
+            localized: "日均 \(avg) \(unitName)，最高 \(max) \(unitName)，总计 \(total) \(unitName)",
             comment: "Energy stats a11y summary"
         )
     }
@@ -318,8 +325,13 @@ struct ActiveEnergyDetailView: View {
     let dailyData: [DailyEnergyData]
     let statistics: EnergyStatistics
 
+    @AppStorage("energyUnit") private var energyUnit: EnergyUnit = .kcal
     @State private var selectedDate: Date?
     private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveEnergySection")
+
+    private func displayValue(_ kcal: Double) -> Int {
+        Int(energyUnit.convert(fromKcal: kcal).rounded())
+    }
 
     var body: some View {
         List {
@@ -332,17 +344,17 @@ struct ActiveEnergyDetailView: View {
             Section {
                 statisticRow(
                     label: String(localized: "日均", comment: "Daily average"),
-                    value: Int(statistics.dailyAverage.rounded()),
+                    value: displayValue(statistics.dailyAverage),
                     image: "chart.bar"
                 )
                 statisticRow(
                     label: String(localized: "最高", comment: "Maximum single day"),
-                    value: Int(statistics.maxSingleDay.rounded()),
+                    value: displayValue(statistics.maxSingleDay),
                     image: "arrow.up"
                 )
                 statisticRow(
                     label: String(localized: "总计", comment: "Total energy"),
-                    value: Int(statistics.totalEnergy.rounded()),
+                    value: displayValue(statistics.totalEnergy),
                     image: "sum"
                 )
             }
@@ -352,16 +364,12 @@ struct ActiveEnergyDetailView: View {
                     HStack {
                         Text(item.date, format: .dateTime.month().day().weekday())
                         Spacer()
-                        Text(
-                            "\(Int(item.totalEnergy.rounded()).formatted(.number)) "
-                                + String(localized: "kcal", comment: "Kilocalorie")
-                        )
-                        .foregroundStyle(.secondary)
+                        Text("\(displayValue(item.totalEnergy).formatted(.number)) \(energyUnit.abbreviation)")
+                            .foregroundStyle(.secondary)
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(
-                        "\(item.date.formatted(.dateTime.month().day())) \(Int(item.totalEnergy.rounded()).formatted(.number)) "
-                            + String(localized: "千卡", comment: "Kilocalorie a11y")
+                        "\(item.date.formatted(.dateTime.month().day())) \(displayValue(item.totalEnergy).formatted(.number)) \(energyUnit.accessibilityName)"
                     )
                 }
             } header: {
@@ -386,11 +394,8 @@ struct ActiveEnergyDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text(
-                        "\(Int(day.totalEnergy.rounded()).formatted(.number)) "
-                            + String(localized: "kcal", comment: "Kilocalorie")
-                    )
-                    .font(.subheadline.weight(.semibold))
+                    Text("\(displayValue(day.totalEnergy).formatted(.number)) \(energyUnit.abbreviation)")
+                        .font(.subheadline.weight(.semibold))
                 }
             }
 
@@ -404,7 +409,7 @@ struct ActiveEnergyDetailView: View {
                         ),
                         y: .value(
                             String(localized: "能量", comment: "Energy axis"),
-                            item.totalEnergy
+                            energyUnit.convert(fromKcal: item.totalEnergy)
                         )
                     )
                     .foregroundStyle(.orange.gradient)
@@ -421,8 +426,8 @@ struct ActiveEnergyDetailView: View {
             .chartYAxis {
                 AxisMarks { value in
                     AxisValueLabel {
-                        if let kcal = value.as(Int.self) {
-                            Text(kcal.formatted(.number.notation(.compactName)))
+                        if let v = value.as(Int.self) {
+                            Text(v.formatted(.number.notation(.compactName)))
                         }
                     }
                     AxisGridLine()
@@ -430,15 +435,35 @@ struct ActiveEnergyDetailView: View {
             }
             .frame(height: 250)
             .accessibilityLabel(String(localized: "每日活动能量图", comment: "Energy chart a11y"))
+            .accessibilityValue(detailChartAccessibilityValue)
         }
         .padding()
+    }
+
+    private var detailChartAccessibilityValue: String {
+        let unitName = energyUnit.accessibilityName
+        if let selectedDate,
+           let day = dailyData.first(where: { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }) {
+            let formatted = displayValue(day.totalEnergy).formatted(.number)
+            return String(
+                localized: "\(day.date.formatted(.dateTime.month().day())) \(formatted) \(unitName)",
+                comment: "Detail selected day a11y value"
+            )
+        }
+        let avg = displayValue(statistics.dailyAverage).formatted(.number)
+        let max = displayValue(statistics.maxSingleDay).formatted(.number)
+        let total = displayValue(statistics.totalEnergy).formatted(.number)
+        return String(
+            localized: "日均 \(avg) \(unitName)，最高 \(max) \(unitName)，总计 \(total) \(unitName)",
+            comment: "Detail energy stats a11y summary"
+        )
     }
 
     private func statisticRow(label: String, value: Int, image: String) -> some View {
         HStack {
             Label(label, systemImage: image)
             Spacer()
-            Text("\(value.formatted(.number)) " + String(localized: "kcal", comment: "Kilocalorie"))
+            Text("\(value.formatted(.number)) \(energyUnit.abbreviation)")
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)

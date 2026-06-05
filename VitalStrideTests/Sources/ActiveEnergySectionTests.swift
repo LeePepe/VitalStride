@@ -242,3 +242,37 @@ struct EnergyModelTests {
         #expect(a == b)
     }
 }
+
+// MARK: - EnergyUnit Conversion Tests
+
+@Suite("EnergyUnit — conversion")
+struct EnergyUnitConversionTests {
+    @Test("kcal returns same value")
+    func kcalIdentity() {
+        let result = EnergyUnit.kcal.convert(fromKcal: 500.0)
+        #expect(result == 500.0)
+    }
+
+    @Test("kJ converts with 4.184 factor")
+    func kJConversion() {
+        let result = EnergyUnit.kJ.convert(fromKcal: 100.0)
+        #expect(abs(result - 418.4) < 0.01)
+    }
+
+    @Test("kJ converts zero correctly")
+    func kJZero() {
+        let result = EnergyUnit.kJ.convert(fromKcal: 0.0)
+        #expect(result == 0.0)
+    }
+
+    @Test("kJ conversion factor is 4.184")
+    func conversionFactor() {
+        #expect(EnergyUnit.kcalToKJFactor == 4.184)
+    }
+
+    @Test("abbreviation returns correct unit string")
+    func abbreviations() {
+        #expect(EnergyUnit.kcal.abbreviation == "kcal")
+        #expect(EnergyUnit.kJ.abbreviation == "kJ")
+    }
+}
