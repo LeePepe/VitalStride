@@ -1,9 +1,14 @@
 import HealthKit
 import SwiftUI
 
+extension Notification.Name {
+    static let healthKitAuthorizationChanged = Notification.Name("healthKitAuthorizationChanged")
+}
+
 struct HealthKitPermissionSection: View {
     @State private var authorizationStatus: HKAuthorizationRequestStatus?
     @State private var isLoading = true
+    @State private var isRequesting = false
 
     private let healthStore = HKHealthStore()
 
@@ -40,6 +45,21 @@ struct HealthKitPermissionSection: View {
                     Text(statusText)
                         .foregroundStyle(statusColor)
                 }
+            }
+
+            if authorizationStatus == .shouldRequest {
+                Button {
+                    Task { await requestAuthorization() }
+                } label: {
+                    HStack {
+                        Label("请求授权", systemImage: "checkmark.shield")
+                        Spacer()
+                        if isRequesting {
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(isRequesting)
             }
 
             Button {
@@ -104,6 +124,20 @@ struct HealthKitPermissionSection: View {
             authorizationStatus = .unknown
         }
         isLoading = false
+    }
+
+    private func requestAuthorization() async {
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+        isRequesting = true
+        do {
+            try await healthStore.requestAuthorization(
+                toShare: Self.shareTypes,
+                read: Self.readTypes
+            )
+        } catch {}
+        await checkAuthorization()
+        isRequesting = false
+        NotificationCenter.default.post(name: .healthKitAuthorizationChanged, object: nil)
     }
 
     private func openHealthSettings() {

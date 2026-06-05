@@ -4,17 +4,51 @@ import os
 // MARK: - DataView
 
 struct DataView: View {
+    @State private var authCompleted = false
+    @State private var dataRefreshToken = UUID()
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         NavigationStack {
             List {
-                summarySection
-                activitySection
-                heartSection
-                bodySection
-                sleepSection
+                if authCompleted {
+                    summarySection
+                    activitySection
+                    heartSection
+                    bodySection
+                    sleepSection
+                } else {
+                    Section {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
+                    }
+                }
             }
+            .id(dataRefreshToken)
             .navigationTitle(String(localized: "数据", comment: "Data tab title"))
+            .task {
+                await ensureAuthorization()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .healthKitAuthorizationChanged)) { _ in
+                dataRefreshToken = UUID()
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active, authCompleted {
+                    dataRefreshToken = UUID()
+                }
+            }
         }
+    }
+
+    private func ensureAuthorization() async {
+        let service = HealthKitService(deviceIdentifier: "ios-display")
+        do {
+            try await service.requestAuthorization()
+        } catch {}
+        authCompleted = true
     }
 
     private var summarySection: some View {

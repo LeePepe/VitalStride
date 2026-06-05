@@ -477,6 +477,63 @@ struct HealthKitServiceTests {
     }
 }
 
+// MARK: - Authorization Flow Tests
+
+@Suite("HealthKit Authorization Flow Tests")
+struct HealthKitAuthorizationFlowTests {
+    let mockStore: MockHealthStore
+    let service: HealthKitService
+
+    init() {
+        let mock = MockHealthStore()
+        mock.authorizationRequestStatus = .shouldRequest
+        let defaults = makeTestDefaults()
+        let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "authflow")
+        mockStore = mock
+        service = HealthKitService(
+            healthStore: mock,
+            anchorStore: anchors,
+            deviceIdentifier: "test-device"
+        )
+    }
+
+    @Test("requestAuthorization succeeds and enables data fetch")
+    func requestAuthorizationEnablesFetch() async throws {
+        mockStore.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
+            samples: [],
+            deletedObjectUUIDs: [],
+            newAnchor: HKQueryAnchor(fromValue: 1)
+        )
+
+        try await service.requestAuthorization()
+        #expect(mockStore.requestAuthorizationCalled)
+
+        mockStore.authorizationRequestStatus = .unnecessary
+        let result = try await service.fetchData(for: .stepCount)
+        #expect(result.dataPoints.isEmpty)
+    }
+
+    @Test("requestAuthorization is idempotent")
+    func requestAuthorizationIdempotent() async throws {
+        try await service.requestAuthorization()
+        try await service.requestAuthorization()
+        #expect(mockStore.requestAuthorizationCalled)
+    }
+
+    @Test("fetchData fails before authorization is granted")
+    func fetchDataFailsBeforeAuth() async {
+        await #expect(throws: HealthKitServiceError.self) {
+            try await service.fetchData(for: .heartRate)
+        }
+    }
+
+    @Test("Notification name constant is defined")
+    func notificationNameDefined() {
+        let name = Notification.Name.healthKitAuthorizationChanged
+        #expect(name.rawValue == "healthKitAuthorizationChanged")
+    }
+}
+
 // MARK: - SleepStage Tests
 
 @Suite("SleepStage Mapping Tests")
