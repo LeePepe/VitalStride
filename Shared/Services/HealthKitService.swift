@@ -2,6 +2,12 @@ import Foundation
 import HealthKit
 import os
 
+// MARK: - Notifications
+
+extension Notification.Name {
+    static let healthKitAuthorizationChanged = Notification.Name("healthKitAuthorizationChanged")
+}
+
 // MARK: - HealthStore Abstraction
 
 protocol HealthStoreProviding: Sendable {
@@ -98,6 +104,13 @@ final class HealthKitService: Sendable {
             throw HealthKitServiceError.healthDataNotAvailable
         }
         try await healthStore.requestAuthorization(toShare: [], read: Self.readTypes)
+    }
+
+    func authorizationStatus() async throws -> HKAuthorizationRequestStatus {
+        guard type(of: healthStore).isHealthDataAvailable else {
+            throw HealthKitServiceError.healthDataNotAvailable
+        }
+        return try await healthStore.statusForAuthorizationRequest(toShare: [], read: Self.readTypes)
     }
 
     static let defaultFirstSyncWindow: TimeInterval = 30 * 24 * 3600

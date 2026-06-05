@@ -4,17 +4,76 @@ import os
 // MARK: - DataView
 
 struct DataView: View {
+    @State private var needsAuthorization = false
+    @State private var isCheckingAuth = true
+    @State private var authCheckToken = UUID()
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         NavigationStack {
             List {
-                summarySection
-                activitySection
-                heartSection
-                bodySection
-                sleepSection
+                if isCheckingAuth {
+                    Section {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                                .accessibilityLabel(String(localized: "检查 HealthKit 授权状态", comment: "Auth check a11y"))
+                            Spacer()
+                        }
+                    }
+                } else if needsAuthorization {
+                    authorizationCTASection
+                } else {
+                    summarySection
+                    activitySection
+                    heartSection
+                    bodySection
+                    sleepSection
+                }
             }
             .navigationTitle(String(localized: "数据", comment: "Data tab title"))
+            .task(id: authCheckToken) {
+                await checkAuthorizationStatus()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .healthKitAuthorizationChanged)) { _ in
+                authCheckToken = UUID()
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active, !isCheckingAuth {
+                    authCheckToken = UUID()
+                }
+            }
         }
+    }
+
+    private var authorizationCTASection: some View {
+        Section {
+            VStack(spacing: 12) {
+                Image(systemName: "heart.text.square")
+                    .font(.largeTitle)
+                    .foregroundStyle(.secondary)
+                Text("需要 HealthKit 授权")
+                    .font(.headline)
+                Text("请前往设置页面授权访问健康数据，授权后即可查看心率、步数等数据。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func checkAuthorizationStatus() async {
+        let service = HealthKitService(deviceIdentifier: "ios-display")
+        do {
+            let status = try await service.authorizationStatus()
+            needsAuthorization = (status == .shouldRequest)
+        } catch {
+            needsAuthorization = true
+        }
+        isCheckingAuth = false
     }
 
     private var summarySection: some View {
