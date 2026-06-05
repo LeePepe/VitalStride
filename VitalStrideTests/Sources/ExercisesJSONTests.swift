@@ -26,10 +26,10 @@ struct ExercisesJSONTests {
         #expect(!exercises.isEmpty)
     }
 
-    @Test("Contains between 50 and 80 exercises")
+    @Test("Contains between 50 and 120 exercises")
     func totalCountInRange() {
         #expect(exercises.count >= 50, "Expected at least 50 exercises, got \(exercises.count)")
-        #expect(exercises.count <= 80, "Expected at most 80 exercises, got \(exercises.count)")
+        #expect(exercises.count <= 120, "Expected at most 120 exercises, got \(exercises.count)")
     }
 
     @Test("All MuscleGroup enum values are covered with at least 5 exercises each")
