@@ -37,6 +37,14 @@ struct WorkoutDetailView: View {
                 LabeledContent("总组数") {
                     Text("\(totalSets)")
                 }
+                if workout.hasWorkingSets {
+                    LabeledContent(String(localized: "总训练量", comment: "Total training volume in workout summary")) {
+                        Text("\(displayWeight(workout.overallWorkingVolume), specifier: "%.0f") \(weightUnit.rawValue)")
+                    }
+                    .accessibilityLabel(
+                        Text(verbatim: "\(String(localized: "总训练量", comment: "Total volume a11y")) \(Int(displayWeight(workout.overallWorkingVolume))) \(weightUnit.a11yName)")
+                    )
+                }
                 if let calories = workout.totalCalories {
                     LabeledContent("消耗热量") {
                         Text("\(Int(calories)) kcal")
@@ -71,18 +79,35 @@ struct WorkoutDetailView: View {
                                 }
                             }
                         }
-                        let workingSets = sets.filter { $0.setType == .working }
-                        if !workingSets.isEmpty {
-                            let totalVolume = workingSets.reduce(0.0) { $0 + $1.weight * Double($1.reps) }
+                        VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text("总训练量")
+                                Text(String(localized: "总组数", comment: "Per-exercise total sets"))
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                                 Spacer()
-                                Text("\(displayWeight(totalVolume), specifier: "%.0f") \(weightUnit.rawValue)")
+                                Text("\(workoutExercise.totalSetsCount)")
                                     .font(.footnote.bold())
                             }
+                            HStack {
+                                Text(String(localized: "总次数", comment: "Per-exercise total reps"))
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("\(workoutExercise.totalRepsCount)")
+                                    .font(.footnote.bold())
+                            }
+                            if workoutExercise.workingVolume > 0 {
+                                HStack {
+                                    Text(String(localized: "总训练量", comment: "Per-exercise total volume"))
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("\(displayWeight(workoutExercise.workingVolume), specifier: "%.0f") \(weightUnit.rawValue)")
+                                        .font(.footnote.bold())
+                                }
+                            }
                         }
+                        .accessibilityElement(children: .combine)
                     }
                 }
             }
@@ -123,6 +148,35 @@ struct WorkoutDetailView: View {
         modelContext.delete(workout)
         try? modelContext.save()
         dismiss()
+    }
+}
+
+// MARK: - Workout Calculation Helpers
+
+extension WorkoutExercise {
+    var totalSetsCount: Int {
+        sets?.count ?? 0
+    }
+
+    var totalRepsCount: Int {
+        (sets ?? []).reduce(0) { $0 + $1.reps }
+    }
+
+    var workingVolume: Double {
+        (sets ?? []).filter { $0.setType == .working }
+            .reduce(0.0) { $0 + $1.weight * Double($1.reps) }
+    }
+}
+
+extension Workout {
+    var overallWorkingVolume: Double {
+        (exercises ?? []).reduce(0.0) { $0 + $1.workingVolume }
+    }
+
+    var hasWorkingSets: Bool {
+        (exercises ?? []).contains { exercise in
+            (exercise.sets ?? []).contains { $0.setType == .working }
+        }
     }
 }
 
