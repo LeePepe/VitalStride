@@ -1,10 +1,6 @@
 import HealthKit
 import SwiftUI
 
-extension Notification.Name {
-    static let healthKitAuthorizationChanged = Notification.Name("healthKitAuthorizationChanged")
-}
-
 struct HealthKitPermissionSection: View {
     @State private var authorizationStatus: HKAuthorizationRequestStatus?
     @State private var isLoading = true

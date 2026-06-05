@@ -532,6 +532,20 @@ struct HealthKitAuthorizationFlowTests {
         let name = Notification.Name.healthKitAuthorizationChanged
         #expect(name.rawValue == "healthKitAuthorizationChanged")
     }
+
+    @Test("authorizationStatus returns current status from health store")
+    func authorizationStatusReturnsStatus() async throws {
+        mockStore.authorizationRequestStatus = .shouldRequest
+        let status = try await service.authorizationStatus()
+        #expect(status == .shouldRequest)
+    }
+
+    @Test("authorizationStatus returns unnecessary after authorization")
+    func authorizationStatusAfterAuth() async throws {
+        mockStore.authorizationRequestStatus = .unnecessary
+        let status = try await service.authorizationStatus()
+        #expect(status == .unnecessary)
+    }
 }
 
 // MARK: - SleepStage Tests
