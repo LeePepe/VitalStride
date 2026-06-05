@@ -387,6 +387,18 @@ struct SleepChartView: View {
     }
 
     private var chartAccessibilityValue: String {
+        if let selectedNight {
+            let date = selectedNight.date.formatted(.dateTime.month().day())
+            let total = formatDuration(selectedNight.totalSleep)
+            let deep = formatDuration(selectedNight.deep)
+            let core = formatDuration(selectedNight.core)
+            let rem = formatDuration(selectedNight.rem)
+            let awake = formatDuration(selectedNight.awake)
+            return String(
+                localized: "选中\(date)，总睡眠\(total)，深睡\(deep)，浅睡\(core)，REM \(rem)，清醒\(awake)",
+                comment: "Selected night sleep a11y"
+            )
+        }
         guard !nights.isEmpty else {
             return String(localized: "无数据", comment: "No data a11y")
         }
