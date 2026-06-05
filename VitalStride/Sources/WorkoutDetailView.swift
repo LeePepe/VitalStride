@@ -1,9 +1,16 @@
 import SwiftData
 import SwiftUI
+import os
+
+private let logger = Logger(subsystem: "com.vitalstride", category: "WorkoutDetail")
 
 struct WorkoutDetailView: View {
     let workout: Workout
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
+    @State private var showingDeleteAlert = false
+    @State private var showingDeleteError = false
 
     private var sortedExercises: [WorkoutExercise] {
         (workout.exercises ?? []).sorted { $0.order < $1.order }
@@ -30,6 +37,14 @@ struct WorkoutDetailView: View {
                     .reduce(0) { $0 + ($1.sets?.count ?? 0) }
                 LabeledContent("总组数") {
                     Text("\(totalSets)")
+                }
+                if workout.hasWorkingSets {
+                    LabeledContent(String(localized: "总训练量", comment: "Total training volume in workout summary")) {
+                        Text("\(displayWeight(workout.overallWorkingVolume), specifier: "%.0f") \(weightUnit.rawValue)")
+                    }
+                    .accessibilityLabel(
+                        Text(verbatim: "\(String(localized: "总训练量", comment: "Total volume a11y")) \(Int(displayWeight(workout.overallWorkingVolume))) \(weightUnit.a11yName)")
+                    )
                 }
                 if let calories = workout.totalCalories {
                     LabeledContent("消耗热量") {
@@ -65,27 +80,100 @@ struct WorkoutDetailView: View {
                                 }
                             }
                         }
-                        let workingSets = sets.filter { $0.setType == .working }
-                        if !workingSets.isEmpty {
-                            let totalVolume = workingSets.reduce(0.0) { $0 + $1.weight * Double($1.reps) }
+                        VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text("总训练量")
+                                Text(String(localized: "总组数", comment: "Per-exercise total sets"))
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                                 Spacer()
-                                Text("\(displayWeight(totalVolume), specifier: "%.0f") \(weightUnit.rawValue)")
+                                Text("\(workoutExercise.totalSetsCount)")
                                     .font(.footnote.bold())
                             }
+                            HStack {
+                                Text(String(localized: "总次数", comment: "Per-exercise total reps"))
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("\(workoutExercise.totalRepsCount)")
+                                    .font(.footnote.bold())
+                            }
+                            if workoutExercise.workingVolume > 0 {
+                                HStack {
+                                    Text(String(localized: "总训练量", comment: "Per-exercise total volume"))
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("\(displayWeight(workoutExercise.workingVolume), specifier: "%.0f") \(weightUnit.rawValue)")
+                                        .font(.footnote.bold())
+                                }
+                            }
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(exerciseSubtotalA11yLabel(workoutExercise))
                     }
                 }
             }
         }
         .navigationTitle("训练详情")
+        .toolbar {
+            ToolbarItem(placement: .destructiveAction) {
+                Button(role: .destructive) {
+                    showingDeleteAlert = true
+                } label: {
+                    Label(
+                        String(localized: "删除训练", comment: "Delete workout toolbar button"),
+                        systemImage: "trash"
+                    )
+                }
+                .accessibilityLabel(String(localized: "删除训练", comment: "Delete workout a11y"))
+            }
+        }
+        .alert(
+            String(localized: "确认删除", comment: "Delete confirmation alert title"),
+            isPresented: $showingDeleteAlert
+        ) {
+            Button(String(localized: "取消", comment: "Cancel button"), role: .cancel) {}
+            Button(String(localized: "删除", comment: "Delete confirm button"), role: .destructive) {
+                deleteWorkout()
+            }
+        } message: {
+            Text(String(localized: "确定删除这次训练？", comment: "Delete confirmation message"))
+        }
+        .alert(
+            String(localized: "删除失败", comment: "Delete failure alert title"),
+            isPresented: $showingDeleteError
+        ) {
+            Button(String(localized: "好", comment: "OK button")) {}
+        } message: {
+            Text(String(localized: "无法删除训练记录，请稍后重试。", comment: "Delete failure message"))
+        }
+    }
+
+    private func exerciseSubtotalA11yLabel(_ exercise: WorkoutExercise) -> String {
+        var parts: [String] = []
+        parts.append(String(localized: "总组数", comment: "Per-exercise total sets a11y") + " \(exercise.totalSetsCount) " + String(localized: "组", comment: "Sets unit a11y"))
+        parts.append(String(localized: "总次数", comment: "Per-exercise total reps a11y") + " \(exercise.totalRepsCount) " + String(localized: "次", comment: "Reps unit a11y"))
+        if exercise.workingVolume > 0 {
+            parts.append(String(localized: "总训练量", comment: "Per-exercise total volume a11y") + " \(Int(displayWeight(exercise.workingVolume))) \(weightUnit.a11yName)")
+        }
+        return parts.joined(separator: "，")
     }
 
     private func displayWeight(_ kgValue: Double) -> Double {
         weightUnit == .lb ? kgValue * 2.20462 : kgValue
+    }
+
+    private func deleteWorkout() {
+        logger.info("Deleting workout from detail source=\(workout.source.rawValue, privacy: .private)")
+        modelContext.delete(workout)
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .private)")
+            modelContext.rollback()
+            showingDeleteError = true
+        }
     }
 }
 
