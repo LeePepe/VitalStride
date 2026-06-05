@@ -68,6 +68,10 @@ targets:
         excludes:
           - "*.entitlements"
       - path: Shared
+      - path: VitalStride/Sources/DataView.swift
+      - path: VitalStride/Sources/DataSections
+    dependencies:
+      - sdk: HealthKit.framework
     entitlements:
       path: VitalStrideMac/VitalStrideMac.entitlements
       properties:
