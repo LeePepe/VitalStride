@@ -14,7 +14,7 @@ struct ContentView: View {
             .accessibilityLabel("训练")
 
             Tab("数据", systemImage: "heart.text.square.fill") {
-                DataPlaceholder()
+                DataView()
             }
             .accessibilityLabel("数据")
 

@@ -10,6 +10,13 @@ enum WeightUnit: String, CaseIterable {
         case .lb: return "磅 (lb)"
         }
     }
+
+    var a11yName: String {
+        switch self {
+        case .kg: String(localized: "公斤", comment: "Kilogram a11y name")
+        case .lb: String(localized: "磅", comment: "Pound a11y name")
+        }
+    }
 }
 
 enum DistanceUnit: String, CaseIterable {
@@ -24,9 +31,45 @@ enum DistanceUnit: String, CaseIterable {
     }
 }
 
+enum EnergyUnit: String, CaseIterable {
+    case kcal
+    case kJ
+
+    var displayName: String {
+        switch self {
+        case .kcal: return "千卡 (kcal)"
+        case .kJ: return "千焦 (kJ)"
+        }
+    }
+
+    var abbreviation: String {
+        switch self {
+        case .kcal: return "kcal"
+        case .kJ: return "kJ"
+        }
+    }
+
+    var accessibilityName: String {
+        switch self {
+        case .kcal: return String(localized: "千卡", comment: "Kilocalorie a11y name")
+        case .kJ: return String(localized: "千焦", comment: "Kilojoule a11y name")
+        }
+    }
+
+    static let kcalToKJFactor = 4.184
+
+    func convert(fromKcal value: Double) -> Double {
+        switch self {
+        case .kcal: return value
+        case .kJ: return value * Self.kcalToKJFactor
+        }
+    }
+}
+
 struct UnitPreferencesSection: View {
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     @AppStorage("distanceUnit") private var distanceUnit: DistanceUnit = .km
+    @AppStorage("energyUnit") private var energyUnit: EnergyUnit = .kcal
 
     var body: some View {
         Section("单位偏好") {
@@ -44,6 +87,14 @@ struct UnitPreferencesSection: View {
                 }
             } label: {
                 Label("距离", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+            }
+
+            Picker(selection: $energyUnit) {
+                ForEach(EnergyUnit.allCases, id: \.self) { unit in
+                    Text(unit.displayName).tag(unit)
+                }
+            } label: {
+                Label("能量", systemImage: "flame")
             }
         }
     }

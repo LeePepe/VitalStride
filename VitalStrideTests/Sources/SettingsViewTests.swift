@@ -11,6 +11,12 @@ struct SettingsViewTests {
         #expect(WeightUnit.lb.displayName == "磅 (lb)")
     }
 
+    @Test("WeightUnit a11yName returns localized unit name")
+    func weightUnitA11yNames() {
+        #expect(WeightUnit.kg.a11yName == "公斤")
+        #expect(WeightUnit.lb.a11yName == "磅")
+    }
+
     @Test("WeightUnit rawValues for AppStorage")
     func weightUnitRawValues() {
         #expect(WeightUnit.kg.rawValue == "kg")
