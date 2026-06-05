@@ -149,7 +149,7 @@ final class HealthKitService: Sendable {
                 limit: HKObjectQueryNoLimit
             )
 
-            if let newAnchor = result.newAnchor {
+            if dateRange == nil, let newAnchor = result.newAnchor {
                 saveAnchor(newAnchor, for: sampleType)
             }
 

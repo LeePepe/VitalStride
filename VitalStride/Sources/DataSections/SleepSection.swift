@@ -144,11 +144,7 @@ struct SleepSection: View {
         DataSectionCard(
             title: String(localized: "睡眠", comment: "Sleep section"),
             systemImage: "bed.double.fill",
-            destination: SleepDetailView(
-                range: range,
-                nights: nights,
-                statistics: statistics
-            )
+            destination: SleepDetailView()
         ) {
             content
         }
@@ -410,68 +406,109 @@ struct SleepChartView: View {
 // MARK: - Sleep Detail View
 
 struct SleepDetailView: View {
-    let range: TimeRange
-    let nights: [NightSleepData]
-    let statistics: SleepStatistics
+    @State private var selectedRange: TimeRange = .week
+    @State private var nights: [NightSleepData] = []
+    @State private var statistics: SleepStatistics = .empty
+    @State private var isLoading = true
+    @State private var fetchError: (any Error)?
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "SleepDetail")
 
     var body: some View {
         List {
             Section {
-                SleepChartView(nights: nights, range: range, compact: false)
-                    .frame(height: 250)
+                Picker(selection: $selectedRange) {
+                    ForEach(TimeRange.allCases) { range in
+                        Text(range.localizedLabel).tag(range)
+                    }
+                } label: {
+                    Text("时间范围", comment: "Time range picker label")
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel(String(localized: "选择时间范围", comment: "Time range picker a11y"))
             }
-            .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
 
-            Section {
-                statRow(
-                    label: String(localized: "平均睡眠", comment: "Average sleep"),
-                    value: formatDuration(statistics.averageTotalSleep),
-                    image: "bed.double"
-                )
-                statRow(
-                    label: String(localized: "平均深睡", comment: "Average deep"),
-                    value: formatDuration(statistics.averageDeep),
-                    image: "moon.zzz"
-                )
-                statRow(
-                    label: String(localized: "平均REM", comment: "Average REM"),
-                    value: formatDuration(statistics.averageREM),
-                    image: "brain.head.profile"
-                )
-            }
-
-            Section {
-                ForEach(nights.reversed()) { night in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(night.date, format: .dateTime.month().day().weekday())
-                            Spacer()
-                            Text(formatDuration(night.totalSleep))
-                                .foregroundStyle(.secondary)
-                        }
-                        HStack(spacing: 8) {
-                            stageLabel(String(localized: "深睡", comment: "Deep"), duration: night.deep, color: SleepStageInfo.deep.color)
-                            stageLabel(String(localized: "浅睡", comment: "Core"), duration: night.core, color: SleepStageInfo.core.color)
-                            stageLabel(String(localized: "REM", comment: "REM"), duration: night.rem, color: SleepStageInfo.rem.color)
-                        }
-                        .font(.caption2)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel(nightAccessibilityLabel(for: night))
+            if isLoading {
+                Section {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 200)
                 }
-            } header: {
-                Text("按夜明细", comment: "Nightly breakdown header")
+                .listRowBackground(Color.clear)
+            } else if fetchError != nil {
+                Section {
+                    VStack(spacing: 4) {
+                        Image(systemName: "bed.double")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                        Text(String(localized: "无法加载睡眠数据", comment: "Sleep load error"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
+                }
+                .listRowBackground(Color.clear)
+            } else {
+                Section {
+                    SleepChartView(nights: nights, range: selectedRange, compact: false)
+                        .frame(height: 250)
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+
+                Section {
+                    statRow(
+                        label: String(localized: "平均睡眠", comment: "Average sleep"),
+                        value: formatDuration(statistics.averageTotalSleep),
+                        image: "bed.double"
+                    )
+                    statRow(
+                        label: String(localized: "平均深睡", comment: "Average deep"),
+                        value: formatDuration(statistics.averageDeep),
+                        image: "moon.zzz"
+                    )
+                    statRow(
+                        label: String(localized: "平均REM", comment: "Average REM"),
+                        value: formatDuration(statistics.averageREM),
+                        image: "brain.head.profile"
+                    )
+                }
+
+                Section {
+                    ForEach(nights.reversed()) { night in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(night.date, format: .dateTime.month().day().weekday())
+                                Spacer()
+                                Text(formatDuration(night.totalSleep))
+                                    .foregroundStyle(.secondary)
+                            }
+                            HStack(spacing: 8) {
+                                stageLabel(String(localized: "深睡", comment: "Deep"), duration: night.deep, color: SleepStageInfo.deep.color)
+                                stageLabel(String(localized: "浅睡", comment: "Core"), duration: night.core, color: SleepStageInfo.core.color)
+                                stageLabel(String(localized: "REM", comment: "REM"), duration: night.rem, color: SleepStageInfo.rem.color)
+                            }
+                            .font(.caption2)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(nightAccessibilityLabel(for: night))
+                    }
+                } header: {
+                    Text("按夜明细", comment: "Nightly breakdown header")
+                }
             }
         }
         #if os(iOS)
         .listStyle(.insetGrouped)
         #endif
         .navigationTitle(String(localized: "睡眠", comment: "Sleep detail title"))
+        .task(id: selectedRange) {
+            await loadData()
+        }
         .onAppear {
-            logger.info("detail_opened range=\(range.rawValue) nights=\(nights.count)")
+            logger.info("detail_opened range=\(selectedRange.rawValue)")
         }
     }
 
@@ -502,6 +539,33 @@ struct SleepDetailView: View {
         let core = formatDuration(night.core)
         let rem = formatDuration(night.rem)
         return String(localized: "\(date)，总睡眠 \(total)，深睡 \(deep)，浅睡 \(core)，REM \(rem)", comment: "Night row a11y")
+    }
+
+    private func loadData() async {
+        isLoading = true
+        fetchError = nil
+
+        let interval = selectedRange.dateInterval()
+        let service = HealthKitService(deviceIdentifier: "ios-display")
+
+        do {
+            let result = try await service.fetchData(for: .sleepAnalysis, dateRange: interval)
+            guard !Task.isCancelled else { return }
+
+            let aggregated = SleepAggregator.aggregateByNight(dataPoints: result.dataPoints, in: interval)
+            let stats = SleepAggregator.computeStatistics(from: aggregated)
+
+            nights = aggregated
+            statistics = stats
+        } catch {
+            guard !Task.isCancelled else { return }
+            logger.error("loadData failed: \(error.localizedDescription)")
+            fetchError = error
+            nights = []
+            statistics = .empty
+        }
+
+        isLoading = false
     }
 }
 

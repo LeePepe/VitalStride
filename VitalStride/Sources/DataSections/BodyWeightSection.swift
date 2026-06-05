@@ -94,12 +94,7 @@ struct BodyWeightSection: View {
         DataSectionCard(
             title: String(localized: "体重", comment: "Body weight section"),
             systemImage: "scalemass.fill",
-            destination: BodyWeightDetailView(
-                range: range,
-                dataPoints: dataPoints,
-                trendPoints: trendPoints,
-                statistics: statistics
-            )
+            destination: BodyWeightDetailView()
         ) {
             content
         }
@@ -411,10 +406,12 @@ struct BodyWeightChartView: View {
 // MARK: - Body Weight Detail View
 
 struct BodyWeightDetailView: View {
-    let range: TimeRange
-    let dataPoints: [WeightDataPoint]
-    let trendPoints: [WeightDataPoint]
-    let statistics: WeightStatistics
+    @State private var selectedRange: TimeRange = .week
+    @State private var dataPoints: [WeightDataPoint] = []
+    @State private var trendPoints: [WeightDataPoint] = []
+    @State private var statistics: WeightStatistics = WeightStatistics(latest: nil, change: nil, max: nil, min: nil)
+    @State private var isLoading = true
+    @State private var fetchError: (any Error)?
 
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     private let logger = Logger(subsystem: "com.vitalstride", category: "BodyWeightDetail")
@@ -430,71 +427,110 @@ struct BodyWeightDetailView: View {
     var body: some View {
         List {
             Section {
-                BodyWeightChartView(
-                    dataPoints: dataPoints,
-                    trendPoints: trendPoints,
-                    range: range,
-                    compact: false
-                )
-                .frame(height: 250)
+                Picker(selection: $selectedRange) {
+                    ForEach(TimeRange.allCases) { range in
+                        Text(range.localizedLabel).tag(range)
+                    }
+                } label: {
+                    Text("时间范围", comment: "Time range picker label")
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel(String(localized: "选择时间范围", comment: "Time range picker a11y"))
             }
-            .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
 
-            Section {
-                if let latest = statistics.latest {
-                    detailStatRow(
-                        label: String(localized: "最新", comment: "Latest"),
-                        value: formatted(displayWeight(latest)),
-                        image: "scalemass"
-                    )
+            if isLoading {
+                Section {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 200)
                 }
-                if let change = statistics.change {
-                    detailStatRow(
-                        label: String(localized: "变化", comment: "Change"),
-                        value: (change >= 0 ? "+" : "") + formatted(displayWeight(change)),
-                        image: change >= 0 ? "arrow.up" : "arrow.down"
-                    )
-                }
-                if let maxVal = statistics.max {
-                    detailStatRow(
-                        label: String(localized: "最高", comment: "Maximum"),
-                        value: formatted(displayWeight(maxVal)),
-                        image: "arrow.up"
-                    )
-                }
-                if let minVal = statistics.min {
-                    detailStatRow(
-                        label: String(localized: "最低", comment: "Minimum"),
-                        value: formatted(displayWeight(minVal)),
-                        image: "arrow.down"
-                    )
-                }
-            }
-
-            Section {
-                ForEach(dataPoints.reversed()) { point in
-                    HStack {
-                        Text(point.date, format: .dateTime.month().day().weekday())
-                        Spacer()
-                        Text("\(formatted(displayWeight(point.weight))) \(weightUnit.rawValue)")
+                .listRowBackground(Color.clear)
+            } else if fetchError != nil {
+                Section {
+                    VStack(spacing: 4) {
+                        Image(systemName: "scalemass")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                        Text(String(localized: "无法加载体重数据", comment: "Body weight load error"))
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel(
-                        "\(point.date.formatted(.dateTime.month().day())) \(formatted(displayWeight(point.weight))) \(weightUnit.a11yName)"
-                    )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
                 }
-            } header: {
-                Text("体重记录", comment: "Weight records header")
+                .listRowBackground(Color.clear)
+            } else {
+                Section {
+                    BodyWeightChartView(
+                        dataPoints: dataPoints,
+                        trendPoints: trendPoints,
+                        range: selectedRange,
+                        compact: false
+                    )
+                    .frame(height: 250)
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+
+                Section {
+                    if let latest = statistics.latest {
+                        detailStatRow(
+                            label: String(localized: "最新", comment: "Latest"),
+                            value: formatted(displayWeight(latest)),
+                            image: "scalemass"
+                        )
+                    }
+                    if let change = statistics.change {
+                        detailStatRow(
+                            label: String(localized: "变化", comment: "Change"),
+                            value: (change >= 0 ? "+" : "") + formatted(displayWeight(change)),
+                            image: change >= 0 ? "arrow.up" : "arrow.down"
+                        )
+                    }
+                    if let maxVal = statistics.max {
+                        detailStatRow(
+                            label: String(localized: "最高", comment: "Maximum"),
+                            value: formatted(displayWeight(maxVal)),
+                            image: "arrow.up"
+                        )
+                    }
+                    if let minVal = statistics.min {
+                        detailStatRow(
+                            label: String(localized: "最低", comment: "Minimum"),
+                            value: formatted(displayWeight(minVal)),
+                            image: "arrow.down"
+                        )
+                    }
+                }
+
+                Section {
+                    ForEach(dataPoints.reversed()) { point in
+                        HStack {
+                            Text(point.date, format: .dateTime.month().day().weekday())
+                            Spacer()
+                            Text("\(formatted(displayWeight(point.weight))) \(weightUnit.rawValue)")
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(
+                            "\(point.date.formatted(.dateTime.month().day())) \(formatted(displayWeight(point.weight))) \(weightUnit.a11yName)"
+                        )
+                    }
+                } header: {
+                    Text("体重记录", comment: "Weight records header")
+                }
             }
         }
         #if os(iOS)
         .listStyle(.insetGrouped)
         #endif
         .navigationTitle(String(localized: "体重", comment: "Body weight detail title"))
+        .task(id: selectedRange) {
+            await loadData()
+        }
         .onAppear {
-            logger.info("detail_opened range=\(range.rawValue) points=\(dataPoints.count)")
+            logger.info("detail_opened range=\(selectedRange.rawValue)")
         }
     }
 
@@ -506,6 +542,36 @@ struct BodyWeightDetailView: View {
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    private func loadData() async {
+        isLoading = true
+        fetchError = nil
+
+        let interval = selectedRange.dateInterval()
+        let service = HealthKitService(deviceIdentifier: "ios-display")
+
+        do {
+            let result = try await service.fetchData(for: .bodyMass, dateRange: interval)
+            guard !Task.isCancelled else { return }
+
+            let points = WeightAnalyzer.extractWeightPoints(from: result.dataPoints, in: interval)
+            let trend = WeightAnalyzer.movingAverage(of: points)
+            let stats = WeightAnalyzer.computeStatistics(from: points)
+
+            dataPoints = points
+            trendPoints = trend
+            statistics = stats
+        } catch {
+            guard !Task.isCancelled else { return }
+            logger.error("loadData failed: \(error.localizedDescription)")
+            fetchError = error
+            dataPoints = []
+            trendPoints = []
+            statistics = WeightStatistics(latest: nil, change: nil, max: nil, min: nil)
+        }
+
+        isLoading = false
     }
 }
 

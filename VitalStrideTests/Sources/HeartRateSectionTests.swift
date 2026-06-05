@@ -265,3 +265,79 @@ struct HeartRateStatsCombinedTests {
         #expect(HeartRateStats.min(of: filtered) == 60)
     }
 }
+
+// MARK: - Downsample Tests
+
+@Suite("HeartRateStats.downsample")
+struct HeartRateStatsDownsampleTests {
+    @Test("Day range returns data unchanged")
+    func dayPassthrough() {
+        let points = [
+            makeHeartRatePoint(value: 72, at: date(2026, 6, 1, 8)),
+            makeHeartRatePoint(value: 80, at: date(2026, 6, 1, 12)),
+        ]
+        let result = HeartRateStats.downsample(points, for: .day)
+        #expect(result.count == 2)
+        #expect(result[0].value == 72)
+        #expect(result[1].value == 80)
+    }
+
+    @Test("Week range returns data unchanged")
+    func weekPassthrough() {
+        let points = [
+            makeHeartRatePoint(value: 60, at: date(2026, 6, 1, 10)),
+            makeHeartRatePoint(value: 90, at: date(2026, 6, 2, 10)),
+        ]
+        let result = HeartRateStats.downsample(points, for: .week)
+        #expect(result.count == 2)
+    }
+
+    @Test("Month range aggregates by hour")
+    func monthAggregation() {
+        let points = [
+            makeHeartRatePoint(value: 60, at: date(2026, 6, 1, 10)),
+            makeHeartRatePoint(value: 80, at: calendar.date(byAdding: .minute, value: 15, to: date(2026, 6, 1, 10))!),
+            makeHeartRatePoint(value: 100, at: calendar.date(byAdding: .minute, value: 30, to: date(2026, 6, 1, 10))!),
+            makeHeartRatePoint(value: 72, at: date(2026, 6, 1, 11)),
+        ]
+        let result = HeartRateStats.downsample(points, for: .month)
+        #expect(result.count == 2)
+        let hourTenBucket = result.first { $0.startDate == date(2026, 6, 1, 10) }
+        #expect(hourTenBucket != nil)
+        #expect(hourTenBucket!.value == 80.0)
+    }
+
+    @Test("Year range aggregates by day")
+    func yearAggregation() {
+        let points = [
+            makeHeartRatePoint(value: 60, at: date(2026, 6, 1, 8)),
+            makeHeartRatePoint(value: 80, at: date(2026, 6, 1, 12)),
+            makeHeartRatePoint(value: 100, at: date(2026, 6, 1, 18)),
+            makeHeartRatePoint(value: 72, at: date(2026, 6, 2, 10)),
+        ]
+        let result = HeartRateStats.downsample(points, for: .year)
+        #expect(result.count == 2)
+        let day1 = result.first { Calendar.current.isDate($0.startDate, inSameDayAs: date(2026, 6, 1)) }
+        #expect(day1 != nil)
+        #expect(day1!.value == 80.0)
+    }
+
+    @Test("Empty input returns empty")
+    func emptyInput() {
+        let result = HeartRateStats.downsample([], for: .year)
+        #expect(result.isEmpty)
+    }
+
+    @Test("Results are sorted by date")
+    func sorted() {
+        let points = [
+            makeHeartRatePoint(value: 80, at: date(2026, 6, 3, 10)),
+            makeHeartRatePoint(value: 60, at: date(2026, 6, 1, 10)),
+            makeHeartRatePoint(value: 70, at: date(2026, 6, 2, 10)),
+        ]
+        let result = HeartRateStats.downsample(points, for: .year)
+        #expect(result.count == 3)
+        #expect(result[0].startDate < result[1].startDate)
+        #expect(result[1].startDate < result[2].startDate)
+    }
+}

@@ -109,11 +109,7 @@ struct StepsSection: View {
         DataSectionCard(
             title: String(localized: "步数", comment: "Steps section"),
             systemImage: "figure.walk",
-            destination: StepsDetailView(
-                range: range,
-                dailyData: dailyData,
-                statistics: statistics
-            )
+            destination: StepsDetailView()
         ) {
             content
         }
@@ -312,66 +308,102 @@ struct StepsSection: View {
 // MARK: - StepsDetailView
 
 struct StepsDetailView: View {
-    let range: TimeRange
-    let dailyData: [DailyStepData]
-    let statistics: StepsStatistics
-
+    @State private var selectedRange: TimeRange = .week
+    @State private var dailyData: [DailyStepData] = []
+    @State private var statistics: StepsStatistics = .empty
     @State private var selectedDate: Date?
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+
     private let logger = Logger(subsystem: "com.vitalstride", category: "StepsSection")
 
     var body: some View {
         List {
             Section {
-                detailChart
+                Picker(selection: $selectedRange) {
+                    ForEach(TimeRange.allCases) { range in
+                        Text(range.localizedLabel).tag(range)
+                    }
+                } label: {
+                    Text("时间范围", comment: "Time range picker label")
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel(String(localized: "选择时间范围", comment: "Time range picker a11y"))
             }
-            .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
 
-            Section {
-                statisticRow(
-                    label: String(localized: "日均", comment: "Daily average"),
-                    value: statistics.dailyAverage,
-                    image: "chart.bar"
-                )
-                statisticRow(
-                    label: String(localized: "最高", comment: "Maximum single day"),
-                    value: statistics.maxSingleDay,
-                    image: "arrow.up"
-                )
-                statisticRow(
-                    label: String(localized: "总计", comment: "Total steps"),
-                    value: statistics.totalSteps,
-                    image: "sum"
-                )
-            }
-
-            Section {
-                ForEach(dailyData.reversed()) { item in
-                    HStack {
-                        Text(item.date, format: .dateTime.month().day().weekday())
-                        Spacer()
-                        Text(
-                            "\(item.totalSteps.formatted(.number)) "
-                                + String(localized: "步", comment: "Steps unit")
-                        )
+            if isLoading {
+                Section {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 200)
+                }
+                .listRowBackground(Color.clear)
+            } else if let errorMessage {
+                Section {
+                    Text(errorMessage)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel(
-                        "\(item.date.formatted(.dateTime.month().day())) \(item.totalSteps.formatted(.number)) "
-                            + String(localized: "步", comment: "Steps unit")
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 200)
+                }
+                .listRowBackground(Color.clear)
+            } else {
+                Section {
+                    detailChart
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+
+                Section {
+                    statisticRow(
+                        label: String(localized: "日均", comment: "Daily average"),
+                        value: statistics.dailyAverage,
+                        image: "chart.bar"
+                    )
+                    statisticRow(
+                        label: String(localized: "最高", comment: "Maximum single day"),
+                        value: statistics.maxSingleDay,
+                        image: "arrow.up"
+                    )
+                    statisticRow(
+                        label: String(localized: "总计", comment: "Total steps"),
+                        value: statistics.totalSteps,
+                        image: "sum"
                     )
                 }
-            } header: {
-                Text("按日明细", comment: "Daily breakdown section header")
+
+                Section {
+                    ForEach(dailyData.reversed()) { item in
+                        HStack {
+                            Text(item.date, format: .dateTime.month().day().weekday())
+                            Spacer()
+                            Text(
+                                "\(item.totalSteps.formatted(.number)) "
+                                    + String(localized: "步", comment: "Steps unit")
+                            )
+                            .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(
+                            "\(item.date.formatted(.dateTime.month().day())) \(item.totalSteps.formatted(.number)) "
+                                + String(localized: "步", comment: "Steps unit")
+                        )
+                    }
+                } header: {
+                    Text("按日明细", comment: "Daily breakdown section header")
+                }
             }
         }
         #if os(iOS)
         .listStyle(.insetGrouped)
         #endif
         .navigationTitle(String(localized: "步数", comment: "Steps detail title"))
+        .task(id: selectedRange) {
+            await loadData()
+        }
         .onAppear {
-            logger.info("detail_opened range=\(range.rawValue) days=\(dailyData.count)")
+            logger.info("detail_opened range=\(selectedRange.rawValue)")
         }
     }
 
@@ -428,8 +460,23 @@ struct StepsDetailView: View {
             }
             .frame(height: 250)
             .accessibilityLabel(String(localized: "每日步数图", comment: "Steps chart a11y"))
+            .accessibilityValue(detailChartAccessibilityValue)
         }
         .padding()
+    }
+
+    private var detailChartAccessibilityValue: String {
+        if let selectedDate,
+           let day = dailyData.first(where: { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }) {
+            return String(
+                localized: "\(day.date.formatted(.dateTime.month().day())) \(day.totalSteps.formatted(.number)) 步",
+                comment: "Selected day a11y value"
+            )
+        }
+        return String(
+            localized: "日均 \(statistics.dailyAverage.formatted(.number)) 步，最高 \(statistics.maxSingleDay.formatted(.number)) 步",
+            comment: "Steps detail chart a11y summary"
+        )
     }
 
     private func statisticRow(label: String, value: Int, image: String) -> some View {
@@ -445,5 +492,33 @@ struct StepsDetailView: View {
     private func detailBarOpacity(for date: Date) -> Double {
         guard let selectedDate else { return 1.0 }
         return Calendar.current.isDate(date, inSameDayAs: selectedDate) ? 1.0 : 0.5
+    }
+
+    private func loadData() async {
+        isLoading = true
+        selectedDate = nil
+        errorMessage = nil
+
+        let interval = selectedRange.dateInterval()
+        let service = HealthKitService(deviceIdentifier: "ios-display")
+
+        do {
+            let result = try await service.fetchData(for: .stepCount, dateRange: interval)
+            guard !Task.isCancelled else { return }
+
+            let aggregated = StepsAggregator.aggregateByDay(dataPoints: result.dataPoints, in: interval)
+            let stats = StepsAggregator.computeStatistics(from: aggregated)
+
+            dailyData = aggregated
+            statistics = stats
+        } catch {
+            guard !Task.isCancelled else { return }
+            logger.error("loadData failed: \(error.localizedDescription)")
+            errorMessage = String(localized: "无法加载步数数据", comment: "Steps load error")
+            dailyData = []
+            statistics = .empty
+        }
+
+        isLoading = false
     }
 }

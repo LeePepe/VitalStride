@@ -114,11 +114,7 @@ struct ActiveEnergySection: View {
         DataSectionCard(
             title: String(localized: "活动能量", comment: "Active energy section"),
             systemImage: "flame.fill",
-            destination: ActiveEnergyDetailView(
-                range: range,
-                dailyData: dailyData,
-                statistics: statistics
-            )
+            destination: ActiveEnergyDetailView()
         ) {
             content
         }
@@ -321,12 +317,14 @@ struct ActiveEnergySection: View {
 // MARK: - ActiveEnergyDetailView
 
 struct ActiveEnergyDetailView: View {
-    let range: TimeRange
-    let dailyData: [DailyEnergyData]
-    let statistics: EnergyStatistics
+    @State private var selectedRange: TimeRange = .week
+    @State private var dailyData: [DailyEnergyData] = []
+    @State private var statistics: EnergyStatistics = .empty
+    @State private var selectedDate: Date?
+    @State private var isLoading = true
+    @State private var errorMessage: String?
 
     @AppStorage("energyUnit") private var energyUnit: EnergyUnit = .kcal
-    @State private var selectedDate: Date?
     private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveEnergySection")
 
     private func displayValue(_ kcal: Double) -> Int {
@@ -336,52 +334,86 @@ struct ActiveEnergyDetailView: View {
     var body: some View {
         List {
             Section {
-                detailChart
+                Picker(selection: $selectedRange) {
+                    ForEach(TimeRange.allCases) { range in
+                        Text(range.localizedLabel).tag(range)
+                    }
+                } label: {
+                    Text("时间范围", comment: "Time range picker label")
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel(String(localized: "选择时间范围", comment: "Time range picker a11y"))
             }
-            .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
 
-            Section {
-                statisticRow(
-                    label: String(localized: "日均", comment: "Daily average"),
-                    value: displayValue(statistics.dailyAverage),
-                    image: "chart.bar"
-                )
-                statisticRow(
-                    label: String(localized: "最高", comment: "Maximum single day"),
-                    value: displayValue(statistics.maxSingleDay),
-                    image: "arrow.up"
-                )
-                statisticRow(
-                    label: String(localized: "总计", comment: "Total energy"),
-                    value: displayValue(statistics.totalEnergy),
-                    image: "sum"
-                )
-            }
+            if isLoading {
+                Section {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 200)
+                }
+                .listRowBackground(Color.clear)
+            } else if let errorMessage {
+                Section {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 200)
+                }
+                .listRowBackground(Color.clear)
+            } else {
+                Section {
+                    detailChart
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
 
-            Section {
-                ForEach(dailyData.reversed()) { item in
-                    HStack {
-                        Text(item.date, format: .dateTime.month().day().weekday())
-                        Spacer()
-                        Text("\(displayValue(item.totalEnergy).formatted(.number)) \(energyUnit.abbreviation)")
-                            .foregroundStyle(.secondary)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel(
-                        "\(item.date.formatted(.dateTime.month().day())) \(displayValue(item.totalEnergy).formatted(.number)) \(energyUnit.accessibilityName)"
+                Section {
+                    statisticRow(
+                        label: String(localized: "日均", comment: "Daily average"),
+                        value: displayValue(statistics.dailyAverage),
+                        image: "chart.bar"
+                    )
+                    statisticRow(
+                        label: String(localized: "最高", comment: "Maximum single day"),
+                        value: displayValue(statistics.maxSingleDay),
+                        image: "arrow.up"
+                    )
+                    statisticRow(
+                        label: String(localized: "总计", comment: "Total energy"),
+                        value: displayValue(statistics.totalEnergy),
+                        image: "sum"
                     )
                 }
-            } header: {
-                Text("按日明细", comment: "Daily breakdown section header")
+
+                Section {
+                    ForEach(dailyData.reversed()) { item in
+                        HStack {
+                            Text(item.date, format: .dateTime.month().day().weekday())
+                            Spacer()
+                            Text("\(displayValue(item.totalEnergy).formatted(.number)) \(energyUnit.abbreviation)")
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(
+                            "\(item.date.formatted(.dateTime.month().day())) \(displayValue(item.totalEnergy).formatted(.number)) \(energyUnit.accessibilityName)"
+                        )
+                    }
+                } header: {
+                    Text("按日明细", comment: "Daily breakdown section header")
+                }
             }
         }
         #if os(iOS)
         .listStyle(.insetGrouped)
         #endif
         .navigationTitle(String(localized: "活动能量", comment: "Active energy detail title"))
+        .task(id: selectedRange) {
+            await loadData()
+        }
         .onAppear {
-            logger.info("detail_opened range=\(range.rawValue) days=\(dailyData.count)")
+            logger.info("detail_opened range=\(selectedRange.rawValue)")
         }
     }
 
@@ -472,6 +504,34 @@ struct ActiveEnergyDetailView: View {
     private func detailBarOpacity(for date: Date) -> Double {
         guard let selectedDate else { return 1.0 }
         return Calendar.current.isDate(date, inSameDayAs: selectedDate) ? 1.0 : 0.5
+    }
+
+    private func loadData() async {
+        isLoading = true
+        selectedDate = nil
+        errorMessage = nil
+
+        let interval = selectedRange.dateInterval()
+        let service = HealthKitService(deviceIdentifier: "ios-display")
+
+        do {
+            let result = try await service.fetchData(for: .activeEnergyBurned, dateRange: interval)
+            guard !Task.isCancelled else { return }
+
+            let aggregated = EnergyAggregator.aggregateByDay(dataPoints: result.dataPoints, in: interval)
+            let stats = EnergyAggregator.computeStatistics(from: aggregated)
+
+            dailyData = aggregated
+            statistics = stats
+        } catch {
+            guard !Task.isCancelled else { return }
+            logger.error("loadData failed: \(error.localizedDescription)")
+            errorMessage = String(localized: "无法加载活动能量数据", comment: "Energy load error")
+            dailyData = []
+            statistics = .empty
+        }
+
+        isLoading = false
     }
 }
 

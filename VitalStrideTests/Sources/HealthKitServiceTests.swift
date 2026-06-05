@@ -456,6 +456,25 @@ struct HealthKitServiceTests {
         let captured = mockStore.capturedPredicates[HKQuantityType(.heartRate)]
         #expect(captured != nil)
     }
+
+    @Test("Anchor is NOT saved when dateRange is provided")
+    func anchorNotSavedWithDateRange() async throws {
+        let anchor = HKQueryAnchor(fromValue: 99)
+        mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
+            samples: [],
+            deletedObjectUUIDs: [],
+            newAnchor: anchor
+        )
+
+        let dateRange = DateInterval(
+            start: Date(timeIntervalSinceNow: -86400),
+            end: Date()
+        )
+        _ = try await service.fetchData(for: .heartRate, dateRange: dateRange)
+
+        let record = anchorStore.anchor(for: .heartRate, deviceIdentifier: "test-device")
+        #expect(record == nil)
+    }
 }
 
 // MARK: - SleepStage Tests

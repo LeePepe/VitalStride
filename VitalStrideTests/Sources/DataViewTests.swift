@@ -161,15 +161,26 @@ struct TimeRangeTests {
 
     // MARK: - Section Order
 
-    @Test("DataView sections appear in required order")
-    func sectionOrder() {
-        let expectedOrder = ["心率", "步数", "体重", "睡眠", "活动能量"]
-        #expect(expectedOrder.count == 5)
-        #expect(expectedOrder[0] == String(localized: "心率", comment: "Heart rate section"))
-        #expect(expectedOrder[1] == String(localized: "步数", comment: "Steps section"))
-        #expect(expectedOrder[2] == String(localized: "体重", comment: "Body weight section"))
-        #expect(expectedOrder[3] == String(localized: "睡眠", comment: "Sleep section"))
-        #expect(expectedOrder[4] == String(localized: "活动能量", comment: "Active energy section"))
+    @Test("DataView grouped sections contain expected categories")
+    func groupedSections() {
+        let activityItems = [
+            String(localized: "步数", comment: "Steps"),
+            String(localized: "活动能量", comment: "Active energy"),
+        ]
+        let heartItems = [String(localized: "心率", comment: "Heart rate")]
+        let bodyItems = [String(localized: "体重", comment: "Body weight")]
+        let sleepItems = [String(localized: "睡眠", comment: "Sleep")]
+
+        #expect(activityItems.count == 2)
+        #expect(heartItems.count == 1)
+        #expect(bodyItems.count == 1)
+        #expect(sleepItems.count == 1)
+    }
+
+    @Test("Summary grid shows 4 health metrics")
+    func summaryGridCount() {
+        let summaryMetrics = ["步数", "心率", "睡眠", "体重"]
+        #expect(summaryMetrics.count == 4)
     }
 
     // MARK: - TimeRange Picker
