@@ -101,10 +101,22 @@ struct HeartRateSection: View {
         #if os(iOS)
         let deviceID = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
         #else
-        let deviceID = Host.current().localizedName ?? UUID().uuidString
+        let deviceID = Self.stableMacDeviceIdentifier()
         #endif
         self.service = HealthKitService(deviceIdentifier: deviceID)
     }
+
+    #if os(macOS)
+    fileprivate static let macDeviceIDKey = "com.vitalstride.macDeviceIdentifier"
+    fileprivate static func stableMacDeviceIdentifier() -> String {
+        if let existing = UserDefaults.standard.string(forKey: macDeviceIDKey) {
+            return existing
+        }
+        let generated = UUID().uuidString
+        UserDefaults.standard.set(generated, forKey: macDeviceIDKey)
+        return generated
+    }
+    #endif
 
     var body: some View {
         DataSectionCard(
@@ -441,7 +453,9 @@ struct HeartRateDetailView: View {
                 statsSection
 
                 Section {
-                    ForEach(dataPoints.reversed()) { point in
+                    let displayLimit = 200
+                    let recentPoints = Array(dataPoints.suffix(displayLimit).reversed())
+                    ForEach(recentPoints) { point in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(point.startDate.formatted(.dateTime.month().day().hour().minute()))
@@ -464,6 +478,12 @@ struct HeartRateDetailView: View {
                         .accessibilityLabel(
                             String(localized: "\(point.startDate.formatted(.dateTime.month().day().hour().minute()))，心率 \(Int(point.value.rounded())) BPM", comment: "Sample row a11y")
                         )
+                    }
+                    if dataPoints.count > displayLimit {
+                        Text(String(localized: "显示最近 \(displayLimit) 条记录（共 \(dataPoints.count) 条）", comment: "Heart rate row cap note"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
                 } header: {
                     Text("心率记录", comment: "Heart rate samples list header")
@@ -526,7 +546,7 @@ struct HeartRateDetailView: View {
         #if os(iOS)
         let deviceID = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
         #else
-        let deviceID = Host.current().localizedName ?? UUID().uuidString
+        let deviceID = HeartRateSection.stableMacDeviceIdentifier()
         #endif
         let service = HealthKitService(deviceIdentifier: deviceID)
 

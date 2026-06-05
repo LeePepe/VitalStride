@@ -248,11 +248,11 @@ final class HealthKitService: Sendable {
 
         if let error {
             logger.error(
-                "query type=\(sampleType.rawValue) count=\(count) ms=\(ms) firstSync=\(isFirstSync) status=\(status) error=\(error.localizedDescription)"
+                "query type=\(sampleType.rawValue, privacy: .private) count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status) error=\(error.localizedDescription, privacy: .private)"
             )
         } else {
             logger.info(
-                "query type=\(sampleType.rawValue) count=\(count) ms=\(ms) firstSync=\(isFirstSync) status=\(status)"
+                "query type=\(sampleType.rawValue, privacy: .private) count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status)"
             )
         }
     }
