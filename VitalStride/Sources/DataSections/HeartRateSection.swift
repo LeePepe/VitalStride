@@ -45,6 +45,7 @@ struct HeartRateSection: View {
     let range: TimeRange
 
     @State private var dataPoints: [HealthDataPoint] = []
+    @State private var filteredPoints: [HealthDataPoint] = []
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
 
@@ -59,12 +60,6 @@ struct HeartRateSection: View {
         let deviceID = Host.current().localizedName ?? UUID().uuidString
         #endif
         self.service = HealthKitService(deviceIdentifier: deviceID)
-    }
-
-    private var filteredPoints: [HealthDataPoint] {
-        let interval = range.dateInterval()
-        return HeartRateStats.filtered(dataPoints, in: interval)
-            .sorted { $0.startDate < $1.startDate }
     }
 
     var body: some View {
@@ -179,11 +174,14 @@ struct HeartRateSection: View {
         do {
             let result = try await service.fetchData(for: .heartRate, dateRange: interval)
             dataPoints = result.dataPoints
+            filteredPoints = HeartRateStats.filtered(result.dataPoints, in: interval)
+                .sorted { $0.startDate < $1.startDate }
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
-            logger.info("chart render type=heartRate points=\(dataPoints.count) ms=\(ms) range=\(range.rawValue)")
+            logger.info("chart render type=heartRate points=\(filteredPoints.count) ms=\(ms) range=\(range.rawValue)")
         } catch {
             fetchError = error
+            filteredPoints = []
             logger.error("fetch failed type=heartRate error=\(error.localizedDescription)")
         }
         isLoading = false
@@ -329,6 +327,11 @@ struct HeartRateChartView: View {
     }
 
     private var chartAccessibilityValue: String {
+        if let selectedPoint {
+            let bpm = Int(selectedPoint.value.rounded())
+            let time = selectedPoint.startDate.formatted(.dateTime.hour().minute())
+            return String(localized: "选中心率 \(bpm) BPM，\(time)", comment: "Selected chart point a11y")
+        }
         guard !dataPoints.isEmpty else {
             return String(localized: "无数据", comment: "No chart data a11y")
         }
