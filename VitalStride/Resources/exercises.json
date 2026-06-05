@@ -829,21 +829,21 @@
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440093",
-    "nameEn": "Kettlebell Swing",
-    "nameZh": "壶铃摆动",
+    "nameEn": "Hang Clean",
+    "nameZh": "悬垂翻",
     "muscleGroup": "fullBody",
-    "equipment": "dumbbell",
-    "primaryMuscles": ["glutes", "hamstrings"],
-    "secondaryMuscles": ["erector spinae", "anterior deltoid", "quadriceps"]
+    "equipment": "barbell",
+    "primaryMuscles": ["glutes", "hamstrings", "trapezius"],
+    "secondaryMuscles": ["quadriceps", "erector spinae", "forearms"]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440094",
-    "nameEn": "Battle Rope",
-    "nameZh": "战绳",
+    "nameEn": "Push Press",
+    "nameZh": "借力推举",
     "muscleGroup": "fullBody",
-    "equipment": "bodyweight",
-    "primaryMuscles": ["anterior deltoid", "latissimus dorsi"],
-    "secondaryMuscles": ["biceps", "rectus abdominis", "quadriceps"]
+    "equipment": "barbell",
+    "primaryMuscles": ["anterior deltoid", "quadriceps", "glutes"],
+    "secondaryMuscles": ["triceps", "erector spinae", "upper trapezius"]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440095",
@@ -892,11 +892,11 @@
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440100",
-    "nameEn": "Wall Ball",
-    "nameZh": "墙球",
+    "nameEn": "Overhead Squat",
+    "nameZh": "过头深蹲",
     "muscleGroup": "fullBody",
-    "equipment": "bodyweight",
+    "equipment": "barbell",
     "primaryMuscles": ["quadriceps", "anterior deltoid", "glutes"],
-    "secondaryMuscles": ["triceps", "rectus abdominis", "erector spinae"]
+    "secondaryMuscles": ["erector spinae", "upper trapezius", "rectus abdominis"]
   }
 ]
