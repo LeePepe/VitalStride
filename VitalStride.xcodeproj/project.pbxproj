@@ -121,6 +121,7 @@
 		F872D96937ADE91D6B8BEFB4 /* WorkoutExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02FF0750D3E63AAA723ED31 /* WorkoutExercise.swift */; };
 		FAB75CD8FA828AA85C6AFD13 /* HealthSampleType.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5402C816A05CEAC9E1D87D /* HealthSampleType.swift */; };
 		FBE027F17938BB052D0AF52F /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = 57B895D91910D9E2DC71130D /* exercises.json */; };
+		8U2QIDFSXG5BPP0YYFXUEQBM /* WorkoutDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5TJUTSSXJMGJ9C6KGRGC95EZ /* WorkoutDeletionTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -163,6 +164,7 @@
 		5CD6CBB4B8DB35E9942A3ADA /* WorkoutTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTemplate.swift; sourceTree = "<group>"; };
 		62752D819DEC3C928DEE3CB1 /* VitalStrideMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitalStrideMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		65BD2FB8C57EBDB10A5B369E /* StepsSectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepsSectionTests.swift; sourceTree = "<group>"; };
+		5TJUTSSXJMGJ9C6KGRGC95EZ /* WorkoutDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDeletionTests.swift; sourceTree = "<group>"; };
 		675947C2C88283D7D81E0FD0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7130E924ED6698DC80DA5B73 /* OverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewView.swift; sourceTree = "<group>"; };
 		7C5500BA2B8CED72FFB4F0E4 /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
@@ -255,6 +257,7 @@
 				0A4427407B3663FA11877FE1 /* SettingsViewTests.swift */,
 				4A5BC15730DE3D0DBEC8FF7E /* SleepSectionTests.swift */,
 				65BD2FB8C57EBDB10A5B369E /* StepsSectionTests.swift */,
+				5TJUTSSXJMGJ9C6KGRGC95EZ /* WorkoutDeletionTests.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -712,6 +715,7 @@
 				0606B368999C1F3928A77908 /* SettingsViewTests.swift in Sources */,
 				129EBA4FD6F749E5CCE90FD3 /* SleepSectionTests.swift in Sources */,
 				7E9A1E8DD82A8B8644AFEA02 /* StepsSectionTests.swift in Sources */,
+				8U2QIDFSXG5BPP0YYFXUEQBM /* WorkoutDeletionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

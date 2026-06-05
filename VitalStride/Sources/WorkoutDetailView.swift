@@ -1,9 +1,15 @@
 import SwiftData
 import SwiftUI
+import os
+
+private let logger = Logger(subsystem: "com.vitalstride", category: "WorkoutDetail")
 
 struct WorkoutDetailView: View {
     let workout: Workout
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
+    @State private var showingDeleteAlert = false
 
     private var sortedExercises: [WorkoutExercise] {
         (workout.exercises ?? []).sorted { $0.order < $1.order }
@@ -82,10 +88,41 @@ struct WorkoutDetailView: View {
             }
         }
         .navigationTitle("训练详情")
+        .toolbar {
+            ToolbarItem(placement: .destructiveAction) {
+                Button(role: .destructive) {
+                    showingDeleteAlert = true
+                } label: {
+                    Label(
+                        String(localized: "删除训练", comment: "Delete workout toolbar button"),
+                        systemImage: "trash"
+                    )
+                }
+                .accessibilityLabel(String(localized: "删除训练", comment: "Delete workout a11y"))
+            }
+        }
+        .alert(
+            String(localized: "确认删除", comment: "Delete confirmation alert title"),
+            isPresented: $showingDeleteAlert
+        ) {
+            Button(String(localized: "取消", comment: "Cancel button"), role: .cancel) {}
+            Button(String(localized: "删除", comment: "Delete confirm button"), role: .destructive) {
+                deleteWorkout()
+            }
+        } message: {
+            Text(String(localized: "确定删除这次训练？", comment: "Delete confirmation message"))
+        }
     }
 
     private func displayWeight(_ kgValue: Double) -> Double {
         weightUnit == .lb ? kgValue * 2.20462 : kgValue
+    }
+
+    private func deleteWorkout() {
+        logger.info("Deleting workout from detail source=\(workout.source.rawValue, privacy: .public)")
+        modelContext.delete(workout)
+        try? modelContext.save()
+        dismiss()
     }
 }
 

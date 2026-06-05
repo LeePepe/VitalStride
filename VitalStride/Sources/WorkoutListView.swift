@@ -1,5 +1,8 @@
 import SwiftData
 import SwiftUI
+import os
+
+private let logger = Logger(subsystem: "com.vitalstride", category: "WorkoutList")
 
 extension Exercise {
     var localizedName: String {
@@ -14,9 +17,11 @@ struct WorkoutListView: View {
         sort: \Workout.startDate,
         order: .reverse
     ) private var workouts: [Workout]
+    @Environment(\.modelContext) private var modelContext
     @State private var showingStartOptions = false
     @State private var showingActiveWorkout = false
     @State private var pendingSource: WorkoutStartSource?
+    @State private var workoutToDelete: Workout?
 
     var body: some View {
         NavigationStack {
@@ -34,6 +39,17 @@ struct WorkoutListView: View {
                         } label: {
                             WorkoutRowView(workout: workout)
                         }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                workoutToDelete = workout
+                            } label: {
+                                Label(
+                                    String(localized: "删除", comment: "Delete swipe action"),
+                                    systemImage: "trash"
+                                )
+                            }
+                            .accessibilityLabel(String(localized: "删除训练", comment: "Delete workout a11y"))
+                        }
                     }
                 }
             }
@@ -44,6 +60,24 @@ struct WorkoutListView: View {
                         showingStartOptions = true
                     }
                 }
+            }
+            .alert(
+                String(localized: "确认删除", comment: "Delete confirmation alert title"),
+                isPresented: Binding(
+                    get: { workoutToDelete != nil },
+                    set: { if !$0 { workoutToDelete = nil } }
+                )
+            ) {
+                Button(String(localized: "取消", comment: "Cancel button"), role: .cancel) {
+                    workoutToDelete = nil
+                }
+                Button(String(localized: "删除", comment: "Delete confirm button"), role: .destructive) {
+                    if let workout = workoutToDelete {
+                        deleteWorkout(workout)
+                    }
+                }
+            } message: {
+                Text(String(localized: "确定删除这次训练？", comment: "Delete confirmation message"))
             }
             .sheet(isPresented: $showingStartOptions, onDismiss: {
                 if pendingSource != nil {
@@ -61,6 +95,13 @@ struct WorkoutListView: View {
                 ActiveWorkoutView(source: pendingSource ?? .blank)
             }
         }
+    }
+
+    private func deleteWorkout(_ workout: Workout) {
+        logger.info("Deleting workout source=\(workout.source.rawValue, privacy: .public)")
+        modelContext.delete(workout)
+        try? modelContext.save()
+        workoutToDelete = nil
     }
 }
 
