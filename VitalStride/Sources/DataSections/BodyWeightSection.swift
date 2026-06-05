@@ -77,6 +77,7 @@ enum WeightAnalyzer {
 struct BodyWeightSection: View {
     let range: TimeRange
 
+    @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     @State private var dataPoints: [WeightDataPoint] = []
     @State private var trendPoints: [WeightDataPoint] = []
     @State private var statistics: WeightStatistics = WeightStatistics(latest: nil, change: nil, max: nil, min: nil)
@@ -84,6 +85,10 @@ struct BodyWeightSection: View {
     @State private var fetchError: (any Error)?
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "BodyWeightSection")
+
+    private func displayWeight(_ kgValue: Double) -> Double {
+        weightUnit == .lb ? kgValue * 2.20462 : kgValue
+    }
 
     var body: some View {
         DataSectionCard(
@@ -148,16 +153,16 @@ struct BodyWeightSection: View {
             if let latest = statistics.latest {
                 StatItemDouble(
                     label: String(localized: "最新", comment: "Latest weight"),
-                    value: latest,
-                    unit: String(localized: "kg", comment: "Kilogram unit")
+                    value: displayWeight(latest),
+                    unit: weightUnit.rawValue
                 )
             }
             Spacer()
             if let change = statistics.change {
                 StatItemDouble(
                     label: String(localized: "变化", comment: "Weight change"),
-                    value: change,
-                    unit: String(localized: "kg", comment: "Kilogram unit"),
+                    value: displayWeight(change),
+                    unit: weightUnit.rawValue,
                     showSign: true
                 )
             }
@@ -165,8 +170,8 @@ struct BodyWeightSection: View {
             if let maxVal = statistics.max {
                 StatItemDouble(
                     label: String(localized: "最高", comment: "Maximum weight"),
-                    value: maxVal,
-                    unit: String(localized: "kg", comment: "Kilogram unit")
+                    value: displayWeight(maxVal),
+                    unit: weightUnit.rawValue
                 )
             }
         }
@@ -175,16 +180,17 @@ struct BodyWeightSection: View {
     }
 
     private var statsAccessibilityLabel: String {
+        let unit = weightUnit.a11yName
         var parts: [String] = []
         if let latest = statistics.latest {
-            parts.append(String(localized: "最新体重 \(formatted(latest)) 公斤", comment: "Latest weight a11y"))
+            parts.append(String(localized: "最新体重 \(formatted(displayWeight(latest))) \(unit)", comment: "Latest weight a11y"))
         }
         if let change = statistics.change {
             let sign = change >= 0 ? "+" : ""
-            parts.append(String(localized: "变化 \(sign)\(formatted(change)) 公斤", comment: "Weight change a11y"))
+            parts.append(String(localized: "变化 \(sign)\(formatted(displayWeight(change))) \(unit)", comment: "Weight change a11y"))
         }
         if let maxVal = statistics.max {
-            parts.append(String(localized: "最高 \(formatted(maxVal)) 公斤", comment: "Max weight a11y"))
+            parts.append(String(localized: "最高 \(formatted(displayWeight(maxVal))) \(unit)", comment: "Max weight a11y"))
         }
         return parts.joined(separator: ", ")
     }
@@ -267,11 +273,20 @@ struct BodyWeightChartView: View {
     let range: TimeRange
     let compact: Bool
 
+    @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     @State private var selectedDate: Date?
 
     private var selectedPoint: WeightDataPoint? {
         guard let selectedDate else { return nil }
         return WeightAnalyzer.nearest(to: selectedDate, in: dataPoints)
+    }
+
+    private func displayWeight(_ kgValue: Double) -> Double {
+        weightUnit == .lb ? kgValue * 2.20462 : kgValue
+    }
+
+    private func formattedWeight(_ kgValue: Double) -> String {
+        displayWeight(kgValue).formatted(.number.precision(.fractionLength(1)))
     }
 
     var body: some View {
@@ -284,7 +299,7 @@ struct BodyWeightChartView: View {
                     ),
                     y: .value(
                         String(localized: "趋势", comment: "Trend axis"),
-                        point.weight
+                        displayWeight(point.weight)
                     )
                 )
                 .foregroundStyle(.green.opacity(0.5))
@@ -302,7 +317,7 @@ struct BodyWeightChartView: View {
                     ),
                     y: .value(
                         String(localized: "体重", comment: "Weight axis"),
-                        point.weight
+                        displayWeight(point.weight)
                     )
                 )
                 .foregroundStyle(.green)
@@ -334,8 +349,8 @@ struct BodyWeightChartView: View {
         .chartYAxis {
             AxisMarks { value in
                 AxisValueLabel {
-                    if let kg = value.as(Double.self) {
-                        Text(kg.formatted(.number.precision(.fractionLength(1))))
+                    if let v = value.as(Double.self) {
+                        Text(v.formatted(.number.precision(.fractionLength(1))))
                     }
                 }
                 AxisGridLine()
@@ -347,9 +362,9 @@ struct BodyWeightChartView: View {
 
     private func selectionAnnotation(for point: WeightDataPoint) -> some View {
         VStack(spacing: 2) {
-            Text(point.weight.formatted(.number.precision(.fractionLength(1))))
+            Text(formattedWeight(point.weight))
                 .font(.caption.bold())
-            Text(String(localized: "kg", comment: "Kilogram"))
+            Text(weightUnit.rawValue)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Text(point.date.formatted(.dateTime.month().day()))
@@ -361,7 +376,7 @@ struct BodyWeightChartView: View {
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .accessibilityLabel(
-            String(localized: "体重 \(point.weight.formatted(.number.precision(.fractionLength(1)))) 公斤，\(point.date.formatted(.dateTime.month().day()))", comment: "Selected weight a11y")
+            String(localized: "体重 \(formattedWeight(point.weight)) \(weightUnit.a11yName)，\(point.date.formatted(.dateTime.month().day()))", comment: "Selected weight a11y")
         )
     }
 
@@ -379,11 +394,15 @@ struct BodyWeightChartView: View {
     }
 
     private var chartAccessibilityValue: String {
+        if let selectedPoint {
+            let time = selectedPoint.date.formatted(.dateTime.month().day())
+            return String(localized: "选中体重 \(formattedWeight(selectedPoint.weight)) \(weightUnit.a11yName)，\(time)", comment: "Selected weight chart a11y")
+        }
         guard !dataPoints.isEmpty else {
             return String(localized: "无数据", comment: "No data a11y")
         }
         if let latest = dataPoints.last {
-            return String(localized: "最新体重 \(latest.weight.formatted(.number.precision(.fractionLength(1)))) 公斤", comment: "Chart weight a11y")
+            return String(localized: "最新体重 \(formattedWeight(latest.weight)) \(weightUnit.a11yName)", comment: "Chart weight a11y")
         }
         return ""
     }
@@ -397,7 +416,16 @@ struct BodyWeightDetailView: View {
     let trendPoints: [WeightDataPoint]
     let statistics: WeightStatistics
 
+    @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     private let logger = Logger(subsystem: "com.vitalstride", category: "BodyWeightDetail")
+
+    private func displayWeight(_ kgValue: Double) -> Double {
+        weightUnit == .lb ? kgValue * 2.20462 : kgValue
+    }
+
+    private func formatted(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(1)))
+    }
 
     var body: some View {
         List {
@@ -417,28 +445,28 @@ struct BodyWeightDetailView: View {
                 if let latest = statistics.latest {
                     detailStatRow(
                         label: String(localized: "最新", comment: "Latest"),
-                        value: formatted(latest),
+                        value: formatted(displayWeight(latest)),
                         image: "scalemass"
                     )
                 }
                 if let change = statistics.change {
                     detailStatRow(
                         label: String(localized: "变化", comment: "Change"),
-                        value: (change >= 0 ? "+" : "") + formatted(change),
+                        value: (change >= 0 ? "+" : "") + formatted(displayWeight(change)),
                         image: change >= 0 ? "arrow.up" : "arrow.down"
                     )
                 }
                 if let maxVal = statistics.max {
                     detailStatRow(
                         label: String(localized: "最高", comment: "Maximum"),
-                        value: formatted(maxVal),
+                        value: formatted(displayWeight(maxVal)),
                         image: "arrow.up"
                     )
                 }
                 if let minVal = statistics.min {
                     detailStatRow(
                         label: String(localized: "最低", comment: "Minimum"),
-                        value: formatted(minVal),
+                        value: formatted(displayWeight(minVal)),
                         image: "arrow.down"
                     )
                 }
@@ -449,16 +477,12 @@ struct BodyWeightDetailView: View {
                     HStack {
                         Text(point.date, format: .dateTime.month().day().weekday())
                         Spacer()
-                        Text(
-                            "\(point.weight.formatted(.number.precision(.fractionLength(1)))) "
-                                + String(localized: "kg", comment: "Kilogram")
-                        )
-                        .foregroundStyle(.secondary)
+                        Text("\(formatted(displayWeight(point.weight))) \(weightUnit.rawValue)")
+                            .foregroundStyle(.secondary)
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(
-                        "\(point.date.formatted(.dateTime.month().day())) \(point.weight.formatted(.number.precision(.fractionLength(1)))) "
-                            + String(localized: "公斤", comment: "Kilogram a11y")
+                        "\(point.date.formatted(.dateTime.month().day())) \(formatted(displayWeight(point.weight))) \(weightUnit.a11yName)"
                     )
                 }
             } header: {
@@ -478,14 +502,10 @@ struct BodyWeightDetailView: View {
         HStack {
             Label(label, systemImage: image)
             Spacer()
-            Text("\(value) " + String(localized: "kg", comment: "Kilogram"))
+            Text("\(value) \(weightUnit.rawValue)")
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
-    }
-
-    private func formatted(_ value: Double) -> String {
-        value.formatted(.number.precision(.fractionLength(1)))
     }
 }
 

@@ -10,6 +10,13 @@ enum WeightUnit: String, CaseIterable {
         case .lb: return "磅 (lb)"
         }
     }
+
+    var a11yName: String {
+        switch self {
+        case .kg: String(localized: "公斤", comment: "Kilogram a11y name")
+        case .lb: String(localized: "磅", comment: "Pound a11y name")
+        }
+    }
 }
 
 enum DistanceUnit: String, CaseIterable {
