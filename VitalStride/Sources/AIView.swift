@@ -18,6 +18,7 @@ struct AIView: View {
     #endif
     @State private var viewModel = AIViewState()
     @State private var chatViewModel = AIChatViewModel()
+    @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
 
     var body: some View {
         NavigationStack {
@@ -34,6 +35,9 @@ struct AIView: View {
             .task {
                 viewModel.checkAPIKey()
                 viewModel.loadPrivacyConsent()
+            }
+            .onChange(of: privacyConsented) { _, newValue in
+                viewModel.privacyAccepted = newValue
             }
         }
     }

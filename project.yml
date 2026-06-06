@@ -90,6 +90,7 @@ targets:
       - path: VitalStride/Sources/AIView.swift
       - path: VitalStride/Sources/AIQuickAnalysisCard.swift
       - path: VitalStride/Sources/AIPromptBuilder.swift
+      - path: VitalStride/Sources/AIChatView.swift
       - path: VitalStride/Sources/AISettingsSection.swift
     dependencies:
       - package: VitalModels

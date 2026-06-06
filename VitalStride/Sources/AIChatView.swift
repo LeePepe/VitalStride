@@ -144,22 +144,48 @@ final class AIChatViewModel {
                 ?? AIModel.glm4Flash.rawValue
             let stream = provider.chatStream(messages: apiMessages, model: selectedModel)
 
+            var contentBuffer = ""
+            var lastUIUpdate = ContinuousClock.now
+            let uiUpdateInterval: Duration = .milliseconds(50)
+
             for try await chunk in stream {
                 guard !Task.isCancelled else { break }
                 chunksReceived += 1
-                updateMessage(id: assistantId) {
-                    $0.appendingContent(
-                        chunk.content,
-                        state: chunk.isFinished ? .complete : .streaming
-                    )
+                contentBuffer += chunk.content
+
+                let now = ContinuousClock.now
+                if chunk.isFinished || now - lastUIUpdate >= uiUpdateInterval {
+                    updateMessage(id: assistantId) {
+                        AIChatMessage(
+                            id: $0.id, role: $0.role, content: contentBuffer,
+                            timestamp: $0.timestamp,
+                            state: chunk.isFinished ? .complete : .streaming
+                        )
+                    }
+                    lastUIUpdate = now
                 }
             }
 
-            updateMessage(id: assistantId) { $0.withState(.complete) }
-            lastCompletedMessageId = assistantId
-
-            let ms = elapsedMs(since: start)
-            logger.info("streaming_completed chunks=\(chunksReceived) ms=\(ms)")
+            if Task.isCancelled {
+                updateMessage(id: assistantId) {
+                    AIChatMessage(
+                        id: $0.id, role: $0.role, content: contentBuffer,
+                        timestamp: $0.timestamp, state: .complete
+                    )
+                }
+                let ms = elapsedMs(since: start)
+                logger.info("streaming_cancelled chunks=\(chunksReceived) ms=\(ms)")
+            } else {
+                updateMessage(id: assistantId) {
+                    AIChatMessage(
+                        id: $0.id, role: $0.role, content: contentBuffer,
+                        timestamp: $0.timestamp, state: .complete
+                    )
+                }
+                lastCompletedMessageId = assistantId
+                let ms = elapsedMs(since: start)
+                logger.info("streaming_completed chunks=\(chunksReceived) ms=\(ms)")
+            }
         } catch {
             let ms = elapsedMs(since: start)
             logger.error("streaming_failed chunks=\(chunksReceived) ms=\(ms) error=\(error.localizedDescription)")
@@ -274,6 +300,7 @@ struct AIChatView<EmptyContent: View>: View {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.title2)
                     .symbolRenderingMode(.hierarchical)
+                    .frame(minWidth: 44, minHeight: 44)
             }
             .disabled(!viewModel.canSend)
             .accessibilityLabel(String(localized: "发送消息", comment: "Send button a11y"))

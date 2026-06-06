@@ -37,9 +37,9 @@ struct AISettingsSection: View {
                 privacyConsentRow
             }
         } header: {
-            Text("AI 服务")
+            Text(String(localized: "AI 服务", comment: "AI settings section header"))
         } footer: {
-            Text("前往 [open.bigmodel.cn](https://open.bigmodel.cn) 获取 API Key")
+            Text(String(localized: "前往 [open.bigmodel.cn](https://open.bigmodel.cn) 获取 API Key", comment: "AI settings section footer"))
         }
         .onAppear(perform: loadAPIKeyState)
         .onDisappear(perform: savePendingAPIKey)
@@ -50,7 +50,7 @@ struct AISettingsSection: View {
             Button(String(localized: "取消", comment: "Cancel button"), role: .cancel) {}
             Button(String(localized: "清除", comment: "Clear button"), role: .destructive, action: clearAPIKey)
         } message: {
-            Text("确定要清除已保存的 API Key 吗？")
+            Text(String(localized: "确定要清除已保存的 API Key 吗？", comment: "Clear API key confirmation message"))
         }
         .alert(
             String(localized: "撤回数据使用许可", comment: "Revoke consent title"),

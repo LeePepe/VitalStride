@@ -53,7 +53,7 @@ public struct ZhipuProvider: AIProvider, Sendable {
                     try validateHTTPResponse(urlResponse)
 
                     for try await line in bytes.lines {
-                        guard let chunk = parseSSELine(line) else { continue }
+                        guard let chunk = try parseSSELine(line) else { continue }
                         if chunk.isFinished {
                             logger.info("Streaming completed: chunksReceived=\(chunksReceived)")
                             continuation.finish()
@@ -122,7 +122,7 @@ public struct ZhipuProvider: AIProvider, Sendable {
 // MARK: - SSE Parsing
 
 extension ZhipuProvider {
-    func parseSSELine(_ line: String) -> ChatStreamChunk? {
+    func parseSSELine(_ line: String) throws -> ChatStreamChunk? {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("data:") else { return nil }
 
@@ -132,9 +132,12 @@ extension ZhipuProvider {
             return ChatStreamChunk(content: "", isFinished: true)
         }
 
+        if payload.isEmpty { return nil }
+
         guard let data = payload.data(using: .utf8),
               let chunk = try? JSONDecoder().decode(StreamChunkResponse.self, from: data) else {
-            return nil
+            logger.warning("Malformed SSE data payload, treating as parse failure")
+            throw AIServiceError.responseParsingFailed
         }
 
         let content = chunk.choices.first?.delta.content ?? ""
