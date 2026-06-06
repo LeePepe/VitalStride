@@ -8,8 +8,17 @@ final class MockHealthDataProvider: HealthDataProviding, @unchecked Sendable {
     var fetchResults: [HealthSampleType: HealthFetchResult] = [:]
     var fetchDelay: Duration?
     var fetchError: (any Error)?
-    private(set) var fetchCallCount: [HealthSampleType: Int] = [:]
-    private(set) var fetchDateRanges: [HealthSampleType: DateInterval?] = [:]
+    private let lock = NSLock()
+    private var _fetchCallCount: [HealthSampleType: Int] = [:]
+    private var _fetchDateRanges: [HealthSampleType: [DateInterval?]] = [:]
+
+    var fetchCallCount: [HealthSampleType: Int] {
+        lock.withLock { _fetchCallCount }
+    }
+
+    var fetchDateRanges: [HealthSampleType: [DateInterval?]] {
+        lock.withLock { _fetchDateRanges }
+    }
 
     func fetchData(
         for sampleType: HealthSampleType,
@@ -21,8 +30,10 @@ final class MockHealthDataProvider: HealthDataProviding, @unchecked Sendable {
         if let error = fetchError {
             throw error
         }
-        fetchCallCount[sampleType, default: 0] += 1
-        fetchDateRanges[sampleType] = dateRange
+        lock.withLock {
+            _fetchCallCount[sampleType, default: 0] += 1
+            _fetchDateRanges[sampleType, default: []].append(dateRange)
+        }
         return fetchResults[sampleType]
             ?? HealthFetchResult(dataPoints: [], deletedObjectIDs: [])
     }
@@ -94,7 +105,7 @@ struct HealthDataCacheTests {
 
     // MARK: - Date Range Filtering
 
-    @Test("Cache hit filters by date range")
+    @Test("Cache hit filters by date range when covered range is unbounded")
     func cacheHitFiltersDateRange() async throws {
         let now = Date()
         let yesterday = now.addingTimeInterval(-86400)
@@ -121,6 +132,93 @@ struct HealthDataCacheTests {
         #expect(mock.fetchCallCount[.stepCount] == 1)
     }
 
+    @Test("Narrow-range cache miss when requesting wider range")
+    func narrowThenWideRangeTriggersRefetch() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+        let wideStart = baseDate.addingTimeInterval(-7 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+
+        let mock = MockHealthDataProvider()
+
+        let narrowPoints = [makeDataPoint(.stepCount, date: baseDate)]
+        mock.fetchResults[.stepCount] = HealthFetchResult(
+            dataPoints: narrowPoints, deletedObjectIDs: []
+        )
+
+        let cache = HealthDataCache(dataProvider: mock)
+
+        let narrowRange = DateInterval(start: narrowStart, end: narrowEnd)
+        let narrowResult = try await cache.data(for: .stepCount, in: narrowRange)
+        #expect(narrowResult.count == 1)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+
+        let widePoints = (0..<7).map { i in
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400))
+        }
+        mock.fetchResults[.stepCount] = HealthFetchResult(
+            dataPoints: widePoints, deletedObjectIDs: []
+        )
+
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        let wideResult = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(wideResult.count == 7)
+        #expect(mock.fetchCallCount[.stepCount] == 2)
+    }
+
+    @Test("Wider cached range covers narrower request without re-fetch")
+    func wideThenNarrowRangeHitsCache() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let wideStart = baseDate.addingTimeInterval(-7 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+
+        let mock = MockHealthDataProvider()
+
+        let widePoints = [
+            makeDataPoint(.stepCount, date: wideStart),
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(86400)),
+            makeDataPoint(.stepCount, date: baseDate),
+        ]
+        mock.fetchResults[.stepCount] = HealthFetchResult(
+            dataPoints: widePoints, deletedObjectIDs: []
+        )
+
+        let cache = HealthDataCache(dataProvider: mock)
+
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        _ = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+
+        let narrowRange = DateInterval(start: narrowStart, end: narrowEnd)
+        let narrowResult = try await cache.data(for: .stepCount, in: narrowRange)
+        #expect(narrowResult.count == 1)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+    }
+
+    @Test("Unbounded request after bounded cache triggers re-fetch")
+    func boundedThenUnboundedTriggersRefetch() async throws {
+        let now = Date()
+        let mock = MockHealthDataProvider()
+
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 1, baseDate: now)
+        let cache = HealthDataCache(dataProvider: mock)
+
+        let narrowRange = DateInterval(
+            start: Calendar.current.startOfDay(for: now),
+            end: now.addingTimeInterval(3600)
+        )
+        _ = try await cache.data(for: .stepCount, in: narrowRange)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 5, baseDate: now)
+        let unboundedResult = try await cache.data(for: .stepCount)
+        #expect(unboundedResult.count == 5)
+        #expect(mock.fetchCallCount[.stepCount] == 2)
+    }
+
     // MARK: - Refresh
 
     @Test("Refresh always fetches and replaces cache")
@@ -137,6 +235,46 @@ struct HealthDataCacheTests {
 
         #expect(refreshed.count == 5)
         #expect(mock.fetchCallCount[.bodyMass] == 2)
+    }
+
+    @Test("Refresh with narrow range narrows covered range, wider request re-fetches")
+    func refreshWithRangeUpdatesCoveredRange() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let wideStart = baseDate.addingTimeInterval(-7 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+
+        let mock = MockHealthDataProvider()
+
+        let widePoints = (0..<7).map { i in
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400))
+        }
+        mock.fetchResults[.stepCount] = HealthFetchResult(
+            dataPoints: widePoints, deletedObjectIDs: []
+        )
+
+        let cache = HealthDataCache(dataProvider: mock)
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        _ = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+
+        let narrowPoints = [makeDataPoint(.stepCount, date: baseDate)]
+        mock.fetchResults[.stepCount] = HealthFetchResult(
+            dataPoints: narrowPoints, deletedObjectIDs: []
+        )
+
+        let narrowRange = DateInterval(start: narrowStart, end: narrowEnd)
+        let refreshed = try await cache.refresh(.stepCount, in: narrowRange)
+        #expect(refreshed.count == 1)
+        #expect(mock.fetchCallCount[.stepCount] == 2)
+
+        mock.fetchResults[.stepCount] = HealthFetchResult(
+            dataPoints: widePoints, deletedObjectIDs: []
+        )
+        let wideResult = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(wideResult.count == 7)
+        #expect(mock.fetchCallCount[.stepCount] == 3)
     }
 
     // MARK: - Invalidation
@@ -179,7 +317,7 @@ struct HealthDataCacheTests {
 
     // MARK: - Concurrent Access
 
-    @Test("Concurrent requests for the same type coalesce into one fetch")
+    @Test("Concurrent requests for the same type and range coalesce into one fetch")
     func concurrentAccessCoalesces() async throws {
         let mock = MockHealthDataProvider()
         mock.fetchDelay = .milliseconds(50)
@@ -203,7 +341,7 @@ struct HealthDataCacheTests {
         for result in results {
             #expect(result.count == 3)
         }
-        #expect(mock.fetchCallCount[.stepCount, default: 0] <= 2)
+        #expect(mock.fetchCallCount[.stepCount, default: 0] == 1)
     }
 
     @Test("Concurrent requests for different types fetch independently")
@@ -221,6 +359,36 @@ struct HealthDataCacheTests {
         #expect(h.count == 1)
         #expect(mock.fetchCallCount[.stepCount] == 1)
         #expect(mock.fetchCallCount[.heartRate] == 1)
+    }
+
+    @Test("Concurrent requests for same type but different ranges fetch independently")
+    func concurrentDifferentRangesFetchIndependently() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let mock = MockHealthDataProvider()
+        mock.fetchDelay = .milliseconds(50)
+
+        let allPoints = [
+            makeDataPoint(.stepCount, date: baseDate),
+            makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(-86400)),
+        ]
+        mock.fetchResults[.stepCount] = HealthFetchResult(
+            dataPoints: allPoints, deletedObjectIDs: []
+        )
+
+        let cache = HealthDataCache(dataProvider: mock)
+
+        let rangeA = DateInterval(start: baseDate, end: baseDate.addingTimeInterval(3600))
+        let rangeB = DateInterval(
+            start: baseDate.addingTimeInterval(-86400),
+            end: baseDate
+        )
+
+        async let resultA = cache.data(for: .stepCount, in: rangeA)
+        async let resultB = cache.data(for: .stepCount, in: rangeB)
+
+        let (a, b) = try await (resultA, resultB)
+        #expect(a.count + b.count >= 0)
+        #expect(mock.fetchCallCount[.stepCount, default: 0] == 2)
     }
 
     // MARK: - Authorization Revoked
@@ -249,6 +417,35 @@ struct HealthDataCacheTests {
 
         #expect(await cache.cachedTypes().isEmpty)
         #expect(anchorStore.anchor(for: .stepCount, deviceIdentifier: "test-device") == nil)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    @Test("In-flight fetch does not repopulate cache after authorization revocation")
+    func authorizationRevokedPreventsInFlightRepopulation() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchDelay = .milliseconds(100)
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 3)
+        let cache = HealthDataCache(dataProvider: mock)
+
+        let suiteName = "test-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
+
+        let fetchTask = Task {
+            try await cache.data(for: .stepCount)
+        }
+
+        try await Task.sleep(for: .milliseconds(20))
+
+        await cache.handleAuthorizationRevoked(
+            anchorStore: anchorStore,
+            deviceIdentifier: "test-device"
+        )
+
+        _ = try? await fetchTask.value
+
+        #expect(await cache.cachedTypes().isEmpty)
 
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -331,6 +528,6 @@ struct HealthDataCacheTests {
         let range = DateInterval(start: Date().addingTimeInterval(-3600), duration: 3600)
         _ = try await cache.data(for: .stepCount, in: range)
 
-        #expect(mock.fetchDateRanges[.stepCount] as? DateInterval == range)
+        #expect(mock.fetchDateRanges[.stepCount]?.first as? DateInterval == range)
     }
 }

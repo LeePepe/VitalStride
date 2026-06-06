@@ -30,9 +30,27 @@ public struct CacheTelemetry: Sendable, Equatable {
 
 public actor HealthDataCache {
 
-    private var cache: [HealthSampleType: [HealthDataPoint]] = [:]
-    private var inFlightFetches: [HealthSampleType: Task<[HealthDataPoint], any Error>] = [:]
+    private struct CacheEntry {
+        let dataPoints: [HealthDataPoint]
+        let coveredRange: DateInterval?
+    }
+
+    private struct FetchKey: Hashable {
+        let sampleType: HealthSampleType
+        let rangeStart: Date?
+        let rangeEnd: Date?
+
+        init(_ sampleType: HealthSampleType, _ dateRange: DateInterval?) {
+            self.sampleType = sampleType
+            self.rangeStart = dateRange?.start
+            self.rangeEnd = dateRange?.end
+        }
+    }
+
+    private var cache: [HealthSampleType: CacheEntry] = [:]
+    private var inFlightFetches: [FetchKey: Task<[HealthDataPoint], any Error>] = [:]
     private let dataProvider: any HealthDataProviding
+    private var generation: UInt64 = 0
 
     private var hitCounts: [HealthSampleType: Int] = [:]
     private var missCounts: [HealthSampleType: Int] = [:]
@@ -51,12 +69,12 @@ public actor HealthDataCache {
         for sampleType: HealthSampleType,
         in dateRange: DateInterval? = nil
     ) async throws -> [HealthDataPoint] {
-        if let cached = cache[sampleType] {
+        if let entry = cache[sampleType], Self.coversRange(entry.coveredRange, requested: dateRange) {
             hitCounts[sampleType, default: 0] += 1
             logger.info(
                 "healthkit_cache_hit type=\(sampleType.rawValue) total=\(self.hitCounts[sampleType, default: 0])"
             )
-            return Self.filtered(cached, by: dateRange)
+            return Self.filtered(entry.dataPoints, by: dateRange)
         }
 
         missCounts[sampleType, default: 0] += 1
@@ -74,8 +92,7 @@ public actor HealthDataCache {
         _ sampleType: HealthSampleType,
         in dateRange: DateInterval? = nil
     ) async throws -> [HealthDataPoint] {
-        inFlightFetches[sampleType]?.cancel()
-        inFlightFetches[sampleType] = nil
+        cancelInFlightFetches(for: sampleType)
 
         refreshCounts[sampleType, default: 0] += 1
         logger.info(
@@ -90,12 +107,12 @@ public actor HealthDataCache {
 
     public func invalidate(_ sampleType: HealthSampleType) {
         cache[sampleType] = nil
-        inFlightFetches[sampleType]?.cancel()
-        inFlightFetches[sampleType] = nil
+        cancelInFlightFetches(for: sampleType)
         logger.info("cache invalidated type=\(sampleType.rawValue)")
     }
 
     public func invalidateAll() {
+        generation &+= 1
         cache = [:]
         for task in inFlightFetches.values { task.cancel() }
         inFlightFetches = [:]
@@ -134,7 +151,8 @@ public actor HealthDataCache {
         sampleType: HealthSampleType,
         dateRange: DateInterval?
     ) async throws -> [HealthDataPoint] {
-        if let existingTask = inFlightFetches[sampleType] {
+        let key = FetchKey(sampleType, dateRange)
+        if let existingTask = inFlightFetches[key] {
             return try await existingTask.value
         }
         return try await performFetch(sampleType: sampleType, dateRange: dateRange)
@@ -147,23 +165,37 @@ public actor HealthDataCache {
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("healthkit_fetch", id: signpostID)
         let start = ContinuousClock.now
+        let fetchGeneration = generation
 
+        let key = FetchKey(sampleType, dateRange)
         let task = Task { [dataProvider] in
             try await dataProvider.fetchData(for: sampleType, dateRange: dateRange).dataPoints
         }
-        inFlightFetches[sampleType] = task
+        inFlightFetches[key] = task
 
         do {
             let points = try await task.value
-            inFlightFetches[sampleType] = nil
-            cache[sampleType] = points
+            inFlightFetches[key] = nil
+
+            if generation == fetchGeneration {
+                cache[sampleType] = CacheEntry(dataPoints: points, coveredRange: dateRange)
+            }
+
             signposter.endInterval("healthkit_fetch", state)
             logFetchDuration(sampleType: sampleType, count: points.count, start: start)
             return points
         } catch {
-            inFlightFetches[sampleType] = nil
+            inFlightFetches[key] = nil
             signposter.endInterval("healthkit_fetch", state)
             throw error
+        }
+    }
+
+    private func cancelInFlightFetches(for sampleType: HealthSampleType) {
+        let keysToRemove = inFlightFetches.keys.filter { $0.sampleType == sampleType }
+        for key in keysToRemove {
+            inFlightFetches[key]?.cancel()
+            inFlightFetches[key] = nil
         }
     }
 
@@ -192,5 +224,19 @@ public actor HealthDataCache {
     ) -> [HealthDataPoint] {
         guard let dateRange else { return points }
         return points.filter { dateRange.contains($0.startDate) }
+    }
+
+    private static func coversRange(
+        _ cached: DateInterval?,
+        requested: DateInterval?
+    ) -> Bool {
+        switch (cached, requested) {
+        case (nil, _):
+            return true
+        case (_, nil):
+            return false
+        case let (cached?, requested?):
+            return cached.start <= requested.start && cached.end >= requested.end
+        }
     }
 }
