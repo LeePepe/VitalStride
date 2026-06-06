@@ -81,6 +81,7 @@ targets:
       - path: VitalStrideMac
         excludes:
           - "*.entitlements"
+      - path: VitalStride/Resources
       - path: VitalStride/Sources/ExerciseSeeder.swift
       - path: VitalStride/Sources/DataView.swift
       - path: VitalStride/Sources/HealthSummaryCards.swift

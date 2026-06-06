@@ -37,6 +37,7 @@
 		614503EFA888692CA1F1088D /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524E9CAE68FFB5B851E45752 /* ModelTests.swift */; };
 		63DFF2390FBFBA4AC154CEF0 /* DataImportExportSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC0E70D705A66E61C98F69 /* DataImportExportSection.swift */; };
 		63E739A5D206085086CE682A /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = 57B895D91910D9E2DC71130D /* exercises.json */; };
+		6AD206F6A5BBC4ACE2321C01 /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = 57B895D91910D9E2DC71130D /* exercises.json */; };
 		6DC642F94DA823F4D74F469E /* ActiveEnergySectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584CFBB57DF2FA059790F81B /* ActiveEnergySectionTests.swift */; };
 		6DD9EA5894C16A881C94A162 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 193733B006ED472D5112547F /* HealthKit.framework */; };
 		6E429B825B6061272CB5B7C9 /* VitalModels in Frameworks */ = {isa = PBXBuildFile; productRef = 664522C2C3BB624FE1681CA9 /* VitalModels */; };
@@ -87,6 +88,7 @@
 		EEE35902053010D72B2859C4 /* ActiveEnergySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2006662F4E40A3B02201E47 /* ActiveEnergySection.swift */; };
 		F265DE1E8ACB2D1CD383144F /* BodyWeightSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8704C3C5463AB8227E880288 /* BodyWeightSection.swift */; };
 		F6DEBB93AB30796DDB87B899 /* WorkoutAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3274184F69678B14ACB647F8 /* WorkoutAggregator.swift */; };
+		F6F15DEB55614BC14A4EB593 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 18AA3D0CBD054FC6EB8E6E36 /* InfoPlist.strings */; };
 		F7AD09CAEFC12214943F80C8 /* ExerciseSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC41CBBB0306141FF6935C5 /* ExerciseSeeder.swift */; };
 		FBE027F17938BB052D0AF52F /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = 57B895D91910D9E2DC71130D /* exercises.json */; };
 		FD1420D480D8737320D0F580 /* WorkoutDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46D0B1B4E9C7FD1C63B5C56C /* WorkoutDeletionTests.swift */; };
@@ -560,6 +562,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				EA2925A7C0F167DD4CBEC374 /* Assets.xcassets in Resources */,
+				F6F15DEB55614BC14A4EB593 /* InfoPlist.strings in Resources */,
+				6AD206F6A5BBC4ACE2321C01 /* exercises.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
