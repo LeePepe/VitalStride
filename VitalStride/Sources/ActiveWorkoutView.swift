@@ -351,6 +351,8 @@ private struct ActiveExerciseSection: View {
             completedSetRow(index: index, exerciseSet: exerciseSet)
                 .contentShape(Rectangle())
                 .onTapGesture { beginEditing(exerciseSet) }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("点击编辑")
         }
     }
 
@@ -415,6 +417,7 @@ private struct ActiveExerciseSection: View {
                     .foregroundStyle(.green)
             }
             .buttonStyle(.borderless)
+            .accessibilityLabel("保存修改")
             .frame(minHeight: 44)
         }
     }
@@ -428,13 +431,24 @@ private struct ActiveExerciseSection: View {
     }
 
     private func saveEdit(_ exerciseSet: ExerciseSet) {
-        if let weight = Double(editWeightText) {
-            let storageWeight = weightUnit == .lb ? weight / 2.20462 : weight
-            exerciseSet.weight = storageWeight
+        let weight: Double
+        if editWeightText.isEmpty {
+            weight = 0
+        } else {
+            guard let parsed = Double(editWeightText) else { return }
+            weight = parsed
         }
-        if let reps = Int(editRepsText) {
-            exerciseSet.reps = reps
+        let reps: Int
+        if editRepsText.isEmpty {
+            reps = 0
+        } else {
+            guard let parsed = Int(editRepsText) else { return }
+            reps = parsed
         }
+        guard weight.isFinite, weight >= 0, reps >= 0 else { return }
+        let storageWeight = weightUnit == .lb ? weight / 2.20462 : weight
+        exerciseSet.weight = storageWeight
+        exerciseSet.reps = reps
         exerciseSet.setType = editSetType
         editingSetID = nil
     }
