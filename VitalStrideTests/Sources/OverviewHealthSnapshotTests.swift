@@ -375,43 +375,99 @@ struct SummaryCardPreloadedTests {
 
 @Suite("SummaryCard Reuse Verification Tests")
 struct SummaryCardReuseVerificationTests {
-    @Test("Same card types used in DataView and OverviewView contexts")
-    func sameComponentTypes() {
+    @Test("OverviewView source references shared SummaryCard types")
+    func overviewUsesSharedCards() throws {
+        let overviewSource = try String(
+            contentsOfFile: findSourceFile(named: "OverviewView.swift"),
+            encoding: .utf8
+        )
+        #expect(overviewSource.contains("StepsSummaryCard(preloaded:"))
+        #expect(overviewSource.contains("HeartRateSummaryCard(preloaded:"))
+        #expect(overviewSource.contains("SleepSummaryCard(preloaded:"))
+        #expect(overviewSource.contains("WeightSummaryCard(preloaded:"))
+    }
+
+    @Test("DataView source references shared SummaryCard types")
+    func dataViewUsesSharedCards() throws {
+        let dataViewSource = try String(
+            contentsOfFile: findSourceFile(named: "DataView.swift"),
+            encoding: .utf8
+        )
+        #expect(dataViewSource.contains("StepsSummaryCard()"))
+        #expect(dataViewSource.contains("HeartRateSummaryCard()"))
+        #expect(dataViewSource.contains("SleepSummaryCard()"))
+        #expect(dataViewSource.contains("WeightSummaryCard()"))
+    }
+
+    @Test("OverviewView does not define its own metric card")
+    func noLocalMetricCard() throws {
+        let overviewSource = try String(
+            contentsOfFile: findSourceFile(named: "OverviewView.swift"),
+            encoding: .utf8
+        )
+        #expect(!overviewSource.contains("SnapshotMetricCard"))
+    }
+
+    @Test("Shared cards are defined in HealthSummaryCards, not in DataView or OverviewView")
+    func cardsDefinedInSharedFile() throws {
+        let sharedSource = try String(
+            contentsOfFile: findSourceFile(named: "HealthSummaryCards.swift"),
+            encoding: .utf8
+        )
+        #expect(sharedSource.contains("struct StepsSummaryCard"))
+        #expect(sharedSource.contains("struct HeartRateSummaryCard"))
+        #expect(sharedSource.contains("struct SleepSummaryCard"))
+        #expect(sharedSource.contains("struct WeightSummaryCard"))
+        #expect(sharedSource.contains("struct SummaryCardView"))
+
+        let overviewSource = try String(
+            contentsOfFile: findSourceFile(named: "OverviewView.swift"),
+            encoding: .utf8
+        )
+        #expect(!overviewSource.contains("struct StepsSummaryCard"))
+        #expect(!overviewSource.contains("struct SummaryCardView"))
+
+        let dataViewSource = try String(
+            contentsOfFile: findSourceFile(named: "DataView.swift"),
+            encoding: .utf8
+        )
+        #expect(!dataViewSource.contains("struct StepsSummaryCard"))
+        #expect(!dataViewSource.contains("struct SummaryCardView"))
+    }
+
+    @Test("Preloaded and self-loading initializers both exist for all four cards")
+    func bothInitializersExist() {
         _ = StepsSummaryCard()
+        _ = StepsSummaryCard(preloaded: 1000)
         _ = HeartRateSummaryCard()
+        _ = HeartRateSummaryCard(preloaded: 70)
         _ = SleepSummaryCard()
+        _ = SleepSummaryCard(preloaded: 3600.0)
         _ = WeightSummaryCard()
+        _ = WeightSummaryCard(preloaded: 70.0)
+    }
+}
 
-        let snapshot = HealthSnapshotData(todaySteps: 5000, averageBPM: 72, lastNightSleep: 7 * 3600, latestWeight: 75.0)
-        _ = StepsSummaryCard(preloaded: snapshot.todaySteps)
-        _ = HeartRateSummaryCard(preloaded: snapshot.averageBPM)
-        _ = SleepSummaryCard(preloaded: snapshot.lastNightSleep)
-        _ = WeightSummaryCard(preloaded: snapshot.latestWeight)
+private func findSourceFile(named fileName: String) -> String {
+    let fm = FileManager.default
+    let startDir = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+
+    let enumerator = fm.enumerator(
+        at: startDir,
+        includingPropertiesForKeys: nil,
+        options: [.skipsHiddenFiles]
+    )
+
+    while let url = enumerator?.nextObject() as? URL {
+        if url.lastPathComponent == fileName, url.pathExtension == "swift" {
+            return url.path
+        }
     }
 
-    @Test("All four preloaded cards work with full HealthSnapshotData")
-    func allPreloadedFromSnapshot() {
-        let snapshot = HealthSnapshotData(todaySteps: 10000, averageBPM: 65, lastNightSleep: 8 * 3600, latestWeight: 70.2)
-        let cards: [any View] = [
-            StepsSummaryCard(preloaded: snapshot.todaySteps),
-            HeartRateSummaryCard(preloaded: snapshot.averageBPM),
-            SleepSummaryCard(preloaded: snapshot.lastNightSleep),
-            WeightSummaryCard(preloaded: snapshot.latestWeight),
-        ]
-        #expect(cards.count == 4)
-    }
-
-    @Test("All four preloaded cards work with empty HealthSnapshotData")
-    func allPreloadedFromEmptySnapshot() {
-        let snapshot = HealthSnapshotData(todaySteps: nil, averageBPM: nil, lastNightSleep: nil, latestWeight: nil)
-        let cards: [any View] = [
-            StepsSummaryCard(preloaded: snapshot.todaySteps),
-            HeartRateSummaryCard(preloaded: snapshot.averageBPM),
-            SleepSummaryCard(preloaded: snapshot.lastNightSleep),
-            WeightSummaryCard(preloaded: snapshot.latestWeight),
-        ]
-        #expect(cards.count == 4)
-    }
+    return startDir.appendingPathComponent(fileName).path
 }
 
 // MARK: - Empty State Tests
@@ -421,6 +477,19 @@ struct OverviewEmptyStateTests {
     @Test("OverviewEmptyState can be instantiated")
     func emptyStateInstantiable() {
         _ = OverviewEmptyState()
+    }
+
+    @Test("Empty state CTAs are Buttons, not standalone Labels")
+    func ctasAreButtons() throws {
+        let source = try String(
+            contentsOfFile: findSourceFile(named: "OverviewView.swift"),
+            encoding: .utf8
+        )
+        let emptyStateRange = source.range(of: "struct OverviewEmptyState")!
+        let emptyStateCode = String(source[emptyStateRange.lowerBound...])
+
+        #expect(emptyStateCode.contains("Button {"))
+        #expect(emptyStateCode.contains(".accessibilityHint"))
     }
 }
 

@@ -262,6 +262,8 @@ private struct OverviewTrendSection: View {
 // MARK: - Empty State
 
 struct OverviewEmptyState: View {
+    @Environment(AppNavigation.self) private var navigation: AppNavigation?
+
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "heart.text.square")
@@ -277,12 +279,21 @@ struct OverviewEmptyState: View {
                 .multilineTextAlignment(.center)
 
             VStack(spacing: 12) {
-                Label("前往「设置」授权 HealthKit", systemImage: "gearshape")
-                    .font(.subheadline)
-                    .foregroundStyle(.blue)
-                Label("前往「训练」开始第一次训练", systemImage: "figure.strengthtraining.traditional")
-                    .font(.subheadline)
-                    .foregroundStyle(.blue)
+                Button {
+                    navigation?.selectedTab = .settings
+                } label: {
+                    Label("前往「设置」授权 HealthKit", systemImage: "gearshape")
+                        .font(.subheadline)
+                }
+                .accessibilityHint("切换到设置页面以授权 HealthKit")
+
+                Button {
+                    navigation?.selectedTab = .workout
+                } label: {
+                    Label("前往「训练」开始第一次训练", systemImage: "figure.strengthtraining.traditional")
+                        .font(.subheadline)
+                }
+                .accessibilityHint("切换到训练页面以开始训练")
             }
         }
         .frame(maxWidth: .infinity)
@@ -290,7 +301,6 @@ struct OverviewEmptyState: View {
         .padding(.horizontal, 24)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .accessibilityElement(children: .combine)
     }
 }
 
