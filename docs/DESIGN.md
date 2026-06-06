@@ -39,6 +39,12 @@
 │  │SyncService │ │Service   │ │Service        │  │
 │  └─────┬──────┘ └────┬─────┘ └───────┬───────┘  │
 ├────────┼─────────────┼───────────────┼──────────┤
+│              Cache Layer (内存)                   │
+│  ┌──────────────────┐                            │
+│  │HealthDataCache   │  Swift actor, 按            │
+│  │(in-memory only)  │  HealthSampleType 分桶      │
+│  └────────┬─────────┘                            │
+├───────────┼──────────────────────────────────────┤
 │                 Data Layer                       │
 │  ┌──────────┐  ┌───────────┐  ┌──────────────┐  │
 │  │HealthKit │  │SwiftData  │  │CloudKit Sync │  │
@@ -47,6 +53,8 @@
 │  └──────────┘  └───────────┘  └──────────────┘  │
 └─────────────────────────────────────────────────┘
 ```
+
+**HealthDataCache** 位于 Service Layer 与 Data Layer 之间，是纯内存 actor 缓存。View 通过 Service 读取数据时优先命中缓存，cache miss 时由 Service 调用 HealthKit Anchor Query 拉取并回填缓存。缓存不参与 CloudKit 同步，不写入 SwiftData。
 
 ## 导航结构
 
@@ -72,11 +80,37 @@
 
 ### HealthKit 交互规则
 
-| 场景 | 读 HealthKit | 写 HealthKit | 存 SwiftData |
-|------|:-----------:|:-----------:|:-----------:|
-| 读取已有训练/健康数据 | ✅ | — | ❌ (直接查 HealthKit) |
-| App 内发起力量训练 | — | ✅ (摘要) | ✅ (完整详细数据) |
-| 导入 GPX/FIT 文件 | — | ❌ | ✅ (全部数据) |
+| 场景 | 读 HealthKit | 写 HealthKit | 存 SwiftData | 内存缓存 |
+|------|:-----------:|:-----------:|:-----------:|:-----------:|
+| 读取已有训练/健康数据 | ✅ | — | ❌ (直接查 HealthKit) | ✅ (HealthDataCache) |
+| App 内发起力量训练 | — | ✅ (摘要) | ✅ (完整详细数据) | — |
+| 导入 GPX/FIT 文件 | — | ❌ | ✅ (全部数据) | — |
+
+### HealthKit 内存缓存层 (HealthDataCache)
+
+纯内存 Swift actor 缓存，位于 Service Layer 与 HealthKit Data Layer 之间。
+
+**数据流**：
+```
+View → HealthKitSyncService → HealthDataCache (hit?) → [miss] → HealthKit Anchor Query → 回填 Cache → 返回 View
+```
+
+**设计要点**：
+- 按 `HealthSampleType` 分桶，每桶持有 `[HealthDataPoint]`
+- 整桶替换（immutable pattern），不做 in-place mutation
+- 缓存生命周期 = app 进程，不跨启动持久化
+- 不参与 CloudKit 同步，不写入磁盘
+
+**隐私约束**：
+- 缓存数据不离设备，不经网络传输
+- 用户撤销 HealthKit 权限 → 立即清空全部缓存（`invalidateAll()`）
+- 日志禁止输出实际健康数值，仅可记录 sample type / 数量 / 时间范围
+
+**Telemetry 需求**（由 MY-668 实现）：
+- `healthkit_cache_hit` / `healthkit_cache_miss`（按 HealthSampleType）
+- `healthkit_fetch_duration_ms`（单次 HealthKit 查询耗时）
+- `healthkit_cache_refresh`（缓存刷新次数）
+- 使用 OSSignpost / MetricKit，不依赖第三方 SDK
 
 ### HealthKit 同步策略（双层）
 

@@ -14,9 +14,48 @@ VitalStride is a **health data collection + AI analysis** app. Strength training
 
 ### HealthKit data is NOT cached in SwiftData
 
-HealthKit is queried directly at read time. No `HealthSample` or `HealthKitAnchor` models. Rationale: HealthKit is already a local database with its own iCloud sync; duplicating it into SwiftData creates consistency risks and bloats CloudKit sync.
+HealthKit is queried directly at read time. No `HealthSample` or `CachedHealthSample` SwiftData models. Rationale: HealthKit is already a local database with its own iCloud sync; duplicating it into SwiftData creates consistency risks, bloats CloudKit sync, and complicates privacy compliance when users revoke HealthKit permissions.
 
 SwiftData stores only data that HealthKit cannot represent: `Workout`, `WorkoutExercise`, `ExerciseSet`, `Exercise`, `WorkoutTemplate`, `TemplateExercise`.
+
+### In-Memory Cache Layer (HealthDataCache)
+
+**选型结论：方案 B — 纯内存 actor 缓存，不使用 SwiftData 持久化。**
+
+理由：
+- **冷启动影响极小**：Anchor Query 延迟通常 <100ms，重新拉取成本可接受，不需要 SwiftData 持久化层来加速冷启动。
+- **CloudKit 零风险**：纯内存方案无需考虑 CloudKit 同步隔离，无论未来是否启用 CloudKit 都不受影响。
+- **实现复杂度低**：无需新 SwiftData model、无 migration、无缓存一致性维护。方案 A 的双层缓存（SwiftData + 内存字典）引入额外的失效逻辑和 schema 演进负担。
+- **隐私合规简单**：数据仅存内存，app 终止自动清除；用户撤销 HealthKit 权限后清空 actor 状态即可，无需处理磁盘残留。
+
+缓存层设计要点：
+- 使用 Swift actor (`HealthDataCache`) 保证线程安全
+- 按 `HealthSampleType` 分桶缓存 `HealthDataPoint` 数组
+- Anchor Query 返回新数据时更新对应桶，整桶替换（immutable pattern）
+- 缓存生命周期 = app 进程生命周期，不跨启动持久化
+- View 层从 cache 读取，cache miss 时触发 HealthKit fetch 并回填
+
+### 缓存层隐私合规约束
+
+- **数据不离设备**：缓存数据仅存内存，不经任何网络传输，不写入磁盘文件
+- **权限联动**：用户在系统设置中撤销 HealthKit 权限后，必须立即清空 `HealthDataCache` 全部缓存数据（调用 `invalidateAll()`），不保留只读副本
+- **无日志泄露**：禁止在任何 log（os_log、print、第三方日志 SDK）中输出实际健康数值（心率值、体重值、步数等）。日志仅可记录 sample type、数量、时间范围等元数据
+- **内存转储防护**：敏感健康数值在 actor 内部持有，不暴露为全局可访问状态
+
+### 缓存层 Telemetry 需求
+
+以下指标需在 MY-668 实现时埋点，本节仅定义需求：
+
+| 指标 | 维度 | 说明 |
+|------|------|------|
+| `healthkit_cache_hit` | HealthSampleType | 缓存命中次数，用于衡量缓存有效性 |
+| `healthkit_cache_miss` | HealthSampleType | 缓存未命中次数，触发 HealthKit fetch |
+| `healthkit_fetch_duration_ms` | HealthSampleType | 单次 HealthKit 查询耗时（ms），用于衡量缓存带来的性能收益 |
+| `healthkit_cache_refresh` | HealthSampleType | 缓存刷新次数（anchor query 返回新数据时） |
+
+注意事项：
+- Telemetry 仅记录计数和耗时，禁止记录实际健康数值
+- 使用 OSSignpost 或自定义 MetricKit 上报，不依赖第三方 SDK
 
 ### macOS uses HealthKit for reading
 
