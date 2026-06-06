@@ -23,7 +23,7 @@ SwiftData stores only data that HealthKit cannot represent: `Workout`, `WorkoutE
 **选型结论：方案 B — 纯内存 actor 缓存，不使用 SwiftData 持久化。**
 
 理由：
-- **冷启动影响极小**：Anchor Query 延迟通常 <100ms，重新拉取成本可接受，不需要 SwiftData 持久化层来加速冷启动。
+- **冷启动影响极小**：冷启动时缓存为空，首次访问按当前 View 可见时间范围（如"今日"）使用 bounded date-range fetch（`nil` anchor + `HKSampleQuery`）加载完整数据，延迟通常 <100ms。后续增量刷新使用持久化 anchor 的 `HKAnchoredObjectQuery` 拉取 delta。不做全量历史加载，按需 lazy loading。
 - **CloudKit 零风险**：纯内存方案无需考虑 CloudKit 同步隔离，无论未来是否启用 CloudKit 都不受影响。
 - **实现复杂度低**：无需新 SwiftData model、无 migration、无缓存一致性维护。方案 A 的双层缓存（SwiftData + 内存字典）引入额外的失效逻辑和 schema 演进负担。
 - **隐私合规简单**：数据仅存内存，app 终止自动清除；用户撤销 HealthKit 权限后清空 actor 状态即可，无需处理磁盘残留。
@@ -33,12 +33,12 @@ SwiftData stores only data that HealthKit cannot represent: `Workout`, `WorkoutE
 - 按 `HealthSampleType` 分桶缓存 `HealthDataPoint` 数组
 - Anchor Query 返回新数据时更新对应桶，整桶替换（immutable pattern）
 - 缓存生命周期 = app 进程生命周期，不跨启动持久化
-- View 层从 cache 读取，cache miss 时触发 HealthKit fetch 并回填
+- View 层从 cache 读取，cache miss 时触发 bounded date-range fetch（冷启动）或 anchor query（增量刷新）并回填
 
 ### 缓存层隐私合规约束
 
 - **数据不离设备**：缓存数据仅存内存，不经任何网络传输，不写入磁盘文件
-- **权限联动**：用户在系统设置中撤销 HealthKit 权限后，必须立即清空 `HealthDataCache` 全部缓存数据（调用 `invalidateAll()`），不保留只读副本
+- **权限联动**：用户在系统设置中撤销 HealthKit 权限后，必须立即执行完整清除：清空 `HealthDataCache` 全部缓存数据（`invalidateAll()`）、重置持久化 anchor state（`HealthKitAnchorStore.removeAllAnchors()`）、清零已持久化的 telemetry 计数器，不保留只读副本
 - **无日志泄露**：禁止在任何 log（os_log、print、第三方日志 SDK）中输出实际健康数值（心率值、体重值、步数等）。日志仅可记录 sample type、数量、时间范围等元数据
 - **内存转储防护**：敏感健康数值在 actor 内部持有，不暴露为全局可访问状态
 

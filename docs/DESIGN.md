@@ -36,7 +36,7 @@
 │                 Service Layer                    │
 │  ┌────────────┐ ┌──────────┐ ┌───────────────┐  │
 │  │HealthKit   │ │Workout   │ │AI Analysis    │  │
-│  │SyncService │ │Service   │ │Service        │  │
+│  │Service     │ │Service   │ │Service        │  │
 │  └─────┬──────┘ └────┬─────┘ └───────┬───────┘  │
 ├────────┼─────────────┼───────────────┼──────────┤
 │              Cache Layer (内存)                   │
@@ -54,7 +54,7 @@
 └─────────────────────────────────────────────────┘
 ```
 
-**HealthDataCache** 位于 Service Layer 与 Data Layer 之间，是纯内存 actor 缓存。View 通过 Service 读取数据时优先命中缓存，cache miss 时由 Service 调用 HealthKit Anchor Query 拉取并回填缓存。缓存不参与 CloudKit 同步，不写入 SwiftData。
+**HealthDataCache** 位于 Service Layer 与 Data Layer 之间，是纯内存 actor 缓存。View 通过 HealthKitService 读取数据时优先命中缓存，cache miss 时由 Service 发起 bounded date-range fetch（冷启动）或 anchor query（增量刷新）拉取并回填缓存。缓存不参与 CloudKit 同步，不写入 SwiftData。
 
 ## 导航结构
 
@@ -92,8 +92,14 @@
 
 **数据流**：
 ```
-View → HealthKitSyncService → HealthDataCache (hit?) → [miss] → HealthKit Anchor Query → 回填 Cache → 返回 View
+View → HealthKitService → HealthDataCache (hit?) → [miss] → HealthKit Query → 回填 Cache → 返回 View
 ```
+
+**冷启动 hydration 路径**：
+app 启动后缓存为空，首次访问某 `HealthSampleType` 时按以下策略加载：
+1. **Bounded date-range fetch**：按当前 View 可见时间范围（如"今日"、"本周"）使用 `nil` anchor 发起 `HKSampleQuery`，获取完整数据填充缓存
+2. **Anchor 增量刷新**：首次加载完成后，记录新 anchor；后续 cache miss 或手动刷新时使用持久化 anchor 发起 `HKAnchoredObjectQuery` 拉取增量 delta
+3. **Lazy loading**：仅加载当前可见时间范围的数据，用户切换时间范围（week → month）时按需拉取，避免全量历史加载
 
 **设计要点**：
 - 按 `HealthSampleType` 分桶，每桶持有 `[HealthDataPoint]`
@@ -103,7 +109,10 @@ View → HealthKitSyncService → HealthDataCache (hit?) → [miss] → HealthKi
 
 **隐私约束**：
 - 缓存数据不离设备，不经网络传输
-- 用户撤销 HealthKit 权限 → 立即清空全部缓存（`invalidateAll()`）
+- 用户撤销 HealthKit 权限 → 立即执行完整清除：
+  1. 清空全部内存缓存（`HealthDataCache.invalidateAll()`）
+  2. 重置持久化 anchor state（`HealthKitAnchorStore.removeAllAnchors()`），清除 UserDefaults 中的 anchor tokens
+  3. 清零已持久化的 telemetry 计数器（如 cache hit/miss 累计值）
 - 日志禁止输出实际健康数值，仅可记录 sample type / 数量 / 时间范围
 
 **Telemetry 需求**（由 MY-668 实现）：
