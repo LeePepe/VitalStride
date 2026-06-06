@@ -10,6 +10,7 @@ struct ActiveWorkoutView: View {
     @State private var showingFinishAlert = false
     @State private var showingDiscardAlert = false
     @State private var restEndDate: Date?
+    @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     private let startTime = Date()
     let source: WorkoutStartSource
 
@@ -19,10 +20,12 @@ struct ActiveWorkoutView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                workoutTimer
-                restTimerBanner
-                exerciseList
+            ZStack(alignment: .bottomTrailing) {
+                VStack(spacing: 0) {
+                    workoutTimer
+                    restTimerBanner
+                    exerciseList
+                }
                 addExerciseButton
             }
             .navigationTitle("训练中")
@@ -34,7 +37,7 @@ struct ActiveWorkoutView: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") {
+                    Button("结束训练") {
                         showingFinishAlert = true
                     }
                     .fontWeight(.semibold)
@@ -84,18 +87,19 @@ struct ActiveWorkoutView: View {
             HStack {
                 Image(systemName: "timer")
                     .foregroundStyle(.secondary)
-                if hours > 0 {
-                    Text(String(format: "%d:%02d:%02d", hours, minutes, seconds))
-                        .font(.title3.monospacedDigit())
-                } else {
-                    Text(String(format: "%02d:%02d", minutes, seconds))
-                        .font(.title3.monospacedDigit())
-                }
+                Text("训练时长")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text(String(format: "%d:%02d:%02d", hours, minutes, seconds))
+                    .font(.title3.monospacedDigit())
                 Spacer()
                 let exerciseCount = workout?.exercises?.count ?? 0
                 let setCount = workout?.exercises?
                     .reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
-                Text("\(exerciseCount) 动作 · \(setCount) 组")
+                let volumeKg = totalVolumeKg
+                let displayVolume = weightUnit == .lb ? volumeKg * 2.20462 : volumeKg
+                let volumeText = Int(displayVolume).formatted()
+                Text("\(exerciseCount) 动作 · \(setCount) 组 · \(volumeText) \(weightUnit.rawValue)")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -159,13 +163,27 @@ struct ActiveWorkoutView: View {
         Button {
             showingExercisePicker = true
         } label: {
-            Label("添加动作", systemImage: "plus.circle.fill")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+            Image(systemName: "plus")
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Circle().fill(.blue))
+                .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
         }
-        .buttonStyle(.bordered)
+        .accessibilityLabel("添加动作")
         .padding()
+    }
+
+    private var totalVolumeKg: Double {
+        let exercises = workout?.exercises ?? []
+        var volume = 0.0
+        for exercise in exercises {
+            for set in exercise.sets ?? [] {
+                volume += set.weight * Double(set.reps)
+            }
+        }
+        return volume
     }
 
     // MARK: - Actions
@@ -298,20 +316,20 @@ private struct ActiveExerciseSection: View {
             Button {
                 addSet()
             } label: {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title2)
+                Text("+ 添加一组")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
             }
+            .buttonStyle(.borderless)
             .accessibilityLabel("添加组")
-            .frame(minWidth: 44, minHeight: 44)
-            .disabled(weightText.isEmpty || repsText.isEmpty)
+            .frame(minHeight: 44)
         }
     }
 
     private func addSet() {
-        guard let weight = Double(weightText),
-              let reps = Int(repsText),
-              weight.isFinite, weight >= 0,
-              reps > 0 else { return }
+        let weight = Double(weightText) ?? 0
+        let reps = Int(repsText) ?? 0
+        guard weight.isFinite, weight >= 0, reps >= 0 else { return }
         let storageWeight = weightUnit == .lb ? weight / 2.20462 : weight
         let order = workoutExercise.sets?.count ?? 0
         let newSet = ExerciseSet(order: order, weight: storageWeight, reps: reps, setType: setType)
