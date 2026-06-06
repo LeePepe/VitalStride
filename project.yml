@@ -87,6 +87,7 @@ targets:
       - path: VitalStride/Sources/HealthSummaryCards.swift
       - path: VitalStride/Sources/DataSections
       - path: VitalStride/Sources/UnitPreferencesSection.swift
+      - path: VitalStride/Sources/HealthDataCacheEnvironment.swift
     dependencies:
       - package: VitalModels
       - package: HealthKitService

@@ -214,6 +214,7 @@ struct SleepSection: View {
     @State private var statistics: SleepStatistics = .empty
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
+    @Environment(\.healthDataCache) private var cache
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "SleepSection")
 
@@ -300,13 +301,12 @@ struct SleepSection: View {
         fetchError = nil
         let start = ContinuousClock.now
         let interval = range.dateInterval()
-        let service = HealthKitService(deviceIdentifier: "ios-display")
 
         do {
-            let result = try await service.fetchData(for: .sleepAnalysis, dateRange: interval)
+            let dataPoints = try await cache.data(for: .sleepAnalysis, in: interval)
             guard !Task.isCancelled else { return }
 
-            let aggregated = SleepAggregator.aggregateByNight(dataPoints: result.dataPoints, in: interval)
+            let aggregated = SleepAggregator.aggregateByNight(dataPoints: dataPoints, in: interval)
             let stats = SleepAggregator.computeStatistics(from: aggregated)
 
             nights = aggregated
@@ -314,7 +314,7 @@ struct SleepSection: View {
 
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
-            logger.info("render dataPoints=\(result.dataPoints.count) nights=\(aggregated.count) ms=\(ms)")
+            logger.info("render dataPoints=\(dataPoints.count) nights=\(aggregated.count) ms=\(ms)")
         } catch {
             guard !Task.isCancelled else { return }
             logger.error("loadData failed: \(error.localizedDescription)")
@@ -488,6 +488,7 @@ struct SleepDetailView: View {
     @State private var statistics: SleepStatistics = .empty
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
+    @Environment(\.healthDataCache) private var cache
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "SleepDetail")
 
@@ -623,13 +624,12 @@ struct SleepDetailView: View {
         fetchError = nil
 
         let interval = selectedRange.dateInterval()
-        let service = HealthKitService(deviceIdentifier: "ios-display")
 
         do {
-            let result = try await service.fetchData(for: .sleepAnalysis, dateRange: interval)
+            let dataPoints = try await cache.data(for: .sleepAnalysis, in: interval)
             guard !Task.isCancelled else { return }
 
-            let aggregated = SleepAggregator.aggregateByNight(dataPoints: result.dataPoints, in: interval)
+            let aggregated = SleepAggregator.aggregateByNight(dataPoints: dataPoints, in: interval)
             let stats = SleepAggregator.computeStatistics(from: aggregated)
 
             nights = aggregated

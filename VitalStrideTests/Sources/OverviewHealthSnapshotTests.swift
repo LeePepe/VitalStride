@@ -69,9 +69,10 @@ struct HealthSnapshotStateTests {
         let defaults = UserDefaults(suiteName: "SnapshotTest_\(UUID().uuidString)")!
         let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test")
         let service = HealthKitService(healthStore: mock, anchorStore: anchors, deviceIdentifier: "test")
+        let cache = HealthDataCache(dataProvider: service)
 
         let state = HealthSnapshotState()
-        await state.loadWith(service: service)
+        await state.load(cache: cache, service: service)
 
         #expect(!state.isLoading)
         #expect(!state.isAuthorized)
@@ -98,9 +99,10 @@ struct HealthSnapshotStateTests {
         let defaults = UserDefaults(suiteName: "SnapshotTest_\(UUID().uuidString)")!
         let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test")
         let service = HealthKitService(healthStore: mock, anchorStore: anchors, deviceIdentifier: "test")
+        let cache = HealthDataCache(dataProvider: service)
 
         let state = HealthSnapshotState()
-        await state.loadWith(service: service)
+        await state.load(cache: cache, service: service)
 
         #expect(!state.isLoading)
         #expect(state.isAuthorized)
@@ -128,9 +130,10 @@ struct HealthSnapshotStateTests {
         let defaults = UserDefaults(suiteName: "SnapshotTest_\(UUID().uuidString)")!
         let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test")
         let service = HealthKitService(healthStore: mock, anchorStore: anchors, deviceIdentifier: "test")
+        let cache = HealthDataCache(dataProvider: service)
 
         let state = HealthSnapshotState()
-        await state.loadWith(service: service)
+        await state.load(cache: cache, service: service)
 
         #expect(state.isAuthorized)
         #expect(state.snapshot.averageBPM == 72)
@@ -150,9 +153,10 @@ struct HealthSnapshotStateTests {
         let defaults = UserDefaults(suiteName: "SnapshotTest_\(UUID().uuidString)")!
         let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test")
         let service = HealthKitService(healthStore: mock, anchorStore: anchors, deviceIdentifier: "test")
+        let cache = HealthDataCache(dataProvider: service)
 
         let state = HealthSnapshotState()
-        await state.loadWith(service: service)
+        await state.load(cache: cache, service: service)
 
         #expect(state.isAuthorized)
         #expect(!state.hasAnyHealthData)
@@ -218,9 +222,10 @@ struct HealthSnapshotStateTests {
         let defaults = UserDefaults(suiteName: "SnapshotTest_\(UUID().uuidString)")!
         let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test")
         let service = HealthKitService(healthStore: mock, anchorStore: anchors, deviceIdentifier: "test")
+        let cache = HealthDataCache(dataProvider: service)
 
         let state = HealthSnapshotState()
-        await state.loadWith(service: service)
+        await state.load(cache: cache, service: service)
 
         #expect(state.isAuthorized)
         #expect(state.hasAnyHealthData)
