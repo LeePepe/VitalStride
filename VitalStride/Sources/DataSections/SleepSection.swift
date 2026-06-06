@@ -33,8 +33,8 @@ enum SleepAggregator {
         calendar: Calendar = .current
     ) -> [NightSleepData] {
         let sleepPoints = dataPoints.filter { $0.sampleType == .sleepAnalysis }
-        var nightMap: [Date: (deep: TimeInterval, core: TimeInterval, rem: TimeInterval, awake: TimeInterval)] = [:]
 
+        var nightGroups: [Date: [HealthDataPoint]] = [:]
         for point in sleepPoints {
             guard let stage = point.sleepStage else { continue }
             if stage == .inBed { continue }
@@ -46,25 +46,56 @@ enum SleepAggregator {
             let duration = point.endDate.timeIntervalSince(point.startDate)
             guard duration > 0 else { continue }
 
-            var entry = nightMap[nightDate] ?? (0, 0, 0, 0)
-            switch stage {
-            case .asleepDeep:
-                entry.deep += duration
-            case .asleepCore, .asleepUnspecified:
-                entry.core += duration
-            case .asleepREM:
-                entry.rem += duration
-            case .awake:
-                entry.awake += duration
-            case .inBed:
-                break
-            }
-            nightMap[nightDate] = entry
+            nightGroups[nightDate, default: []].append(point)
         }
 
-        return nightMap
-            .map { NightSleepData(date: $0.key, deep: $0.value.deep, core: $0.value.core, rem: $0.value.rem, awake: $0.value.awake) }
+        return nightGroups
+            .map { aggregateNight(date: $0.key, points: $0.value) }
             .sorted { $0.date < $1.date }
+    }
+
+    private static func aggregateNight(date: Date, points: [HealthDataPoint]) -> NightSleepData {
+        let hasDetailedStages = points.contains {
+            guard let s = $0.sleepStage else { return false }
+            return s == .asleepCore || s == .asleepDeep || s == .asleepREM
+        }
+
+        let effectivePoints = hasDetailedStages
+            ? points.filter { $0.sleepStage != .asleepUnspecified }
+            : points
+
+        func intervals(for stages: Set<SleepStage>) -> [(start: Date, end: Date)] {
+            effectivePoints
+                .filter { $0.sleepStage.map { stages.contains($0) } ?? false }
+                .map { (start: $0.startDate, end: $0.endDate) }
+        }
+
+        return NightSleepData(
+            date: date,
+            deep: mergedDuration(intervals(for: [.asleepDeep])),
+            core: mergedDuration(intervals(for: [.asleepCore, .asleepUnspecified])),
+            rem: mergedDuration(intervals(for: [.asleepREM])),
+            awake: mergedDuration(intervals(for: [.awake]))
+        )
+    }
+
+    static func mergeIntervals(_ intervals: [(start: Date, end: Date)]) -> [(start: Date, end: Date)] {
+        guard !intervals.isEmpty else { return [] }
+        let sorted = intervals.sorted { $0.start < $1.start }
+        var result = [sorted[0]]
+        for interval in sorted.dropFirst() {
+            let last = result[result.count - 1]
+            if interval.start <= last.end {
+                result[result.count - 1] = (start: last.start, end: max(last.end, interval.end))
+            } else {
+                result.append(interval)
+            }
+        }
+        return result
+    }
+
+    private static func mergedDuration(_ intervals: [(start: Date, end: Date)]) -> TimeInterval {
+        mergeIntervals(intervals).reduce(0) { $0 + $1.end.timeIntervalSince($1.start) }
     }
 
     static func nightDateFor(_ date: Date, calendar: Calendar) -> Date {
