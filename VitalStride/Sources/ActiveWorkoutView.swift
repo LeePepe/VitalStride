@@ -154,6 +154,7 @@ struct ActiveWorkoutView: View {
                         }
                     )
                 }
+                Section {} footer: { Color.clear.frame(height: 56) }
             }
             .listStyle(.insetGrouped)
         }
@@ -176,14 +177,7 @@ struct ActiveWorkoutView: View {
     }
 
     private var totalVolumeKg: Double {
-        let exercises = workout?.exercises ?? []
-        var volume = 0.0
-        for exercise in exercises {
-            for set in exercise.sets ?? [] {
-                volume += set.weight * Double(set.reps)
-            }
-        }
-        return volume
+        (workout?.exercises ?? []).reduce(0.0) { $0 + $1.workingVolume }
     }
 
     // MARK: - Actions
@@ -327,8 +321,20 @@ private struct ActiveExerciseSection: View {
     }
 
     private func addSet() {
-        let weight = Double(weightText) ?? 0
-        let reps = Int(repsText) ?? 0
+        let weight: Double
+        if weightText.isEmpty {
+            weight = 0
+        } else {
+            guard let parsed = Double(weightText) else { return }
+            weight = parsed
+        }
+        let reps: Int
+        if repsText.isEmpty {
+            reps = 0
+        } else {
+            guard let parsed = Int(repsText) else { return }
+            reps = parsed
+        }
         guard weight.isFinite, weight >= 0, reps >= 0 else { return }
         let storageWeight = weightUnit == .lb ? weight / 2.20462 : weight
         let order = workoutExercise.sets?.count ?? 0
