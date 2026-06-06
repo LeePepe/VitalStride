@@ -38,6 +38,10 @@ struct AIView: View {
             }
             .onChange(of: privacyConsented) { _, newValue in
                 viewModel.privacyAccepted = newValue
+                if !newValue {
+                    viewModel.cancelAllAnalysis()
+                    chatViewModel.cancelStreaming()
+                }
             }
         }
     }
@@ -211,6 +215,7 @@ final class AIViewState {
 
     private let keychainHelper = KeychainHelper()
     private let apiKeyService = AISettingsSection.apiKeyKeychainService
+    private var analysisTasks: [QuickAnalysisType: Task<Void, Never>] = [:]
 
     func checkAPIKey() {
         do {
@@ -235,9 +240,28 @@ final class AIViewState {
         privacyAccepted = false
     }
 
+    func cancelAllAnalysis() {
+        for (type, task) in analysisTasks {
+            task.cancel()
+            if case .loading = cardStates[type] {
+                cardStates[type] = .idle
+            }
+        }
+        analysisTasks.removeAll()
+    }
+
     func runAnalysis(type: QuickAnalysisType, modelContext: ModelContext) async {
         if case .loading = cardStates[type] { return }
 
+        analysisTasks[type]?.cancel()
+        let task = Task {
+            await performAnalysis(type: type, modelContext: modelContext)
+        }
+        analysisTasks[type] = task
+        await task.value
+    }
+
+    private func performAnalysis(type: QuickAnalysisType, modelContext: ModelContext) async {
         cardStates[type] = .loading
         logger.info("analysis started type=\(type.rawValue)")
         let start = ContinuousClock.now
@@ -261,12 +285,21 @@ final class AIViewState {
             let selectedModel = UserDefaults.standard.string(forKey: "aiModel") ?? AIModel.glm4Flash.rawValue
             let response = try await provider.chat(messages: chatMessages, model: selectedModel)
 
+            guard !Task.isCancelled else {
+                cardStates[type] = .idle
+                return
+            }
+
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
             logger.info("analysis completed type=\(type.rawValue) ms=\(ms)")
 
             cardStates[type] = .result(response.content)
         } catch {
+            guard !Task.isCancelled else {
+                cardStates[type] = .idle
+                return
+            }
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
             logger.error("analysis failed type=\(type.rawValue) ms=\(ms) error=\(error.localizedDescription)")

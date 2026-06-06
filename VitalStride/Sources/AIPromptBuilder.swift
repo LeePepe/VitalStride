@@ -30,7 +30,7 @@ struct AIPromptContext: Sendable {
     }
 
     struct HealthSnapshot: Sendable {
-        let restingHeartRate: Int?
+        let averageHeartRate: Int?
         let todaySteps: Int?
         let lastNightSleep: TimeInterval?
         let latestWeight: Double?
@@ -135,8 +135,8 @@ enum AIPromptBuilder {
         }
 
         dataSummary += "\n【健康数据】\n"
-        if let hr = context.healthData.restingHeartRate {
-            dataSummary += "  - 静息心率：\(hr) bpm\n"
+        if let hr = context.healthData.averageHeartRate {
+            dataSummary += "  - 平均心率：\(hr) bpm\n"
         }
         if let sleep = context.healthData.lastNightSleep {
             let hours = Int(sleep / 3600)
@@ -213,8 +213,8 @@ enum AIPromptBuilder {
             systemPrompt += "近期无训练记录。\n"
         }
 
-        if let hr = context.healthData.restingHeartRate {
-            systemPrompt += "静息心率：\(hr) bpm。\n"
+        if let hr = context.healthData.averageHeartRate {
+            systemPrompt += "平均心率：\(hr) bpm。\n"
         }
         if let sleep = context.healthData.lastNightSleep {
             let hours = String(format: "%.1f", sleep / 3600)
@@ -294,7 +294,7 @@ enum AIPromptBuilder {
         async let weight = fetchLatestWeight(service: healthKitService)
 
         return await AIPromptContext.HealthSnapshot(
-            restingHeartRate: heartRate,
+            averageHeartRate: heartRate,
             todaySteps: steps,
             lastNightSleep: sleep,
             latestWeight: weight

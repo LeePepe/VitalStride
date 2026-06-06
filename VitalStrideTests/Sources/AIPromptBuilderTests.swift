@@ -41,13 +41,13 @@ struct AIPromptBuilderTests {
     }
 
     private func makeHealthSnapshot(
-        restingHeartRate: Int? = nil,
+        averageHeartRate: Int? = nil,
         todaySteps: Int? = nil,
         lastNightSleep: TimeInterval? = nil,
         latestWeight: Double? = nil
     ) -> AIPromptContext.HealthSnapshot {
         AIPromptContext.HealthSnapshot(
-            restingHeartRate: restingHeartRate,
+            averageHeartRate: averageHeartRate,
             todaySteps: todaySteps,
             lastNightSleep: lastNightSleep,
             latestWeight: latestWeight
@@ -143,7 +143,7 @@ struct AIPromptBuilderTests {
         let context = AIPromptContext(
             workouts: [],
             healthData: makeHealthSnapshot(
-                restingHeartRate: 62,
+                averageHeartRate: 62,
                 todaySteps: 8500,
                 lastNightSleep: 7 * 3600 + 30 * 60,
                 latestWeight: 75.5
@@ -269,7 +269,7 @@ struct AIPromptBuilderTests {
 
         let context = AIPromptContext(
             workouts: [workout],
-            healthData: makeHealthSnapshot(restingHeartRate: 65, latestWeight: 72.0)
+            healthData: makeHealthSnapshot(averageHeartRate: 65, latestWeight: 72.0)
         )
 
         let systemContext = AIPromptBuilder.buildSystemContext(context: context)

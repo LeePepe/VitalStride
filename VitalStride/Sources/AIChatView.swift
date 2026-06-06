@@ -92,6 +92,12 @@ final class AIChatViewModel {
         startStreaming(modelContext: modelContext)
     }
 
+    func cancelStreaming() {
+        streamingTask?.cancel()
+        streamingTask = nil
+        isStreaming = false
+    }
+
     func clearConversation() {
         streamingTask?.cancel()
         streamingTask = nil

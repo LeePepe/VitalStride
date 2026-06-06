@@ -119,7 +119,7 @@ targets:
         GENERATE_INFOPLIST_FILE: true
         SWIFT_EMIT_LOC_STRINGS: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        INFOPLIST_KEY_NSHealthShareUsageDescription: "VitalStride reads your health data (heart rate, steps, sleep, activity energy) to display training history and activity summaries."
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations."
 
   VitalStrideTests:
     type: bundle.unit-test
