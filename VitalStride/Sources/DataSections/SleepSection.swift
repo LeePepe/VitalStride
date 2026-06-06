@@ -33,8 +33,8 @@ enum SleepAggregator {
         calendar: Calendar = .current
     ) -> [NightSleepData] {
         let sleepPoints = dataPoints.filter { $0.sampleType == .sleepAnalysis }
-        var nightMap: [Date: (deep: TimeInterval, core: TimeInterval, rem: TimeInterval, awake: TimeInterval)] = [:]
 
+        var nightGroups: [Date: [HealthDataPoint]] = [:]
         for point in sleepPoints {
             guard let stage = point.sleepStage else { continue }
             if stage == .inBed { continue }
@@ -46,25 +46,100 @@ enum SleepAggregator {
             let duration = point.endDate.timeIntervalSince(point.startDate)
             guard duration > 0 else { continue }
 
-            var entry = nightMap[nightDate] ?? (0, 0, 0, 0)
-            switch stage {
-            case .asleepDeep:
-                entry.deep += duration
-            case .asleepCore, .asleepUnspecified:
-                entry.core += duration
-            case .asleepREM:
-                entry.rem += duration
-            case .awake:
-                entry.awake += duration
-            case .inBed:
-                break
-            }
-            nightMap[nightDate] = entry
+            nightGroups[nightDate, default: []].append(point)
         }
 
-        return nightMap
-            .map { NightSleepData(date: $0.key, deep: $0.value.deep, core: $0.value.core, rem: $0.value.rem, awake: $0.value.awake) }
+        return nightGroups
+            .map { aggregateNight(date: $0.key, points: $0.value) }
             .sorted { $0.date < $1.date }
+    }
+
+    private static func aggregateNight(date: Date, points: [HealthDataPoint]) -> NightSleepData {
+        func intervals(for stages: Set<SleepStage>) -> [(start: Date, end: Date)] {
+            points
+                .filter { $0.sleepStage.map { stages.contains($0) } ?? false }
+                .map { (start: $0.startDate, end: $0.endDate) }
+        }
+
+        let deepMerged = mergeIntervals(intervals(for: [.asleepDeep]))
+
+        let remMerged = mergeIntervals(intervals(for: [.asleepREM]))
+        let remFinal = subtractIntervals(from: remMerged, subtract: deepMerged)
+
+        let coreMerged = mergeIntervals(intervals(for: [.asleepCore]))
+        let coreFinal = subtractIntervals(
+            from: coreMerged,
+            subtract: mergeIntervals(deepMerged + remFinal)
+        )
+
+        let unspecifiedMerged = mergeIntervals(intervals(for: [.asleepUnspecified]))
+        let unspecifiedRemaining = subtractIntervals(
+            from: unspecifiedMerged,
+            subtract: mergeIntervals(deepMerged + remFinal + coreFinal)
+        )
+
+        let finalCore = mergeIntervals(coreFinal + unspecifiedRemaining)
+
+        return NightSleepData(
+            date: date,
+            deep: duration(of: deepMerged),
+            core: duration(of: finalCore),
+            rem: duration(of: remFinal),
+            awake: mergedDuration(intervals(for: [.awake]))
+        )
+    }
+
+    static func mergeIntervals(_ intervals: [(start: Date, end: Date)]) -> [(start: Date, end: Date)] {
+        guard !intervals.isEmpty else { return [] }
+        let sorted = intervals.sorted { $0.start < $1.start }
+        var result = [sorted[0]]
+        for interval in sorted.dropFirst() {
+            let last = result[result.count - 1]
+            if interval.start <= last.end {
+                result[result.count - 1] = (start: last.start, end: max(last.end, interval.end))
+            } else {
+                result.append(interval)
+            }
+        }
+        return result
+    }
+
+    static func subtractIntervals(
+        from base: [(start: Date, end: Date)],
+        subtract: [(start: Date, end: Date)]
+    ) -> [(start: Date, end: Date)] {
+        guard !base.isEmpty, !subtract.isEmpty else { return base }
+
+        var result: [(start: Date, end: Date)] = []
+
+        for segment in base {
+            var cursor = segment.start
+
+            for sub in subtract {
+                if sub.end <= cursor { continue }
+                if sub.start >= segment.end { break }
+
+                let gapEnd = max(sub.start, cursor)
+                if gapEnd > cursor {
+                    result.append((start: cursor, end: gapEnd))
+                }
+                cursor = max(cursor, sub.end)
+            }
+
+            if cursor < segment.end {
+                result.append((start: cursor, end: segment.end))
+            }
+        }
+
+        return result
+    }
+
+    private static func duration(of intervals: [(start: Date, end: Date)]) -> TimeInterval {
+        intervals.reduce(0) { $0 + $1.end.timeIntervalSince($1.start) }
+    }
+
+    private static func mergedDuration(_ intervals: [(start: Date, end: Date)]) -> TimeInterval {
+        mergeIntervals(intervals).reduce(0) { $0 + $1.end.timeIntervalSince($1.start) }
     }
 
     static func nightDateFor(_ date: Date, calendar: Calendar) -> Date {
