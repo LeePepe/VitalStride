@@ -1,3 +1,4 @@
+import HealthKitService
 import SwiftData
 import SwiftUI
 import VitalModels
@@ -7,8 +8,14 @@ import VitalUI
 struct VitalStrideApp: App {
     private let container: ModelContainer?
     private let containerError: String?
+    private let healthKitService: HealthKitService
+    private let healthDataCache: HealthDataCache
 
     init() {
+        let service = HealthKitService(deviceIdentifier: "ios-display")
+        healthKitService = service
+        healthDataCache = HealthDataCache(dataProvider: service)
+
         do {
             let modelContainer = try ModelContainerConfiguration.makeContainer()
             container = modelContainer
@@ -27,6 +34,8 @@ struct VitalStrideApp: App {
             if let container {
                 ContentView()
                     .modelContainer(container)
+                    .environment(\.healthDataCache, healthDataCache)
+                    .environment(\.healthKitService, healthKitService)
             } else {
                 DataStoreErrorView(errorMessage: containerError ?? "Unknown error")
             }
