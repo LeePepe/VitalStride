@@ -84,28 +84,49 @@ struct ActiveWorkoutView: View {
             let hours = totalSeconds / 3600
             let minutes = (totalSeconds % 3600) / 60
             let seconds = totalSeconds % 60
-            HStack {
-                Image(systemName: "timer")
-                    .foregroundStyle(.secondary)
-                Text("训练时长")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Text(String(format: "%d:%02d:%02d", hours, minutes, seconds))
-                    .font(.title3.monospacedDigit())
-                Spacer()
-                let exerciseCount = workout?.exercises?.count ?? 0
-                let setCount = workout?.exercises?
-                    .reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
-                let volumeKg = totalVolumeKg
-                let displayVolume = weightUnit == .lb ? volumeKg * 2.20462 : volumeKg
-                let volumeText = Int(displayVolume).formatted()
-                Text("\(exerciseCount) 动作 · \(setCount) 组 · \(volumeText) \(weightUnit.rawValue)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            let timeString = String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            let exerciseCount = workout?.exercises?.count ?? 0
+            let setCount = workout?.exercises?
+                .reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
+            let volumeKg = totalVolumeKg
+            let displayVolume = weightUnit == .lb ? volumeKg * 2.20462 : volumeKg
+            let volumeText = Int(displayVolume).formatted()
+            let summaryText = "\(exerciseCount) 动作 · \(setCount) 组 · \(volumeText) \(weightUnit.rawValue)"
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    timerLabel
+                    Text(timeString)
+                        .font(.title3.monospacedDigit())
+                    Spacer()
+                    Text(summaryText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        timerLabel
+                        Text(timeString)
+                            .font(.title3.monospacedDigit())
+                        Spacer()
+                    }
+                    Text(summaryText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
             .background(.bar)
+        }
+    }
+
+    private var timerLabel: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "timer")
+                .foregroundStyle(.secondary)
+            Text("训练时长")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -154,7 +175,7 @@ struct ActiveWorkoutView: View {
                         }
                     )
                 }
-                Section {} footer: { Color.clear.frame(height: 56) }
+                Section {} footer: { Color.clear.frame(height: 72) }
             }
             .listStyle(.insetGrouped)
         }
