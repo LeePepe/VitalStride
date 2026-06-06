@@ -515,16 +515,28 @@ private struct ActiveExerciseSection: View {
 
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
     @State private var searchText = ""
+    @State private var selectedGroup: MuscleGroup?
     let onSelect: (Exercise) -> Void
 
-    private var grouped: [(MuscleGroup, [Exercise])] {
-        let filtered = searchText.isEmpty ? exercises : exercises.filter { exercise in
-            exercise.nameEn.localizedCaseInsensitiveContains(searchText) ||
-            exercise.nameZh.localizedCaseInsensitiveContains(searchText)
+    private var filteredExercises: [Exercise] {
+        var result = exercises
+        if let group = selectedGroup {
+            result = result.filter { $0.muscleGroup == group }
         }
-        let dict = Dictionary(grouping: filtered) { $0.muscleGroup }
+        if !searchText.isEmpty {
+            result = result.filter { exercise in
+                exercise.nameEn.localizedCaseInsensitiveContains(searchText) ||
+                exercise.nameZh.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+        return result
+    }
+
+    private var groupedExercises: [(MuscleGroup, [Exercise])] {
+        let dict = Dictionary(grouping: filteredExercises) { $0.muscleGroup }
         return MuscleGroup.allCases.compactMap { group in
             guard let items = dict[group], !items.isEmpty else { return nil }
             return (group, items)
@@ -540,28 +552,10 @@ struct ExercisePickerView: View {
                         systemImage: "tray",
                         description: Text("请先导入预置动作库")
                     )
-                } else if grouped.isEmpty {
-                    ContentUnavailableView.search(text: searchText)
+                } else if horizontalSizeClass == .regular {
+                    regularLayout
                 } else {
-                    List {
-                        ForEach(grouped, id: \.0) { group, items in
-                            Section(muscleGroupName(group)) {
-                                ForEach(items) { exercise in
-                                    Button {
-                                        onSelect(exercise)
-                                        dismiss()
-                                    } label: {
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(exercise.localizedName)
-                                            Text(equipmentName(exercise.equipment))
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    compactLayout
                 }
             }
             .searchable(text: $searchText, prompt: "搜索动作")
@@ -572,6 +566,132 @@ struct ExercisePickerView: View {
                     Button("取消") { dismiss() }
                 }
             }
+        }
+    }
+
+    // MARK: - Regular Layout (iPad / wide screen)
+
+    private var regularLayout: some View {
+        HStack(spacing: 0) {
+            muscleGroupSidebar
+            Divider()
+            exerciseCollection
+        }
+    }
+
+    private var muscleGroupSidebar: some View {
+        ScrollView {
+            VStack(spacing: 4) {
+                sidebarButton(label: "全部", isSelected: selectedGroup == nil) {
+                    selectedGroup = nil
+                }
+                ForEach(MuscleGroup.allCases, id: \.self) { group in
+                    sidebarButton(
+                        label: muscleGroupName(group),
+                        isSelected: selectedGroup == group
+                    ) {
+                        selectedGroup = group
+                    }
+                }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 4)
+        }
+        .frame(width: 100)
+        .background(.bar)
+    }
+
+    private func sidebarButton(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .foregroundStyle(isSelected ? .white : .primary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isSelected ? Color.accentColor : .clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    // MARK: - Compact Layout (iPhone)
+
+    private var compactLayout: some View {
+        VStack(spacing: 0) {
+            chipBar
+            exerciseCollection
+        }
+    }
+
+    private var chipBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                chipButton(label: "全部", isSelected: selectedGroup == nil) {
+                    selectedGroup = nil
+                }
+                ForEach(MuscleGroup.allCases, id: \.self) { group in
+                    chipButton(
+                        label: muscleGroupName(group),
+                        isSelected: selectedGroup == group
+                    ) {
+                        selectedGroup = group
+                    }
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+        .background(.bar)
+    }
+
+    private func chipButton(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .foregroundStyle(isSelected ? .white : .primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Color.accentColor : Color(.systemGray5))
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    // MARK: - Exercise Collection
+
+    @ViewBuilder
+    private var exerciseCollection: some View {
+        if groupedExercises.isEmpty {
+            ContentUnavailableView.search(text: searchText)
+        } else {
+            List {
+                ForEach(groupedExercises, id: \.0) { group, items in
+                    Section(muscleGroupName(group)) {
+                        ForEach(items) { exercise in
+                            Button {
+                                onSelect(exercise)
+                                dismiss()
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(exercise.localizedName)
+                                    Text(equipmentName(exercise.equipment))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
         }
     }
 }
