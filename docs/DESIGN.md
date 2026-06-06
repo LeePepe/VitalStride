@@ -20,7 +20,7 @@
 | 数据存储 | SwiftData + CloudKit | 本地权威存储 + 三端同步 |
 | 健康数据 | HealthKit | 读取 + 写入（仅 app 发起的训练） |
 | 图表 | Swift Charts | Apple 原生，iOS 17+ 全功能（SectorMark、chartXSelection）|
-| AI | Apple Intelligence (Foundation Models) | 端侧推理，零成本，离线可用 |
+| AI | 智谱 AI (GLM-4-Flash / GLM-4-Plus) | 云端推理，OpenAI 兼容 API，免费/付费双模型 |
 | 包管理 | Swift Package Manager | 标准选型 |
 | 文件解析 | FIT SDK + GPX XML parser | 骑行数据导入 |
 
@@ -58,7 +58,7 @@
 | 2 | 训练 | 开始力量训练、训练历史（所有来源）、筛选搜索 |
 | 3 | 数据 | 健康数据详情（心率、睡眠、体重等）、按类型分 section、时间范围图表 |
 | 4 | AI | AI Insight 面板、训练分析报告、对话式问答 |
-| 5 | 设置 | HealthKit 权限、单位偏好(kg/lb)、GPX/FIT 导入、数据导出 |
+| 5 | 设置 | HealthKit 权限、单位偏好(kg/lb)、AI 服务配置（API Key、模型选择）、GPX/FIT 导入、数据导出 |
 
 ### macOS (Sidebar)
 
@@ -192,23 +192,24 @@ WorkoutTemplate (训练模板)
 
 ## AI 分析系统
 
-### V1: Apple Intelligence（端侧）
+### V1: 智谱 AI（云端）
 
-- 框架：Foundation Models (iOS 18+)
-- 运行位置：设备端，离线可用
+- Provider：智谱 AI (GLM-4-Flash 免费 / GLM-4-Plus 付费)
+- API：OpenAI 兼容 REST API via URLSession
+- Endpoint：`https://open.bigmodel.cn/api/paas/v4/chat/completions`
+- Auth：API Key 存储在 Keychain，通过设置页配置
 - 功能范围：
   - 训练量趋势分析（"本周比上周多了20%"）
   - 恢复建议（"连续3天腿部训练，建议休息"）
   - 个人记录提醒（"卧推新 PR！"）
-  - 训练模式识别（Core ML 模型）
-  - 疲劳/表现预测
+  - 自然语言训练报告
 
-### V2: 云端 LLM（后续规划）
+### V2: 扩展（后续规划）
 
-- 自然语言训练报告（"你的骑行 FTP 估算提升了 5%"）
-- 训练计划建议
 - 对话式问答（"我上个月骑行总距离多少？"）
-- 可通过 raven proxy 接入，个人使用零成本
+- 训练计划建议
+- 端侧 AI 补充（Apple Intelligence / Core ML）
+- 多 Provider 支持（DeepSeek / 通义 / OpenAI）
 
 ## 图表系统
 
@@ -236,7 +237,7 @@ WorkoutTemplate (训练模板)
 | 力竭组 (Failure Set) | 中 | Set Type 扩展 |
 | 超级组 (Superset) | 中 | 两个动作交替，需 UI 重构 |
 | 有氧训练发起 | 低 | iOS 端发起跑步/骑行，依赖 GPS |
-| 云端 LLM 分析 | 高 | 通过 raven proxy 接入 |
+| 云端 LLM 分析 | 高 | 已实现（智谱 AI），后续扩展多 Provider |
 | 去重策略实现 | 中 | 需真实数据验证后设计 |
 | 训练计划/周计划 (Routine) | 中 | 基于 Template 扩展为多日计划 |
 | 社交/分享 | 低 | 训练成果分享 |

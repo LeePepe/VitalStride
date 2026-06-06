@@ -37,6 +37,7 @@ struct AISettingsSection: View {
             Text("前往 [open.bigmodel.cn](https://open.bigmodel.cn) 获取 API Key")
         }
         .onAppear(perform: loadAPIKeyState)
+        .onDisappear(perform: savePendingAPIKey)
         .alert(
             String(localized: "确认清除", comment: "Clear API key confirmation title"),
             isPresented: $showClearConfirmation
@@ -70,6 +71,7 @@ struct AISettingsSection: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "清除 API Key", comment: "Clear API key button a11y"))
@@ -128,6 +130,12 @@ struct AISettingsSection: View {
         } catch {
             logger.error("Failed to clear API key: \(error.localizedDescription)")
         }
+    }
+
+    private func savePendingAPIKey() {
+        let trimmed = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        saveAPIKey()
     }
 }
 
