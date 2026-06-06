@@ -20,9 +20,11 @@ struct AISettingsSection: View {
     static let apiKeyKeychainService = "\(KeychainHelper.defaultServicePrefix).apikey"
 
     @AppStorage("aiModel") private var selectedModel: AIModel = .glm4Flash
+    @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
     @State private var hasAPIKey = false
     @State private var apiKeyInput = ""
     @State private var showClearConfirmation = false
+    @State private var showRevokeConsentConfirmation = false
 
     private let keychainHelper = KeychainHelper()
 
@@ -31,6 +33,9 @@ struct AISettingsSection: View {
             providerRow
             apiKeyRow
             modelPicker
+            if privacyConsented {
+                privacyConsentRow
+            }
         } header: {
             Text("AI 服务")
         } footer: {
@@ -46,6 +51,17 @@ struct AISettingsSection: View {
             Button(String(localized: "清除", comment: "Clear button"), role: .destructive, action: clearAPIKey)
         } message: {
             Text("确定要清除已保存的 API Key 吗？")
+        }
+        .alert(
+            String(localized: "撤回数据使用许可", comment: "Revoke consent title"),
+            isPresented: $showRevokeConsentConfirmation
+        ) {
+            Button(String(localized: "取消", comment: "Cancel button"), role: .cancel) {}
+            Button(String(localized: "撤回", comment: "Revoke button"), role: .destructive) {
+                privacyConsented = false
+            }
+        } message: {
+            Text(String(localized: "撤回后需重新确认隐私告知才能使用 AI 分析功能。", comment: "Revoke consent message"))
         }
     }
 
@@ -98,6 +114,18 @@ struct AISettingsSection: View {
         .onChange(of: selectedModel) { oldValue, newValue in
             logger.info("AI model changed: from=\(oldValue.rawValue) to=\(newValue.rawValue)")
         }
+    }
+
+    private var privacyConsentRow: some View {
+        Button(role: .destructive) {
+            showRevokeConsentConfirmation = true
+        } label: {
+            Label(
+                String(localized: "撤回数据使用许可", comment: "Revoke privacy consent label"),
+                systemImage: "hand.raised"
+            )
+        }
+        .accessibilityLabel(String(localized: "撤回 AI 数据使用许可", comment: "Revoke consent a11y"))
     }
 
     private func loadAPIKeyState() {

@@ -182,6 +182,7 @@ struct AIQuickAnalysisCard: View {
                     Text(String(localized: "重新分析", comment: "Re-analyze button"))
                         .font(.caption)
                 }
+                .frame(minHeight: 44)
             }
             .foregroundStyle(.secondary)
         }
@@ -200,6 +201,7 @@ struct AIQuickAnalysisCard: View {
                     Text(String(localized: "重试", comment: "Retry button"))
                         .font(.caption.weight(.medium))
                 }
+                .frame(minHeight: 44)
             }
             .accessibilityLabel(String(localized: "重试 AI 分析", comment: "Retry a11y label"))
         }

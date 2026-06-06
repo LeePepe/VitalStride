@@ -238,12 +238,13 @@ enum AIPromptBuilder {
         let rangeStart = dateRange.start
         let rangeEnd = dateRange.end
 
-        let descriptor = FetchDescriptor<Workout>(
+        var descriptor = FetchDescriptor<Workout>(
             predicate: #Predicate<Workout> { workout in
                 workout.startDate >= rangeStart && workout.startDate <= rangeEnd && workout.endDate != nil
             },
             sortBy: [SortDescriptor(\.startDate, order: .forward)]
         )
+        descriptor.fetchLimit = 50
 
         do {
             let workouts = try modelContext.fetch(descriptor)

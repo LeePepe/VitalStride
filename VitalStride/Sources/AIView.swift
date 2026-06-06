@@ -7,13 +7,15 @@ import os
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "AIView")
 
-private let privacyConsentKey = "ai_privacy_consent_accepted"
+let aiPrivacyConsentKey = "ai_privacy_consent_accepted"
 
 // MARK: - AIView
 
 struct AIView: View {
     @Environment(\.modelContext) private var modelContext
+    #if os(iOS)
     @Environment(AppNavigation.self) private var navigation: AppNavigation?
+    #endif
     @State private var viewModel = AIViewState()
 
     var body: some View {
@@ -55,6 +57,7 @@ struct AIView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
 
+                #if os(iOS)
                 Button {
                     navigation?.selectedTab = .settings
                 } label: {
@@ -66,6 +69,11 @@ struct AIView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .accessibilityHint(String(localized: "切换到设置页面配置 API Key", comment: "API key settings a11y hint"))
+                #else
+                Text(String(localized: "请在侧边栏「设置」中配置 API Key", comment: "macOS API key guide"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                #endif
 
                 Spacer(minLength: 40)
             }
@@ -99,7 +107,7 @@ struct AIView: View {
                     )
                     privacyBullet(
                         icon: "checkmark.shield",
-                        text: String(localized: "数据仅用于生成分析结果，不会被永久存储。", comment: "Privacy purpose description")
+                        text: String(localized: "数据仅用于生成分析结果，具体数据处理方式以智谱 AI 服务条款为准。", comment: "Privacy purpose description")
                     )
                 }
                 .padding()
@@ -211,12 +219,17 @@ final class AIViewState {
     }
 
     func loadPrivacyConsent() {
-        privacyAccepted = UserDefaults.standard.bool(forKey: privacyConsentKey)
+        privacyAccepted = UserDefaults.standard.bool(forKey: aiPrivacyConsentKey)
     }
 
     func acceptPrivacyConsent() {
-        UserDefaults.standard.set(true, forKey: privacyConsentKey)
+        UserDefaults.standard.set(true, forKey: aiPrivacyConsentKey)
         privacyAccepted = true
+    }
+
+    func revokePrivacyConsent() {
+        UserDefaults.standard.set(false, forKey: aiPrivacyConsentKey)
+        privacyAccepted = false
     }
 
     func runAnalysis(type: QuickAnalysisType, modelContext: ModelContext) async {
@@ -242,7 +255,8 @@ final class AIViewState {
                 ChatMessage(role: $0.role, content: $0.content)
             }
 
-            let response = try await provider.chat(messages: chatMessages, model: nil)
+            let selectedModel = UserDefaults.standard.string(forKey: "aiModel") ?? AIModel.glm4Flash.rawValue
+            let response = try await provider.chat(messages: chatMessages, model: selectedModel)
 
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000

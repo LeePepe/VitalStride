@@ -87,6 +87,10 @@ targets:
       - path: VitalStride/Sources/HealthSummaryCards.swift
       - path: VitalStride/Sources/DataSections
       - path: VitalStride/Sources/UnitPreferencesSection.swift
+      - path: VitalStride/Sources/AIView.swift
+      - path: VitalStride/Sources/AIQuickAnalysisCard.swift
+      - path: VitalStride/Sources/AIPromptBuilder.swift
+      - path: VitalStride/Sources/AISettingsSection.swift
     dependencies:
       - package: VitalModels
       - package: HealthKitService
