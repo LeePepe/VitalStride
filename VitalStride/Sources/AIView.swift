@@ -17,6 +17,7 @@ struct AIView: View {
     @Environment(AppNavigation.self) private var navigation: AppNavigation?
     #endif
     @State private var viewModel = AIViewState()
+    @State private var chatViewModel = AIChatViewModel()
 
     var body: some View {
         NavigationStack {
@@ -146,12 +147,20 @@ struct AIView: View {
     // MARK: - Analysis Content
 
     private var analysisContent: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                quickAnalysisSection
-                conversationPlaceholder
+        AIChatView(viewModel: chatViewModel) {
+            quickAnalysisSection
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if !chatViewModel.messages.isEmpty {
+                    Button {
+                        chatViewModel.clearConversation()
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .accessibilityLabel(String(localized: "清空对话", comment: "Clear conversation a11y"))
+                }
             }
-            .padding()
         }
     }
 
@@ -185,16 +194,6 @@ struct AIView: View {
         }
     }
 
-    private var conversationPlaceholder: some View {
-        VStack(spacing: 8) {
-            Divider()
-                .padding(.vertical, 8)
-
-            Text(String(localized: "对话功能即将推出", comment: "Conversation placeholder"))
-                .font(.subheadline)
-                .foregroundStyle(.tertiary)
-        }
-    }
 }
 
 // MARK: - View State
