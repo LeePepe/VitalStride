@@ -190,100 +190,15 @@ private struct OverviewHealthSnapshot: View {
                 .font(.headline)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                SnapshotMetricCard(
-                    title: String(localized: "步数", comment: "Steps"),
-                    systemImage: "figure.walk",
-                    color: .blue
-                ) {
-                    if let steps = snapshot.todaySteps {
-                        Text(steps.formatted(.number))
-                            .font(.title3.bold())
-                        Text(String(localized: "步", comment: "Steps unit"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("--")
-                            .font(.title3.bold())
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                SnapshotMetricCard(
-                    title: String(localized: "心率", comment: "Heart rate"),
-                    systemImage: "heart.fill",
-                    color: .red
-                ) {
-                    if let bpm = snapshot.averageBPM {
-                        Text(bpm.formatted())
-                            .font(.title3.bold())
-                        Text(String(localized: "BPM", comment: "Beats per minute"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("--")
-                            .font(.title3.bold())
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                SnapshotMetricCard(
-                    title: String(localized: "睡眠", comment: "Sleep"),
-                    systemImage: "bed.double.fill",
-                    color: .indigo
-                ) {
-                    if let sleep = snapshot.lastNightSleep {
-                        Text(formatDuration(sleep))
-                            .font(.title3.bold())
-                    } else {
-                        Text("--")
-                            .font(.title3.bold())
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                SnapshotMetricCard(
-                    title: String(localized: "体重", comment: "Body weight"),
-                    systemImage: "scalemass.fill",
-                    color: .green
-                ) {
-                    if let weight = snapshot.latestWeight {
-                        Text(weight.formatted(.number.precision(.fractionLength(1))))
-                            .font(.title3.bold())
-                        Text(String(localized: "kg", comment: "Kilogram"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("--")
-                            .font(.title3.bold())
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                StepsSummaryCard(preloaded: snapshot.todaySteps)
+                HeartRateSummaryCard(preloaded: snapshot.averageBPM)
+                SleepSummaryCard(preloaded: snapshot.lastNightSleep)
+                WeightSummaryCard(preloaded: snapshot.latestWeight)
             }
         }
         .padding()
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-private struct SnapshotMetricCard<Content: View>: View {
-    let title: String
-    let systemImage: String
-    let color: Color
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: systemImage)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(color)
-
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                content()
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
     }
 }
 

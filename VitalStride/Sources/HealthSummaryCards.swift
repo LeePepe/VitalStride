@@ -36,7 +36,20 @@ struct SummaryCardView<Content: View>: View {
 
 struct StepsSummaryCard: View {
     @State private var todaySteps: Int?
-    @State private var isLoading = true
+    @State private var isLoading: Bool
+    private let needsFetch: Bool
+
+    init() {
+        _todaySteps = State(initialValue: nil)
+        _isLoading = State(initialValue: true)
+        needsFetch = true
+    }
+
+    init(preloaded steps: Int?) {
+        _todaySteps = State(initialValue: steps)
+        _isLoading = State(initialValue: false)
+        needsFetch = false
+    }
 
     var body: some View {
         SummaryCardView(
@@ -57,7 +70,10 @@ struct StepsSummaryCard: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .task { await loadData() }
+        .task {
+            guard needsFetch else { return }
+            await loadData()
+        }
     }
 
     private func loadData() async {
@@ -76,7 +92,20 @@ struct StepsSummaryCard: View {
 
 struct HeartRateSummaryCard: View {
     @State private var latestBPM: Int?
-    @State private var isLoading = true
+    @State private var isLoading: Bool
+    private let needsFetch: Bool
+
+    init() {
+        _latestBPM = State(initialValue: nil)
+        _isLoading = State(initialValue: true)
+        needsFetch = true
+    }
+
+    init(preloaded bpm: Int?) {
+        _latestBPM = State(initialValue: bpm)
+        _isLoading = State(initialValue: false)
+        needsFetch = false
+    }
 
     var body: some View {
         SummaryCardView(
@@ -97,7 +126,10 @@ struct HeartRateSummaryCard: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .task { await loadData() }
+        .task {
+            guard needsFetch else { return }
+            await loadData()
+        }
     }
 
     private func loadData() async {
@@ -118,7 +150,20 @@ struct HeartRateSummaryCard: View {
 
 struct SleepSummaryCard: View {
     @State private var lastNightSleep: TimeInterval?
-    @State private var isLoading = true
+    @State private var isLoading: Bool
+    private let needsFetch: Bool
+
+    init() {
+        _lastNightSleep = State(initialValue: nil)
+        _isLoading = State(initialValue: true)
+        needsFetch = true
+    }
+
+    init(preloaded sleep: TimeInterval?) {
+        _lastNightSleep = State(initialValue: sleep)
+        _isLoading = State(initialValue: false)
+        needsFetch = false
+    }
 
     var body: some View {
         SummaryCardView(
@@ -136,7 +181,10 @@ struct SleepSummaryCard: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .task { await loadData() }
+        .task {
+            guard needsFetch else { return }
+            await loadData()
+        }
     }
 
     private func loadData() async {
@@ -155,7 +203,20 @@ struct SleepSummaryCard: View {
 
 struct WeightSummaryCard: View {
     @State private var latestWeight: Double?
-    @State private var isLoading = true
+    @State private var isLoading: Bool
+    private let needsFetch: Bool
+
+    init() {
+        _latestWeight = State(initialValue: nil)
+        _isLoading = State(initialValue: true)
+        needsFetch = true
+    }
+
+    init(preloaded weight: Double?) {
+        _latestWeight = State(initialValue: weight)
+        _isLoading = State(initialValue: false)
+        needsFetch = false
+    }
 
     var body: some View {
         SummaryCardView(
@@ -176,7 +237,10 @@ struct WeightSummaryCard: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .task { await loadData() }
+        .task {
+            guard needsFetch else { return }
+            await loadData()
+        }
     }
 
     private func loadData() async {

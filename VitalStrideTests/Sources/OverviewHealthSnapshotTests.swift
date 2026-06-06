@@ -294,12 +294,72 @@ struct OverviewDisplayLogicTests {
     }
 }
 
-// MARK: - SummaryCardView Extraction Tests
+// MARK: - SummaryCard Preloaded Initializer Tests
 
-@Suite("SummaryCardView Reuse Tests")
-struct SummaryCardReuseTests {
-    @Test("SummaryCardView is accessible from both DataView and OverviewView")
-    func summaryCardAccessibility() {
+@Suite("SummaryCard Preloaded Data Tests")
+struct SummaryCardPreloadedTests {
+    @Test("StepsSummaryCard accepts preloaded data")
+    func stepsPreloaded() {
+        _ = StepsSummaryCard(preloaded: 8000)
+    }
+
+    @Test("StepsSummaryCard accepts preloaded nil")
+    func stepsPreloadedNil() {
+        _ = StepsSummaryCard(preloaded: nil)
+    }
+
+    @Test("StepsSummaryCard default init is available")
+    func stepsDefaultInit() {
+        _ = StepsSummaryCard()
+    }
+
+    @Test("HeartRateSummaryCard accepts preloaded data")
+    func heartRatePreloaded() {
+        _ = HeartRateSummaryCard(preloaded: 72)
+    }
+
+    @Test("HeartRateSummaryCard accepts preloaded nil")
+    func heartRatePreloadedNil() {
+        _ = HeartRateSummaryCard(preloaded: nil)
+    }
+
+    @Test("HeartRateSummaryCard default init is available")
+    func heartRateDefaultInit() {
+        _ = HeartRateSummaryCard()
+    }
+
+    @Test("SleepSummaryCard accepts preloaded data")
+    func sleepPreloaded() {
+        _ = SleepSummaryCard(preloaded: 7 * 3600)
+    }
+
+    @Test("SleepSummaryCard accepts preloaded nil")
+    func sleepPreloadedNil() {
+        _ = SleepSummaryCard(preloaded: nil)
+    }
+
+    @Test("SleepSummaryCard default init is available")
+    func sleepDefaultInit() {
+        _ = SleepSummaryCard()
+    }
+
+    @Test("WeightSummaryCard accepts preloaded data")
+    func weightPreloaded() {
+        _ = WeightSummaryCard(preloaded: 75.5)
+    }
+
+    @Test("WeightSummaryCard accepts preloaded nil")
+    func weightPreloadedNil() {
+        _ = WeightSummaryCard(preloaded: nil)
+    }
+
+    @Test("WeightSummaryCard default init is available")
+    func weightDefaultInit() {
+        _ = WeightSummaryCard()
+    }
+
+    @Test("SummaryCardView is accessible as shared component")
+    func summaryCardViewAccessible() {
         _ = SummaryCardView(
             title: "Test",
             systemImage: "star",
@@ -309,25 +369,48 @@ struct SummaryCardReuseTests {
             Text("Content")
         }
     }
+}
 
-    @Test("StepsSummaryCard is not private")
-    func stepsSummaryCardIsPublic() {
+// MARK: - SummaryCard Reuse Verification Tests
+
+@Suite("SummaryCard Reuse Verification Tests")
+struct SummaryCardReuseVerificationTests {
+    @Test("Same card types used in DataView and OverviewView contexts")
+    func sameComponentTypes() {
         _ = StepsSummaryCard()
-    }
-
-    @Test("HeartRateSummaryCard is not private")
-    func heartRateSummaryCardIsPublic() {
         _ = HeartRateSummaryCard()
-    }
-
-    @Test("SleepSummaryCard is not private")
-    func sleepSummaryCardIsPublic() {
         _ = SleepSummaryCard()
+        _ = WeightSummaryCard()
+
+        let snapshot = HealthSnapshotData(todaySteps: 5000, averageBPM: 72, lastNightSleep: 7 * 3600, latestWeight: 75.0)
+        _ = StepsSummaryCard(preloaded: snapshot.todaySteps)
+        _ = HeartRateSummaryCard(preloaded: snapshot.averageBPM)
+        _ = SleepSummaryCard(preloaded: snapshot.lastNightSleep)
+        _ = WeightSummaryCard(preloaded: snapshot.latestWeight)
     }
 
-    @Test("WeightSummaryCard is not private")
-    func weightSummaryCardIsPublic() {
-        _ = WeightSummaryCard()
+    @Test("All four preloaded cards work with full HealthSnapshotData")
+    func allPreloadedFromSnapshot() {
+        let snapshot = HealthSnapshotData(todaySteps: 10000, averageBPM: 65, lastNightSleep: 8 * 3600, latestWeight: 70.2)
+        let cards: [any View] = [
+            StepsSummaryCard(preloaded: snapshot.todaySteps),
+            HeartRateSummaryCard(preloaded: snapshot.averageBPM),
+            SleepSummaryCard(preloaded: snapshot.lastNightSleep),
+            WeightSummaryCard(preloaded: snapshot.latestWeight),
+        ]
+        #expect(cards.count == 4)
+    }
+
+    @Test("All four preloaded cards work with empty HealthSnapshotData")
+    func allPreloadedFromEmptySnapshot() {
+        let snapshot = HealthSnapshotData(todaySteps: nil, averageBPM: nil, lastNightSleep: nil, latestWeight: nil)
+        let cards: [any View] = [
+            StepsSummaryCard(preloaded: snapshot.todaySteps),
+            HeartRateSummaryCard(preloaded: snapshot.averageBPM),
+            SleepSummaryCard(preloaded: snapshot.lastNightSleep),
+            WeightSummaryCard(preloaded: snapshot.latestWeight),
+        ]
+        #expect(cards.count == 4)
     }
 }
 

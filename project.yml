@@ -70,6 +70,7 @@ targets:
           - "*.entitlements"
       - path: Shared
       - path: VitalStride/Sources/DataView.swift
+      - path: VitalStride/Sources/HealthSummaryCards.swift
       - path: VitalStride/Sources/DataSections
       - path: VitalStride/Sources/UnitPreferencesSection.swift
     dependencies:

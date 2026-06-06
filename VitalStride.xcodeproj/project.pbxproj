@@ -70,6 +70,7 @@
 		8ADFF3B69575A27255C6AF0C /* WorkoutDetailCalculationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F12CB325C0F7206286AE8D7F /* WorkoutDetailCalculationTests.swift */; };
 		8C37CF233ECE8141B1852643 /* ModelContainerConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2D1B656D2FD06AFC7B59480 /* ModelContainerConfiguration.swift */; };
 		8CEFE2B6537240CE769FC111 /* HealthSummaryCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = B49701A5271080F16964F20B /* HealthSummaryCards.swift */; };
+		8D1FA3C7E42B90A1D5F67E02 /* HealthSummaryCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = B49701A5271080F16964F20B /* HealthSummaryCards.swift */; };
 		8E297A2B0C1D76DB29A12ED9 /* DataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E4C9428C75CCA9843D6864F /* DataView.swift */; };
 		8E457F91B4CE17842B9CE25E /* VitalStrideWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D06A0789305603E086A2383 /* VitalStrideWatchApp.swift */; };
 		9012AA4FB8A77D298CE2FDF5 /* Exercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AA2554F283591756DFE2965 /* Exercise.swift */; };
@@ -638,6 +639,7 @@
 				14E16BCB4F635560E7417AF9 /* HealthKitAnchorStore.swift in Sources */,
 				7662BFA459744861A2919D53 /* HealthKitService.swift in Sources */,
 				0FBED3C5DB4E52BF29D41AD0 /* HealthSampleType.swift in Sources */,
+				8D1FA3C7E42B90A1D5F67E02 /* HealthSummaryCards.swift in Sources */,
 				CCA8B4CA07DE1BF001FCC359 /* HeartRateSection.swift in Sources */,
 				33F32CC3B767F8D4AB763238 /* MacContentView.swift in Sources */,
 				CB9265F44E2F4C98B90A0A7D /* ModelContainerConfiguration.swift in Sources */,
