@@ -1,0 +1,39 @@
+import Foundation
+import SwiftData
+
+@Model
+public final class WorkoutExercise {
+    public var order: Int = 0
+    public var exercise: Exercise?
+    public var workout: Workout?
+
+    @Relationship(deleteRule: .cascade, inverse: \ExerciseSet.workoutExercise)
+    public var sets: [ExerciseSet]?
+
+    public init(
+        order: Int,
+        exercise: Exercise? = nil,
+        sets: [ExerciseSet] = []
+    ) {
+        self.order = order
+        self.exercise = exercise
+        self.sets = sets
+    }
+}
+
+// MARK: - Calculation Helpers
+
+extension WorkoutExercise {
+    public var totalSetsCount: Int {
+        sets?.count ?? 0
+    }
+
+    public var totalRepsCount: Int {
+        (sets ?? []).reduce(0) { $0 + $1.reps }
+    }
+
+    public var workingVolume: Double {
+        (sets ?? []).filter { $0.setType == .working }
+            .reduce(0.0) { $0 + $1.weight * Double($1.reps) }
+    }
+}

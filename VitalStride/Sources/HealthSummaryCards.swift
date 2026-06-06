@@ -1,4 +1,6 @@
+import HealthKitService
 import SwiftUI
+import VitalModels
 
 // MARK: - Summary Card Container
 

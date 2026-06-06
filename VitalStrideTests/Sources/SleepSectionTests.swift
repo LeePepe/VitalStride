@@ -1,4 +1,5 @@
 import Foundation
+import HealthKitService
 import Testing
 
 @testable import VitalStride

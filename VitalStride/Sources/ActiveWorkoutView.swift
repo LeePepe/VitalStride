@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import VitalModels
 
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext

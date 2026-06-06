@@ -1,5 +1,7 @@
+import HealthKitService
 import SwiftData
 import SwiftUI
+import VitalModels
 
 struct OverviewView: View {
     @State private var snapshotState = HealthSnapshotState()

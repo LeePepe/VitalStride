@@ -1,5 +1,7 @@
 import SwiftData
 import SwiftUI
+import VitalModels
+import VitalUI
 
 @main
 struct VitalStrideApp: App {

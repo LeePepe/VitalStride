@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import VitalStride
+@testable import HealthKitService
 
 @Suite("HealthKitAnchorStore Tests")
 struct HealthKitAnchorStoreTests {

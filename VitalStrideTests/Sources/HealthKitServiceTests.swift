@@ -2,7 +2,7 @@ import Foundation
 import HealthKit
 import Testing
 
-@testable import VitalStride
+@testable import HealthKitService
 
 // MARK: - Mock Health Store
 

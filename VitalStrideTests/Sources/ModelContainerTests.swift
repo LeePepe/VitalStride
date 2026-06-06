@@ -1,5 +1,6 @@
 import SwiftData
 import Testing
+import VitalModels
 
 @testable import VitalStride
 

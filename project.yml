@@ -13,6 +13,16 @@ settings:
     SWIFT_VERSION: "6.0"
     ENABLE_USER_SCRIPT_SANDBOXING: true
 
+packages:
+  VitalModels:
+    path: Packages/VitalModels
+  HealthKitService:
+    path: Packages/HealthKitService
+  AIService:
+    path: Packages/AIService
+  VitalUI:
+    path: Packages/VitalUI
+
 schemes:
   VitalStride:
     build:
@@ -41,8 +51,11 @@ targets:
       - path: VitalStride
         excludes:
           - "*.entitlements"
-      - path: Shared
     dependencies:
+      - package: VitalModels
+      - package: HealthKitService
+      - package: AIService
+      - package: VitalUI
       - sdk: HealthKit.framework
     settings:
       base:
@@ -68,12 +81,16 @@ targets:
       - path: VitalStrideMac
         excludes:
           - "*.entitlements"
-      - path: Shared
+      - path: VitalStride/Sources/ExerciseSeeder.swift
       - path: VitalStride/Sources/DataView.swift
       - path: VitalStride/Sources/HealthSummaryCards.swift
       - path: VitalStride/Sources/DataSections
       - path: VitalStride/Sources/UnitPreferencesSection.swift
     dependencies:
+      - package: VitalModels
+      - package: HealthKitService
+      - package: AIService
+      - package: VitalUI
       - sdk: HealthKit.framework
     entitlements:
       path: VitalStrideMac/VitalStrideMac.entitlements
@@ -104,6 +121,8 @@ targets:
       - path: VitalStrideTests
     dependencies:
       - target: VitalStride
+      - package: VitalModels
+      - package: HealthKitService
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vitalstride.tests
@@ -129,8 +148,12 @@ targets:
         excludes:
           - "*.entitlements"
       - path: VitalStride/Resources
-      - path: Shared
+      - path: VitalStride/Sources/ExerciseSeeder.swift
     dependencies:
+      - package: VitalModels
+      - package: HealthKitService
+      - package: AIService
+      - package: VitalUI
       - sdk: HealthKit.framework
     settings:
       base:
