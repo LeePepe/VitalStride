@@ -7,6 +7,7 @@ struct SettingsView: View {
                 HealthKitPermissionSection()
                 UnitPreferencesSection()
                 DataImportExportSection()
+                AISettingsSection()
                 aboutSection
             }
             .navigationTitle("设置")
