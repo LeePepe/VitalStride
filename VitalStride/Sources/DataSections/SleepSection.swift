@@ -55,26 +55,36 @@ enum SleepAggregator {
     }
 
     private static func aggregateNight(date: Date, points: [HealthDataPoint]) -> NightSleepData {
-        let hasDetailedStages = points.contains {
-            guard let s = $0.sleepStage else { return false }
-            return s == .asleepCore || s == .asleepDeep || s == .asleepREM
-        }
-
-        let effectivePoints = hasDetailedStages
-            ? points.filter { $0.sleepStage != .asleepUnspecified }
-            : points
-
         func intervals(for stages: Set<SleepStage>) -> [(start: Date, end: Date)] {
-            effectivePoints
+            points
                 .filter { $0.sleepStage.map { stages.contains($0) } ?? false }
                 .map { (start: $0.startDate, end: $0.endDate) }
         }
 
+        let deepMerged = mergeIntervals(intervals(for: [.asleepDeep]))
+
+        let remMerged = mergeIntervals(intervals(for: [.asleepREM]))
+        let remFinal = subtractIntervals(from: remMerged, subtract: deepMerged)
+
+        let coreMerged = mergeIntervals(intervals(for: [.asleepCore]))
+        let coreFinal = subtractIntervals(
+            from: coreMerged,
+            subtract: mergeIntervals(deepMerged + remFinal)
+        )
+
+        let unspecifiedMerged = mergeIntervals(intervals(for: [.asleepUnspecified]))
+        let unspecifiedRemaining = subtractIntervals(
+            from: unspecifiedMerged,
+            subtract: mergeIntervals(deepMerged + remFinal + coreFinal)
+        )
+
+        let finalCore = mergeIntervals(coreFinal + unspecifiedRemaining)
+
         return NightSleepData(
             date: date,
-            deep: mergedDuration(intervals(for: [.asleepDeep])),
-            core: mergedDuration(intervals(for: [.asleepCore, .asleepUnspecified])),
-            rem: mergedDuration(intervals(for: [.asleepREM])),
+            deep: duration(of: deepMerged),
+            core: duration(of: finalCore),
+            rem: duration(of: remFinal),
             awake: mergedDuration(intervals(for: [.awake]))
         )
     }
@@ -92,6 +102,40 @@ enum SleepAggregator {
             }
         }
         return result
+    }
+
+    static func subtractIntervals(
+        from base: [(start: Date, end: Date)],
+        subtract: [(start: Date, end: Date)]
+    ) -> [(start: Date, end: Date)] {
+        guard !base.isEmpty, !subtract.isEmpty else { return base }
+
+        var result: [(start: Date, end: Date)] = []
+
+        for segment in base {
+            var cursor = segment.start
+
+            for sub in subtract {
+                if sub.end <= cursor { continue }
+                if sub.start >= segment.end { break }
+
+                let gapEnd = max(sub.start, cursor)
+                if gapEnd > cursor {
+                    result.append((start: cursor, end: gapEnd))
+                }
+                cursor = max(cursor, sub.end)
+            }
+
+            if cursor < segment.end {
+                result.append((start: cursor, end: segment.end))
+            }
+        }
+
+        return result
+    }
+
+    private static func duration(of intervals: [(start: Date, end: Date)]) -> TimeInterval {
+        intervals.reduce(0) { $0 + $1.end.timeIntervalSince($1.start) }
     }
 
     private static func mergedDuration(_ intervals: [(start: Date, end: Date)]) -> TimeInterval {

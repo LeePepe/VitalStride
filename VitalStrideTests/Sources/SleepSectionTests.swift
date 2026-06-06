@@ -146,8 +146,8 @@ struct AggregateByNightTests {
         #expect(result[0].deep == 0)
     }
 
-    @Test("AsleepUnspecified discarded when detailed stages present")
-    func unspecifiedDiscardedWithDetailedStages() {
+    @Test("AsleepUnspecified: non-overlapping portions kept as core when detailed stages present")
+    func unspecifiedPartiallyKeptWithDetailedStages() {
         let interval = DateInterval(start: date(2026, 6, 1), end: date(2026, 6, 3))
         let points = [
             makeSleepPoint(start: date(2026, 6, 1, hour: 22), end: date(2026, 6, 1, hour: 23), stage: .asleepCore),
@@ -159,10 +159,10 @@ struct AggregateByNightTests {
         let result = SleepAggregator.aggregateByNight(dataPoints: points, in: interval, calendar: testCalendar)
         #expect(result.count == 1)
         let night = result[0]
-        #expect(night.totalSleep == 6 * 3600)
         #expect(night.deep == 2 * 3600)
-        #expect(night.core == 3 * 3600)
         #expect(night.rem == 1 * 3600)
+        #expect(night.core == 5 * 3600)
+        #expect(night.totalSleep == 8 * 3600)
     }
 
     @Test("Multi-source overlapping intervals are deduplicated")
@@ -180,6 +180,23 @@ struct AggregateByNightTests {
         #expect(night.deep == 2 * 3600)
         #expect(night.core == 3 * 3600)
         #expect(night.totalSleep == 5 * 3600)
+    }
+
+    @Test("Cross-stage overlap from different sources deduplicates correctly")
+    func crossStageOverlap() {
+        let interval = DateInterval(start: date(2026, 6, 1), end: date(2026, 6, 3))
+        let points = [
+            makeSleepPoint(start: date(2026, 6, 1, hour: 23), end: date(2026, 6, 2, hour: 1), stage: .asleepCore),
+            makeSleepPoint(start: date(2026, 6, 1, hour: 23), end: date(2026, 6, 2, hour: 1), stage: .asleepDeep),
+            makeSleepPoint(start: date(2026, 6, 2, hour: 1), end: date(2026, 6, 2, hour: 3), stage: .asleepREM),
+        ]
+        let result = SleepAggregator.aggregateByNight(dataPoints: points, in: interval, calendar: testCalendar)
+        #expect(result.count == 1)
+        let night = result[0]
+        #expect(night.deep == 2 * 3600)
+        #expect(night.core == 0)
+        #expect(night.rem == 2 * 3600)
+        #expect(night.totalSleep == 4 * 3600)
     }
 
     @Test("totalSleep with dedup does not exceed reasonable limit")
@@ -257,6 +274,92 @@ struct MergeIntervalsTests {
         #expect(merged.count == 1)
         #expect(merged[0].start == date(2026, 6, 2, hour: 1))
         #expect(merged[0].end == date(2026, 6, 2, hour: 3))
+    }
+}
+
+// MARK: - SleepAggregator.subtractIntervals Tests
+
+@Suite("SleepAggregator — subtractIntervals")
+struct SubtractIntervalsTests {
+    @Test("Empty base returns empty")
+    func emptyBase() {
+        let subtract: [(start: Date, end: Date)] = [
+            (start: date(2026, 6, 1, hour: 22), end: date(2026, 6, 2, hour: 2)),
+        ]
+        let result = SleepAggregator.subtractIntervals(from: [], subtract: subtract)
+        #expect(result.isEmpty)
+    }
+
+    @Test("Empty subtract returns base unchanged")
+    func emptySubtract() {
+        let base: [(start: Date, end: Date)] = [
+            (start: date(2026, 6, 1, hour: 22), end: date(2026, 6, 2, hour: 2)),
+        ]
+        let result = SleepAggregator.subtractIntervals(from: base, subtract: [])
+        #expect(result.count == 1)
+        #expect(result[0].start == base[0].start)
+        #expect(result[0].end == base[0].end)
+    }
+
+    @Test("Full overlap removes base entirely")
+    func fullOverlap() {
+        let base: [(start: Date, end: Date)] = [
+            (start: date(2026, 6, 1, hour: 23), end: date(2026, 6, 2, hour: 1)),
+        ]
+        let subtract: [(start: Date, end: Date)] = [
+            (start: date(2026, 6, 1, hour: 22), end: date(2026, 6, 2, hour: 2)),
+        ]
+        let result = SleepAggregator.subtractIntervals(from: base, subtract: subtract)
+        #expect(result.isEmpty)
+    }
+
+    @Test("Middle cut produces two fragments")
+    func middleCut() {
+        let base: [(start: Date, end: Date)] = [
+            (start: date(2026, 6, 1, hour: 22), end: date(2026, 6, 2, hour: 4)),
+        ]
+        let subtract: [(start: Date, end: Date)] = [
+            (start: date(2026, 6, 2, hour: 0), end: date(2026, 6, 2, hour: 2)),
+        ]
+        let result = SleepAggregator.subtractIntervals(from: base, subtract: subtract)
+        #expect(result.count == 2)
+        #expect(result[0].start == date(2026, 6, 1, hour: 22))
+        #expect(result[0].end == date(2026, 6, 2, hour: 0))
+        #expect(result[1].start == date(2026, 6, 2, hour: 2))
+        #expect(result[1].end == date(2026, 6, 2, hour: 4))
+    }
+
+    @Test("No overlap returns base unchanged")
+    func noOverlap() {
+        let base: [(start: Date, end: Date)] = [
+            (start: date(2026, 6, 2, hour: 3), end: date(2026, 6, 2, hour: 5)),
+        ]
+        let subtract: [(start: Date, end: Date)] = [
+            (start: date(2026, 6, 2, hour: 0), end: date(2026, 6, 2, hour: 2)),
+        ]
+        let result = SleepAggregator.subtractIntervals(from: base, subtract: subtract)
+        #expect(result.count == 1)
+        #expect(result[0].start == date(2026, 6, 2, hour: 3))
+        #expect(result[0].end == date(2026, 6, 2, hour: 5))
+    }
+
+    @Test("Multiple subtract intervals cut multiple fragments")
+    func multipleSubtract() {
+        let base: [(start: Date, end: Date)] = [
+            (start: date(2026, 6, 1, hour: 22), end: date(2026, 6, 2, hour: 6)),
+        ]
+        let subtract: [(start: Date, end: Date)] = [
+            (start: date(2026, 6, 1, hour: 23), end: date(2026, 6, 2, hour: 1)),
+            (start: date(2026, 6, 2, hour: 3), end: date(2026, 6, 2, hour: 4)),
+        ]
+        let result = SleepAggregator.subtractIntervals(from: base, subtract: subtract)
+        #expect(result.count == 3)
+        #expect(result[0].start == date(2026, 6, 1, hour: 22))
+        #expect(result[0].end == date(2026, 6, 1, hour: 23))
+        #expect(result[1].start == date(2026, 6, 2, hour: 1))
+        #expect(result[1].end == date(2026, 6, 2, hour: 3))
+        #expect(result[2].start == date(2026, 6, 2, hour: 4))
+        #expect(result[2].end == date(2026, 6, 2, hour: 6))
     }
 }
 
