@@ -9,5 +9,9 @@ let package = Package(
     ],
     targets: [
         .target(name: "AIService"),
+        .testTarget(
+            name: "AIServiceTests",
+            dependencies: ["AIService"]
+        ),
     ]
 )
