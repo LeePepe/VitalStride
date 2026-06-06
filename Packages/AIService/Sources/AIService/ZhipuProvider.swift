@@ -52,31 +52,15 @@ public struct ZhipuProvider: AIProvider, Sendable {
                     let (bytes, urlResponse) = try await session.bytes(for: request)
                     try validateHTTPResponse(urlResponse)
 
-                    var buffer = ""
-                    for try await byte in bytes {
-                        let char = Character(UnicodeScalar(byte))
-                        buffer.append(char)
-
-                        while let lineEnd = buffer.firstIndex(of: "\n") {
-                            let line = String(buffer[buffer.startIndex..<lineEnd])
-                            buffer = String(buffer[buffer.index(after: lineEnd)...])
-
-                            guard let chunk = parseSSELine(line) else { continue }
-                            if chunk.isFinished {
-                                logger.info("Streaming completed: chunksReceived=\(chunksReceived)")
-                                continuation.finish()
-                                return
-                            }
-                            chunksReceived += 1
-                            continuation.yield(chunk)
+                    for try await line in bytes.lines {
+                        guard let chunk = parseSSELine(line) else { continue }
+                        if chunk.isFinished {
+                            logger.info("Streaming completed: chunksReceived=\(chunksReceived)")
+                            continuation.finish()
+                            return
                         }
-                    }
-
-                    if !buffer.isEmpty, let chunk = parseSSELine(buffer) {
-                        if !chunk.isFinished {
-                            chunksReceived += 1
-                            continuation.yield(chunk)
-                        }
+                        chunksReceived += 1
+                        continuation.yield(chunk)
                     }
 
                     logger.info("Streaming completed: chunksReceived=\(chunksReceived)")
@@ -100,6 +84,10 @@ public struct ZhipuProvider: AIProvider, Sendable {
     // MARK: - Private
 
     private func buildRequest(messages: [ChatMessage], model: String, stream: Bool) throws -> URLRequest {
+        guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AIServiceError.missingAPIKey
+        }
+
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")

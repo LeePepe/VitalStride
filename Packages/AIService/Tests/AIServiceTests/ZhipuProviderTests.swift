@@ -133,4 +133,20 @@ struct ZhipuProviderTests {
             try await provider.chat(messages: [ChatMessage(role: "user", content: "test")], model: nil)
         }
     }
+
+    @Test("chat throws missingAPIKey for empty key")
+    func chatEmptyAPIKey() async throws {
+        let provider = ZhipuProvider(apiKey: "", session: makeMockSession())
+        await #expect(throws: AIServiceError.self) {
+            try await provider.chat(messages: [ChatMessage(role: "user", content: "test")], model: nil)
+        }
+    }
+
+    @Test("chat throws missingAPIKey for whitespace-only key")
+    func chatWhitespaceAPIKey() async throws {
+        let provider = ZhipuProvider(apiKey: "   \t  ", session: makeMockSession())
+        await #expect(throws: AIServiceError.self) {
+            try await provider.chat(messages: [ChatMessage(role: "user", content: "test")], model: nil)
+        }
+    }
 }

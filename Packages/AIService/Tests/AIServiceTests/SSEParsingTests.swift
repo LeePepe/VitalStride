@@ -63,4 +63,19 @@ struct SSEParsingTests {
         let chunk = provider.parseSSELine(line)
         #expect(chunk?.content == "Hello\nWorld")
     }
+
+    @Test("parses chunk with Chinese content")
+    func chineseContent() {
+        let line = "data: {\"choices\":[{\"delta\":{\"content\":\"你好世界\"},\"finish_reason\":null}]}"
+        let chunk = provider.parseSSELine(line)
+        #expect(chunk?.content == "你好世界")
+        #expect(chunk?.isFinished == false)
+    }
+
+    @Test("parses chunk with mixed Chinese and emoji content")
+    func mixedMultibyteContent() {
+        let line = "data: {\"choices\":[{\"delta\":{\"content\":\"运动建议：跑步🏃‍♂️\"},\"finish_reason\":null}]}"
+        let chunk = provider.parseSSELine(line)
+        #expect(chunk?.content == "运动建议：跑步🏃‍♂️")
+    }
 }
