@@ -607,8 +607,7 @@ struct ExercisePickerView: View {
                 .font(.subheadline)
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(isSelected ? .white : .primary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, minHeight: 44)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
                         .fill(isSelected ? Color.accentColor : .clear)
@@ -655,7 +654,7 @@ struct ExercisePickerView: View {
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(isSelected ? .white : .primary)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 7)
+                .frame(minHeight: 44)
                 .background(
                     Capsule()
                         .fill(isSelected ? Color.accentColor : Color(.systemGray5))
@@ -670,7 +669,21 @@ struct ExercisePickerView: View {
     @ViewBuilder
     private var exerciseCollection: some View {
         if groupedExercises.isEmpty {
-            ContentUnavailableView.search(text: searchText)
+            if !searchText.isEmpty {
+                ContentUnavailableView.search(text: searchText)
+            } else if let group = selectedGroup {
+                ContentUnavailableView(
+                    "没有动作",
+                    systemImage: "dumbbell",
+                    description: Text("\(muscleGroupName(group))分类下暂无动作")
+                )
+            } else {
+                ContentUnavailableView(
+                    "没有动作",
+                    systemImage: "dumbbell",
+                    description: Text("暂无可用动作")
+                )
+            }
         } else {
             List {
                 ForEach(groupedExercises, id: \.0) { group, items in
