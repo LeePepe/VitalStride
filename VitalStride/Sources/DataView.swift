@@ -10,6 +10,7 @@ struct DataView: View {
     @State private var isCheckingAuth = true
     @State private var authCheckToken = UUID()
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.healthKitService) private var healthKitService
 
     var body: some View {
         NavigationStack {
@@ -68,9 +69,8 @@ struct DataView: View {
     }
 
     private func checkAuthorizationStatus() async {
-        let service = HealthKitService(deviceIdentifier: "ios-display")
         do {
-            let status = try await service.authorizationStatus()
+            let status = try await healthKitService.authorizationStatus()
             needsAuthorization = (status == .shouldRequest)
         } catch {
             needsAuthorization = true

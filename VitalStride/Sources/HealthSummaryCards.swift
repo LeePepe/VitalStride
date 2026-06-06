@@ -40,6 +40,7 @@ struct StepsSummaryCard: View {
     @State private var todaySteps: Int?
     @State private var isLoading: Bool
     private let needsFetch: Bool
+    @Environment(\.healthDataCache) private var cache
 
     init() {
         _todaySteps = State(initialValue: nil)
@@ -80,10 +81,9 @@ struct StepsSummaryCard: View {
 
     private func loadData() async {
         let interval = TimeRange.day.dateInterval()
-        let service = HealthKitService(deviceIdentifier: "ios-display")
         do {
-            let result = try await service.fetchData(for: .stepCount, dateRange: interval)
-            let aggregated = StepsAggregator.aggregateByDay(dataPoints: result.dataPoints, in: interval)
+            let dataPoints = try await cache.data(for: .stepCount, in: interval)
+            let aggregated = StepsAggregator.aggregateByDay(dataPoints: dataPoints, in: interval)
             todaySteps = aggregated.last?.totalSteps
         } catch {}
         isLoading = false
@@ -96,6 +96,7 @@ struct HeartRateSummaryCard: View {
     @State private var latestBPM: Int?
     @State private var isLoading: Bool
     private let needsFetch: Bool
+    @Environment(\.healthDataCache) private var cache
 
     init() {
         _latestBPM = State(initialValue: nil)
@@ -136,10 +137,9 @@ struct HeartRateSummaryCard: View {
 
     private func loadData() async {
         let interval = TimeRange.day.dateInterval()
-        let service = HealthKitService(deviceIdentifier: "ios-display")
         do {
-            let result = try await service.fetchData(for: .heartRate, dateRange: interval)
-            let filtered = HeartRateStats.filtered(result.dataPoints, in: interval)
+            let dataPoints = try await cache.data(for: .heartRate, in: interval)
+            let filtered = HeartRateStats.filtered(dataPoints, in: interval)
             if let avg = HeartRateStats.average(of: filtered) {
                 latestBPM = Int(avg.rounded())
             }
@@ -154,6 +154,7 @@ struct SleepSummaryCard: View {
     @State private var lastNightSleep: TimeInterval?
     @State private var isLoading: Bool
     private let needsFetch: Bool
+    @Environment(\.healthDataCache) private var cache
 
     init() {
         _lastNightSleep = State(initialValue: nil)
@@ -191,10 +192,9 @@ struct SleepSummaryCard: View {
 
     private func loadData() async {
         let interval = TimeRange.week.dateInterval()
-        let service = HealthKitService(deviceIdentifier: "ios-display")
         do {
-            let result = try await service.fetchData(for: .sleepAnalysis, dateRange: interval)
-            let nights = SleepAggregator.aggregateByNight(dataPoints: result.dataPoints, in: interval)
+            let dataPoints = try await cache.data(for: .sleepAnalysis, in: interval)
+            let nights = SleepAggregator.aggregateByNight(dataPoints: dataPoints, in: interval)
             lastNightSleep = nights.last?.totalSleep
         } catch {}
         isLoading = false
@@ -207,6 +207,7 @@ struct WeightSummaryCard: View {
     @State private var latestWeight: Double?
     @State private var isLoading: Bool
     private let needsFetch: Bool
+    @Environment(\.healthDataCache) private var cache
 
     init() {
         _latestWeight = State(initialValue: nil)
@@ -247,10 +248,9 @@ struct WeightSummaryCard: View {
 
     private func loadData() async {
         let interval = TimeRange.week.dateInterval()
-        let service = HealthKitService(deviceIdentifier: "ios-display")
         do {
-            let result = try await service.fetchData(for: .bodyMass, dateRange: interval)
-            let points = WeightAnalyzer.extractWeightPoints(from: result.dataPoints, in: interval)
+            let dataPoints = try await cache.data(for: .bodyMass, in: interval)
+            let points = WeightAnalyzer.extractWeightPoints(from: dataPoints, in: interval)
             latestWeight = points.last?.weight
         } catch {}
         isLoading = false

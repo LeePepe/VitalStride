@@ -105,6 +105,7 @@ struct ActiveEnergySection: View {
     @State private var selectedDate: Date?
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @Environment(\.healthDataCache) private var cache
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveEnergySection")
 
@@ -289,13 +290,12 @@ struct ActiveEnergySection: View {
 
         let start = ContinuousClock.now
         let interval = range.dateInterval()
-        let service = HealthKitService(deviceIdentifier: "ios-display")
 
         do {
-            let result = try await service.fetchData(for: .activeEnergyBurned, dateRange: interval)
+            let dataPoints = try await cache.data(for: .activeEnergyBurned, in: interval)
             guard !Task.isCancelled else { return }
 
-            let aggregated = EnergyAggregator.aggregateByDay(dataPoints: result.dataPoints, in: interval)
+            let aggregated = EnergyAggregator.aggregateByDay(dataPoints: dataPoints, in: interval)
             let stats = EnergyAggregator.computeStatistics(from: aggregated)
 
             dailyData = aggregated
@@ -303,7 +303,7 @@ struct ActiveEnergySection: View {
 
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
-            logger.info("render dataPoints=\(result.dataPoints.count) aggregated=\(aggregated.count) ms=\(ms)")
+            logger.info("render dataPoints=\(dataPoints.count) aggregated=\(aggregated.count) ms=\(ms)")
         } catch {
             guard !Task.isCancelled else { return }
             logger.error("loadData failed: \(error.localizedDescription)")
@@ -327,6 +327,7 @@ struct ActiveEnergyDetailView: View {
     @State private var errorMessage: String?
 
     @AppStorage("energyUnit") private var energyUnit: EnergyUnit = .kcal
+    @Environment(\.healthDataCache) private var cache
     private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveEnergySection")
 
     private func displayValue(_ kcal: Double) -> Int {
@@ -514,13 +515,12 @@ struct ActiveEnergyDetailView: View {
         errorMessage = nil
 
         let interval = selectedRange.dateInterval()
-        let service = HealthKitService(deviceIdentifier: "ios-display")
 
         do {
-            let result = try await service.fetchData(for: .activeEnergyBurned, dateRange: interval)
+            let dataPoints = try await cache.data(for: .activeEnergyBurned, in: interval)
             guard !Task.isCancelled else { return }
 
-            let aggregated = EnergyAggregator.aggregateByDay(dataPoints: result.dataPoints, in: interval)
+            let aggregated = EnergyAggregator.aggregateByDay(dataPoints: dataPoints, in: interval)
             let stats = EnergyAggregator.computeStatistics(from: aggregated)
 
             dailyData = aggregated

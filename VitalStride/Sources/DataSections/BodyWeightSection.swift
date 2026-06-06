@@ -85,6 +85,7 @@ struct BodyWeightSection: View {
     @State private var statistics: WeightStatistics = WeightStatistics(latest: nil, change: nil, max: nil, min: nil)
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
+    @Environment(\.healthDataCache) private var cache
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "BodyWeightSection")
 
@@ -201,13 +202,12 @@ struct BodyWeightSection: View {
         fetchError = nil
         let start = ContinuousClock.now
         let interval = range.dateInterval()
-        let service = HealthKitService(deviceIdentifier: "ios-display")
 
         do {
-            let result = try await service.fetchData(for: .bodyMass, dateRange: interval)
+            let rawPoints = try await cache.data(for: .bodyMass, in: interval)
             guard !Task.isCancelled else { return }
 
-            let points = WeightAnalyzer.extractWeightPoints(from: result.dataPoints, in: interval)
+            let points = WeightAnalyzer.extractWeightPoints(from: rawPoints, in: interval)
             let trend = WeightAnalyzer.movingAverage(of: points)
             let stats = WeightAnalyzer.computeStatistics(from: points)
 
@@ -416,6 +416,7 @@ struct BodyWeightDetailView: View {
     @State private var fetchError: (any Error)?
 
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
+    @Environment(\.healthDataCache) private var cache
     private let logger = Logger(subsystem: "com.vitalstride", category: "BodyWeightDetail")
 
     private func displayWeight(_ kgValue: Double) -> Double {
@@ -551,13 +552,12 @@ struct BodyWeightDetailView: View {
         fetchError = nil
 
         let interval = selectedRange.dateInterval()
-        let service = HealthKitService(deviceIdentifier: "ios-display")
 
         do {
-            let result = try await service.fetchData(for: .bodyMass, dateRange: interval)
+            let rawPoints = try await cache.data(for: .bodyMass, in: interval)
             guard !Task.isCancelled else { return }
 
-            let points = WeightAnalyzer.extractWeightPoints(from: result.dataPoints, in: interval)
+            let points = WeightAnalyzer.extractWeightPoints(from: rawPoints, in: interval)
             let trend = WeightAnalyzer.movingAverage(of: points)
             let stats = WeightAnalyzer.computeStatistics(from: points)
 
