@@ -10,6 +10,7 @@ struct ActiveWorkoutView: View {
     @State private var showingFinishAlert = false
     @State private var showingDiscardAlert = false
     @State private var restEndDate: Date?
+    @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     private let startTime = Date()
     let source: WorkoutStartSource
 
@@ -19,10 +20,12 @@ struct ActiveWorkoutView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                workoutTimer
-                restTimerBanner
-                exerciseList
+            ZStack(alignment: .bottomTrailing) {
+                VStack(spacing: 0) {
+                    workoutTimer
+                    restTimerBanner
+                    exerciseList
+                }
                 addExerciseButton
             }
             .navigationTitle("训练中")
@@ -34,7 +37,7 @@ struct ActiveWorkoutView: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") {
+                    Button("结束训练") {
                         showingFinishAlert = true
                     }
                     .fontWeight(.semibold)
@@ -81,27 +84,49 @@ struct ActiveWorkoutView: View {
             let hours = totalSeconds / 3600
             let minutes = (totalSeconds % 3600) / 60
             let seconds = totalSeconds % 60
-            HStack {
-                Image(systemName: "timer")
-                    .foregroundStyle(.secondary)
-                if hours > 0 {
-                    Text(String(format: "%d:%02d:%02d", hours, minutes, seconds))
+            let timeString = String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            let exerciseCount = workout?.exercises?.count ?? 0
+            let setCount = workout?.exercises?
+                .reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
+            let volumeKg = totalVolumeKg
+            let displayVolume = weightUnit == .lb ? volumeKg * 2.20462 : volumeKg
+            let volumeText = Int(displayVolume).formatted()
+            let summaryText = "\(exerciseCount) 动作 · \(setCount) 组 · \(volumeText) \(weightUnit.rawValue)"
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    timerLabel
+                    Text(timeString)
                         .font(.title3.monospacedDigit())
-                } else {
-                    Text(String(format: "%02d:%02d", minutes, seconds))
-                        .font(.title3.monospacedDigit())
+                    Spacer()
+                    Text(summaryText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-                Spacer()
-                let exerciseCount = workout?.exercises?.count ?? 0
-                let setCount = workout?.exercises?
-                    .reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
-                Text("\(exerciseCount) 动作 · \(setCount) 组")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        timerLabel
+                        Text(timeString)
+                            .font(.title3.monospacedDigit())
+                        Spacer()
+                    }
+                    Text(summaryText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
             .background(.bar)
+        }
+    }
+
+    private var timerLabel: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "timer")
+                .foregroundStyle(.secondary)
+            Text("训练时长")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -150,6 +175,7 @@ struct ActiveWorkoutView: View {
                         }
                     )
                 }
+                Section {} footer: { Color.clear.frame(height: 72) }
             }
             .listStyle(.insetGrouped)
         }
@@ -159,13 +185,20 @@ struct ActiveWorkoutView: View {
         Button {
             showingExercisePicker = true
         } label: {
-            Label("添加动作", systemImage: "plus.circle.fill")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+            Image(systemName: "plus")
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Circle().fill(.blue))
+                .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
         }
-        .buttonStyle(.bordered)
+        .accessibilityLabel("添加动作")
         .padding()
+    }
+
+    private var totalVolumeKg: Double {
+        (workout?.exercises ?? []).reduce(0.0) { $0 + $1.workingVolume }
     }
 
     // MARK: - Actions
@@ -241,6 +274,10 @@ private struct ActiveExerciseSection: View {
     @State private var weightText = ""
     @State private var repsText = ""
     @State private var setType: SetType = .working
+    @State private var editingSetID: PersistentIdentifier?
+    @State private var editWeightText = ""
+    @State private var editRepsText = ""
+    @State private var editSetType: SetType = .working
 
     private var sortedSets: [ExerciseSet] {
         (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
@@ -249,24 +286,14 @@ private struct ActiveExerciseSection: View {
     var body: some View {
         Section {
             ForEach(Array(sortedSets.enumerated()), id: \.element.persistentModelID) { index, exerciseSet in
-                HStack {
-                    Text("第 \(index + 1) 组")
-                        .foregroundStyle(.secondary)
-                        .frame(width: 60, alignment: .leading)
-                    Text("\(displayWeight(exerciseSet.weight), specifier: "%.1f") \(weightUnit.rawValue)")
-                    Text("×")
-                        .foregroundStyle(.secondary)
-                    Text("\(exerciseSet.reps) 次")
-                    Spacer()
-                    if exerciseSet.setType == .warmup {
-                        Text("热身")
-                            .font(.caption)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.orange.opacity(0.15))
-                            .clipShape(Capsule())
+                completedSetView(index: index, exerciseSet: exerciseSet)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            deleteSet(exerciseSet)
+                        } label: {
+                            Label("删除", systemImage: "trash")
+                        }
                     }
-                }
             }
             setInputRow
         } header: {
@@ -280,13 +307,21 @@ private struct ActiveExerciseSection: View {
                 .keyboardType(.decimalPad)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 70)
+                .onChange(of: weightText) { _, newValue in
+                    let filtered = filterDecimalInput(newValue)
+                    if filtered != newValue { weightText = filtered }
+                }
 
             TextField("次数", text: $repsText)
                 .keyboardType(.numberPad)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 60)
+                .onChange(of: repsText) { _, newValue in
+                    let filtered = newValue.filter { $0.isNumber }
+                    if filtered != newValue { repsText = filtered }
+                }
 
-            Picker("", selection: $setType) {
+            Picker("组类型", selection: $setType) {
                 Text("正式").tag(SetType.working)
                 Text("热身").tag(SetType.warmup)
             }
@@ -298,20 +333,170 @@ private struct ActiveExerciseSection: View {
             Button {
                 addSet()
             } label: {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title2)
+                Text("+ 添加一组")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
             }
+            .buttonStyle(.borderless)
             .accessibilityLabel("添加组")
-            .frame(minWidth: 44, minHeight: 44)
-            .disabled(weightText.isEmpty || repsText.isEmpty)
+            .frame(minHeight: 44)
         }
     }
 
+    @ViewBuilder
+    private func completedSetView(index: Int, exerciseSet: ExerciseSet) -> some View {
+        if editingSetID == exerciseSet.persistentModelID {
+            editSetRow(index: index, exerciseSet: exerciseSet)
+        } else {
+            completedSetRow(index: index, exerciseSet: exerciseSet)
+                .contentShape(Rectangle())
+                .onTapGesture { beginEditing(exerciseSet) }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("点击编辑")
+        }
+    }
+
+    private func completedSetRow(index: Int, exerciseSet: ExerciseSet) -> some View {
+        HStack {
+            Text("第 \(index + 1) 组")
+                .foregroundStyle(.secondary)
+                .frame(width: 60, alignment: .leading)
+            Text("\(displayWeight(exerciseSet.weight), specifier: "%.1f") \(weightUnit.rawValue)")
+            Text("×")
+                .foregroundStyle(.secondary)
+            Text("\(exerciseSet.reps) 次")
+            Spacer()
+            if exerciseSet.setType == .warmup {
+                Text("热身")
+                    .font(.caption)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.orange.opacity(0.15))
+                    .clipShape(Capsule())
+            }
+        }
+    }
+
+    private func editSetRow(index: Int, exerciseSet: ExerciseSet) -> some View {
+        HStack(spacing: 8) {
+            Text("第 \(index + 1) 组")
+                .foregroundStyle(.secondary)
+                .frame(width: 60, alignment: .leading)
+
+            TextField(weightUnit.rawValue, text: $editWeightText)
+                .keyboardType(.decimalPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 70)
+                .onChange(of: editWeightText) { _, newValue in
+                    let filtered = filterDecimalInput(newValue)
+                    if filtered != newValue { editWeightText = filtered }
+                }
+
+            TextField("次数", text: $editRepsText)
+                .keyboardType(.numberPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 60)
+                .onChange(of: editRepsText) { _, newValue in
+                    let filtered = newValue.filter { $0.isNumber }
+                    if filtered != newValue { editRepsText = filtered }
+                }
+
+            Picker("组类型", selection: $editSetType) {
+                Text("正式").tag(SetType.working)
+                Text("热身").tag(SetType.warmup)
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+
+            Spacer()
+
+            Button {
+                saveEdit(exerciseSet)
+            } label: {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("保存修改")
+            .frame(minHeight: 44)
+        }
+    }
+
+    private func beginEditing(_ exerciseSet: ExerciseSet) {
+        let displayW = displayWeight(exerciseSet.weight)
+        editWeightText = formatWeight(displayW)
+        editRepsText = "\(exerciseSet.reps)"
+        editSetType = exerciseSet.setType
+        editingSetID = exerciseSet.persistentModelID
+    }
+
+    private func saveEdit(_ exerciseSet: ExerciseSet) {
+        let weight: Double
+        if editWeightText.isEmpty {
+            weight = 0
+        } else {
+            guard let parsed = Double(editWeightText) else { return }
+            weight = parsed
+        }
+        let reps: Int
+        if editRepsText.isEmpty {
+            reps = 0
+        } else {
+            guard let parsed = Int(editRepsText) else { return }
+            reps = parsed
+        }
+        guard weight.isFinite, weight >= 0, reps >= 0 else { return }
+        let storageWeight = weightUnit == .lb ? weight / 2.20462 : weight
+        exerciseSet.weight = storageWeight
+        exerciseSet.reps = reps
+        exerciseSet.setType = editSetType
+        editingSetID = nil
+    }
+
+    private func deleteSet(_ exerciseSet: ExerciseSet) {
+        modelContext.delete(exerciseSet)
+        let remaining = sortedSets.filter { $0.persistentModelID != exerciseSet.persistentModelID }
+        for (newOrder, set) in remaining.enumerated() {
+            set.order = newOrder
+        }
+    }
+
+    private func filterDecimalInput(_ text: String) -> String {
+        var result = ""
+        var hasDecimalPoint = false
+        for char in text {
+            if char.isNumber {
+                result.append(char)
+            } else if char == "." && !hasDecimalPoint {
+                hasDecimalPoint = true
+                result.append(char)
+            }
+        }
+        return result
+    }
+
+    private func formatWeight(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0
+            ? String(Int(value))
+            : String(format: "%.1f", value)
+    }
+
     private func addSet() {
-        guard let weight = Double(weightText),
-              let reps = Int(repsText),
-              weight.isFinite, weight >= 0,
-              reps > 0 else { return }
+        let weight: Double
+        if weightText.isEmpty {
+            weight = 0
+        } else {
+            guard let parsed = Double(weightText) else { return }
+            weight = parsed
+        }
+        let reps: Int
+        if repsText.isEmpty {
+            reps = 0
+        } else {
+            guard let parsed = Int(repsText) else { return }
+            reps = parsed
+        }
+        guard weight.isFinite, weight >= 0, reps >= 0 else { return }
         let storageWeight = weightUnit == .lb ? weight / 2.20462 : weight
         let order = workoutExercise.sets?.count ?? 0
         let newSet = ExerciseSet(order: order, weight: storageWeight, reps: reps, setType: setType)
@@ -330,16 +515,28 @@ private struct ActiveExerciseSection: View {
 
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
     @State private var searchText = ""
+    @State private var selectedGroup: MuscleGroup?
     let onSelect: (Exercise) -> Void
 
-    private var grouped: [(MuscleGroup, [Exercise])] {
-        let filtered = searchText.isEmpty ? exercises : exercises.filter { exercise in
-            exercise.nameEn.localizedCaseInsensitiveContains(searchText) ||
-            exercise.nameZh.localizedCaseInsensitiveContains(searchText)
+    private var filteredExercises: [Exercise] {
+        var result = exercises
+        if let group = selectedGroup {
+            result = result.filter { $0.muscleGroup == group }
         }
-        let dict = Dictionary(grouping: filtered) { $0.muscleGroup }
+        if !searchText.isEmpty {
+            result = result.filter { exercise in
+                exercise.nameEn.localizedCaseInsensitiveContains(searchText) ||
+                exercise.nameZh.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+        return result
+    }
+
+    private var groupedExercises: [(MuscleGroup, [Exercise])] {
+        let dict = Dictionary(grouping: filteredExercises) { $0.muscleGroup }
         return MuscleGroup.allCases.compactMap { group in
             guard let items = dict[group], !items.isEmpty else { return nil }
             return (group, items)
@@ -355,28 +552,10 @@ struct ExercisePickerView: View {
                         systemImage: "tray",
                         description: Text("请先导入预置动作库")
                     )
-                } else if grouped.isEmpty {
-                    ContentUnavailableView.search(text: searchText)
+                } else if horizontalSizeClass == .regular {
+                    regularLayout
                 } else {
-                    List {
-                        ForEach(grouped, id: \.0) { group, items in
-                            Section(muscleGroupName(group)) {
-                                ForEach(items) { exercise in
-                                    Button {
-                                        onSelect(exercise)
-                                        dismiss()
-                                    } label: {
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(exercise.localizedName)
-                                            Text(equipmentName(exercise.equipment))
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    compactLayout
                 }
             }
             .searchable(text: $searchText, prompt: "搜索动作")
@@ -387,6 +566,145 @@ struct ExercisePickerView: View {
                     Button("取消") { dismiss() }
                 }
             }
+        }
+    }
+
+    // MARK: - Regular Layout (iPad / wide screen)
+
+    private var regularLayout: some View {
+        HStack(spacing: 0) {
+            muscleGroupSidebar
+            Divider()
+            exerciseCollection
+        }
+    }
+
+    private var muscleGroupSidebar: some View {
+        ScrollView {
+            VStack(spacing: 4) {
+                sidebarButton(label: "全部", isSelected: selectedGroup == nil) {
+                    selectedGroup = nil
+                }
+                ForEach(MuscleGroup.allCases, id: \.self) { group in
+                    sidebarButton(
+                        label: muscleGroupName(group),
+                        isSelected: selectedGroup == group
+                    ) {
+                        selectedGroup = group
+                    }
+                }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 4)
+        }
+        .frame(width: 100)
+        .background(.bar)
+    }
+
+    private func sidebarButton(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .foregroundStyle(isSelected ? .white : .primary)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isSelected ? Color.accentColor : .clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    // MARK: - Compact Layout (iPhone)
+
+    private var compactLayout: some View {
+        VStack(spacing: 0) {
+            chipBar
+            exerciseCollection
+        }
+    }
+
+    private var chipBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                chipButton(label: "全部", isSelected: selectedGroup == nil) {
+                    selectedGroup = nil
+                }
+                ForEach(MuscleGroup.allCases, id: \.self) { group in
+                    chipButton(
+                        label: muscleGroupName(group),
+                        isSelected: selectedGroup == group
+                    ) {
+                        selectedGroup = group
+                    }
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+        .background(.bar)
+    }
+
+    private func chipButton(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .foregroundStyle(isSelected ? .white : .primary)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Color.accentColor : Color(.systemGray5))
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    // MARK: - Exercise Collection
+
+    @ViewBuilder
+    private var exerciseCollection: some View {
+        if groupedExercises.isEmpty {
+            if !searchText.isEmpty {
+                ContentUnavailableView.search(text: searchText)
+            } else if let group = selectedGroup {
+                ContentUnavailableView(
+                    "没有动作",
+                    systemImage: "dumbbell",
+                    description: Text("\(muscleGroupName(group))分类下暂无动作")
+                )
+            } else {
+                ContentUnavailableView(
+                    "没有动作",
+                    systemImage: "dumbbell",
+                    description: Text("暂无可用动作")
+                )
+            }
+        } else {
+            List {
+                ForEach(groupedExercises, id: \.0) { group, items in
+                    Section(muscleGroupName(group)) {
+                        ForEach(items) { exercise in
+                            Button {
+                                onSelect(exercise)
+                                dismiss()
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(exercise.localizedName)
+                                    Text(equipmentName(exercise.equipment))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
         }
     }
 }
