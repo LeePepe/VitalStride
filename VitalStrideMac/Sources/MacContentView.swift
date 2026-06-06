@@ -35,7 +35,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .overview: MacOverviewPlaceholder()
         case .workout: MacWorkoutPlaceholder()
         case .data: DataView()
-        case .ai: MacAIPlaceholder()
+        case .ai: AIView()
         case .settings: MacSettingsPlaceholder()
         }
     }

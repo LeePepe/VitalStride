@@ -31,7 +31,7 @@ struct ContentView: View {
             .accessibilityLabel("数据")
 
             Tab("AI", systemImage: "brain", value: .ai) {
-                AIPlaceholder()
+                AIView()
             }
             .accessibilityLabel("AI 助手")
 

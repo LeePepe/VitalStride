@@ -87,6 +87,11 @@ targets:
       - path: VitalStride/Sources/HealthSummaryCards.swift
       - path: VitalStride/Sources/DataSections
       - path: VitalStride/Sources/UnitPreferencesSection.swift
+      - path: VitalStride/Sources/AIView.swift
+      - path: VitalStride/Sources/AIQuickAnalysisCard.swift
+      - path: VitalStride/Sources/AIPromptBuilder.swift
+      - path: VitalStride/Sources/AIChatView.swift
+      - path: VitalStride/Sources/AISettingsSection.swift
       - path: VitalStride/Sources/HealthDataCacheEnvironment.swift
     dependencies:
       - package: VitalModels
@@ -114,7 +119,7 @@ targets:
         GENERATE_INFOPLIST_FILE: true
         SWIFT_EMIT_LOC_STRINGS: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        INFOPLIST_KEY_NSHealthShareUsageDescription: "VitalStride reads your health data (heart rate, steps, sleep, activity energy) to display training history and activity summaries."
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations."
 
   VitalStrideTests:
     type: bundle.unit-test
