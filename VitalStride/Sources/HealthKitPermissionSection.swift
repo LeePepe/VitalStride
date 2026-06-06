@@ -1,4 +1,5 @@
 import HealthKit
+import HealthKitService
 import SwiftUI
 
 struct HealthKitPermissionSection: View {

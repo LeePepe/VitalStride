@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import HealthKitService
 import SwiftData
 import SwiftUI
 import Testing

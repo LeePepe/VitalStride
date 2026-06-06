@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import VitalModels
 import os
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "WorkoutDetail")

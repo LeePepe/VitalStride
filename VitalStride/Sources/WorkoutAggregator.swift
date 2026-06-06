@@ -1,4 +1,5 @@
 import Foundation
+import VitalModels
 
 enum WorkoutAggregator {
     static func computeTodaySummary(from workouts: [Workout]) -> TodayActivitySummary {

@@ -1,5 +1,6 @@
 import Charts
 import SwiftUI
+import VitalModels
 
 enum TrendTimeRange: String, CaseIterable {
     case week = "周"

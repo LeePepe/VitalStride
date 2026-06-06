@@ -1,5 +1,7 @@
 import Charts
+import HealthKitService
 import SwiftUI
+import VitalModels
 import os
 
 // MARK: - Models

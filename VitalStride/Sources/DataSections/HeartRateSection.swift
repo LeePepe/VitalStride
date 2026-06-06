@@ -1,6 +1,8 @@
 import Charts
 import HealthKit
+import HealthKitService
 import SwiftUI
+import VitalModels
 import os
 
 // MARK: - Heart Rate Statistics

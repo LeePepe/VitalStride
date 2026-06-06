@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import VitalModels
 
 enum WorkoutStartSource {
     case blank

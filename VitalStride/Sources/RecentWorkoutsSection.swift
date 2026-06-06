@@ -1,4 +1,5 @@
 import SwiftUI
+import VitalModels
 
 struct RecentWorkoutsSection: View {
     let workouts: [Workout]
