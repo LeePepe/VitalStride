@@ -7,6 +7,8 @@ struct OverviewView: View {
     @State private var snapshotState = HealthSnapshotState()
     @State private var authCheckToken = UUID()
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.healthDataCache) private var healthDataCache
+    @Environment(\.healthKitService) private var healthKitService
 
     var body: some View {
         NavigationStack {
@@ -23,7 +25,7 @@ struct OverviewView: View {
             }
             .navigationTitle("概览")
             .task(id: authCheckToken) {
-                await snapshotState.load()
+                await snapshotState.load(cache: healthDataCache, service: healthKitService)
             }
             .onReceive(NotificationCenter.default.publisher(for: .healthKitAuthorizationChanged)) { _ in
                 authCheckToken = UUID()
@@ -59,12 +61,7 @@ final class HealthSnapshotState {
 
     var hasAnyHealthData: Bool { snapshot.hasAnyData }
 
-    func load() async {
-        let service = HealthKitService(deviceIdentifier: "ios-display")
-        await loadWith(service: service)
-    }
-
-    func loadWith(service: HealthKitService) async {
+    func load(cache: HealthDataCache, service: HealthKitService) async {
         isLoading = true
         do {
             let status = try await service.authorizationStatus()
@@ -79,16 +76,16 @@ final class HealthSnapshotState {
             return
         }
 
-        let data = await Self.fetchAllHealthData(service: service)
+        let data = await Self.fetchAllHealthData(cache: cache)
         snapshot = data
         isLoading = false
     }
 
-    private nonisolated static func fetchAllHealthData(service: HealthKitService) async -> HealthSnapshotData {
-        async let steps = fetchSteps(service: service)
-        async let heart = fetchHeartRate(service: service)
-        async let sleep = fetchSleep(service: service)
-        async let weight = fetchWeight(service: service)
+    private nonisolated static func fetchAllHealthData(cache: HealthDataCache) async -> HealthSnapshotData {
+        async let steps = fetchSteps(cache: cache)
+        async let heart = fetchHeartRate(cache: cache)
+        async let sleep = fetchSleep(cache: cache)
+        async let weight = fetchWeight(cache: cache)
         return await HealthSnapshotData(
             todaySteps: steps,
             averageBPM: heart,
@@ -97,23 +94,23 @@ final class HealthSnapshotState {
         )
     }
 
-    private nonisolated static func fetchSteps(service: HealthKitService) async -> Int? {
+    private nonisolated static func fetchSteps(cache: HealthDataCache) async -> Int? {
         let interval = TimeRange.day.dateInterval()
         do {
-            let result = try await service.fetchData(for: .stepCount, dateRange: interval)
-            guard !result.dataPoints.isEmpty else { return nil }
-            let aggregated = StepsAggregator.aggregateByDay(dataPoints: result.dataPoints, in: interval)
+            let dataPoints = try await cache.data(for: .stepCount, in: interval)
+            guard !dataPoints.isEmpty else { return nil }
+            let aggregated = StepsAggregator.aggregateByDay(dataPoints: dataPoints, in: interval)
             return aggregated.last?.totalSteps
         } catch {
             return nil
         }
     }
 
-    private nonisolated static func fetchHeartRate(service: HealthKitService) async -> Int? {
+    private nonisolated static func fetchHeartRate(cache: HealthDataCache) async -> Int? {
         let interval = TimeRange.day.dateInterval()
         do {
-            let result = try await service.fetchData(for: .heartRate, dateRange: interval)
-            let filtered = HeartRateStats.filtered(result.dataPoints, in: interval)
+            let dataPoints = try await cache.data(for: .heartRate, in: interval)
+            let filtered = HeartRateStats.filtered(dataPoints, in: interval)
             if let avg = HeartRateStats.average(of: filtered) {
                 return Int(avg.rounded())
             }
@@ -123,22 +120,22 @@ final class HealthSnapshotState {
         }
     }
 
-    private nonisolated static func fetchSleep(service: HealthKitService) async -> TimeInterval? {
+    private nonisolated static func fetchSleep(cache: HealthDataCache) async -> TimeInterval? {
         let interval = TimeRange.week.dateInterval()
         do {
-            let result = try await service.fetchData(for: .sleepAnalysis, dateRange: interval)
-            let nights = SleepAggregator.aggregateByNight(dataPoints: result.dataPoints, in: interval)
+            let dataPoints = try await cache.data(for: .sleepAnalysis, in: interval)
+            let nights = SleepAggregator.aggregateByNight(dataPoints: dataPoints, in: interval)
             return nights.last?.totalSleep
         } catch {
             return nil
         }
     }
 
-    private nonisolated static func fetchWeight(service: HealthKitService) async -> Double? {
+    private nonisolated static func fetchWeight(cache: HealthDataCache) async -> Double? {
         let interval = TimeRange.week.dateInterval()
         do {
-            let result = try await service.fetchData(for: .bodyMass, dateRange: interval)
-            let points = WeightAnalyzer.extractWeightPoints(from: result.dataPoints, in: interval)
+            let dataPoints = try await cache.data(for: .bodyMass, in: interval)
+            let points = WeightAnalyzer.extractWeightPoints(from: dataPoints, in: interval)
             return points.last?.weight
         } catch {
             return nil

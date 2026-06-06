@@ -202,4 +202,109 @@ struct ViewCacheIntegrationTests {
         #expect(refreshed.count == 5)
         #expect(mock.fetchCallCount[.stepCount] == 2)
     }
+
+    @Test("Cache invalidateAll clears all cached data")
+    func invalidateAllClearsCache() async throws {
+        let now = Date()
+        let mock = MockCacheDataProvider()
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 5, baseDate: now)
+        let cache = HealthDataCache(dataProvider: mock)
+
+        let interval = TimeRange.day.dateInterval()
+        _ = try await cache.data(for: .stepCount, in: interval)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+
+        await cache.invalidateAll()
+
+        _ = try await cache.data(for: .stepCount, in: interval)
+        #expect(mock.fetchCallCount[.stepCount] == 2)
+    }
+}
+
+@Suite("Source verification — views use HealthDataCache, not direct HealthKitService")
+struct ViewSourceVerificationTests {
+
+    @Test("OverviewView does not directly create HealthKitService instances")
+    func overviewUsesCache() throws {
+        let source = try String(
+            contentsOfFile: findSourceFile(named: "OverviewView.swift"),
+            encoding: .utf8
+        )
+        #expect(!source.contains("HealthKitService(deviceIdentifier:"))
+        #expect(source.contains("healthDataCache"))
+        #expect(source.contains("healthKitService"))
+    }
+
+    @Test("DataView uses environment-injected healthKitService for auth, not direct creation")
+    func dataViewUsesEnvironment() throws {
+        let source = try String(
+            contentsOfFile: findSourceFile(named: "DataView.swift"),
+            encoding: .utf8
+        )
+        #expect(!source.contains("HealthKitService(deviceIdentifier:"))
+        #expect(source.contains("@Environment(\\.healthKitService)"))
+        #expect(source.contains("@Environment(\\.healthDataCache)"))
+    }
+
+    @Test("HealthSummaryCards use environment-injected cache, not direct HealthKitService")
+    func summaryCardsUseCache() throws {
+        let source = try String(
+            contentsOfFile: findSourceFile(named: "HealthSummaryCards.swift"),
+            encoding: .utf8
+        )
+        #expect(!source.contains("HealthKitService(deviceIdentifier:"))
+        #expect(source.contains("@Environment(\\.healthDataCache)"))
+    }
+
+    @Test("All five DataSection files use environment-injected cache")
+    func dataSectionsUseCache() throws {
+        let sectionFiles = [
+            "StepsSection.swift",
+            "HeartRateSection.swift",
+            "SleepSection.swift",
+            "BodyWeightSection.swift",
+            "ActiveEnergySection.swift",
+        ]
+        for fileName in sectionFiles {
+            let source = try String(
+                contentsOfFile: findSourceFile(named: fileName),
+                encoding: .utf8
+            )
+            #expect(!source.contains("HealthKitService(deviceIdentifier:"), "Found direct HealthKitService in \(fileName)")
+            #expect(source.contains("@Environment(\\.healthDataCache)"), "Missing cache environment in \(fileName)")
+        }
+    }
+
+    @Test("Environment defaults do not use real HealthKitService")
+    func environmentDefaultsPreviewSafe() throws {
+        let source = try String(
+            contentsOfFile: findSourceFile(named: "HealthDataCacheEnvironment.swift"),
+            encoding: .utf8
+        )
+        #expect(!source.contains("HealthKitService(deviceIdentifier: \"ios-display\")"))
+        #expect(source.contains("_PreviewDataProvider"))
+        #expect(source.contains("_PreviewHealthStore"))
+    }
+}
+
+private func findSourceFile(named fileName: String) -> String {
+    let fm = FileManager.default
+    let startDir = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+
+    let enumerator = fm.enumerator(
+        at: startDir,
+        includingPropertiesForKeys: nil,
+        options: [.skipsHiddenFiles]
+    )
+
+    while let url = enumerator?.nextObject() as? URL {
+        if url.lastPathComponent == fileName, url.pathExtension == "swift" {
+            return url.path
+        }
+    }
+
+    return startDir.appendingPathComponent(fileName).path
 }
