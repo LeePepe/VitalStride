@@ -319,7 +319,7 @@ private struct ActiveExerciseSection: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 60)
 
-            Picker("", selection: $setType) {
+            Picker("组类型", selection: $setType) {
                 Text("正式").tag(SetType.working)
                 Text("热身").tag(SetType.warmup)
             }
