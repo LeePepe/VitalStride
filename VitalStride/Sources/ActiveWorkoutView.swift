@@ -274,6 +274,10 @@ private struct ActiveExerciseSection: View {
     @State private var weightText = ""
     @State private var repsText = ""
     @State private var setType: SetType = .working
+    @State private var editingSetID: PersistentIdentifier?
+    @State private var editWeightText = ""
+    @State private var editRepsText = ""
+    @State private var editSetType: SetType = .working
 
     private var sortedSets: [ExerciseSet] {
         (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
@@ -282,24 +286,14 @@ private struct ActiveExerciseSection: View {
     var body: some View {
         Section {
             ForEach(Array(sortedSets.enumerated()), id: \.element.persistentModelID) { index, exerciseSet in
-                HStack {
-                    Text("第 \(index + 1) 组")
-                        .foregroundStyle(.secondary)
-                        .frame(width: 60, alignment: .leading)
-                    Text("\(displayWeight(exerciseSet.weight), specifier: "%.1f") \(weightUnit.rawValue)")
-                    Text("×")
-                        .foregroundStyle(.secondary)
-                    Text("\(exerciseSet.reps) 次")
-                    Spacer()
-                    if exerciseSet.setType == .warmup {
-                        Text("热身")
-                            .font(.caption)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.orange.opacity(0.15))
-                            .clipShape(Capsule())
+                completedSetView(index: index, exerciseSet: exerciseSet)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            deleteSet(exerciseSet)
+                        } label: {
+                            Label("删除", systemImage: "trash")
+                        }
                     }
-                }
             }
             setInputRow
         } header: {
@@ -313,11 +307,19 @@ private struct ActiveExerciseSection: View {
                 .keyboardType(.decimalPad)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 70)
+                .onChange(of: weightText) { _, newValue in
+                    let filtered = filterDecimalInput(newValue)
+                    if filtered != newValue { weightText = filtered }
+                }
 
             TextField("次数", text: $repsText)
                 .keyboardType(.numberPad)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 60)
+                .onChange(of: repsText) { _, newValue in
+                    let filtered = newValue.filter { $0.isNumber }
+                    if filtered != newValue { repsText = filtered }
+                }
 
             Picker("组类型", selection: $setType) {
                 Text("正式").tag(SetType.working)
@@ -339,6 +341,130 @@ private struct ActiveExerciseSection: View {
             .accessibilityLabel("添加组")
             .frame(minHeight: 44)
         }
+    }
+
+    @ViewBuilder
+    private func completedSetView(index: Int, exerciseSet: ExerciseSet) -> some View {
+        if editingSetID == exerciseSet.persistentModelID {
+            editSetRow(index: index, exerciseSet: exerciseSet)
+        } else {
+            completedSetRow(index: index, exerciseSet: exerciseSet)
+                .contentShape(Rectangle())
+                .onTapGesture { beginEditing(exerciseSet) }
+        }
+    }
+
+    private func completedSetRow(index: Int, exerciseSet: ExerciseSet) -> some View {
+        HStack {
+            Text("第 \(index + 1) 组")
+                .foregroundStyle(.secondary)
+                .frame(width: 60, alignment: .leading)
+            Text("\(displayWeight(exerciseSet.weight), specifier: "%.1f") \(weightUnit.rawValue)")
+            Text("×")
+                .foregroundStyle(.secondary)
+            Text("\(exerciseSet.reps) 次")
+            Spacer()
+            if exerciseSet.setType == .warmup {
+                Text("热身")
+                    .font(.caption)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.orange.opacity(0.15))
+                    .clipShape(Capsule())
+            }
+        }
+    }
+
+    private func editSetRow(index: Int, exerciseSet: ExerciseSet) -> some View {
+        HStack(spacing: 8) {
+            Text("第 \(index + 1) 组")
+                .foregroundStyle(.secondary)
+                .frame(width: 60, alignment: .leading)
+
+            TextField(weightUnit.rawValue, text: $editWeightText)
+                .keyboardType(.decimalPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 70)
+                .onChange(of: editWeightText) { _, newValue in
+                    let filtered = filterDecimalInput(newValue)
+                    if filtered != newValue { editWeightText = filtered }
+                }
+
+            TextField("次数", text: $editRepsText)
+                .keyboardType(.numberPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 60)
+                .onChange(of: editRepsText) { _, newValue in
+                    let filtered = newValue.filter { $0.isNumber }
+                    if filtered != newValue { editRepsText = filtered }
+                }
+
+            Picker("组类型", selection: $editSetType) {
+                Text("正式").tag(SetType.working)
+                Text("热身").tag(SetType.warmup)
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+
+            Spacer()
+
+            Button {
+                saveEdit(exerciseSet)
+            } label: {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            }
+            .buttonStyle(.borderless)
+            .frame(minHeight: 44)
+        }
+    }
+
+    private func beginEditing(_ exerciseSet: ExerciseSet) {
+        let displayW = displayWeight(exerciseSet.weight)
+        editWeightText = formatWeight(displayW)
+        editRepsText = "\(exerciseSet.reps)"
+        editSetType = exerciseSet.setType
+        editingSetID = exerciseSet.persistentModelID
+    }
+
+    private func saveEdit(_ exerciseSet: ExerciseSet) {
+        if let weight = Double(editWeightText) {
+            let storageWeight = weightUnit == .lb ? weight / 2.20462 : weight
+            exerciseSet.weight = storageWeight
+        }
+        if let reps = Int(editRepsText) {
+            exerciseSet.reps = reps
+        }
+        exerciseSet.setType = editSetType
+        editingSetID = nil
+    }
+
+    private func deleteSet(_ exerciseSet: ExerciseSet) {
+        modelContext.delete(exerciseSet)
+        let remaining = sortedSets.filter { $0.persistentModelID != exerciseSet.persistentModelID }
+        for (newOrder, set) in remaining.enumerated() {
+            set.order = newOrder
+        }
+    }
+
+    private func filterDecimalInput(_ text: String) -> String {
+        var result = ""
+        var hasDecimalPoint = false
+        for char in text {
+            if char.isNumber {
+                result.append(char)
+            } else if char == "." && !hasDecimalPoint {
+                hasDecimalPoint = true
+                result.append(char)
+            }
+        }
+        return result
+    }
+
+    private func formatWeight(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0
+            ? String(Int(value))
+            : String(format: "%.1f", value)
     }
 
     private func addSet() {
