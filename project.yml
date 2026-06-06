@@ -92,6 +92,7 @@ targets:
       - path: VitalStride/Sources/AIPromptBuilder.swift
       - path: VitalStride/Sources/AIChatView.swift
       - path: VitalStride/Sources/AISettingsSection.swift
+      - path: VitalStride/Sources/HealthDataCacheEnvironment.swift
     dependencies:
       - package: VitalModels
       - package: HealthKitService

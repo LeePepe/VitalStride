@@ -94,31 +94,9 @@ struct HeartRateSection: View {
     @State private var chartPoints: [HealthDataPoint] = []
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
+    @Environment(\.healthDataCache) private var cache
 
-    private let service: HealthKitService
     private let logger = Logger(subsystem: "com.vitalstride", category: "HeartRateSection")
-
-    init(range: TimeRange) {
-        self.range = range
-        #if os(iOS)
-        let deviceID = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
-        #else
-        let deviceID = Self.stableMacDeviceIdentifier()
-        #endif
-        self.service = HealthKitService(deviceIdentifier: deviceID)
-    }
-
-    #if os(macOS)
-    fileprivate static let macDeviceIDKey = "com.vitalstride.macDeviceIdentifier"
-    fileprivate static func stableMacDeviceIdentifier() -> String {
-        if let existing = UserDefaults.standard.string(forKey: macDeviceIDKey) {
-            return existing
-        }
-        let generated = UUID().uuidString
-        UserDefaults.standard.set(generated, forKey: macDeviceIDKey)
-        return generated
-    }
-    #endif
 
     var body: some View {
         DataSectionCard(
@@ -227,9 +205,9 @@ struct HeartRateSection: View {
         let interval = range.dateInterval()
 
         do {
-            let result = try await service.fetchData(for: .heartRate, dateRange: interval)
-            dataPoints = result.dataPoints
-            filteredPoints = HeartRateStats.filtered(result.dataPoints, in: interval)
+            let points = try await cache.data(for: .heartRate, in: interval)
+            dataPoints = points
+            filteredPoints = HeartRateStats.filtered(points, in: interval)
                 .sorted { $0.startDate < $1.startDate }
             chartPoints = HeartRateStats.downsample(filteredPoints, for: range)
             let elapsed = ContinuousClock.now - start
@@ -405,6 +383,7 @@ struct HeartRateDetailView: View {
     @State private var chartPoints: [HealthDataPoint] = []
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
+    @Environment(\.healthDataCache) private var cache
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "HeartRateDetail")
 
@@ -545,18 +524,12 @@ struct HeartRateDetailView: View {
         fetchError = nil
 
         let interval = selectedRange.dateInterval()
-        #if os(iOS)
-        let deviceID = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
-        #else
-        let deviceID = HeartRateSection.stableMacDeviceIdentifier()
-        #endif
-        let service = HealthKitService(deviceIdentifier: deviceID)
 
         do {
-            let result = try await service.fetchData(for: .heartRate, dateRange: interval)
+            let points = try await cache.data(for: .heartRate, in: interval)
             guard !Task.isCancelled else { return }
 
-            let filtered = HeartRateStats.filtered(result.dataPoints, in: interval)
+            let filtered = HeartRateStats.filtered(points, in: interval)
                 .sorted { $0.startDate < $1.startDate }
             dataPoints = filtered
             chartPoints = HeartRateStats.downsample(filtered, for: selectedRange)

@@ -104,6 +104,7 @@ struct StepsSection: View {
     @State private var selectedDate: Date?
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @Environment(\.healthDataCache) private var cache
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "StepsSection")
 
@@ -277,13 +278,12 @@ struct StepsSection: View {
 
         let start = ContinuousClock.now
         let interval = range.dateInterval()
-        let service = HealthKitService(deviceIdentifier: "ios-display")
 
         do {
-            let result = try await service.fetchData(for: .stepCount, dateRange: interval)
+            let dataPoints = try await cache.data(for: .stepCount, in: interval)
             guard !Task.isCancelled else { return }
 
-            let aggregated = StepsAggregator.aggregateByDay(dataPoints: result.dataPoints, in: interval)
+            let aggregated = StepsAggregator.aggregateByDay(dataPoints: dataPoints, in: interval)
             let stats = StepsAggregator.computeStatistics(from: aggregated)
 
             dailyData = aggregated
@@ -293,7 +293,7 @@ struct StepsSection: View {
             let ms = elapsed.components.seconds * 1000
                 + elapsed.components.attoseconds / 1_000_000_000_000_000
             logger.info(
-                "render dataPoints=\(result.dataPoints.count) aggregated=\(aggregated.count) ms=\(ms)"
+                "render dataPoints=\(dataPoints.count) aggregated=\(aggregated.count) ms=\(ms)"
             )
         } catch {
             guard !Task.isCancelled else { return }
@@ -316,6 +316,7 @@ struct StepsDetailView: View {
     @State private var selectedDate: Date?
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @Environment(\.healthDataCache) private var cache
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "StepsSection")
 
@@ -502,13 +503,12 @@ struct StepsDetailView: View {
         errorMessage = nil
 
         let interval = selectedRange.dateInterval()
-        let service = HealthKitService(deviceIdentifier: "ios-display")
 
         do {
-            let result = try await service.fetchData(for: .stepCount, dateRange: interval)
+            let dataPoints = try await cache.data(for: .stepCount, in: interval)
             guard !Task.isCancelled else { return }
 
-            let aggregated = StepsAggregator.aggregateByDay(dataPoints: result.dataPoints, in: interval)
+            let aggregated = StepsAggregator.aggregateByDay(dataPoints: dataPoints, in: interval)
             let stats = StepsAggregator.computeStatistics(from: aggregated)
 
             dailyData = aggregated
