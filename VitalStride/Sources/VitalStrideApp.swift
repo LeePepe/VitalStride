@@ -8,8 +8,10 @@ struct VitalStrideApp: App {
 
     init() {
         do {
-            container = try ModelContainerConfiguration.makeContainer()
+            let modelContainer = try ModelContainerConfiguration.makeContainer()
+            container = modelContainer
             containerError = nil
+            ExerciseSeeder.seedIfNeeded(context: modelContainer.mainContext)
         } catch {
             container = nil
             containerError = error.localizedDescription
