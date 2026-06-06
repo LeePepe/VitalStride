@@ -11,7 +11,9 @@ struct VitalStrideApp: App {
             let modelContainer = try ModelContainerConfiguration.makeContainer()
             container = modelContainer
             containerError = nil
-            ExerciseSeeder.seedIfNeeded(context: modelContainer.mainContext)
+            Task {
+                ExerciseSeeder.seedIfNeeded(context: modelContainer.mainContext)
+            }
         } catch {
             container = nil
             containerError = error.localizedDescription

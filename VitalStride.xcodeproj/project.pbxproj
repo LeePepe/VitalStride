@@ -126,6 +126,7 @@
 		F872D96937ADE91D6B8BEFB4 /* WorkoutExercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02FF0750D3E63AAA723ED31 /* WorkoutExercise.swift */; };
 		FAB75CD8FA828AA85C6AFD13 /* HealthSampleType.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5402C816A05CEAC9E1D87D /* HealthSampleType.swift */; };
 		FBE027F17938BB052D0AF52F /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = 57B895D91910D9E2DC71130D /* exercises.json */; };
+		FC3A8B21E7D042F5A1B6C9D3 /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = 57B895D91910D9E2DC71130D /* exercises.json */; };
 		FD1420D480D8737320D0F580 /* WorkoutDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46D0B1B4E9C7FD1C63B5C56C /* WorkoutDeletionTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -619,6 +620,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EA2925A7C0F167DD4CBEC374 /* Assets.xcassets in Resources */,
+				FC3A8B21E7D042F5A1B6C9D3 /* exercises.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
