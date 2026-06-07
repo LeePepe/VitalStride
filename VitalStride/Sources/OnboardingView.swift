@@ -9,9 +9,13 @@ struct OnboardingView: View {
 
     private let healthStore = HKHealthStore()
 
-    static let shareTypes: Set<HKSampleType> = [
-        HKObjectType.workoutType(),
-    ]
+    static var shareTypes: Set<HKSampleType> {
+        #if os(iOS)
+        [HKObjectType.workoutType()]
+        #else
+        []
+        #endif
+    }
 
     static let readTypes: Set<HKObjectType> = [
         HKObjectType.workoutType(),
