@@ -34,8 +34,8 @@ public final class Workout {
 extension Workout {
     public func finish(at date: Date = Date()) {
         for exercise in (exercises ?? []) {
-            for set in (exercise.sets ?? []) where set.completedAt == nil {
-                set.completedAt = date
+            for set in (exercise.sets ?? []) where !set.isCompleted {
+                set.isCompleted = true
             }
         }
         endDate = date

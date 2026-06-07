@@ -345,6 +345,24 @@ struct ActiveWorkoutView: View {
         }
         dismiss()
     }
+
+    private func moveExercises(from source: IndexSet, to destination: Int) {
+        var exercises = (workout?.exercises ?? []).sorted { $0.order < $1.order }
+        exercises.move(fromOffsets: source, toOffset: destination)
+        for (index, exercise) in exercises.enumerated() {
+            exercise.order = index
+        }
+    }
+
+    private func deleteExercise(_ workoutExercise: WorkoutExercise) {
+        modelContext.delete(workoutExercise)
+        let remaining = (workout?.exercises ?? [])
+            .filter { $0.persistentModelID != workoutExercise.persistentModelID }
+            .sorted { $0.order < $1.order }
+        for (index, exercise) in remaining.enumerated() {
+            exercise.order = index
+        }
+    }
 }
 
 // MARK: - Active Exercise Section
