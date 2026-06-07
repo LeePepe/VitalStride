@@ -372,23 +372,11 @@ private struct ActiveExerciseSection: View {
 
     private var setInputRow: some View {
         HStack(spacing: 8) {
-            TextField(weightUnit.rawValue, text: $weightText)
-                .keyboardType(.decimalPad)
-                .textFieldStyle(.roundedBorder)
+            NumericInputField(text: $weightText, mode: .decimal, placeholder: weightUnit.rawValue)
                 .frame(width: 70)
-                .onChange(of: weightText) { _, newValue in
-                    let filtered = filterDecimalInput(newValue)
-                    if filtered != newValue { weightText = filtered }
-                }
 
-            TextField("次数", text: $repsText)
-                .keyboardType(.numberPad)
-                .textFieldStyle(.roundedBorder)
+            NumericInputField(text: $repsText, mode: .integer, placeholder: "次数")
                 .frame(width: 60)
-                .onChange(of: repsText) { _, newValue in
-                    let filtered = newValue.filter { $0.isNumber }
-                    if filtered != newValue { repsText = filtered }
-                }
 
             Picker("组类型", selection: $setType) {
                 Text("正式").tag(SetType.working)
@@ -475,23 +463,11 @@ private struct ActiveExerciseSection: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 60, alignment: .leading)
 
-            TextField(weightUnit.rawValue, text: $editWeightText)
-                .keyboardType(.decimalPad)
-                .textFieldStyle(.roundedBorder)
+            NumericInputField(text: $editWeightText, mode: .decimal, placeholder: weightUnit.rawValue)
                 .frame(width: 70)
-                .onChange(of: editWeightText) { _, newValue in
-                    let filtered = filterDecimalInput(newValue)
-                    if filtered != newValue { editWeightText = filtered }
-                }
 
-            TextField("次数", text: $editRepsText)
-                .keyboardType(.numberPad)
-                .textFieldStyle(.roundedBorder)
+            NumericInputField(text: $editRepsText, mode: .integer, placeholder: "次数")
                 .frame(width: 60)
-                .onChange(of: editRepsText) { _, newValue in
-                    let filtered = newValue.filter { $0.isNumber }
-                    if filtered != newValue { editRepsText = filtered }
-                }
 
             Picker("组类型", selection: $editSetType) {
                 Text("正式").tag(SetType.working)
@@ -556,20 +532,6 @@ private struct ActiveExerciseSection: View {
     private func completeSet(_ exerciseSet: ExerciseSet) {
         exerciseSet.completedAt = Date()
         onSetCompleted()
-    }
-
-    private func filterDecimalInput(_ text: String) -> String {
-        var result = ""
-        var hasDecimalPoint = false
-        for char in text {
-            if char.isNumber {
-                result.append(char)
-            } else if char == "." && !hasDecimalPoint {
-                hasDecimalPoint = true
-                result.append(char)
-            }
-        }
-        return result
     }
 
     private func formatWeight(_ value: Double) -> String {
