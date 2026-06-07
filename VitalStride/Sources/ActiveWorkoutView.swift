@@ -247,7 +247,8 @@ struct ActiveWorkoutView: View {
                         order: setIndex,
                         weight: srcSet.weight,
                         reps: srcSet.reps,
-                        setType: srcSet.setType
+                        setType: srcSet.setType,
+                        isUnilateral: srcSet.isUnilateral
                     )
                     newSet.workoutExercise = workoutExercise
                     modelContext.insert(newSet)
@@ -319,11 +320,13 @@ private struct ActiveExerciseSection: View {
     @State private var weightText = ""
     @State private var repsText = ""
     @State private var setType: SetType = .working
+    @State private var isUnilateral = false
     @State private var editingSetID: PersistentIdentifier?
     @State private var showingDeleteConfirmation = false
     @State private var editWeightText = ""
     @State private var editRepsText = ""
     @State private var editSetType: SetType = .working
+    @State private var editIsUnilateral = false
 
     private var sortedSets: [ExerciseSet] {
         (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
@@ -385,6 +388,8 @@ private struct ActiveExerciseSection: View {
             .labelsHidden()
             .pickerStyle(.menu)
 
+            WeightModeToggle(isUnilateral: $isUnilateral)
+
             Spacer()
 
             Button {
@@ -423,6 +428,14 @@ private struct ActiveExerciseSection: View {
                 .foregroundStyle(.secondary)
             Text("\(exerciseSet.reps) 次")
             Spacer()
+            if exerciseSet.isUnilateral {
+                Text("×2")
+                    .font(.caption)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.blue.opacity(0.15))
+                    .clipShape(Capsule())
+            }
             if exerciseSet.setType == .warmup {
                 Text("热身")
                     .font(.caption)
@@ -476,6 +489,8 @@ private struct ActiveExerciseSection: View {
             .labelsHidden()
             .pickerStyle(.menu)
 
+            WeightModeToggle(isUnilateral: $editIsUnilateral)
+
             Spacer()
 
             Button {
@@ -495,6 +510,7 @@ private struct ActiveExerciseSection: View {
         editWeightText = formatWeight(displayW)
         editRepsText = "\(exerciseSet.reps)"
         editSetType = exerciseSet.setType
+        editIsUnilateral = exerciseSet.isUnilateral
         editingSetID = exerciseSet.persistentModelID
     }
 
@@ -518,6 +534,7 @@ private struct ActiveExerciseSection: View {
         exerciseSet.weight = storageWeight
         exerciseSet.reps = reps
         exerciseSet.setType = editSetType
+        exerciseSet.isUnilateral = editIsUnilateral
         editingSetID = nil
     }
 
@@ -558,7 +575,7 @@ private struct ActiveExerciseSection: View {
         guard weight.isFinite, weight >= 0, reps >= 0 else { return }
         let storageWeight = weightUnit == .lb ? weight / 2.20462 : weight
         let order = workoutExercise.sets?.count ?? 0
-        let newSet = ExerciseSet(order: order, weight: storageWeight, reps: reps, setType: setType)
+        let newSet = ExerciseSet(order: order, weight: storageWeight, reps: reps, setType: setType, isUnilateral: isUnilateral)
         newSet.workoutExercise = workoutExercise
         modelContext.insert(newSet)
         repsText = ""
@@ -764,6 +781,37 @@ struct ExercisePickerView: View {
             }
             .listStyle(.insetGrouped)
         }
+    }
+}
+
+
+// MARK: - Weight Mode Toggle
+
+private struct WeightModeToggle: View {
+    @Binding var isUnilateral: Bool
+
+    var body: some View {
+        Button {
+            isUnilateral.toggle()
+        } label: {
+            Text(isUnilateral
+                ? String(localized: "左/右", comment: "Unilateral weight mode label")
+                : String(localized: "总", comment: "Bilateral weight mode label"))
+                .font(.caption)
+                .fontWeight(.medium)
+                .padding(.horizontal, 8)
+                .frame(minHeight: 28)
+                .background(
+                    Capsule()
+                        .fill(isUnilateral ? Color.blue.opacity(0.15) : Color(.systemGray5))
+                )
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "重量模式", comment: "Weight mode toggle a11y label"))
+        .accessibilityValue(isUnilateral
+            ? String(localized: "单侧重量", comment: "Unilateral weight mode a11y value")
+            : String(localized: "总重量", comment: "Bilateral weight mode a11y value"))
     }
 }
 

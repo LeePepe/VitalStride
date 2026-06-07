@@ -109,6 +109,14 @@ struct WorkoutDetailView: View {
                                     .foregroundStyle(.secondary)
                                 Text("\(exerciseSet.reps) 次")
                                 Spacer()
+                                if exerciseSet.isUnilateral {
+                                    Text("×2")
+                                        .font(.caption)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(.blue.opacity(0.15))
+                                        .clipShape(Capsule())
+                                }
                                 if exerciseSet.setType == .warmup {
                                     Text("热身")
                                         .font(.caption)

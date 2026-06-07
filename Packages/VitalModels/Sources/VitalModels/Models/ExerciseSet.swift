@@ -7,6 +7,7 @@ public final class ExerciseSet {
     public var weight: Double = 0.0
     public var reps: Int = 0
     public var setType: SetType = SetType.working
+    public var isUnilateral: Bool = false
     public var restDuration: TimeInterval?
     public var completedAt: Date?
     public var workoutExercise: WorkoutExercise?
@@ -20,6 +21,7 @@ public final class ExerciseSet {
         weight: Double,
         reps: Int,
         setType: SetType = .working,
+        isUnilateral: Bool = false,
         restDuration: TimeInterval? = nil,
         completedAt: Date? = nil
     ) {
@@ -27,6 +29,7 @@ public final class ExerciseSet {
         self.weight = weight
         self.reps = reps
         self.setType = setType
+        self.isUnilateral = isUnilateral
         self.restDuration = restDuration
         self.completedAt = completedAt
     }

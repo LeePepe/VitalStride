@@ -238,4 +238,73 @@ struct WorkoutDetailCalculationTests {
         let lbValue = kgValue * 2.20462
         #expect(abs(lbValue - 220.462) < 0.001)
     }
+
+    // MARK: - Unilateral (isUnilateral)
+
+    @Test("ExerciseSet defaults isUnilateral to false")
+    func exerciseSetDefaultsNotUnilateral() {
+        let set = ExerciseSet(weight: 80, reps: 8)
+        #expect(set.isUnilateral == false)
+    }
+
+    @Test("ExerciseSet stores isUnilateral true")
+    func exerciseSetUnilateralTrue() {
+        let set = ExerciseSet(weight: 25, reps: 10, isUnilateral: true)
+        #expect(set.isUnilateral == true)
+    }
+
+    @Test("workingVolume doubles weight for unilateral sets")
+    func workingVolumeUnilateralDoubles() throws {
+        let context = ModelContext(container)
+        let exercise = WorkoutExercise(order: 0, sets: [
+            ExerciseSet(weight: 25, reps: 10, setType: .working, isUnilateral: true, completedAt: Date()),
+        ])
+        context.insert(exercise)
+        try context.save()
+
+        let expected = 25.0 * 10.0 * 2.0
+        #expect(exercise.workingVolume == expected)
+    }
+
+    @Test("workingVolume with mixed bilateral and unilateral sets")
+    func workingVolumeMixedBilateralUnilateral() throws {
+        let context = ModelContext(container)
+        let exercise = WorkoutExercise(order: 0, sets: [
+            ExerciseSet(weight: 80, reps: 10, setType: .working, completedAt: Date()),
+            ExerciseSet(weight: 25, reps: 12, setType: .working, isUnilateral: true, completedAt: Date()),
+        ])
+        context.insert(exercise)
+        try context.save()
+
+        let expected = 80.0 * 10.0 + 25.0 * 12.0 * 2.0
+        #expect(exercise.workingVolume == expected)
+    }
+
+    @Test("workingVolume unchanged for bilateral-only sets (regression)")
+    func workingVolumeBilateralRegression() throws {
+        let context = ModelContext(container)
+        let exercise = WorkoutExercise(order: 0, sets: [
+            ExerciseSet(weight: 80, reps: 10, setType: .working, completedAt: Date()),
+            ExerciseSet(weight: 80, reps: 8, setType: .working, completedAt: Date()),
+        ])
+        context.insert(exercise)
+        try context.save()
+
+        let expected = 80.0 * 10.0 + 80.0 * 8.0
+        #expect(exercise.workingVolume == expected)
+    }
+
+    @Test("workingVolume excludes unilateral warmup sets")
+    func workingVolumeExcludesUnilateralWarmup() throws {
+        let context = ModelContext(container)
+        let exercise = WorkoutExercise(order: 0, sets: [
+            ExerciseSet(weight: 20, reps: 15, setType: .warmup, isUnilateral: true, completedAt: Date()),
+            ExerciseSet(weight: 25, reps: 10, setType: .working, isUnilateral: true, completedAt: Date()),
+        ])
+        context.insert(exercise)
+        try context.save()
+
+        let expected = 25.0 * 10.0 * 2.0
+        #expect(exercise.workingVolume == expected)
+    }
 }

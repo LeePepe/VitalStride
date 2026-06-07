@@ -39,6 +39,9 @@ extension WorkoutExercise {
         let isFinished = workout?.endDate != nil
         return (sets ?? [])
             .filter { (isFinished || $0.isCompleted) && $0.setType == .working }
-            .reduce(0.0) { $0 + $1.weight * Double($1.reps) }
+            .reduce(0.0) { total, set in
+                let multiplier: Double = set.isUnilateral ? 2.0 : 1.0
+                return total + set.weight * Double(set.reps) * multiplier
+            }
     }
 }
