@@ -13,6 +13,7 @@ struct ActiveWorkoutView: View {
     @State private var showingExercisePicker = false
     @State private var showingFinishAlert = false
     @State private var showingDiscardAlert = false
+    @State private var exerciseToReplace: WorkoutExercise?
     @State private var restEndDate: Date?
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     private let startTime = Date()
@@ -50,6 +51,11 @@ struct ActiveWorkoutView: View {
             .sheet(isPresented: $showingExercisePicker) {
                 ExercisePickerView { exercise in
                     addExercise(exercise)
+                }
+            }
+            .sheet(item: $exerciseToReplace) { workoutExercise in
+                ExercisePickerView { newExercise in
+                    workoutExercise.exercise = newExercise
                 }
             }
             .alert("完成训练？", isPresented: $showingFinishAlert) {
@@ -176,8 +182,17 @@ struct ActiveWorkoutView: View {
                         workoutExercise: workoutExercise,
                         onSetCompleted: {
                             restEndDate = Date().addingTimeInterval(90)
+                        },
+                        onReplace: {
+                            exerciseToReplace = workoutExercise
+                        },
+                        onDelete: {
+                            deleteExercise(workoutExercise)
                         }
                     )
+                }
+                .onMove { source, destination in
+                    moveExercises(from: source, to: destination)
                 }
                 Section {} footer: { Color.clear.frame(height: 72) }
             }
@@ -258,6 +273,24 @@ struct ActiveWorkoutView: View {
         modelContext.insert(workoutExercise)
     }
 
+    private func moveExercises(from source: IndexSet, to destination: Int) {
+        var exercises = (workout?.exercises ?? []).sorted { $0.order < $1.order }
+        exercises.move(fromOffsets: source, toOffset: destination)
+        for (index, exercise) in exercises.enumerated() {
+            exercise.order = index
+        }
+    }
+
+    private func deleteExercise(_ workoutExercise: WorkoutExercise) {
+        modelContext.delete(workoutExercise)
+        let remaining = (workout?.exercises ?? [])
+            .filter { $0.persistentModelID != workoutExercise.persistentModelID }
+            .sorted { $0.order < $1.order }
+        for (index, exercise) in remaining.enumerated() {
+            exercise.order = index
+        }
+    }
+
     private func finishWorkout() {
         workout?.endDate = Date()
         try? modelContext.save()
@@ -278,6 +311,8 @@ struct ActiveWorkoutView: View {
 private struct ActiveExerciseSection: View {
     let workoutExercise: WorkoutExercise
     let onSetCompleted: () -> Void
+    let onReplace: () -> Void
+    let onDelete: () -> Void
     @Environment(\.modelContext) private var modelContext
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     @State private var weightText = ""
@@ -307,6 +342,18 @@ private struct ActiveExerciseSection: View {
             setInputRow
         } header: {
             Text(workoutExercise.exercise?.localizedName ?? "动作")
+                .contextMenu {
+                    Button {
+                        onReplace()
+                    } label: {
+                        Label("替换动作", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    Button(role: .destructive) {
+                        onDelete()
+                    } label: {
+                        Label("删除动作", systemImage: "trash")
+                    }
+                }
         }
     }
 
