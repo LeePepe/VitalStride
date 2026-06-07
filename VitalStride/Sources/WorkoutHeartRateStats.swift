@@ -33,6 +33,21 @@ struct WorkoutHeartRateStats: Sendable, Equatable {
         )
     }
 
+    static func load(
+        startDate: Date,
+        endDate: Date?,
+        fetchHeartRate: @Sendable (DateInterval) async throws -> [HealthDataPoint]
+    ) async -> WorkoutHeartRateStats? {
+        guard let endDate else { return nil }
+        let dateRange = DateInterval(start: startDate, end: endDate)
+        do {
+            let dataPoints = try await fetchHeartRate(dateRange)
+            return from(dataPoints: dataPoints)
+        } catch {
+            return nil
+        }
+    }
+
     private static func zoneName(for id: Int) -> String {
         switch id {
         case 1: String(localized: "热身", comment: "Heart rate zone 1 name — Warm Up")

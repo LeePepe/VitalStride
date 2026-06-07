@@ -4,6 +4,10 @@ import Testing
 
 @testable import VitalStride
 
+private enum HeartRateTestError: Error {
+    case healthKitUnavailable
+}
+
 @Suite("Workout Heart Rate Stats Tests")
 struct WorkoutHeartRateStatsTests {
 
@@ -143,5 +147,60 @@ struct WorkoutHeartRateStatsTests {
         #expect(zoneMap[3] == 0.2)  // 120, 139
         #expect(zoneMap[4] == 0.2)  // 140, 159
         #expect(zoneMap[5] == 0.3)  // 160, 200, 300
+    }
+
+    // MARK: - Load (endDate / error handling)
+
+    @Test("load returns nil when endDate is nil")
+    func loadNilEndDate() async {
+        let stats = await WorkoutHeartRateStats.load(
+            startDate: Date(),
+            endDate: nil
+        ) { _ in
+            Issue.record("fetchHeartRate should not be called when endDate is nil")
+            return []
+        }
+        #expect(stats == nil)
+    }
+
+    @Test("load returns nil when fetch throws")
+    func loadFetchError() async {
+        let start = Date().addingTimeInterval(-3600)
+        let end = Date()
+        let stats = await WorkoutHeartRateStats.load(
+            startDate: start,
+            endDate: end
+        ) { _ in
+            throw HeartRateTestError.healthKitUnavailable
+        }
+        #expect(stats == nil)
+    }
+
+    @Test("load returns nil when fetch returns empty data")
+    func loadEmptyData() async {
+        let start = Date().addingTimeInterval(-3600)
+        let end = Date()
+        let stats = await WorkoutHeartRateStats.load(
+            startDate: start,
+            endDate: end
+        ) { _ in
+            []
+        }
+        #expect(stats == nil)
+    }
+
+    @Test("load returns stats when fetch succeeds with data")
+    func loadSuccess() async {
+        let start = Date().addingTimeInterval(-3600)
+        let end = Date()
+        let stats = await WorkoutHeartRateStats.load(
+            startDate: start,
+            endDate: end
+        ) { _ in
+            [120.0, 130.0, 140.0].map { self.makeDataPoint(value: $0) }
+        }
+        #expect(stats != nil)
+        #expect(stats?.averageHeartRate == 130)
+        #expect(stats?.maxHeartRate == 140)
     }
 }

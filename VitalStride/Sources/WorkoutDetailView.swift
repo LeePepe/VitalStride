@@ -57,13 +57,13 @@ struct WorkoutDetailView: View {
                 }
                 if let stats = heartRateStats {
                     LabeledContent(String(localized: "平均心率", comment: "Average heart rate in workout summary")) {
-                        Text("\(stats.averageHeartRate) bpm")
+                        Text(String(localized: "\(stats.averageHeartRate) bpm", comment: "Heart rate value with unit, e.g. 142 bpm"))
                     }
                     .accessibilityLabel(
                         Text(String(localized: "平均心率 \(stats.averageHeartRate) 次每分钟", comment: "Average heart rate a11y"))
                     )
                     LabeledContent(String(localized: "最高心率", comment: "Max heart rate in workout summary")) {
-                        Text("\(stats.maxHeartRate) bpm")
+                        Text(String(localized: "\(stats.maxHeartRate) bpm", comment: "Heart rate value with unit, e.g. 155 bpm"))
                     }
                     .accessibilityLabel(
                         Text(String(localized: "最高心率 \(stats.maxHeartRate) 次每分钟", comment: "Max heart rate a11y"))
@@ -202,13 +202,11 @@ struct WorkoutDetailView: View {
     }
 
     private func loadHeartRateStats() async {
-        guard let endDate = workout.endDate else { return }
-        let dateRange = DateInterval(start: workout.startDate, end: endDate)
-        do {
-            let result = try await healthKitService.fetchData(for: .heartRate, dateRange: dateRange)
-            heartRateStats = WorkoutHeartRateStats.from(dataPoints: result.dataPoints)
-        } catch {
-            logger.info("Heart rate data unavailable: \(error.localizedDescription, privacy: .private)")
+        heartRateStats = await WorkoutHeartRateStats.load(
+            startDate: workout.startDate,
+            endDate: workout.endDate
+        ) { dateRange in
+            try await healthKitService.fetchData(for: .heartRate, dateRange: dateRange).dataPoints
         }
     }
 
