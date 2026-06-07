@@ -596,7 +596,7 @@ struct ExercisePickerView: View {
                 }
                 ForEach(MuscleGroup.allCases, id: \.self) { group in
                     sidebarButton(
-                        label: muscleGroupName(group),
+                        label: group.localizedName,
                         isSelected: selectedGroup == group
                     ) {
                         selectedGroup = group
@@ -643,7 +643,7 @@ struct ExercisePickerView: View {
                 }
                 ForEach(MuscleGroup.allCases, id: \.self) { group in
                     chipButton(
-                        label: muscleGroupName(group),
+                        label: group.localizedName,
                         isSelected: selectedGroup == group
                     ) {
                         selectedGroup = group
@@ -684,7 +684,7 @@ struct ExercisePickerView: View {
                 ContentUnavailableView(
                     "没有动作",
                     systemImage: "dumbbell",
-                    description: Text("\(muscleGroupName(group))分类下暂无动作")
+                    description: Text("\(group.localizedName)分类下暂无动作")
                 )
             } else {
                 ContentUnavailableView(
@@ -696,7 +696,7 @@ struct ExercisePickerView: View {
         } else {
             List {
                 ForEach(groupedExercises, id: \.0) { group, items in
-                    Section(muscleGroupName(group)) {
+                    Section(group.localizedName) {
                         ForEach(items) { exercise in
                             Button {
                                 onSelect(exercise)
@@ -704,7 +704,7 @@ struct ExercisePickerView: View {
                             } label: {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(exercise.localizedName)
-                                    Text(equipmentName(exercise.equipment))
+                                    Text(exercise.equipment.localizedName)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -718,27 +718,6 @@ struct ExercisePickerView: View {
     }
 }
 
-private func muscleGroupName(_ group: MuscleGroup) -> String {
-    switch group {
-    case .chest: "胸"
-    case .back: "背"
-    case .shoulders: "肩"
-    case .legs: "腿"
-    case .arms: "臂"
-    case .core: "核心"
-    case .fullBody: "全身"
-    }
-}
-
-private func equipmentName(_ equipment: Equipment) -> String {
-    switch equipment {
-    case .barbell: "杠铃"
-    case .dumbbell: "哑铃"
-    case .machine: "固定器械"
-    case .bodyweight: "自重"
-    case .cable: "绳索"
-    }
-}
 
 private struct FABButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
