@@ -77,7 +77,6 @@ struct ModelTests {
         #expect(set.reps == 8)
         #expect(set.setType == .working)
         #expect(set.restDuration == 90)
-        #expect(set.completedAt == nil)
         #expect(set.isCompleted == false)
     }
 
@@ -90,18 +89,16 @@ struct ModelTests {
 
         #expect(set.setType == .warmup)
         #expect(set.restDuration == nil)
-        #expect(set.completedAt == nil)
+        #expect(set.isCompleted == false)
     }
 
-    @Test("ExerciseSet with completedAt persists")
-    func exerciseSetCompletedAtPersists() throws {
+    @Test("ExerciseSet with isCompleted persists")
+    func exerciseSetIsCompletedPersists() throws {
         let context = ModelContext(container)
-        let now = Date()
-        let set = ExerciseSet(weight: 60.0, reps: 10, completedAt: now)
+        let set = ExerciseSet(weight: 60.0, reps: 10, isCompleted: true)
         context.insert(set)
         try context.save()
 
-        #expect(set.completedAt == now)
         #expect(set.isCompleted == true)
     }
 

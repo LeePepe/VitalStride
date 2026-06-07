@@ -356,14 +356,7 @@ private struct ActiveExerciseSection: View {
     let onDelete: () -> Void
     @Environment(\.modelContext) private var modelContext
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
-    @State private var weightText = ""
-    @State private var repsText = ""
-    @State private var setType: SetType = .working
-    @State private var editingSetID: PersistentIdentifier?
     @State private var showingDeleteConfirmation = false
-    @State private var editWeightText = ""
-    @State private var editRepsText = ""
-    @State private var editSetType: SetType = .working
 
     private var sortedSets: [ExerciseSet] {
         (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
@@ -372,16 +365,25 @@ private struct ActiveExerciseSection: View {
     var body: some View {
         Section {
             ForEach(Array(sortedSets.enumerated()), id: \.element.persistentModelID) { index, exerciseSet in
-                completedSetView(index: index, exerciseSet: exerciseSet)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            deleteSet(exerciseSet)
-                        } label: {
-                            Label("删除", systemImage: "trash")
+                SetRow(
+                    index: index,
+                    exerciseSet: exerciseSet,
+                    weightUnit: weightUnit,
+                    onToggleCompleted: { wasCompleted in
+                        if !wasCompleted {
+                            onSetCompleted()
                         }
                     }
+                )
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        deleteSet(exerciseSet)
+                    } label: {
+                        Label("删除", systemImage: "trash")
+                    }
+                }
             }
-            setInputRow
+            addSetButton
         } header: {
             Text(workoutExercise.exercise?.localizedName ?? "动作")
                 .contextMenu {
@@ -410,155 +412,34 @@ private struct ActiveExerciseSection: View {
         }
     }
 
-    private var setInputRow: some View {
-        HStack(spacing: 8) {
-            NumericInputField(text: $weightText, mode: .decimal, placeholder: weightUnit.rawValue)
-                .frame(width: 70)
-
-            NumericInputField(text: $repsText, mode: .integer, placeholder: "次数")
-                .frame(width: 60)
-
-            Picker("组类型", selection: $setType) {
-                Text("正式").tag(SetType.working)
-                Text("热身").tag(SetType.warmup)
+    private var addSetButton: some View {
+        Button {
+            addSet()
+        } label: {
+            HStack {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundStyle(Color.accentColor)
+                Text("添加一组")
             }
-            .labelsHidden()
-            .pickerStyle(.menu)
-
-            Spacer()
-
-            Button {
-                addSet()
-            } label: {
-                Text("+ 添加一组")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("添加组")
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(minHeight: 44)
         }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("添加一组")
+        .accessibilityHint("在列表末尾插入新的一组")
     }
 
-    @ViewBuilder
-    private func completedSetView(index: Int, exerciseSet: ExerciseSet) -> some View {
-        if editingSetID == exerciseSet.persistentModelID {
-            editSetRow(index: index, exerciseSet: exerciseSet)
-        } else {
-            setRow(index: index, exerciseSet: exerciseSet)
-                .contentShape(Rectangle())
-                .onTapGesture { beginEditing(exerciseSet) }
-                .accessibilityAddTraits(.isButton)
-                .accessibilityHint("点击编辑")
-        }
-    }
-
-    private func setRow(index: Int, exerciseSet: ExerciseSet) -> some View {
-        HStack {
-            Text("第 \(index + 1) 组")
-                .foregroundStyle(.secondary)
-                .frame(width: 60, alignment: .leading)
-            Text("\(displayWeight(exerciseSet.weight), specifier: "%.1f") \(weightUnit.rawValue)")
-            Text("×")
-                .foregroundStyle(.secondary)
-            Text("\(exerciseSet.reps) 次")
-            Spacer()
-            if exerciseSet.setType == .warmup {
-                Text("热身")
-                    .font(.caption)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.orange.opacity(0.15))
-                    .clipShape(Capsule())
-            }
-            if exerciseSet.isCompleted {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .accessibilityLabel(String(localized: "已完成", comment: "Set completed status a11y"))
-            } else {
-                Button {
-                    completeSet(exerciseSet)
-                } label: {
-                    Image(systemName: "circle")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(String(localized: "完成该组", comment: "Complete set button a11y"))
-                .accessibilityHint(String(localized: "标记该组训练已完成并开始休息计时", comment: "Complete set hint a11y"))
-                .accessibilityAddTraits(.isButton)
-                .frame(minHeight: 44)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityAction(named: String(localized: "完成该组", comment: "Complete set button a11y")) {
-            guard !exerciseSet.isCompleted else { return }
-            completeSet(exerciseSet)
-        }
-        .opacity(exerciseSet.isCompleted ? 1.0 : 0.6)
-    }
-
-    private func editSetRow(index: Int, exerciseSet: ExerciseSet) -> some View {
-        HStack(spacing: 8) {
-            Text("第 \(index + 1) 组")
-                .foregroundStyle(.secondary)
-                .frame(width: 60, alignment: .leading)
-
-            NumericInputField(text: $editWeightText, mode: .decimal, placeholder: weightUnit.rawValue)
-                .frame(width: 70)
-
-            NumericInputField(text: $editRepsText, mode: .integer, placeholder: "次数")
-                .frame(width: 60)
-
-            Picker("组类型", selection: $editSetType) {
-                Text("正式").tag(SetType.working)
-                Text("热身").tag(SetType.warmup)
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-
-            Spacer()
-
-            Button {
-                saveEdit(exerciseSet)
-            } label: {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("保存修改")
-            .frame(minHeight: 44)
-        }
-    }
-
-    private func beginEditing(_ exerciseSet: ExerciseSet) {
-        let displayW = displayWeight(exerciseSet.weight)
-        editWeightText = formatWeight(displayW)
-        editRepsText = "\(exerciseSet.reps)"
-        editSetType = exerciseSet.setType
-        editingSetID = exerciseSet.persistentModelID
-    }
-
-    private func saveEdit(_ exerciseSet: ExerciseSet) {
-        let weight: Double
-        if editWeightText.isEmpty {
-            weight = 0
-        } else {
-            guard let parsed = Double(editWeightText) else { return }
-            weight = parsed
-        }
-        let reps: Int
-        if editRepsText.isEmpty {
-            reps = 0
-        } else {
-            guard let parsed = Int(editRepsText) else { return }
-            reps = parsed
-        }
-        guard weight.isFinite, weight >= 0, reps >= 0 else { return }
-        let storageWeight = weightUnit == .lb ? weight / 2.20462 : weight
-        exerciseSet.weight = storageWeight
-        exerciseSet.reps = reps
-        exerciseSet.setType = editSetType
-        editingSetID = nil
+    private func addSet() {
+        let lastSet = sortedSets.last
+        let order = workoutExercise.sets?.count ?? 0
+        let newSet = ExerciseSet(
+            order: order,
+            weight: lastSet?.weight ?? 0,
+            reps: lastSet?.reps ?? 0,
+            setType: lastSet?.setType ?? .working
+        )
+        newSet.workoutExercise = workoutExercise
+        modelContext.insert(newSet)
     }
 
     private func deleteSet(_ exerciseSet: ExerciseSet) {
@@ -568,19 +449,91 @@ private struct ActiveExerciseSection: View {
             set.order = newOrder
         }
     }
+}
 
-    private func completeSet(_ exerciseSet: ExerciseSet) {
-        exerciseSet.completedAt = Date()
-        onSetCompleted()
+// MARK: - Set Row (Always Editable)
+
+private struct SetRow: View {
+    let index: Int
+    let exerciseSet: ExerciseSet
+    let weightUnit: WeightUnit
+    let onToggleCompleted: (_ wasCompleted: Bool) -> Void
+
+    @State private var weightText: String = ""
+    @State private var repsText: String = ""
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("\(index + 1)")
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 24, alignment: .leading)
+
+            TextField(weightUnit.rawValue, text: $weightText)
+                .keyboardType(.decimalPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 70)
+                .accessibilityLabel("第 \(index + 1) 组重量")
+                .accessibilityHint("输入重量数值")
+                .onChange(of: weightText) { _, newValue in
+                    let filtered = filterDecimalInput(newValue)
+                    if filtered != newValue { weightText = filtered }
+                    syncWeightToModel()
+                }
+
+            Text("×")
+                .foregroundStyle(.secondary)
+
+            TextField("次数", text: $repsText)
+                .keyboardType(.numberPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 60)
+                .accessibilityLabel("第 \(index + 1) 组次数")
+                .accessibilityHint("输入次数")
+                .onChange(of: repsText) { _, newValue in
+                    let filtered = newValue.filter { $0.isNumber }
+                    if filtered != newValue { repsText = filtered }
+                    syncRepsToModel()
+                }
+
+            Picker(selection: Binding(
+                get: { exerciseSet.setType },
+                set: { exerciseSet.setType = $0 }
+            )) {
+                Text(SetType.working.displayName).tag(SetType.working)
+                Text(SetType.warmup.displayName).tag(SetType.warmup)
+            } label: {
+                Text("第 \(index + 1) 组类型")
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .accessibilityLabel("第 \(index + 1) 组类型")
+            .accessibilityHint("选择组类型")
+
+            Spacer()
+
+            Button {
+                let wasCompleted = exerciseSet.isCompleted
+                exerciseSet.isCompleted = !wasCompleted
+                onToggleCompleted(wasCompleted)
+            } label: {
+                Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
+            }
+            .buttonStyle(.borderless)
+            .frame(minWidth: 44, minHeight: 44)
+            .accessibilityLabel("第 \(index + 1) 组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
+            .accessibilityHint("双击切换完成状态")
+        }
+        .onAppear {
+            let displayW = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
+            weightText = formatWeight(displayW)
+            repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
+        }
     }
 
-    private func formatWeight(_ value: Double) -> String {
-        value.truncatingRemainder(dividingBy: 1) == 0
-            ? String(Int(value))
-            : String(format: "%.1f", value)
-    }
-
-    private func addSet() {
+    private func syncWeightToModel() {
         let weight: Double
         if weightText.isEmpty {
             weight = 0
@@ -588,6 +541,11 @@ private struct ActiveExerciseSection: View {
             guard let parsed = Double(weightText) else { return }
             weight = parsed
         }
+        guard weight.isFinite, weight >= 0 else { return }
+        exerciseSet.weight = weightUnit == .lb ? weight / 2.20462 : weight
+    }
+
+    private func syncRepsToModel() {
         let reps: Int
         if repsText.isEmpty {
             reps = 0
@@ -595,21 +553,30 @@ private struct ActiveExerciseSection: View {
             guard let parsed = Int(repsText) else { return }
             reps = parsed
         }
-        guard weight.isFinite, weight >= 0, reps >= 0 else { return }
-        let storageWeight = weightUnit == .lb ? weight / 2.20462 : weight
-        let order = workoutExercise.sets?.count ?? 0
-        let newSet = ExerciseSet(order: order, weight: storageWeight, reps: reps, setType: setType)
-        newSet.workoutExercise = workoutExercise
-        modelContext.insert(newSet)
-        repsText = ""
+        guard reps >= 0 else { return }
+        exerciseSet.reps = reps
     }
 
-    private func displayWeight(_ kgValue: Double) -> Double {
-        weightUnit == .lb ? kgValue * 2.20462 : kgValue
+    private func filterDecimalInput(_ text: String) -> String {
+        var result = ""
+        var hasDecimalPoint = false
+        for char in text {
+            if char.isNumber {
+                result.append(char)
+            } else if char == "." && !hasDecimalPoint {
+                hasDecimalPoint = true
+                result.append(char)
+            }
+        }
+        return result
+    }
+
+    private func formatWeight(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0
+            ? (value == 0 ? "" : String(Int(value)))
+            : String(format: "%.1f", value)
     }
 }
-
-
 
 // MARK: - Heart Rate Formatter
 

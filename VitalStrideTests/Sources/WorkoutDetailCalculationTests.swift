@@ -13,20 +13,17 @@ struct WorkoutDetailCalculationTests {
         container = try ModelContainerConfiguration.makeTestContainer()
     }
 
-    // MARK: - ExerciseSet completedAt
+    // MARK: - ExerciseSet isCompleted
 
-    @Test("ExerciseSet defaults to pending (completedAt nil)")
+    @Test("ExerciseSet defaults to pending (isCompleted false)")
     func exerciseSetDefaultsPending() throws {
         let set = ExerciseSet(weight: 80, reps: 8)
-        #expect(set.completedAt == nil)
         #expect(set.isCompleted == false)
     }
 
-    @Test("ExerciseSet with completedAt is completed")
+    @Test("ExerciseSet with isCompleted true is completed")
     func exerciseSetCompleted() throws {
-        let now = Date()
-        let set = ExerciseSet(weight: 80, reps: 8, completedAt: now)
-        #expect(set.completedAt == now)
+        let set = ExerciseSet(weight: 80, reps: 8, isCompleted: true)
         #expect(set.isCompleted == true)
     }
 
@@ -36,8 +33,8 @@ struct WorkoutDetailCalculationTests {
     func totalSetsCountIncludesAllTypes() throws {
         let context = ModelContext(container)
         let exercise = WorkoutExercise(order: 0, sets: [
-            ExerciseSet(weight: 60, reps: 10, setType: .warmup, completedAt: Date()),
-            ExerciseSet(weight: 80, reps: 8, setType: .working, completedAt: Date()),
+            ExerciseSet(weight: 60, reps: 10, setType: .warmup, isCompleted: true),
+            ExerciseSet(weight: 80, reps: 8, setType: .working, isCompleted: true),
             ExerciseSet(weight: 80, reps: 8, setType: .working),
         ])
         context.insert(exercise)
@@ -50,8 +47,8 @@ struct WorkoutDetailCalculationTests {
     func totalRepsCountOnlyCompleted() throws {
         let context = ModelContext(container)
         let exercise = WorkoutExercise(order: 0, sets: [
-            ExerciseSet(weight: 40, reps: 12, setType: .warmup, completedAt: Date()),
-            ExerciseSet(weight: 60, reps: 10, setType: .working, completedAt: Date()),
+            ExerciseSet(weight: 40, reps: 12, setType: .warmup, isCompleted: true),
+            ExerciseSet(weight: 60, reps: 10, setType: .working, isCompleted: true),
             ExerciseSet(weight: 60, reps: 8, setType: .working),
         ])
         context.insert(exercise)
@@ -64,8 +61,8 @@ struct WorkoutDetailCalculationTests {
     func workingVolumeExcludesWarmupAndPending() throws {
         let context = ModelContext(container)
         let exercise = WorkoutExercise(order: 0, sets: [
-            ExerciseSet(weight: 40, reps: 12, setType: .warmup, completedAt: Date()),
-            ExerciseSet(weight: 80, reps: 10, setType: .working, completedAt: Date()),
+            ExerciseSet(weight: 40, reps: 12, setType: .warmup, isCompleted: true),
+            ExerciseSet(weight: 80, reps: 10, setType: .working, isCompleted: true),
             ExerciseSet(weight: 80, reps: 8, setType: .working),
         ])
         context.insert(exercise)
@@ -79,7 +76,7 @@ struct WorkoutDetailCalculationTests {
     func workingVolumeZeroForWarmupOnly() throws {
         let context = ModelContext(container)
         let exercise = WorkoutExercise(order: 0, sets: [
-            ExerciseSet(weight: 40, reps: 12, setType: .warmup, completedAt: Date()),
+            ExerciseSet(weight: 40, reps: 12, setType: .warmup, isCompleted: true),
         ])
         context.insert(exercise)
         try context.save()
@@ -118,11 +115,11 @@ struct WorkoutDetailCalculationTests {
     func overallWorkingVolumeSumsExercises() throws {
         let context = ModelContext(container)
         let exercise1 = WorkoutExercise(order: 0, sets: [
-            ExerciseSet(weight: 20, reps: 10, setType: .warmup, completedAt: Date()),
-            ExerciseSet(weight: 60, reps: 10, setType: .working, completedAt: Date()),
+            ExerciseSet(weight: 20, reps: 10, setType: .warmup, isCompleted: true),
+            ExerciseSet(weight: 60, reps: 10, setType: .working, isCompleted: true),
         ])
         let exercise2 = WorkoutExercise(order: 1, sets: [
-            ExerciseSet(weight: 40, reps: 8, setType: .working, completedAt: Date()),
+            ExerciseSet(weight: 40, reps: 8, setType: .working, isCompleted: true),
         ])
         let workout = Workout(
             type: .strength,
@@ -186,7 +183,7 @@ struct WorkoutDetailCalculationTests {
     @Test("finishing workout completes all pending sets")
     func finishWorkoutCompletesPendingSets() throws {
         let context = ModelContext(container)
-        let set1 = ExerciseSet(weight: 80, reps: 10, setType: .working, completedAt: Date().addingTimeInterval(-60))
+        let set1 = ExerciseSet(weight: 80, reps: 10, setType: .working, isCompleted: true)
         let set2 = ExerciseSet(weight: 80, reps: 8, setType: .working)
         let set3 = ExerciseSet(weight: 40, reps: 12, setType: .warmup)
         let exercise = WorkoutExercise(order: 0, sets: [set1, set2, set3])
@@ -194,8 +191,8 @@ struct WorkoutDetailCalculationTests {
         context.insert(workout)
         try context.save()
 
-        #expect(set2.completedAt == nil)
-        #expect(set3.completedAt == nil)
+        #expect(set2.isCompleted == false)
+        #expect(set3.isCompleted == false)
 
         workout.finish()
         try context.save()
@@ -209,7 +206,7 @@ struct WorkoutDetailCalculationTests {
         #expect(exercise.workingVolume == expectedVolume)
     }
 
-    @Test("historical workout with nil completedAt still counts all sets in stats")
+    @Test("historical workout with isCompleted false still counts all sets in stats")
     func historicalWorkoutCountsAllSets() throws {
         let context = ModelContext(container)
         let set1 = ExerciseSet(weight: 80, reps: 10, setType: .working)
@@ -224,8 +221,8 @@ struct WorkoutDetailCalculationTests {
         context.insert(workout)
         try context.save()
 
-        #expect(set1.completedAt == nil)
-        #expect(set2.completedAt == nil)
+        #expect(set1.isCompleted == false)
+        #expect(set2.isCompleted == false)
         #expect(exercise.totalRepsCount == 18)
         #expect(exercise.workingVolume == 80.0 * 10.0 + 80.0 * 8.0)
     }
