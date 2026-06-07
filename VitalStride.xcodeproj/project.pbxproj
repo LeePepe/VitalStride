@@ -86,6 +86,7 @@
 		B415F7502D1DFA64E79842BA /* HealthKitPermissionSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B811CCD2FF09F1E5FE6AA77A /* HealthKitPermissionSection.swift */; };
 		B54A80253BC3BF90C70B9881 /* AIPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A881C46913F6885CF69BA78 /* AIPromptBuilder.swift */; };
 		B5A4CBD5B6EDC5CC666998DC /* AISettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03F786B391EDD7A38969A516 /* AISettingsSection.swift */; };
+		B5FB14AAC91C7837E47F8162 /* ExerciseManagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB29B418799CA76CB6EEF87B /* ExerciseManagementTests.swift */; };
 		BE7FE5DFE1252469CEA058CF /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 193733B006ED472D5112547F /* HealthKit.framework */; };
 		BE90671E88BC6F81CC20D7D9 /* ActivitySummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58713437993C2C6908610F8E /* ActivitySummaryCard.swift */; };
 		BF00D52AEECCBAE0B0751F36 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 18AA3D0CBD054FC6EB8E6E36 /* InfoPlist.strings */; };
@@ -192,6 +193,7 @@
 		D344548ECC2B711E8DC1897B /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		D65B3BF6E9968F7D07CB9E8C /* WorkoutTrendChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTrendChart.swift; sourceTree = "<group>"; };
 		D8B254B7B0D02CADEF442964 /* EnumTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnumTests.swift; sourceTree = "<group>"; };
+		DB29B418799CA76CB6EEF87B /* ExerciseManagementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseManagementTests.swift; sourceTree = "<group>"; };
 		DF9B3DAD8628A25D47910D86 /* AIPromptBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIPromptBuilderTests.swift; sourceTree = "<group>"; };
 		E1023DE772B441A49A3161D1 /* StepsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepsSection.swift; sourceTree = "<group>"; };
 		E2006662F4E40A3B02201E47 /* ActiveEnergySection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveEnergySection.swift; sourceTree = "<group>"; };
@@ -262,6 +264,7 @@
 				AE94FDEEC4102CF17E7E3DD3 /* BodyWeightSectionTests.swift */,
 				3A7664EB59C867B7F8FDAD25 /* DataViewTests.swift */,
 				D8B254B7B0D02CADEF442964 /* EnumTests.swift */,
+				DB29B418799CA76CB6EEF87B /* ExerciseManagementTests.swift */,
 				0157658A314DA1AC81783B49 /* ExerciseSeederTests.swift */,
 				F052E6A365C4391D3E607AE4 /* ExercisesJSONTests.swift */,
 				A97AABE49D975C1A283CCD79 /* HealthKitServiceTests.swift */,
@@ -688,6 +691,7 @@
 				46E713E7E29F1ADC0BE2AB3C /* BodyWeightSectionTests.swift in Sources */,
 				C23F5779720EA5E1DBD23E29 /* DataViewTests.swift in Sources */,
 				12A433540C8B86B2F89298E5 /* EnumTests.swift in Sources */,
+				B5FB14AAC91C7837E47F8162 /* ExerciseManagementTests.swift in Sources */,
 				613159B4B0795DCD4501138F /* ExerciseSeederTests.swift in Sources */,
 				D3A685EB9782EDB77B9EE544 /* ExercisesJSONTests.swift in Sources */,
 				52C71AA40F31A5574D3CBFEC /* HealthKitServiceTests.swift in Sources */,
