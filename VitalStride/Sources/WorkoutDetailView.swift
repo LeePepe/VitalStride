@@ -117,6 +117,16 @@ struct WorkoutDetailView: View {
                                         .background(.orange.opacity(0.15))
                                         .clipShape(Capsule())
                                 }
+                                if exerciseSet.isUnilateral {
+                                    Text("×2")
+                                        .font(.caption.bold())
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(.blue.opacity(0.15))
+                                        .foregroundStyle(.blue)
+                                        .clipShape(Capsule())
+                                        .accessibilityLabel(String(localized: "单侧重量", comment: "Unilateral weight a11y label for ×2 badge in detail view"))
+                                }
                             }
                         }
                         VStack(alignment: .leading, spacing: 4) {

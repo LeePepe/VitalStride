@@ -9,6 +9,7 @@ public final class ExerciseSet {
     public var setType: SetType = SetType.working
     public var restDuration: TimeInterval?
     public var isCompleted: Bool = false
+    public var isUnilateral: Bool = false
     public var workoutExercise: WorkoutExercise?
 
     public init(
@@ -17,7 +18,8 @@ public final class ExerciseSet {
         reps: Int,
         setType: SetType = .working,
         restDuration: TimeInterval? = nil,
-        isCompleted: Bool = false
+        isCompleted: Bool = false,
+        isUnilateral: Bool = false
     ) {
         self.order = order
         self.weight = weight
@@ -25,12 +27,13 @@ public final class ExerciseSet {
         self.setType = setType
         self.restDuration = restDuration
         self.isCompleted = isCompleted
+        self.isUnilateral = isUnilateral
     }
 }
 
 extension ExerciseSet: Codable {
     enum CodingKeys: String, CodingKey {
-        case order, weight, reps, setType, restDuration, isCompleted
+        case order, weight, reps, setType, restDuration, isCompleted, isUnilateral
     }
 
     public convenience init(from decoder: Decoder) throws {
@@ -41,7 +44,8 @@ extension ExerciseSet: Codable {
         let setType = try container.decode(SetType.self, forKey: .setType)
         let restDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .restDuration)
         let isCompleted = try container.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
-        self.init(order: order, weight: weight, reps: reps, setType: setType, restDuration: restDuration, isCompleted: isCompleted)
+        let isUnilateral = try container.decodeIfPresent(Bool.self, forKey: .isUnilateral) ?? false
+        self.init(order: order, weight: weight, reps: reps, setType: setType, restDuration: restDuration, isCompleted: isCompleted, isUnilateral: isUnilateral)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -52,5 +56,6 @@ extension ExerciseSet: Codable {
         try container.encode(setType, forKey: .setType)
         try container.encodeIfPresent(restDuration, forKey: .restDuration)
         try container.encode(isCompleted, forKey: .isCompleted)
+        try container.encode(isUnilateral, forKey: .isUnilateral)
     }
 }
