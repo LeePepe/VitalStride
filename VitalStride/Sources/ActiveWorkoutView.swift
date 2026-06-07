@@ -1,3 +1,4 @@
+import HealthKitService
 import SwiftData
 import SwiftUI
 import VitalModels
@@ -9,12 +10,16 @@ import UIKit
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    #if !os(macOS)
+    @Environment(\.healthKitService) private var healthKitService
+    #endif
     @State private var workout: Workout?
     @State private var showingExercisePicker = false
     @State private var showingFinishAlert = false
     @State private var showingDiscardAlert = false
     @State private var exerciseToReplace: WorkoutExercise?
     @State private var restEndDate: Date?
+    @State private var currentHeartRate: Double?
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     private let startTime = Date()
     let source: WorkoutStartSource
@@ -81,6 +86,9 @@ struct ActiveWorkoutView: View {
                 try? await Task.sleep(for: .seconds(remaining))
                 restEndDate = nil
             }
+            #if !os(macOS)
+            .task { await observeHeartRate() }
+            #endif
         }
     }
 
@@ -107,6 +115,9 @@ struct ActiveWorkoutView: View {
                     timerLabel
                     Text(timeString)
                         .font(.title3.monospacedDigit())
+                    #if !os(macOS)
+                    heartRateLabel
+                    #endif
                     Spacer()
                     Text(summaryText)
                         .font(.subheadline)
@@ -117,6 +128,9 @@ struct ActiveWorkoutView: View {
                         timerLabel
                         Text(timeString)
                             .font(.title3.monospacedDigit())
+                        #if !os(macOS)
+                        heartRateLabel
+                        #endif
                         Spacer()
                     }
                     Text(summaryText)
@@ -139,6 +153,24 @@ struct ActiveWorkoutView: View {
                 .foregroundStyle(.secondary)
         }
     }
+
+    #if !os(macOS)
+    private var heartRateLabel: some View {
+        let bpmText = HeartRateFormatter.displayText(currentHeartRate)
+        let unitText = String(localized: "次/分", comment: "Heart rate unit bpm")
+        return HStack(spacing: 2) {
+            Image(systemName: "heart.fill")
+            Text(bpmText)
+                .monospacedDigit()
+            Text(unitText)
+        }
+        .font(.subheadline)
+        .foregroundStyle(.pink)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "心率", comment: "Heart rate a11y label"))
+        .accessibilityValue(HeartRateFormatter.accessibilityText(currentHeartRate))
+    }
+    #endif
 
     @ViewBuilder
     private var restTimerBanner: some View {
@@ -226,6 +258,14 @@ struct ActiveWorkoutView: View {
     }
 
     // MARK: - Actions
+
+    #if !os(macOS)
+    private func observeHeartRate() async {
+        for await dataPoint in healthKitService.observeHeartRate() {
+            currentHeartRate = dataPoint.value
+        }
+    }
+    #endif
 
     private func setupWorkout() {
         guard workout == nil else { return }
@@ -570,6 +610,23 @@ private struct ActiveExerciseSection: View {
 }
 
 
+
+// MARK: - Heart Rate Formatter
+
+enum HeartRateFormatter {
+    static func displayText(_ heartRate: Double?) -> String {
+        guard let heartRate else { return "--" }
+        return "\(Int(heartRate))"
+    }
+
+    static func accessibilityText(_ heartRate: Double?) -> String {
+        guard let heartRate else {
+            return String(localized: "无数据", comment: "No data a11y value")
+        }
+        let bpm = Int(heartRate)
+        return String(localized: "\(bpm) 次每分钟", comment: "Heart rate a11y value with full unit")
+    }
+}
 
 private struct FABButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
