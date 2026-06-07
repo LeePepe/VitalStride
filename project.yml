@@ -94,6 +94,7 @@ targets:
       - path: VitalStride/Sources/AISettingsSection.swift
       - path: VitalStride/Sources/HealthDataCacheEnvironment.swift
       - path: VitalStride/Sources/OnboardingView.swift
+      - path: VitalStride/Sources/WorkoutHeartRateStats.swift
     dependencies:
       - package: VitalModels
       - package: HealthKitService

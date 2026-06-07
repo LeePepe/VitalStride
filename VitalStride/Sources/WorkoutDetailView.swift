@@ -1,3 +1,4 @@
+import HealthKitService
 import SwiftData
 import SwiftUI
 import VitalModels
@@ -9,9 +10,11 @@ struct WorkoutDetailView: View {
     let workout: Workout
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.healthKitService) private var healthKitService
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     @State private var showingDeleteAlert = false
     @State private var showingDeleteError = false
+    @State private var heartRateStats: WorkoutHeartRateStats?
 
     private var sortedExercises: [WorkoutExercise] {
         (workout.exercises ?? []).sorted { $0.order < $1.order }
@@ -50,6 +53,41 @@ struct WorkoutDetailView: View {
                 if let calories = workout.totalCalories {
                     LabeledContent("消耗热量") {
                         Text("\(Int(calories)) kcal")
+                    }
+                }
+                if let stats = heartRateStats {
+                    LabeledContent(String(localized: "平均心率", comment: "Average heart rate in workout summary")) {
+                        Text(String(localized: "\(stats.averageHeartRate) bpm", comment: "Heart rate value with unit, e.g. 142 bpm"))
+                    }
+                    .accessibilityLabel(
+                        Text(String(localized: "平均心率 \(stats.averageHeartRate) 次每分钟", comment: "Average heart rate a11y"))
+                    )
+                    LabeledContent(String(localized: "最高心率", comment: "Max heart rate in workout summary")) {
+                        Text(String(localized: "\(stats.maxHeartRate) bpm", comment: "Heart rate value with unit, e.g. 155 bpm"))
+                    }
+                    .accessibilityLabel(
+                        Text(String(localized: "最高心率 \(stats.maxHeartRate) 次每分钟", comment: "Max heart rate a11y"))
+                    )
+                    if let zones = stats.zoneDistribution {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(zones) { zone in
+                                HStack {
+                                    Text(zone.localizedName)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("\(Int(zone.percentage * 100))%")
+                                        .font(.footnote.bold())
+                                }
+                            }
+                        }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(
+                            Text(String(
+                                localized: "心率区间：\(zones.map { "\($0.localizedName) \(Int($0.percentage * 100))%" }.joined(separator: "，"))",
+                                comment: "Heart rate zone distribution a11y"
+                            ))
+                        )
                     }
                 }
             }
@@ -148,6 +186,9 @@ struct WorkoutDetailView: View {
         } message: {
             Text(String(localized: "无法删除训练记录，请稍后重试。", comment: "Delete failure message"))
         }
+        .task {
+            await loadHeartRateStats()
+        }
     }
 
     private func exerciseSubtotalA11yLabel(_ exercise: WorkoutExercise) -> String {
@@ -158,6 +199,15 @@ struct WorkoutDetailView: View {
             parts.append(String(localized: "总训练量", comment: "Per-exercise total volume a11y") + " \(Int(displayWeight(exercise.workingVolume))) \(weightUnit.a11yName)")
         }
         return parts.joined(separator: "，")
+    }
+
+    private func loadHeartRateStats() async {
+        heartRateStats = await WorkoutHeartRateStats.load(
+            startDate: workout.startDate,
+            endDate: workout.endDate
+        ) { dateRange in
+            try await healthKitService.fetchData(for: .heartRate, dateRange: dateRange).dataPoints
+        }
     }
 
     private func displayWeight(_ kgValue: Double) -> Double {
