@@ -72,6 +72,7 @@
 		8E457F91B4CE17842B9CE25E /* VitalStrideWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D06A0789305603E086A2383 /* VitalStrideWatchApp.swift */; };
 		920563C68648E2EFCDBBBD78 /* SleepSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942F2D9113C5463CAF00AB87 /* SleepSection.swift */; };
 		921B840B0AF068C7D3F483AE /* UnitPreferencesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19AC4D8E93A529FDA6AA3F7 /* UnitPreferencesSection.swift */; };
+		92ADFA5F61BCDD4C20C1FA46 /* HeartRateFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE04A6992C043B64BF1BECE /* HeartRateFormatterTests.swift */; };
 		95BD2BAB0A95991802CF4662 /* OverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7130E924ED6698DC80DA5B73 /* OverviewView.swift */; };
 		99CB7CC1AA03F3D18942C7C7 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDA307CA9D61759C0A1A4E6 /* WatchContentView.swift */; };
 		9B807F0DF9DE7F063646EF26 /* VitalModels in Frameworks */ = {isa = PBXBuildFile; productRef = 976C928F3ADA4DABCB394293 /* VitalModels */; };
@@ -153,6 +154,7 @@
 		584CFBB57DF2FA059790F81B /* ActiveEnergySectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveEnergySectionTests.swift; sourceTree = "<group>"; };
 		58713437993C2C6908610F8E /* ActivitySummaryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivitySummaryCard.swift; sourceTree = "<group>"; };
 		58C946AE957021F69C8E2C60 /* VitalStrideWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "VitalStrideWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		5EE04A6992C043B64BF1BECE /* HeartRateFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateFormatterTests.swift; sourceTree = "<group>"; };
 		62752D819DEC3C928DEE3CB1 /* VitalStrideMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitalStrideMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		65BD2FB8C57EBDB10A5B369E /* StepsSectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepsSectionTests.swift; sourceTree = "<group>"; };
 		675947C2C88283D7D81E0FD0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -269,6 +271,7 @@
 				F052E6A365C4391D3E607AE4 /* ExercisesJSONTests.swift */,
 				A97AABE49D975C1A283CCD79 /* HealthKitServiceTests.swift */,
 				AE09961F4651DB3AC057BA0E /* HealthSampleTests.swift */,
+				5EE04A6992C043B64BF1BECE /* HeartRateFormatterTests.swift */,
 				EDDDA5C49A692159D6CDD57D /* HeartRateSectionTests.swift */,
 				92A787CF4DB49927AFBC5DDF /* ModelContainerTests.swift */,
 				524E9CAE68FFB5B851E45752 /* ModelTests.swift */,
@@ -696,6 +699,7 @@
 				D3A685EB9782EDB77B9EE544 /* ExercisesJSONTests.swift in Sources */,
 				52C71AA40F31A5574D3CBFEC /* HealthKitServiceTests.swift in Sources */,
 				475E831CA333AD5E120BDE00 /* HealthSampleTests.swift in Sources */,
+				92ADFA5F61BCDD4C20C1FA46 /* HeartRateFormatterTests.swift in Sources */,
 				264A22BE35CA02EF3BE4B846 /* HeartRateSectionTests.swift in Sources */,
 				E68DBA49DC9C0A4E75F339FD /* ModelContainerTests.swift in Sources */,
 				614503EFA888692CA1F1088D /* ModelTests.swift in Sources */,
