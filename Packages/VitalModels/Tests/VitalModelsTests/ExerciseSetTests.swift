@@ -61,4 +61,53 @@ struct ExerciseSetTests {
         #expect(set.isCompleted == false)
         #expect(set.workoutExercise == nil)
     }
+
+    // MARK: - Codable Tests
+
+    @Test("encode and decode roundtrip preserves all fields")
+    func codableRoundtrip() throws {
+        let original = ExerciseSet(
+            order: 3,
+            weight: 80.5,
+            reps: 8,
+            setType: .warmup,
+            restDuration: 120,
+            isCompleted: true
+        )
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(original)
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(ExerciseSet.self, from: data)
+        #expect(decoded.order == 3)
+        #expect(decoded.weight == 80.5)
+        #expect(decoded.reps == 8)
+        #expect(decoded.setType == .warmup)
+        #expect(decoded.restDuration == 120)
+        #expect(decoded.isCompleted == true)
+    }
+
+    @Test("decode old data without isCompleted defaults to false")
+    func codableBackwardCompatibility() throws {
+        let json = """
+        {"order":1,"weight":60.0,"reps":10,"setType":"working"}
+        """
+        let data = Data(json.utf8)
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: data)
+        #expect(decoded.order == 1)
+        #expect(decoded.weight == 60.0)
+        #expect(decoded.reps == 10)
+        #expect(decoded.setType == .working)
+        #expect(decoded.restDuration == nil)
+        #expect(decoded.isCompleted == false)
+    }
+
+    @Test("encode produces expected JSON keys")
+    func codableEncodedKeys() throws {
+        let set = ExerciseSet(weight: 50, reps: 5, isCompleted: true)
+        let data = try JSONEncoder().encode(set)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(json?["isCompleted"] as? Bool == true)
+        #expect(json?["weight"] as? Double == 50)
+        #expect(json?["reps"] as? Int == 5)
+    }
 }

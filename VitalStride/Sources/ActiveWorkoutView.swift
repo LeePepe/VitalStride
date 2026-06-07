@@ -426,6 +426,7 @@ private struct ActiveExerciseSection: View {
         }
         .buttonStyle(.borderless)
         .accessibilityLabel("添加一组")
+        .accessibilityHint("在列表末尾插入新的一组")
     }
 
     private func addSet() {
@@ -473,6 +474,7 @@ private struct SetRow: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 70)
                 .accessibilityLabel("第 \(index + 1) 组重量")
+                .accessibilityHint("输入重量数值")
                 .onChange(of: weightText) { _, newValue in
                     let filtered = filterDecimalInput(newValue)
                     if filtered != newValue { weightText = filtered }
@@ -487,6 +489,7 @@ private struct SetRow: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 60)
                 .accessibilityLabel("第 \(index + 1) 组次数")
+                .accessibilityHint("输入次数")
                 .onChange(of: repsText) { _, newValue in
                     let filtered = newValue.filter { $0.isNumber }
                     if filtered != newValue { repsText = filtered }
@@ -505,6 +508,7 @@ private struct SetRow: View {
             .labelsHidden()
             .pickerStyle(.menu)
             .accessibilityLabel("第 \(index + 1) 组类型")
+            .accessibilityHint("选择组类型")
 
             Spacer()
 
