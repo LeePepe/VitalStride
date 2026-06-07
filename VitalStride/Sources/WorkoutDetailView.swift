@@ -116,6 +116,7 @@ struct WorkoutDetailView: View {
                                         .padding(.vertical, 2)
                                         .background(.blue.opacity(0.15))
                                         .clipShape(Capsule())
+                                        .accessibilityLabel(String(localized: "单侧重量", comment: "Unilateral weight marker a11y label"))
                                 }
                                 if exerciseSet.setType == .warmup {
                                     Text("热身")

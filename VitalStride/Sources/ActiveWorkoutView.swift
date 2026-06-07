@@ -435,6 +435,7 @@ private struct ActiveExerciseSection: View {
                     .padding(.vertical, 2)
                     .background(.blue.opacity(0.15))
                     .clipShape(Capsule())
+                    .accessibilityLabel(String(localized: "单侧重量", comment: "Unilateral weight marker a11y label"))
             }
             if exerciseSet.setType == .warmup {
                 Text("热身")
@@ -800,7 +801,7 @@ private struct WeightModeToggle: View {
                 .font(.caption)
                 .fontWeight(.medium)
                 .padding(.horizontal, 8)
-                .frame(minHeight: 28)
+                .frame(minHeight: 44)
                 .background(
                     Capsule()
                         .fill(isUnilateral ? Color.blue.opacity(0.15) : Color(.systemGray5))
