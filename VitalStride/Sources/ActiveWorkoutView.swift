@@ -259,7 +259,14 @@ struct ActiveWorkoutView: View {
     }
 
     private func finishWorkout() {
-        workout?.endDate = Date()
+        guard let workout else { return }
+        let now = Date()
+        for exercise in (workout.exercises ?? []) {
+            for set in (exercise.sets ?? []) where set.completedAt == nil {
+                set.completedAt = now
+            }
+        }
+        workout.endDate = now
         try? modelContext.save()
         dismiss()
     }
@@ -357,7 +364,7 @@ private struct ActiveExerciseSection: View {
         if editingSetID == exerciseSet.persistentModelID {
             editSetRow(index: index, exerciseSet: exerciseSet)
         } else {
-            completedSetRow(index: index, exerciseSet: exerciseSet)
+            setRow(index: index, exerciseSet: exerciseSet)
                 .contentShape(Rectangle())
                 .onTapGesture { beginEditing(exerciseSet) }
                 .accessibilityAddTraits(.isButton)
@@ -365,7 +372,7 @@ private struct ActiveExerciseSection: View {
         }
     }
 
-    private func completedSetRow(index: Int, exerciseSet: ExerciseSet) -> some View {
+    private func setRow(index: Int, exerciseSet: ExerciseSet) -> some View {
         HStack {
             Text("第 \(index + 1) 组")
                 .foregroundStyle(.secondary)
@@ -383,7 +390,26 @@ private struct ActiveExerciseSection: View {
                     .background(.orange.opacity(0.15))
                     .clipShape(Capsule())
             }
+            if exerciseSet.isCompleted {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .accessibilityLabel(String(localized: "已完成", comment: "Set completed status a11y"))
+            } else {
+                Button {
+                    completeSet(exerciseSet)
+                } label: {
+                    Image(systemName: "circle")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(String(localized: "完成该组", comment: "Complete set button a11y"))
+                .accessibilityHint(String(localized: "标记该组训练已完成并开始休息计时", comment: "Complete set hint a11y"))
+                .accessibilityAddTraits(.isButton)
+                .frame(minHeight: 44)
+            }
         }
+        .accessibilityElement(children: .combine)
+        .opacity(exerciseSet.isCompleted ? 1.0 : 0.6)
     }
 
     private func editSetRow(index: Int, exerciseSet: ExerciseSet) -> some View {
@@ -470,6 +496,11 @@ private struct ActiveExerciseSection: View {
         }
     }
 
+    private func completeSet(_ exerciseSet: ExerciseSet) {
+        exerciseSet.completedAt = Date()
+        onSetCompleted()
+    }
+
     private func filterDecimalInput(_ text: String) -> String {
         var result = ""
         var hasDecimalPoint = false
@@ -512,7 +543,6 @@ private struct ActiveExerciseSection: View {
         newSet.workoutExercise = workoutExercise
         modelContext.insert(newSet)
         repsText = ""
-        onSetCompleted()
     }
 
     private func displayWeight(_ kgValue: Double) -> Double {

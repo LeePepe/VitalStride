@@ -29,11 +29,12 @@ extension WorkoutExercise {
     }
 
     public var totalRepsCount: Int {
-        (sets ?? []).reduce(0) { $0 + $1.reps }
+        (sets ?? []).filter { $0.isCompleted }
+            .reduce(0) { $0 + $1.reps }
     }
 
     public var workingVolume: Double {
-        (sets ?? []).filter { $0.setType == .working }
+        (sets ?? []).filter { $0.isCompleted && $0.setType == .working }
             .reduce(0.0) { $0 + $1.weight * Double($1.reps) }
     }
 }
