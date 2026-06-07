@@ -197,13 +197,7 @@ struct WorkoutDetailCalculationTests {
         #expect(set2.completedAt == nil)
         #expect(set3.completedAt == nil)
 
-        let now = Date()
-        for ex in (workout.exercises ?? []) {
-            for s in (ex.sets ?? []) where s.completedAt == nil {
-                s.completedAt = now
-            }
-        }
-        workout.endDate = now
+        workout.finish()
         try context.save()
 
         #expect(set1.isCompleted == true)
@@ -213,6 +207,27 @@ struct WorkoutDetailCalculationTests {
 
         let expectedVolume = 80.0 * 10.0 + 80.0 * 8.0
         #expect(exercise.workingVolume == expectedVolume)
+    }
+
+    @Test("historical workout with nil completedAt still counts all sets in stats")
+    func historicalWorkoutCountsAllSets() throws {
+        let context = ModelContext(container)
+        let set1 = ExerciseSet(weight: 80, reps: 10, setType: .working)
+        let set2 = ExerciseSet(weight: 80, reps: 8, setType: .working)
+        let exercise = WorkoutExercise(order: 0, sets: [set1, set2])
+        let workout = Workout(
+            type: .strength,
+            startDate: Date().addingTimeInterval(-3600),
+            endDate: Date(),
+            exercises: [exercise]
+        )
+        context.insert(workout)
+        try context.save()
+
+        #expect(set1.completedAt == nil)
+        #expect(set2.completedAt == nil)
+        #expect(exercise.totalRepsCount == 18)
+        #expect(exercise.workingVolume == 80.0 * 10.0 + 80.0 * 8.0)
     }
 
     // MARK: - Unit Conversion

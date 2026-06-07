@@ -256,15 +256,7 @@ enum AIPromptBuilder {
                     type: workout.type.rawValue,
                     exercises: exercises.map { workoutExercise in
                         let sets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
-                        let isZh = Locale.current.language.languageCode?.identifier == "zh"
-                        let name: String
-                        if let exercise = workoutExercise.exercise {
-                            name = isZh
-                                ? (exercise.nameZh.isEmpty ? exercise.nameEn : exercise.nameZh)
-                                : (exercise.nameEn.isEmpty ? exercise.nameZh : exercise.nameEn)
-                        } else {
-                            name = "Unknown"
-                        }
+                        let name = workoutExercise.exercise?.localizedName ?? "Unknown"
                         return AIPromptContext.ExerciseSnapshot(
                             name: name,
                             muscleGroup: workoutExercise.exercise?.muscleGroup.rawValue ?? "unknown",

@@ -29,12 +29,16 @@ extension WorkoutExercise {
     }
 
     public var totalRepsCount: Int {
-        (sets ?? []).filter { $0.isCompleted }
+        let isFinished = workout?.endDate != nil
+        return (sets ?? [])
+            .filter { isFinished || $0.isCompleted }
             .reduce(0) { $0 + $1.reps }
     }
 
     public var workingVolume: Double {
-        (sets ?? []).filter { $0.isCompleted && $0.setType == .working }
+        let isFinished = workout?.endDate != nil
+        return (sets ?? [])
+            .filter { (isFinished || $0.isCompleted) && $0.setType == .working }
             .reduce(0.0) { $0 + $1.weight * Double($1.reps) }
     }
 }

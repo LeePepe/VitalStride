@@ -29,6 +29,19 @@ public final class Workout {
     }
 }
 
+// MARK: - Lifecycle
+
+extension Workout {
+    public func finish(at date: Date = Date()) {
+        for exercise in (exercises ?? []) {
+            for set in (exercise.sets ?? []) where set.completedAt == nil {
+                set.completedAt = date
+            }
+        }
+        endDate = date
+    }
+}
+
 // MARK: - Calculation Helpers
 
 extension Workout {

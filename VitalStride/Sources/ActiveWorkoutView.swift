@@ -260,13 +260,7 @@ struct ActiveWorkoutView: View {
 
     private func finishWorkout() {
         guard let workout else { return }
-        let now = Date()
-        for exercise in (workout.exercises ?? []) {
-            for set in (exercise.sets ?? []) where set.completedAt == nil {
-                set.completedAt = now
-            }
-        }
-        workout.endDate = now
+        workout.finish()
         try? modelContext.save()
         dismiss()
     }
@@ -409,6 +403,10 @@ private struct ActiveExerciseSection: View {
             }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityAction(named: String(localized: "完成该组", comment: "Complete set button a11y")) {
+            guard !exerciseSet.isCompleted else { return }
+            completeSet(exerciseSet)
+        }
         .opacity(exerciseSet.isCompleted ? 1.0 : 0.6)
     }
 
