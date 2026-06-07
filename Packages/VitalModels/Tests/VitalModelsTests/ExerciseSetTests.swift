@@ -30,6 +30,27 @@ struct ExerciseSetTests {
     func setTypeDisplayName() {
         #expect(SetType.working.displayName == "正式")
         #expect(SetType.warmup.displayName == "热身")
+        #expect(SetType.dropSet.displayName == "递减")
+        #expect(SetType.pyramid.displayName == "递增")
+    }
+
+    @Test("SetType isSubSet identifies sub-set types")
+    func setTypeIsSubSet() {
+        #expect(SetType.working.isSubSet == false)
+        #expect(SetType.warmup.isSubSet == false)
+        #expect(SetType.dropSet.isSubSet == true)
+        #expect(SetType.pyramid.isSubSet == true)
+    }
+
+    @Test("SetType rawValues for new types")
+    func setTypeNewRawValues() {
+        #expect(SetType.dropSet.rawValue == "dropSet")
+        #expect(SetType.pyramid.rawValue == "pyramid")
+    }
+
+    @Test("SetType has four cases")
+    func setTypeCaseCount() {
+        #expect(SetType.allCases.count == 4)
     }
 
     @Test("init preserves all fields")
@@ -48,6 +69,18 @@ struct ExerciseSetTests {
         #expect(set.setType == .warmup)
         #expect(set.restDuration == 90)
         #expect(set.isCompleted == true)
+    }
+
+    @Test("init preserves dropSet type")
+    func initDropSetType() {
+        let set = ExerciseSet(order: 1, weight: 40.0, reps: 10, setType: .dropSet)
+        #expect(set.setType == .dropSet)
+    }
+
+    @Test("init preserves pyramid type")
+    func initPyramidType() {
+        let set = ExerciseSet(order: 1, weight: 70.0, reps: 8, setType: .pyramid)
+        #expect(set.setType == .pyramid)
     }
 
     @Test("default values for optional and defaulted fields")
@@ -86,6 +119,24 @@ struct ExerciseSetTests {
         #expect(decoded.isCompleted == true)
     }
 
+    @Test("encode and decode roundtrip for dropSet type")
+    func codableRoundtripDropSet() throws {
+        let original = ExerciseSet(order: 1, weight: 50.0, reps: 10, setType: .dropSet)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: data)
+        #expect(decoded.setType == .dropSet)
+        #expect(decoded.weight == 50.0)
+    }
+
+    @Test("encode and decode roundtrip for pyramid type")
+    func codableRoundtripPyramid() throws {
+        let original = ExerciseSet(order: 1, weight: 70.0, reps: 8, setType: .pyramid)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: data)
+        #expect(decoded.setType == .pyramid)
+        #expect(decoded.weight == 70.0)
+    }
+
     @Test("decode old data without isCompleted defaults to false")
     func codableBackwardCompatibility() throws {
         let json = """
@@ -99,6 +150,25 @@ struct ExerciseSetTests {
         #expect(decoded.setType == .working)
         #expect(decoded.restDuration == nil)
         #expect(decoded.isCompleted == false)
+    }
+
+    @Test("decode dropSet from JSON string")
+    func codableDecodeDropSet() throws {
+        let json = """
+        {"order":2,"weight":50.0,"reps":10,"setType":"dropSet","isCompleted":false}
+        """
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: Data(json.utf8))
+        #expect(decoded.setType == .dropSet)
+    }
+
+    @Test("decode pyramid from JSON string")
+    func codableDecodePyramid() throws {
+        let json = """
+        {"order":3,"weight":70.0,"reps":8,"setType":"pyramid","isCompleted":true}
+        """
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: Data(json.utf8))
+        #expect(decoded.setType == .pyramid)
+        #expect(decoded.isCompleted == true)
     }
 
     @Test("encode produces expected JSON keys")
