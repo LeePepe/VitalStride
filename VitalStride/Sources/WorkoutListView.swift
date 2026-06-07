@@ -5,13 +5,6 @@ import os
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "WorkoutList")
 
-extension Exercise {
-    var localizedName: String {
-        let isZh = Locale.current.language.languageCode?.identifier == "zh"
-        return isZh ? (nameZh.isEmpty ? nameEn : nameZh) : (nameEn.isEmpty ? nameZh : nameEn)
-    }
-}
-
 struct WorkoutListView: View {
     @Query(
         filter: #Predicate<Workout> { $0.endDate != nil },
