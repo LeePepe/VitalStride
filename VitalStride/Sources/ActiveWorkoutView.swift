@@ -2,6 +2,10 @@ import SwiftData
 import SwiftUI
 import VitalModels
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
