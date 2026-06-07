@@ -39,6 +39,6 @@ extension WorkoutExercise {
         let isFinished = workout?.endDate != nil
         return (sets ?? [])
             .filter { (isFinished || $0.isCompleted) && $0.setType != .warmup }
-            .reduce(0.0) { $0 + $1.weight * Double($1.reps) }
+            .reduce(0.0) { $0 + $1.weight * Double($1.reps) * ($1.isUnilateral ? 2.0 : 1.0) }
     }
 }
