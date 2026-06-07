@@ -14,11 +14,17 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
         samples: [], deletedObjectUUIDs: [], newAnchor: nil
     )
     private let lock = NSLock()
+    private let terminationLock = NSLock()
     private var _observerStreamContinuation: AsyncStream<AnchoredQueryResult>.Continuation?
     private var _stopQueryCallCount = 0
+    private var _observerStreamTerminationCount = 0
 
     var stopQueryCallCount: Int {
         lock.withLock { _stopQueryCallCount }
+    }
+
+    var observerStreamTerminationCount: Int {
+        terminationLock.withLock { _observerStreamTerminationCount }
     }
 
     func requestAuthorization(
@@ -55,6 +61,9 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
             lock.withLock {
                 self._observerStreamContinuation = continuation
             }
+            continuation.onTermination = { [weak self] _ in
+                self?.terminationLock.withLock { self?._observerStreamTerminationCount += 1 }
+            }
         }
     }
 
@@ -73,6 +82,15 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
             _observerStreamContinuation?.finish()
             _observerStreamContinuation = nil
         }
+    }
+
+    func waitForObserverStreamReady() async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        while ContinuousClock.now < deadline {
+            if lock.withLock({ _observerStreamContinuation != nil }) { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        Issue.record("Observer stream continuation was not set within timeout")
     }
 }
 
@@ -104,7 +122,7 @@ private func makeHeartRateSample(
 
 // MARK: - Tests
 
-@Suite("HealthKitService.observeHeartRate")
+@Suite("HealthKitService.observeHeartRate", .serialized)
 struct HealthKitServiceObserveTests {
 
     @Test("Stream yields heart rate data points from observer query")
@@ -123,15 +141,13 @@ struct HealthKitServiceObserveTests {
             return result
         }
 
-        try await Task.sleep(for: .milliseconds(50))
+        try await mock.waitForObserverStreamReady()
 
         let sample1 = makeHeartRateSample(value: 70.0)
         let sample2 = makeHeartRateSample(value: 75.0)
         mock.yieldSamples(AnchoredQueryResult(
             samples: [sample1, sample2], deletedObjectUUIDs: [], newAnchor: nil
         ))
-
-        try await Task.sleep(for: .milliseconds(50))
 
         let sample3 = makeHeartRateSample(value: 80.0)
         mock.yieldSamples(AnchoredQueryResult(
@@ -163,7 +179,7 @@ struct HealthKitServiceObserveTests {
             return result
         }
 
-        try await Task.sleep(for: .milliseconds(50))
+        try await mock.waitForObserverStreamReady()
 
         let sample = makeHeartRateSample(value: 72.0)
         mock.yieldSamples(AnchoredQueryResult(
@@ -176,6 +192,9 @@ struct HealthKitServiceObserveTests {
         let collected = await consumeTask.value
 
         #expect(collected.count == 1)
+
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(mock.observerStreamTerminationCount == 1)
     }
 
     @Test("Stream finishes immediately when HealthKit is unavailable")
@@ -242,7 +261,7 @@ struct HealthKitServiceObserveTests {
             return result
         }
 
-        try await Task.sleep(for: .milliseconds(50))
+        try await mock.waitForObserverStreamReady()
 
         let sample = makeHeartRateSample(value: 72.0)
         mock.yieldSamples(AnchoredQueryResult(
@@ -273,13 +292,11 @@ struct HealthKitServiceObserveTests {
             return result
         }
 
-        try await Task.sleep(for: .milliseconds(50))
+        try await mock.waitForObserverStreamReady()
 
         mock.yieldSamples(AnchoredQueryResult(
             samples: [], deletedObjectUUIDs: [], newAnchor: nil
         ))
-
-        try await Task.sleep(for: .milliseconds(50))
 
         let sample = makeHeartRateSample(value: 72.0)
         mock.yieldSamples(AnchoredQueryResult(
