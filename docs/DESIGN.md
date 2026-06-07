@@ -184,12 +184,16 @@ app 启动后缓存为空，首次访问某 `HealthSampleType` 时按以下策�
   → 结束训练 → 摘要写入 HealthKit + 详细数据存 SwiftData
 ```
 
-### 组类型（V1）
+### 组类型
 
 | 类型 | 说明 |
 |------|------|
 | Working (正式组) | 正式训练组 |
 | Warmup (热身组) | 热身组，不计入总训练量统计 |
+| Drop Set (递减组) | 正式组的子组，连续递减重量、中间不休息 |
+| Pyramid (递增组) | 正式组的子组，连续递增重量 |
+
+递减/递增组在 UI 上以缩进 + 竖线关联到父级正式组，不显示独立组序号。
 
 ### 动作库
 
@@ -214,7 +218,7 @@ Workout (训练会话)
         └── sets: [ExerciseSet]
               ├── weight: Double (kg)
               ├── reps: Int
-              ├── setType: .working | .warmup
+              ├── setType: .working | .warmup | .dropSet | .pyramid
               └── restDuration: TimeInterval?
 
 Exercise (动作库)
@@ -276,7 +280,7 @@ WorkoutTemplate (训练模板)
 | 功能 | 优先级 | 备注 |
 |------|--------|------|
 | 手动录入训练 | 低 | 不带设备时的补录 |
-| 递减组 (Drop Set) | 中 | Set Type 扩展 |
+| 递减组 (Drop Set) | ✅ 已实现 | Set Type 扩展，子组关联 UI |
 | 力竭组 (Failure Set) | 中 | Set Type 扩展 |
 | 超级组 (Superset) | 中 | 两个动作交替，需 UI 重构 |
 | 有氧训练发起 | 低 | iOS 端发起跑步/骑行，依赖 GPS |

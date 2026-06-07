@@ -399,15 +399,17 @@ private struct ActiveExerciseSection: View {
                         }
                     }
                     .contextMenu {
-                        Button {
-                            addSubSet(after: exerciseSet, type: .dropSet)
-                        } label: {
-                            Label("添加递减组", systemImage: "arrow.down.right")
-                        }
-                        Button {
-                            addSubSet(after: exerciseSet, type: .pyramid)
-                        } label: {
-                            Label("添加递增组", systemImage: "arrow.up.right")
+                        if exerciseSet.setType == .working {
+                            Button {
+                                addSubSet(after: exerciseSet, type: .dropSet)
+                            } label: {
+                                Label("添加递减组", systemImage: "arrow.down.right")
+                            }
+                            Button {
+                                addSubSet(after: exerciseSet, type: .pyramid)
+                            } label: {
+                                Label("添加递增组", systemImage: "arrow.up.right")
+                            }
                         }
                     }
                 }
@@ -483,13 +485,13 @@ private struct ActiveExerciseSection: View {
     }
 
     private func addSet() {
-        let lastSet = sortedSets.last
+        let lastMainSet = sortedSets.last(where: { !$0.setType.isSubSet })
         let order = workoutExercise.sets?.count ?? 0
         let newSet = ExerciseSet(
             order: order,
-            weight: lastSet?.weight ?? 0,
-            reps: lastSet?.reps ?? 0,
-            setType: lastSet?.setType ?? .working
+            weight: lastMainSet?.weight ?? 0,
+            reps: lastMainSet?.reps ?? 0,
+            setType: lastMainSet?.setType ?? .working
         )
         newSet.workoutExercise = workoutExercise
         modelContext.insert(newSet)
@@ -526,8 +528,22 @@ private struct ActiveExerciseSection: View {
     }
 
     private func deleteSet(_ exerciseSet: ExerciseSet) {
-        modelContext.delete(exerciseSet)
-        let remaining = sortedSets.filter { $0.persistentModelID != exerciseSet.persistentModelID }
+        var toDelete = [exerciseSet]
+        if !exerciseSet.setType.isSubSet {
+            let sets = sortedSets
+            if let parentIndex = sets.firstIndex(where: { $0.persistentModelID == exerciseSet.persistentModelID }) {
+                var i = parentIndex + 1
+                while i < sets.count && sets[i].setType.isSubSet {
+                    toDelete.append(sets[i])
+                    i += 1
+                }
+            }
+        }
+        let deleteIDs = Set(toDelete.map { $0.persistentModelID })
+        for set in toDelete {
+            modelContext.delete(set)
+        }
+        let remaining = sortedSets.filter { !deleteIDs.contains($0.persistentModelID) }
         for (newOrder, set) in remaining.enumerated() {
             set.order = newOrder
         }
@@ -735,7 +751,8 @@ private struct SubSetRow: View {
                     .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
             }
             .buttonStyle(.borderless)
-            .frame(minWidth: 44, minHeight: 36)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
             .accessibilityHint("双击切换完成状态")
         }

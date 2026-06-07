@@ -38,7 +38,7 @@ extension WorkoutExercise {
     public var workingVolume: Double {
         let isFinished = workout?.endDate != nil
         return (sets ?? [])
-            .filter { (isFinished || $0.isCompleted) && $0.setType == .working }
+            .filter { (isFinished || $0.isCompleted) && $0.setType != .warmup }
             .reduce(0.0) { $0 + $1.weight * Double($1.reps) }
     }
 }
