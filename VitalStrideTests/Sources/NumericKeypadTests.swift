@@ -107,4 +107,62 @@ struct NumericKeypadInputHandlerTests {
         text = NumericKeypadInputHandler.handleKeyPress(.digit(2), currentText: text, mode: .integer)
         #expect(text == "12")
     }
+
+    // MARK: - Hardware keyboard / paste simulation
+
+    @Test("Multi-char paste filters invalid characters")
+    func pasteFiltersInvalid() {
+        let input = "1a2b.3c"
+        var result = ""
+        for char in input {
+            if let digit = char.wholeNumberValue {
+                result = NumericKeypadInputHandler.handleKeyPress(.digit(digit), currentText: result, mode: .decimal)
+            } else if char == "." {
+                result = NumericKeypadInputHandler.handleKeyPress(.decimal, currentText: result, mode: .decimal)
+            }
+        }
+        #expect(result == "12.3")
+    }
+
+    @Test("Multi-char paste blocks duplicate decimal")
+    func pasteDuplicateDecimal() {
+        let input = "1.2.3"
+        var result = ""
+        for char in input {
+            if let digit = char.wholeNumberValue {
+                result = NumericKeypadInputHandler.handleKeyPress(.digit(digit), currentText: result, mode: .decimal)
+            } else if char == "." {
+                result = NumericKeypadInputHandler.handleKeyPress(.decimal, currentText: result, mode: .decimal)
+            }
+        }
+        #expect(result == "1.23")
+    }
+
+    @Test("Multi-char paste in integer mode strips decimals")
+    func pasteIntegerStripsDecimal() {
+        let input = "12.5"
+        var result = ""
+        for char in input {
+            if let digit = char.wholeNumberValue {
+                result = NumericKeypadInputHandler.handleKeyPress(.digit(digit), currentText: result, mode: .integer)
+            } else if char == "." {
+                result = NumericKeypadInputHandler.handleKeyPress(.decimal, currentText: result, mode: .integer)
+            }
+        }
+        #expect(result == "125")
+    }
+
+    @Test("Paste with only invalid characters produces empty string")
+    func pasteOnlyInvalid() {
+        let input = "abc!@#"
+        var result = ""
+        for char in input {
+            if let digit = char.wholeNumberValue {
+                result = NumericKeypadInputHandler.handleKeyPress(.digit(digit), currentText: result, mode: .decimal)
+            } else if char == "." {
+                result = NumericKeypadInputHandler.handleKeyPress(.decimal, currentText: result, mode: .decimal)
+            }
+        }
+        #expect(result == "")
+    }
 }

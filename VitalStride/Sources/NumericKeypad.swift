@@ -56,6 +56,11 @@ struct NumericKeypad: View {
     let onKeyPress: @MainActor (NumericKeypadKey) -> Void
 
     private static let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
+    private static let feedbackGenerator: UIImpactFeedbackGenerator = {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.prepare()
+        return generator
+    }()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -73,7 +78,6 @@ struct NumericKeypad: View {
             .background(Color(uiColor: .systemGroupedBackground))
         }
         .accessibilityElement(children: .contain)
-        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
     @ViewBuilder
@@ -90,7 +94,7 @@ struct NumericKeypad: View {
 
     private func keyButton(_ key: NumericKeypadKey) -> some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Self.feedbackGenerator.impactOccurred()
             onKeyPress(key)
         } label: {
             Text(key.label)

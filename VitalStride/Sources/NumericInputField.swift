@@ -32,6 +32,9 @@ struct NumericInputField: UIViewRepresentable {
         if textField.text != text {
             textField.text = text
         }
+        if textField.placeholder != placeholder {
+            textField.placeholder = placeholder
+        }
         context.coordinator.textBinding = $text
     }
 
@@ -69,7 +72,31 @@ struct NumericInputField: UIViewRepresentable {
             shouldChangeCharactersIn range: NSRange,
             replacementString string: String
         ) -> Bool {
-            false
+            let current = textField.text ?? ""
+
+            if string.isEmpty {
+                guard let swiftRange = Range(range, in: current) else { return false }
+                let updated = current.replacingCharacters(in: swiftRange, with: "")
+                textField.text = updated
+                textBinding.wrappedValue = updated
+                return false
+            }
+
+            var result = current
+            for char in string {
+                if let digit = char.wholeNumberValue {
+                    result = NumericKeypadInputHandler.handleKeyPress(
+                        .digit(digit), currentText: result, mode: mode
+                    )
+                } else if char == "." {
+                    result = NumericKeypadInputHandler.handleKeyPress(
+                        .decimal, currentText: result, mode: mode
+                    )
+                }
+            }
+            textField.text = result
+            textBinding.wrappedValue = result
+            return false
         }
     }
 }
