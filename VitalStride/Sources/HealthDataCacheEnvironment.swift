@@ -36,6 +36,17 @@ private final class _PreviewHealthStore: HealthStoreProviding, @unchecked Sendab
     ) async throws -> AnchoredQueryResult {
         throw HealthKitServiceError.healthDataNotAvailable
     }
+
+    func executeObserverAnchoredQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        anchor: HKQueryAnchor?,
+        limit: Int
+    ) -> AsyncStream<AnchoredQueryResult> {
+        AsyncStream { $0.finish() }
+    }
+
+    func stopQuery(_ query: HKQuery) {}
 }
 
 private struct HealthDataCacheKey: EnvironmentKey {

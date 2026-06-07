@@ -47,6 +47,17 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
             newAnchor: nil
         )
     }
+
+    func executeObserverAnchoredQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        anchor: HKQueryAnchor?,
+        limit: Int
+    ) -> AsyncStream<AnchoredQueryResult> {
+        AsyncStream { $0.finish() }
+    }
+
+    func stopQuery(_ query: HKQuery) {}
 }
 
 // MARK: - Test Helpers
