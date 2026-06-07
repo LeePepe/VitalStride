@@ -6,6 +6,8 @@ import VitalUI
 
 @main
 struct VitalStrideMacApp: App {
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+
     private let container: ModelContainer?
     private let containerError: String?
     private let healthKitService: HealthKitService
@@ -32,10 +34,14 @@ struct VitalStrideMacApp: App {
     var body: some Scene {
         WindowGroup {
             if let container {
-                MacContentView()
-                    .modelContainer(container)
-                    .environment(\.healthDataCache, healthDataCache)
-                    .environment(\.healthKitService, healthKitService)
+                if hasCompletedOnboarding {
+                    MacContentView()
+                        .modelContainer(container)
+                        .environment(\.healthDataCache, healthDataCache)
+                        .environment(\.healthKitService, healthKitService)
+                } else {
+                    OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
+                }
             } else {
                 DataStoreErrorView(errorMessage: containerError ?? "Unknown error")
             }
