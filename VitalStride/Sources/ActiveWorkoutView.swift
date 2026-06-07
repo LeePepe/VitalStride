@@ -365,21 +365,50 @@ private struct ActiveExerciseSection: View {
     var body: some View {
         Section {
             ForEach(Array(sortedSets.enumerated()), id: \.element.persistentModelID) { index, exerciseSet in
-                SetRow(
-                    index: index,
-                    exerciseSet: exerciseSet,
-                    weightUnit: weightUnit,
-                    onToggleCompleted: { wasCompleted in
-                        if !wasCompleted {
-                            onSetCompleted()
+                if exerciseSet.setType.isSubSet {
+                    SubSetRow(
+                        exerciseSet: exerciseSet,
+                        weightUnit: weightUnit,
+                        isLast: isLastSubSet(at: index),
+                        parentSetNumber: parentSetNumber(for: index),
+                        onToggleCompleted: { wasCompleted in
+                            if !wasCompleted { onSetCompleted() }
+                        }
+                    )
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            deleteSet(exerciseSet)
+                        } label: {
+                            Label("删除", systemImage: "trash")
                         }
                     }
-                )
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) {
-                        deleteSet(exerciseSet)
-                    } label: {
-                        Label("删除", systemImage: "trash")
+                } else {
+                    SetRow(
+                        index: mainSetNumber(upTo: index),
+                        exerciseSet: exerciseSet,
+                        weightUnit: weightUnit,
+                        onToggleCompleted: { wasCompleted in
+                            if !wasCompleted { onSetCompleted() }
+                        }
+                    )
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            deleteSet(exerciseSet)
+                        } label: {
+                            Label("删除", systemImage: "trash")
+                        }
+                    }
+                    .contextMenu {
+                        Button {
+                            addSubSet(after: exerciseSet, type: .dropSet)
+                        } label: {
+                            Label("添加递减组", systemImage: "arrow.down.right")
+                        }
+                        Button {
+                            addSubSet(after: exerciseSet, type: .pyramid)
+                        } label: {
+                            Label("添加递增组", systemImage: "arrow.up.right")
+                        }
                     }
                 }
             }
@@ -412,6 +441,30 @@ private struct ActiveExerciseSection: View {
         }
     }
 
+    private func mainSetNumber(upTo index: Int) -> Int {
+        let sets = sortedSets
+        var count = 0
+        for i in 0..<index {
+            if !sets[i].setType.isSubSet { count += 1 }
+        }
+        return count
+    }
+
+    private func parentSetNumber(for index: Int) -> Int {
+        let sets = sortedSets
+        var lastMainNumber = 0
+        for i in 0..<index {
+            if !sets[i].setType.isSubSet { lastMainNumber += 1 }
+        }
+        return lastMainNumber
+    }
+
+    private func isLastSubSet(at index: Int) -> Bool {
+        let sets = sortedSets
+        if index + 1 >= sets.count { return true }
+        return !sets[index + 1].setType.isSubSet
+    }
+
     private var addSetButton: some View {
         Button {
             addSet()
@@ -437,6 +490,36 @@ private struct ActiveExerciseSection: View {
             weight: lastSet?.weight ?? 0,
             reps: lastSet?.reps ?? 0,
             setType: lastSet?.setType ?? .working
+        )
+        newSet.workoutExercise = workoutExercise
+        modelContext.insert(newSet)
+    }
+
+    private func addSubSet(after parentSet: ExerciseSet, type: SetType) {
+        let sets = sortedSets
+        let parentIndex = sets.firstIndex(where: { $0.persistentModelID == parentSet.persistentModelID }) ?? 0
+
+        var insertIndex = parentIndex + 1
+        while insertIndex < sets.count && sets[insertIndex].setType.isSubSet {
+            insertIndex += 1
+        }
+
+        let adjustedWeight: Double
+        if type == .dropSet {
+            adjustedWeight = parentSet.weight * 0.85
+        } else {
+            adjustedWeight = parentSet.weight * 1.15
+        }
+
+        for i in insertIndex..<sets.count {
+            sets[i].order = sets[i].order + 1
+        }
+
+        let newSet = ExerciseSet(
+            order: insertIndex,
+            weight: adjustedWeight,
+            reps: parentSet.reps,
+            setType: type
         )
         newSet.workoutExercise = workoutExercise
         modelContext.insert(newSet)
@@ -496,41 +579,51 @@ private struct SetRow: View {
                     syncRepsToModel()
                 }
 
-            Picker(selection: Binding(
-                get: { exerciseSet.setType },
-                set: { exerciseSet.setType = $0 }
-            )) {
-                Text(SetType.working.displayName).tag(SetType.working)
-                Text(SetType.warmup.displayName).tag(SetType.warmup)
-            } label: {
-                Text("第 \(index + 1) 组类型")
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .accessibilityLabel("第 \(index + 1) 组类型")
-            .accessibilityHint("选择组类型")
+            setTypePicker
 
             Spacer()
 
-            Button {
-                let wasCompleted = exerciseSet.isCompleted
-                exerciseSet.isCompleted = !wasCompleted
-                onToggleCompleted(wasCompleted)
-            } label: {
-                Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
-            }
-            .buttonStyle(.borderless)
-            .frame(minWidth: 44, minHeight: 44)
-            .accessibilityLabel("第 \(index + 1) 组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
-            .accessibilityHint("双击切换完成状态")
+            completionButton
         }
         .onAppear {
             let displayW = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
             weightText = formatWeight(displayW)
             repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
         }
+    }
+
+    private var setTypePicker: some View {
+        Picker(selection: Binding(
+            get: { exerciseSet.setType },
+            set: { exerciseSet.setType = $0 }
+        )) {
+            ForEach(SetType.allCases, id: \.self) { type in
+                Text(type.displayName)
+                    .tag(type)
+            }
+        } label: {
+            Text("第 \(index + 1) 组类型")
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .accessibilityLabel("第 \(index + 1) 组类型")
+        .accessibilityHint("选择组类型")
+    }
+
+    private var completionButton: some View {
+        Button {
+            let wasCompleted = exerciseSet.isCompleted
+            exerciseSet.isCompleted = !wasCompleted
+            onToggleCompleted(wasCompleted)
+        } label: {
+            Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
+                .font(.title3)
+                .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
+        }
+        .buttonStyle(.borderless)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel("第 \(index + 1) 组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
+        .accessibilityHint("双击切换完成状态")
     }
 
     private func syncWeightToModel() {
@@ -575,6 +668,149 @@ private struct SetRow: View {
         value.truncatingRemainder(dividingBy: 1) == 0
             ? (value == 0 ? "" : String(Int(value)))
             : String(format: "%.1f", value)
+    }
+}
+
+// MARK: - Sub-Set Row (Compact, Indented with Tree Lines)
+
+private struct SubSetRow: View {
+    let exerciseSet: ExerciseSet
+    let weightUnit: WeightUnit
+    let isLast: Bool
+    let parentSetNumber: Int
+    let onToggleCompleted: (_ wasCompleted: Bool) -> Void
+
+    @State private var weightText: String = ""
+    @State private var repsText: String = ""
+
+    var body: some View {
+        HStack(spacing: 6) {
+            treeLine
+                .accessibilityHidden(true)
+
+            TextField(weightUnit.rawValue, text: $weightText)
+                .keyboardType(.decimalPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 62)
+                .font(.footnote)
+                .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组重量")
+                .accessibilityHint("输入重量数值")
+                .onChange(of: weightText) { _, newValue in
+                    let filtered = filterDecimalInput(newValue)
+                    if filtered != newValue { weightText = filtered }
+                    syncWeightToModel()
+                }
+
+            Text("×")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            TextField("次数", text: $repsText)
+                .keyboardType(.numberPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 52)
+                .font(.footnote)
+                .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数")
+                .accessibilityHint("输入次数")
+                .onChange(of: repsText) { _, newValue in
+                    let filtered = newValue.filter { $0.isNumber }
+                    if filtered != newValue { repsText = filtered }
+                    syncRepsToModel()
+                }
+
+            Text(exerciseSet.setType.displayName)
+                .font(.caption)
+                .foregroundStyle(exerciseSet.setType.labelColor)
+                .accessibilityLabel(exerciseSet.setType.displayName)
+
+            Spacer()
+
+            Button {
+                let wasCompleted = exerciseSet.isCompleted
+                exerciseSet.isCompleted = !wasCompleted
+                onToggleCompleted(wasCompleted)
+            } label: {
+                Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.subheadline)
+                    .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
+            }
+            .buttonStyle(.borderless)
+            .frame(minWidth: 44, minHeight: 36)
+            .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
+            .accessibilityHint("双击切换完成状态")
+        }
+        .padding(.vertical, -2)
+        .onAppear {
+            let displayW = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
+            weightText = formatWeight(displayW)
+            repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
+        }
+    }
+
+    private var treeLine: some View {
+        HStack(spacing: 2) {
+            Text(isLast ? "└─" : "├─")
+                .font(.caption.monospaced())
+                .foregroundStyle(.tertiary)
+        }
+        .frame(width: 28, alignment: .leading)
+    }
+
+    private func syncWeightToModel() {
+        let weight: Double
+        if weightText.isEmpty {
+            weight = 0
+        } else {
+            guard let parsed = Double(weightText) else { return }
+            weight = parsed
+        }
+        guard weight.isFinite, weight >= 0 else { return }
+        exerciseSet.weight = weightUnit == .lb ? weight / 2.20462 : weight
+    }
+
+    private func syncRepsToModel() {
+        let reps: Int
+        if repsText.isEmpty {
+            reps = 0
+        } else {
+            guard let parsed = Int(repsText) else { return }
+            reps = parsed
+        }
+        guard reps >= 0 else { return }
+        exerciseSet.reps = reps
+    }
+
+    private func filterDecimalInput(_ text: String) -> String {
+        var result = ""
+        var hasDecimalPoint = false
+        for char in text {
+            if char.isNumber {
+                result.append(char)
+            } else if char == "." && !hasDecimalPoint {
+                hasDecimalPoint = true
+                result.append(char)
+            }
+        }
+        return result
+    }
+
+    private func formatWeight(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0
+            ? (value == 0 ? "" : String(Int(value)))
+            : String(format: "%.1f", value)
+    }
+}
+
+// MARK: - SetType Color Extension
+
+extension SetType {
+    var labelColor: Color {
+        switch self {
+        case .working: .primary
+        case .warmup: .orange
+        case .dropSet: .blue
+        case .pyramid: .purple
+        }
     }
 }
 

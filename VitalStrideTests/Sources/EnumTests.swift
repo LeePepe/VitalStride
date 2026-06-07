@@ -26,15 +26,35 @@ struct EnumTests {
     @Test("SetType has all expected cases")
     func setTypeCases() {
         let cases = SetType.allCases
-        #expect(cases.count == 2)
+        #expect(cases.count == 4)
         #expect(cases.contains(.working))
         #expect(cases.contains(.warmup))
+        #expect(cases.contains(.dropSet))
+        #expect(cases.contains(.pyramid))
     }
 
     @Test("SetType raw values match expected strings")
     func setTypeRawValues() {
         #expect(SetType.working.rawValue == "working")
         #expect(SetType.warmup.rawValue == "warmup")
+        #expect(SetType.dropSet.rawValue == "dropSet")
+        #expect(SetType.pyramid.rawValue == "pyramid")
+    }
+
+    @Test("SetType isSubSet identifies sub-set types correctly")
+    func setTypeIsSubSet() {
+        #expect(SetType.working.isSubSet == false)
+        #expect(SetType.warmup.isSubSet == false)
+        #expect(SetType.dropSet.isSubSet == true)
+        #expect(SetType.pyramid.isSubSet == true)
+    }
+
+    @Test("SetType displayName returns correct names for all types")
+    func setTypeDisplayNames() {
+        #expect(SetType.working.displayName == "正式")
+        #expect(SetType.warmup.displayName == "热身")
+        #expect(SetType.dropSet.displayName == "递减")
+        #expect(SetType.pyramid.displayName == "递增")
     }
 
     @Test("MuscleGroup has all expected cases")
@@ -75,6 +95,16 @@ struct EnumTests {
         let setTypeData = try encoder.encode(setType)
         let decodedSetType = try decoder.decode(SetType.self, from: setTypeData)
         #expect(decodedSetType == setType)
+
+        let dropSet = SetType.dropSet
+        let dropSetData = try encoder.encode(dropSet)
+        let decodedDropSet = try decoder.decode(SetType.self, from: dropSetData)
+        #expect(decodedDropSet == dropSet)
+
+        let pyramid = SetType.pyramid
+        let pyramidData = try encoder.encode(pyramid)
+        let decodedPyramid = try decoder.decode(SetType.self, from: pyramidData)
+        #expect(decodedPyramid == pyramid)
 
         let muscleGroup = MuscleGroup.chest
         let muscleData = try encoder.encode(muscleGroup)
