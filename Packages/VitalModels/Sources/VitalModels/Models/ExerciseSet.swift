@@ -8,12 +8,8 @@ public final class ExerciseSet {
     public var reps: Int = 0
     public var setType: SetType = SetType.working
     public var restDuration: TimeInterval?
-    public var completedAt: Date?
+    public var isCompleted: Bool = false
     public var workoutExercise: WorkoutExercise?
-
-    public var isCompleted: Bool {
-        completedAt != nil
-    }
 
     public init(
         order: Int = 0,
@@ -21,13 +17,13 @@ public final class ExerciseSet {
         reps: Int,
         setType: SetType = .working,
         restDuration: TimeInterval? = nil,
-        completedAt: Date? = nil
+        isCompleted: Bool = false
     ) {
         self.order = order
         self.weight = weight
         self.reps = reps
         self.setType = setType
         self.restDuration = restDuration
-        self.completedAt = completedAt
+        self.isCompleted = isCompleted
     }
 }
