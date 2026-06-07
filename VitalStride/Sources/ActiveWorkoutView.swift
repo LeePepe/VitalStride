@@ -319,6 +319,7 @@ private struct ActiveExerciseSection: View {
     @State private var repsText = ""
     @State private var setType: SetType = .working
     @State private var editingSetID: PersistentIdentifier?
+    @State private var showingDeleteConfirmation = false
     @State private var editWeightText = ""
     @State private var editRepsText = ""
     @State private var editSetType: SetType = .working
@@ -349,10 +350,21 @@ private struct ActiveExerciseSection: View {
                         Label("替换动作", systemImage: "arrow.triangle.2.circlepath")
                     }
                     Button(role: .destructive) {
-                        onDelete()
+                        showingDeleteConfirmation = true
                     } label: {
                         Label("删除动作", systemImage: "trash")
                     }
+                }
+                .accessibilityHint("长按可替换或删除动作")
+                .confirmationDialog(
+                    "删除动作？",
+                    isPresented: $showingDeleteConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("删除", role: .destructive) { onDelete() }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text("该动作及所有已录入的组数据将被删除")
                 }
         }
     }
