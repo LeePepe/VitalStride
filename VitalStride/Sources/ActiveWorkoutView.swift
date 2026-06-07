@@ -597,25 +597,45 @@ private struct SetRow: View {
                     syncRepsToModel()
                 }
 
-            setTypePicker
-
-            WeightModeToggle(isUnilateral: Binding(
-                get: { exerciseSet.isUnilateral },
-                set: { exerciseSet.isUnilateral = $0 }
-            ))
+            Menu {
+                Picker(selection: Binding(
+                    get: { exerciseSet.setType },
+                    set: { exerciseSet.setType = $0 }
+                )) {
+                    ForEach(SetType.allCases, id: \.self) { type in
+                        Text(type.displayName).tag(type)
+                    }
+                } label: {
+                    Text(String(localized: "组类型", comment: "Set type picker label in menu"))
+                }
+                Divider()
+                Toggle(
+                    String(localized: "单侧重量", comment: "Unilateral weight toggle in set menu"),
+                    isOn: Binding(
+                        get: { exerciseSet.isUnilateral },
+                        set: { exerciseSet.isUnilateral = $0 }
+                    )
+                )
+            } label: {
+                HStack(spacing: 2) {
+                    Text(exerciseSet.setType.displayName)
+                    if exerciseSet.isUnilateral {
+                        Text("·")
+                        Text(String(localized: "左/右", comment: "Each side weight mode label"))
+                    }
+                }
+                .font(.caption)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration menu a11y label"))
+            .accessibilityValue(
+                exerciseSet.isUnilateral
+                    ? "\(exerciseSet.setType.displayName)，\(String(localized: "单侧重量", comment: "Unilateral weight a11y value"))"
+                    : "\(exerciseSet.setType.displayName)，\(String(localized: "总重量", comment: "Total weight a11y value"))"
+            )
 
             Spacer()
-
-            if exerciseSet.isUnilateral {
-                Text("×2")
-                    .font(.caption2.bold())
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.blue.opacity(0.15))
-                    .foregroundStyle(.blue)
-                    .clipShape(Capsule())
-                    .accessibilityLabel(String(localized: "单侧重量", comment: "Unilateral weight a11y label for ×2 badge"))
-            }
 
             completionButton
         }
@@ -624,24 +644,6 @@ private struct SetRow: View {
             weightText = formatWeight(displayW)
             repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
         }
-    }
-
-    private var setTypePicker: some View {
-        Picker(selection: Binding(
-            get: { exerciseSet.setType },
-            set: { exerciseSet.setType = $0 }
-        )) {
-            ForEach(SetType.allCases, id: \.self) { type in
-                Text(type.displayName)
-                    .tag(type)
-            }
-        } label: {
-            Text("第 \(index + 1) 组类型")
-        }
-        .labelsHidden()
-        .pickerStyle(.menu)
-        .accessibilityLabel("第 \(index + 1) 组类型")
-        .accessibilityHint("选择组类型")
     }
 
     private var completionButton: some View {
@@ -863,34 +865,6 @@ enum HeartRateFormatter {
         }
         let bpm = Int(heartRate)
         return String(localized: "\(bpm) 次每分钟", comment: "Heart rate a11y value with full unit")
-    }
-}
-
-// MARK: - Weight Mode Toggle
-
-private struct WeightModeToggle: View {
-    @Binding var isUnilateral: Bool
-
-    var body: some View {
-        Button {
-            isUnilateral.toggle()
-        } label: {
-            Text(isUnilateral
-                 ? String(localized: "左/右", comment: "Each side weight mode label")
-                 : String(localized: "总", comment: "Total weight mode label"))
-                .font(.caption2)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(isUnilateral ? Color.blue.opacity(0.15) : Color.secondary.opacity(0.12))
-                .foregroundStyle(isUnilateral ? .blue : .secondary)
-                .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .frame(minWidth: 44, minHeight: 44)
-        .accessibilityLabel(String(localized: "重量模式", comment: "Weight mode toggle a11y label"))
-        .accessibilityValue(isUnilateral
-            ? String(localized: "单侧重量", comment: "Unilateral weight a11y value")
-            : String(localized: "总重量", comment: "Total weight a11y value"))
     }
 }
 

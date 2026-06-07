@@ -180,4 +180,29 @@ struct ExerciseSetTests {
         #expect(json?["weight"] as? Double == 50)
         #expect(json?["reps"] as? Int == 5)
     }
+
+    @Test("encode and decode roundtrip preserves isUnilateral true")
+    func codableRoundtripUnilateral() throws {
+        let original = ExerciseSet(
+            order: 1,
+            weight: 25.0,
+            reps: 10,
+            setType: .working,
+            isUnilateral: true
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: data)
+        #expect(decoded.isUnilateral == true)
+        #expect(decoded.weight == 25.0)
+        #expect(decoded.reps == 10)
+    }
+
+    @Test("decode legacy JSON without isUnilateral defaults to false")
+    func codableLegacyWithoutUnilateral() throws {
+        let json = """
+        {"order":0,"weight":80.0,"reps":8,"setType":"working"}
+        """
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: Data(json.utf8))
+        #expect(decoded.isUnilateral == false)
+    }
 }
