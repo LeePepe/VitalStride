@@ -183,16 +183,21 @@ struct ActiveWorkoutView: View {
 
     private var addExerciseButton: some View {
         Button {
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            #endif
             showingExercisePicker = true
         } label: {
             Image(systemName: "plus")
                 .font(.title2)
                 .fontWeight(.semibold)
                 .foregroundStyle(.white)
-                .frame(width: 56, height: 56)
-                .background(Circle().fill(.blue))
-                .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+                .frame(width: 60, height: 60)
+                .background(Circle().fill(Color.accentColor))
+                .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+                .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
         }
+        .buttonStyle(FABButtonStyle())
         .accessibilityLabel("添加动作")
         .padding()
     }
@@ -728,6 +733,14 @@ private func equipmentName(_ equipment: Equipment) -> String {
     case .machine: "固定器械"
     case .bodyweight: "自重"
     case .cable: "绳索"
+    }
+}
+
+private struct FABButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
 
