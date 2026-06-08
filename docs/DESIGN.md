@@ -54,7 +54,9 @@
 └─────────────────────────────────────────────────┘
 ```
 
-**HealthDataCache** 位于 Service Layer 与 Data Layer 之间，是纯内存 actor 缓存。View 通过 HealthKitService 读取数据时优先命中缓存，cache miss 时由 Service 发起 bounded date-range fetch（冷启动）或 anchor query（增量刷新）拉取并回填缓存。缓存不参与 CloudKit 同步，不写入 SwiftData。
+**HealthDataCache** 位于 Service Layer 与 Data Layer 之间，是纯内存 actor 缓存（L1）。View 通过 HealthKitService 读取数据时优先命中 L1 缓存，cache miss 时由 Service 发起 bounded date-range fetch（冷启动）或 anchor query（增量刷新）拉取并回填缓存。
+
+**HealthCacheEntry** 是 SwiftData L2 持久化缓存，使用独立 `ModelConfiguration(cloudKitDatabase: .none)` 保证不参与 CloudKit 同步。L2 减少冷启动时的 HealthKit 查询延迟。
 
 ## 导航结构
 
@@ -82,13 +84,15 @@
 
 | 场景 | 读 HealthKit | 写 HealthKit | 存 SwiftData | 内存缓存 |
 |------|:-----------:|:-----------:|:-----------:|:-----------:|
-| 读取已有训练/健康数据 | ✅ | — | ❌ (直接查 HealthKit) | ✅ (HealthDataCache) |
+| 读取已有训练/健康数据 | ✅ | — | ✅ (HealthCacheEntry, L2 缓存) | ✅ (HealthDataCache, L1) |
 | App 内发起力量训练 | — | ✅ (摘要) | ✅ (完整详细数据) | — |
 | 导入 GPX/FIT 文件 | — | ❌ | ✅ (全部数据) | — |
 
-### HealthKit 内存缓存层 (HealthDataCache)
+### HealthKit 内存缓存层 (HealthDataCache) + SwiftData 持久化缓存 (HealthCacheEntry)
 
-纯内存 Swift actor 缓存，位于 Service Layer 与 HealthKit Data Layer 之间。
+两层缓存架构，位于 Service Layer 与 HealthKit Data Layer 之间。
+
+**L1: 纯内存 Swift actor 缓存 (HealthDataCache)**
 
 **数据流**：
 ```
@@ -105,14 +109,25 @@ app 启动后缓存为空，首次访问某 `HealthSampleType` 时按以下策�
 - 按 `HealthSampleType` 分桶，每桶持有 `[HealthDataPoint]`
 - 整桶替换（immutable pattern），不做 in-place mutation
 - 缓存生命周期 = app 进程，不跨启动持久化
-- 不参与 CloudKit 同步，不写入磁盘
+- 不参与 CloudKit 同步
+
+**L2: SwiftData 持久化缓存 (HealthCacheEntry)**
+
+`HealthCacheEntry` SwiftData @Model，使用独立 `ModelConfiguration("HealthCache", cloudKitDatabase: .none)` 实现 CloudKit 隔离。
+
+**设计要点**：
+- 存储 JSON 编码的 `[HealthDataPoint]`，按 `(sampleType, coveredRangeStart, coveredRangeEnd)` 复合唯一约束
+- 减少冷启动时的 HealthKit 查询，启动时从 L2 恢复到 L1
+- 不参与 CloudKit 同步，仅本地磁盘存储
 
 **隐私约束**：
-- 缓存数据不离设备，不经网络传输
+- L1 缓存数据不离设备，不经网络传输
+- L2 缓存使用 `cloudKitDatabase: .none`，数据仅存本地磁盘
 - 用户撤销 HealthKit 权限 → 立即执行完整清除：
   1. 清空全部内存缓存（`HealthDataCache.invalidateAll()`）
-  2. 重置持久化 anchor state（`HealthKitAnchorStore.removeAllAnchors()`），清除 UserDefaults 中的 anchor tokens
-  3. 清零已持久化的 telemetry 计数器（如 cache hit/miss 累计值）
+  2. 删除所有 `HealthCacheEntry` 磁盘记录
+  3. 重置持久化 anchor state（`HealthKitAnchorStore.removeAllAnchors()`），清除 UserDefaults 中的 anchor tokens
+  4. 清零已持久化的 telemetry 计数器（如 cache hit/miss 累计值）
 - 日志禁止输出实际健康数值，仅可记录 sample type / 数量 / 时间范围
 
 **Telemetry 需求**（由 MY-668 实现）：
