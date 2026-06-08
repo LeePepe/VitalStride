@@ -4,6 +4,7 @@ import VitalModels
 
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
     @State private var searchText = ""
     @State private var selectedMuscleGroup: MuscleGroup?
@@ -44,10 +45,17 @@ struct ExercisePickerView: View {
                         systemImage: "tray",
                         description: Text("请先导入预置动作库")
                     )
-                } else {
+                } else if horizontalSizeClass == .compact {
                     VStack(spacing: 0) {
                         muscleGroupChipBar
                         exerciseCardGrid
+                    }
+                } else {
+                    HStack(spacing: 0) {
+                        muscleGroupSidebar
+                        Divider()
+                        exerciseCardGrid
+                            .frame(maxWidth: .infinity)
                     }
                 }
             }
@@ -62,7 +70,7 @@ struct ExercisePickerView: View {
         }
     }
 
-    // MARK: - Muscle Group Filter
+    // MARK: - Muscle Group Chip Bar (Compact)
 
     private var muscleGroupChipBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -97,6 +105,63 @@ struct ExercisePickerView: View {
                     Capsule()
                         .fill(isSelected ? Color.accentColor : Color(.systemGray5))
                 )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    // MARK: - Muscle Group Sidebar (Regular)
+
+    private var muscleGroupSidebar: some View {
+        ScrollView {
+            LazyVStack(spacing: 2) {
+                sidebarItem(
+                    icon: "square.grid.2x2",
+                    label: "全部",
+                    isSelected: selectedMuscleGroup == nil
+                ) {
+                    selectedMuscleGroup = nil
+                }
+
+                ForEach(MuscleGroup.allCases, id: \.self) { group in
+                    sidebarItem(
+                        icon: group.sfSymbol,
+                        label: group.localizedName,
+                        isSelected: selectedMuscleGroup == group
+                    ) {
+                        selectedMuscleGroup = group
+                    }
+                }
+            }
+            .padding(.vertical, 8)
+        }
+        .frame(width: 72)
+        .background(Color(.systemGroupedBackground))
+    }
+
+    private func sidebarItem(
+        icon: String,
+        label: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .frame(width: 28, height: 28)
+                Text(label)
+                    .font(.caption2)
+                    .fontWeight(isSelected ? .semibold : .regular)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isSelected ? Color.accentColor.opacity(0.12) : .clear)
+            )
+            .padding(.horizontal, 4)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
