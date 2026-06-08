@@ -14,20 +14,25 @@ struct VitalStrideMacApp: App {
     private let healthDataCache: HealthDataCache
 
     init() {
-        let service = HealthKitService(deviceIdentifier: "ios-display")
+        let service = HealthKitService(deviceIdentifier: "mac-display")
         healthKitService = service
-        healthDataCache = HealthDataCache(dataProvider: service)
 
         do {
             let modelContainer = try ModelContainerConfiguration.makeContainer()
             container = modelContainer
             containerError = nil
+
+            let persistence = SwiftDataCachePersistence(modelContainer: modelContainer)
+            healthDataCache = HealthDataCache(dataProvider: service, persistence: persistence)
+
             Task {
                 ExerciseSeeder.seedIfNeeded(context: modelContainer.mainContext)
+                await healthDataCache.hydrate()
             }
         } catch {
             container = nil
             containerError = error.localizedDescription
+            healthDataCache = HealthDataCache(dataProvider: service)
         }
     }
 

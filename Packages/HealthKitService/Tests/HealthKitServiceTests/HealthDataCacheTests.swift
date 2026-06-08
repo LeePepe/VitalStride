@@ -39,6 +39,85 @@ final class MockHealthDataProvider: HealthDataProviding, @unchecked Sendable {
     }
 }
 
+// MARK: - Mock Persistence
+
+final class MockHealthCachePersistence: HealthCachePersisting, @unchecked Sendable {
+    private let lock = NSLock()
+    private var _store: [String: PersistedCacheEntry] = [:]
+    private var _upsertCallCount = 0
+    private var _deleteAllCallCount = 0
+    private var _loadAllCallCount = 0
+    var shouldThrow = false
+
+    var store: [String: PersistedCacheEntry] {
+        lock.withLock { _store }
+    }
+
+    var upsertCallCount: Int {
+        lock.withLock { _upsertCallCount }
+    }
+
+    var deleteAllCallCount: Int {
+        lock.withLock { _deleteAllCallCount }
+    }
+
+    var loadAllCallCount: Int {
+        lock.withLock { _loadAllCallCount }
+    }
+
+    func loadAll() async throws -> [PersistedCacheEntry] {
+        lock.withLock {
+            _loadAllCallCount += 1
+            if shouldThrow { return [] }
+            return Array(_store.values)
+        }
+    }
+
+    func load(sampleType: String) async throws -> PersistedCacheEntry? {
+        if shouldThrow { throw TestError.mockFailure }
+        return lock.withLock { _store[sampleType] }
+    }
+
+    func upsert(_ entry: PersistedCacheEntry) async throws {
+        if shouldThrow { throw TestError.mockFailure }
+        lock.withLock {
+            _store[entry.sampleType] = entry
+            _upsertCallCount += 1
+        }
+    }
+
+    func deleteAll() async throws {
+        if shouldThrow { throw TestError.mockFailure }
+        lock.withLock {
+            _store = [:]
+            _deleteAllCallCount += 1
+        }
+    }
+
+    func seed(
+        sampleType: HealthSampleType,
+        dataPoints: [HealthDataPoint],
+        fetchedAt: Date = Date(),
+        coveredRangeStart: Date? = nil,
+        coveredRangeEnd: Date? = nil
+    ) {
+        let data = try! JSONEncoder().encode(dataPoints)
+        lock.withLock {
+            _store[sampleType.rawValue] = PersistedCacheEntry(
+                sampleType: sampleType.rawValue,
+                dataPointsData: data,
+                fetchedAt: fetchedAt,
+                coveredRangeStart: coveredRangeStart,
+                coveredRangeEnd: coveredRangeEnd
+            )
+        }
+    }
+}
+
+private enum TestError: Error {
+    case mockFailure
+}
+
 // MARK: - Helpers
 
 private func makeDataPoint(
@@ -529,5 +608,323 @@ struct HealthDataCacheTests {
         _ = try await cache.data(for: .stepCount, in: range)
 
         #expect(mock.fetchDateRanges[.stepCount]?.first as? DateInterval == range)
+    }
+}
+
+// MARK: - L2 Persistence Tests
+
+@Suite("HealthDataCache — L2 Persistence")
+struct HealthDataCacheL2Tests {
+
+    // MARK: - Hydration
+
+    @Test("Hydrate loads entries from persistence into L1 cache")
+    func hydratePopulatesL1() async throws {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+
+        let points = [makeDataPoint(.stepCount), makeDataPoint(.stepCount)]
+        persistence.seed(sampleType: .stepCount, dataPoints: points)
+
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+        await cache.hydrate()
+
+        #expect(await cache.cachedTypes().contains(.stepCount))
+
+        let result = try await cache.data(for: .stepCount)
+        #expect(result.count == 2)
+        #expect(mock.fetchCallCount[.stepCount, default: 0] == 0)
+    }
+
+    @Test("Hydrate with multiple types populates all")
+    func hydrateMultipleTypes() async throws {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+
+        persistence.seed(sampleType: .stepCount, dataPoints: [makeDataPoint(.stepCount)])
+        persistence.seed(sampleType: .heartRate, dataPoints: [makeDataPoint(.heartRate)])
+
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+        await cache.hydrate()
+
+        #expect(await cache.cachedTypes().count == 2)
+    }
+
+    @Test("Hydrate failure does not crash, cache stays empty")
+    func hydrateFailureGraceful() async throws {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+        persistence.shouldThrow = true
+
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+        await cache.hydrate()
+
+        #expect(await cache.cachedTypes().isEmpty)
+    }
+
+    // MARK: - Write-Back
+
+    @Test("Successful HealthKit fetch writes to persistence")
+    func fetchWritesBackToL2() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 3)
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+
+        _ = try await cache.data(for: .stepCount)
+
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(persistence.upsertCallCount == 1)
+        #expect(persistence.store[HealthSampleType.stepCount.rawValue] != nil)
+
+        let stored = persistence.store[HealthSampleType.stepCount.rawValue]!
+        let decoded = try JSONDecoder().decode([HealthDataPoint].self, from: stored.dataPointsData)
+        #expect(decoded.count == 3)
+    }
+
+    @Test("Refresh writes updated data to persistence")
+    func refreshWritesBackToL2() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.bodyMass] = makeResult(.bodyMass, count: 1)
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+
+        _ = try await cache.data(for: .bodyMass)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(persistence.upsertCallCount == 1)
+
+        mock.fetchResults[.bodyMass] = makeResult(.bodyMass, count: 5)
+        _ = try await cache.refresh(.bodyMass)
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(persistence.upsertCallCount == 2)
+        let stored = persistence.store[HealthSampleType.bodyMass.rawValue]!
+        let decoded = try JSONDecoder().decode([HealthDataPoint].self, from: stored.dataPointsData)
+        #expect(decoded.count == 5)
+    }
+
+    // MARK: - L1 Miss → L2 Hit
+
+    @Test("L1 miss falls back to L2 hit without fetching from HealthKit")
+    func l1MissL2HitSkipsHealthKit() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 10)
+        let persistence = MockHealthCachePersistence()
+
+        let points = [makeDataPoint(.stepCount), makeDataPoint(.stepCount)]
+        persistence.seed(sampleType: .stepCount, dataPoints: points)
+
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+
+        let result = try await cache.data(for: .stepCount)
+
+        #expect(result.count == 2)
+        #expect(mock.fetchCallCount[.stepCount, default: 0] == 0)
+        #expect(await cache.cachedTypes().contains(.stepCount))
+    }
+
+    @Test("L2 hit hydrates L1 for subsequent fast access")
+    func l2HitHydratesL1() async throws {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+
+        let points = [makeDataPoint(.heartRate)]
+        persistence.seed(sampleType: .heartRate, dataPoints: points)
+
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+
+        _ = try await cache.data(for: .heartRate)
+        let second = try await cache.data(for: .heartRate)
+
+        #expect(second.count == 1)
+        #expect(mock.fetchCallCount[.heartRate, default: 0] == 0)
+
+        let tel = await cache.telemetry(for: .heartRate)
+        #expect(tel.hits == 2)
+        #expect(tel.misses == 0)
+    }
+
+    @Test("L2 miss triggers HealthKit fetch")
+    func l2MissFetchesFromHealthKit() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.bodyMass] = makeResult(.bodyMass, count: 3)
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+
+        let result = try await cache.data(for: .bodyMass)
+
+        #expect(result.count == 3)
+        #expect(mock.fetchCallCount[.bodyMass] == 1)
+    }
+
+    @Test("L2 hit with covered range narrower than request falls through to HealthKit")
+    func l2HitRangeMismatchFetchesHealthKit() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+        let wideStart = baseDate.addingTimeInterval(-7 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+
+        let mock = MockHealthDataProvider()
+        let widePoints = (0..<7).map { i in
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400))
+        }
+        mock.fetchResults[.stepCount] = HealthFetchResult(
+            dataPoints: widePoints, deletedObjectIDs: []
+        )
+
+        let persistence = MockHealthCachePersistence()
+        let narrowPoints = [makeDataPoint(.stepCount, date: baseDate)]
+        persistence.seed(
+            sampleType: .stepCount,
+            dataPoints: narrowPoints,
+            coveredRangeStart: narrowStart,
+            coveredRangeEnd: narrowEnd
+        )
+
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        let result = try await cache.data(for: .stepCount, in: wideRange)
+
+        #expect(result.count == 7)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+    }
+
+    // MARK: - TTL
+
+    @Test("Fresh data from L1 does not trigger background refresh")
+    func freshL1HitNoRefresh() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 2)
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence, cacheTTL: 3600)
+
+        _ = try await cache.data(for: .stepCount)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+
+        _ = try await cache.data(for: .stepCount)
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+    }
+
+    @Test("Stale data from L1 returns immediately and triggers background refresh")
+    func staleL1HitReturnsAndRefreshes() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 2)
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence, cacheTTL: 0)
+
+        _ = try await cache.data(for: .stepCount)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 5)
+        let staleResult = try await cache.data(for: .stepCount)
+        #expect(staleResult.count == 2)
+
+        try await Task.sleep(for: .milliseconds(200))
+
+        #expect(mock.fetchCallCount[.stepCount] == 2)
+
+        let freshResult = try await cache.data(for: .stepCount)
+        #expect(freshResult.count == 5)
+    }
+
+    @Test("Stale L2 hit returns data and triggers background refresh")
+    func staleL2HitReturnsAndRefreshes() async throws {
+        let staleDate = Date().addingTimeInterval(-7200)
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.heartRate] = makeResult(.heartRate, count: 5)
+        let persistence = MockHealthCachePersistence()
+        persistence.seed(
+            sampleType: .heartRate,
+            dataPoints: [makeDataPoint(.heartRate)],
+            fetchedAt: staleDate
+        )
+
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence, cacheTTL: 3600)
+
+        let result = try await cache.data(for: .heartRate)
+        #expect(result.count == 1)
+
+        try await Task.sleep(for: .milliseconds(200))
+
+        #expect(mock.fetchCallCount[.heartRate, default: 0] == 1)
+
+        let freshResult = try await cache.data(for: .heartRate)
+        #expect(freshResult.count == 5)
+    }
+
+    // MARK: - Authorization Revoked + Persistence
+
+    @Test("Authorization revoked clears L2 persistence")
+    func authRevokedClearsL2() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = makeResult(.stepCount)
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+
+        _ = try await cache.data(for: .stepCount)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!persistence.store.isEmpty)
+
+        let suiteName = "test-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
+
+        await cache.handleAuthorizationRevoked(
+            anchorStore: anchorStore,
+            deviceIdentifier: "test-device"
+        )
+
+        #expect(await cache.cachedTypes().isEmpty)
+        #expect(persistence.deleteAllCallCount == 1)
+        #expect(persistence.store.isEmpty)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    @Test("Authorization revoked with persistence failure still clears L1")
+    func authRevokedPersistenceFailureStillClearsL1() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = makeResult(.stepCount)
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+
+        _ = try await cache.data(for: .stepCount)
+        #expect(await cache.cachedTypes().contains(.stepCount))
+
+        persistence.shouldThrow = true
+
+        let suiteName = "test-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
+
+        await cache.handleAuthorizationRevoked(
+            anchorStore: anchorStore,
+            deviceIdentifier: "test-device"
+        )
+
+        #expect(await cache.cachedTypes().isEmpty)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    // MARK: - No Persistence Fallback
+
+    @Test("Cache works without persistence (nil)")
+    func noPersistenceFallback() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 3)
+        let cache = HealthDataCache(dataProvider: mock)
+
+        let result = try await cache.data(for: .stepCount)
+        #expect(result.count == 3)
+
+        let cached = try await cache.data(for: .stepCount)
+        #expect(cached.count == 3)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
     }
 }

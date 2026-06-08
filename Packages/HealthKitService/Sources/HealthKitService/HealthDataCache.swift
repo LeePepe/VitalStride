@@ -33,6 +33,7 @@ public actor HealthDataCache {
     private struct CacheEntry {
         let dataPoints: [HealthDataPoint]
         let coveredRange: DateInterval?
+        let fetchedAt: Date
     }
 
     private struct FetchKey: Hashable {
@@ -47,9 +48,14 @@ public actor HealthDataCache {
         }
     }
 
+    public static let defaultTTL: TimeInterval = 3600
+
     private var cache: [HealthSampleType: CacheEntry] = [:]
     private var inFlightFetches: [FetchKey: Task<[HealthDataPoint], any Error>] = [:]
+    private var backgroundRefreshInProgress: Set<HealthSampleType> = []
     private let dataProvider: any HealthDataProviding
+    private let persistence: (any HealthCachePersisting)?
+    private let cacheTTL: TimeInterval
     private var generation: UInt64 = 0
 
     private var hitCounts: [HealthSampleType: Int] = [:]
@@ -58,9 +64,40 @@ public actor HealthDataCache {
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "HealthDataCache")
     private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "HealthDataCache")
+    private let jsonEncoder = JSONEncoder()
+    private let jsonDecoder = JSONDecoder()
 
-    public init(dataProvider: any HealthDataProviding) {
+    public init(
+        dataProvider: any HealthDataProviding,
+        persistence: (any HealthCachePersisting)? = nil,
+        cacheTTL: TimeInterval = HealthDataCache.defaultTTL
+    ) {
         self.dataProvider = dataProvider
+        self.persistence = persistence
+        self.cacheTTL = cacheTTL
+    }
+
+    // MARK: - Hydration
+
+    public func hydrate() async {
+        guard let persistence else { return }
+        do {
+            let entries = try await persistence.loadAll()
+            var hydratedCount = 0
+            for entry in entries {
+                guard let sampleType = HealthSampleType(rawValue: entry.sampleType) else { continue }
+                guard let decoded = decodePersisted(entry) else { continue }
+                cache[sampleType] = CacheEntry(
+                    dataPoints: decoded.dataPoints,
+                    coveredRange: decoded.coveredRange,
+                    fetchedAt: entry.fetchedAt
+                )
+                hydratedCount += 1
+            }
+            logger.info("hydrated \(hydratedCount) entries from persistence")
+        } catch {
+            logger.info("persistence hydration failed")
+        }
     }
 
     // MARK: - Query
@@ -71,10 +108,34 @@ public actor HealthDataCache {
     ) async throws -> [HealthDataPoint] {
         if let entry = cache[sampleType], Self.coversRange(entry.coveredRange, requested: dateRange) {
             hitCounts[sampleType, default: 0] += 1
+            let stale = Self.isStale(entry.fetchedAt, ttl: cacheTTL)
             logger.info(
-                "healthkit_cache_hit type=\(sampleType.rawValue) total=\(self.hitCounts[sampleType, default: 0])"
+                "healthkit_cache_hit type=\(sampleType.rawValue) stale=\(stale) total=\(self.hitCounts[sampleType, default: 0])"
             )
+            if stale {
+                scheduleBackgroundRefresh(sampleType: sampleType, dateRange: entry.coveredRange)
+            }
             return Self.filtered(entry.dataPoints, by: dateRange)
+        }
+
+        if let persistence, let persisted = try? await persistence.load(sampleType: sampleType.rawValue),
+           let decoded = decodePersisted(persisted),
+           Self.coversRange(decoded.coveredRange, requested: dateRange)
+        {
+            let entry = CacheEntry(
+                dataPoints: decoded.dataPoints,
+                coveredRange: decoded.coveredRange,
+                fetchedAt: persisted.fetchedAt
+            )
+            cache[sampleType] = entry
+            hitCounts[sampleType, default: 0] += 1
+            logger.info(
+                "healthkit_cache_l2_hit type=\(sampleType.rawValue) total=\(self.hitCounts[sampleType, default: 0])"
+            )
+            if Self.isStale(persisted.fetchedAt, ttl: cacheTTL) {
+                scheduleBackgroundRefresh(sampleType: sampleType, dateRange: decoded.coveredRange)
+            }
+            return Self.filtered(decoded.dataPoints, by: dateRange)
         }
 
         missCounts[sampleType, default: 0] += 1
@@ -116,6 +177,7 @@ public actor HealthDataCache {
         cache = [:]
         for task in inFlightFetches.values { task.cancel() }
         inFlightFetches = [:]
+        backgroundRefreshInProgress = []
         resetTelemetry()
         logger.info("cache invalidated all")
     }
@@ -125,10 +187,17 @@ public actor HealthDataCache {
     public func handleAuthorizationRevoked(
         anchorStore: HealthKitAnchorStore,
         deviceIdentifier: String
-    ) {
+    ) async {
         invalidateAll()
         anchorStore.removeAllAnchors(for: deviceIdentifier)
-        logger.info("authorization revoked — cache, anchors, and telemetry cleared")
+        if let persistence {
+            do {
+                try await persistence.deleteAll()
+            } catch {
+                logger.info("failed to clear persistence on auth revocation")
+            }
+        }
+        logger.info("authorization revoked — cache, anchors, persistence, and telemetry cleared")
     }
 
     // MARK: - Telemetry
@@ -145,7 +214,7 @@ public actor HealthDataCache {
         Set(cache.keys)
     }
 
-    // MARK: - Private
+    // MARK: - Private — Fetch
 
     private func fetchCoalesced(
         sampleType: HealthSampleType,
@@ -178,7 +247,12 @@ public actor HealthDataCache {
             inFlightFetches[key] = nil
 
             if generation == fetchGeneration {
-                cache[sampleType] = CacheEntry(dataPoints: points, coveredRange: dateRange)
+                cache[sampleType] = CacheEntry(
+                    dataPoints: points,
+                    coveredRange: dateRange,
+                    fetchedAt: Date()
+                )
+                persistInBackground(sampleType: sampleType, dataPoints: points, dateRange: dateRange)
             }
 
             signposter.endInterval("healthkit_fetch", state)
@@ -190,6 +264,74 @@ public actor HealthDataCache {
             throw error
         }
     }
+
+    // MARK: - Private — Persistence
+
+    private func persistInBackground(
+        sampleType: HealthSampleType,
+        dataPoints: [HealthDataPoint],
+        dateRange: DateInterval?
+    ) {
+        guard let persistence else { return }
+        guard let data = try? jsonEncoder.encode(dataPoints) else { return }
+
+        let entry = PersistedCacheEntry(
+            sampleType: sampleType.rawValue,
+            dataPointsData: data,
+            fetchedAt: Date(),
+            coveredRangeStart: dateRange?.start,
+            coveredRangeEnd: dateRange?.end
+        )
+
+        Task {
+            do {
+                try await persistence.upsert(entry)
+            } catch {
+                logger.info("persistence write failed type=\(sampleType.rawValue)")
+            }
+        }
+    }
+
+    private func decodePersisted(
+        _ persisted: PersistedCacheEntry
+    ) -> (dataPoints: [HealthDataPoint], coveredRange: DateInterval?)? {
+        guard let dataPoints = try? jsonDecoder.decode(
+            [HealthDataPoint].self,
+            from: persisted.dataPointsData
+        ) else {
+            return nil
+        }
+        let coveredRange: DateInterval?
+        if let start = persisted.coveredRangeStart, let end = persisted.coveredRangeEnd {
+            coveredRange = DateInterval(start: start, end: end)
+        } else {
+            coveredRange = nil
+        }
+        return (dataPoints, coveredRange)
+    }
+
+    // MARK: - Private — Background Refresh
+
+    private func scheduleBackgroundRefresh(
+        sampleType: HealthSampleType,
+        dateRange: DateInterval?
+    ) {
+        guard !backgroundRefreshInProgress.contains(sampleType) else { return }
+        backgroundRefreshInProgress.insert(sampleType)
+
+        Task {
+            defer { backgroundRefreshInProgress.remove(sampleType) }
+            do {
+                _ = try await performFetch(sampleType: sampleType, dateRange: dateRange)
+                refreshCounts[sampleType, default: 0] += 1
+                logger.info("background refresh completed type=\(sampleType.rawValue)")
+            } catch {
+                logger.info("background refresh failed type=\(sampleType.rawValue)")
+            }
+        }
+    }
+
+    // MARK: - Private — Helpers
 
     private func cancelInFlightFetches(for sampleType: HealthSampleType) {
         let keysToRemove = inFlightFetches.keys.filter { $0.sampleType == sampleType }
@@ -238,5 +380,9 @@ public actor HealthDataCache {
         case let (cached?, requested?):
             return cached.start <= requested.start && cached.end >= requested.end
         }
+    }
+
+    private static func isStale(_ fetchedAt: Date, ttl: TimeInterval) -> Bool {
+        Date().timeIntervalSince(fetchedAt) > ttl
     }
 }
