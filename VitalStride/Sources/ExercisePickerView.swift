@@ -45,9 +45,11 @@ struct ExercisePickerView: View {
                         description: Text("请先导入预置动作库")
                     )
                 } else {
-                    VStack(spacing: 0) {
-                        muscleGroupChipBar
+                    HStack(spacing: 0) {
+                        muscleGroupSidebar
+                        Divider()
                         exerciseCardGrid
+                            .frame(maxWidth: .infinity)
                     }
                 }
             }
@@ -62,16 +64,22 @@ struct ExercisePickerView: View {
         }
     }
 
-    // MARK: - Muscle Group Filter
+    // MARK: - Muscle Group Sidebar
 
-    private var muscleGroupChipBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                filterChip(label: "全部", isSelected: selectedMuscleGroup == nil) {
+    private var muscleGroupSidebar: some View {
+        ScrollView {
+            LazyVStack(spacing: 2) {
+                sidebarItem(
+                    icon: "square.grid.2x2",
+                    label: "全部",
+                    isSelected: selectedMuscleGroup == nil
+                ) {
                     selectedMuscleGroup = nil
                 }
+
                 ForEach(MuscleGroup.allCases, id: \.self) { group in
-                    filterChip(
+                    sidebarItem(
+                        icon: group.sfSymbol,
                         label: group.localizedName,
                         isSelected: selectedMuscleGroup == group
                     ) {
@@ -79,24 +87,35 @@ struct ExercisePickerView: View {
                     }
                 }
             }
-            .padding(.horizontal)
             .padding(.vertical, 8)
         }
-        .background(.bar)
+        .frame(width: 72)
+        .background(Color(.systemGroupedBackground))
     }
 
-    private func filterChip(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+    private func sidebarItem(
+        icon: String,
+        label: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
-            Text(label)
-                .font(.subheadline)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(isSelected ? .white : .primary)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 44)
-                .background(
-                    Capsule()
-                        .fill(isSelected ? Color.accentColor : Color(.systemGray5))
-                )
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .frame(width: 28, height: 28)
+                Text(label)
+                    .font(.caption2)
+                    .fontWeight(isSelected ? .semibold : .regular)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isSelected ? Color.accentColor.opacity(0.12) : .clear)
+            )
+            .padding(.horizontal, 4)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
