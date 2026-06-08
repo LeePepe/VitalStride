@@ -153,6 +153,25 @@ public final class HealthKitService: Sendable {
         HKQuantityType(.bodyMass),
         HKQuantityType(.activeEnergyBurned),
         HKCategoryType(.sleepAnalysis),
+        HKQuantityType(.basalEnergyBurned),
+        HKQuantityType(.distanceWalkingRunning),
+        HKQuantityType(.distanceCycling),
+        HKQuantityType(.appleExerciseTime),
+        HKQuantityType(.appleStandTime),
+        HKQuantityType(.flightsClimbed),
+        HKQuantityType(.bodyFatPercentage),
+        HKQuantityType(.leanBodyMass),
+        HKQuantityType(.height),
+        HKQuantityType(.bodyMassIndex),
+        HKQuantityType(.restingHeartRate),
+        HKQuantityType(.heartRateVariabilitySDNN),
+        HKQuantityType(.vo2Max),
+        HKQuantityType(.dietaryEnergyConsumed),
+        HKQuantityType(.dietaryProtein),
+        HKQuantityType(.dietaryCarbohydrates),
+        HKQuantityType(.dietaryFatTotal),
+        HKQuantityType(.dietaryWater),
+        HKWorkoutType.workoutType(),
     ]
 
     public init(
@@ -208,6 +227,12 @@ public final class HealthKitService: Sendable {
     }
 
     public static let defaultFirstSyncWindow: TimeInterval = 30 * 24 * 3600
+
+    private static let distanceQuantityTypes: [HKQuantityType] = [
+        HKQuantityType(.distanceWalkingRunning),
+        HKQuantityType(.distanceCycling),
+        HKQuantityType(.distanceSwimming),
+    ]
 
     public func fetchData(
         for sampleType: HealthSampleType,
@@ -378,6 +403,66 @@ public final class HealthKitService: Sendable {
         }
     }
 
+    // MARK: - Workout Queries
+
+    public func fetchWorkouts(dateRange: DateInterval? = nil) async throws -> WorkoutFetchResult {
+        guard type(of: healthStore).isHealthDataAvailable else {
+            throw HealthKitServiceError.healthDataNotAvailable
+        }
+
+        let hkType = HKWorkoutType.workoutType()
+        let status = try await healthStore.statusForAuthorizationRequest(
+            toShare: [],
+            read: [hkType]
+        )
+        guard status == .unnecessary else {
+            throw HealthKitServiceError.authorizationNotDetermined
+        }
+
+        let start = ContinuousClock.now
+        let existingRecord = anchorStore.workoutAnchor(for: deviceIdentifier)
+        let isFirstSync = existingRecord == nil
+
+        let predicate: NSPredicate? = if let dateRange {
+            HKQuery.predicateForSamples(withStart: dateRange.start, end: dateRange.end)
+        } else {
+            HKQuery.predicateForSamples(
+                withStart: Date(timeIntervalSinceNow: -Self.defaultFirstSyncWindow),
+                end: Date()
+            )
+        }
+
+        let queryAnchor: HKQueryAnchor? = if dateRange == nil, let record = existingRecord {
+            try? NSKeyedUnarchiver.unarchivedObject(
+                ofClass: HKQueryAnchor.self,
+                from: record.anchorData
+            )
+        } else {
+            nil
+        }
+
+        do {
+            let result = try await healthStore.executeAnchoredQuery(
+                type: hkType,
+                predicate: predicate,
+                anchor: queryAnchor,
+                limit: HKObjectQueryNoLimit
+            )
+
+            if dateRange == nil, let newAnchor = result.newAnchor {
+                saveWorkoutAnchor(newAnchor)
+            }
+
+            let workouts = result.samples.compactMap { convertToWorkoutRecord($0) }
+
+            logWorkoutQuery(count: workouts.count, start: start, isFirstSync: isFirstSync, error: nil)
+            return WorkoutFetchResult(workouts: workouts, deletedObjectIDs: result.deletedObjectUUIDs)
+        } catch {
+            logWorkoutQuery(count: 0, start: start, isFirstSync: isFirstSync, error: error)
+            throw HealthKitServiceError.queryFailed(underlying: error)
+        }
+    }
+
     // MARK: - Private Helpers
 
     private func saveAnchor(_ anchor: HKQueryAnchor, for sampleType: HealthSampleType) {
@@ -393,7 +478,13 @@ public final class HealthKitService: Sendable {
         switch sampleType {
         case .sleepAnalysis:
             return convertSleepSample(sample)
-        case .heartRate, .stepCount, .bodyMass, .activeEnergyBurned:
+        case .heartRate, .stepCount, .bodyMass, .activeEnergyBurned,
+             .basalEnergyBurned, .distanceWalkingRunning, .distanceCycling,
+             .appleExerciseTime, .appleStandTime, .flightsClimbed,
+             .bodyFatPercentage, .leanBodyMass, .height, .bodyMassIndex,
+             .restingHeartRate, .heartRateVariabilitySDNN, .vo2Max,
+             .dietaryEnergyConsumed, .dietaryProtein, .dietaryCarbohydrates,
+             .dietaryFatTotal, .dietaryWater:
             return convertQuantitySample(sample, sampleType: sampleType)
         }
     }
@@ -452,6 +543,60 @@ public final class HealthKitService: Sendable {
             )
         }
     }
+
+    private func convertToWorkoutRecord(_ sample: HKSample) -> HealthWorkoutRecord? {
+        guard let workout = sample as? HKWorkout else { return nil }
+        let energyBurned = workout
+            .statistics(for: HKQuantityType(.activeEnergyBurned))?
+            .sumQuantity()?
+            .doubleValue(for: .kilocalorie())
+        let distance = Self.distanceQuantityTypes
+            .lazy
+            .compactMap { workout.statistics(for: $0)?.sumQuantity() }
+            .first?
+            .doubleValue(for: .meter())
+
+        return HealthWorkoutRecord(
+            id: workout.uuid,
+            activityTypeRawValue: workout.workoutActivityType.rawValue,
+            duration: workout.duration,
+            totalEnergyBurned: energyBurned,
+            totalDistance: distance,
+            startDate: workout.startDate,
+            endDate: workout.endDate,
+            sourceName: workout.sourceRevision.source.name
+        )
+    }
+
+    private func saveWorkoutAnchor(_ anchor: HKQueryAnchor) {
+        guard let data = try? NSKeyedArchiver.archivedData(
+            withRootObject: anchor,
+            requiringSecureCoding: true
+        ) else { return }
+        let record = AnchorRecord(anchorData: data, lastSyncDate: Date())
+        anchorStore.setWorkoutAnchor(record, for: deviceIdentifier)
+    }
+
+    private func logWorkoutQuery(
+        count: Int,
+        start: ContinuousClock.Instant,
+        isFirstSync: Bool,
+        error: (any Error)?
+    ) {
+        let elapsed = ContinuousClock.now - start
+        let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
+        let status = error == nil ? "success" : "failed"
+
+        if let error {
+            logger.error(
+                "healthkit_workout_fetch type=workout count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status) error=\(error.localizedDescription, privacy: .private)"
+            )
+        } else {
+            logger.info(
+                "healthkit_workout_fetch_duration_ms type=workout count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status)"
+            )
+        }
+    }
 }
 
 // MARK: - HealthSampleType + HealthKit
@@ -464,6 +609,24 @@ extension HealthSampleType {
         case .bodyMass: HKQuantityType(.bodyMass)
         case .activeEnergyBurned: HKQuantityType(.activeEnergyBurned)
         case .sleepAnalysis: HKCategoryType(.sleepAnalysis)
+        case .basalEnergyBurned: HKQuantityType(.basalEnergyBurned)
+        case .distanceWalkingRunning: HKQuantityType(.distanceWalkingRunning)
+        case .distanceCycling: HKQuantityType(.distanceCycling)
+        case .appleExerciseTime: HKQuantityType(.appleExerciseTime)
+        case .appleStandTime: HKQuantityType(.appleStandTime)
+        case .flightsClimbed: HKQuantityType(.flightsClimbed)
+        case .bodyFatPercentage: HKQuantityType(.bodyFatPercentage)
+        case .leanBodyMass: HKQuantityType(.leanBodyMass)
+        case .height: HKQuantityType(.height)
+        case .bodyMassIndex: HKQuantityType(.bodyMassIndex)
+        case .restingHeartRate: HKQuantityType(.restingHeartRate)
+        case .heartRateVariabilitySDNN: HKQuantityType(.heartRateVariabilitySDNN)
+        case .vo2Max: HKQuantityType(.vo2Max)
+        case .dietaryEnergyConsumed: HKQuantityType(.dietaryEnergyConsumed)
+        case .dietaryProtein: HKQuantityType(.dietaryProtein)
+        case .dietaryCarbohydrates: HKQuantityType(.dietaryCarbohydrates)
+        case .dietaryFatTotal: HKQuantityType(.dietaryFatTotal)
+        case .dietaryWater: HKQuantityType(.dietaryWater)
         }
     }
 
@@ -474,6 +637,24 @@ extension HealthSampleType {
         case .bodyMass: .gramUnit(with: .kilo)
         case .activeEnergyBurned: .kilocalorie()
         case .sleepAnalysis: .count()
+        case .basalEnergyBurned: .kilocalorie()
+        case .distanceWalkingRunning: .meter()
+        case .distanceCycling: .meter()
+        case .appleExerciseTime: .minute()
+        case .appleStandTime: .minute()
+        case .flightsClimbed: .count()
+        case .bodyFatPercentage: .percent()
+        case .leanBodyMass: .gramUnit(with: .kilo)
+        case .height: .meter()
+        case .bodyMassIndex: .count()
+        case .restingHeartRate: HKUnit.count().unitDivided(by: .minute())
+        case .heartRateVariabilitySDNN: .secondUnit(with: .milli)
+        case .vo2Max: HKUnit.literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .minute()))
+        case .dietaryEnergyConsumed: .kilocalorie()
+        case .dietaryProtein: .gram()
+        case .dietaryCarbohydrates: .gram()
+        case .dietaryFatTotal: .gram()
+        case .dietaryWater: .literUnit(with: .milli)
         }
     }
 
@@ -484,6 +665,24 @@ extension HealthSampleType {
         case .bodyMass: "kg"
         case .activeEnergyBurned: "kcal"
         case .sleepAnalysis: "category"
+        case .basalEnergyBurned: "kcal"
+        case .distanceWalkingRunning: "m"
+        case .distanceCycling: "m"
+        case .appleExerciseTime: "min"
+        case .appleStandTime: "min"
+        case .flightsClimbed: "count"
+        case .bodyFatPercentage: "%"
+        case .leanBodyMass: "kg"
+        case .height: "m"
+        case .bodyMassIndex: "count"
+        case .restingHeartRate: "bpm"
+        case .heartRateVariabilitySDNN: "ms"
+        case .vo2Max: "mL/kg·min"
+        case .dietaryEnergyConsumed: "kcal"
+        case .dietaryProtein: "g"
+        case .dietaryCarbohydrates: "g"
+        case .dietaryFatTotal: "g"
+        case .dietaryWater: "mL"
         }
     }
 }

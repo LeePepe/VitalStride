@@ -12,6 +12,14 @@ public protocol HealthDataProviding: Sendable {
 
 extension HealthKitService: HealthDataProviding {}
 
+// MARK: - WorkoutDataProviding
+
+public protocol WorkoutDataProviding: Sendable {
+    func fetchWorkouts(dateRange: DateInterval?) async throws -> WorkoutFetchResult
+}
+
+extension HealthKitService: WorkoutDataProviding {}
+
 // MARK: - CacheTelemetry
 
 public struct CacheTelemetry: Sendable, Equatable {
@@ -34,6 +42,11 @@ public actor HealthDataCache {
         let dataPoints: [HealthDataPoint]
         let coveredRange: DateInterval?
         let fetchedAt: Date
+    }
+
+    private struct WorkoutCacheEntry {
+        let workouts: [HealthWorkoutRecord]
+        let coveredRange: DateInterval?
     }
 
     private struct FetchKey: Hashable {
@@ -63,6 +76,13 @@ public actor HealthDataCache {
     private var missCounts: [HealthSampleType: Int] = [:]
     private var refreshCounts: [HealthSampleType: Int] = [:]
 
+    private var workoutCache: WorkoutCacheEntry?
+    private var workoutInFlightFetch: Task<[HealthWorkoutRecord], any Error>?
+    private let workoutProvider: (any WorkoutDataProviding)?
+    private var workoutHitCount: Int = 0
+    private var workoutMissCount: Int = 0
+    private var workoutRefreshCount: Int = 0
+
     private let logger = Logger(subsystem: "com.vitalstride", category: "HealthDataCache")
     private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "HealthDataCache")
     private let jsonEncoder = JSONEncoder()
@@ -70,10 +90,12 @@ public actor HealthDataCache {
 
     public init(
         dataProvider: any HealthDataProviding,
+        workoutProvider: (any WorkoutDataProviding)? = nil,
         persistence: (any HealthCachePersisting)? = nil,
         cacheTTL: TimeInterval = HealthDataCache.defaultTTL
     ) {
         self.dataProvider = dataProvider
+        self.workoutProvider = workoutProvider
         self.persistence = persistence
         self.cacheTTL = cacheTTL
     }
@@ -200,6 +222,9 @@ public actor HealthDataCache {
         backgroundRefreshTasks = [:]
         for task in persistTasks.values { task.cancel() }
         persistTasks = [:]
+        workoutCache = nil
+        workoutInFlightFetch?.cancel()
+        workoutInFlightFetch = nil
         resetTelemetry()
         logger.info("cache invalidated all")
     }
@@ -241,6 +266,74 @@ public actor HealthDataCache {
 
     public func cachedTypes() -> Set<HealthSampleType> {
         Set(cache.keys)
+    }
+
+    public func workoutTelemetry() -> CacheTelemetry {
+        CacheTelemetry(
+            hits: workoutHitCount,
+            misses: workoutMissCount,
+            refreshes: workoutRefreshCount
+        )
+    }
+
+    public func hasWorkoutCache() -> Bool {
+        workoutCache != nil
+    }
+
+    // MARK: - Workout Query
+
+    public func workoutData(
+        in dateRange: DateInterval? = nil
+    ) async throws -> [HealthWorkoutRecord] {
+        guard let workoutProvider else {
+            return []
+        }
+
+        if let entry = workoutCache, Self.coversRange(entry.coveredRange, requested: dateRange) {
+            workoutHitCount += 1
+            logger.info(
+                "healthkit_workout_cache_hit total=\(self.workoutHitCount)"
+            )
+            return Self.filteredWorkouts(entry.workouts, by: dateRange)
+        }
+
+        workoutMissCount += 1
+        logger.info(
+            "healthkit_workout_cache_miss total=\(self.workoutMissCount)"
+        )
+
+        let workouts = try await fetchWorkoutCoalesced(dateRange: dateRange, provider: workoutProvider)
+        return Self.filteredWorkouts(workouts, by: dateRange)
+    }
+
+    // MARK: - Workout Refresh
+
+    public func refreshWorkouts(
+        in dateRange: DateInterval? = nil
+    ) async throws -> [HealthWorkoutRecord] {
+        guard let workoutProvider else {
+            return []
+        }
+
+        workoutInFlightFetch?.cancel()
+        workoutInFlightFetch = nil
+
+        workoutRefreshCount += 1
+        logger.info(
+            "healthkit_workout_cache_refresh total=\(self.workoutRefreshCount)"
+        )
+
+        let workouts = try await performWorkoutFetch(dateRange: dateRange, provider: workoutProvider)
+        return Self.filteredWorkouts(workouts, by: dateRange)
+    }
+
+    // MARK: - Workout Invalidation
+
+    public func invalidateWorkouts() {
+        workoutCache = nil
+        workoutInFlightFetch?.cancel()
+        workoutInFlightFetch = nil
+        logger.info("workout cache invalidated")
     }
 
     // MARK: - Private — Fetch
@@ -412,6 +505,9 @@ public actor HealthDataCache {
         hitCounts = [:]
         missCounts = [:]
         refreshCounts = [:]
+        workoutHitCount = 0
+        workoutMissCount = 0
+        workoutRefreshCount = 0
     }
 
     private static func filtered(
@@ -438,5 +534,69 @@ public actor HealthDataCache {
 
     private static func isStale(_ fetchedAt: Date, ttl: TimeInterval) -> Bool {
         Date().timeIntervalSince(fetchedAt) > ttl
+    }
+
+    // MARK: - Private Workout Helpers
+
+    private func fetchWorkoutCoalesced(
+        dateRange: DateInterval?,
+        provider: any WorkoutDataProviding
+    ) async throws -> [HealthWorkoutRecord] {
+        if let existingTask = workoutInFlightFetch {
+            return try await existingTask.value
+        }
+        return try await performWorkoutFetch(dateRange: dateRange, provider: provider)
+    }
+
+    private func performWorkoutFetch(
+        dateRange: DateInterval?,
+        provider: any WorkoutDataProviding
+    ) async throws -> [HealthWorkoutRecord] {
+        let signpostID = signposter.makeSignpostID()
+        let state = signposter.beginInterval("healthkit_workout_fetch", id: signpostID)
+        let start = ContinuousClock.now
+        let fetchGeneration = generation
+
+        let task = Task {
+            try await provider.fetchWorkouts(dateRange: dateRange).workouts
+        }
+        workoutInFlightFetch = task
+
+        do {
+            let workouts = try await task.value
+            workoutInFlightFetch = nil
+
+            if generation == fetchGeneration {
+                workoutCache = WorkoutCacheEntry(workouts: workouts, coveredRange: dateRange)
+            }
+
+            signposter.endInterval("healthkit_workout_fetch", state)
+            logWorkoutFetchDuration(count: workouts.count, start: start)
+            return workouts
+        } catch {
+            workoutInFlightFetch = nil
+            signposter.endInterval("healthkit_workout_fetch", state)
+            throw error
+        }
+    }
+
+    private func logWorkoutFetchDuration(
+        count: Int,
+        start: ContinuousClock.Instant
+    ) {
+        let elapsed = ContinuousClock.now - start
+        let ms = elapsed.components.seconds * 1000
+            + elapsed.components.attoseconds / 1_000_000_000_000_000
+        logger.info(
+            "healthkit_workout_fetch_duration_ms ms=\(ms) count=\(count)"
+        )
+    }
+
+    private static func filteredWorkouts(
+        _ workouts: [HealthWorkoutRecord],
+        by dateRange: DateInterval?
+    ) -> [HealthWorkoutRecord] {
+        guard let dateRange else { return workouts }
+        return workouts.filter { dateRange.contains($0.startDate) }
     }
 }

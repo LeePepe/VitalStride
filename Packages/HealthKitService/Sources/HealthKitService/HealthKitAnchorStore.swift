@@ -40,9 +40,37 @@ public final class HealthKitAnchorStore: @unchecked Sendable {
         for sampleType in HealthSampleType.allCases {
             removeAnchor(for: sampleType, deviceIdentifier: deviceIdentifier)
         }
+        removeWorkoutAnchor(for: deviceIdentifier)
     }
+
+    // MARK: - Workout Anchors
+
+    private static let workoutAnchorKey = "workout"
+
+    public func workoutAnchor(for deviceIdentifier: String) -> AnchorRecord? {
+        let key = workoutStorageKey(deviceIdentifier: deviceIdentifier)
+        guard let data = defaults.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(AnchorRecord.self, from: data)
+    }
+
+    public func setWorkoutAnchor(_ record: AnchorRecord, for deviceIdentifier: String) {
+        let key = workoutStorageKey(deviceIdentifier: deviceIdentifier)
+        guard let data = try? JSONEncoder().encode(record) else { return }
+        defaults.set(data, forKey: key)
+    }
+
+    public func removeWorkoutAnchor(for deviceIdentifier: String) {
+        let key = workoutStorageKey(deviceIdentifier: deviceIdentifier)
+        defaults.removeObject(forKey: key)
+    }
+
+    // MARK: - Private
 
     private func storageKey(sampleType: HealthSampleType, deviceIdentifier: String) -> String {
         "\(keyPrefix)_\(sampleType.rawValue)_\(deviceIdentifier)"
+    }
+
+    private func workoutStorageKey(deviceIdentifier: String) -> String {
+        "\(keyPrefix)_\(Self.workoutAnchorKey)_\(deviceIdentifier)"
     }
 }

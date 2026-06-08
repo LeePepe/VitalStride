@@ -33,6 +33,8 @@ struct DataView: View {
                     heartSection
                     bodySection
                     sleepSection
+                    nutritionSection
+                    workoutSection
                 }
             }
             .navigationTitle(String(localized: "数据", comment: "Data tab title"))
@@ -129,6 +131,36 @@ struct DataView: View {
             } label: {
                 Label(String(localized: "活动能量", comment: "Active energy"), systemImage: "flame.fill")
             }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .basalEnergyBurned)
+            } label: {
+                Label(String(localized: "基础代谢能量", comment: "Basal energy"), systemImage: "flame")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .distanceWalkingRunning)
+            } label: {
+                Label(String(localized: "步行+跑步距离", comment: "Walking running distance"), systemImage: "figure.walk.motion")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .distanceCycling)
+            } label: {
+                Label(String(localized: "骑行距离", comment: "Cycling distance"), systemImage: "bicycle")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .appleExerciseTime)
+            } label: {
+                Label(String(localized: "锻炼时间", comment: "Exercise time"), systemImage: "figure.run")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .appleStandTime)
+            } label: {
+                Label(String(localized: "站立时间", comment: "Stand time"), systemImage: "figure.stand")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .flightsClimbed)
+            } label: {
+                Label(String(localized: "已爬楼层", comment: "Flights climbed"), systemImage: "figure.stairs")
+            }
         } header: {
             Text("活动", comment: "Activity section header")
         }
@@ -141,6 +173,21 @@ struct DataView: View {
             } label: {
                 Label(String(localized: "心率", comment: "Heart rate"), systemImage: "heart.fill")
             }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .restingHeartRate)
+            } label: {
+                Label(String(localized: "静息心率", comment: "Resting heart rate"), systemImage: "heart")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .heartRateVariabilitySDNN)
+            } label: {
+                Label(String(localized: "心率变异性", comment: "Heart rate variability"), systemImage: "waveform.path.ecg")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .vo2Max)
+            } label: {
+                Label(String(localized: "最大摄氧量", comment: "VO2 Max"), systemImage: "lungs.fill")
+            }
         } header: {
             Text("心脏", comment: "Heart section header")
         }
@@ -152,6 +199,26 @@ struct DataView: View {
                 BodyWeightDetailView()
             } label: {
                 Label(String(localized: "体重", comment: "Body weight"), systemImage: "scalemass.fill")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .bodyFatPercentage)
+            } label: {
+                Label(String(localized: "体脂率", comment: "Body fat percentage"), systemImage: "percent")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .leanBodyMass)
+            } label: {
+                Label(String(localized: "去脂体重", comment: "Lean body mass"), systemImage: "scalemass")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .height)
+            } label: {
+                Label(String(localized: "身高", comment: "Height"), systemImage: "ruler")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .bodyMassIndex)
+            } label: {
+                Label(String(localized: "BMI", comment: "Body mass index"), systemImage: "number")
             }
         } header: {
             Text("身体测量", comment: "Body measurements section header")
@@ -167,6 +234,50 @@ struct DataView: View {
             }
         } header: {
             Text("睡眠", comment: "Sleep section header")
+        }
+    }
+
+    private var nutritionSection: some View {
+        Section {
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .dietaryEnergyConsumed)
+            } label: {
+                Label(String(localized: "膳食能量摄入", comment: "Dietary energy"), systemImage: "fork.knife")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .dietaryProtein)
+            } label: {
+                Label(String(localized: "蛋白质", comment: "Protein"), systemImage: "fish.fill")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .dietaryCarbohydrates)
+            } label: {
+                Label(String(localized: "碳水化合物", comment: "Carbohydrates"), systemImage: "leaf.fill")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .dietaryFatTotal)
+            } label: {
+                Label(String(localized: "脂肪", comment: "Fat"), systemImage: "drop.fill")
+            }
+            NavigationLink {
+                GenericHealthDetailView(sampleType: .dietaryWater)
+            } label: {
+                Label(String(localized: "饮水量", comment: "Water"), systemImage: "drop.dewy.fill")
+            }
+        } header: {
+            Text("营养", comment: "Nutrition section header")
+        }
+    }
+
+    private var workoutSection: some View {
+        Section {
+            NavigationLink {
+                WorkoutHistoryView()
+            } label: {
+                Label(String(localized: "运动记录", comment: "Workout history"), systemImage: "figure.run.circle")
+            }
+        } header: {
+            Text("运动", comment: "Workout section header")
         }
     }
 }

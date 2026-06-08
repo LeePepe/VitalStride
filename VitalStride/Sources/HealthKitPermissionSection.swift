@@ -16,20 +16,35 @@ struct HealthKitPermissionSection: View {
         ("训练记录", "figure.run"),
         ("活动能量", "flame.fill"),
         ("体重", "scalemass.fill"),
+        ("基础代谢", "flame"),
+        ("步行+跑步距离", "figure.walk.motion"),
+        ("骑行距离", "bicycle"),
+        ("锻炼时间", "timer"),
+        ("站立时间", "figure.stand"),
+        ("已爬楼层", "figure.stairs"),
+        ("体脂率", "percent"),
+        ("去脂体重", "figure.arms.open"),
+        ("身高", "ruler"),
+        ("BMI", "number"),
+        ("静息心率", "heart"),
+        ("心率变异性", "waveform.path.ecg"),
+        ("最大摄氧量", "lungs.fill"),
+        ("膳食能量", "fork.knife"),
+        ("蛋白质", "takeoutbag.and.cup.and.straw.fill"),
+        ("碳水化合物", "leaf.fill"),
+        ("脂肪", "drop.fill"),
+        ("饮水量", "cup.and.saucer.fill"),
     ]
 
     private static let shareTypes: Set<HKSampleType> = [
         HKObjectType.workoutType(),
     ]
 
-    private static let readTypes: Set<HKObjectType> = [
-        HKObjectType.workoutType(),
-        HKObjectType.quantityType(forIdentifier: .heartRate)!,
-        HKObjectType.quantityType(forIdentifier: .stepCount)!,
-        HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
-        HKObjectType.quantityType(forIdentifier: .bodyMass)!,
-        HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!,
-    ]
+    private static var readTypes: Set<HKObjectType> {
+        var types = HealthKitService.readTypes
+        types.insert(HKObjectType.workoutType())
+        return types
+    }
 
     var body: some View {
         Section("HealthKit 权限") {
