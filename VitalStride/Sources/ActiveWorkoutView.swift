@@ -83,8 +83,10 @@ struct ActiveWorkoutView: View {
                     restEndDate = nil
                     return
                 }
-                try? await Task.sleep(for: .seconds(remaining))
-                restEndDate = nil
+                do {
+                    try await Task.sleep(for: .seconds(remaining))
+                    restEndDate = nil
+                } catch {}
             }
             #if !os(macOS)
             .task { await observeHeartRate() }
