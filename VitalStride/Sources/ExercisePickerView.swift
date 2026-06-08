@@ -4,6 +4,7 @@ import VitalModels
 
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
     @State private var searchText = ""
     @State private var selectedMuscleGroup: MuscleGroup?
@@ -44,6 +45,11 @@ struct ExercisePickerView: View {
                         systemImage: "tray",
                         description: Text("请先导入预置动作库")
                     )
+                } else if horizontalSizeClass == .compact {
+                    VStack(spacing: 0) {
+                        muscleGroupChipBar
+                        exerciseCardGrid
+                    }
                 } else {
                     HStack(spacing: 0) {
                         muscleGroupSidebar
@@ -64,7 +70,47 @@ struct ExercisePickerView: View {
         }
     }
 
-    // MARK: - Muscle Group Sidebar
+    // MARK: - Muscle Group Chip Bar (Compact)
+
+    private var muscleGroupChipBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                filterChip(label: "全部", isSelected: selectedMuscleGroup == nil) {
+                    selectedMuscleGroup = nil
+                }
+                ForEach(MuscleGroup.allCases, id: \.self) { group in
+                    filterChip(
+                        label: group.localizedName,
+                        isSelected: selectedMuscleGroup == group
+                    ) {
+                        selectedMuscleGroup = group
+                    }
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+        .background(.bar)
+    }
+
+    private func filterChip(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .foregroundStyle(isSelected ? .white : .primary)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Color.accentColor : Color(.systemGray5))
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    // MARK: - Muscle Group Sidebar (Regular)
 
     private var muscleGroupSidebar: some View {
         ScrollView {
