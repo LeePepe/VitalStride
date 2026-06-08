@@ -202,7 +202,10 @@ struct WorkoutHistoryView: View {
         errorMessage = nil
 
         do {
-            let records = try await cache.workoutData()
+            let now = Date()
+            let ninetyDaysAgo = Calendar.current.date(byAdding: .day, value: -90, to: now) ?? now
+            let dateRange = DateInterval(start: ninetyDaysAgo, end: now)
+            let records = try await cache.workoutData(in: dateRange)
             guard !Task.isCancelled else { return }
             workouts = records.sorted { $0.startDate > $1.startDate }
         } catch {
