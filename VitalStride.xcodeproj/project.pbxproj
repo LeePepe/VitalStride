@@ -51,6 +51,7 @@
 		614503EFA888692CA1F1088D /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524E9CAE68FFB5B851E45752 /* ModelTests.swift */; };
 		63DFF2390FBFBA4AC154CEF0 /* DataImportExportSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC0E70D705A66E61C98F69 /* DataImportExportSection.swift */; };
 		63E739A5D206085086CE682A /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = 57B895D91910D9E2DC71130D /* exercises.json */; };
+		6461C38F32CD62EC3499A7AE /* RestTimerCancellationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1AE320ABD22A1684FB38CC /* RestTimerCancellationTests.swift */; };
 		6AD206F6A5BBC4ACE2321C01 /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = 57B895D91910D9E2DC71130D /* exercises.json */; };
 		6B32956CE290B4075C770E74 /* WorkoutHeartRateStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BBAC7DE5F687BA6EA90C5B7 /* WorkoutHeartRateStats.swift */; };
 		6DC642F94DA823F4D74F469E /* ActiveEnergySectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584CFBB57DF2FA059790F81B /* ActiveEnergySectionTests.swift */; };
@@ -81,6 +82,7 @@
 		95BD2BAB0A95991802CF4662 /* OverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7130E924ED6698DC80DA5B73 /* OverviewView.swift */; };
 		99CB7CC1AA03F3D18942C7C7 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDA307CA9D61759C0A1A4E6 /* WatchContentView.swift */; };
 		9B807F0DF9DE7F063646EF26 /* VitalModels in Frameworks */ = {isa = PBXBuildFile; productRef = 976C928F3ADA4DABCB394293 /* VitalModels */; };
+		9BA289BBA3C8950901D203F7 /* RestTimerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3680A9FD223DA4BC25B34824 /* RestTimerController.swift */; };
 		9C33F574F875DF0EBF073483 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C59FE92FB9187A2F490E733E /* Assets.xcassets */; };
 		9D012B43BDF88A4635A1C13F /* DataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E4C9428C75CCA9843D6864F /* DataView.swift */; };
 		A3436DAEA2A872163B0538EB /* VitalModels in Frameworks */ = {isa = PBXBuildFile; productRef = C44380B390C4B9743AAB1053 /* VitalModels */; };
@@ -146,6 +148,7 @@
 		28F9B1C238C968D436D8F621 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3274184F69678B14ACB647F8 /* WorkoutAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutAggregator.swift; sourceTree = "<group>"; };
 		33CC0E70D705A66E61C98F69 /* DataImportExportSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataImportExportSection.swift; sourceTree = "<group>"; };
+		3680A9FD223DA4BC25B34824 /* RestTimerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerController.swift; sourceTree = "<group>"; };
 		37A2DA5D0FBEDC56FC2670D9 /* OverviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewTests.swift; sourceTree = "<group>"; };
 		3A7664EB59C867B7F8FDAD25 /* DataViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataViewTests.swift; sourceTree = "<group>"; };
 		3FFE6FD111BCCB764102CEF5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -175,6 +178,7 @@
 		815CE0258AB09DB05826E41B /* WorkoutCopier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCopier.swift; sourceTree = "<group>"; };
 		8704C3C5463AB8227E880288 /* BodyWeightSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyWeightSection.swift; sourceTree = "<group>"; };
 		8CC41CBBB0306141FF6935C5 /* ExerciseSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSeeder.swift; sourceTree = "<group>"; };
+		8E1AE320ABD22A1684FB38CC /* RestTimerCancellationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerCancellationTests.swift; sourceTree = "<group>"; };
 		92A787CF4DB49927AFBC5DDF /* ModelContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelContainerTests.swift; sourceTree = "<group>"; };
 		942F2D9113C5463CAF00AB87 /* SleepSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSection.swift; sourceTree = "<group>"; };
 		96A87540682A2A03C936E592 /* HealthKitService */ = {isa = PBXFileReference; lastKnownFileType = folder; name = HealthKitService; path = Packages/HealthKitService; sourceTree = SOURCE_ROOT; };
@@ -290,6 +294,7 @@
 				706D58B32CA1CBAF41E8BA85 /* OverviewHealthSnapshotTests.swift */,
 				37A2DA5D0FBEDC56FC2670D9 /* OverviewTests.swift */,
 				01517EF3D1E025ABF280B721 /* RelationshipTests.swift */,
+				8E1AE320ABD22A1684FB38CC /* RestTimerCancellationTests.swift */,
 				0A4427407B3663FA11877FE1 /* SettingsViewTests.swift */,
 				4A5BC15730DE3D0DBEC8FF7E /* SleepSectionTests.swift */,
 				65BD2FB8C57EBDB10A5B369E /* StepsSectionTests.swift */,
@@ -376,6 +381,7 @@
 				7130E924ED6698DC80DA5B73 /* OverviewView.swift */,
 				7C5500BA2B8CED72FFB4F0E4 /* PlaceholderViews.swift */,
 				9B925AAAA9288232825D9FC9 /* RecentWorkoutsSection.swift */,
+				3680A9FD223DA4BC25B34824 /* RestTimerController.swift */,
 				9F3929A3233515A8A71A3C14 /* SettingsView.swift */,
 				EE096029B6F02694FFF32984 /* StartWorkoutView.swift */,
 				D19AC4D8E93A529FDA6AA3F7 /* UnitPreferencesSection.swift */,
@@ -688,6 +694,7 @@
 				95BD2BAB0A95991802CF4662 /* OverviewView.swift in Sources */,
 				D4B0786E1D9CFAB9F4A1FE34 /* PlaceholderViews.swift in Sources */,
 				DFEA6C39AAC73FEF0A65F594 /* RecentWorkoutsSection.swift in Sources */,
+				9BA289BBA3C8950901D203F7 /* RestTimerController.swift in Sources */,
 				85E6ACC9CD22CBBE44CE7ECE /* SettingsView.swift in Sources */,
 				442475BB31F32A9D024EA28F /* SleepSection.swift in Sources */,
 				AD9D71EA3A1F8AE0A2C68C15 /* StartWorkoutView.swift in Sources */,
@@ -727,6 +734,7 @@
 				768F122C11B9EE4833DED479 /* OverviewHealthSnapshotTests.swift in Sources */,
 				1E06F16DD57D8E064BC3B60C /* OverviewTests.swift in Sources */,
 				28DF13D76D0CFED226684AF1 /* RelationshipTests.swift in Sources */,
+				6461C38F32CD62EC3499A7AE /* RestTimerCancellationTests.swift in Sources */,
 				0606B368999C1F3928A77908 /* SettingsViewTests.swift in Sources */,
 				129EBA4FD6F749E5CCE90FD3 /* SleepSectionTests.swift in Sources */,
 				7E9A1E8DD82A8B8644AFEA02 /* StepsSectionTests.swift in Sources */,
