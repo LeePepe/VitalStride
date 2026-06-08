@@ -470,6 +470,7 @@
 			isa = PBXGroup;
 			children = (
 				57B895D91910D9E2DC71130D /* exercises.json */,
+				224D8E4161C7961EC3D7E22A /* Localizable.xcstrings */,
 				18AA3D0CBD054FC6EB8E6E36 /* InfoPlist.strings */,
 				224D8E4161C7961EC3D7E22A /* Localizable.xcstrings */,
 			);
@@ -646,6 +647,7 @@
 				7072A3941A8351E4BD9A6EDF /* InfoPlist.strings in Resources */,
 				89FC3DFE4650717335B13038 /* Localizable.xcstrings in Resources */,
 				BF00D52AEECCBAE0B0751F36 /* InfoPlist.strings in Resources */,
+				89FC3DFE4650717335B13038 /* Localizable.xcstrings in Resources */,
 				63E739A5D206085086CE682A /* exercises.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
