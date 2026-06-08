@@ -27,7 +27,7 @@ struct VitalStrideMacApp: App {
 
             Task {
                 ExerciseSeeder.seedIfNeeded(context: modelContainer.mainContext)
-                await healthDataCache.hydrate()
+                await healthDataCache.hydrate(types: HealthSampleType.overviewTypes)
             }
         } catch {
             container = nil

@@ -53,6 +53,7 @@ public actor HealthDataCache {
     private var cache: [HealthSampleType: CacheEntry] = [:]
     private var inFlightFetches: [FetchKey: Task<[HealthDataPoint], any Error>] = [:]
     private var backgroundRefreshTasks: [HealthSampleType: Task<Void, Never>] = [:]
+    private var persistTasks: [HealthSampleType: Task<Void, Never>] = [:]
     private let dataProvider: any HealthDataProviding
     private let persistence: (any HealthCachePersisting)?
     private let cacheTTL: TimeInterval
@@ -197,6 +198,8 @@ public actor HealthDataCache {
         inFlightFetches = [:]
         for task in backgroundRefreshTasks.values { task.cancel() }
         backgroundRefreshTasks = [:]
+        for task in persistTasks.values { task.cancel() }
+        persistTasks = [:]
         resetTelemetry()
         logger.info("cache invalidated all")
     }
@@ -310,14 +313,19 @@ public actor HealthDataCache {
             coveredRangeEnd: dateRange?.end
         )
 
-        Task {
+        let task = Task {
+            defer { persistTasks[sampleType] = nil }
             guard self.generation == fetchGeneration else { return }
             do {
                 try await persistence.upsert(entry)
+                if self.generation != fetchGeneration {
+                    try? await persistence.deleteAll()
+                }
             } catch {
                 logger.info("persistence write failed type=\(sampleType.rawValue)")
             }
         }
+        persistTasks[sampleType] = task
     }
 
     private func decodePersisted(

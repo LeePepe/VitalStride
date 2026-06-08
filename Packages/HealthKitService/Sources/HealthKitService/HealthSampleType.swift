@@ -6,4 +6,8 @@ public enum HealthSampleType: String, Codable, CaseIterable, Sendable {
     case bodyMass
     case sleepAnalysis
     case activeEnergyBurned
+
+    public static let overviewTypes: Set<HealthSampleType> = [
+        .stepCount, .heartRate, .sleepAnalysis, .bodyMass
+    ]
 }

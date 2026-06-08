@@ -167,6 +167,10 @@ public final class HealthKitService: Sendable {
         self.signposter = OSSignposter(subsystem: "com.vitalstride", category: "HealthKitService")
     }
 
+    public func clearAllAnchors() {
+        anchorStore.removeAllAnchors(for: deviceIdentifier)
+    }
+
     public func requestAuthorization() async throws {
         guard type(of: healthStore).isHealthDataAvailable else {
             throw HealthKitServiceError.healthDataNotAvailable

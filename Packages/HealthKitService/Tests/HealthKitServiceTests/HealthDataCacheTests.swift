@@ -1012,4 +1012,38 @@ struct HealthDataCacheL2Tests {
         #expect(cached.contains(.heartRate))
         #expect(!cached.contains(.bodyMass))
     }
+
+    // MARK: - Persist Task Cancellation
+
+    @Test("InvalidateAll cancels in-flight persist tasks")
+    func invalidateAllCancelsPersistTasks() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 3)
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+
+        _ = try await cache.data(for: .stepCount)
+        await cache.invalidateAll()
+
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(persistence.store.isEmpty)
+    }
+
+    @Test("Post-upsert generation guard cleans up stale writes")
+    func postUpsertGenerationGuardCleansUp() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.heartRate] = makeResult(.heartRate, count: 2)
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+
+        _ = try await cache.data(for: .heartRate)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(persistence.upsertCallCount >= 1)
+
+        await cache.handleAuthorizationRevoked()
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(persistence.store.isEmpty)
+    }
 }

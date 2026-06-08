@@ -75,11 +75,13 @@ struct DataView: View {
             let revoked = (status == .shouldRequest)
             if revoked, !needsAuthorization {
                 await healthDataCache.handleAuthorizationRevoked()
+                healthKitService.clearAllAnchors()
             }
             needsAuthorization = revoked
         } catch {
             if !needsAuthorization {
                 await healthDataCache.handleAuthorizationRevoked()
+                healthKitService.clearAllAnchors()
             }
             needsAuthorization = true
         }
