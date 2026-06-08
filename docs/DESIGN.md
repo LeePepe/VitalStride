@@ -39,11 +39,14 @@
 │  │Service     │ │Service   │ │Service        │  │
 │  └─────┬──────┘ └────┬─────┘ └───────┬───────┘  │
 ├────────┼─────────────┼───────────────┼──────────┤
-│              Cache Layer (内存)                   │
-│  ┌──────────────────┐                            │
-│  │HealthDataCache   │  Swift actor, 按            │
-│  │(in-memory only)  │  HealthSampleType 分桶      │
-│  └────────┬─────────┘                            │
+│         Cache Layer (L1 内存 + L2 SwiftData)      │
+│  ┌──────────────────┐  ┌──────────────────────┐  │
+│  │HealthDataCache   │  │HealthCacheEntry      │  │
+│  │(L1 in-memory)    │  │(L2 SwiftData,        │  │
+│  │Swift actor, 按    │  │ cloudKitDB: .none)   │  │
+│  │HealthSampleType  │  │本地持久化, TTL 1h     │  │
+│  │分桶              │  │                      │  │
+│  └────────┬─────────┘  └──────────┬───────────┘  │
 ├───────────┼──────────────────────────────────────┤
 │                 Data Layer                       │
 │  ┌──────────┐  ┌───────────┐  ┌──────────────┐  │

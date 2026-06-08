@@ -264,10 +264,6 @@ public actor HealthDataCache {
         )
     }
 
-    public func cachedTypes() -> Set<HealthSampleType> {
-        Set(cache.keys)
-    }
-
     public func workoutTelemetry() -> CacheTelemetry {
         CacheTelemetry(
             hits: workoutHitCount,
@@ -275,6 +271,11 @@ public actor HealthDataCache {
             refreshes: workoutRefreshCount
         )
     }
+
+    public func cachedTypes() -> Set<HealthSampleType> {
+        Set(cache.keys)
+    }
+
 
     public func hasWorkoutCache() -> Bool {
         workoutCache != nil
@@ -535,6 +536,7 @@ public actor HealthDataCache {
     private static func isStale(_ fetchedAt: Date, ttl: TimeInterval) -> Bool {
         Date().timeIntervalSince(fetchedAt) > ttl
     }
+
 
     // MARK: - Private Workout Helpers
 
