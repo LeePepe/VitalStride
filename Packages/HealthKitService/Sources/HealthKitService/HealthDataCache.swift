@@ -258,7 +258,8 @@ public actor HealthDataCache {
 
     private func performFetch(
         sampleType: HealthSampleType,
-        dateRange: DateInterval?
+        dateRange: DateInterval?,
+        mergeWithExisting: Bool = false
     ) async throws -> [HealthDataPoint] {
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("healthkit_fetch", id: signpostID)
@@ -275,18 +276,33 @@ public actor HealthDataCache {
             let points = try await task.value
             inFlightFetches[key] = nil
 
+            var resultPoints = points
             if generation == fetchGeneration {
+                let finalPoints: [HealthDataPoint]
+                if mergeWithExisting, dateRange == nil, let existing = cache[sampleType] {
+                    var pointsByID = Dictionary(
+                        existing.dataPoints.map { ($0.id, $0) },
+                        uniquingKeysWith: { _, new in new }
+                    )
+                    for point in points {
+                        pointsByID[point.id] = point
+                    }
+                    finalPoints = Array(pointsByID.values).sorted { $0.startDate < $1.startDate }
+                } else {
+                    finalPoints = points
+                }
                 cache[sampleType] = CacheEntry(
-                    dataPoints: points,
+                    dataPoints: finalPoints,
                     coveredRange: dateRange,
                     fetchedAt: Date()
                 )
-                persistInBackground(sampleType: sampleType, dataPoints: points, dateRange: dateRange, fetchGeneration: fetchGeneration)
+                persistInBackground(sampleType: sampleType, dataPoints: finalPoints, dateRange: dateRange, fetchGeneration: fetchGeneration)
+                resultPoints = finalPoints
             }
 
             signposter.endInterval("healthkit_fetch", state)
-            logFetchDuration(sampleType: sampleType, count: points.count, start: start)
-            return points
+            logFetchDuration(sampleType: sampleType, count: resultPoints.count, start: start)
+            return resultPoints
         } catch {
             inFlightFetches[key] = nil
             signposter.endInterval("healthkit_fetch", state)
@@ -359,7 +375,7 @@ public actor HealthDataCache {
             defer { backgroundRefreshTasks[sampleType] = nil }
             guard self.generation == refreshGeneration else { return }
             do {
-                _ = try await performFetch(sampleType: sampleType, dateRange: dateRange)
+                _ = try await performFetch(sampleType: sampleType, dateRange: dateRange, mergeWithExisting: true)
                 refreshCounts[sampleType, default: 0] += 1
                 logger.info("background refresh completed type=\(sampleType.rawValue)")
             } catch {

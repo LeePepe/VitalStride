@@ -829,7 +829,7 @@ struct HealthDataCacheL2Tests {
         #expect(mock.fetchCallCount[.stepCount] == 2)
 
         let freshResult = try await cache.data(for: .stepCount)
-        #expect(freshResult.count == 5)
+        #expect(freshResult.count == 7)
     }
 
     @Test("Stale L2 hit returns data and triggers background refresh")
@@ -854,7 +854,7 @@ struct HealthDataCacheL2Tests {
         #expect(mock.fetchCallCount[.heartRate, default: 0] == 1)
 
         let freshResult = try await cache.data(for: .heartRate)
-        #expect(freshResult.count == 5)
+        #expect(freshResult.count == 6)
     }
 
     // MARK: - Authorization Revoked + Persistence
@@ -1045,5 +1045,65 @@ struct HealthDataCacheL2Tests {
         try await Task.sleep(for: .milliseconds(50))
 
         #expect(persistence.store.isEmpty)
+    }
+
+    // MARK: - Nil-dateRange Merge
+
+    @Test("Background refresh with nil dateRange merges incremental data with existing cache")
+    func backgroundRefreshMergesWithExisting() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let mock = MockHealthDataProvider()
+
+        let originalPoints = (0..<5).map { i in
+            makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(Double(i) * 60), value: Double(i))
+        }
+        mock.fetchResults[.stepCount] = HealthFetchResult(
+            dataPoints: originalPoints, deletedObjectIDs: []
+        )
+        let cache = HealthDataCache(dataProvider: mock, cacheTTL: 0)
+
+        _ = try await cache.data(for: .stepCount)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+
+        let incrementalPoint = makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(600), value: 99)
+        mock.fetchResults[.stepCount] = HealthFetchResult(
+            dataPoints: [incrementalPoint], deletedObjectIDs: []
+        )
+
+        _ = try await cache.data(for: .stepCount)
+
+        try await Task.sleep(for: .milliseconds(200))
+
+        let cachedResult = try await cache.data(for: .stepCount)
+        #expect(cachedResult.count == 6)
+        #expect(cachedResult.contains { $0.id == incrementalPoint.id })
+        for original in originalPoints {
+            #expect(cachedResult.contains { $0.id == original.id })
+        }
+    }
+
+    @Test("Explicit refresh with nil dateRange replaces cache entirely")
+    func explicitRefreshReplacesCache() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let mock = MockHealthDataProvider()
+
+        let originalPoints = (0..<5).map { i in
+            makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(Double(i) * 60))
+        }
+        mock.fetchResults[.stepCount] = HealthFetchResult(
+            dataPoints: originalPoints, deletedObjectIDs: []
+        )
+        let cache = HealthDataCache(dataProvider: mock)
+
+        _ = try await cache.data(for: .stepCount)
+
+        let newPoint = makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(600))
+        mock.fetchResults[.stepCount] = HealthFetchResult(
+            dataPoints: [newPoint], deletedObjectIDs: []
+        )
+
+        let result = try await cache.refresh(.stepCount)
+        #expect(result.count == 1)
+        #expect(result.first?.id == newPoint.id)
     }
 }

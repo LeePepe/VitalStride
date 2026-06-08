@@ -1,0 +1,40 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "休息结束" : {
+      "comment" : "Rest completed banner text / a11y label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rest Complete"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "休息结束"
+          }
+        }
+      }
+    },
+    "点击关闭" : {
+      "comment" : "Dismiss rest completed banner a11y hint",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to dismiss"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点击关闭"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

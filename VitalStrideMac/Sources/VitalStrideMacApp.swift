@@ -27,7 +27,13 @@ struct VitalStrideMacApp: App {
 
             Task {
                 ExerciseSeeder.seedIfNeeded(context: modelContainer.mainContext)
-                await healthDataCache.hydrate(types: HealthSampleType.overviewTypes)
+                let status = try? await service.authorizationStatus()
+                if status == .unnecessary {
+                    await healthDataCache.hydrate(types: HealthSampleType.overviewTypes)
+                } else {
+                    await healthDataCache.handleAuthorizationRevoked()
+                    service.clearAllAnchors()
+                }
             }
         } catch {
             container = nil
