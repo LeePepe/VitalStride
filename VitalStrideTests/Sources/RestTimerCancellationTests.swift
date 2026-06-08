@@ -295,14 +295,14 @@ struct RestTimerCancellationTests {
     }
 
     @MainActor
-    @Test("restTotalDuration does not go below zero")
+    @Test("restTotalDuration does not go below zero on large negative adjustment")
     func totalDurationFlooredAtZero() async {
         let controller = RestTimerController(completedDisplayDuration: 0.1)
         controller.startRest(duration: 5)
 
-        controller.adjustRest(by: 10)
+        controller.adjustRest(by: -20)
 
-        #expect(controller.restTotalDuration! >= 0)
+        #expect(controller.restTotalDuration! >= 0, "restTotalDuration must be floored at zero, not negative")
     }
 }
 
