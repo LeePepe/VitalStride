@@ -27,15 +27,8 @@ final class RestTimerController {
 
     func adjustRest(by seconds: TimeInterval) {
         guard phase == .resting, let currentEnd = restEndDate else { return }
-        let newEnd = currentEnd.addingTimeInterval(seconds)
-        if newEnd.timeIntervalSinceNow <= 0 {
-            restEndDate = nil
-            restTotalDuration = nil
-            phase = .idle
-        } else {
-            restEndDate = newEnd
-            restTotalDuration = max(0, (restTotalDuration ?? 0) + seconds)
-        }
+        restEndDate = currentEnd.addingTimeInterval(seconds)
+        restTotalDuration = max(0, (restTotalDuration ?? 0) + seconds)
     }
 
     func skipRest() {

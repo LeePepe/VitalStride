@@ -230,16 +230,41 @@ struct RestTimerCancellationTests {
     }
 
     @MainActor
-    @Test("-10s with remaining ≤10s ends rest")
+    @Test("-10s with remaining ≤10s transitions through completed phase")
     func adjustNegativeEndsRestWhenRemainingLow() async {
         let controller = RestTimerController(completedDisplayDuration: 0.1)
         controller.startRest(duration: 5)
 
         controller.adjustRest(by: -10)
 
-        #expect(controller.restEndDate == nil, "Rest should end when remaining ≤ 0 after -10s")
-        #expect(controller.restTotalDuration == nil, "Total duration should be cleared when rest ends")
-        #expect(controller.phase == .idle, "Phase should be idle after adjust ends rest")
+        #expect(controller.restEndDate != nil, "restEndDate set to past date, not nil — handleTimerTask handles lifecycle")
+        #expect(controller.phase == .resting, "Phase stays resting until handleTimerTask processes it")
+
+        await controller.handleTimerTask()
+
+        #expect(controller.restEndDate == nil, "After full lifecycle, restEndDate should be nil")
+        #expect(controller.restTotalDuration == nil, "After full lifecycle, restTotalDuration should be nil")
+        #expect(controller.phase == .idle, "Phase should be idle after completed display")
+    }
+
+    @MainActor
+    @Test("-10s crossing zero enters completed phase before clearing")
+    func adjustNegativeEntersCompletedPhase() async {
+        let controller = RestTimerController(completedDisplayDuration: 10)
+        controller.startRest(duration: 5)
+
+        controller.adjustRest(by: -10)
+
+        let task = Task { @MainActor in
+            await controller.handleTimerTask()
+        }
+
+        try? await Task.sleep(for: .milliseconds(200))
+
+        #expect(controller.phase == .completed, "Adjustment crossing zero should enter completed phase")
+        #expect(controller.restEndDate != nil, "restEndDate preserved during completed display")
+
+        task.cancel()
     }
 
     @MainActor
