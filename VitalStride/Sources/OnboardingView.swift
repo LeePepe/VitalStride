@@ -17,14 +17,11 @@ struct OnboardingView: View {
         #endif
     }
 
-    static let readTypes: Set<HKObjectType> = [
-        HKObjectType.workoutType(),
-        HKObjectType.quantityType(forIdentifier: .heartRate)!,
-        HKObjectType.quantityType(forIdentifier: .stepCount)!,
-        HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
-        HKObjectType.quantityType(forIdentifier: .bodyMass)!,
-        HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!,
-    ]
+    static var readTypes: Set<HKObjectType> {
+        var types = HealthKitService.readTypes
+        types.insert(HKObjectType.workoutType())
+        return types
+    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {

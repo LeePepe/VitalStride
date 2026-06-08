@@ -153,6 +153,24 @@ public final class HealthKitService: Sendable {
         HKQuantityType(.bodyMass),
         HKQuantityType(.activeEnergyBurned),
         HKCategoryType(.sleepAnalysis),
+        HKQuantityType(.basalEnergyBurned),
+        HKQuantityType(.distanceWalkingRunning),
+        HKQuantityType(.distanceCycling),
+        HKQuantityType(.appleExerciseTime),
+        HKQuantityType(.appleStandTime),
+        HKQuantityType(.flightsClimbed),
+        HKQuantityType(.bodyFatPercentage),
+        HKQuantityType(.leanBodyMass),
+        HKQuantityType(.height),
+        HKQuantityType(.bodyMassIndex),
+        HKQuantityType(.restingHeartRate),
+        HKQuantityType(.heartRateVariabilitySDNN),
+        HKQuantityType(.vo2Max),
+        HKQuantityType(.dietaryEnergyConsumed),
+        HKQuantityType(.dietaryProtein),
+        HKQuantityType(.dietaryCarbohydrates),
+        HKQuantityType(.dietaryFatTotal),
+        HKQuantityType(.dietaryWater),
     ]
 
     public init(
@@ -367,7 +385,13 @@ public final class HealthKitService: Sendable {
         switch sampleType {
         case .sleepAnalysis:
             return convertSleepSample(sample)
-        case .heartRate, .stepCount, .bodyMass, .activeEnergyBurned:
+        case .heartRate, .stepCount, .bodyMass, .activeEnergyBurned,
+             .basalEnergyBurned, .distanceWalkingRunning, .distanceCycling,
+             .appleExerciseTime, .appleStandTime, .flightsClimbed,
+             .bodyFatPercentage, .leanBodyMass, .height, .bodyMassIndex,
+             .restingHeartRate, .heartRateVariabilitySDNN, .vo2Max,
+             .dietaryEnergyConsumed, .dietaryProtein, .dietaryCarbohydrates,
+             .dietaryFatTotal, .dietaryWater:
             return convertQuantitySample(sample, sampleType: sampleType)
         }
     }
@@ -438,6 +462,24 @@ extension HealthSampleType {
         case .bodyMass: HKQuantityType(.bodyMass)
         case .activeEnergyBurned: HKQuantityType(.activeEnergyBurned)
         case .sleepAnalysis: HKCategoryType(.sleepAnalysis)
+        case .basalEnergyBurned: HKQuantityType(.basalEnergyBurned)
+        case .distanceWalkingRunning: HKQuantityType(.distanceWalkingRunning)
+        case .distanceCycling: HKQuantityType(.distanceCycling)
+        case .appleExerciseTime: HKQuantityType(.appleExerciseTime)
+        case .appleStandTime: HKQuantityType(.appleStandTime)
+        case .flightsClimbed: HKQuantityType(.flightsClimbed)
+        case .bodyFatPercentage: HKQuantityType(.bodyFatPercentage)
+        case .leanBodyMass: HKQuantityType(.leanBodyMass)
+        case .height: HKQuantityType(.height)
+        case .bodyMassIndex: HKQuantityType(.bodyMassIndex)
+        case .restingHeartRate: HKQuantityType(.restingHeartRate)
+        case .heartRateVariabilitySDNN: HKQuantityType(.heartRateVariabilitySDNN)
+        case .vo2Max: HKQuantityType(.vo2Max)
+        case .dietaryEnergyConsumed: HKQuantityType(.dietaryEnergyConsumed)
+        case .dietaryProtein: HKQuantityType(.dietaryProtein)
+        case .dietaryCarbohydrates: HKQuantityType(.dietaryCarbohydrates)
+        case .dietaryFatTotal: HKQuantityType(.dietaryFatTotal)
+        case .dietaryWater: HKQuantityType(.dietaryWater)
         }
     }
 
@@ -448,6 +490,24 @@ extension HealthSampleType {
         case .bodyMass: .gramUnit(with: .kilo)
         case .activeEnergyBurned: .kilocalorie()
         case .sleepAnalysis: .count()
+        case .basalEnergyBurned: .kilocalorie()
+        case .distanceWalkingRunning: .meter()
+        case .distanceCycling: .meter()
+        case .appleExerciseTime: .minute()
+        case .appleStandTime: .minute()
+        case .flightsClimbed: .count()
+        case .bodyFatPercentage: .percent()
+        case .leanBodyMass: .gramUnit(with: .kilo)
+        case .height: .meter()
+        case .bodyMassIndex: .count()
+        case .restingHeartRate: HKUnit.count().unitDivided(by: .minute())
+        case .heartRateVariabilitySDNN: .secondUnit(with: .milli)
+        case .vo2Max: HKUnit.literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .minute()))
+        case .dietaryEnergyConsumed: .kilocalorie()
+        case .dietaryProtein: .gram()
+        case .dietaryCarbohydrates: .gram()
+        case .dietaryFatTotal: .gram()
+        case .dietaryWater: .literUnit(with: .milli)
         }
     }
 
@@ -458,6 +518,24 @@ extension HealthSampleType {
         case .bodyMass: "kg"
         case .activeEnergyBurned: "kcal"
         case .sleepAnalysis: "category"
+        case .basalEnergyBurned: "kcal"
+        case .distanceWalkingRunning: "m"
+        case .distanceCycling: "m"
+        case .appleExerciseTime: "min"
+        case .appleStandTime: "min"
+        case .flightsClimbed: "count"
+        case .bodyFatPercentage: "%"
+        case .leanBodyMass: "kg"
+        case .height: "m"
+        case .bodyMassIndex: "count"
+        case .restingHeartRate: "bpm"
+        case .heartRateVariabilitySDNN: "ms"
+        case .vo2Max: "mL/kg·min"
+        case .dietaryEnergyConsumed: "kcal"
+        case .dietaryProtein: "g"
+        case .dietaryCarbohydrates: "g"
+        case .dietaryFatTotal: "g"
+        case .dietaryWater: "mL"
         }
     }
 }

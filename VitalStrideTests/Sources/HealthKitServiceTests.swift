@@ -329,16 +329,15 @@ struct HealthKitServiceTests {
                     deletedObjectUUIDs: [],
                     newAnchor: HKQueryAnchor(fromValue: 1)
                 )
-            } else {
-                let identifier: HKQuantityTypeIdentifier = switch sampleType {
-                case .heartRate: .heartRate
-                case .stepCount: .stepCount
-                case .bodyMass: .bodyMass
-                case .activeEnergyBurned: .activeEnergyBurned
-                case .sleepAnalysis: .heartRate
-                }
+            } else if let quantityType = hkType as? HKQuantityType {
+                let sample = HKQuantitySample(
+                    type: quantityType,
+                    quantity: HKQuantity(unit: sampleType.hkUnit, doubleValue: 1.0),
+                    start: Date(),
+                    end: Date()
+                )
                 mockStore.queryResults[hkType] = AnchoredQueryResult(
-                    samples: [makeQuantitySample(type: identifier, value: 1.0, unit: sampleType.hkUnit)],
+                    samples: [sample],
                     deletedObjectUUIDs: [],
                     newAnchor: HKQueryAnchor(fromValue: 1)
                 )
@@ -347,7 +346,7 @@ struct HealthKitServiceTests {
 
         let results = try await service.fetchAllData()
 
-        #expect(results.count == 5)
+        #expect(results.count == 23)
         for sampleType in HealthSampleType.allCases {
             #expect(results[sampleType]?.dataPoints.isEmpty == false)
         }
