@@ -89,7 +89,8 @@
 
 | 场景 | 读 HealthKit | 写 HealthKit | 存 SwiftData | 缓存 (L1+L2) |
 |------|:-----------:|:-----------:|:-----------:|:-----------:|
-| 读取已有训练/健康数据 | ✅ | — | ✅ (HealthCacheEntry, L2 缓存) | ✅ (HealthDataCache L1 + HealthCacheEntry L2) |
+| 读取已有健康数据 | ✅ | — | ✅ (HealthCacheEntry, L2 缓存) | ✅ (HealthDataCache L1 + HealthCacheEntry L2) |
+| 读取已有训练数据 | ✅ | — | — | ✅ (HealthDataCache L1 only，无 L2 持久化) |
 | App 内发起力量训练 | — | ✅ (摘要) | ✅ (完整详细数据) | — |
 | 导入 GPX/FIT 文件 | — | ❌ | ✅ (全部数据) | — |
 
@@ -111,7 +112,7 @@ View → HealthKitService → HealthDataCache L1 (hit?) → 返回 View
 **冷启动 hydration 路径**：
 app 启动后 L1 缓存为空，执行 `hydrate()` 从 L2 预加载 `overviewTypes` 数据到 L1。首次访问某 `HealthSampleType` 时：
 1. **L2 恢复**：若 L2 有有效缓存（未过期），解码 JSON 恢复到 L1，立即返回
-2. **Bounded date-range fetch**：L2 也无数据时，按当前 View 可见时间范围使用 `nil` anchor 发起 `HKSampleQuery`，获取数据填充 L1 + L2
+2. **Bounded date-range fetch**：L2 也无数据时，按当前 View 可见时间范围使用 `HKAnchoredObjectQuery`（`anchor: nil`）发起首次查询，获取数据填充 L1 + L2
 3. **Lazy loading**：仅加载当前可见时间范围的数据，用户切换时间范围（week → month）时按需拉取，避免全量历史加载
 
 **设计要点**：
