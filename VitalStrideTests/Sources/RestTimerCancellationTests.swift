@@ -1,80 +1,94 @@
 import Testing
 import Foundation
 
-@Suite("Rest timer cancellation safety")
+@testable import VitalStride
+
+@Suite("RestTimerController cancellation safety")
 struct RestTimerCancellationTests {
 
-    @Test("Cancelled sleep does not nil out restEndDate")
-    func cancelledSleepPreservesValue() async {
-        let state = RestTimerState()
-        let newEnd = Date().addingTimeInterval(90)
-        await state.set(newEnd)
+    @MainActor
+    @Test("Cancelled task does not nil out restEndDate")
+    func cancelledTaskPreservesValue() async {
+        let controller = RestTimerController()
+        controller.startRest(duration: 90)
+        #expect(controller.restEndDate != nil)
 
-        let task = Task {
-            guard let restEnd = await state.value else { return }
-            let remaining = restEnd.timeIntervalSinceNow
-            guard remaining > 0 else {
-                await state.set(nil)
-                return
-            }
-            do {
-                try await Task.sleep(for: .seconds(remaining))
-                await state.set(nil)
-            } catch {}
+        let task = Task { @MainActor in
+            await controller.handleTimerTask()
         }
 
         try? await Task.sleep(for: .milliseconds(50))
         task.cancel()
         try? await Task.sleep(for: .milliseconds(50))
 
-        let finalValue = await state.value
-        #expect(finalValue != nil, "Cancelled timer must not nil out restEndDate")
+        #expect(controller.restEndDate != nil, "Cancelled timer must not nil out restEndDate")
     }
 
+    @MainActor
     @Test("Natural expiry nils out restEndDate")
     func naturalExpiryNilsValue() async {
-        let state = RestTimerState()
-        let newEnd = Date().addingTimeInterval(0.1)
-        await state.set(newEnd)
+        let controller = RestTimerController()
+        controller.startRest(duration: 0.1)
 
-        let task = Task {
-            guard let restEnd = await state.value else { return }
-            let remaining = restEnd.timeIntervalSinceNow
-            guard remaining > 0 else {
-                await state.set(nil)
-                return
-            }
-            do {
-                try await Task.sleep(for: .seconds(remaining))
-                await state.set(nil)
-            } catch {}
-        }
+        await controller.handleTimerTask()
 
-        _ = await task.result
-        let finalValue = await state.value
-        #expect(finalValue == nil, "Naturally expired timer should nil out restEndDate")
+        #expect(controller.restEndDate == nil, "Naturally expired timer should nil out restEndDate")
     }
 
+    @MainActor
+    @Test("startRest during active timer resets to new value")
+    func restartPreservesNewValue() async {
+        let controller = RestTimerController()
+        controller.startRest(duration: 90)
+        let firstEnd = controller.restEndDate
+
+        let task = Task { @MainActor in
+            await controller.handleTimerTask()
+        }
+
+        try? await Task.sleep(for: .milliseconds(50))
+
+        controller.startRest(duration: 90)
+        let secondEnd = controller.restEndDate
+        #expect(secondEnd != firstEnd, "startRest should assign a new end date")
+
+        task.cancel()
+        try? await Task.sleep(for: .milliseconds(50))
+
+        #expect(controller.restEndDate == secondEnd, "Cancelled old task must not clear the new timer")
+    }
+
+    @MainActor
+    @Test("Stale task completion does not clear newer restEndDate")
+    func staleCompletionDoesNotClearNewer() async {
+        let controller = RestTimerController()
+        controller.startRest(duration: 0.1)
+
+        let staleTask = Task { @MainActor in
+            await controller.handleTimerTask()
+        }
+
+        try? await Task.sleep(for: .milliseconds(50))
+
+        controller.startRest(duration: 90)
+        let newEnd = controller.restEndDate
+
+        _ = await staleTask.result
+
+        #expect(controller.restEndDate == newEnd, "Completed stale task must not clear a newer restEndDate")
+    }
+
+    @MainActor
     @Test("Rapid re-assignment preserves latest value")
     func rapidReassignmentPreservesLatest() async {
-        let state = RestTimerState()
+        let controller = RestTimerController()
 
         var tasks: [Task<Void, Never>] = []
-        for i in 0..<5 {
-            let end = Date().addingTimeInterval(Double(90 + i))
-            await state.set(end)
+        for _ in 0..<5 {
+            controller.startRest(duration: 90)
 
-            let task = Task {
-                guard let restEnd = await state.value else { return }
-                let remaining = restEnd.timeIntervalSinceNow
-                guard remaining > 0 else {
-                    await state.set(nil)
-                    return
-                }
-                do {
-                    try await Task.sleep(for: .seconds(remaining))
-                    await state.set(nil)
-                } catch {}
+            let task = Task { @MainActor in
+                await controller.handleTimerTask()
             }
             tasks.last?.cancel()
             tasks.append(task)
@@ -83,17 +97,19 @@ struct RestTimerCancellationTests {
 
         try? await Task.sleep(for: .milliseconds(100))
 
-        let finalValue = await state.value
-        #expect(finalValue != nil, "After rapid re-assignments, restEndDate must not be nil")
+        #expect(controller.restEndDate != nil, "After rapid re-assignments, restEndDate must not be nil")
 
         tasks.last?.cancel()
     }
-}
 
-private actor RestTimerState {
-    var value: Date?
+    @MainActor
+    @Test("skipRest clears restEndDate")
+    func skipRestClearsValue() async {
+        let controller = RestTimerController()
+        controller.startRest(duration: 90)
+        #expect(controller.restEndDate != nil)
 
-    func set(_ newValue: Date?) {
-        value = newValue
+        controller.skipRest()
+        #expect(controller.restEndDate == nil, "skipRest should nil out restEndDate")
     }
 }

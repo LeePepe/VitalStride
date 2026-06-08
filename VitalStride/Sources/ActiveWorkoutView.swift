@@ -18,7 +18,7 @@ struct ActiveWorkoutView: View {
     @State private var showingFinishAlert = false
     @State private var showingDiscardAlert = false
     @State private var exerciseToReplace: WorkoutExercise?
-    @State private var restEndDate: Date?
+    @State private var restTimer = RestTimerController()
     @State private var currentHeartRate: Double?
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     private let startTime = Date()
@@ -76,17 +76,8 @@ struct ActiveWorkoutView: View {
                 Text("训练数据将不会保存")
             }
             .onAppear { setupWorkout() }
-            .task(id: restEndDate) {
-                guard let restEnd = restEndDate else { return }
-                let remaining = restEnd.timeIntervalSinceNow
-                guard remaining > 0 else {
-                    restEndDate = nil
-                    return
-                }
-                do {
-                    try await Task.sleep(for: .seconds(remaining))
-                    restEndDate = nil
-                } catch {}
+            .task(id: restTimer.restEndDate) {
+                await restTimer.handleTimerTask()
             }
             #if !os(macOS)
             .task { await observeHeartRate() }
@@ -176,7 +167,7 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var restTimerBanner: some View {
-        if let restEnd = restEndDate {
+        if let restEnd = restTimer.restEndDate {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let remaining = max(0, Int(restEnd.timeIntervalSince(context.date)))
                 if remaining > 0 {
@@ -186,7 +177,7 @@ struct ActiveWorkoutView: View {
                             .monospacedDigit()
                         Spacer()
                         Button("跳过") {
-                            restEndDate = nil
+                            restTimer.skipRest()
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
@@ -215,7 +206,7 @@ struct ActiveWorkoutView: View {
                     ActiveExerciseSection(
                         workoutExercise: workoutExercise,
                         onSetCompleted: {
-                            restEndDate = Date().addingTimeInterval(90)
+                            restTimer.startRest()
                         },
                         onReplace: {
                             exerciseToReplace = workoutExercise
