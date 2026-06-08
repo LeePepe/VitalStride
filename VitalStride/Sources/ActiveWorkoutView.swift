@@ -276,7 +276,13 @@ struct ActiveWorkoutView: View {
         case .blank:
             break
         case .fromWorkout(let sourceWorkout):
-            let sourceExercises = (sourceWorkout.exercises ?? []).sorted { $0.order < $1.order }
+            let sourceID = sourceWorkout.persistentModelID
+            var exerciseDescriptor = FetchDescriptor<WorkoutExercise>(
+                predicate: #Predicate<WorkoutExercise> { $0.workout?.persistentModelID == sourceID },
+                sortBy: [SortDescriptor(\.order)]
+            )
+            exerciseDescriptor.relationshipKeyPathsForPrefetching = [\.sets, \.exercise]
+            let sourceExercises = (try? modelContext.fetch(exerciseDescriptor)) ?? []
             for (index, srcExercise) in sourceExercises.enumerated() {
                 let workoutExercise = WorkoutExercise(order: index, exercise: srcExercise.exercise)
                 workoutExercise.workout = newWorkout
