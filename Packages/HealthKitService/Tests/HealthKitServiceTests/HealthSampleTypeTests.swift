@@ -113,12 +113,14 @@ struct HealthSampleTypeTests {
     @Test("readTypes contains all HealthSampleType cases")
     func readTypesMatchesAllCases() {
         let readTypes = HealthKitService.readTypes
-        #expect(readTypes.count == HealthSampleType.allCases.count)
+        let expectedCount = HealthSampleType.allCases.count + 1 // +1 for HKWorkoutType
+        #expect(readTypes.count == expectedCount)
 
         for sampleType in HealthSampleType.allCases {
             let hkType = sampleType.hkSampleType as HKObjectType
             #expect(readTypes.contains(hkType), "readTypes missing \(sampleType.rawValue)")
         }
+        #expect(readTypes.contains(HKWorkoutType.workoutType()))
     }
 
     // MARK: - Codable roundtrip
