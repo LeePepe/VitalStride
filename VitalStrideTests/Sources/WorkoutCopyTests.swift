@@ -98,34 +98,10 @@ struct WorkoutCopyTests {
         context.insert(sourceWorkout)
         try context.save()
 
-        let sourceID = sourceWorkout.persistentModelID
-        var descriptor = FetchDescriptor<WorkoutExercise>(
-            predicate: #Predicate<WorkoutExercise> { $0.workout?.persistentModelID == sourceID },
-            sortBy: [SortDescriptor(\.order)]
-        )
-        descriptor.relationshipKeyPathsForPrefetching = [\.sets, \.exercise]
-        let sourceExercises = try context.fetch(descriptor)
-
         let newWorkout = Workout(type: .strength, startDate: Date())
         context.insert(newWorkout)
 
-        for (index, srcExercise) in sourceExercises.enumerated() {
-            let copiedExercise = WorkoutExercise(order: index, exercise: srcExercise.exercise)
-            copiedExercise.workout = newWorkout
-            context.insert(copiedExercise)
-            let srcSets = (srcExercise.sets ?? []).sorted { $0.order < $1.order }
-            for (setIndex, srcSet) in srcSets.enumerated() {
-                let copiedSet = ExerciseSet(
-                    order: setIndex,
-                    weight: srcSet.weight,
-                    reps: srcSet.reps,
-                    setType: srcSet.setType,
-                    isUnilateral: srcSet.isUnilateral
-                )
-                copiedSet.workoutExercise = copiedExercise
-                context.insert(copiedSet)
-            }
-        }
+        WorkoutCopier.copyExercises(from: sourceWorkout, to: newWorkout, using: context)
         try context.save()
 
         let copiedExercises = (newWorkout.exercises ?? []).sorted { $0.order < $1.order }
@@ -159,14 +135,14 @@ struct WorkoutCopyTests {
         context.insert(sourceWorkout)
         try context.save()
 
-        let sourceID = sourceWorkout.persistentModelID
-        let descriptor = FetchDescriptor<WorkoutExercise>(
-            predicate: #Predicate<WorkoutExercise> { $0.workout?.persistentModelID == sourceID },
-            sortBy: [SortDescriptor(\.order)]
-        )
-        let sourceExercises = try context.fetch(descriptor)
+        let newWorkout = Workout(type: .strength, startDate: Date())
+        context.insert(newWorkout)
 
-        #expect(sourceExercises.isEmpty)
+        WorkoutCopier.copyExercises(from: sourceWorkout, to: newWorkout, using: context)
+        try context.save()
+
+        let copiedExercises = newWorkout.exercises ?? []
+        #expect(copiedExercises.isEmpty)
     }
 
     @Test("Copy exercise with no sets preserves exercise without sets")
@@ -193,35 +169,10 @@ struct WorkoutCopyTests {
         context.insert(sourceWorkout)
         try context.save()
 
-        let sourceID = sourceWorkout.persistentModelID
-        var descriptor = FetchDescriptor<WorkoutExercise>(
-            predicate: #Predicate<WorkoutExercise> { $0.workout?.persistentModelID == sourceID },
-            sortBy: [SortDescriptor(\.order)]
-        )
-        descriptor.relationshipKeyPathsForPrefetching = [\.sets, \.exercise]
-        let sourceExercises = try context.fetch(descriptor)
-
-        #expect(sourceExercises.count == 1)
-
         let newWorkout = Workout(type: .strength, startDate: Date())
         context.insert(newWorkout)
 
-        let copiedExercise = WorkoutExercise(order: 0, exercise: sourceExercises[0].exercise)
-        copiedExercise.workout = newWorkout
-        context.insert(copiedExercise)
-
-        let srcSets = (sourceExercises[0].sets ?? []).sorted { $0.order < $1.order }
-        for (setIndex, srcSet) in srcSets.enumerated() {
-            let copiedSet = ExerciseSet(
-                order: setIndex,
-                weight: srcSet.weight,
-                reps: srcSet.reps,
-                setType: srcSet.setType,
-                isUnilateral: srcSet.isUnilateral
-            )
-            copiedSet.workoutExercise = copiedExercise
-            context.insert(copiedSet)
-        }
+        WorkoutCopier.copyExercises(from: sourceWorkout, to: newWorkout, using: context)
         try context.save()
 
         let copiedExercises = (newWorkout.exercises ?? []).sorted { $0.order < $1.order }
@@ -258,33 +209,10 @@ struct WorkoutCopyTests {
         context.insert(sourceWorkout)
         try context.save()
 
-        let sourceID = sourceWorkout.persistentModelID
-        var descriptor = FetchDescriptor<WorkoutExercise>(
-            predicate: #Predicate<WorkoutExercise> { $0.workout?.persistentModelID == sourceID },
-            sortBy: [SortDescriptor(\.order)]
-        )
-        descriptor.relationshipKeyPathsForPrefetching = [\.sets, \.exercise]
-        let sourceExercises = try context.fetch(descriptor)
-
         let newWorkout = Workout(type: .strength, startDate: Date())
         context.insert(newWorkout)
 
-        let copiedExercise = WorkoutExercise(order: 0, exercise: sourceExercises[0].exercise)
-        copiedExercise.workout = newWorkout
-        context.insert(copiedExercise)
-
-        let fetchedSrcSets = (sourceExercises[0].sets ?? []).sorted { $0.order < $1.order }
-        for (setIndex, s) in fetchedSrcSets.enumerated() {
-            let copiedSet = ExerciseSet(
-                order: setIndex,
-                weight: s.weight,
-                reps: s.reps,
-                setType: s.setType,
-                isUnilateral: s.isUnilateral
-            )
-            copiedSet.workoutExercise = copiedExercise
-            context.insert(copiedSet)
-        }
+        WorkoutCopier.copyExercises(from: sourceWorkout, to: newWorkout, using: context)
         try context.save()
 
         #expect(sourceWorkout.exercises?.count == 1)

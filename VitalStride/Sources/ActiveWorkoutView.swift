@@ -276,30 +276,7 @@ struct ActiveWorkoutView: View {
         case .blank:
             break
         case .fromWorkout(let sourceWorkout):
-            let sourceID = sourceWorkout.persistentModelID
-            var exerciseDescriptor = FetchDescriptor<WorkoutExercise>(
-                predicate: #Predicate<WorkoutExercise> { $0.workout?.persistentModelID == sourceID },
-                sortBy: [SortDescriptor(\.order)]
-            )
-            exerciseDescriptor.relationshipKeyPathsForPrefetching = [\.sets, \.exercise]
-            let sourceExercises = (try? modelContext.fetch(exerciseDescriptor)) ?? []
-            for (index, srcExercise) in sourceExercises.enumerated() {
-                let workoutExercise = WorkoutExercise(order: index, exercise: srcExercise.exercise)
-                workoutExercise.workout = newWorkout
-                modelContext.insert(workoutExercise)
-                let srcSets = (srcExercise.sets ?? []).sorted { $0.order < $1.order }
-                for (setIndex, srcSet) in srcSets.enumerated() {
-                    let newSet = ExerciseSet(
-                        order: setIndex,
-                        weight: srcSet.weight,
-                        reps: srcSet.reps,
-                        setType: srcSet.setType,
-                        isUnilateral: srcSet.isUnilateral
-                    )
-                    newSet.workoutExercise = workoutExercise
-                    modelContext.insert(newSet)
-                }
-            }
+            WorkoutCopier.copyExercises(from: sourceWorkout, to: newWorkout, using: modelContext)
         case .fromTemplate(let template):
             let templateExercises = (template.exercises ?? []).sorted { $0.order < $1.order }
             for (index, templateExercise) in templateExercises.enumerated() {
