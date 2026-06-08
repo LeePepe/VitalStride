@@ -24,10 +24,14 @@ public actor SwiftDataCachePersistence: HealthCachePersisting {
 
     public func upsert(_ entry: PersistedCacheEntry) throws {
         let targetType = entry.sampleType
+        let targetStart = entry.coveredRangeStart
+        let targetEnd = entry.coveredRangeEnd
         let existing = try modelContext.fetch(
             FetchDescriptor<HealthCacheEntry>(
                 predicate: #Predicate<HealthCacheEntry> { e in
                     e.sampleType == targetType
+                    && e.coveredRangeStart == targetStart
+                    && e.coveredRangeEnd == targetEnd
                 }
             )
         )

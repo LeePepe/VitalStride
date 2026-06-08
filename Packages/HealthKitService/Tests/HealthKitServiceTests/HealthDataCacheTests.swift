@@ -859,7 +859,26 @@ struct HealthDataCacheL2Tests {
 
     // MARK: - Authorization Revoked + Persistence
 
-    @Test("Authorization revoked clears L2 persistence")
+    @Test("Authorization revoked (no-arg) clears L1 and L2")
+    func authRevokedNoArgClearsL1AndL2() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = makeResult(.stepCount)
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+
+        _ = try await cache.data(for: .stepCount)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!persistence.store.isEmpty)
+        #expect(await cache.cachedTypes().contains(.stepCount))
+
+        await cache.handleAuthorizationRevoked()
+
+        #expect(await cache.cachedTypes().isEmpty)
+        #expect(persistence.deleteAllCallCount == 1)
+        #expect(persistence.store.isEmpty)
+    }
+
+    @Test("Authorization revoked (with anchors) clears L2 persistence")
     func authRevokedClearsL2() async throws {
         let mock = MockHealthDataProvider()
         mock.fetchResults[.stepCount] = makeResult(.stepCount)
@@ -926,5 +945,71 @@ struct HealthDataCacheL2Tests {
         let cached = try await cache.data(for: .stepCount)
         #expect(cached.count == 3)
         #expect(mock.fetchCallCount[.stepCount] == 1)
+    }
+
+    // MARK: - Generation Guard on Persist
+
+    @Test("In-flight fetch does not write to L2 after invalidation")
+    func inFlightFetchDoesNotPersistAfterInvalidation() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchDelay = .milliseconds(100)
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 2)
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+
+        let fetchTask = Task {
+            try await cache.data(for: .stepCount)
+        }
+
+        try await Task.sleep(for: .milliseconds(20))
+        await cache.invalidateAll()
+
+        _ = try? await fetchTask.value
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(persistence.upsertCallCount == 0)
+    }
+
+    // MARK: - Background Refresh Cancellation
+
+    @Test("InvalidateAll cancels background refresh tasks")
+    func invalidateAllCancelsBackgroundRefresh() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 2)
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence, cacheTTL: 0)
+
+        _ = try await cache.data(for: .stepCount)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+
+        mock.fetchDelay = .milliseconds(200)
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 10)
+        _ = try await cache.data(for: .stepCount)
+
+        await cache.invalidateAll()
+
+        try await Task.sleep(for: .milliseconds(300))
+
+        #expect(await cache.cachedTypes().isEmpty)
+    }
+
+    // MARK: - Selective Hydration
+
+    @Test("Hydrate with specific types only loads those types")
+    func hydrateSelectiveTypes() async throws {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+
+        persistence.seed(sampleType: .stepCount, dataPoints: [makeDataPoint(.stepCount)])
+        persistence.seed(sampleType: .heartRate, dataPoints: [makeDataPoint(.heartRate)])
+        persistence.seed(sampleType: .bodyMass, dataPoints: [makeDataPoint(.bodyMass)])
+
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+        await cache.hydrate(types: [.stepCount, .heartRate])
+
+        let cached = await cache.cachedTypes()
+        #expect(cached.contains(.stepCount))
+        #expect(cached.contains(.heartRate))
+        #expect(!cached.contains(.bodyMass))
     }
 }
