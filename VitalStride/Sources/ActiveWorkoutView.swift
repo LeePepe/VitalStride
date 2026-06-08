@@ -168,14 +168,30 @@ struct ActiveWorkoutView: View {
     @ViewBuilder
     private var restTimerBanner: some View {
         if let restEnd = restTimer.restEndDate {
+            let totalDuration = restTimer.restTotalDuration ?? 0
+            let totalSeconds = Int(totalDuration)
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let remaining = max(0, Int(restEnd.timeIntervalSince(context.date)))
                 if remaining > 0 {
                     HStack {
                         Image(systemName: "bed.double.fill")
-                        Text("休息中 \(remaining)s")
+                        Text(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer banner: remaining / total"))
                             .monospacedDigit()
                         Spacer()
+                        Button("-10s") {
+                            restTimer.adjustRest(by: -10)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .frame(minHeight: 44)
+                        .accessibilityLabel(String(localized: "缩短十秒", comment: "Subtract 10 seconds a11y label"))
+                        Button("+10s") {
+                            restTimer.adjustRest(by: 10)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .frame(minHeight: 44)
+                        .accessibilityLabel(String(localized: "延长十秒", comment: "Add 10 seconds a11y label"))
                         Button("跳过") {
                             restTimer.skipRest()
                         }
