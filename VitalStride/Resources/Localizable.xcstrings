@@ -1,40 +1,1077 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "休息结束" : {
-      "comment" : "Rest completed banner text / a11y label",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rest Complete"
+  "sourceLanguage": "en",
+  "strings": {
+    "BMI": {
+      "comment": "Body mass index",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BMI"
           }
         },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "休息结束"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BMI"
           }
         }
       }
     },
-    "点击关闭" : {
-      "comment" : "Dismiss rest completed banner a11y hint",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap to dismiss"
+    "BPM": {
+      "comment": "Beats per minute",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BPM"
           }
         },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "点击关闭"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BPM"
+          }
+        }
+      }
+    },
+    "cm": {
+      "comment": "Centimeters unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cm"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cm"
+          }
+        }
+      }
+    },
+    "g": {
+      "comment": "Grams unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "g"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "g"
+          }
+        }
+      }
+    },
+    "HIIT": {
+      "comment": "HIIT",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HIIT"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HIIT"
+          }
+        }
+      }
+    },
+    "kcal": {
+      "comment": "Kilocalories unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kcal"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kcal"
+          }
+        }
+      }
+    },
+    "kg": {
+      "comment": "Kilograms unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kg"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kg"
+          }
+        }
+      }
+    },
+    "km": {
+      "comment": "Kilometers unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "km"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "km"
+          }
+        }
+      }
+    },
+    "mL": {
+      "comment": "Milliliters unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mL"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mL"
+          }
+        }
+      }
+    },
+    "mL/kg/min": {
+      "comment": "VO2 Max unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mL/kg/min"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mL/kg/min"
+          }
+        }
+      }
+    },
+    "ms": {
+      "comment": "Milliseconds",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ms"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ms"
+          }
+        }
+      }
+    },
+    "体脂率": {
+      "comment": "Body fat percentage",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Body Fat Percentage"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "体脂率"
+          }
+        }
+      }
+    },
+    "体重": {
+      "comment": "Body weight",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Body Weight"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "体重"
+          }
+        }
+      }
+    },
+    "休息结束": {
+      "comment": "Rest completed banner text / a11y label",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest Complete"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "休息结束"
+          }
+        }
+      }
+    },
+    "其他运动": {
+      "comment": "Other workout",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其他运动"
+          }
+        }
+      }
+    },
+    "去脂体重": {
+      "comment": "Lean body mass",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lean Body Mass"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "去脂体重"
+          }
+        }
+      }
+    },
+    "力量训练": {
+      "comment": "Strength training",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strength Training"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "力量训练"
+          }
+        }
+      }
+    },
+    "功能性力量训练": {
+      "comment": "Functional strength",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Functional Strength Training"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "功能性力量训练"
+          }
+        }
+      }
+    },
+    "划船": {
+      "comment": "Rowing",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rowing"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "划船"
+          }
+        }
+      }
+    },
+    "基础代谢能量": {
+      "comment": "Basal energy burned",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basal Energy Burned"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "基础代谢能量"
+          }
+        }
+      }
+    },
+    "层": {
+      "comment": "Flights unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "flights"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "层"
+          }
+        }
+      }
+    },
+    "已爬楼层": {
+      "comment": "Flights climbed",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flights Climbed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已爬楼层"
+          }
+        }
+      }
+    },
+    "平均": {
+      "comment": "Average",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Average"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "平均"
+          }
+        }
+      }
+    },
+    "徒步": {
+      "comment": "Hiking",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiking"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "徒步"
+          }
+        }
+      }
+    },
+    "心率": {
+      "comment": "Heart rate",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heart Rate"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "心率"
+          }
+        }
+      }
+    },
+    "心率变异性": {
+      "comment": "Heart rate variability",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heart Rate Variability"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "心率变异性"
+          }
+        }
+      }
+    },
+    "暂无数据": {
+      "comment": "No data available",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Data Available"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无数据"
+          }
+        }
+      }
+    },
+    "暂无运动记录": {
+      "comment": "No workout records",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Workout Records"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无运动记录"
+          }
+        }
+      }
+    },
+    "最低": {
+      "comment": "Minimum",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimum"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最低"
+          }
+        }
+      }
+    },
+    "最大摄氧量": {
+      "comment": "VO2 Max",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VO2 Max"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最大摄氧量"
+          }
+        }
+      }
+    },
+    "最高": {
+      "comment": "Maximum",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maximum"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最高"
+          }
+        }
+      }
+    },
+    "椭圆机": {
+      "comment": "Elliptical",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elliptical"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "椭圆机"
+          }
+        }
+      }
+    },
+    "步": {
+      "comment": "Steps unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "steps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "步"
+          }
+        }
+      }
+    },
+    "步数": {
+      "comment": "Steps",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "步数"
+          }
+        }
+      }
+    },
+    "步行": {
+      "comment": "Walking",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walking"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "步行"
+          }
+        }
+      }
+    },
+    "步行+跑步距离": {
+      "comment": "Walking + running distance",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walking + Running Distance"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "步行+跑步距离"
+          }
+        }
+      }
+    },
+    "活动能量": {
+      "comment": "Active energy burned",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active Energy"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "活动能量"
+          }
+        }
+      }
+    },
+    "游泳": {
+      "comment": "Swimming",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swimming"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "游泳"
+          }
+        }
+      }
+    },
+    "点击关闭": {
+      "comment": "Dismiss rest completed banner a11y hint",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to dismiss"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击关闭"
+          }
+        }
+      }
+    },
+    "瑜伽": {
+      "comment": "Yoga",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yoga"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "瑜伽"
+          }
+        }
+      }
+    },
+    "碳水化合物": {
+      "comment": "Dietary carbohydrates",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carbohydrates"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "碳水化合物"
+          }
+        }
+      }
+    },
+    "站立时间": {
+      "comment": "Stand time",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stand Time"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "站立时间"
+          }
+        }
+      }
+    },
+    "蛋白质": {
+      "comment": "Dietary protein",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protein"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "蛋白质"
+          }
+        }
+      }
+    },
+    "检查 HealthKit 授权状态": {
+      "comment": "Auth check a11y",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check HealthKit Authorization Status"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查 HealthKit 授权状态"
+          }
+        }
+      }
+    },
+    "无法加载运动记录": {
+      "comment": "Workout load error",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to Load Workouts"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法加载运动记录"
+          }
+        }
+      }
+    },
+    "日期": {
+      "comment": "Date axis",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日期"
+          }
+        }
+      }
+    },
+    "数据": {
+      "comment": "Data tab title",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "数据"
+          }
+        }
+      }
+    },
+    "睡眠": {
+      "comment": "Sleep analysis",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "睡眠"
+          }
+        }
+      }
+    },
+    "分钟": {
+      "comment": "Minutes unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "min"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分钟"
+          }
+        }
+      }
+    },
+    "小时": {
+      "comment": "Hours unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hr"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "小时"
+          }
+        }
+      }
+    },
+    "膳食能量摄入": {
+      "comment": "Dietary energy consumed",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dietary Energy"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "膳食能量摄入"
+          }
+        }
+      }
+    },
+    "脂肪": {
+      "comment": "Dietary fat total",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fat"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "脂肪"
+          }
+        }
+      }
+    },
+    "舞蹈": {
+      "comment": "Dance",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dance"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "舞蹈"
+          }
+        }
+      }
+    },
+    "身高": {
+      "comment": "Height",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Height"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "身高"
+          }
+        }
+      }
+    },
+    "轻点查看详情": {
+      "comment": "Card navigation a11y hint",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to view details"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "轻点查看详情"
+          }
+        }
+      }
+    },
+    "运动记录": {
+      "comment": "Workout history title",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workout History"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "运动记录"
+          }
+        }
+      }
+    },
+    "选择时间范围": {
+      "comment": "Time range picker a11y",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Time Range"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择时间范围"
+          }
+        }
+      }
+    },
+    "锻炼时间": {
+      "comment": "Exercise time",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exercise Time"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "锻炼时间"
+          }
+        }
+      }
+    },
+    "静息心率": {
+      "comment": "Resting heart rate",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resting Heart Rate"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "静息心率"
+          }
+        }
+      }
+    },
+    "饮水量": {
+      "comment": "Dietary water",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Water"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "饮水量"
+          }
+        }
+      }
+    },
+    "骑行": {
+      "comment": "Cycling",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cycling"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "骑行"
+          }
+        }
+      }
+    },
+    "骑行距离": {
+      "comment": "Cycling distance",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cycling Distance"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "骑行距离"
+          }
+        }
+      }
+    },
+    "跑步": {
+      "comment": "Running",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跑步"
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }
