@@ -12,21 +12,29 @@ VitalStride is a **health data collection + AI analysis** app. Strength training
 
 ## Data Architecture Decisions
 
-### HealthKit data is NOT cached in SwiftData
+### HealthKit data caching: two-layer architecture
 
-HealthKit is queried directly at read time. No `HealthSample` or `CachedHealthSample` SwiftData models. Rationale: HealthKit is already a local database with its own iCloud sync; duplicating it into SwiftData creates consistency risks, bloats CloudKit sync, and complicates privacy compliance when users revoke HealthKit permissions.
+HealthKit is queried directly at read time with a two-layer caching strategy:
 
-SwiftData stores only data that HealthKit cannot represent: `Workout`, `WorkoutExercise`, `ExerciseSet`, `Exercise`, `WorkoutTemplate`, `TemplateExercise`.
+**L1: In-Memory Cache (HealthDataCache)** — Pure in-memory Swift actor cache. Primary cache layer for hot data. Lifetime = app process; no disk persistence, no CloudKit sync.
+
+**L2: SwiftData Persistence (HealthCacheEntry)** — Local-only SwiftData model for persisting serialized `[HealthDataPoint]` across app launches. Uses a dedicated `ModelConfiguration(cloudKitDatabase: .none)` to guarantee CloudKit isolation — HealthKit cache data never syncs to other devices.
+
+SwiftData models:
+- **Training data** (CloudKit-synced): `Workout`, `WorkoutExercise`, `ExerciseSet`, `Exercise`, `WorkoutTemplate`, `TemplateExercise`
+- **Health cache** (local-only, `cloudKitDatabase: .none`): `HealthCacheEntry`
 
 ### In-Memory Cache Layer (HealthDataCache)
 
-**选型结论：方案 B — 纯内存 actor 缓存，不使用 SwiftData 持久化。**
+**L1 缓存：纯内存 actor 缓存，用于热数据快速访问。**
 
 理由：
-- **冷启动影响极小**：冷启动时缓存为空，首次访问按当前 View 可见时间范围（如"今日"）使用 bounded date-range fetch（`nil` anchor + `HKSampleQuery`）加载完整数据，延迟通常 <100ms。后续增量刷新使用持久化 anchor 的 `HKAnchoredObjectQuery` 拉取 delta。不做全量历史加载，按需 lazy loading。
-- **CloudKit 零风险**：纯内存方案无需考虑 CloudKit 同步隔离，无论未来是否启用 CloudKit 都不受影响。
-- **实现复杂度低**：无需新 SwiftData model、无 migration、无缓存一致性维护。方案 A 的双层缓存（SwiftData + 内存字典）引入额外的失效逻辑和 schema 演进负担。
-- **隐私合规简单**：数据仅存内存，app 终止自动清除；用户撤销 HealthKit 权限后清空 actor 状态即可，无需处理磁盘残留。
+- **零延迟热路径**：View 层优先从内存缓存读取，避免任何磁盘 I/O
+- **CloudKit 零风险**：纯内存方案无需考虑 CloudKit 同步隔离
+- **实现复杂度低**：无需额外的失效逻辑或 schema 演进负担
+- **隐私合规简单**：数据仅存内存，app 终止自动清除；用户撤销 HealthKit 权限后清空 actor 状态即可
+
+L2 缓存（SwiftData `HealthCacheEntry`）补充持久化能力，减少冷启动时的 HealthKit 查询。L2 使用独立 `ModelConfiguration(cloudKitDatabase: .none)` 保证不参与 CloudKit 同步。
 
 缓存层设计要点：
 - 使用 Swift actor (`HealthDataCache`) 保证线程安全
@@ -37,8 +45,9 @@ SwiftData stores only data that HealthKit cannot represent: `Workout`, `WorkoutE
 
 ### 缓存层隐私合规约束
 
-- **数据不离设备**：缓存数据仅存内存，不经任何网络传输，不写入磁盘文件
-- **权限联动**：用户在系统设置中撤销 HealthKit 权限后，必须立即执行完整清除：清空 `HealthDataCache` 全部缓存数据（`invalidateAll()`）、重置持久化 anchor state（`HealthKitAnchorStore.removeAllAnchors()`）、清零已持久化的 telemetry 计数器，不保留只读副本
+- **L1（内存）数据不离设备**：缓存数据仅存内存，不经任何网络传输
+- **L2（SwiftData）本地隔离**：`HealthCacheEntry` 使用 `cloudKitDatabase: .none`，数据仅存本地磁盘，不参与任何 iCloud/CloudKit 同步
+- **权限联动**：用户在系统设置中撤销 HealthKit 权限后，必须立即执行完整清除：清空 `HealthDataCache` 全部缓存数据（`invalidateAll()`）、删除所有 `HealthCacheEntry` 磁盘记录、重置持久化 anchor state（`HealthKitAnchorStore.removeAllAnchors()`）、清零已持久化的 telemetry 计数器，不保留只读副本
 - **无日志泄露**：禁止在任何 log（os_log、print、第三方日志 SDK）中输出实际健康数值（心率值、体重值、步数等）。日志仅可记录 sample type、数量、时间范围等元数据
 - **内存转储防护**：敏感健康数值在 actor 内部持有，不暴露为全局可访问状态
 
