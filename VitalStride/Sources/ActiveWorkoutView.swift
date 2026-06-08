@@ -167,7 +167,9 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var restTimerBanner: some View {
-        if let restEnd = restTimer.restEndDate {
+        if restTimer.phase == .completed {
+            restCompletedBanner
+        } else if restTimer.phase == .resting, let restEnd = restTimer.restEndDate {
             let totalDuration = restTimer.restTotalDuration ?? 0
             let totalSeconds = Int(totalDuration)
             TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -202,8 +204,27 @@ struct ActiveWorkoutView: View {
                     .padding(.horizontal)
                     .padding(.vertical, 6)
                     .background(.blue.opacity(0.1))
+                } else {
+                    restCompletedBanner
                 }
             }
+        }
+    }
+
+    private var restCompletedBanner: some View {
+        HStack {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+            Text(String(localized: "休息结束", comment: "Rest completed banner text"))
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+        .background(.green.opacity(0.1))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "休息结束", comment: "Rest completed a11y label"))
+        .onTapGesture {
+            restTimer.dismissCompleted()
         }
     }
 
