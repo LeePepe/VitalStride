@@ -1,6 +1,6 @@
 import Foundation
 
-public struct HealthDataPoint: Sendable, Identifiable {
+public struct HealthDataPoint: Sendable, Identifiable, Codable {
     public let id: UUID
     public let sampleType: HealthSampleType
     public let startDate: Date
