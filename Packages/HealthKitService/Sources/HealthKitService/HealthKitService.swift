@@ -186,6 +186,32 @@ public final class HealthKitService: Sendable {
         self.signposter = OSSignposter(subsystem: "com.vitalstride", category: "HealthKitService")
     }
 
+    public func clearAllAnchors() {
+        anchorStore.removeAllAnchors(for: deviceIdentifier)
+    }
+
+    public func probeReadAccess(for types: Set<HealthSampleType>) async -> Bool {
+        guard type(of: healthStore).isHealthDataAvailable else { return false }
+        let window = HKQuery.predicateForSamples(
+            withStart: Date(timeIntervalSinceNow: -30 * 24 * 3600),
+            end: Date()
+        )
+        for sampleType in types {
+            do {
+                let result = try await healthStore.executeAnchoredQuery(
+                    type: sampleType.hkSampleType,
+                    predicate: window,
+                    anchor: nil,
+                    limit: 1
+                )
+                if !result.samples.isEmpty { return true }
+            } catch {
+                continue
+            }
+        }
+        return false
+    }
+
     public func requestAuthorization() async throws {
         guard type(of: healthStore).isHealthDataAvailable else {
             throw HealthKitServiceError.healthDataNotAvailable

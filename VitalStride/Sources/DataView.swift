@@ -74,14 +74,31 @@ struct DataView: View {
     private func checkAuthorizationStatus() async {
         do {
             let status = try await healthKitService.authorizationStatus()
-            let revoked = (status == .shouldRequest)
-            if revoked, !needsAuthorization {
-                await healthDataCache.invalidateAll()
+            if status == .shouldRequest {
+                if !needsAuthorization {
+                    await healthDataCache.handleAuthorizationRevoked()
+                    healthKitService.clearAllAnchors()
+                }
+                needsAuthorization = true
+            } else {
+                let cachedTypes = await healthDataCache.cachedTypes()
+                if !cachedTypes.isEmpty {
+                    let hasAccess = await healthKitService.probeReadAccess(for: cachedTypes)
+                    if !hasAccess {
+                        await healthDataCache.handleAuthorizationRevoked()
+                        healthKitService.clearAllAnchors()
+                        needsAuthorization = true
+                    } else {
+                        needsAuthorization = false
+                    }
+                } else {
+                    needsAuthorization = false
+                }
             }
-            needsAuthorization = revoked
         } catch {
             if !needsAuthorization {
-                await healthDataCache.invalidateAll()
+                await healthDataCache.handleAuthorizationRevoked()
+                healthKitService.clearAllAnchors()
             }
             needsAuthorization = true
         }

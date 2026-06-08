@@ -32,4 +32,8 @@ public enum HealthSampleType: String, Codable, CaseIterable, Sendable {
     case dietaryCarbohydrates
     case dietaryFatTotal
     case dietaryWater
+
+    public static let overviewTypes: Set<HealthSampleType> = [
+        .stepCount, .heartRate, .sleepAnalysis, .bodyMass
+    ]
 }

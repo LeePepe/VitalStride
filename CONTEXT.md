@@ -24,24 +24,37 @@ SwiftData models:
 - **Training data** (CloudKit-synced): `Workout`, `WorkoutExercise`, `ExerciseSet`, `Exercise`, `WorkoutTemplate`, `TemplateExercise`
 - **Health cache** (local-only, `cloudKitDatabase: .none`): `HealthCacheEntry`
 
-### In-Memory Cache Layer (HealthDataCache)
+### HealthKit 缓存层（L1 内存 + L2 SwiftData）
 
-**L1 缓存：纯内存 actor 缓存，用于热数据快速访问。**
+**双层缓存设计，平衡热路径性能与冷启动延迟。**
+
+> 架构决策推翻记录：V1 最初选择"纯内存缓存（方案 B）"，理由是实现简单、隐私零风险。后因冷启动延迟过高（每次重新查询多种 HealthKit 数据类型），改为"方案 A（改良版）"：增加 SwiftData L2 持久化层 + CloudKit 隔离（`cloudKitDatabase: .none`），保留隐私合规的同时消除冷启动 penalty。
+
+**L1: 纯内存 Swift actor 缓存 (HealthDataCache)**
 
 理由：
 - **零延迟热路径**：View 层优先从内存缓存读取，避免任何磁盘 I/O
 - **CloudKit 零风险**：纯内存方案无需考虑 CloudKit 同步隔离
 - **实现复杂度低**：无需额外的失效逻辑或 schema 演进负担
-- **隐私合规简单**：数据仅存内存，app 终止自动清除；用户撤销 HealthKit 权限后清空 actor 状态即可
 
-L2 缓存（SwiftData `HealthCacheEntry`）补充持久化能力，减少冷启动时的 HealthKit 查询。L2 使用独立 `ModelConfiguration(cloudKitDatabase: .none)` 保证不参与 CloudKit 同步。
+**L2: SwiftData 持久化缓存 (HealthCacheEntry)**
+
+理由：
+- **冷启动加速**：app 启动时从 L2 恢复数据到 L1（`hydrate()`），避免每次冷启动都查询 HealthKit
+- **CloudKit 隔离**：使用独立 `ModelConfiguration("HealthCache", cloudKitDatabase: .none)`，L2 数据仅存本地磁盘
+- **异步写回**：HealthKit fetch 成功后在后台将数据持久化到 L2（`persistInBackground()`）
+- **Generation guard**：`invalidateAll()` 递增 generation 计数器，防止过期 persist 写入脏数据
+
+**TTL 过期策略**：默认 1 小时（可配置）。L1/L2 共享同一 TTL，过期数据立即返回同时触发后台刷新（stale-serve-then-refresh），兼顾用户体验与数据新鲜度。
 
 缓存层设计要点：
 - 使用 Swift actor (`HealthDataCache`) 保证线程安全
 - 按 `HealthSampleType` 分桶缓存 `HealthDataPoint` 数组
 - Anchor Query 返回新数据时更新对应桶，整桶替换（immutable pattern）
-- 缓存生命周期 = app 进程生命周期，不跨启动持久化
-- View 层从 cache 读取，cache miss 时触发 bounded date-range fetch（冷启动）或 anchor query（增量刷新）并回填
+- L1 缓存生命周期 = app 进程生命周期；L2 跨启动持久化
+- 读取路径：L1 hit → 返回 | L1 miss → L2 load → L1 回填 | L2 miss → HealthKit fetch → L1+L2 回填
+- 冷启动时 `hydrate()` 从 L2 预加载 `overviewTypes` 到 L1
+- View 层从 L1 读取，cache miss 时依次查 L2、HealthKit 并回填
 
 ### 缓存层隐私合规约束
 

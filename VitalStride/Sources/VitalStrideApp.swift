@@ -16,18 +16,29 @@ struct VitalStrideApp: App {
     init() {
         let service = HealthKitService(deviceIdentifier: "ios-display")
         healthKitService = service
-        healthDataCache = HealthDataCache(dataProvider: service)
 
         do {
             let modelContainer = try ModelContainerConfiguration.makeContainer()
             container = modelContainer
             containerError = nil
+
+            let persistence = SwiftDataCachePersistence(modelContainer: modelContainer)
+            healthDataCache = HealthDataCache(dataProvider: service, persistence: persistence)
+
             Task {
                 ExerciseSeeder.seedIfNeeded(context: modelContainer.mainContext)
+                let status = try? await service.authorizationStatus()
+                if status == .unnecessary {
+                    await healthDataCache.hydrate(types: HealthSampleType.overviewTypes)
+                } else {
+                    await healthDataCache.handleAuthorizationRevoked()
+                    service.clearAllAnchors()
+                }
             }
         } catch {
             container = nil
             containerError = error.localizedDescription
+            healthDataCache = HealthDataCache(dataProvider: service)
         }
     }
 

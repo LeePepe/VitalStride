@@ -39,11 +39,14 @@
 │  │Service     │ │Service   │ │Service        │  │
 │  └─────┬──────┘ └────┬─────┘ └───────┬───────┘  │
 ├────────┼─────────────┼───────────────┼──────────┤
-│              Cache Layer (内存)                   │
-│  ┌──────────────────┐                            │
-│  │HealthDataCache   │  Swift actor, 按            │
-│  │(in-memory only)  │  HealthSampleType 分桶      │
-│  └────────┬─────────┘                            │
+│         Cache Layer (L1 内存 + L2 SwiftData)      │
+│  ┌──────────────────┐  ┌──────────────────────┐  │
+│  │HealthDataCache   │  │HealthCacheEntry      │  │
+│  │(L1 in-memory)    │  │(L2 SwiftData,        │  │
+│  │Swift actor, 按    │  │ cloudKitDB: .none)   │  │
+│  │HealthSampleType  │  │本地持久化, TTL 1h     │  │
+│  │分桶              │  │                      │  │
+│  └────────┬─────────┘  └──────────┬───────────┘  │
 ├───────────┼──────────────────────────────────────┤
 │                 Data Layer                       │
 │  ┌──────────┐  ┌───────────┐  ┌──────────────┐  │
@@ -54,9 +57,11 @@
 └─────────────────────────────────────────────────┘
 ```
 
-**HealthDataCache** 位于 Service Layer 与 Data Layer 之间，是纯内存 actor 缓存（L1）。View 通过 HealthKitService 读取数据时优先命中 L1 缓存，cache miss 时由 Service 发起 bounded date-range fetch（冷启动）或 anchor query（增量刷新）拉取并回填缓存。
+**HealthDataCache**（L1）位于 Service Layer 与 Data Layer 之间，是纯内存 Swift actor 缓存。View 通过 HealthKitService 读取数据时优先命中 L1 缓存。
 
-**HealthCacheEntry** 是 SwiftData L2 持久化缓存，使用独立 `ModelConfiguration(cloudKitDatabase: .none)` 保证不参与 CloudKit 同步。L2 减少冷启动时的 HealthKit 查询延迟。
+**HealthCacheEntry**（L2）是 SwiftData 持久化缓存，使用独立 `ModelConfiguration("HealthCache", cloudKitDatabase: .none)` 保证不参与 CloudKit 同步。L2 在 app 冷启动时通过 `hydrate()` 恢复到 L1，减少 HealthKit 查询延迟。
+
+**数据读取路径**：L1 hit → 返回 | L1 miss → L2 load → L1 回填 → 返回 | L2 miss → HealthKit fetch → L1+L2 回填 → 返回。所有层级支持 TTL 过期检查（默认 1 小时），过期数据立即返回同时触发后台刷新（stale-serve-then-refresh）。
 
 ## 导航结构
 
@@ -82,13 +87,13 @@
 
 ### HealthKit 交互规则
 
-| 场景 | 读 HealthKit | 写 HealthKit | 存 SwiftData | 内存缓存 |
+| 场景 | 读 HealthKit | 写 HealthKit | 存 SwiftData | 缓存 (L1+L2) |
 |------|:-----------:|:-----------:|:-----------:|:-----------:|
-| 读取已有训练/健康数据 | ✅ | — | ✅ (HealthCacheEntry, L2 缓存) | ✅ (HealthDataCache, L1) |
+| 读取已有训练/健康数据 | ✅ | — | ✅ (HealthCacheEntry, L2 缓存) | ✅ (HealthDataCache L1 + HealthCacheEntry L2) |
 | App 内发起力量训练 | — | ✅ (摘要) | ✅ (完整详细数据) | — |
 | 导入 GPX/FIT 文件 | — | ❌ | ✅ (全部数据) | — |
 
-### HealthKit 内存缓存层 (HealthDataCache) + SwiftData 持久化缓存 (HealthCacheEntry)
+### HealthKit 缓存层（双层：L1 内存 + L2 SwiftData）
 
 两层缓存架构，位于 Service Layer 与 HealthKit Data Layer 之间。
 
@@ -96,19 +101,24 @@
 
 **数据流**：
 ```
-View → HealthKitService → HealthDataCache (hit?) → [miss] → HealthKit Query → 回填 Cache → 返回 View
+View → HealthKitService → HealthDataCache L1 (hit?) → 返回 View
+                                  ↓ [L1 miss]
+                          HealthCacheEntry L2 (hit?) → L1 回填 → 返回 View
+                                  ↓ [L2 miss]
+                          HealthKit Query → L1 回填 + L2 持久化 → 返回 View
 ```
 
 **冷启动 hydration 路径**：
-app 启动后缓存为空，首次访问某 `HealthSampleType` 时按以下策略加载：
-1. **Bounded date-range fetch**：按当前 View 可见时间范围（如"今日"、"本周"）使用 `nil` anchor 发起 `HKSampleQuery`，获取完整数据填充缓存
-2. **Anchor 增量刷新**：首次加载完成后，记录新 anchor；后续 cache miss 或手动刷新时使用持久化 anchor 发起 `HKAnchoredObjectQuery` 拉取增量 delta
+app 启动后 L1 缓存为空，执行 `hydrate()` 从 L2 预加载 `overviewTypes` 数据到 L1。首次访问某 `HealthSampleType` 时：
+1. **L2 恢复**：若 L2 有有效缓存（未过期），解码 JSON 恢复到 L1，立即返回
+2. **Bounded date-range fetch**：L2 也无数据时，按当前 View 可见时间范围使用 `nil` anchor 发起 `HKSampleQuery`，获取数据填充 L1 + L2
 3. **Lazy loading**：仅加载当前可见时间范围的数据，用户切换时间范围（week → month）时按需拉取，避免全量历史加载
 
 **设计要点**：
 - 按 `HealthSampleType` 分桶，每桶持有 `[HealthDataPoint]`
 - 整桶替换（immutable pattern），不做 in-place mutation
 - 缓存生命周期 = app 进程，不跨启动持久化
+- TTL 过期策略：默认 1 小时（可配置），过期 entry 立即返回同时后台触发刷新
 - 不参与 CloudKit 同步
 
 **L2: SwiftData 持久化缓存 (HealthCacheEntry)**
@@ -117,7 +127,10 @@ app 启动后缓存为空，首次访问某 `HealthSampleType` 时按以下策�
 
 **设计要点**：
 - 存储 JSON 编码的 `[HealthDataPoint]`，按 `(sampleType, coveredRangeStart, coveredRangeEnd)` 复合唯一约束
-- 减少冷启动时的 HealthKit 查询，启动时从 L2 恢复到 L1
+- 减少冷启动时的 HealthKit 查询，启动时从 L2 恢复到 L1（`hydrate()`）
+- 异步写回：HealthKit fetch 成功后在后台将数据持久化到 L2（`persistInBackground()`）
+- Generation guard：`invalidateAll()` 递增 generation 计数器，防止已取消的 persist 任务写入过期数据
+- TTL 与 L1 共享同一过期策略，L2 命中但过期时返回数据 + 后台刷新
 - 不参与 CloudKit 同步，仅本地磁盘存储
 
 **隐私约束**：
