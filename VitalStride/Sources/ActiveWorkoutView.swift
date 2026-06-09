@@ -345,6 +345,14 @@ struct ActiveWorkoutView: View {
                 let workoutExercise = WorkoutExercise(order: index, exercise: templateExercise.exercise)
                 workoutExercise.workout = newWorkout
                 modelContext.insert(workoutExercise)
+
+                let setCount = max(1, templateExercise.targetSets)
+                let weight = templateExercise.targetWeight ?? 0
+                for setIndex in 0..<setCount {
+                    let newSet = ExerciseSet(order: setIndex, weight: weight, reps: 0, setType: .working)
+                    newSet.workoutExercise = workoutExercise
+                    modelContext.insert(newSet)
+                }
             }
         }
 
@@ -357,6 +365,10 @@ struct ActiveWorkoutView: View {
         let workoutExercise = WorkoutExercise(order: order, exercise: exercise)
         workoutExercise.workout = workout
         modelContext.insert(workoutExercise)
+
+        let defaultSet = ExerciseSet(order: 0, weight: 0, reps: 0, setType: .working)
+        defaultSet.workoutExercise = workoutExercise
+        modelContext.insert(defaultSet)
     }
 
     private func moveExercises(from source: IndexSet, to destination: Int) {
@@ -422,10 +434,12 @@ private struct ActiveExerciseSection: View {
                         }
                     )
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            deleteSet(exerciseSet)
-                        } label: {
-                            Label("删除", systemImage: "trash")
+                        if sortedSets.count > 1 {
+                            Button(role: .destructive) {
+                                deleteSet(exerciseSet)
+                            } label: {
+                                Label("删除", systemImage: "trash")
+                            }
                         }
                     }
                 } else {
@@ -438,10 +452,12 @@ private struct ActiveExerciseSection: View {
                         }
                     )
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            deleteSet(exerciseSet)
-                        } label: {
-                            Label("删除", systemImage: "trash")
+                        if sortedSets.count > 1 {
+                            Button(role: .destructive) {
+                                deleteSet(exerciseSet)
+                            } label: {
+                                Label("删除", systemImage: "trash")
+                            }
                         }
                     }
                     .contextMenu {
@@ -586,6 +602,9 @@ private struct ActiveExerciseSection: View {
                 }
             }
         }
+
+        guard sortedSets.count - toDelete.count >= 1 else { return }
+
         let deleteIDs = Set(toDelete.map { $0.persistentModelID })
         for set in toDelete {
             modelContext.delete(set)

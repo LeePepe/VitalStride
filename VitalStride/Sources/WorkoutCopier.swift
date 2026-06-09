@@ -29,16 +29,22 @@ enum WorkoutCopier {
             modelContext.insert(workoutExercise)
 
             let srcSets = (srcExercise.sets ?? []).sorted { $0.order < $1.order }
-            for (setIndex, srcSet) in srcSets.enumerated() {
-                let newSet = ExerciseSet(
-                    order: setIndex,
-                    weight: srcSet.weight,
-                    reps: srcSet.reps,
-                    setType: srcSet.setType,
-                    isUnilateral: srcSet.isUnilateral
-                )
-                newSet.workoutExercise = workoutExercise
-                modelContext.insert(newSet)
+            if srcSets.isEmpty {
+                let defaultSet = ExerciseSet(order: 0, weight: 0, reps: 0, setType: .working)
+                defaultSet.workoutExercise = workoutExercise
+                modelContext.insert(defaultSet)
+            } else {
+                for (setIndex, srcSet) in srcSets.enumerated() {
+                    let newSet = ExerciseSet(
+                        order: setIndex,
+                        weight: srcSet.weight,
+                        reps: srcSet.reps,
+                        setType: srcSet.setType,
+                        isUnilateral: srcSet.isUnilateral
+                    )
+                    newSet.workoutExercise = workoutExercise
+                    modelContext.insert(newSet)
+                }
             }
         }
     }

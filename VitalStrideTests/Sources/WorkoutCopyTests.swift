@@ -145,7 +145,7 @@ struct WorkoutCopyTests {
         #expect(copiedExercises.isEmpty)
     }
 
-    @Test("Copy exercise with no sets preserves exercise without sets")
+    @Test("Copy exercise with no sets creates fallback default set")
     func copyExerciseWithNoSets() throws {
         let context = ModelContext(container)
 
@@ -179,7 +179,10 @@ struct WorkoutCopyTests {
         #expect(copiedExercises.count == 1)
         #expect(copiedExercises[0].exercise?.nameEn == "Pull Up")
         let copiedSets = (copiedExercises[0].sets ?? []).sorted { $0.order < $1.order }
-        #expect(copiedSets.isEmpty)
+        #expect(copiedSets.count == 1)
+        #expect(copiedSets[0].weight == 0)
+        #expect(copiedSets[0].reps == 0)
+        #expect(copiedSets[0].setType == .working)
     }
 
     @Test("Copied sets do not affect source workout data")

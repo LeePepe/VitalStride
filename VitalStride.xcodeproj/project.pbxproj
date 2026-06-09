@@ -49,6 +49,7 @@
 		5B33ADF7BE57FFE1B6D2E736 /* WorkoutHeartRateStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BBAC7DE5F687BA6EA90C5B7 /* WorkoutHeartRateStats.swift */; };
 		5C2F14BD585175EA3F92A35E /* PlaceholderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50CB5BB1779B8A7CF53E598 /* PlaceholderViews.swift */; };
 		5DA7767D9FE78E3D44EFD2CD /* StepsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1023DE772B441A49A3161D1 /* StepsSection.swift */; };
+		5F4D388D73032C6865B2304F /* MinOneSetInvariantTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200FE032CCD4A657A1D891D6 /* MinOneSetInvariantTests.swift */; };
 		5F9443614C67EFF403440AAD /* HealthDataCacheEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2682FD70AE06FB9FCF624E81 /* HealthDataCacheEnvironment.swift */; };
 		5FE8A772B8B11B7699F05167 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 18AA3D0CBD054FC6EB8E6E36 /* InfoPlist.strings */; };
 		613159B4B0795DCD4501138F /* ExerciseSeederTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0157658A314DA1AC81783B49 /* ExerciseSeederTests.swift */; };
@@ -155,6 +156,7 @@
 		193733B006ED472D5112547F /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		1C452054A5F7F0CDF19E2C9F /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		1E2C97DDA63128107019DFBF /* OnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTests.swift; sourceTree = "<group>"; };
+		200FE032CCD4A657A1D891D6 /* MinOneSetInvariantTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinOneSetInvariantTests.swift; sourceTree = "<group>"; };
 		224D8E4161C7961EC3D7E22A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		2682FD70AE06FB9FCF624E81 /* HealthDataCacheEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDataCacheEnvironment.swift; sourceTree = "<group>"; };
 		28F9B1C238C968D436D8F621 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -304,6 +306,7 @@
 				AE09961F4651DB3AC057BA0E /* HealthSampleTests.swift */,
 				5EE04A6992C043B64BF1BECE /* HeartRateFormatterTests.swift */,
 				EDDDA5C49A692159D6CDD57D /* HeartRateSectionTests.swift */,
+				200FE032CCD4A657A1D891D6 /* MinOneSetInvariantTests.swift */,
 				92A787CF4DB49927AFBC5DDF /* ModelContainerTests.swift */,
 				524E9CAE68FFB5B851E45752 /* ModelTests.swift */,
 				1E2C97DDA63128107019DFBF /* OnboardingTests.swift */,
@@ -472,7 +475,6 @@
 				57B895D91910D9E2DC71130D /* exercises.json */,
 				224D8E4161C7961EC3D7E22A /* Localizable.xcstrings */,
 				18AA3D0CBD054FC6EB8E6E36 /* InfoPlist.strings */,
-				224D8E4161C7961EC3D7E22A /* Localizable.xcstrings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -645,7 +647,6 @@
 			files = (
 				9C33F574F875DF0EBF073483 /* Assets.xcassets in Resources */,
 				7072A3941A8351E4BD9A6EDF /* InfoPlist.strings in Resources */,
-				89FC3DFE4650717335B13038 /* Localizable.xcstrings in Resources */,
 				BF00D52AEECCBAE0B0751F36 /* InfoPlist.strings in Resources */,
 				89FC3DFE4650717335B13038 /* Localizable.xcstrings in Resources */,
 				63E739A5D206085086CE682A /* exercises.json in Resources */,
@@ -760,6 +761,7 @@
 				475E831CA333AD5E120BDE00 /* HealthSampleTests.swift in Sources */,
 				92ADFA5F61BCDD4C20C1FA46 /* HeartRateFormatterTests.swift in Sources */,
 				264A22BE35CA02EF3BE4B846 /* HeartRateSectionTests.swift in Sources */,
+				5F4D388D73032C6865B2304F /* MinOneSetInvariantTests.swift in Sources */,
 				E68DBA49DC9C0A4E75F339FD /* ModelContainerTests.swift in Sources */,
 				614503EFA888692CA1F1088D /* ModelTests.swift in Sources */,
 				15A7B54D150CEF3D862712CA /* OnboardingTests.swift in Sources */,
