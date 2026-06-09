@@ -162,3 +162,21 @@ public protocol AIProvider: Sendable {
 ```
 
 Swappable: ZhipuProvider now, DeepSeek/OpenAI/通义 later — same protocol.
+
+## Git Hooks
+
+Git hooks live in `scripts/hooks/` and are activated via `core.hooksPath`. This ensures all git working directories — including agent worktrees under `~/multica_workspaces/` — share the same hooks.
+
+**First-time setup after clone:**
+```bash
+./scripts/setup-hooks.sh
+```
+
+**Hooks:**
+
+| Hook | Purpose |
+|------|---------|
+| `pre-commit` | Blocks direct commits to `main` / `master` |
+| `pre-push` | Runs Xcode build, tests, and Swift lint before allowing push |
+
+The `pre-push` hook reads the push ref range from stdin to determine which Swift files changed, and runs SwiftLint on them if available.
