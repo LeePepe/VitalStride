@@ -412,7 +412,7 @@ struct SleepChartView: View {
             }
         }
         .chartYAxis {
-            AxisMarks { value in
+            AxisMarks(values: .stride(by: 2)) { value in
                 AxisValueLabel {
                     if let h = value.as(Double.self) {
                         Text(String(localized: "\(Int(h))h", comment: "Hour axis label"))
@@ -530,8 +530,11 @@ struct SleepDetailView: View {
                 .listRowBackground(Color.clear)
             } else {
                 Section {
-                    SleepChartView(nights: nights, range: selectedRange, compact: false)
-                        .frame(height: 250)
+                    VStack(alignment: .leading, spacing: 8) {
+                        SleepChartView(nights: nights, range: selectedRange, compact: false)
+                            .frame(height: 300)
+                    }
+                    .padding()
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
