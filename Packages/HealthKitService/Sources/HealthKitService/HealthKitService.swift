@@ -147,6 +147,10 @@ public final class HealthKitService: Sendable {
     private let logger: Logger
     private let signposter: OSSignposter
 
+    public static let writeTypes: Set<HKSampleType> = [
+        HKWorkoutType.workoutType(),
+    ]
+
     public static let readTypes: Set<HKObjectType> = [
         HKQuantityType(.heartRate),
         HKQuantityType(.stepCount),
@@ -216,14 +220,14 @@ public final class HealthKitService: Sendable {
         guard type(of: healthStore).isHealthDataAvailable else {
             throw HealthKitServiceError.healthDataNotAvailable
         }
-        try await healthStore.requestAuthorization(toShare: [], read: Self.readTypes)
+        try await healthStore.requestAuthorization(toShare: Self.writeTypes, read: Self.readTypes)
     }
 
     public func authorizationStatus() async throws -> HKAuthorizationRequestStatus {
         guard type(of: healthStore).isHealthDataAvailable else {
             throw HealthKitServiceError.healthDataNotAvailable
         }
-        return try await healthStore.statusForAuthorizationRequest(toShare: [], read: Self.readTypes)
+        return try await healthStore.statusForAuthorizationRequest(toShare: Self.writeTypes, read: Self.readTypes)
     }
 
     public static let defaultFirstSyncWindow: TimeInterval = 30 * 24 * 3600
@@ -596,6 +600,22 @@ public final class HealthKitService: Sendable {
                 "healthkit_workout_fetch_duration_ms type=workout count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status)"
             )
         }
+    }
+
+    // MARK: - Workout Session
+
+    public func makeWorkoutSessionManager() -> any WorkoutSessionManaging {
+        #if os(macOS)
+        return NoopWorkoutSessionManager()
+        #else
+        guard let realStore = healthStore as? HKHealthStore else {
+            return NoopWorkoutSessionManager()
+        }
+        if #available(iOS 26.0, watchOS 5.0, *) {
+            return WorkoutSessionManager(healthStore: realStore)
+        }
+        return NoopWorkoutSessionManager()
+        #endif
     }
 }
 
