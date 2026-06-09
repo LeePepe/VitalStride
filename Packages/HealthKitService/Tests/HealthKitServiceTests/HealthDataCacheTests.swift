@@ -51,6 +51,7 @@ final class MockHealthCachePersistence: HealthCachePersisting, @unchecked Sendab
     private var _saveAvailableTypesCallCount = 0
     private var _deleteAvailableTypesCallCount = 0
     var shouldThrow = false
+    var saveAvailableTypesDelay: Duration?
 
     var store: [String: PersistedCacheEntry] {
         lock.withLock { _store }
@@ -116,6 +117,9 @@ final class MockHealthCachePersistence: HealthCachePersisting, @unchecked Sendab
 
     func saveAvailableTypes(_ entry: PersistedAvailableTypes) async throws {
         if shouldThrow { throw TestError.mockFailure }
+        if let delay = saveAvailableTypesDelay {
+            try? await Task.sleep(for: delay)
+        }
         lock.withLock {
             _availableTypes = entry
             _saveAvailableTypesCallCount += 1
@@ -1385,6 +1389,33 @@ struct HealthDataCacheAvailableTypesTests {
         try await Task.sleep(for: .milliseconds(200))
 
         #expect(await cache.getAvailableTypes() == nil)
+        #expect(persistence.savedAvailableTypes == nil)
+    }
+
+    @Test("Post-write generation check cleans up stale L2 data")
+    func postWriteGenerationCheckCleansUpStaleL2() async throws {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+        persistence.saveAvailableTypesDelay = .milliseconds(100)
+        let prober = MockAvailableTypesProber()
+        prober.probeResult = [.stepCount]
+
+        let cache = HealthDataCache(
+            dataProvider: mock,
+            persistence: persistence,
+            typesProber: prober
+        )
+
+        await cache.probeAndUpdateAvailableTypes(from: [.stepCount])
+        try await Task.sleep(for: .milliseconds(20))
+
+        await cache.invalidateAll()
+
+        try await Task.sleep(for: .milliseconds(200))
+
+        #expect(await cache.getAvailableTypes() == nil)
+        #expect(persistence.savedAvailableTypes == nil)
+        #expect(persistence.deleteAvailableTypesCallCount >= 1)
     }
 
     @Test("Hydrate failure for availableTypes is graceful, cache stays nil")

@@ -541,6 +541,9 @@ public actor HealthDataCache {
             guard self.generation == probeGeneration else { return }
             do {
                 try await persistence.saveAvailableTypes(entry)
+                if self.generation != probeGeneration {
+                    try? await persistence.deleteAvailableTypes()
+                }
             } catch {
                 logger.info("available types persistence write failed")
             }
