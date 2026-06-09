@@ -2,6 +2,7 @@ import HealthKitService
 import SwiftData
 import SwiftUI
 import VitalModels
+import VitalUI
 
 #if canImport(UIKit)
 import UIKit
@@ -36,10 +37,17 @@ struct ActiveWorkoutView: View {
             ZStack(alignment: .bottomTrailing) {
                 VStack(spacing: 0) {
                     workoutTimer
-                    restTimerBanner
                     exerciseList
                 }
+                .snackbar(
+                    isPresented: restSnackbarPresented,
+                    mode: restTimer.phase == .completed ? .autoDismiss(duration: 2) : .persistent
+                ) {
+                    restSnackbarContent
+                }
                 addExerciseButton
+                    .padding(.bottom, restTimer.phase != .idle ? 72 : 0)
+                    .animation(.spring(duration: 0.35, bounce: 0.2), value: restTimer.phase != .idle)
             }
             .navigationTitle("训练中")
             .navigationBarTitleDisplayMode(.inline)
@@ -168,78 +176,69 @@ struct ActiveWorkoutView: View {
     }
     #endif
 
+    private var restSnackbarPresented: Binding<Bool> {
+        Binding(
+            get: { restTimer.phase != .idle },
+            set: { newValue in
+                guard !newValue else { return }
+                switch restTimer.phase {
+                case .resting: restTimer.skipRest()
+                case .completed: restTimer.dismissCompleted()
+                case .idle: break
+                }
+            }
+        )
+    }
+
     @ViewBuilder
-    private var restTimerBanner: some View {
+    private var restSnackbarContent: some View {
         if restTimer.phase == .completed {
-            restCompletedBanner
+            Button {
+                restTimer.dismissCompleted()
+            } label: {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text(String(localized: "休息结束", comment: "Rest completed banner text"))
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(String(localized: "休息结束", comment: "Rest completed a11y label"))
+            .accessibilityHint(String(localized: "点击关闭", comment: "Dismiss rest completed banner a11y hint"))
         } else if restTimer.phase == .resting, let restEnd = restTimer.restEndDate {
             let totalDuration = restTimer.restTotalDuration ?? 0
             let totalSeconds = Int(totalDuration)
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let remaining = max(0, Int(restEnd.timeIntervalSince(context.date)))
-                if remaining > 0 {
-                    ViewThatFits(in: .horizontal) {
-                        restTimerRow(remaining: remaining, totalSeconds: totalSeconds, compact: false)
-                        restTimerRow(remaining: remaining, totalSeconds: totalSeconds, compact: true)
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        Image(systemName: "bed.double.fill")
+                        Text(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer banner: remaining / total"))
+                            .monospacedDigit()
+                        Spacer()
+                        restAdjustButtons
                     }
-                    .padding(.horizontal)
-                    .padding(.vertical, 6)
-                    .background(.blue.opacity(0.1))
-                } else {
-                    restCompletedBanner
+                    VStack(spacing: 4) {
+                        HStack {
+                            Image(systemName: "bed.double.fill")
+                            Text(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer banner: remaining / total"))
+                                .monospacedDigit()
+                            Spacer()
+                        }
+                        HStack {
+                            Spacer()
+                            restAdjustButtons
+                        }
+                    }
                 }
-            }
-        }
-    }
-
-    private var restCompletedBanner: some View {
-        Button {
-            restTimer.dismissCompleted()
-        } label: {
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                Text(String(localized: "休息结束", comment: "Rest completed banner text"))
-                Spacer()
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 6)
-            .frame(minHeight: 44)
-            .background(.green.opacity(0.1))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(String(localized: "休息结束", comment: "Rest completed a11y label"))
-        .accessibilityHint(String(localized: "点击关闭", comment: "Dismiss rest completed banner a11y hint"))
-    }
-
-    @ViewBuilder
-    private func restTimerRow(remaining: Int, totalSeconds: Int, compact: Bool) -> some View {
-        if compact {
-            VStack(spacing: 4) {
-                HStack {
-                    Image(systemName: "bed.double.fill")
-                    Text(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer banner: remaining / total"))
-                        .monospacedDigit()
-                    Spacer()
-                }
-                HStack {
-                    Spacer()
-                    restAdjustButtons
-                }
-            }
-        } else {
-            HStack {
-                Image(systemName: "bed.double.fill")
-                Text(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer banner: remaining / total"))
-                    .monospacedDigit()
-                Spacer()
-                restAdjustButtons
             }
         }
     }
 
     private var restAdjustButtons: some View {
-        HStack {
+        HStack(spacing: 8) {
             Button("-10s") {
                 restTimer.adjustRest(by: -10)
             }
@@ -254,12 +253,13 @@ struct ActiveWorkoutView: View {
             .controlSize(.small)
             .frame(minWidth: 44, minHeight: 44)
             .accessibilityLabel(String(localized: "延长十秒", comment: "Add 10 seconds a11y label"))
-            Button("跳过") {
+            Button(String(localized: "跳过", comment: "Skip rest button label")) {
                 restTimer.skipRest()
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
             .frame(minWidth: 44, minHeight: 44)
+            .accessibilityLabel(String(localized: "跳过休息", comment: "Skip rest a11y label"))
         }
     }
 
