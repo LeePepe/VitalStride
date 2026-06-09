@@ -21,6 +21,7 @@ public struct NoopWorkoutSessionManager: WorkoutSessionManaging {
 
 #if !os(macOS)
 
+@available(iOS 26.0, watchOS 5.0, *)
 public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unchecked Sendable {
     private let healthStore: HKHealthStore
     private let logger: Logger
@@ -28,7 +29,6 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
 
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
-    private var sessionStartTime: Date?
 
     public init(healthStore: HKHealthStore) {
         self.healthStore = healthStore
@@ -60,12 +60,17 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
 
             let startDate = Date()
             newSession.startActivity(with: startDate)
-            try await newBuilder.beginCollection(at: startDate)
+
+            do {
+                try await newBuilder.beginCollection(at: startDate)
+            } catch {
+                newSession.end()
+                throw error
+            }
 
             lock.withLock {
                 self.session = newSession
                 self.builder = newBuilder
-                self.sessionStartTime = startDate
             }
 
             logger.info("workout_session_started activityType=traditionalStrengthTraining")
@@ -77,11 +82,10 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
     }
 
     public func endSession(save: Bool) async {
-        let (currentSession, currentBuilder, startTime) = lock.withLock {
-            let result = (session, builder, sessionStartTime)
+        let (currentSession, currentBuilder) = lock.withLock {
+            let result = (session, builder)
             session = nil
             builder = nil
-            sessionStartTime = nil
             return result
         }
 
@@ -90,7 +94,6 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
         }
 
         let endDate = Date()
-        let durationSeconds = startTime.map { Int(endDate.timeIntervalSince($0)) } ?? 0
 
         currentSession.end()
 
@@ -99,14 +102,10 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
 
             if save {
                 try await currentBuilder.finishWorkout()
-                logger.info(
-                    "workout_session_ended duration_seconds=\(durationSeconds) saved=true"
-                )
+                logger.info("workout_session_ended saved=true")
             } else {
                 currentBuilder.discardWorkout()
-                logger.info(
-                    "workout_session_ended duration_seconds=\(durationSeconds) saved=false"
-                )
+                logger.info("workout_session_ended saved=false")
             }
         } catch {
             logger.error(
@@ -118,6 +117,7 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
 
 // MARK: - HKWorkoutSessionDelegate
 
+@available(iOS 26.0, watchOS 5.0, *)
 extension WorkoutSessionManager: HKWorkoutSessionDelegate {
     public func workoutSession(
         _ workoutSession: HKWorkoutSession,
@@ -140,7 +140,6 @@ extension WorkoutSessionManager: HKWorkoutSessionDelegate {
         lock.withLock {
             session = nil
             builder = nil
-            sessionStartTime = nil
         }
     }
 }

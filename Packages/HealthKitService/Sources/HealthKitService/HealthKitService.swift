@@ -611,7 +611,10 @@ public final class HealthKitService: Sendable {
         guard let realStore = healthStore as? HKHealthStore else {
             return NoopWorkoutSessionManager()
         }
-        return WorkoutSessionManager(healthStore: realStore)
+        if #available(iOS 26.0, watchOS 5.0, *) {
+            return WorkoutSessionManager(healthStore: realStore)
+        }
+        return NoopWorkoutSessionManager()
         #endif
     }
 }
