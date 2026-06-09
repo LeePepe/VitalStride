@@ -13,8 +13,10 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
     var requestAuthorizationCalled = false
     var queryResults: [HKSampleType: AnchoredQueryResult] = [:]
     var queryError: (any Error)?
+    var queryErrors: [HKSampleType: any Error] = [:]
     var capturedPredicates: [HKSampleType: NSPredicate?] = [:]
     var capturedAnchors: [HKSampleType: HKQueryAnchor?] = [:]
+    private let lock = NSLock()
 
     func requestAuthorization(
         toShare typesToShare: Set<HKSampleType>,
@@ -36,16 +38,24 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
         anchor: HKQueryAnchor?,
         limit: Int
     ) async throws -> AnchoredQueryResult {
-        capturedPredicates[type] = predicate
-        capturedAnchors[type] = anchor
+        lock.withLock {
+            capturedPredicates[type] = predicate
+            capturedAnchors[type] = anchor
+        }
+        let perTypeError = lock.withLock { queryErrors[type] }
+        if let error = perTypeError {
+            throw error
+        }
         if let error = queryError {
             throw error
         }
-        return queryResults[type] ?? AnchoredQueryResult(
-            samples: [],
-            deletedObjectUUIDs: [],
-            newAnchor: nil
-        )
+        return lock.withLock {
+            queryResults[type] ?? AnchoredQueryResult(
+                samples: [],
+                deletedObjectUUIDs: [],
+                newAnchor: nil
+            )
+        }
     }
 
     func executeObserverAnchoredQuery(
@@ -598,5 +608,133 @@ struct HealthSampleTypeHKExtensionTests {
         #expect(HealthSampleType.bodyMass.unitString == "kg")
         #expect(HealthSampleType.activeEnergyBurned.unitString == "kcal")
         #expect(HealthSampleType.sleepAnalysis.unitString == "category")
+    }
+}
+
+// MARK: - ProbeAvailableTypes Tests
+
+@Suite("ProbeAvailableTypes Tests")
+struct ProbeAvailableTypesTests {
+    let mockStore: MockHealthStore
+    let service: HealthKitService
+
+    init() {
+        let mock = MockHealthStore()
+        let defaults = makeTestDefaults()
+        let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "probe")
+        mockStore = mock
+        service = HealthKitService(
+            healthStore: mock,
+            anchorStore: anchors,
+            deviceIdentifier: "test-device"
+        )
+    }
+
+    @Test("Returns all types when all have data")
+    func allTypesAvailable() async {
+        let types: Set<HealthSampleType> = [.heartRate, .stepCount, .bodyMass]
+        for sampleType in types {
+            let sample = makeQuantitySample(
+                type: HKQuantityTypeIdentifier(rawValue: sampleType.hkSampleType.identifier),
+                value: 1.0,
+                unit: sampleType.hkUnit
+            )
+            mockStore.queryResults[sampleType.hkSampleType] = AnchoredQueryResult(
+                samples: [sample],
+                deletedObjectUUIDs: [],
+                newAnchor: nil
+            )
+        }
+
+        let result = await service.probeAvailableTypes(from: types)
+
+        #expect(result == types)
+    }
+
+    @Test("Returns subset when only some types have data")
+    func partialTypesAvailable() async {
+        let heartRateSample = makeQuantitySample(
+            type: .heartRate,
+            value: 72.0,
+            unit: HKUnit.count().unitDivided(by: .minute())
+        )
+        mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
+            samples: [heartRateSample],
+            deletedObjectUUIDs: [],
+            newAnchor: nil
+        )
+        mockStore.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
+            samples: [],
+            deletedObjectUUIDs: [],
+            newAnchor: nil
+        )
+
+        let result = await service.probeAvailableTypes(from: [.heartRate, .stepCount])
+
+        #expect(result == [.heartRate])
+    }
+
+    @Test("Returns empty set when no types have data")
+    func noTypesAvailable() async {
+        mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
+            samples: [],
+            deletedObjectUUIDs: [],
+            newAnchor: nil
+        )
+        mockStore.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
+            samples: [],
+            deletedObjectUUIDs: [],
+            newAnchor: nil
+        )
+
+        let result = await service.probeAvailableTypes(from: [.heartRate, .stepCount])
+
+        #expect(result.isEmpty)
+    }
+
+    @Test("Skips types that throw errors and returns the rest")
+    func errorSkipsType() async {
+        let stepSample = makeQuantitySample(type: .stepCount, value: 500.0, unit: .count())
+        mockStore.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
+            samples: [stepSample],
+            deletedObjectUUIDs: [],
+            newAnchor: nil
+        )
+        mockStore.queryErrors[HKQuantityType(.heartRate)] = TestError.simulated
+
+        let result = await service.probeAvailableTypes(from: [.heartRate, .stepCount])
+
+        #expect(result == [.stepCount])
+    }
+
+    @Test("Returns empty set when HealthKit is unavailable")
+    func healthKitUnavailable() async {
+        MockHealthStore.isHealthDataAvailable = false
+        defer { MockHealthStore.isHealthDataAvailable = true }
+
+        let result = await service.probeAvailableTypes(from: [.heartRate, .stepCount])
+
+        #expect(result.isEmpty)
+    }
+
+    @Test("Returns empty set for empty input")
+    func emptyInput() async {
+        let result = await service.probeAvailableTypes(from: [])
+
+        #expect(result.isEmpty)
+    }
+
+    @Test("Includes sleep analysis category type")
+    func sleepAnalysisProbe() async {
+        let sleepSample = makeSleepSample(value: .asleepCore)
+        mockStore.queryResults[HKCategoryType(.sleepAnalysis)] = AnchoredQueryResult(
+            samples: [sleepSample],
+            deletedObjectUUIDs: [],
+            newAnchor: nil
+        )
+
+        let result = await service.probeAvailableTypes(from: [.sleepAnalysis])
+
+        #expect(result == [.sleepAnalysis])
     }
 }
