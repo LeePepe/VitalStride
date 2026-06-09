@@ -3,10 +3,8 @@ import FoundationModels
 #endif
 import Foundation
 import OSLog
-import os
 
 private let logger = Logger(subsystem: "com.vitalstride.aiservice", category: "AppleIntelligenceProvider")
-private let signposter = OSSignposter(subsystem: "com.vitalstride.aiservice", category: "AppleIntelligenceProvider")
 
 public struct AppleIntelligenceProvider: AIProvider, Sendable {
 
@@ -51,10 +49,6 @@ extension AppleIntelligenceProvider {
 
     @available(iOS 26, macOS 26, *)
     private func performChat(messages: [ChatMessage]) async throws -> ChatResponse {
-        let signpostID = signposter.makeSignpostID()
-        let state = signposter.beginInterval("ai_provider_chat", id: signpostID, "provider=apple_intelligence")
-        defer { signposter.endInterval("ai_provider_chat", state) }
-
         let (instructions, prompt) = Self.formatMessages(messages)
         let session = LanguageModelSession(instructions: instructions)
         let response = try await session.respond(to: prompt)
@@ -66,10 +60,6 @@ extension AppleIntelligenceProvider {
     private func performChatStream(messages: [ChatMessage]) -> AsyncThrowingStream<ChatStreamChunk, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
-                let signpostID = signposter.makeSignpostID()
-                let ttftState = signposter.beginInterval("ai_provider_stream_first_token", id: signpostID, "provider=apple_intelligence")
-                var firstTokenRecorded = false
-
                 do {
                     let (instructions, prompt) = Self.formatMessages(messages)
                     let session = LanguageModelSession(instructions: instructions)
@@ -78,10 +68,6 @@ extension AppleIntelligenceProvider {
 
                     for try await snapshot in stream {
                         let currentContent = snapshot.content
-                        if !firstTokenRecorded {
-                            signposter.endInterval("ai_provider_stream_first_token", ttftState)
-                            firstTokenRecorded = true
-                        }
                         let delta = String(currentContent.dropFirst(previousContent.count))
                         if !delta.isEmpty {
                             continuation.yield(ChatStreamChunk(content: delta))
@@ -89,15 +75,9 @@ extension AppleIntelligenceProvider {
                         previousContent = currentContent
                     }
 
-                    if !firstTokenRecorded {
-                        signposter.endInterval("ai_provider_stream_first_token", ttftState)
-                    }
                     continuation.yield(ChatStreamChunk(content: "", isFinished: true))
                     continuation.finish()
                 } catch {
-                    if !firstTokenRecorded {
-                        signposter.endInterval("ai_provider_stream_first_token", ttftState)
-                    }
                     continuation.finish(throwing: error)
                 }
             }

@@ -3,6 +3,8 @@ import SwiftData
 
 @Model
 public final class DataAnalysisCache {
+    #Unique<DataAnalysisCache>([\.sampleType])
+
     public var sampleType: String = ""
     public var contentJSON: String = ""
     public var generatedAt: Date = Date()

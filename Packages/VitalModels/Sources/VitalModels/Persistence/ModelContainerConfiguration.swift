@@ -43,7 +43,8 @@ public enum ModelContainerConfiguration {
         let aiCacheSchema = Schema(aiCacheModelTypes)
         let aiCacheConfig = ModelConfiguration(
             "AICache",
-            schema: aiCacheSchema
+            schema: aiCacheSchema,
+            cloudKitDatabase: .none
         )
 
         let fullSchema = Schema(allModelTypes)

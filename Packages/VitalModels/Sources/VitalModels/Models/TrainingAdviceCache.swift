@@ -3,6 +3,9 @@ import SwiftData
 
 @Model
 public final class TrainingAdviceCache {
+    #Unique<TrainingAdviceCache>([\.cacheKey])
+
+    public var cacheKey: String = "default"
     public var contentJSON: String = ""
     public var generatedAt: Date = Date()
     public var expiresAt: Date = Date()

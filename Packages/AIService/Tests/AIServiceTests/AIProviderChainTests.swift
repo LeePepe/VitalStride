@@ -112,15 +112,71 @@ struct AIProviderChainTests {
         let description = error.localizedDescription
         #expect(!description.isEmpty)
     }
+
+    // MARK: - Runtime Error Fallback Tests
+
+    @Test("falls back to next provider when first throws at runtime")
+    func runtimeFallback() async throws {
+        let failing = MockAIProvider(name: "failing", response: "")
+        failing.shouldThrow = true
+        let fallback = MockAIProvider(name: "fallback", response: "from-fallback")
+
+        let chain = AIProviderChain(entries: [
+            .init(name: "failing", isAvailable: { true }, provider: failing),
+            .init(name: "fallback", isAvailable: { true }, provider: fallback),
+        ])
+
+        let result = try await chain.chat(messages: [ChatMessage(role: "user", content: "test")], model: nil)
+        #expect(result.content == "from-fallback")
+    }
+
+    @Test("throws last runtime error when all available providers fail")
+    func allRuntimeFailures() async throws {
+        let failing1 = MockAIProvider(name: "first", response: "")
+        failing1.shouldThrow = true
+        let failing2 = MockAIProvider(name: "second", response: "")
+        failing2.shouldThrow = true
+
+        let chain = AIProviderChain(entries: [
+            .init(name: "first", isAvailable: { true }, provider: failing1),
+            .init(name: "second", isAvailable: { true }, provider: failing2),
+        ])
+
+        await #expect(throws: MockProviderError.self) {
+            try await chain.chat(messages: [ChatMessage(role: "user", content: "test")], model: nil)
+        }
+    }
+
+    @Test("skips unavailable providers then falls back on runtime error")
+    func mixedUnavailableAndRuntimeFailure() async throws {
+        let unavailable = MockAIProvider(name: "unavailable", response: "")
+        let failing = MockAIProvider(name: "failing", response: "")
+        failing.shouldThrow = true
+        let working = MockAIProvider(name: "working", response: "from-working")
+
+        let chain = AIProviderChain(entries: [
+            .init(name: "unavailable", isAvailable: { false }, provider: unavailable),
+            .init(name: "failing", isAvailable: { true }, provider: failing),
+            .init(name: "working", isAvailable: { true }, provider: working),
+        ])
+
+        let result = try await chain.chat(messages: [ChatMessage(role: "user", content: "test")], model: nil)
+        #expect(result.content == "from-working")
+    }
 }
 
 // MARK: - Mock Provider
+
+enum MockProviderError: Error {
+    case simulatedFailure
+}
 
 private final class MockAIProvider: AIProvider, @unchecked Sendable {
     let name: String
     let responseContent: String
     nonisolated(unsafe) var lastCapturedMessages: [ChatMessage]?
     nonisolated(unsafe) var lastCapturedModel: String?
+    nonisolated(unsafe) var shouldThrow = false
 
     init(name: String, response: String) {
         self.name = name
@@ -128,6 +184,7 @@ private final class MockAIProvider: AIProvider, @unchecked Sendable {
     }
 
     func chat(messages: [ChatMessage], model: String?) async throws -> ChatResponse {
+        if shouldThrow { throw MockProviderError.simulatedFailure }
         lastCapturedMessages = messages
         lastCapturedModel = model
         return ChatResponse(content: responseContent, model: name)
