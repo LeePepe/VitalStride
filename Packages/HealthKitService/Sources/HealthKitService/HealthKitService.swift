@@ -216,6 +216,54 @@ public final class HealthKitService: Sendable {
         return false
     }
 
+    public func probeAvailableTypes(from types: Set<HealthSampleType>) async -> Set<HealthSampleType> {
+        guard type(of: healthStore).isHealthDataAvailable else { return [] }
+
+        let signpostID = signposter.makeSignpostID()
+        let state = signposter.beginInterval("probeAvailableTypes", id: signpostID)
+        let start = ContinuousClock.now
+
+        let windowStart = Date(timeIntervalSinceNow: -30 * 24 * 3600)
+        let windowEnd = Date()
+
+        let available = await withTaskGroup(of: HealthSampleType?.self) { group in
+            for sampleType in types {
+                group.addTask {
+                    do {
+                        let predicate = HKQuery.predicateForSamples(
+                            withStart: windowStart,
+                            end: windowEnd
+                        )
+                        let result = try await self.healthStore.executeAnchoredQuery(
+                            type: sampleType.hkSampleType,
+                            predicate: predicate,
+                            anchor: nil,
+                            limit: 1
+                        )
+                        return result.samples.isEmpty ? nil : sampleType
+                    } catch {
+                        return nil
+                    }
+                }
+            }
+
+            var result: Set<HealthSampleType> = []
+            for await sampleType in group {
+                if let sampleType {
+                    result.insert(sampleType)
+                }
+            }
+            return result
+        }
+
+        let elapsed = ContinuousClock.now - start
+        let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
+        logger.info("probe completed: \(available.count)/\(types.count) types available, \(ms)ms")
+        signposter.endInterval("probeAvailableTypes", state)
+
+        return available
+    }
+
     public func requestAuthorization() async throws {
         guard type(of: healthStore).isHealthDataAvailable else {
             throw HealthKitServiceError.healthDataNotAvailable

@@ -7,14 +7,23 @@ import Testing
 // MARK: - Mock Health Store
 
 final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
-    nonisolated(unsafe) static var isHealthDataAvailable: Bool = true
+    static let isHealthDataAvailable: Bool = true
 
     var authorizationRequestStatus: HKAuthorizationRequestStatus = .unnecessary
     var requestAuthorizationCalled = false
     var queryResults: [HKSampleType: AnchoredQueryResult] = [:]
     var queryError: (any Error)?
+    var queryErrors: [HKSampleType: any Error] = [:]
     var capturedPredicates: [HKSampleType: NSPredicate?] = [:]
     var capturedAnchors: [HKSampleType: HKQueryAnchor?] = [:]
+    var queryDelay: Duration?
+    private let lock = NSLock()
+    private var _concurrentCount = 0
+    private var _peakConcurrentCount = 0
+
+    var peakConcurrentQueries: Int {
+        lock.withLock { _peakConcurrentCount }
+    }
 
     func requestAuthorization(
         toShare typesToShare: Set<HKSampleType>,
@@ -36,16 +45,66 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
         anchor: HKQueryAnchor?,
         limit: Int
     ) async throws -> AnchoredQueryResult {
-        capturedPredicates[type] = predicate
-        capturedAnchors[type] = anchor
+        lock.withLock {
+            capturedPredicates[type] = predicate
+            capturedAnchors[type] = anchor
+            _concurrentCount += 1
+            _peakConcurrentCount = max(_peakConcurrentCount, _concurrentCount)
+        }
+        defer { lock.withLock { _concurrentCount -= 1 } }
+
+        if let delay = lock.withLock({ queryDelay }) {
+            try await Task.sleep(for: delay)
+        }
+
+        let perTypeError = lock.withLock { queryErrors[type] }
+        if let error = perTypeError {
+            throw error
+        }
         if let error = queryError {
             throw error
         }
-        return queryResults[type] ?? AnchoredQueryResult(
-            samples: [],
-            deletedObjectUUIDs: [],
-            newAnchor: nil
-        )
+        return lock.withLock {
+            queryResults[type] ?? AnchoredQueryResult(
+                samples: [],
+                deletedObjectUUIDs: [],
+                newAnchor: nil
+            )
+        }
+    }
+
+    func executeObserverAnchoredQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        anchor: HKQueryAnchor?,
+        limit: Int
+    ) -> AsyncStream<AnchoredQueryResult> {
+        AsyncStream { $0.finish() }
+    }
+
+    func stopQuery(_ query: HKQuery) {}
+}
+
+private final class UnavailableMockHealthStore: HealthStoreProviding, @unchecked Sendable {
+    static let isHealthDataAvailable = false
+
+    func requestAuthorization(
+        toShare typesToShare: Set<HKSampleType>,
+        read typesToRead: Set<HKObjectType>
+    ) async throws {}
+
+    func statusForAuthorizationRequest(
+        toShare typesToShare: Set<HKSampleType>,
+        read typesToRead: Set<HKObjectType>
+    ) async throws -> HKAuthorizationRequestStatus { .unnecessary }
+
+    func executeAnchoredQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        anchor: HKQueryAnchor?,
+        limit: Int
+    ) async throws -> AnchoredQueryResult {
+        AnchoredQueryResult(samples: [], deletedObjectUUIDs: [], newAnchor: nil)
     }
 
     func executeObserverAnchoredQuery(
@@ -293,11 +352,17 @@ struct HealthKitServiceTests {
 
     @Test("Throws error when health data is not available")
     func healthDataNotAvailable() async {
-        MockHealthStore.isHealthDataAvailable = false
-        defer { MockHealthStore.isHealthDataAvailable = true }
+        let unavailableStore = UnavailableMockHealthStore()
+        let defaults = makeTestDefaults()
+        let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "unavail")
+        let unavailableService = HealthKitService(
+            healthStore: unavailableStore,
+            anchorStore: anchors,
+            deviceIdentifier: "test-device"
+        )
 
         await #expect(throws: HealthKitServiceError.self) {
-            try await service.fetchData(for: .heartRate)
+            try await unavailableService.fetchData(for: .heartRate)
         }
     }
 
@@ -598,5 +663,162 @@ struct HealthSampleTypeHKExtensionTests {
         #expect(HealthSampleType.bodyMass.unitString == "kg")
         #expect(HealthSampleType.activeEnergyBurned.unitString == "kcal")
         #expect(HealthSampleType.sleepAnalysis.unitString == "category")
+    }
+}
+
+// MARK: - ProbeAvailableTypes Tests
+
+@Suite("ProbeAvailableTypes Tests")
+struct ProbeAvailableTypesTests {
+    let mockStore: MockHealthStore
+    let service: HealthKitService
+
+    init() {
+        let mock = MockHealthStore()
+        let defaults = makeTestDefaults()
+        let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "probe")
+        mockStore = mock
+        service = HealthKitService(
+            healthStore: mock,
+            anchorStore: anchors,
+            deviceIdentifier: "test-device"
+        )
+    }
+
+    @Test("Returns all types when all have data")
+    func allTypesAvailable() async {
+        let types: Set<HealthSampleType> = [.heartRate, .stepCount, .bodyMass]
+        for sampleType in types {
+            let sample = makeQuantitySample(
+                type: HKQuantityTypeIdentifier(rawValue: sampleType.hkSampleType.identifier),
+                value: 1.0,
+                unit: sampleType.hkUnit
+            )
+            mockStore.queryResults[sampleType.hkSampleType] = AnchoredQueryResult(
+                samples: [sample],
+                deletedObjectUUIDs: [],
+                newAnchor: nil
+            )
+        }
+
+        let result = await service.probeAvailableTypes(from: types)
+
+        #expect(result == types)
+    }
+
+    @Test("Returns subset when only some types have data")
+    func partialTypesAvailable() async {
+        let heartRateSample = makeQuantitySample(
+            type: .heartRate,
+            value: 72.0,
+            unit: HKUnit.count().unitDivided(by: .minute())
+        )
+        mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
+            samples: [heartRateSample],
+            deletedObjectUUIDs: [],
+            newAnchor: nil
+        )
+        mockStore.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
+            samples: [],
+            deletedObjectUUIDs: [],
+            newAnchor: nil
+        )
+
+        let result = await service.probeAvailableTypes(from: [.heartRate, .stepCount])
+
+        #expect(result == [.heartRate])
+    }
+
+    @Test("Returns empty set when no types have data")
+    func noTypesAvailable() async {
+        mockStore.queryResults[HKQuantityType(.heartRate)] = AnchoredQueryResult(
+            samples: [],
+            deletedObjectUUIDs: [],
+            newAnchor: nil
+        )
+        mockStore.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
+            samples: [],
+            deletedObjectUUIDs: [],
+            newAnchor: nil
+        )
+
+        let result = await service.probeAvailableTypes(from: [.heartRate, .stepCount])
+
+        #expect(result.isEmpty)
+    }
+
+    @Test("Skips types that throw errors and returns the rest")
+    func errorSkipsType() async {
+        let stepSample = makeQuantitySample(type: .stepCount, value: 500.0, unit: .count())
+        mockStore.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
+            samples: [stepSample],
+            deletedObjectUUIDs: [],
+            newAnchor: nil
+        )
+        mockStore.queryErrors[HKQuantityType(.heartRate)] = TestError.simulated
+
+        let result = await service.probeAvailableTypes(from: [.heartRate, .stepCount])
+
+        #expect(result == [.stepCount])
+    }
+
+    @Test("Returns empty set when HealthKit is unavailable")
+    func healthKitUnavailable() async {
+        let unavailableStore = UnavailableMockHealthStore()
+        let defaults = makeTestDefaults()
+        let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "unavail")
+        let unavailableService = HealthKitService(
+            healthStore: unavailableStore,
+            anchorStore: anchors,
+            deviceIdentifier: "test-device"
+        )
+
+        let result = await unavailableService.probeAvailableTypes(from: [.heartRate, .stepCount])
+
+        #expect(result.isEmpty)
+    }
+
+    @Test("Returns empty set for empty input")
+    func emptyInput() async {
+        let result = await service.probeAvailableTypes(from: [])
+
+        #expect(result.isEmpty)
+    }
+
+    @Test("Includes sleep analysis category type")
+    func sleepAnalysisProbe() async {
+        let sleepSample = makeSleepSample(value: .asleepCore)
+        mockStore.queryResults[HKCategoryType(.sleepAnalysis)] = AnchoredQueryResult(
+            samples: [sleepSample],
+            deletedObjectUUIDs: [],
+            newAnchor: nil
+        )
+
+        let result = await service.probeAvailableTypes(from: [.sleepAnalysis])
+
+        #expect(result == [.sleepAnalysis])
+    }
+
+    @Test("Queries execute concurrently, not sequentially")
+    func concurrentExecution() async {
+        let types: Set<HealthSampleType> = [.heartRate, .stepCount, .bodyMass]
+        for sampleType in types {
+            let sample = makeQuantitySample(
+                type: HKQuantityTypeIdentifier(rawValue: sampleType.hkSampleType.identifier),
+                value: 1.0,
+                unit: sampleType.hkUnit
+            )
+            mockStore.queryResults[sampleType.hkSampleType] = AnchoredQueryResult(
+                samples: [sample],
+                deletedObjectUUIDs: [],
+                newAnchor: nil
+            )
+        }
+        mockStore.queryDelay = .milliseconds(50)
+
+        let result = await service.probeAvailableTypes(from: types)
+
+        #expect(result == types)
+        #expect(mockStore.peakConcurrentQueries > 1)
     }
 }
