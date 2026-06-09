@@ -1,7 +1,7 @@
 import HealthKitService
+import SwiftData
 import SwiftUI
 import VitalModels
-import os
 
 // MARK: - DataView
 
@@ -12,6 +12,7 @@ struct DataView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.healthKitService) private var healthKitService
     @Environment(\.healthDataCache) private var healthDataCache
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         NavigationStack {
@@ -105,6 +106,14 @@ struct DataView: View {
         isCheckingAuth = false
     }
 
+    private func recordTap(for sampleType: HealthSampleType) {
+        let container = modelContext.container
+        Task.detached {
+            let context = ModelContext(container)
+            UserInterestTracker.recordTap(for: sampleType, in: context)
+        }
+    }
+
     private var summarySection: some View {
         Section {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -126,41 +135,49 @@ struct DataView: View {
             } label: {
                 Label(String(localized: "步数", comment: "Steps"), systemImage: "figure.walk")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .stepCount) })
             NavigationLink {
                 ActiveEnergyDetailView()
             } label: {
                 Label(String(localized: "活动能量", comment: "Active energy"), systemImage: "flame.fill")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .activeEnergyBurned) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .basalEnergyBurned)
             } label: {
                 Label(String(localized: "基础代谢能量", comment: "Basal energy"), systemImage: "flame")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .basalEnergyBurned) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .distanceWalkingRunning)
             } label: {
                 Label(String(localized: "步行+跑步距离", comment: "Walking running distance"), systemImage: "figure.walk.motion")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .distanceWalkingRunning) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .distanceCycling)
             } label: {
                 Label(String(localized: "骑行距离", comment: "Cycling distance"), systemImage: "bicycle")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .distanceCycling) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .appleExerciseTime)
             } label: {
                 Label(String(localized: "锻炼时间", comment: "Exercise time"), systemImage: "figure.run")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .appleExerciseTime) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .appleStandTime)
             } label: {
                 Label(String(localized: "站立时间", comment: "Stand time"), systemImage: "figure.stand")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .appleStandTime) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .flightsClimbed)
             } label: {
                 Label(String(localized: "已爬楼层", comment: "Flights climbed"), systemImage: "figure.stairs")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .flightsClimbed) })
         } header: {
             Text("活动", comment: "Activity section header")
         }
@@ -173,21 +190,25 @@ struct DataView: View {
             } label: {
                 Label(String(localized: "心率", comment: "Heart rate"), systemImage: "heart.fill")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .heartRate) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .restingHeartRate)
             } label: {
                 Label(String(localized: "静息心率", comment: "Resting heart rate"), systemImage: "heart")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .restingHeartRate) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .heartRateVariabilitySDNN)
             } label: {
                 Label(String(localized: "心率变异性", comment: "Heart rate variability"), systemImage: "waveform.path.ecg")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .heartRateVariabilitySDNN) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .vo2Max)
             } label: {
                 Label(String(localized: "最大摄氧量", comment: "VO2 Max"), systemImage: "lungs.fill")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .vo2Max) })
         } header: {
             Text("心脏", comment: "Heart section header")
         }
@@ -200,26 +221,31 @@ struct DataView: View {
             } label: {
                 Label(String(localized: "体重", comment: "Body weight"), systemImage: "scalemass.fill")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .bodyMass) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .bodyFatPercentage)
             } label: {
                 Label(String(localized: "体脂率", comment: "Body fat percentage"), systemImage: "percent")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .bodyFatPercentage) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .leanBodyMass)
             } label: {
                 Label(String(localized: "去脂体重", comment: "Lean body mass"), systemImage: "scalemass")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .leanBodyMass) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .height)
             } label: {
                 Label(String(localized: "身高", comment: "Height"), systemImage: "ruler")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .height) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .bodyMassIndex)
             } label: {
                 Label(String(localized: "BMI", comment: "Body mass index"), systemImage: "number")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .bodyMassIndex) })
         } header: {
             Text("身体测量", comment: "Body measurements section header")
         }
@@ -232,6 +258,7 @@ struct DataView: View {
             } label: {
                 Label(String(localized: "睡眠", comment: "Sleep"), systemImage: "bed.double.fill")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .sleepAnalysis) })
         } header: {
             Text("睡眠", comment: "Sleep section header")
         }
@@ -244,26 +271,31 @@ struct DataView: View {
             } label: {
                 Label(String(localized: "膳食能量摄入", comment: "Dietary energy"), systemImage: "fork.knife")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .dietaryEnergyConsumed) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .dietaryProtein)
             } label: {
                 Label(String(localized: "蛋白质", comment: "Protein"), systemImage: "fish.fill")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .dietaryProtein) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .dietaryCarbohydrates)
             } label: {
                 Label(String(localized: "碳水化合物", comment: "Carbohydrates"), systemImage: "leaf.fill")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .dietaryCarbohydrates) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .dietaryFatTotal)
             } label: {
                 Label(String(localized: "脂肪", comment: "Fat"), systemImage: "drop.fill")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .dietaryFatTotal) })
             NavigationLink {
                 GenericHealthDetailView(sampleType: .dietaryWater)
             } label: {
                 Label(String(localized: "饮水量", comment: "Water"), systemImage: "drop.dewy.fill")
             }
+            .simultaneousGesture(TapGesture().onEnded { recordTap(for: .dietaryWater) })
         } header: {
             Text("营养", comment: "Nutrition section header")
         }

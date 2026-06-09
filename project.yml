@@ -84,6 +84,7 @@ targets:
       - path: VitalStride/Resources
       - path: VitalStride/Sources/ExerciseSeeder.swift
       - path: VitalStride/Sources/DataView.swift
+      - path: VitalStride/Sources/UserInterestTracker.swift
       - path: VitalStride/Sources/HealthSummaryCards.swift
       - path: VitalStride/Sources/DataSections
       - path: VitalStride/Sources/UnitPreferencesSection.swift

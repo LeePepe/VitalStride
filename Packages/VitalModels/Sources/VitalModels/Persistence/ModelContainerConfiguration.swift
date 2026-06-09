@@ -8,6 +8,7 @@ public enum ModelContainerConfiguration {
         Exercise.self,
         WorkoutTemplate.self,
         TemplateExercise.self,
+        UserInterest.self,
     ]
 
     public static let healthCacheModelTypes: [any PersistentModel.Type] = [
