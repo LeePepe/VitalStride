@@ -15,8 +15,14 @@ public enum ModelContainerConfiguration {
         HealthCacheEntry.self,
     ]
 
+    public static let aiCacheModelTypes: [any PersistentModel.Type] = [
+        OverviewInsightCache.self,
+        TrainingAdviceCache.self,
+        DataAnalysisCache.self,
+    ]
+
     public static let allModelTypes: [any PersistentModel.Type] =
-        trainingModelTypes + healthCacheModelTypes
+        trainingModelTypes + healthCacheModelTypes + aiCacheModelTypes
 
     public static let cloudKitContainerIdentifier = "iCloud.com.leepepe.VitalStride"
 
@@ -34,10 +40,16 @@ public enum ModelContainerConfiguration {
             cloudKitDatabase: .none
         )
 
+        let aiCacheSchema = Schema(aiCacheModelTypes)
+        let aiCacheConfig = ModelConfiguration(
+            "AICache",
+            schema: aiCacheSchema
+        )
+
         let fullSchema = Schema(allModelTypes)
         return try ModelContainer(
             for: fullSchema,
-            configurations: [trainingConfig, healthCacheConfig]
+            configurations: [trainingConfig, healthCacheConfig, aiCacheConfig]
         )
     }
 
@@ -58,10 +70,18 @@ public enum ModelContainerConfiguration {
             cloudKitDatabase: .none
         )
 
+        let aiCacheSchema = Schema(aiCacheModelTypes)
+        let aiCacheConfig = ModelConfiguration(
+            "AICache",
+            schema: aiCacheSchema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+
         let fullSchema = Schema(allModelTypes)
         return try ModelContainer(
             for: fullSchema,
-            configurations: [trainingConfig, healthCacheConfig]
+            configurations: [trainingConfig, healthCacheConfig, aiCacheConfig]
         )
     }
 }
