@@ -3,8 +3,6 @@ import SwiftData
 
 @Model
 public final class UserInterest {
-    #Unique<UserInterest>([\.sampleType])
-
     public var sampleType: String = ""
     public var tapCount: Int = 0
     public var lastTappedDate: Date = Date()
