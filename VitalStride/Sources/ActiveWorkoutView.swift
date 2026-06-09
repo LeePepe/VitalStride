@@ -340,12 +340,7 @@ struct ActiveWorkoutView: View {
         case .fromWorkout(let sourceWorkout):
             WorkoutCopier.copyExercises(from: sourceWorkout, to: newWorkout, using: modelContext)
         case .fromTemplate(let template):
-            let templateExercises = (template.exercises ?? []).sorted { $0.order < $1.order }
-            for (index, templateExercise) in templateExercises.enumerated() {
-                let workoutExercise = WorkoutExercise(order: index, exercise: templateExercise.exercise)
-                workoutExercise.workout = newWorkout
-                modelContext.insert(workoutExercise)
-            }
+            WorkoutCopier.setupFromTemplate(template, into: newWorkout, using: modelContext)
         }
 
         workout = newWorkout
@@ -357,6 +352,10 @@ struct ActiveWorkoutView: View {
         let workoutExercise = WorkoutExercise(order: order, exercise: exercise)
         workoutExercise.workout = workout
         modelContext.insert(workoutExercise)
+
+        let defaultSet = ExerciseSet(order: 0, weight: 0, reps: 0, setType: .working)
+        defaultSet.workoutExercise = workoutExercise
+        modelContext.insert(defaultSet)
     }
 
     private func moveExercises(from source: IndexSet, to destination: Int) {
@@ -422,10 +421,12 @@ private struct ActiveExerciseSection: View {
                         }
                     )
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            deleteSet(exerciseSet)
-                        } label: {
-                            Label("删除", systemImage: "trash")
+                        if sortedSets.count > 1 {
+                            Button(role: .destructive) {
+                                deleteSet(exerciseSet)
+                            } label: {
+                                Label("删除", systemImage: "trash")
+                            }
                         }
                     }
                 } else {
@@ -438,10 +439,12 @@ private struct ActiveExerciseSection: View {
                         }
                     )
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            deleteSet(exerciseSet)
-                        } label: {
-                            Label("删除", systemImage: "trash")
+                        if sortedSets.count > 1 {
+                            Button(role: .destructive) {
+                                deleteSet(exerciseSet)
+                            } label: {
+                                Label("删除", systemImage: "trash")
+                            }
                         }
                     }
                     .contextMenu {
@@ -575,25 +578,7 @@ private struct ActiveExerciseSection: View {
     }
 
     private func deleteSet(_ exerciseSet: ExerciseSet) {
-        var toDelete = [exerciseSet]
-        if !exerciseSet.setType.isSubSet {
-            let sets = sortedSets
-            if let parentIndex = sets.firstIndex(where: { $0.persistentModelID == exerciseSet.persistentModelID }) {
-                var i = parentIndex + 1
-                while i < sets.count && sets[i].setType.isSubSet {
-                    toDelete.append(sets[i])
-                    i += 1
-                }
-            }
-        }
-        let deleteIDs = Set(toDelete.map { $0.persistentModelID })
-        for set in toDelete {
-            modelContext.delete(set)
-        }
-        let remaining = sortedSets.filter { !deleteIDs.contains($0.persistentModelID) }
-        for (newOrder, set) in remaining.enumerated() {
-            set.order = newOrder
-        }
+        WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
     }
 }
 
