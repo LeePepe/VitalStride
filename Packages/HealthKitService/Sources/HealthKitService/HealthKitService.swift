@@ -223,19 +223,20 @@ public final class HealthKitService: Sendable {
         let state = signposter.beginInterval("probeAvailableTypes", id: signpostID)
         let start = ContinuousClock.now
 
-        let window = HKQuery.predicateForSamples(
-            withStart: Date(timeIntervalSinceNow: -30 * 24 * 3600),
-            end: Date()
-        )
+        let windowStart = Date(timeIntervalSinceNow: -30 * 24 * 3600)
+        let windowEnd = Date()
 
         let available = await withTaskGroup(of: HealthSampleType?.self) { group in
             for sampleType in types {
-                nonisolated(unsafe) let window = window
                 group.addTask {
                     do {
+                        let predicate = HKQuery.predicateForSamples(
+                            withStart: windowStart,
+                            end: windowEnd
+                        )
                         let result = try await self.healthStore.executeAnchoredQuery(
                             type: sampleType.hkSampleType,
-                            predicate: window,
+                            predicate: predicate,
                             anchor: nil,
                             limit: 1
                         )
