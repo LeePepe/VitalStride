@@ -10,16 +10,30 @@ PROJECT_DIR="$(git rev-parse --show-toplevel)"
 cd "$PROJECT_DIR"
 
 ZERO_SHA="0000000000000000000000000000000000000000"
-LOCAL_SHA=""
-REMOTE_SHA=""
+SWIFT_FILES_TMPDIR=$(mktemp -d)
+SWIFT_FILES_ALL="$SWIFT_FILES_TMPDIR/all.txt"
+touch "$SWIFT_FILES_ALL"
+HAS_NON_DELETE_REF=false
 
 while read -r local_ref local_sha remote_ref remote_sha; do
-  LOCAL_SHA="$local_sha"
-  REMOTE_SHA="$remote_sha"
+  if [ "$local_sha" = "$ZERO_SHA" ]; then
+    continue
+  fi
+  HAS_NON_DELETE_REF=true
+
+  if [ "$remote_sha" = "$ZERO_SHA" ]; then
+    merge_base=$(git merge-base "${REMOTE}/main" "$local_sha" 2>/dev/null || git merge-base HEAD~10 "$local_sha" 2>/dev/null || echo "")
+    if [ -n "$merge_base" ]; then
+      git diff --name-only --diff-filter=ACMR "$merge_base".."$local_sha" -- '*.swift' 2>/dev/null >> "$SWIFT_FILES_ALL" || true
+    fi
+  else
+    git diff --name-only --diff-filter=ACMR "$remote_sha".."$local_sha" -- '*.swift' 2>/dev/null >> "$SWIFT_FILES_ALL" || true
+  fi
 done
 
-if [ -z "$LOCAL_SHA" ] || [ "$LOCAL_SHA" = "$ZERO_SHA" ]; then
+if [ "$HAS_NON_DELETE_REF" = false ]; then
   echo "Deleting remote ref, skipping checks."
+  rm -rf "$SWIFT_FILES_TMPDIR"
   exit 0
 fi
 
@@ -38,6 +52,7 @@ else
   echo "Last 20 lines of build log:"
   tail -20 "$BUILD_LOG"
   rm -f "$BUILD_LOG"
+  rm -rf "$SWIFT_FILES_TMPDIR"
   exit 1
 fi
 rm -f "$BUILD_LOG"
@@ -58,6 +73,7 @@ else
   echo "Last 20 lines of test log:"
   tail -20 "$TEST_LOG"
   rm -f "$TEST_LOG"
+  rm -rf "$SWIFT_FILES_TMPDIR"
   exit 1
 fi
 rm -f "$TEST_LOG"
@@ -66,16 +82,8 @@ rm -f "$TEST_LOG"
 echo ""
 echo "🔍 Pre-push: Swift lint check..."
 
-if [ "$REMOTE_SHA" = "$ZERO_SHA" ]; then
-  MERGE_BASE=$(git merge-base "${REMOTE}/main" "$LOCAL_SHA" 2>/dev/null || git merge-base HEAD~10 "$LOCAL_SHA" 2>/dev/null || echo "")
-  if [ -n "$MERGE_BASE" ]; then
-    SWIFT_FILES=$(git diff --name-only --diff-filter=ACMR "$MERGE_BASE".."$LOCAL_SHA" -- '*.swift' 2>/dev/null || true)
-  else
-    SWIFT_FILES=""
-  fi
-else
-  SWIFT_FILES=$(git diff --name-only --diff-filter=ACMR "$REMOTE_SHA".."$LOCAL_SHA" -- '*.swift' 2>/dev/null || true)
-fi
+SWIFT_FILES=$(sort -u "$SWIFT_FILES_ALL")
+rm -rf "$SWIFT_FILES_TMPDIR"
 
 if [ -n "$SWIFT_FILES" ]; then
   while IFS= read -r file; do
@@ -86,11 +94,19 @@ if [ -n "$SWIFT_FILES" ]; then
   done <<< "$SWIFT_FILES"
 
   if command -v swiftlint &>/dev/null; then
-    if echo "$SWIFT_FILES" | xargs swiftlint lint --quiet --strict 2>/dev/null; then
-      echo "✅ SwiftLint passed."
+    LINT_ARGS=()
+    while IFS= read -r file; do
+      [ -f "$file" ] && LINT_ARGS+=("$file")
+    done <<< "$SWIFT_FILES"
+    if [ ${#LINT_ARGS[@]} -gt 0 ]; then
+      if swiftlint lint --quiet --strict -- "${LINT_ARGS[@]}" 2>/dev/null; then
+        echo "✅ SwiftLint passed."
+      else
+        echo "❌ SwiftLint found errors. Push aborted."
+        exit 1
+      fi
     else
-      echo "❌ SwiftLint found errors. Push aborted."
-      exit 1
+      echo "ℹ️  No existing Swift files to lint, skipping."
     fi
   else
     echo "ℹ️  SwiftLint not installed, skipping lint."
