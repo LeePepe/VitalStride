@@ -25,13 +25,16 @@ struct VitalStrideApp: App {
             let persistence = SwiftDataCachePersistence(modelContainer: modelContainer)
             healthDataCache = HealthDataCache(dataProvider: service, persistence: persistence)
 
+            let cache = healthDataCache
+            let context = modelContainer.mainContext
+
             Task {
-                ExerciseSeeder.seedIfNeeded(context: modelContainer.mainContext)
+                ExerciseSeeder.seedIfNeeded(context: context)
                 let status = try? await service.authorizationStatus()
                 if status == .unnecessary {
-                    await healthDataCache.hydrate(types: HealthSampleType.overviewTypes)
+                    await cache.hydrate(types: HealthSampleType.overviewTypes)
                 } else {
-                    await healthDataCache.handleAuthorizationRevoked()
+                    await cache.handleAuthorizationRevoked()
                     service.clearAllAnchors()
                 }
             }
