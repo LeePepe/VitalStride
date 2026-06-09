@@ -359,16 +359,24 @@ struct GenericHealthDetailView: View {
 
     private var chartYDomain: ClosedRange<Double> {
         let values = dailyData.map(\.value)
-        guard let minVal = values.min(), let maxVal = values.max(), minVal < maxVal else {
+        guard let minVal = values.min(), let maxVal = values.max() else {
             return 0...1
         }
-        guard sampleType.aggregationMode == .discrete else {
-            return 0...maxVal
+
+        if sampleType.aggregationMode == .discrete {
+            if minVal < maxVal {
+                let range = maxVal - minVal
+                let padding = max(range * 0.15, maxVal * 0.02)
+                let lower = max(0, minVal - padding)
+                return lower...(maxVal + padding)
+            } else {
+                let padding = max(minVal * 0.15, 1)
+                let lower = max(0, minVal - padding)
+                return lower...(minVal + padding)
+            }
+        } else {
+            return 0...max(maxVal, 1)
         }
-        let range = maxVal - minVal
-        let padding = max(range * 0.15, maxVal * 0.02)
-        let lower = max(0, minVal - padding)
-        return lower...(maxVal + padding)
     }
 
     private func barOpacity(for date: Date) -> Double {
