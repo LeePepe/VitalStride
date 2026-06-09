@@ -1,0 +1,119 @@
+#!/bin/bash
+set -uo pipefail
+
+# Pre-push hook: build + test + lint before push
+# VitalStride project
+
+REMOTE="$1"
+
+PROJECT_DIR="$(git rev-parse --show-toplevel)"
+cd "$PROJECT_DIR"
+
+ZERO_SHA="0000000000000000000000000000000000000000"
+SWIFT_FILES_TMPDIR=$(mktemp -d)
+SWIFT_FILES_ALL="$SWIFT_FILES_TMPDIR/all.txt"
+touch "$SWIFT_FILES_ALL"
+HAS_NON_DELETE_REF=false
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" = "$ZERO_SHA" ]; then
+    continue
+  fi
+  HAS_NON_DELETE_REF=true
+
+  if [ "$remote_sha" = "$ZERO_SHA" ]; then
+    merge_base=$(git merge-base "${REMOTE}/main" "$local_sha" 2>/dev/null || git merge-base HEAD~10 "$local_sha" 2>/dev/null || echo "")
+    if [ -n "$merge_base" ]; then
+      git diff --name-only --diff-filter=ACMR "$merge_base".."$local_sha" -- '*.swift' 2>/dev/null >> "$SWIFT_FILES_ALL" || true
+    fi
+  else
+    git diff --name-only --diff-filter=ACMR "$remote_sha".."$local_sha" -- '*.swift' 2>/dev/null >> "$SWIFT_FILES_ALL" || true
+  fi
+done
+
+if [ "$HAS_NON_DELETE_REF" = false ]; then
+  echo "Deleting remote ref, skipping checks."
+  rm -rf "$SWIFT_FILES_TMPDIR"
+  exit 0
+fi
+
+# --- Build ---
+echo "🔨 Pre-push: Building VitalStride (iOS Simulator)..."
+BUILD_LOG=$(mktemp)
+if xcodebuild -project VitalStride.xcodeproj \
+  -scheme VitalStride \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
+  -configuration Debug \
+  build 2>&1 | tee "$BUILD_LOG" | tail -5; then
+  echo "✅ Build succeeded."
+else
+  echo ""
+  echo "❌ Build failed. Push aborted."
+  echo "Last 20 lines of build log:"
+  tail -20 "$BUILD_LOG"
+  rm -f "$BUILD_LOG"
+  rm -rf "$SWIFT_FILES_TMPDIR"
+  exit 1
+fi
+rm -f "$BUILD_LOG"
+
+# --- Tests ---
+echo ""
+echo "🧪 Pre-push: Running tests..."
+TEST_LOG=$(mktemp)
+if xcodebuild -project VitalStride.xcodeproj \
+  -scheme VitalStride \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
+  -configuration Debug \
+  test 2>&1 | tee "$TEST_LOG" | tail -10; then
+  echo "✅ Tests passed."
+else
+  echo ""
+  echo "❌ Tests failed. Push aborted."
+  echo "Last 20 lines of test log:"
+  tail -20 "$TEST_LOG"
+  rm -f "$TEST_LOG"
+  rm -rf "$SWIFT_FILES_TMPDIR"
+  exit 1
+fi
+rm -f "$TEST_LOG"
+
+# --- Lint ---
+echo ""
+echo "🔍 Pre-push: Swift lint check..."
+
+SWIFT_FILES=$(sort -u "$SWIFT_FILES_ALL")
+rm -rf "$SWIFT_FILES_TMPDIR"
+
+if [ -n "$SWIFT_FILES" ]; then
+  while IFS= read -r file; do
+    [ -f "$file" ] || continue
+    if [[ "$file" != *Tests* ]] && grep -n '![[:space:]]*$\|!\.self\b' "$file" 2>/dev/null | grep -v '//' | grep -v 'IBOutlet' | grep -v '@objc' | head -3; then
+      echo "  ⚠️  Potential force unwrap in $file"
+    fi
+  done <<< "$SWIFT_FILES"
+
+  if command -v swiftlint &>/dev/null; then
+    LINT_ARGS=()
+    while IFS= read -r file; do
+      [ -f "$file" ] && LINT_ARGS+=("$file")
+    done <<< "$SWIFT_FILES"
+    if [ ${#LINT_ARGS[@]} -gt 0 ]; then
+      if swiftlint lint --quiet --strict -- "${LINT_ARGS[@]}" 2>/dev/null; then
+        echo "✅ SwiftLint passed."
+      else
+        echo "❌ SwiftLint found errors. Push aborted."
+        exit 1
+      fi
+    else
+      echo "ℹ️  No existing Swift files to lint, skipping."
+    fi
+  else
+    echo "ℹ️  SwiftLint not installed, skipping lint."
+  fi
+else
+  echo "ℹ️  No Swift files changed, skipping lint."
+fi
+
+echo ""
+echo "✅ All pre-push checks passed."

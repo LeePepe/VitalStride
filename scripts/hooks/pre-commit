@@ -1,0 +1,6 @@
+#!/bin/sh
+branch=$(git branch --show-current)
+if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+  echo "ERROR: Direct commits to '$branch' are forbidden."
+  exit 1
+fi
