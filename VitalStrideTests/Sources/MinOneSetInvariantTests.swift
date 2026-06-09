@@ -13,7 +13,7 @@ struct MinOneSetInvariantTests {
         container = try ModelContainerConfiguration.makeTestContainer()
     }
 
-    // MARK: - Rule 1: setupWorkout(.fromTemplate) pre-creates sets
+    // MARK: - Rule 1: setupFromTemplate pre-creates sets
 
     @Test("Template with targetSets=3 creates 3 sets per exercise")
     func templateCreatesCorrectSetCount() throws {
@@ -43,20 +43,7 @@ struct MinOneSetInvariantTests {
         let workout = Workout(type: .strength, startDate: Date())
         context.insert(workout)
 
-        let templateExercises = (template.exercises ?? []).sorted { $0.order < $1.order }
-        for (index, tplExercise) in templateExercises.enumerated() {
-            let workoutExercise = WorkoutExercise(order: index, exercise: tplExercise.exercise)
-            workoutExercise.workout = workout
-            context.insert(workoutExercise)
-
-            let setCount = max(1, tplExercise.targetSets)
-            let weight = tplExercise.targetWeight ?? 0
-            for setIndex in 0..<setCount {
-                let newSet = ExerciseSet(order: setIndex, weight: weight, reps: 0, setType: .working)
-                newSet.workoutExercise = workoutExercise
-                context.insert(newSet)
-            }
-        }
+        WorkoutCopier.setupFromTemplate(template, into: workout, using: context)
         try context.save()
 
         let exercises = (workout.exercises ?? []).sorted { $0.order < $1.order }
@@ -100,20 +87,7 @@ struct MinOneSetInvariantTests {
         let workout = Workout(type: .strength, startDate: Date())
         context.insert(workout)
 
-        let templateExercises = (template.exercises ?? []).sorted { $0.order < $1.order }
-        for (index, tplExercise) in templateExercises.enumerated() {
-            let workoutExercise = WorkoutExercise(order: index, exercise: tplExercise.exercise)
-            workoutExercise.workout = workout
-            context.insert(workoutExercise)
-
-            let setCount = max(1, tplExercise.targetSets)
-            let weight = tplExercise.targetWeight ?? 0
-            for setIndex in 0..<setCount {
-                let newSet = ExerciseSet(order: setIndex, weight: weight, reps: 0, setType: .working)
-                newSet.workoutExercise = workoutExercise
-                context.insert(newSet)
-            }
-        }
+        WorkoutCopier.setupFromTemplate(template, into: workout, using: context)
         try context.save()
 
         let exercises = (workout.exercises ?? []).sorted { $0.order < $1.order }
@@ -152,20 +126,7 @@ struct MinOneSetInvariantTests {
         let workout = Workout(type: .strength, startDate: Date())
         context.insert(workout)
 
-        let tplExercises = (template.exercises ?? []).sorted { $0.order < $1.order }
-        for (index, tplExercise) in tplExercises.enumerated() {
-            let workoutExercise = WorkoutExercise(order: index, exercise: tplExercise.exercise)
-            workoutExercise.workout = workout
-            context.insert(workoutExercise)
-
-            let setCount = max(1, tplExercise.targetSets)
-            let weight = tplExercise.targetWeight ?? 0
-            for setIndex in 0..<setCount {
-                let newSet = ExerciseSet(order: setIndex, weight: weight, reps: 0, setType: .working)
-                newSet.workoutExercise = workoutExercise
-                context.insert(newSet)
-            }
-        }
+        WorkoutCopier.setupFromTemplate(template, into: workout, using: context)
         try context.save()
 
         let exercises = (workout.exercises ?? []).sorted { $0.order < $1.order }
@@ -199,12 +160,11 @@ struct MinOneSetInvariantTests {
         context.insert(workout)
         try context.save()
 
-        let sortedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
-        let toDelete = [onlySet]
-        let wouldRemain = sortedSets.count - toDelete.count
+        let deleted = WorkoutSetManager.deleteSet(onlySet, from: workoutExercise, using: context)
+        #expect(deleted == false)
 
-        #expect(wouldRemain == 0)
-        #expect(sortedSets.count == 1)
+        let remainingSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
+        #expect(remainingSets.count == 1)
     }
 
     @Test("deleteSet with 2+ sets allows deletion")
@@ -231,16 +191,8 @@ struct MinOneSetInvariantTests {
         context.insert(workout)
         try context.save()
 
-        let sortedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
-        let toDelete = [set1]
-        let wouldRemain = sortedSets.count - toDelete.count
-
-        #expect(wouldRemain == 1)
-
-        let deleteIDs = Set(toDelete.map { $0.persistentModelID })
-        for s in toDelete { context.delete(s) }
-        let remaining = sortedSets.filter { !deleteIDs.contains($0.persistentModelID) }
-        for (newOrder, s) in remaining.enumerated() { s.order = newOrder }
+        let deleted = WorkoutSetManager.deleteSet(set1, from: workoutExercise, using: context)
+        #expect(deleted == true)
         try context.save()
 
         let updatedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
@@ -274,18 +226,11 @@ struct MinOneSetInvariantTests {
         context.insert(workout)
         try context.save()
 
-        let sortedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
-        var toDelete = [mainSet]
-        let parentIndex = sortedSets.firstIndex(where: { $0.persistentModelID == mainSet.persistentModelID })!
-        var i = parentIndex + 1
-        while i < sortedSets.count && sortedSets[i].setType.isSubSet {
-            toDelete.append(sortedSets[i])
-            i += 1
-        }
+        let deleted = WorkoutSetManager.deleteSet(mainSet, from: workoutExercise, using: context)
+        #expect(deleted == false)
 
-        let wouldRemain = sortedSets.count - toDelete.count
-        #expect(toDelete.count == 2)
-        #expect(wouldRemain == 0)
+        let remainingSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
+        #expect(remainingSets.count == 2)
     }
 
     @Test("Deleting main set with subsets when other sets exist is allowed")
@@ -316,23 +261,8 @@ struct MinOneSetInvariantTests {
         context.insert(workout)
         try context.save()
 
-        let sortedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
-        var toDelete = [mainSet1]
-        let parentIndex = sortedSets.firstIndex(where: { $0.persistentModelID == mainSet1.persistentModelID })!
-        var i = parentIndex + 1
-        while i < sortedSets.count && sortedSets[i].setType.isSubSet {
-            toDelete.append(sortedSets[i])
-            i += 1
-        }
-
-        let wouldRemain = sortedSets.count - toDelete.count
-        #expect(toDelete.count == 2)
-        #expect(wouldRemain == 1)
-
-        let deleteIDs = Set(toDelete.map { $0.persistentModelID })
-        for s in toDelete { context.delete(s) }
-        let remaining = sortedSets.filter { !deleteIDs.contains($0.persistentModelID) }
-        for (newOrder, s) in remaining.enumerated() { s.order = newOrder }
+        let deleted = WorkoutSetManager.deleteSet(mainSet1, from: workoutExercise, using: context)
+        #expect(deleted == true)
         try context.save()
 
         let updatedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }

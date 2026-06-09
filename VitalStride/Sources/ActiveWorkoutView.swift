@@ -340,20 +340,7 @@ struct ActiveWorkoutView: View {
         case .fromWorkout(let sourceWorkout):
             WorkoutCopier.copyExercises(from: sourceWorkout, to: newWorkout, using: modelContext)
         case .fromTemplate(let template):
-            let templateExercises = (template.exercises ?? []).sorted { $0.order < $1.order }
-            for (index, templateExercise) in templateExercises.enumerated() {
-                let workoutExercise = WorkoutExercise(order: index, exercise: templateExercise.exercise)
-                workoutExercise.workout = newWorkout
-                modelContext.insert(workoutExercise)
-
-                let setCount = max(1, templateExercise.targetSets)
-                let weight = templateExercise.targetWeight ?? 0
-                for setIndex in 0..<setCount {
-                    let newSet = ExerciseSet(order: setIndex, weight: weight, reps: 0, setType: .working)
-                    newSet.workoutExercise = workoutExercise
-                    modelContext.insert(newSet)
-                }
-            }
+            WorkoutCopier.setupFromTemplate(template, into: newWorkout, using: modelContext)
         }
 
         workout = newWorkout
@@ -591,28 +578,7 @@ private struct ActiveExerciseSection: View {
     }
 
     private func deleteSet(_ exerciseSet: ExerciseSet) {
-        var toDelete = [exerciseSet]
-        if !exerciseSet.setType.isSubSet {
-            let sets = sortedSets
-            if let parentIndex = sets.firstIndex(where: { $0.persistentModelID == exerciseSet.persistentModelID }) {
-                var i = parentIndex + 1
-                while i < sets.count && sets[i].setType.isSubSet {
-                    toDelete.append(sets[i])
-                    i += 1
-                }
-            }
-        }
-
-        guard sortedSets.count - toDelete.count >= 1 else { return }
-
-        let deleteIDs = Set(toDelete.map { $0.persistentModelID })
-        for set in toDelete {
-            modelContext.delete(set)
-        }
-        let remaining = sortedSets.filter { !deleteIDs.contains($0.persistentModelID) }
-        for (newOrder, set) in remaining.enumerated() {
-            set.order = newOrder
-        }
+        WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
     }
 }
 

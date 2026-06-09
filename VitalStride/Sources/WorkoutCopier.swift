@@ -3,6 +3,27 @@ import SwiftData
 import VitalModels
 
 enum WorkoutCopier {
+    static func setupFromTemplate(
+        _ template: WorkoutTemplate,
+        into workout: Workout,
+        using modelContext: ModelContext
+    ) {
+        let templateExercises = (template.exercises ?? []).sorted { $0.order < $1.order }
+        for (index, templateExercise) in templateExercises.enumerated() {
+            let workoutExercise = WorkoutExercise(order: index, exercise: templateExercise.exercise)
+            workoutExercise.workout = workout
+            modelContext.insert(workoutExercise)
+
+            let setCount = max(1, templateExercise.targetSets)
+            let weight = templateExercise.targetWeight ?? 0
+            for setIndex in 0..<setCount {
+                let newSet = ExerciseSet(order: setIndex, weight: weight, reps: 0, setType: .working)
+                newSet.workoutExercise = workoutExercise
+                modelContext.insert(newSet)
+            }
+        }
+    }
+
     static func copyExercises(
         from sourceWorkout: Workout,
         to targetWorkout: Workout,
