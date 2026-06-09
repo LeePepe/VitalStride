@@ -20,6 +20,14 @@ public protocol WorkoutDataProviding: Sendable {
 
 extension HealthKitService: WorkoutDataProviding {}
 
+// MARK: - AvailableTypesProbing
+
+public protocol AvailableTypesProbing: Sendable {
+    func probeAvailableTypes(from types: Set<HealthSampleType>) async -> Set<HealthSampleType>
+}
+
+extension HealthKitService: AvailableTypesProbing {}
+
 // MARK: - CacheTelemetry
 
 public struct CacheTelemetry: Sendable, Equatable {
@@ -83,6 +91,12 @@ public actor HealthDataCache {
     private var workoutMissCount: Int = 0
     private var workoutRefreshCount: Int = 0
 
+    private var availableTypes: Set<HealthSampleType>?
+    private var availableTypesFetchedAt: Date?
+    private var availableTypesProbeTask: Task<Void, Never>?
+    private var availableTypesPersistTask: Task<Void, Never>?
+    private let typesProber: (any AvailableTypesProbing)?
+
     private let logger = Logger(subsystem: "com.vitalstride", category: "HealthDataCache")
     private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "HealthDataCache")
     private let jsonEncoder = JSONEncoder()
@@ -92,11 +106,13 @@ public actor HealthDataCache {
         dataProvider: any HealthDataProviding,
         workoutProvider: (any WorkoutDataProviding)? = nil,
         persistence: (any HealthCachePersisting)? = nil,
+        typesProber: (any AvailableTypesProbing)? = nil,
         cacheTTL: TimeInterval = HealthDataCache.defaultTTL
     ) {
         self.dataProvider = dataProvider
         self.workoutProvider = workoutProvider
         self.persistence = persistence
+        self.typesProber = typesProber
         self.cacheTTL = cacheTTL
     }
 
@@ -104,6 +120,25 @@ public actor HealthDataCache {
 
     public func hydrate(types: Set<HealthSampleType>? = nil) async {
         guard let persistence else { return }
+
+        let signpostID = signposter.makeSignpostID()
+        let state = signposter.beginInterval("hydrate_available_types", id: signpostID)
+
+        do {
+            if let persisted = try await persistence.loadAvailableTypes() {
+                let restored = Set(persisted.typeRawValues.compactMap { HealthSampleType(rawValue: $0) })
+                availableTypes = restored
+                availableTypesFetchedAt = persisted.fetchedAt
+                logger.info("restored \(restored.count) available types from L2")
+            } else {
+                logger.info("first-time probe, no L2 available types data")
+            }
+        } catch {
+            logger.info("available types L2 hydration failed")
+        }
+
+        signposter.endInterval("hydrate_available_types", state)
+
         do {
             let entries: [PersistedCacheEntry]
             if let types {
@@ -225,6 +260,12 @@ public actor HealthDataCache {
         workoutCache = nil
         workoutInFlightFetch?.cancel()
         workoutInFlightFetch = nil
+        availableTypes = nil
+        availableTypesFetchedAt = nil
+        availableTypesProbeTask?.cancel()
+        availableTypesProbeTask = nil
+        availableTypesPersistTask?.cancel()
+        availableTypesPersistTask = nil
         resetTelemetry()
         logger.info("cache invalidated all")
     }
@@ -236,6 +277,7 @@ public actor HealthDataCache {
         if let persistence {
             do {
                 try await persistence.deleteAll()
+                try await persistence.deleteAvailableTypes()
                 logger.info("authorization revoked — cache and persistence cleared")
             } catch {
                 logger.error("authorization revoked — cache cleared but persistence deleteAll failed: \(error)")
@@ -279,6 +321,50 @@ public actor HealthDataCache {
 
     public func hasWorkoutCache() -> Bool {
         workoutCache != nil
+    }
+
+    // MARK: - Available Types
+
+    public func getAvailableTypes() -> Set<HealthSampleType>? {
+        availableTypes
+    }
+
+    public func probeAndUpdateAvailableTypes(from types: Set<HealthSampleType>) async {
+        guard let typesProber else { return }
+
+        let probeGeneration = generation
+        let signpostID = signposter.makeSignpostID()
+        let state = signposter.beginInterval("probe_available_types", id: signpostID)
+
+        let probed = await typesProber.probeAvailableTypes(from: types)
+
+        signposter.endInterval("probe_available_types", state)
+
+        guard generation == probeGeneration else { return }
+        let fetchedAt = Date()
+        availableTypes = probed
+        availableTypesFetchedAt = fetchedAt
+        logger.info("probe updated: \(probed.count) available types")
+
+        persistAvailableTypesInBackground(types: probed, fetchedAt: fetchedAt, probeGeneration: probeGeneration)
+    }
+
+    public func scheduleAvailableTypesProbe(from types: Set<HealthSampleType>) {
+        guard typesProber != nil else { return }
+        guard availableTypesProbeTask == nil else { return }
+
+        let probeGeneration = generation
+        let task = Task {
+            defer { availableTypesProbeTask = nil }
+            guard self.generation == probeGeneration else { return }
+            await probeAndUpdateAvailableTypes(from: types)
+        }
+        availableTypesProbeTask = task
+    }
+
+    public func isAvailableTypesStale() -> Bool {
+        guard let fetchedAt = availableTypesFetchedAt else { return true }
+        return Self.isStale(fetchedAt, ttl: cacheTTL)
     }
 
     // MARK: - Workout Query
@@ -436,6 +522,33 @@ public actor HealthDataCache {
             }
         }
         persistTasks[sampleType] = task
+    }
+
+    private func persistAvailableTypesInBackground(
+        types: Set<HealthSampleType>,
+        fetchedAt: Date,
+        probeGeneration: UInt64
+    ) {
+        guard let persistence else { return }
+
+        let entry = PersistedAvailableTypes(
+            typeRawValues: Set(types.map(\.rawValue)),
+            fetchedAt: fetchedAt
+        )
+
+        let task = Task {
+            defer { availableTypesPersistTask = nil }
+            guard self.generation == probeGeneration else { return }
+            do {
+                try await persistence.saveAvailableTypes(entry)
+                if self.generation != probeGeneration {
+                    try? await persistence.deleteAvailableTypes()
+                }
+            } catch {
+                logger.info("available types persistence write failed")
+            }
+        }
+        availableTypesPersistTask = task
     }
 
     private func decodePersisted(

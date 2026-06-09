@@ -26,10 +26,10 @@ struct HealthCacheEntryTests {
         #expect(!typeNames.contains("HealthCacheEntry"))
     }
 
-    @Test("healthCacheModelTypes contains only HealthCacheEntry")
+    @Test("healthCacheModelTypes contains HealthCacheEntry and AvailableTypesEntry")
     func healthCacheModelTypesContent() {
-        let typeNames = ModelContainerConfiguration.healthCacheModelTypes.map { String(describing: $0) }
-        #expect(typeNames == ["HealthCacheEntry"])
+        let typeNames = Set(ModelContainerConfiguration.healthCacheModelTypes.map { String(describing: $0) })
+        #expect(typeNames == ["HealthCacheEntry", "AvailableTypesEntry"])
     }
 
     // MARK: - CRUD

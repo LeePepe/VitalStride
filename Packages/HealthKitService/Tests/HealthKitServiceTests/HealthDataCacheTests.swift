@@ -47,7 +47,11 @@ final class MockHealthCachePersistence: HealthCachePersisting, @unchecked Sendab
     private var _upsertCallCount = 0
     private var _deleteAllCallCount = 0
     private var _loadAllCallCount = 0
+    private var _availableTypes: PersistedAvailableTypes?
+    private var _saveAvailableTypesCallCount = 0
+    private var _deleteAvailableTypesCallCount = 0
     var shouldThrow = false
+    var saveAvailableTypesDelay: Duration?
 
     var store: [String: PersistedCacheEntry] {
         lock.withLock { _store }
@@ -63,6 +67,18 @@ final class MockHealthCachePersistence: HealthCachePersisting, @unchecked Sendab
 
     var loadAllCallCount: Int {
         lock.withLock { _loadAllCallCount }
+    }
+
+    var savedAvailableTypes: PersistedAvailableTypes? {
+        lock.withLock { _availableTypes }
+    }
+
+    var saveAvailableTypesCallCount: Int {
+        lock.withLock { _saveAvailableTypesCallCount }
+    }
+
+    var deleteAvailableTypesCallCount: Int {
+        lock.withLock { _deleteAvailableTypesCallCount }
     }
 
     func loadAll() async throws -> [PersistedCacheEntry] {
@@ -91,6 +107,39 @@ final class MockHealthCachePersistence: HealthCachePersisting, @unchecked Sendab
         lock.withLock {
             _store = [:]
             _deleteAllCallCount += 1
+        }
+    }
+
+    func loadAvailableTypes() async throws -> PersistedAvailableTypes? {
+        if shouldThrow { throw TestError.mockFailure }
+        return lock.withLock { _availableTypes }
+    }
+
+    func saveAvailableTypes(_ entry: PersistedAvailableTypes) async throws {
+        if shouldThrow { throw TestError.mockFailure }
+        if let delay = saveAvailableTypesDelay {
+            try? await Task.sleep(for: delay)
+        }
+        lock.withLock {
+            _availableTypes = entry
+            _saveAvailableTypesCallCount += 1
+        }
+    }
+
+    func deleteAvailableTypes() async throws {
+        if shouldThrow { throw TestError.mockFailure }
+        lock.withLock {
+            _availableTypes = nil
+            _deleteAvailableTypesCallCount += 1
+        }
+    }
+
+    func seedAvailableTypes(_ types: Set<HealthSampleType>, fetchedAt: Date = Date()) {
+        lock.withLock {
+            _availableTypes = PersistedAvailableTypes(
+                typeRawValues: Set(types.map(\.rawValue)),
+                fetchedAt: fetchedAt
+            )
         }
     }
 
@@ -1105,5 +1154,317 @@ struct HealthDataCacheL2Tests {
         let result = try await cache.refresh(.stepCount)
         #expect(result.count == 1)
         #expect(result.first?.id == newPoint.id)
+    }
+}
+
+// MARK: - Mock Types Prober
+
+final class MockAvailableTypesProber: AvailableTypesProbing, @unchecked Sendable {
+    private let lock = NSLock()
+    private var _probeResult: Set<HealthSampleType> = []
+    private var _probeCallCount = 0
+    var probeDelay: Duration?
+
+    var probeResult: Set<HealthSampleType> {
+        get { lock.withLock { _probeResult } }
+        set { lock.withLock { _probeResult = newValue } }
+    }
+
+    var probeCallCount: Int {
+        lock.withLock { _probeCallCount }
+    }
+
+    func probeAvailableTypes(from types: Set<HealthSampleType>) async -> Set<HealthSampleType> {
+        if let delay = probeDelay {
+            try? await Task.sleep(for: delay)
+        }
+        return lock.withLock {
+            _probeCallCount += 1
+            return _probeResult.intersection(types)
+        }
+    }
+}
+
+// MARK: - Available Types Tests
+
+@Suite("HealthDataCache — Available Types")
+struct HealthDataCacheAvailableTypesTests {
+
+    @Test("availableTypes is nil initially when no persistence")
+    func initialNilWithoutPersistence() async {
+        let mock = MockHealthDataProvider()
+        let cache = HealthDataCache(dataProvider: mock)
+        let result = await cache.getAvailableTypes()
+        #expect(result == nil)
+    }
+
+    @Test("availableTypes is nil after hydrate when L2 has no data")
+    func firstUseNilAfterHydrate() async {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+        await cache.hydrate()
+        let result = await cache.getAvailableTypes()
+        #expect(result == nil)
+    }
+
+    @Test("hydrate restores availableTypes from L2")
+    func hydrateRestoresFromL2() async {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+        persistence.seedAvailableTypes([.stepCount, .heartRate])
+
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+        await cache.hydrate()
+
+        let result = await cache.getAvailableTypes()
+        #expect(result == [.stepCount, .heartRate])
+    }
+
+    @Test("probeAndUpdateAvailableTypes updates L1 and persists to L2")
+    func probeUpdatesL1AndL2() async throws {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+        let prober = MockAvailableTypesProber()
+        prober.probeResult = [.stepCount, .heartRate, .bodyMass]
+
+        let cache = HealthDataCache(
+            dataProvider: mock,
+            persistence: persistence,
+            typesProber: prober
+        )
+
+        await cache.probeAndUpdateAvailableTypes(from: [.stepCount, .heartRate, .bodyMass, .sleepAnalysis])
+
+        let result = await cache.getAvailableTypes()
+        #expect(result == [.stepCount, .heartRate, .bodyMass])
+        #expect(prober.probeCallCount == 1)
+
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(persistence.saveAvailableTypesCallCount == 1)
+
+        let saved = persistence.savedAvailableTypes
+        #expect(saved != nil)
+        let savedTypes = saved!.typeRawValues
+        #expect(savedTypes.count == 3)
+        #expect(savedTypes.contains("stepCount"))
+        #expect(savedTypes.contains("heartRate"))
+        #expect(savedTypes.contains("bodyMass"))
+    }
+
+    @Test("probeAndUpdateAvailableTypes does nothing without prober")
+    func probeNoOpWithoutProber() async {
+        let mock = MockHealthDataProvider()
+        let cache = HealthDataCache(dataProvider: mock)
+
+        await cache.probeAndUpdateAvailableTypes(from: [.stepCount])
+
+        let result = await cache.getAvailableTypes()
+        #expect(result == nil)
+    }
+
+    @Test("scheduleAvailableTypesProbe runs probe in background")
+    func scheduledProbeRunsInBackground() async throws {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+        let prober = MockAvailableTypesProber()
+        prober.probeResult = [.stepCount]
+
+        let cache = HealthDataCache(
+            dataProvider: mock,
+            persistence: persistence,
+            typesProber: prober
+        )
+
+        await cache.scheduleAvailableTypesProbe(from: [.stepCount, .heartRate])
+
+        try await Task.sleep(for: .milliseconds(100))
+
+        let result = await cache.getAvailableTypes()
+        #expect(result == [.stepCount])
+        #expect(prober.probeCallCount == 1)
+    }
+
+    @Test("invalidateAll clears availableTypes")
+    func invalidateAllClearsAvailableTypes() async {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+        let prober = MockAvailableTypesProber()
+        prober.probeResult = [.heartRate]
+
+        let cache = HealthDataCache(
+            dataProvider: mock,
+            persistence: persistence,
+            typesProber: prober
+        )
+
+        await cache.probeAndUpdateAvailableTypes(from: [.heartRate])
+        #expect(await cache.getAvailableTypes() == [.heartRate])
+
+        await cache.invalidateAll()
+        #expect(await cache.getAvailableTypes() == nil)
+    }
+
+    @Test("handleAuthorizationRevoked clears L1 and L2 availableTypes")
+    func authRevokedClearsAvailableTypes() async throws {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+        let prober = MockAvailableTypesProber()
+        prober.probeResult = [.stepCount, .heartRate]
+
+        let cache = HealthDataCache(
+            dataProvider: mock,
+            persistence: persistence,
+            typesProber: prober
+        )
+
+        await cache.probeAndUpdateAvailableTypes(from: [.stepCount, .heartRate])
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(persistence.savedAvailableTypes != nil)
+
+        await cache.handleAuthorizationRevoked()
+
+        #expect(await cache.getAvailableTypes() == nil)
+        #expect(persistence.deleteAvailableTypesCallCount == 1)
+    }
+
+    @Test("isAvailableTypesStale returns true when no data")
+    func staleWhenNoData() async {
+        let mock = MockHealthDataProvider()
+        let cache = HealthDataCache(dataProvider: mock)
+        #expect(await cache.isAvailableTypesStale() == true)
+    }
+
+    @Test("isAvailableTypesStale returns false for fresh data")
+    func freshDataNotStale() async {
+        let mock = MockHealthDataProvider()
+        let prober = MockAvailableTypesProber()
+        prober.probeResult = [.stepCount]
+        let cache = HealthDataCache(
+            dataProvider: mock,
+            typesProber: prober,
+            cacheTTL: 3600
+        )
+
+        await cache.probeAndUpdateAvailableTypes(from: [.stepCount])
+        #expect(await cache.isAvailableTypesStale() == false)
+    }
+
+    @Test("isAvailableTypesStale returns true for expired data")
+    func expiredDataIsStale() async {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+        let staleDate = Date().addingTimeInterval(-7200)
+        persistence.seedAvailableTypes([.stepCount], fetchedAt: staleDate)
+
+        let cache = HealthDataCache(
+            dataProvider: mock,
+            persistence: persistence,
+            cacheTTL: 3600
+        )
+        await cache.hydrate()
+
+        #expect(await cache.isAvailableTypesStale() == true)
+    }
+
+    @Test("Generation guard prevents stale probe from writing")
+    func generationGuardPreventsStaleWrite() async throws {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+        let prober = MockAvailableTypesProber()
+        prober.probeDelay = .milliseconds(100)
+        prober.probeResult = [.stepCount]
+
+        let cache = HealthDataCache(
+            dataProvider: mock,
+            persistence: persistence,
+            typesProber: prober
+        )
+
+        await cache.scheduleAvailableTypesProbe(from: [.stepCount])
+        try await Task.sleep(for: .milliseconds(20))
+
+        await cache.invalidateAll()
+
+        try await Task.sleep(for: .milliseconds(200))
+
+        #expect(await cache.getAvailableTypes() == nil)
+        #expect(persistence.savedAvailableTypes == nil)
+    }
+
+    @Test("Post-write generation check cleans up stale L2 data")
+    func postWriteGenerationCheckCleansUpStaleL2() async throws {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+        persistence.saveAvailableTypesDelay = .milliseconds(100)
+        let prober = MockAvailableTypesProber()
+        prober.probeResult = [.stepCount]
+
+        let cache = HealthDataCache(
+            dataProvider: mock,
+            persistence: persistence,
+            typesProber: prober
+        )
+
+        await cache.probeAndUpdateAvailableTypes(from: [.stepCount])
+        try await Task.sleep(for: .milliseconds(20))
+
+        await cache.invalidateAll()
+
+        try await Task.sleep(for: .milliseconds(200))
+
+        #expect(await cache.getAvailableTypes() == nil)
+        #expect(persistence.savedAvailableTypes == nil)
+        #expect(persistence.deleteAvailableTypesCallCount >= 1)
+    }
+
+    @Test("Hydrate failure for availableTypes is graceful, cache stays nil")
+    func hydrateFailureGraceful() async {
+        let mock = MockHealthDataProvider()
+        let persistence = MockHealthCachePersistence()
+        persistence.shouldThrow = true
+
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+        await cache.hydrate()
+
+        #expect(await cache.getAvailableTypes() == nil)
+    }
+
+    @Test("Probe result replaces previous availableTypes")
+    func probeReplacesPrevious() async {
+        let mock = MockHealthDataProvider()
+        let prober = MockAvailableTypesProber()
+        prober.probeResult = [.stepCount]
+
+        let cache = HealthDataCache(
+            dataProvider: mock,
+            typesProber: prober
+        )
+
+        await cache.probeAndUpdateAvailableTypes(from: [.stepCount, .heartRate])
+        #expect(await cache.getAvailableTypes() == [.stepCount])
+
+        prober.probeResult = [.stepCount, .heartRate, .bodyMass]
+        await cache.probeAndUpdateAvailableTypes(from: [.stepCount, .heartRate, .bodyMass])
+        #expect(await cache.getAvailableTypes() == [.stepCount, .heartRate, .bodyMass])
+    }
+
+    @Test("Hydrate does not affect existing data cache entries")
+    func hydrateAvailableTypesDoesNotAffectDataCache() async throws {
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = makeResult(.stepCount, count: 3)
+        let persistence = MockHealthCachePersistence()
+        persistence.seedAvailableTypes([.stepCount, .heartRate])
+        persistence.seed(sampleType: .stepCount, dataPoints: [makeDataPoint(.stepCount)])
+
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence)
+        await cache.hydrate()
+
+        #expect(await cache.getAvailableTypes() == [.stepCount, .heartRate])
+        #expect(await cache.cachedTypes().contains(.stepCount))
+
+        let data = try await cache.data(for: .stepCount)
+        #expect(data.count == 1)
+        #expect(mock.fetchCallCount[.stepCount, default: 0] == 0)
     }
 }
