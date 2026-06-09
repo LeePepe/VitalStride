@@ -4,11 +4,14 @@ import SwiftUI
 final class SnackbarDismissScheduler {
     private var task: Task<Void, Never>?
 
+    nonisolated init() {}
+
     func schedule(duration: TimeInterval, dismiss: @escaping @MainActor () -> Void) {
         cancel()
-        task = Task {
+        task = Task { [weak self] in
             try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled else { return }
+            self?.task = nil
             dismiss()
         }
     }
@@ -27,7 +30,8 @@ private struct SnackbarModifier<SnackbarContent: View>: ViewModifier {
     let onDismiss: (() -> Void)?
     @ViewBuilder let snackbarContent: () -> SnackbarContent
 
-    @State private var dismissTask: Task<Void, Never>?
+    @State private var scheduler = SnackbarDismissScheduler()
+    @AccessibilityFocusState private var isSnackbarFocused: Bool
 
     func body(content: Content) -> some View {
         content
@@ -44,31 +48,45 @@ private struct SnackbarModifier<SnackbarContent: View>: ViewModifier {
                         .padding(.bottom, 16)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         .accessibilityElement(children: .contain)
+                        .accessibilityFocused($isSnackbarFocused)
                 }
             }
             .animation(.spring(duration: 0.35, bounce: 0.2), value: isPresented)
+            .onAppear {
+                if isPresented {
+                    handlePresented()
+                }
+            }
             .onChange(of: isPresented) { oldValue, newValue in
-                if !oldValue, newValue {
-                    AccessibilityNotification.LayoutChanged(nil).post()
-                    scheduleDismissIfNeeded()
-                } else if oldValue, !newValue {
-                    dismissTask?.cancel()
-                    dismissTask = nil
-                    if case .autoDismiss = mode {
-                        AccessibilityNotification.LayoutChanged(nil).post()
-                    }
-                    onDismiss?()
+                if newValue {
+                    handlePresented()
+                } else if oldValue {
+                    handleDismissed()
+                }
+            }
+            .onChange(of: mode) { _, _ in
+                if isPresented {
+                    scheduleAutoDismiss()
                 }
             }
     }
 
-    private func scheduleDismissIfNeeded() {
-        dismissTask?.cancel()
+    private func handlePresented() {
+        scheduleAutoDismiss()
+        isSnackbarFocused = true
+    }
+
+    private func handleDismissed() {
+        scheduler.cancel()
+        isSnackbarFocused = false
+        onDismiss?()
+    }
+
+    private func scheduleAutoDismiss() {
+        scheduler.cancel()
         guard case .autoDismiss(let duration) = mode else { return }
         let binding = $isPresented
-        dismissTask = Task {
-            try? await Task.sleep(for: .seconds(duration))
-            guard !Task.isCancelled else { return }
+        scheduler.schedule(duration: duration) {
             binding.wrappedValue = false
         }
     }

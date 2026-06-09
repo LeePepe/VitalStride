@@ -19,6 +19,18 @@ struct SnackbarDismissSchedulerTests {
         #expect(dismissed)
     }
 
+    @Test("isScheduled becomes false after task completes")
+    @MainActor
+    func isScheduledClearsAfterCompletion() async throws {
+        let scheduler = SnackbarDismissScheduler()
+
+        scheduler.schedule(duration: 0.1) {}
+
+        #expect(scheduler.isScheduled)
+        try await Task.sleep(for: .seconds(0.25))
+        #expect(!scheduler.isScheduled)
+    }
+
     @Test("persistent mode does not schedule any dismiss")
     @MainActor
     func persistentModeNoSchedule() async throws {
@@ -46,6 +58,7 @@ struct SnackbarDismissSchedulerTests {
 
         #expect(scheduler.isScheduled)
         scheduler.cancel()
+        #expect(!scheduler.isScheduled)
         try await Task.sleep(for: .seconds(0.35))
         #expect(!dismissed)
     }
@@ -68,6 +81,24 @@ struct SnackbarDismissSchedulerTests {
         try await Task.sleep(for: .seconds(0.25))
         #expect(!firstFired)
         #expect(secondFired)
+    }
+
+    @Test("schedule with new duration replaces running timer")
+    @MainActor
+    func durationChangeReplacesTimer() async throws {
+        let scheduler = SnackbarDismissScheduler()
+        var dismissed = false
+
+        scheduler.schedule(duration: 1.0) {
+            dismissed = true
+        }
+
+        scheduler.schedule(duration: 0.1) {
+            dismissed = true
+        }
+
+        try await Task.sleep(for: .seconds(0.25))
+        #expect(dismissed)
     }
 }
 
