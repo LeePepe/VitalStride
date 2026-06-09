@@ -17,5 +17,9 @@ let package = Package(
                 .product(name: "VitalModels", package: "VitalModels"),
             ]
         ),
+        .testTarget(
+            name: "VitalUITests",
+            dependencies: ["VitalUI"]
+        ),
     ]
 )
