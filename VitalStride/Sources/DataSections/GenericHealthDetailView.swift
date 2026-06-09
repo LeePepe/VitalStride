@@ -246,7 +246,8 @@ struct GenericHealthDetailView: View {
                     LineMark(
                         x: .value(
                             String(localized: "日期", comment: "Date axis"),
-                            item.date
+                            item.date,
+                            unit: .day
                         ),
                         y: .value(sampleType.localizedName, item.value)
                     )
@@ -256,7 +257,8 @@ struct GenericHealthDetailView: View {
                     PointMark(
                         x: .value(
                             String(localized: "日期", comment: "Date axis"),
-                            item.date
+                            item.date,
+                            unit: .day
                         ),
                         y: .value(sampleType.localizedName, item.value)
                     )
@@ -265,6 +267,7 @@ struct GenericHealthDetailView: View {
                 }
             }
         }
+        .chartYScale(domain: chartYDomain)
         .chartXSelection(value: $selectedDate)
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 7)) { _ in
@@ -352,6 +355,20 @@ struct GenericHealthDetailView: View {
         case .month: .dateTime.month(.abbreviated).day()
         case .year: .dateTime.month(.abbreviated)
         }
+    }
+
+    private var chartYDomain: ClosedRange<Double> {
+        let values = dailyData.map(\.value)
+        guard let minVal = values.min(), let maxVal = values.max(), minVal < maxVal else {
+            return 0...1
+        }
+        guard sampleType.aggregationMode == .discrete else {
+            return 0...maxVal
+        }
+        let range = maxVal - minVal
+        let padding = max(range * 0.15, maxVal * 0.02)
+        let lower = max(0, minVal - padding)
+        return lower...(maxVal + padding)
     }
 
     private func barOpacity(for date: Date) -> Double {
