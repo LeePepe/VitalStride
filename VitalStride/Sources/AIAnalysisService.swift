@@ -13,6 +13,7 @@ actor AIAnalysisService: ModelActor {
     nonisolated let modelContainer: ModelContainer
     private nonisolated let provider: any AIProvider
     private nonisolated let cacheTTL: TimeInterval
+    private var activeRefreshKeys: Set<String> = []
 
     init(
         modelContainer: ModelContainer,
@@ -27,6 +28,14 @@ actor AIAnalysisService: ModelActor {
     }
 
     // MARK: - Public API
+
+    func clearAllCaches() {
+        deleteAll(OverviewInsightCache.self)
+        deleteAll(TrainingAdviceCache.self)
+        deleteAll(DataAnalysisCache.self)
+        try? modelContext.save()
+        logger.info("AI analysis caches cleared")
+    }
 
     func generateInsights(
         context: OverviewContext,
@@ -48,7 +57,7 @@ actor AIAnalysisService: ModelActor {
             } else {
                 logger.debug("cache miss: method=generateInsights reason=expired")
                 if let staleInsights = decodeInsights(cached.contentJSON) {
-                    scheduleBackgroundRefresh { service in
+                    scheduleBackgroundRefresh(key: "generateInsights") { service in
                         try await service.refreshInsights(context: context)
                     }
                     return staleInsights
@@ -85,7 +94,7 @@ actor AIAnalysisService: ModelActor {
             } else {
                 logger.debug("cache miss: method=generateTrainingAdvice reason=expired")
                 if let staleAdvice = decodeTrainingAdvice(cached.contentJSON) {
-                    scheduleBackgroundRefresh { service in
+                    scheduleBackgroundRefresh(key: "generateTrainingAdvice") { service in
                         try await service.refreshTrainingAdvice(context: context)
                     }
                     return staleAdvice
@@ -122,7 +131,7 @@ actor AIAnalysisService: ModelActor {
             } else {
                 logger.debug("cache miss: method=analyzeDataTrend sampleType=\(context.sampleType) reason=expired")
                 if let staleAnalysis = decodeDataAnalysis(cached.contentJSON) {
-                    scheduleBackgroundRefresh { service in
+                    scheduleBackgroundRefresh(key: "analyzeDataTrend:\(context.sampleType)") { service in
                         try await service.refreshDataTrend(context: context)
                     }
                     return staleAnalysis
@@ -146,7 +155,17 @@ actor AIAnalysisService: ModelActor {
             AIAnalysisPrompts.buildInsightsMessages(context: context)
         }
 
-        let response = try await callProvider(method: "generateInsights", messages: messages)
+        let response: ChatResponse
+        do {
+            response = try await callProvider(method: "generateInsights", messages: messages)
+        } catch let error as AIServiceError where error.isNoProvider {
+            if let cached = loadInsightsCache(), let insights = decodeInsights(cached.contentJSON) {
+                logger.info("noProviderAvailable: method=generateInsights returning cached data")
+                return insights
+            }
+            throw error
+        }
+
         let json = AIAnalysisPrompts.extractJSON(from: response.content)
 
         if let insights = parseWithSignpost("generateInsights", { decodeInsights(json) }) {
@@ -170,7 +189,7 @@ actor AIAnalysisService: ModelActor {
             cardType: "summary",
             cardSize: "large",
             title: "AI 分析",
-            content: String(response.content.prefix(200))
+            content: "暂时无法生成详细分析，请稍后重试。"
         )]
         return fallback
     }
@@ -180,7 +199,17 @@ actor AIAnalysisService: ModelActor {
             AIAnalysisPrompts.buildTrainingAdviceMessages(context: context)
         }
 
-        let response = try await callProvider(method: "generateTrainingAdvice", messages: messages)
+        let response: ChatResponse
+        do {
+            response = try await callProvider(method: "generateTrainingAdvice", messages: messages)
+        } catch let error as AIServiceError where error.isNoProvider {
+            if let cached = loadTrainingCache(), let advice = decodeTrainingAdvice(cached.contentJSON) {
+                logger.info("noProviderAvailable: method=generateTrainingAdvice returning cached data")
+                return advice
+            }
+            throw error
+        }
+
         let json = AIAnalysisPrompts.extractJSON(from: response.content)
 
         if let advice = parseWithSignpost("generateTrainingAdvice", { decodeTrainingAdvice(json) }) {
@@ -203,7 +232,7 @@ actor AIAnalysisService: ModelActor {
             title: "训练建议",
             muscleGroups: [],
             exercises: [],
-            reasoning: String(response.content.prefix(200))
+            reasoning: "暂时无法生成训练建议，请稍后重试。"
         )
     }
 
@@ -212,7 +241,19 @@ actor AIAnalysisService: ModelActor {
             AIAnalysisPrompts.buildDataTrendMessages(context: context)
         }
 
-        let response = try await callProvider(method: "analyzeDataTrend", messages: messages)
+        let response: ChatResponse
+        do {
+            response = try await callProvider(method: "analyzeDataTrend", messages: messages)
+        } catch let error as AIServiceError where error.isNoProvider {
+            if let cached = loadDataAnalysisCache(sampleType: context.sampleType),
+               let analysis = decodeDataAnalysis(cached.contentJSON)
+            {
+                logger.info("noProviderAvailable: method=analyzeDataTrend returning cached data")
+                return analysis
+            }
+            throw error
+        }
+
         let json = AIAnalysisPrompts.extractJSON(from: response.content)
 
         if let analysis = parseWithSignpost("analyzeDataTrend", { decodeDataAnalysis(json) }) {
@@ -233,7 +274,7 @@ actor AIAnalysisService: ModelActor {
         logger.log("JSON parse: method=analyzeDataTrend retry=2 result=fallback")
         return DataAnalysis(
             sampleType: context.sampleType,
-            summary: String(response.content.prefix(200)),
+            summary: "暂时无法分析数据趋势，请稍后重试。",
             trend: "insufficient"
         )
     }
@@ -268,14 +309,18 @@ actor AIAnalysisService: ModelActor {
     }
 
     private func scheduleBackgroundRefresh(
+        key: String,
         _ work: @escaping @Sendable (isolated AIAnalysisService) async throws -> Void
     ) {
+        guard !activeRefreshKeys.contains(key) else { return }
+        activeRefreshKeys.insert(key)
         Task { [self] in
+            defer { self.activeRefreshKeys.remove(key) }
             do {
                 try await work(self)
             } catch {
                 let errorType = describeErrorType(error)
-                logger.error("background refresh failed: error=\(errorType)")
+                logger.error("background refresh failed: key=\(key) error=\(errorType)")
             }
         }
     }
@@ -288,28 +333,10 @@ actor AIAnalysisService: ModelActor {
     ) async throws -> ChatResponse {
         do {
             return try await provider.chat(messages: messages, model: nil)
-        } catch let error as AIServiceError where error.isNoProvider {
-            if let cached = loadAnyCacheForMethod(method) {
-                logger.info("noProviderAvailable: method=\(method) returning cached data")
-                return ChatResponse(content: cached)
-            }
-            logger.error("AI call failed: method=\(method) error=noProviderAvailable")
-            throw error
         } catch {
             let errorType = describeErrorType(error)
             logger.error("AI call failed: method=\(method) error=\(errorType)")
             throw error
-        }
-    }
-
-    private func loadAnyCacheForMethod(_ method: String) -> String? {
-        switch method {
-        case "generateInsights":
-            return loadInsightsCache()?.contentJSON
-        case "generateTrainingAdvice":
-            return loadTrainingCache()?.contentJSON
-        default:
-            return nil
         }
     }
 
@@ -446,6 +473,14 @@ actor AIAnalysisService: ModelActor {
             }
         }
         return "unknown"
+    }
+
+    private func deleteAll<T: PersistentModel>(_ type: T.Type) {
+        let descriptor = FetchDescriptor<T>()
+        guard let items = try? modelContext.fetch(descriptor) else { return }
+        for item in items {
+            modelContext.delete(item)
+        }
     }
 }
 

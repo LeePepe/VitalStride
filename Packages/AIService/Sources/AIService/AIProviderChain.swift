@@ -62,7 +62,8 @@ public struct AIProviderChain: AIProvider, Sendable {
                 return response
             } catch {
                 signposter.endInterval("ai_provider_chat", state)
-                logger.log("Fallback: provider=\(entry.name) failed at runtime, reason=\(error.localizedDescription)")
+                let category = Self.errorCategory(error)
+                logger.log("Fallback: provider=\(entry.name) failed at runtime, reason=\(category)")
                 lastError = error
             }
         }
@@ -126,5 +127,20 @@ public struct AIProviderChain: AIProvider, Sendable {
             logger.info("Provider selected: \(selected.name)")
         }
         return available
+    }
+
+    private static func errorCategory(_ error: Error) -> String {
+        if let aiError = error as? AIServiceError {
+            switch aiError {
+            case .noProviderAvailable: return "noProviderAvailable"
+            case .networkError: return "networkError"
+            case .httpError(let code): return "httpError(\(code))"
+            case .missingAPIKey: return "missingAPIKey"
+            case .responseParsingFailed: return "responseParsingFailed"
+            case .streamingInterrupted: return "streamingInterrupted"
+            }
+        }
+        if error is URLError { return "networkError" }
+        return "unknown"
     }
 }

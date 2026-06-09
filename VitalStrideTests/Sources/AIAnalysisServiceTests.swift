@@ -166,6 +166,7 @@ struct AIAnalysisServiceTests {
         #expect(result.count == 1)
         #expect(result[0].key == "ai_summary")
         #expect(result[0].cardType == "summary")
+        #expect(result[0].content == "暂时无法生成详细分析，请稍后重试。")
     }
 
     @Test("generateInsights retries once and succeeds on second parse")
@@ -266,6 +267,7 @@ struct AIAnalysisServiceTests {
         let result = try await service.generateTrainingAdvice(context: makeTrainingContext())
         #expect(result.title == "训练建议")
         #expect(result.muscleGroups.isEmpty)
+        #expect(result.reasoning == "暂时无法生成训练建议，请稍后重试。")
     }
 
     @Test("generateTrainingAdvice with forceRefresh bypasses cache")
@@ -317,6 +319,7 @@ struct AIAnalysisServiceTests {
         let result = try await service.analyzeDataTrend(context: makeDataContext())
         #expect(result.sampleType == "bodyMass")
         #expect(result.trend == "insufficient")
+        #expect(result.summary == "暂时无法分析数据趋势，请稍后重试。")
     }
 
     @Test("analyzeDataTrend with forceRefresh bypasses cache")
@@ -450,5 +453,84 @@ struct AIAnalysisServiceTests {
         await #expect(throws: AIServiceError.self) {
             try await service.generateInsights(context: makeOverviewContext())
         }
+    }
+
+    // MARK: - clearAllCaches
+
+    @Test("clearAllCaches removes all cached data")
+    func testClearAllCaches() async throws {
+        let service = try makeService { _, _ in
+            ChatResponse(content: validInsightsJSON)
+        }
+        let context = makeOverviewContext()
+
+        _ = try await service.generateInsights(context: context)
+        await service.clearAllCaches()
+
+        let callCount = Mutex(0)
+        let service2 = try makeService { _, _ in
+            callCount.withLock { $0 += 1 }
+            return ChatResponse(content: validInsightsJSON)
+        }
+        _ = try await service2.generateInsights(context: context)
+        #expect(callCount.withLock { $0 } == 1)
+    }
+
+    // MARK: - noProviderAvailable with analyzeDataTrend
+
+    @Test("analyzeDataTrend returns cache on noProviderAvailable with existing cache")
+    func testAnalyzeDataTrendNoProviderWithCache() async throws {
+        let callCount = Mutex(0)
+        let service = try makeService { _, _ in
+            let current = callCount.withLock { value -> Int in
+                value += 1
+                return value
+            }
+            if current == 1 {
+                return ChatResponse(content: validDataAnalysisJSON)
+            }
+            throw AIServiceError.noProviderAvailable
+        }
+        let context = makeDataContext()
+
+        _ = try await service.analyzeDataTrend(context: context)
+        let result = try await service.analyzeDataTrend(context: context, forceRefresh: true)
+
+        #expect(result.sampleType == "bodyMass")
+        #expect(result.trend == "stable")
+    }
+
+    @Test("analyzeDataTrend throws on noProviderAvailable with no cache")
+    func testAnalyzeDataTrendNoProviderNoCacheThrows() async throws {
+        let service = try makeService { _, _ in
+            throw AIServiceError.noProviderAvailable
+        }
+        await #expect(throws: AIServiceError.self) {
+            try await service.analyzeDataTrend(context: makeDataContext())
+        }
+    }
+
+    // MARK: - noProviderAvailable does not refresh timestamps
+
+    @Test("noProviderAvailable returns cached data without refreshing cache timestamps")
+    func testNoProviderDoesNotRefreshTimestamps() async throws {
+        let callCount = Mutex(0)
+        let service = try makeService(chatHandler: { _, _ in
+            let current = callCount.withLock { value -> Int in
+                value += 1
+                return value
+            }
+            if current == 1 {
+                return ChatResponse(content: validInsightsJSON)
+            }
+            throw AIServiceError.noProviderAvailable
+        }, cacheTTL: 0.001)
+        let context = makeOverviewContext()
+
+        _ = try await service.generateInsights(context: context)
+        try await Task.sleep(for: .milliseconds(10))
+
+        let result = try await service.generateInsights(context: context, forceRefresh: true)
+        #expect(result.count == 2)
     }
 }
