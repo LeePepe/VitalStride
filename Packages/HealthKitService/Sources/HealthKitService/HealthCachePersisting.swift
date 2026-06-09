@@ -1,5 +1,15 @@
 import Foundation
 
+public struct PersistedAvailableTypes: Sendable {
+    public let typeRawValues: Set<String>
+    public let fetchedAt: Date
+
+    public init(typeRawValues: Set<String>, fetchedAt: Date) {
+        self.typeRawValues = typeRawValues
+        self.fetchedAt = fetchedAt
+    }
+}
+
 public struct PersistedCacheEntry: Sendable {
     public let sampleType: String
     public let dataPointsData: Data
@@ -27,4 +37,8 @@ public protocol HealthCachePersisting: Sendable {
     func load(sampleType: String) async throws -> PersistedCacheEntry?
     func upsert(_ entry: PersistedCacheEntry) async throws
     func deleteAll() async throws
+
+    func loadAvailableTypes() async throws -> PersistedAvailableTypes?
+    func saveAvailableTypes(_ entry: PersistedAvailableTypes) async throws
+    func deleteAvailableTypes() async throws
 }

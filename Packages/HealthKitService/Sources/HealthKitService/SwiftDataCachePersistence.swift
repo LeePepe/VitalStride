@@ -55,6 +55,32 @@ public actor SwiftDataCachePersistence: HealthCachePersisting {
         try modelContext.save()
     }
 
+    public func loadAvailableTypes() throws -> PersistedAvailableTypes? {
+        var descriptor = FetchDescriptor<AvailableTypesEntry>()
+        descriptor.fetchLimit = 1
+        descriptor.sortBy = [SortDescriptor(\.fetchedAt, order: .reverse)]
+        guard let entry = try modelContext.fetch(descriptor).first else { return nil }
+        return PersistedAvailableTypes(
+            typeRawValues: Set(entry.availableTypeRawValues),
+            fetchedAt: entry.fetchedAt
+        )
+    }
+
+    public func saveAvailableTypes(_ entry: PersistedAvailableTypes) throws {
+        try modelContext.delete(model: AvailableTypesEntry.self)
+        let newEntry = AvailableTypesEntry(
+            availableTypeRawValues: Array(entry.typeRawValues),
+            fetchedAt: entry.fetchedAt
+        )
+        modelContext.insert(newEntry)
+        try modelContext.save()
+    }
+
+    public func deleteAvailableTypes() throws {
+        try modelContext.delete(model: AvailableTypesEntry.self)
+        try modelContext.save()
+    }
+
     private static func toPersistedEntry(_ entry: HealthCacheEntry) -> PersistedCacheEntry {
         PersistedCacheEntry(
             sampleType: entry.sampleType,

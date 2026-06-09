@@ -13,6 +13,7 @@ public enum ModelContainerConfiguration {
 
     public static let healthCacheModelTypes: [any PersistentModel.Type] = [
         HealthCacheEntry.self,
+        AvailableTypesEntry.self,
     ]
 
     public static let allModelTypes: [any PersistentModel.Type] =
