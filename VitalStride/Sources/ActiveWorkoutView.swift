@@ -41,11 +41,13 @@ struct ActiveWorkoutView: View {
                 }
                 .snackbar(
                     isPresented: restSnackbarPresented,
-                    mode: .persistent
+                    mode: restTimer.phase == .completed ? .autoDismiss(duration: 2) : .persistent
                 ) {
                     restSnackbarContent
                 }
                 addExerciseButton
+                    .padding(.bottom, restTimer.phase != .idle ? 72 : 0)
+                    .animation(.spring(duration: 0.35, bounce: 0.2), value: restTimer.phase != .idle)
             }
             .navigationTitle("训练中")
             .navigationBarTitleDisplayMode(.inline)
@@ -191,25 +193,45 @@ struct ActiveWorkoutView: View {
     @ViewBuilder
     private var restSnackbarContent: some View {
         if restTimer.phase == .completed {
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                Text(String(localized: "休息结束", comment: "Rest completed banner text"))
-                Spacer()
+            Button {
+                restTimer.dismissCompleted()
+            } label: {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text(String(localized: "休息结束", comment: "Rest completed banner text"))
+                    Spacer()
+                }
             }
+            .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(String(localized: "休息结束", comment: "Rest completed a11y label"))
+            .accessibilityHint(String(localized: "点击关闭", comment: "Dismiss rest completed banner a11y hint"))
         } else if restTimer.phase == .resting, let restEnd = restTimer.restEndDate {
             let totalDuration = restTimer.restTotalDuration ?? 0
             let totalSeconds = Int(totalDuration)
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let remaining = max(0, Int(restEnd.timeIntervalSince(context.date)))
-                HStack {
-                    Image(systemName: "bed.double.fill")
-                    Text(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer banner: remaining / total"))
-                        .monospacedDigit()
-                    Spacer()
-                    restAdjustButtons
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        Image(systemName: "bed.double.fill")
+                        Text(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer banner: remaining / total"))
+                            .monospacedDigit()
+                        Spacer()
+                        restAdjustButtons
+                    }
+                    VStack(spacing: 4) {
+                        HStack {
+                            Image(systemName: "bed.double.fill")
+                            Text(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer banner: remaining / total"))
+                                .monospacedDigit()
+                            Spacer()
+                        }
+                        HStack {
+                            Spacer()
+                            restAdjustButtons
+                        }
+                    }
                 }
             }
         }
