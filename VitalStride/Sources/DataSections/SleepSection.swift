@@ -412,7 +412,7 @@ struct SleepChartView: View {
             }
         }
         .chartYAxis {
-            AxisMarks(values: .stride(by: 2)) { value in
+            AxisMarks(values: .stride(by: compact ? 4 : 2)) { value in
                 AxisValueLabel {
                     if let h = value.as(Double.self) {
                         Text(String(localized: "\(Int(h))h", comment: "Hour axis label"))
