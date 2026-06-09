@@ -20,6 +20,9 @@ struct ActiveWorkoutView: View {
     @State private var exerciseToReplace: WorkoutExercise?
     @State private var restTimer = RestTimerController()
     @State private var currentHeartRate: Double?
+    #if !os(macOS)
+    @State private var sessionManager: (any WorkoutSessionManaging)?
+    #endif
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     private let startTime = Date()
     let source: WorkoutStartSource
@@ -349,6 +352,12 @@ struct ActiveWorkoutView: View {
         }
 
         workout = newWorkout
+
+        #if !os(macOS)
+        let manager = healthKitService.makeWorkoutSessionManager()
+        sessionManager = manager
+        Task { await manager.startSession() }
+        #endif
     }
 
     private func addExercise(_ exercise: Exercise) {
@@ -381,10 +390,20 @@ struct ActiveWorkoutView: View {
         guard let workout else { return }
         workout.finish()
         try? modelContext.save()
+        #if !os(macOS)
+        if let manager = sessionManager {
+            Task { await manager.endSession(save: true) }
+        }
+        #endif
         dismiss()
     }
 
     private func discardWorkout() {
+        #if !os(macOS)
+        if let manager = sessionManager {
+            Task { await manager.endSession(save: false) }
+        }
+        #endif
         if let workout {
             modelContext.delete(workout)
             try? modelContext.save()
