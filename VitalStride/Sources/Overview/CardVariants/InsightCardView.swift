@@ -33,7 +33,9 @@ struct InsightMediumCardView: View {
             )
         }
         .onAppear {
-            CardTelemetry.recordRendered(size: insight.cardSize, type: insight.cardType)
+            if let size = insight.parsedCardSize, let type = insight.parsedCardType {
+                CardTelemetry.recordRendered(size: size, type: type)
+            }
         }
     }
 }
@@ -76,7 +78,9 @@ struct InsightWideCardView: View {
             .accessibilityLabel(insightAccessibilityLabel)
         }
         .onAppear {
-            CardTelemetry.recordRendered(size: insight.cardSize, type: insight.cardType)
+            if let size = insight.parsedCardSize, let type = insight.parsedCardType {
+                CardTelemetry.recordRendered(size: size, type: type)
+            }
         }
     }
 

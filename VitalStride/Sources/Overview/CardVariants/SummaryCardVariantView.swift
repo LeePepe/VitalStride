@@ -66,10 +66,11 @@ struct SummaryWideCardView: View {
     }
 
     private func recordTelemetry() {
+        guard let size = insight.parsedCardSize, let type = insight.parsedCardType else { return }
         if entries.isEmpty {
-            CardTelemetry.recordRenderFailed(size: insight.cardSize, type: insight.cardType)
+            CardTelemetry.recordRenderFailed(size: size, type: type)
         } else {
-            CardTelemetry.recordRendered(size: insight.cardSize, type: insight.cardType)
+            CardTelemetry.recordRendered(size: size, type: type)
         }
     }
 }
@@ -123,8 +124,6 @@ struct SummaryLargeCardView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(10)
-                .background(.quaternary.opacity(0.3))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
         }
     }
@@ -142,10 +141,11 @@ struct SummaryLargeCardView: View {
     }
 
     private func recordTelemetry() {
+        guard let size = insight.parsedCardSize, let type = insight.parsedCardType else { return }
         if entries.isEmpty {
-            CardTelemetry.recordRenderFailed(size: insight.cardSize, type: insight.cardType)
+            CardTelemetry.recordRenderFailed(size: size, type: type)
         } else {
-            CardTelemetry.recordRendered(size: insight.cardSize, type: insight.cardType)
+            CardTelemetry.recordRendered(size: size, type: type)
         }
     }
 }

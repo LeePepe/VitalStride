@@ -73,10 +73,11 @@ struct ListWideCardView: View {
     }
 
     private func recordTelemetry() {
+        guard let size = insight.parsedCardSize, let type = insight.parsedCardType else { return }
         if items.isEmpty {
-            CardTelemetry.recordRenderFailed(size: insight.cardSize, type: insight.cardType)
+            CardTelemetry.recordRenderFailed(size: size, type: type)
         } else {
-            CardTelemetry.recordRendered(size: insight.cardSize, type: insight.cardType)
+            CardTelemetry.recordRendered(size: size, type: type)
         }
     }
 }
@@ -148,10 +149,11 @@ struct ListLargeCardView: View {
     }
 
     private func recordTelemetry() {
+        guard let size = insight.parsedCardSize, let type = insight.parsedCardType else { return }
         if items.isEmpty {
-            CardTelemetry.recordRenderFailed(size: insight.cardSize, type: insight.cardType)
+            CardTelemetry.recordRenderFailed(size: size, type: type)
         } else {
-            CardTelemetry.recordRendered(size: insight.cardSize, type: insight.cardType)
+            CardTelemetry.recordRendered(size: size, type: type)
         }
     }
 }

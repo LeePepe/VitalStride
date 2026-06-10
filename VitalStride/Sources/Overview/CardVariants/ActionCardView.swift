@@ -39,7 +39,9 @@ struct ActionSmallCardView: View {
             .accessibilityAddTraits(.isButton)
         }
         .onAppear {
-            CardTelemetry.recordRendered(size: insight.cardSize, type: insight.cardType)
+            if let size = insight.parsedCardSize, let type = insight.parsedCardType {
+                CardTelemetry.recordRendered(size: size, type: type)
+            }
         }
     }
 }
@@ -83,6 +85,7 @@ struct ActionWideCardView: View {
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
+                        .frame(minHeight: 44)
                         .background(.blue)
                         .foregroundStyle(.white)
                         .clipShape(Capsule())
@@ -97,7 +100,9 @@ struct ActionWideCardView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .onAppear {
-            CardTelemetry.recordRendered(size: insight.cardSize, type: insight.cardType)
+            if let size = insight.parsedCardSize, let type = insight.parsedCardType {
+                CardTelemetry.recordRendered(size: size, type: type)
+            }
         }
     }
 }

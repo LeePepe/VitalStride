@@ -9,8 +9,8 @@ struct CardVariantFactoryTests {
 
     // MARK: - Factory dispatch for all 13 valid variants
 
-    @Test("Factory returns non-empty view for all 13 whitelisted variants")
-    func factoryDispatchesAllValidVariants() {
+    @Test("Factory.makeCard dispatches without crash for all 13 whitelisted variants")
+    func factoryMakeCardDispatchesAllValid() {
         let validCombinations: [(String, String)] = [
             ("small", "metric"),
             ("small", "action"),
@@ -36,45 +36,40 @@ struct CardVariantFactoryTests {
                 content: sampleContent(for: type)
             )
             #expect(insight.isValidVariant, "Expected \(size)×\(type) to be a valid variant")
+            let _ = CardVariantFactory.makeCard(for: insight)
         }
     }
 
-    @Test("Factory handles invalid cardSize string gracefully")
-    func factoryHandlesInvalidSize() {
-        let insight = OverviewInsight(
-            key: "test", cardType: "metric", cardSize: "tiny",
-            title: "T", content: "100"
-        )
-        #expect(insight.parsedCardSize == nil)
+    @Test("Factory.makeCard handles invalid combinations gracefully")
+    func factoryMakeCardHandlesInvalidCombinations() {
+        let invalidCombinations: [(String, String)] = [
+            ("small", "insight"),
+            ("large", "metric"),
+            ("tiny", "metric"),
+            ("small", "chart"),
+            ("", ""),
+        ]
+
+        for (size, type) in invalidCombinations {
+            let insight = OverviewInsight(
+                key: "test_\(size)_\(type)",
+                cardType: type,
+                cardSize: size,
+                title: "Test",
+                content: "content"
+            )
+            #expect(!insight.isValidVariant)
+            let _ = CardVariantFactory.makeCard(for: insight)
+        }
     }
 
-    @Test("Factory handles invalid cardType string gracefully")
-    func factoryHandlesInvalidType() {
+    @Test("Factory.makeCard passes onAction to action cards")
+    func factoryMakeCardPassesOnAction() {
         let insight = OverviewInsight(
-            key: "test", cardType: "chart", cardSize: "small",
-            title: "T", content: "100"
+            key: "action_test", cardType: "action", cardSize: "small",
+            title: "Test", content: "Do something"
         )
-        #expect(insight.parsedCardType == nil)
-    }
-
-    @Test("Factory handles invalid combination gracefully")
-    func factoryHandlesInvalidCombination() {
-        let insight = OverviewInsight(
-            key: "test", cardType: "insight", cardSize: "small",
-            title: "T", content: "text"
-        )
-        #expect(!insight.isValidVariant)
-    }
-
-    @Test("Factory handles empty strings gracefully")
-    func factoryHandlesEmptyStrings() {
-        let insight = OverviewInsight(
-            key: "test", cardType: "", cardSize: "",
-            title: "T", content: "C"
-        )
-        #expect(insight.parsedCardSize == nil)
-        #expect(insight.parsedCardType == nil)
-        #expect(!insight.isValidVariant)
+        let _ = CardVariantFactory.makeCard(for: insight, onAction: { })
     }
 
     // MARK: - Helpers

@@ -41,8 +41,8 @@ enum CardVariantFactory {
             EmptyView()
                 .onAppear {
                     CardTelemetry.recordRenderFailed(
-                        size: insight.cardSize,
-                        type: insight.cardType
+                        size: insight.parsedCardSize,
+                        type: insight.parsedCardType
                     )
                 }
         }

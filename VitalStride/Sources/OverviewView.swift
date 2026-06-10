@@ -168,6 +168,7 @@ private struct OverviewContent: View {
     private var dataContent: some View {
         if snapshotState.isAuthorized, snapshotState.hasAnyHealthData {
             OverviewHealthSnapshot(snapshot: snapshotState.snapshot)
+            OverviewInsightsSection(snapshot: snapshotState.snapshot)
         }
 
         if hasWorkoutData {
