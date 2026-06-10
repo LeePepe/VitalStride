@@ -12,11 +12,20 @@ struct WorkoutListView: View {
         order: .reverse
     ) private var workouts: [Workout]
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
+    @State private var adviceViewModel = TrainingAdviceViewModel()
     @State private var showingStartOptions = false
     @State private var showingActiveWorkout = false
     @State private var pendingSource: WorkoutStartSource?
     @State private var workoutToDelete: Workout?
     @State private var showingDeleteError = false
+
+    private var shouldShowAdviceCard: Bool {
+        guard !workouts.isEmpty, privacyConsented else { return false }
+        if case .error = adviceViewModel.state { return true }
+        if case .idle = adviceViewModel.state { return true }
+        return true
+    }
 
     var body: some View {
         NavigationStack {
@@ -28,23 +37,43 @@ struct WorkoutListView: View {
                         description: Text("点击 + 开始第一次训练")
                     )
                 } else {
-                    List(workouts) { workout in
-                        NavigationLink {
-                            WorkoutDetailView(workout: workout)
-                        } label: {
-                            WorkoutRowView(workout: workout)
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                workoutToDelete = workout
-                            } label: {
-                                Label(
-                                    String(localized: "删除", comment: "Delete swipe action"),
-                                    systemImage: "trash"
+                    List {
+                        if shouldShowAdviceCard {
+                            Section {
+                                AITrainingAdviceCard(
+                                    state: adviceViewModel.state,
+                                    isExpanded: adviceViewModel.isExpanded,
+                                    onToggleExpand: { adviceViewModel.toggleExpand() },
+                                    onRefresh: { adviceViewModel.refresh(modelContext: modelContext) }
                                 )
                             }
-                            .accessibilityLabel(String(localized: "删除训练", comment: "Delete workout a11y"))
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
                         }
+
+                        Section {
+                            ForEach(workouts) { workout in
+                                NavigationLink {
+                                    WorkoutDetailView(workout: workout)
+                                } label: {
+                                    WorkoutRowView(workout: workout)
+                                }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(role: .destructive) {
+                                        workoutToDelete = workout
+                                    } label: {
+                                        Label(
+                                            String(localized: "删除", comment: "Delete swipe action"),
+                                            systemImage: "trash"
+                                        )
+                                    }
+                                    .accessibilityLabel(String(localized: "删除训练", comment: "Delete workout a11y"))
+                                }
+                            }
+                        }
+                    }
+                    .task {
+                        adviceViewModel.loadAdviceIfNeeded(modelContext: modelContext)
                     }
                 }
             }
