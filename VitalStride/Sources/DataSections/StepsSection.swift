@@ -376,6 +376,8 @@ struct StepsDetailView: View {
                     )
                 }
 
+                AIDataAnalysisSection(sampleType: .stepCount)
+
                 Section {
                     ForEach(dailyData.reversed()) { item in
                         HStack {

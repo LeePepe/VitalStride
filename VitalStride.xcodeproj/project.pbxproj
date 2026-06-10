@@ -10,6 +10,7 @@
 		001532DB645B827B74A20B29 /* WorkoutCopyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BDA8D726E586BDBB1F6F2F /* WorkoutCopyTests.swift */; };
 		0606B368999C1F3928A77908 /* SettingsViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A4427407B3663FA11877FE1 /* SettingsViewTests.swift */; };
 		0CCF636707C70165D24494F2 /* VitalStrideApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB4C9A242BEAD1E0445C937 /* VitalStrideApp.swift */; };
+		0FA3452B45A92F36FCF142D2 /* AIAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492DFA7A404099CCF2293717 /* AIAnalysisService.swift */; };
 		11C5C66B083087C46CB87E34 /* AIAnalysisServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D551D352FEC3C216F4BAB58A /* AIAnalysisServiceTests.swift */; };
 		1252E2E85769B438F78301CE /* AIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 996A0597AEFCDF67B6E7854A /* AIView.swift */; };
 		129EBA4FD6F749E5CCE90FD3 /* SleepSectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5BC15730DE3D0DBEC8FF7E /* SleepSectionTests.swift */; };
@@ -30,6 +31,7 @@
 		335DBBDC8A3BD67D9782C953 /* AIChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C8F2FA78A3BA5986CF1486C /* AIChatView.swift */; };
 		33F32CC3B767F8D4AB763238 /* MacContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0033F83E9F4931C560DBD87C /* MacContentView.swift */; };
 		3D07432F10B06634ED7F97AE /* HealthKitService in Frameworks */ = {isa = PBXBuildFile; productRef = 99ADAEC92E79BE41C312863A /* HealthKitService */; };
+		3F0C6508C9F4642DA09FD4A5 /* AIDataAnalysisSectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA048B70EC28CB874B0BDF95 /* AIDataAnalysisSectionTests.swift */; };
 		43D26BDFF50832887AB2BDD0 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 224D8E4161C7961EC3D7E22A /* Localizable.xcstrings */; };
 		43E109C9DF5F65420E8A7F40 /* AIService in Frameworks */ = {isa = PBXBuildFile; productRef = 101D0CBB7FAD0E67D80A7DFA /* AIService */; };
 		442475BB31F32A9D024EA28F /* SleepSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942F2D9113C5463CAF00AB87 /* SleepSection.swift */; };
@@ -80,8 +82,10 @@
 		815258714EA0D8B7FCB7D992 /* WorkoutListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADF0FD53B5A37E442F6ED623 /* WorkoutListView.swift */; };
 		821982CDD01D5ED20EA41300 /* VitalUI in Frameworks */ = {isa = PBXBuildFile; productRef = 6F987A4D67E18D6C3093080D /* VitalUI */; };
 		85E6ACC9CD22CBBE44CE7ECE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F3929A3233515A8A71A3C14 /* SettingsView.swift */; };
+		8878FD836C5B40FD1BBEB296 /* AIDataAnalysisSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D88D0FEEBECFC2EF4C1887F /* AIDataAnalysisSection.swift */; };
 		89FC3DFE4650717335B13038 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 224D8E4161C7961EC3D7E22A /* Localizable.xcstrings */; };
 		8ADFF3B69575A27255C6AF0C /* WorkoutDetailCalculationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F12CB325C0F7206286AE8D7F /* WorkoutDetailCalculationTests.swift */; };
+		8B7C48036B0D70FD238DA195 /* AIAnalysisPrompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13128EC936BE4F23254B44BB /* AIAnalysisPrompts.swift */; };
 		8CEFE2B6537240CE769FC111 /* HealthSummaryCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = B49701A5271080F16964F20B /* HealthSummaryCards.swift */; };
 		8E297A2B0C1D76DB29A12ED9 /* DataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E4C9428C75CCA9843D6864F /* DataView.swift */; };
 		8E457F91B4CE17842B9CE25E /* VitalStrideWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D06A0789305603E086A2383 /* VitalStrideWatchApp.swift */; };
@@ -96,6 +100,7 @@
 		9B807F0DF9DE7F063646EF26 /* VitalModels in Frameworks */ = {isa = PBXBuildFile; productRef = 976C928F3ADA4DABCB394293 /* VitalModels */; };
 		9BA289BBA3C8950901D203F7 /* RestTimerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3680A9FD223DA4BC25B34824 /* RestTimerController.swift */; };
 		9C33F574F875DF0EBF073483 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C59FE92FB9187A2F490E733E /* Assets.xcassets */; };
+		9CBF3EF6871D2AA5B28C4CA0 /* AIDataAnalysisSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D88D0FEEBECFC2EF4C1887F /* AIDataAnalysisSection.swift */; };
 		9D012B43BDF88A4635A1C13F /* DataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E4C9428C75CCA9843D6864F /* DataView.swift */; };
 		A1BA6B0B4E7D5AC09286E2DC /* GenericHealthDetailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 738B030EACEFB69B50A7D9C3 /* GenericHealthDetailTests.swift */; };
 		A3436DAEA2A872163B0538EB /* VitalModels in Frameworks */ = {isa = PBXBuildFile; productRef = C44380B390C4B9743AAB1053 /* VitalModels */; };
@@ -130,6 +135,7 @@
 		E385F45BA62B1B2588944791 /* UserInterestTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F122894AC7F78937EF246FCC /* UserInterestTrackerTests.swift */; };
 		E51F17F5B5B0CA1904E8C72B /* HealthKitService in Frameworks */ = {isa = PBXBuildFile; productRef = 175F2A2AA8BE40CB03A45EDB /* HealthKitService */; };
 		E68DBA49DC9C0A4E75F339FD /* ModelContainerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A787CF4DB49927AFBC5DDF /* ModelContainerTests.swift */; };
+		E7B43296AD10BE64FBDFC8A4 /* AIAnalysisContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC416D681FFBB8B76EC14256 /* AIAnalysisContext.swift */; };
 		E7F29FF627D681740AAD90DF /* ExercisePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AD223B725AFEBB33444035 /* ExercisePickerView.swift */; };
 		EA2925A7C0F167DD4CBEC374 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 675947C2C88283D7D81E0FD0 /* Assets.xcassets */; };
 		EB47D5EDAD27C2DC300CE4A5 /* ActiveWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A82A8BC200FD8437E939A67D /* ActiveWorkoutView.swift */; };
@@ -162,6 +168,7 @@
 		0A4427407B3663FA11877FE1 /* SettingsViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewTests.swift; sourceTree = "<group>"; };
 		0C8F2FA78A3BA5986CF1486C /* AIChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIChatView.swift; sourceTree = "<group>"; };
 		0CC23B44CAEE7B8B2FBEF401 /* WorkoutHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryView.swift; sourceTree = "<group>"; };
+		0D88D0FEEBECFC2EF4C1887F /* AIDataAnalysisSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIDataAnalysisSection.swift; sourceTree = "<group>"; };
 		13128EC936BE4F23254B44BB /* AIAnalysisPrompts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAnalysisPrompts.swift; sourceTree = "<group>"; };
 		193733B006ED472D5112547F /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		1C452054A5F7F0CDF19E2C9F /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -253,6 +260,7 @@
 		F052E6A365C4391D3E607AE4 /* ExercisesJSONTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisesJSONTests.swift; sourceTree = "<group>"; };
 		F122894AC7F78937EF246FCC /* UserInterestTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserInterestTrackerTests.swift; sourceTree = "<group>"; };
 		F12CB325C0F7206286AE8D7F /* WorkoutDetailCalculationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDetailCalculationTests.swift; sourceTree = "<group>"; };
+		FA048B70EC28CB874B0BDF95 /* AIDataAnalysisSectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIDataAnalysisSectionTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -311,6 +319,7 @@
 				584CFBB57DF2FA059790F81B /* ActiveEnergySectionTests.swift */,
 				D551D352FEC3C216F4BAB58A /* AIAnalysisServiceTests.swift */,
 				0378B7BEA27F039A09AE83A8 /* AIChatViewTests.swift */,
+				FA048B70EC28CB874B0BDF95 /* AIDataAnalysisSectionTests.swift */,
 				DF9B3DAD8628A25D47910D86 /* AIPromptBuilderTests.swift */,
 				C160F65686ABBF190DF87E2F /* AISettingsSectionTests.swift */,
 				AE94FDEEC4102CF17E7E3DD3 /* BodyWeightSectionTests.swift */,
@@ -409,6 +418,7 @@
 				13128EC936BE4F23254B44BB /* AIAnalysisPrompts.swift */,
 				492DFA7A404099CCF2293717 /* AIAnalysisService.swift */,
 				0C8F2FA78A3BA5986CF1486C /* AIChatView.swift */,
+				0D88D0FEEBECFC2EF4C1887F /* AIDataAnalysisSection.swift */,
 				7A881C46913F6885CF69BA78 /* AIPromptBuilder.swift */,
 				BCE2FFC21E67820054E56AB9 /* AIQuickAnalysisCard.swift */,
 				03F786B391EDD7A38969A516 /* AISettingsSection.swift */,
@@ -696,7 +706,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7B43296AD10BE64FBDFC8A4 /* AIAnalysisContext.swift in Sources */,
+				8B7C48036B0D70FD238DA195 /* AIAnalysisPrompts.swift in Sources */,
+				0FA3452B45A92F36FCF142D2 /* AIAnalysisService.swift in Sources */,
 				335DBBDC8A3BD67D9782C953 /* AIChatView.swift in Sources */,
+				9CBF3EF6871D2AA5B28C4CA0 /* AIDataAnalysisSection.swift in Sources */,
 				70F5115CD27E0F9F95401971 /* AIPromptBuilder.swift in Sources */,
 				50A7F59A8B57CCBA91A0FD43 /* AIQuickAnalysisCard.swift in Sources */,
 				B5A4CBD5B6EDC5CC666998DC /* AISettingsSection.swift in Sources */,
@@ -731,6 +745,7 @@
 				98907DDA172D3879983E5C5C /* AIAnalysisPrompts.swift in Sources */,
 				9371A6A75C6AE004D457AB1C /* AIAnalysisService.swift in Sources */,
 				55BAA92E23AEEE1ADB27ABCC /* AIChatView.swift in Sources */,
+				8878FD836C5B40FD1BBEB296 /* AIDataAnalysisSection.swift in Sources */,
 				B54A80253BC3BF90C70B9881 /* AIPromptBuilder.swift in Sources */,
 				D715A2B54D839E1CA0132F2F /* AIQuickAnalysisCard.swift in Sources */,
 				CFB3D04EECEA3BBA5FB8D6B6 /* AISettingsSection.swift in Sources */,
@@ -779,6 +794,7 @@
 			files = (
 				11C5C66B083087C46CB87E34 /* AIAnalysisServiceTests.swift in Sources */,
 				521587677E2813CF0D358C04 /* AIChatViewTests.swift in Sources */,
+				3F0C6508C9F4642DA09FD4A5 /* AIDataAnalysisSectionTests.swift in Sources */,
 				19C50D3C9C6691FB4763259E /* AIPromptBuilderTests.swift in Sources */,
 				5A8F9A179F81838ED043331F /* AISettingsSectionTests.swift in Sources */,
 				6DC642F94DA823F4D74F469E /* ActiveEnergySectionTests.swift in Sources */,

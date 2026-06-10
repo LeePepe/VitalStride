@@ -93,6 +93,10 @@ targets:
       - path: VitalStride/Sources/AIPromptBuilder.swift
       - path: VitalStride/Sources/AIChatView.swift
       - path: VitalStride/Sources/AISettingsSection.swift
+      - path: VitalStride/Sources/AIDataAnalysisSection.swift
+      - path: VitalStride/Sources/AIAnalysisService.swift
+      - path: VitalStride/Sources/AIAnalysisContext.swift
+      - path: VitalStride/Sources/AIAnalysisPrompts.swift
       - path: VitalStride/Sources/HealthDataCacheEnvironment.swift
       - path: VitalStride/Sources/OnboardingView.swift
       - path: VitalStride/Sources/WorkoutHeartRateStats.swift
