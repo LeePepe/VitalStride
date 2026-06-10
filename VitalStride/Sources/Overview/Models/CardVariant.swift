@@ -14,6 +14,7 @@ public struct CardVariant: Codable, Sendable, Equatable, Hashable {
         CardVariant(size: .small, type: .action),
         CardVariant(size: .medium, type: .metric),
         CardVariant(size: .medium, type: .trend),
+        CardVariant(size: .medium, type: .insight),
         CardVariant(size: .wide, type: .insight),
         CardVariant(size: .wide, type: .list),
         CardVariant(size: .wide, type: .summary),

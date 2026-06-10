@@ -101,9 +101,9 @@ struct CardSystemModelTests {
 
     // MARK: - CardVariant Whitelist
 
-    @Test("CardVariant whitelist contains 12 valid combinations")
+    @Test("CardVariant whitelist contains 13 valid combinations")
     func cardVariantWhitelistCount() {
-        #expect(CardVariant.validVariants.count == 12)
+        #expect(CardVariant.validVariants.count == 13)
     }
 
     @Test("CardVariant isValid returns true for all whitelisted combinations")
@@ -112,6 +112,7 @@ struct CardSystemModelTests {
         #expect(CardVariant.isValid(size: .small, type: .action))
         #expect(CardVariant.isValid(size: .medium, type: .metric))
         #expect(CardVariant.isValid(size: .medium, type: .trend))
+        #expect(CardVariant.isValid(size: .medium, type: .insight))
         #expect(CardVariant.isValid(size: .wide, type: .insight))
         #expect(CardVariant.isValid(size: .wide, type: .list))
         #expect(CardVariant.isValid(size: .wide, type: .summary))
@@ -128,7 +129,6 @@ struct CardSystemModelTests {
         #expect(!CardVariant.isValid(size: .small, type: .list))
         #expect(!CardVariant.isValid(size: .small, type: .summary))
         #expect(!CardVariant.isValid(size: .small, type: .trend))
-        #expect(!CardVariant.isValid(size: .medium, type: .insight))
         #expect(!CardVariant.isValid(size: .medium, type: .list))
         #expect(!CardVariant.isValid(size: .medium, type: .summary))
         #expect(!CardVariant.isValid(size: .medium, type: .action))
