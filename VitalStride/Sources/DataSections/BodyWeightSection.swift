@@ -507,6 +507,8 @@ struct BodyWeightDetailView: View {
                     }
                 }
 
+                AIDataAnalysisSection(sampleType: .bodyMass)
+
                 Section {
                     ForEach(dataPoints.reversed()) { point in
                         HStack {

@@ -557,6 +557,8 @@ struct SleepDetailView: View {
                     )
                 }
 
+                AIDataAnalysisSection(sampleType: .sleepAnalysis)
+
                 Section {
                     ForEach(nights.reversed()) { night in
                         VStack(alignment: .leading, spacing: 4) {
