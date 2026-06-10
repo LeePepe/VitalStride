@@ -105,7 +105,7 @@ struct AIDataAnalysisSectionTests {
         )
         let stepsCache = DataAnalysisCache(
             sampleType: "stepCount",
-            contentJSON: "{\"sampleType\":\"stepCount\",\"summary\":\"steps\",\"trend\":\"upward\"}",
+            contentJSON: "{\"sampleType\":\"stepCount\",\"summary\":\"steps\",\"trend\":\"rising\"}",
             generatedAt: Date(),
             expiresAt: Date().addingTimeInterval(3600)
         )
@@ -184,14 +184,14 @@ struct AIDataAnalysisSectionTests {
     @Test("DataAnalysis decodes from JSON correctly")
     func testDataAnalysisDecoding() throws {
         let json = """
-        {"sampleType":"heartRate","summary":"Heart rate trending upward","trend":"upward","suggestion":"Consider resting"}
+        {"sampleType":"heartRate","summary":"Heart rate trending upward","trend":"rising","suggestion":"Consider resting"}
         """
         let data = json.data(using: .utf8)!
         let analysis = try JSONDecoder().decode(DataAnalysis.self, from: data)
 
         #expect(analysis.sampleType == "heartRate")
         #expect(analysis.summary == "Heart rate trending upward")
-        #expect(analysis.trend == "upward")
+        #expect(analysis.trend == "rising")
         #expect(analysis.suggestion == "Consider resting")
     }
 

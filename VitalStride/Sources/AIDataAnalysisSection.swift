@@ -14,6 +14,7 @@ struct AIDataAnalysisSection: View {
     let sampleType: HealthSampleType
 
     @State private var state: AnalysisState = .idle
+    @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthDataCache) private var healthDataCache
 
@@ -22,16 +23,21 @@ struct AIDataAnalysisSection: View {
 
     var body: some View {
         Group {
-            switch state {
-            case .idle, .loading:
-                loadingView
-            case .loaded(let analysis, let generatedAt, let source):
-                resultView(analysis: analysis, generatedAt: generatedAt, source: source)
-            case .failed:
+            if !privacyConsented {
                 EmptyView()
+            } else {
+                switch state {
+                case .idle, .loading:
+                    loadingView
+                case .loaded(let analysis, let generatedAt, let source):
+                    resultView(analysis: analysis, generatedAt: generatedAt, source: source)
+                case .failed:
+                    EmptyView()
+                }
             }
         }
         .task {
+            guard privacyConsented else { return }
             await loadAnalysis(forceRefresh: false)
         }
     }
@@ -128,6 +134,7 @@ struct AIDataAnalysisSection: View {
                 )
                 .font(.caption)
             }
+            .frame(minWidth: 44, minHeight: 44)
             .accessibilityLabel(String(localized: "刷新 AI 分析", comment: "Refresh AI analysis a11y"))
         }
     }
@@ -152,6 +159,17 @@ struct AIDataAnalysisSection: View {
         state = .loading
 
         let container = modelContext.container
+
+        if !forceRefresh {
+            if let (analysis, generatedAt) = loadFallbackFromCache(container: container) {
+                let cacheEntry = loadCacheEntry(sampleType: sampleTypeRaw, in: container)
+                if let entry = cacheEntry, !entry.isExpired {
+                    state = .loaded(analysis, generatedAt, .cache)
+                    return
+                }
+            }
+        }
+
         let start = ContinuousClock.now
 
         do {
@@ -312,8 +330,8 @@ struct AIDataAnalysisSection: View {
 
     private func trendIcon(_ trend: String) -> String {
         switch trend {
-        case "upward": "arrow.up.right"
-        case "downward": "arrow.down.right"
+        case "rising": "arrow.up.right"
+        case "falling": "arrow.down.right"
         case "stable": "arrow.right"
         default: "chart.line.flattrend.xyaxis"
         }
@@ -321,8 +339,8 @@ struct AIDataAnalysisSection: View {
 
     private func trendColor(_ trend: String) -> Color {
         switch trend {
-        case "upward": .green
-        case "downward": .red
+        case "rising": .green
+        case "falling": .red
         case "stable": .blue
         default: .secondary
         }
@@ -388,6 +406,21 @@ enum AIDataAnalysisPreloader {
     private static let logger = Logger(subsystem: "com.vitalstride", category: "AIDataAnalysisPreloader")
     private static let signposter = OSSignposter(subsystem: "com.vitalstride", category: "AIDataAnalysisPreloader")
 
+    static func pregenerateTopInterestsIfConsented(
+        modelContainer: ModelContainer,
+        healthDataCache: HealthDataCache
+    ) {
+        let consented = UserDefaults.standard.bool(forKey: aiPrivacyConsentKey)
+        guard consented else {
+            logger.debug("pregenerate skipped: user has not accepted AI privacy consent")
+            return
+        }
+        pregenerateTopInterests(
+            modelContainer: modelContainer,
+            healthDataCache: healthDataCache
+        )
+    }
+
     static func pregenerateTopInterests(
         modelContainer: ModelContainer,
         healthDataCache: HealthDataCache
@@ -410,6 +443,16 @@ enum AIDataAnalysisPreloader {
         for sampleType in topTypes {
             nonisolated(unsafe) let sampleType = sampleType
             Task.detached {
+                let cacheContext = ModelContext(modelContainer)
+                let sampleTypeRaw = sampleType.rawValue
+                let descriptor = FetchDescriptor<DataAnalysisCache>(
+                    predicate: #Predicate<DataAnalysisCache> { $0.sampleType == sampleTypeRaw }
+                )
+                if let cached = try? cacheContext.fetch(descriptor).first, !cached.isExpired {
+                    logger.debug("pregenerate skipped (cache valid): sampleType=\(sampleType.rawValue)")
+                    return
+                }
+
                 let signpostID = signposter.makeSignpostID()
                 signposter.emitEvent("ai_data_analysis_pregenerate", id: signpostID,
                                      "sampleType=\(sampleType.rawValue)")

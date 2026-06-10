@@ -52,7 +52,7 @@ struct DataView: View {
             }
             .onChange(of: isCheckingAuth) { _, newValue in
                 if !newValue, !needsAuthorization {
-                    AIDataAnalysisPreloader.pregenerateTopInterests(
+                    AIDataAnalysisPreloader.pregenerateTopInterestsIfConsented(
                         modelContainer: modelContext.container,
                         healthDataCache: healthDataCache
                     )
