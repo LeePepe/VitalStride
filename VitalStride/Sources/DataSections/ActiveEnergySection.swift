@@ -390,6 +390,8 @@ struct ActiveEnergyDetailView: View {
                     )
                 }
 
+                AIDataAnalysisSection(sampleType: .activeEnergyBurned)
+
                 Section {
                     ForEach(dailyData.reversed()) { item in
                         HStack {

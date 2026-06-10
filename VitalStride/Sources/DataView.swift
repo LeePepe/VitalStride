@@ -50,6 +50,14 @@ struct DataView: View {
                     authCheckToken = UUID()
                 }
             }
+            .onChange(of: isCheckingAuth) { _, newValue in
+                if !newValue, !needsAuthorization {
+                    AIDataAnalysisPreloader.pregenerateTopInterestsIfConsented(
+                        modelContainer: modelContext.container,
+                        healthDataCache: healthDataCache
+                    )
+                }
+            }
         }
     }
 

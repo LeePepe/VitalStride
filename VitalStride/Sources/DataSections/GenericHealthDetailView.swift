@@ -128,6 +128,7 @@ struct GenericHealthDetailView: View {
             } else {
                 chartSection
                 statsSection
+                AIDataAnalysisSection(sampleType: sampleType)
                 dailyBreakdownSection
             }
         }

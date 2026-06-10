@@ -433,6 +433,8 @@ struct HeartRateDetailView: View {
 
                 statsSection
 
+                AIDataAnalysisSection(sampleType: .heartRate)
+
                 Section {
                     let displayLimit = 200
                     let recentPoints = Array(dataPoints.suffix(displayLimit).reversed())
