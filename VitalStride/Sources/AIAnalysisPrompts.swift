@@ -6,6 +6,7 @@ enum AIAnalysisPrompts {
     // MARK: - Overview Insights
 
     static func buildInsightsMessages(context: OverviewContext) -> [ChatMessage] {
+        let languageInstruction = localeLanguageInstruction(context.userLocale)
         let system = ChatMessage(
             role: "system",
             content: """
@@ -18,7 +19,7 @@ enum AIAnalysisPrompts {
             - cardType 根据内容选择：metric(数据指标)、insight(分析洞察)、trend(趋势)、summary(总结)
             - 内容简洁，每个 content 控制在 50 字以内
             - 只返回 JSON 数组，不要包含其他文字
-            - 使用中文
+            - \(languageInstruction)
             """
         )
 
@@ -193,5 +194,13 @@ enum AIAnalysisPrompts {
         }
 
         return trimmed
+    }
+
+    // MARK: - Locale Helper
+
+    static func localeLanguageInstruction(_ locale: String) -> String {
+        if locale.isEmpty { return "使用中文" }
+        let isZh = locale.hasPrefix("zh")
+        return isZh ? "使用中文" : "Use English"
     }
 }

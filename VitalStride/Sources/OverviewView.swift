@@ -1,14 +1,25 @@
+import AIService
 import HealthKitService
+import OSLog
 import SwiftData
 import SwiftUI
 import VitalModels
+import VitalUI
 
 struct OverviewView: View {
     @State private var snapshotState = HealthSnapshotState()
+    @State private var dynamicState = OverviewDynamicState()
     @State private var authCheckToken = UUID()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.healthDataCache) private var healthDataCache
     @Environment(\.healthKitService) private var healthKitService
+    @Environment(\.modelContext) private var modelContext
+
+    @Query(
+        filter: #Predicate<Workout> { $0.endDate != nil },
+        sort: \Workout.startDate,
+        order: .reverse
+    ) private var allWorkouts: [Workout]
 
     var body: some View {
         NavigationStack {
@@ -17,15 +28,33 @@ struct OverviewView: View {
                     if snapshotState.isLoading {
                         ProgressView()
                             .frame(maxWidth: .infinity, minHeight: 60)
+                    } else if !snapshotState.isAuthorized, !hasWorkoutData {
+                        OverviewEmptyState()
                     } else {
-                        OverviewContent(snapshotState: snapshotState)
+                        dynamicContent
                     }
                 }
                 .padding()
             }
-            .navigationTitle("概览")
+            .navigationTitle(String(localized: "overview_title", defaultValue: "概览"))
+            .refreshable {
+                await dynamicState.refresh(
+                    container: modelContext.container,
+                    snapshot: snapshotState.snapshot,
+                    workouts: allWorkouts
+                )
+            }
             .task(id: authCheckToken) {
                 await snapshotState.load(cache: healthDataCache, service: healthKitService)
+            }
+            .task(id: snapshotState.isLoading) {
+                guard !snapshotState.isLoading else { return }
+                guard snapshotState.isAuthorized || hasWorkoutData else { return }
+                await dynamicState.loadInitial(
+                    container: modelContext.container,
+                    snapshot: snapshotState.snapshot,
+                    workouts: allWorkouts
+                )
             }
             .onReceive(NotificationCenter.default.publisher(for: .healthKitAuthorizationChanged)) { _ in
                 authCheckToken = UUID()
@@ -35,7 +64,58 @@ struct OverviewView: View {
                     authCheckToken = UUID()
                 }
             }
+            .snackbar(isPresented: $dynamicState.showRefreshError) {
+                Label(
+                    String(localized: "overview_refresh_failed", defaultValue: "刷新失败，请稍后重试"),
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.subheadline)
+            }
         }
+    }
+
+    private var hasWorkoutData: Bool { !allWorkouts.isEmpty }
+
+    @ViewBuilder
+    private var dynamicContent: some View {
+        switch dynamicState.layoutState {
+        case .loading:
+            ProgressView()
+                .frame(maxWidth: .infinity, minHeight: 60)
+
+        case .dynamic(let insights, let lastUpdated):
+            AdaptiveCardGrid(insights: insights)
+            if let lastUpdated {
+                LastUpdatedLabel(date: lastUpdated)
+            }
+
+        case .fallback:
+            OverviewFallbackContent(
+                snapshotState: snapshotState,
+                hasWorkoutData: hasWorkoutData
+            )
+        }
+    }
+}
+
+// MARK: - Last Updated Label
+
+private struct LastUpdatedLabel: View {
+    let date: Date
+
+    var body: some View {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        let relativeTime = formatter.localizedString(for: date, relativeTo: Date())
+        return Text(
+            String(
+                localized: "overview_last_updated",
+                defaultValue: "上次更新于 \(relativeTime)"
+            )
+        )
+        .font(.caption)
+        .foregroundStyle(.tertiary)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 }
 
@@ -143,29 +223,13 @@ final class HealthSnapshotState {
     }
 }
 
-// MARK: - Overview Content
+// MARK: - Fallback Content (original fixed layout)
 
-private struct OverviewContent: View {
+private struct OverviewFallbackContent: View {
     let snapshotState: HealthSnapshotState
-
-    @Query(
-        filter: #Predicate<Workout> { $0.endDate != nil },
-        sort: \Workout.startDate,
-        order: .reverse
-    ) private var allWorkouts: [Workout]
-
-    private var hasWorkoutData: Bool { !allWorkouts.isEmpty }
+    let hasWorkoutData: Bool
 
     var body: some View {
-        if snapshotState.hasAnyHealthData || hasWorkoutData {
-            dataContent
-        } else {
-            OverviewEmptyState()
-        }
-    }
-
-    @ViewBuilder
-    private var dataContent: some View {
         if snapshotState.isAuthorized, snapshotState.hasAnyHealthData {
             OverviewHealthSnapshot(snapshot: snapshotState.snapshot)
         }
