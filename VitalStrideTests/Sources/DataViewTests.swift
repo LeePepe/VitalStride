@@ -1,4 +1,5 @@
 import Foundation
+import HealthKitService
 import Testing
 import VitalModels
 
@@ -184,6 +185,34 @@ struct TimeRangeTests {
         #expect(summaryMetrics.count == 4)
     }
 
+    @Test("DataView probes only display-supported health sample types")
+    @MainActor
+    func availableTypesProbeScopeUsesDisplayedTypesOnly() {
+        let expected: Set<HealthSampleType> = [
+            .stepCount, .activeEnergyBurned, .basalEnergyBurned,
+            .distanceWalkingRunning, .distanceCycling, .appleExerciseTime,
+            .appleStandTime, .flightsClimbed,
+            .heartRate, .restingHeartRate, .heartRateVariabilitySDNN, .vo2Max,
+            .bodyMass, .bodyFatPercentage, .leanBodyMass, .height, .bodyMassIndex,
+            .sleepAnalysis,
+            .dietaryEnergyConsumed, .dietaryProtein, .dietaryCarbohydrates,
+            .dietaryFatTotal, .dietaryWater,
+        ]
+
+        #expect(DataView.availableTypesProbeScope == expected)
+    }
+
+    @Test("DataView refresh uses display-supported probe scope")
+    func refreshUsesDisplaySupportedProbeScope() throws {
+        let source = try String(
+            contentsOfFile: findSourceFile(named: "DataView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("probeAndUpdateAvailableTypes(from: Self.availableTypesProbeScope)"))
+        #expect(!source.contains("probeAndUpdateAvailableTypes(from: Set(HealthSampleType.allCases))"))
+    }
+
     // MARK: - TimeRange Picker
 
     @Test("All TimeRange cases have distinct labels")
@@ -207,4 +236,26 @@ struct TimeRangeTests {
         #expect(weekInterval.duration < monthInterval.duration)
         #expect(monthInterval.duration < yearInterval.duration)
     }
+}
+
+private func findSourceFile(named fileName: String) -> String {
+    let fm = FileManager.default
+    let startDir = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+
+    let enumerator = fm.enumerator(
+        at: startDir,
+        includingPropertiesForKeys: nil,
+        options: [.skipsHiddenFiles]
+    )
+
+    while let url = enumerator?.nextObject() as? URL {
+        if url.lastPathComponent == fileName, url.pathExtension == "swift" {
+            return url.path
+        }
+    }
+
+    return startDir.appendingPathComponent(fileName).path
 }

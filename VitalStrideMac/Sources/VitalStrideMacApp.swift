@@ -23,7 +23,11 @@ struct VitalStrideMacApp: App {
             containerError = nil
 
             let persistence = SwiftDataCachePersistence(modelContainer: modelContainer)
-            healthDataCache = HealthDataCache(dataProvider: service, persistence: persistence)
+            healthDataCache = HealthDataCache(
+                dataProvider: service,
+                persistence: persistence,
+                typesProber: service
+            )
 
             Task {
                 ExerciseSeeder.seedIfNeeded(context: modelContainer.mainContext)
@@ -38,7 +42,7 @@ struct VitalStrideMacApp: App {
         } catch {
             container = nil
             containerError = error.localizedDescription
-            healthDataCache = HealthDataCache(dataProvider: service)
+            healthDataCache = HealthDataCache(dataProvider: service, typesProber: service)
         }
     }
 

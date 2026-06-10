@@ -6,6 +6,7 @@ public enum AIServiceError: Error, Sendable {
     case httpError(statusCode: Int)
     case responseParsingFailed
     case streamingInterrupted(chunksReceived: Int, underlying: Error?)
+    case noProviderAvailable
 }
 
 extension AIServiceError: LocalizedError {
@@ -28,6 +29,8 @@ extension AIServiceError: LocalizedError {
             String(localized: "Failed to parse AI response.")
         case .streamingInterrupted:
             String(localized: "Streaming connection was interrupted.")
+        case .noProviderAvailable:
+            String(localized: "No AI provider is available. Please check device compatibility or configure an API key in Settings.")
         }
     }
 }

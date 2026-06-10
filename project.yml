@@ -133,6 +133,7 @@ targets:
       - target: VitalStride
       - package: VitalModels
       - package: HealthKitService
+      - package: AIService
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.vitalstride.tests

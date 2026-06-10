@@ -18,28 +18,32 @@ struct DataView: View {
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "DataView")
 
-    private static let activityTypes: [HealthSampleType] = [
+    static let activityTypes: [HealthSampleType] = [
         .stepCount, .activeEnergyBurned, .basalEnergyBurned,
         .distanceWalkingRunning, .distanceCycling, .appleExerciseTime,
         .appleStandTime, .flightsClimbed,
     ]
 
-    private static let heartTypes: [HealthSampleType] = [
+    static let heartTypes: [HealthSampleType] = [
         .heartRate, .restingHeartRate, .heartRateVariabilitySDNN, .vo2Max,
     ]
 
-    private static let bodyTypes: [HealthSampleType] = [
+    static let bodyTypes: [HealthSampleType] = [
         .bodyMass, .bodyFatPercentage, .leanBodyMass, .height, .bodyMassIndex,
     ]
 
-    private static let sleepTypes: [HealthSampleType] = [
+    static let sleepTypes: [HealthSampleType] = [
         .sleepAnalysis,
     ]
 
-    private static let nutritionTypes: [HealthSampleType] = [
+    static let nutritionTypes: [HealthSampleType] = [
         .dietaryEnergyConsumed, .dietaryProtein, .dietaryCarbohydrates,
         .dietaryFatTotal, .dietaryWater,
     ]
+
+    static let availableTypesProbeScope: Set<HealthSampleType> = Set(
+        activityTypes + heartTypes + bodyTypes + sleepTypes + nutritionTypes
+    )
 
     var body: some View {
         NavigationStack {
@@ -403,15 +407,14 @@ struct DataView: View {
                 needsAuthorization = true
             } else {
                 let cachedTypes = await healthDataCache.cachedTypes()
-                if !cachedTypes.isEmpty {
-                    let hasAccess = await healthKitService.probeReadAccess(for: cachedTypes)
-                    if !hasAccess {
-                        await healthDataCache.handleAuthorizationRevoked()
-                        healthKitService.clearAllAnchors()
-                        needsAuthorization = true
-                    } else {
-                        needsAuthorization = false
-                    }
+                let accessProbeTypes = cachedTypes.isEmpty
+                    ? Self.availableTypesProbeScope
+                    : cachedTypes
+                let hasAccess = await healthKitService.probeReadAccess(for: accessProbeTypes)
+                if !hasAccess {
+                    await healthDataCache.handleAuthorizationRevoked()
+                    healthKitService.clearAllAnchors()
+                    needsAuthorization = true
                 } else {
                     needsAuthorization = false
                 }
@@ -442,8 +445,7 @@ struct DataView: View {
             return
         }
 
-        let allSampleTypes = Set(HealthSampleType.allCases)
-        await healthDataCache.probeAndUpdateAvailableTypes(from: allSampleTypes)
+        await healthDataCache.probeAndUpdateAvailableTypes(from: Self.availableTypesProbeScope)
         availableTypes = await healthDataCache.getAvailableTypes()
         logVisibleSections()
     }
