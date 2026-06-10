@@ -194,24 +194,25 @@ struct GridLayoutEngineTests {
 
     // MARK: - Filtering
 
-    @Test("Invalid variants are filtered out and counted")
-    func filtersInvalidVariants() {
+    @Test("Insights with unparseable cardType are filtered; invalid combos get fallback")
+    func filteringBehavior() {
         let insights = [
             makeInsight(key: "valid1", type: "metric", size: "small"),
-            makeInsight(key: "invalid1", type: "metric", size: "large"),
+            makeInsight(key: "fallback1", type: "metric", size: "large"),
             makeInsight(key: "valid2", type: "trend", size: "wide"),
-            makeInsight(key: "invalid2", type: "bogus", size: "small"),
-            makeInsight(key: "invalid3", type: "metric", size: "tiny"),
+            makeInsight(key: "filtered1", type: "bogus", size: "small"),
+            makeInsight(key: "fallback2", type: "metric", size: "tiny"),
         ]
 
         let (segments, filteredCount) = GridLayoutEngine.segment(insights)
 
-        #expect(filteredCount == 3)
-        #expect(segments.count == 2)
+        #expect(filteredCount == 1)
+        #expect(segments.count == 3)
 
         if case let .gridBatch(batch) = segments[0] {
-            #expect(batch.count == 1)
+            #expect(batch.count == 2)
             #expect(batch[0].key == "valid1")
+            #expect(batch[1].key == "fallback1")
         } else {
             Issue.record("Expected gridBatch at index 0")
         }
@@ -221,19 +222,33 @@ struct GridLayoutEngineTests {
         } else {
             Issue.record("Expected fullWidth at index 1")
         }
+
+        if case let .gridBatch(batch) = segments[2] {
+            #expect(batch.count == 1)
+            #expect(batch[0].key == "fallback2")
+        } else {
+            Issue.record("Expected gridBatch at index 2")
+        }
     }
 
-    @Test("All invalid returns empty segments with correct filtered count")
-    func allInvalid() {
+    @Test("Only unparseable cardType gets filtered; invalid combo gets fallback")
+    func partialFiltering() {
         let insights = [
-            makeInsight(key: "bad1", type: "metric", size: "large"),
-            makeInsight(key: "bad2", type: "bogus", size: "small"),
+            makeInsight(key: "fallback", type: "metric", size: "large"),
+            makeInsight(key: "filtered", type: "bogus", size: "small"),
         ]
 
         let (segments, filteredCount) = GridLayoutEngine.segment(insights)
 
-        #expect(segments.isEmpty)
-        #expect(filteredCount == 2)
+        #expect(filteredCount == 1)
+        #expect(segments.count == 1)
+
+        if case let .gridBatch(batch) = segments[0] {
+            #expect(batch.count == 1)
+            #expect(batch[0].key == "fallback")
+        } else {
+            Issue.record("Expected gridBatch")
+        }
     }
 
     @Test("Filtered count is zero when all insights are valid")

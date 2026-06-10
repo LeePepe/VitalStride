@@ -7,8 +7,8 @@ enum CardVariantFactory {
         for insight: OverviewInsight,
         onAction: (@Sendable () -> Void)? = nil
     ) -> some View {
-        let size = insight.parsedCardSize
-        let type = insight.parsedCardType
+        let size = insight.effectiveCardSize
+        let type = insight.effectiveCardType
 
         switch (size, type) {
         case (.small, .metric):

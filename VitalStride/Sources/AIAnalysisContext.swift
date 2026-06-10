@@ -8,6 +8,7 @@ struct OverviewContext: Sendable {
     let latestWeight: Double?
     let recentWorkoutCount: Int
     let recentMuscleGroups: [String: Int]
+    let userLocale: String
 
     init(
         todaySteps: Int? = nil,
@@ -16,7 +17,8 @@ struct OverviewContext: Sendable {
         lastNightSleepHours: Double? = nil,
         latestWeight: Double? = nil,
         recentWorkoutCount: Int = 0,
-        recentMuscleGroups: [String: Int] = [:]
+        recentMuscleGroups: [String: Int] = [:],
+        userLocale: String = ""
     ) {
         self.todaySteps = todaySteps
         self.todayActiveEnergy = todayActiveEnergy
@@ -25,6 +27,7 @@ struct OverviewContext: Sendable {
         self.latestWeight = latestWeight
         self.recentWorkoutCount = recentWorkoutCount
         self.recentMuscleGroups = recentMuscleGroups
+        self.userLocale = userLocale
     }
 }
 
