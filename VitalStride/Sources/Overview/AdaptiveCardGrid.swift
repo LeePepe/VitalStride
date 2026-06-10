@@ -11,14 +11,14 @@ enum GridSegment: Sendable, Equatable {
 
 enum GridLayoutEngine {
     static func segment(_ insights: [OverviewInsight]) -> (segments: [GridSegment], filteredCount: Int) {
-        let validInsights = insights.filter(\.isValidVariant)
-        let filteredCount = insights.count - validInsights.count
+        let renderableInsights = insights.filter(\.hasValidOrFallbackVariant)
+        let filteredCount = insights.count - renderableInsights.count
 
         var segments: [GridSegment] = []
         var currentBatch: [OverviewInsight] = []
 
-        for insight in validInsights {
-            guard let size = insight.parsedCardSize else { continue }
+        for insight in renderableInsights {
+            let size = insight.effectiveCardSize
 
             switch size {
             case .small, .medium:

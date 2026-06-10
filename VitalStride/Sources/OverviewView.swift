@@ -15,11 +15,22 @@ struct OverviewView: View {
     @Environment(\.healthKitService) private var healthKitService
     @Environment(\.modelContext) private var modelContext
 
-    @Query(
-        filter: #Predicate<Workout> { $0.endDate != nil },
-        sort: \Workout.startDate,
-        order: .reverse
-    ) private var allWorkouts: [Workout]
+    @Query private var recentWorkouts: [Workout]
+
+    init() {
+        let thirtyDaysAgo = Calendar.current.date(
+            byAdding: .day,
+            value: -30,
+            to: Calendar.current.startOfDay(for: Date())
+        ) ?? Date()
+        _recentWorkouts = Query(
+            filter: #Predicate<Workout> { workout in
+                workout.startDate >= thirtyDaysAgo && workout.endDate != nil
+            },
+            sort: \Workout.startDate,
+            order: .reverse
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -41,7 +52,7 @@ struct OverviewView: View {
                 await dynamicState.refresh(
                     container: modelContext.container,
                     snapshot: snapshotState.snapshot,
-                    workouts: allWorkouts
+                    workouts: recentWorkouts
                 )
             }
             .task(id: authCheckToken) {
@@ -53,7 +64,7 @@ struct OverviewView: View {
                 await dynamicState.loadInitial(
                     container: modelContext.container,
                     snapshot: snapshotState.snapshot,
-                    workouts: allWorkouts
+                    workouts: recentWorkouts
                 )
             }
             .onReceive(NotificationCenter.default.publisher(for: .healthKitAuthorizationChanged)) { _ in
@@ -74,7 +85,7 @@ struct OverviewView: View {
         }
     }
 
-    private var hasWorkoutData: Bool { !allWorkouts.isEmpty }
+    private var hasWorkoutData: Bool { !recentWorkouts.isEmpty }
 
     @ViewBuilder
     private var dynamicContent: some View {
@@ -103,10 +114,14 @@ struct OverviewView: View {
 private struct LastUpdatedLabel: View {
     let date: Date
 
+    private static let formatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .full
+        return f
+    }()
+
     var body: some View {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        let relativeTime = formatter.localizedString(for: date, relativeTo: Date())
+        let relativeTime = Self.formatter.localizedString(for: date, relativeTo: Date())
         return Text(
             String(
                 localized: "overview_last_updated",

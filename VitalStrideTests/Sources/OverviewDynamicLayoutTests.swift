@@ -135,6 +135,103 @@ struct OverviewLayoutStateTests {
         #expect(CardVariant.isValid(size: .small, type: .summary) == false)
     }
 
+    // MARK: - effectiveCardSize fallback
+
+    @Test("effectiveCardSize returns correct size for valid variant")
+    func effectiveCardSizeValid() {
+        let insight = OverviewInsight(
+            key: "steps",
+            cardType: "metric",
+            cardSize: "small",
+            title: "Steps",
+            content: "8000"
+        )
+        #expect(insight.effectiveCardSize == .small)
+    }
+
+    @Test("effectiveCardSize falls back to default for invalid combo")
+    func effectiveCardSizeFallback() {
+        let insight = OverviewInsight(
+            key: "x",
+            cardType: "summary",
+            cardSize: "small",
+            title: "X",
+            content: "X"
+        )
+        #expect(insight.isValidVariant == false)
+        #expect(insight.effectiveCardSize == .wide)
+    }
+
+    @Test("effectiveCardSize returns medium for unparseable inputs")
+    func effectiveCardSizeUnparseable() {
+        let insight = OverviewInsight(
+            key: "x",
+            cardType: "invalid",
+            cardSize: "huge",
+            title: "X",
+            content: "X"
+        )
+        #expect(insight.effectiveCardSize == .medium)
+    }
+
+    @Test("effectiveCardType returns parsed type")
+    func effectiveCardTypeValid() {
+        let insight = OverviewInsight(
+            key: "x",
+            cardType: "trend",
+            cardSize: "medium",
+            title: "X",
+            content: "X"
+        )
+        #expect(insight.effectiveCardType == .trend)
+    }
+
+    @Test("effectiveCardType falls back to insight for invalid type")
+    func effectiveCardTypeFallback() {
+        let insight = OverviewInsight(
+            key: "x",
+            cardType: "invalid",
+            cardSize: "medium",
+            title: "X",
+            content: "X"
+        )
+        #expect(insight.effectiveCardType == .insight)
+    }
+
+    @Test("hasValidOrFallbackVariant is true when cardType is parseable")
+    func hasValidOrFallbackTrue() {
+        let insight = OverviewInsight(
+            key: "x",
+            cardType: "summary",
+            cardSize: "small",
+            title: "X",
+            content: "X"
+        )
+        #expect(insight.hasValidOrFallbackVariant == true)
+    }
+
+    @Test("hasValidOrFallbackVariant is false when cardType is unparseable")
+    func hasValidOrFallbackFalse() {
+        let insight = OverviewInsight(
+            key: "x",
+            cardType: "invalid",
+            cardSize: "medium",
+            title: "X",
+            content: "X"
+        )
+        #expect(insight.hasValidOrFallbackVariant == false)
+    }
+
+    @Test("CardVariant.defaultSize returns correct defaults")
+    func defaultSizeMapping() {
+        #expect(CardVariant.defaultSize(for: .metric) == .medium)
+        #expect(CardVariant.defaultSize(for: .insight) == .medium)
+        #expect(CardVariant.defaultSize(for: .trend) == .medium)
+        #expect(CardVariant.defaultSize(for: .summary) == .wide)
+        #expect(CardVariant.defaultSize(for: .list) == .wide)
+        #expect(CardVariant.defaultSize(for: .action) == .small)
+    }
+
     // MARK: - OverviewContext with locale
 
     @Test("OverviewContext includes userLocale")
