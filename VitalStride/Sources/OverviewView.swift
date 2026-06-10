@@ -232,6 +232,7 @@ private struct OverviewFallbackContent: View {
     var body: some View {
         if snapshotState.isAuthorized, snapshotState.hasAnyHealthData {
             OverviewHealthSnapshot(snapshot: snapshotState.snapshot)
+            OverviewInsightsSection(snapshot: snapshotState.snapshot)
         }
 
         if hasWorkoutData {

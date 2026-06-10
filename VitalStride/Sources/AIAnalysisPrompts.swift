@@ -14,17 +14,26 @@ enum AIAnalysisPrompts {
             你必须返回一个 JSON 数组，每个元素的格式如下：
             {"key":"唯一标识","cardType":"<type>","cardSize":"<size>","title":"标题","content":"正文","suggestion":"建议(可选,可为null)","iconName":"SF Symbol名称(可选,可为null)"}
 
-            cardType 和 cardSize 的合法组合（只能使用以下组合，其他组合无效）：
-            - metric: small, medium
-            - insight: medium, wide
-            - trend: medium, wide, large
-            - summary: wide, large
+            cardType 可选值：metric、insight、trend、summary、list、action
+            cardSize 可选值：small、medium、wide、large
+
+            合法的 cardSize×cardType 组合（白名单）：
+            small×metric, small×action,
+            medium×metric, medium×trend, medium×insight,
+            wide×insight, wide×list, wide×summary, wide×action, wide×trend,
+            large×trend, large×list, large×summary
+
+            content 格式要求：
+            - metric/insight/action: 纯文本字符串
+            - trend: JSON 数组，每个元素 {"date":"标签","value":数字}
+            - list: JSON 数组，每个元素 {"label":"名称","value":"值"} 或纯字符串数组
+            - summary: JSON 对象，key-value 对，如 {"Steps":"8K","Calories":"500"}
 
             规则：
             - 生成 2-4 个洞察卡片
-            - cardType 根据内容选择：metric(数据指标)、insight(分析洞察)、trend(趋势)、summary(总结)
-            - cardSize 必须从上述合法组合中选择
-            - 内容简洁，每个 content 控制在 50 字以内
+            - cardType 根据内容选择合适的类型
+            - cardSize×cardType 必须在上述白名单内
+            - 内容简洁，每个 content 控制在 50 字以内（trend/list/summary 的 JSON 不计入）
             - 只返回 JSON 数组，不要包含其他文字
             - \(languageInstruction)
             """
