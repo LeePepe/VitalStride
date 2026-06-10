@@ -53,7 +53,7 @@ final class OverviewInsightsState {
 
             let result = try await service.generateInsights(context: context)
             guard !Task.isCancelled else { return }
-            insights = result.filter(\.isValidVariant)
+            insights = result
         } catch {
             insights = []
         }
@@ -86,9 +86,7 @@ struct OverviewInsightsSection: View {
                 .padding()
             }
 
-            ForEach(state.insights, id: \.key) { insight in
-                CardVariantFactory.makeCard(for: insight)
-            }
+            AdaptiveCardGrid(insights: state.insights)
         }
         .task {
             state.loadIfNeeded(
