@@ -4,12 +4,12 @@ import SwiftUI
 struct AdaptiveCardGrid: View {
     let insights: [OverviewInsight]
 
-    private var validInsights: [OverviewInsight] {
-        insights.filter(\.isValidVariant)
+    private var renderableInsights: [OverviewInsight] {
+        insights.filter(\.hasValidOrFallbackVariant)
     }
 
     var body: some View {
-        let rows = buildRows(from: validInsights)
+        let rows = buildRows(from: renderableInsights)
         VStack(spacing: 12) {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 switch row {
@@ -36,7 +36,7 @@ struct AdaptiveCardGrid: View {
         var pendingHalf: OverviewInsight?
 
         for insight in insights {
-            let size = insight.parsedCardSize ?? .medium
+            let size = insight.effectiveCardSize
             let isFullWidth = (size == .wide || size == .large)
 
             if isFullWidth {

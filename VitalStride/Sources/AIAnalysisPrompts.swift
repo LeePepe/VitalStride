@@ -12,11 +12,18 @@ enum AIAnalysisPrompts {
             content: """
             你是 VitalStride 的健康数据分析助手。根据用户的健康和运动数据生成洞察卡片。
             你必须返回一个 JSON 数组，每个元素的格式如下：
-            {"key":"唯一标识","cardType":"metric|insight|trend|summary","cardSize":"small|medium|large","title":"标题","content":"正文","suggestion":"建议(可选,可为null)","iconName":"SF Symbol名称(可选,可为null)"}
+            {"key":"唯一标识","cardType":"<type>","cardSize":"<size>","title":"标题","content":"正文","suggestion":"建议(可选,可为null)","iconName":"SF Symbol名称(可选,可为null)"}
+
+            cardType 和 cardSize 的合法组合（只能使用以下组合，其他组合无效）：
+            - metric: small, medium
+            - insight: medium, wide
+            - trend: medium, wide, large
+            - summary: wide, large
 
             规则：
             - 生成 2-4 个洞察卡片
             - cardType 根据内容选择：metric(数据指标)、insight(分析洞察)、trend(趋势)、summary(总结)
+            - cardSize 必须从上述合法组合中选择
             - 内容简洁，每个 content 控制在 50 字以内
             - 只返回 JSON 数组，不要包含其他文字
             - \(languageInstruction)

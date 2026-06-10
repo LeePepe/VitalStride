@@ -5,11 +5,11 @@ struct InsightCardView: View {
     let insight: OverviewInsight
 
     private var cardSize: CardSize {
-        insight.parsedCardSize ?? .medium
+        insight.effectiveCardSize
     }
 
     private var cardType: CardType {
-        insight.parsedCardType ?? .insight
+        insight.effectiveCardType
     }
 
     var body: some View {
