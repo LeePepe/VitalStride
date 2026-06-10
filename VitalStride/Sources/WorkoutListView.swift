@@ -21,10 +21,7 @@ struct WorkoutListView: View {
     @State private var showingDeleteError = false
 
     private var shouldShowAdviceCard: Bool {
-        guard !workouts.isEmpty, privacyConsented else { return false }
-        if case .error = adviceViewModel.state { return true }
-        if case .idle = adviceViewModel.state { return true }
-        return true
+        !workouts.isEmpty && privacyConsented
     }
 
     var body: some View {
@@ -73,6 +70,7 @@ struct WorkoutListView: View {
                         }
                     }
                     .task {
+                        guard privacyConsented else { return }
                         adviceViewModel.loadAdviceIfNeeded(modelContext: modelContext)
                     }
                 }

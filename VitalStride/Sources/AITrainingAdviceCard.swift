@@ -92,6 +92,8 @@ struct AITrainingAdviceCard: View {
             }
         }
         .buttonStyle(.plain)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(
             isExpanded
