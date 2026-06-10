@@ -202,13 +202,13 @@ public final class HealthKitService: Sendable {
         )
         for sampleType in types {
             do {
-                let result = try await healthStore.executeAnchoredQuery(
+                _ = try await healthStore.executeAnchoredQuery(
                     type: sampleType.hkSampleType,
                     predicate: window,
                     anchor: nil,
                     limit: 1
                 )
-                if !result.samples.isEmpty { return true }
+                return true
             } catch {
                 continue
             }

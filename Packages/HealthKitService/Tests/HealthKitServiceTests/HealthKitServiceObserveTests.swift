@@ -312,3 +312,18 @@ struct HealthKitServiceObserveTests {
         #expect(collected[0].value == 72.0)
     }
 }
+
+@Suite("HealthKitService.probeReadAccess", .serialized)
+struct HealthKitServiceProbeReadAccessTests {
+
+    @Test("Successful empty query still indicates read access")
+    func successfulEmptyQueryIndicatesReadAccess() async {
+        let mock = MockHealthStore()
+        mock.anchoredQueryResult = AnchoredQueryResult(samples: [], deletedObjectUUIDs: [], newAnchor: nil)
+        let (service, _) = makeService(healthStore: mock)
+
+        let hasAccess = await service.probeReadAccess(for: [.stepCount])
+
+        #expect(hasAccess == true)
+    }
+}
