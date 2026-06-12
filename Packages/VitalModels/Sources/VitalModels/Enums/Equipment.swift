@@ -19,9 +19,9 @@ public enum Equipment: String, Codable, CaseIterable, Sendable {
 
     public var sfSymbol: String {
         switch self {
-        case .barbell: "dumbbell.fill"
+        case .barbell: "scalemass.fill"
         case .dumbbell: "dumbbell"
-        case .machine: "gearshape.fill"
+        case .machine: "figure.indoor.cycle"
         case .bodyweight: "figure.walk"
         case .cable: "cable.coaxial"
         }
