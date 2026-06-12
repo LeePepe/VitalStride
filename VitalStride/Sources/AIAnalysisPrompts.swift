@@ -5,13 +5,23 @@ enum AIAnalysisPrompts {
 
     // MARK: - Overview Insights
 
-    static func buildInsightsMessages(context: OverviewContext) -> [ChatMessage] {
+    static func buildInsightsMessages(
+        context: OverviewContext,
+        previousInsights: [OverviewInsight]? = nil
+    ) -> [ChatMessage] {
         let languageInstruction = localeLanguageInstruction(context.userLocale)
+        let isZh = context.userLocale.isEmpty || context.userLocale.hasPrefix("zh")
+        let headlineInstruction = isZh
+            ? "对比上次分析结果和当前数据，用一句话概括最显著的变化，不超过 30 字，作为 headline 字段返回。如果没有明显变化或没有上次分析结果，headline 返回 null。"
+            : "Summarize the most notable change in one sentence (max 30 words) as the headline field. If there is no notable change or no previous analysis, return null for headline."
         let system = ChatMessage(
             role: "system",
             content: """
             你是 VitalStride 的健康数据分析助手。根据用户的健康和运动数据生成洞察卡片。
-            你必须返回一个 JSON 数组，每个元素的格式如下：
+            你必须返回一个 JSON 对象，格式如下：
+            {"headline":"一句话概括最显著的变化(可为null)","insights":[...]}
+
+            insights 数组中每个元素的格式如下：
             {"key":"唯一标识","cardType":"<type>","cardSize":"<size>","title":"标题","content":"正文","suggestion":"建议(可选,可为null)","iconName":"SF Symbol名称(可选,可为null)"}
 
             cardType 可选值：metric、insight、trend、summary、list、action
@@ -34,7 +44,8 @@ enum AIAnalysisPrompts {
             - cardType 根据内容选择合适的类型
             - cardSize×cardType 必须在上述白名单内
             - 内容简洁，每个 content 控制在 50 字以内（trend/list/summary 的 JSON 不计入）
-            - 只返回 JSON 数组，不要包含其他文字
+            - 只返回 JSON 对象，不要包含其他文字
+            - \(headlineInstruction)
             - \(languageInstruction)
             """
         )
@@ -68,9 +79,20 @@ enum AIAnalysisPrompts {
             ? "暂无健康数据。"
             : dataParts.joined(separator: "\n")
 
+        var userContent = "以下是我的健康和运动数据：\n\(userData)"
+
+        if let previous = previousInsights, !previous.isEmpty {
+            let summary = previous
+                .map { "- \($0.title): \($0.content)" }
+                .joined(separator: "\n")
+            userContent += "\n\n上次分析结果：\n\(summary)"
+        }
+
+        userContent += "\n\n请生成洞察卡片。"
+
         let user = ChatMessage(
             role: "user",
-            content: "以下是我的健康和运动数据：\n\(userData)\n\n请生成洞察卡片。"
+            content: userContent
         )
 
         return [system, user]

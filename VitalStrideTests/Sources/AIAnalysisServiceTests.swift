@@ -372,6 +372,72 @@ struct AIAnalysisServiceTests {
         #expect(messages[1].content.contains("70"))
     }
 
+    @Test("insights prompt with previousInsights includes summary in user message")
+    func testInsightsPromptWithPreviousInsights() {
+        let context = OverviewContext(
+            todaySteps: 8000,
+            recentWorkoutCount: 3
+        )
+        let previous = [
+            OverviewInsight(key: "steps", cardType: "metric", cardSize: "small", title: "步数", content: "今日已走6000步"),
+            OverviewInsight(key: "sleep", cardType: "insight", cardSize: "medium", title: "睡眠", content: "昨晚睡了7小时"),
+        ]
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context, previousInsights: previous)
+
+        #expect(messages.count == 2)
+        #expect(messages[1].content.contains("上次分析结果"))
+        #expect(messages[1].content.contains("步数: 今日已走6000步"))
+        #expect(messages[1].content.contains("睡眠: 昨晚睡了7小时"))
+    }
+
+    @Test("insights prompt without previousInsights does not include summary")
+    func testInsightsPromptWithoutPreviousInsights() {
+        let context = OverviewContext(
+            todaySteps: 5000,
+            recentWorkoutCount: 2
+        )
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context)
+
+        #expect(!messages[1].content.contains("上次分析结果"))
+    }
+
+    @Test("insights prompt with empty previousInsights does not include summary")
+    func testInsightsPromptWithEmptyPreviousInsights() {
+        let context = OverviewContext(
+            todaySteps: 5000,
+            recentWorkoutCount: 2
+        )
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context, previousInsights: [])
+
+        #expect(!messages[1].content.contains("上次分析结果"))
+    }
+
+    @Test("insights system prompt requires headline JSON object format")
+    func testInsightsPromptHeadlineFormat() {
+        let context = OverviewContext(recentWorkoutCount: 0)
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context)
+
+        #expect(messages[0].content.contains("\"headline\""))
+        #expect(messages[0].content.contains("\"insights\""))
+        #expect(messages[0].content.contains("JSON 对象"))
+    }
+
+    @Test("insights headline instruction uses Chinese for zh locale")
+    func testInsightsHeadlineChineseLocale() {
+        let context = OverviewContext(recentWorkoutCount: 0, userLocale: "zh-Hans")
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context)
+
+        #expect(messages[0].content.contains("用一句话概括最显著的变化"))
+    }
+
+    @Test("insights headline instruction uses English for non-zh locale")
+    func testInsightsHeadlineEnglishLocale() {
+        let context = OverviewContext(recentWorkoutCount: 0, userLocale: "en")
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context)
+
+        #expect(messages[0].content.contains("Summarize the most notable change in one sentence"))
+    }
+
     @Test("prompt builder includes training data")
     func testTrainingPromptContainsData() {
         let context = TrainingContext(
