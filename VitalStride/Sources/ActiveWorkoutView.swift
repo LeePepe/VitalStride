@@ -521,8 +521,15 @@ private struct ActiveExerciseSection: View {
                         index: mainSetNumber(upTo: index),
                         exerciseSet: exerciseSet,
                         weightUnit: weightUnit,
+                        canDelete: sortedSets.count > 1,
                         onToggleCompleted: { wasCompleted in
                             if !wasCompleted { onSetCompleted() }
+                        },
+                        onDelete: {
+                            deleteSet(exerciseSet)
+                        },
+                        onAddSubSet: { type in
+                            addSubSet(after: exerciseSet, type: type)
                         }
                     )
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -531,20 +538,6 @@ private struct ActiveExerciseSection: View {
                                 deleteSet(exerciseSet)
                             } label: {
                                 Label("删除", systemImage: "trash")
-                            }
-                        }
-                    }
-                    .contextMenu {
-                        if exerciseSet.setType == .working {
-                            Button {
-                                addSubSet(after: exerciseSet, type: .dropSet)
-                            } label: {
-                                Label("添加递减组", systemImage: "arrow.down.right")
-                            }
-                            Button {
-                                addSubSet(after: exerciseSet, type: .pyramid)
-                            } label: {
-                                Label("添加递增组", systemImage: "arrow.up.right")
                             }
                         }
                     }
@@ -702,7 +695,10 @@ private struct SetRow: View {
     let index: Int
     let exerciseSet: ExerciseSet
     let weightUnit: WeightUnit
+    let canDelete: Bool
     let onToggleCompleted: (_ wasCompleted: Bool) -> Void
+    let onDelete: () -> Void
+    let onAddSubSet: (_ type: SetType) -> Void
 
     @State private var weightText: String = ""
     @State private var weightRightText: String = ""
@@ -721,7 +717,8 @@ private struct SetRow: View {
                     text: $repsText,
                     keyboardType: .numberPad
                 )
-                    .frame(width: 60, minHeight: 44)
+                    .frame(width: 60)
+                    .frame(minHeight: 44)
                     .accessibilityLabel("第 \(index + 1) 组次数")
                     .accessibilityHint("输入次数")
                     .onChange(of: repsText) { _, newValue in
@@ -738,7 +735,8 @@ private struct SetRow: View {
                     text: $weightText,
                     keyboardType: .decimalPad
                 )
-                    .frame(width: 56, minHeight: 44)
+                    .frame(width: 56)
+                    .frame(minHeight: 44)
                     .accessibilityLabel(String(localized: "第 \(index + 1) 组左侧重量", comment: "Left weight input a11y label"))
                     .accessibilityHint(String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint"))
                     .onChange(of: weightText) { _, newValue in
@@ -756,7 +754,7 @@ private struct SetRow: View {
                     text: $weightRightText,
                     keyboardType: .decimalPad
                 )
-                    .frame(width: 56, minHeight: 44)
+                    .frame(width: 56).frame(minHeight: 44)
                     .accessibilityLabel(String(localized: "第 \(index + 1) 组右侧重量", comment: "Right weight input a11y label"))
                     .accessibilityHint(String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint"))
                     .onChange(of: weightRightText) { _, newValue in
@@ -798,6 +796,38 @@ private struct SetRow: View {
             }
 
             Menu {
+                if canDelete {
+                    Button(role: .destructive) {
+                        onDelete()
+                    } label: {
+                        Label(
+                            String(localized: "删除", comment: "Delete set menu item"),
+                            systemImage: "trash"
+                        )
+                    }
+                }
+
+                if exerciseSet.setType == .working {
+                    Button {
+                        onAddSubSet(.pyramid)
+                    } label: {
+                        Label(
+                            String(localized: "添加递增组", comment: "Add pyramid subset menu item"),
+                            systemImage: "arrow.up.right"
+                        )
+                    }
+                    Button {
+                        onAddSubSet(.dropSet)
+                    } label: {
+                        Label(
+                            String(localized: "添加递减组", comment: "Add drop set subset menu item"),
+                            systemImage: "arrow.down.right"
+                        )
+                    }
+                }
+
+                Divider()
+
                 Picker(selection: Binding(
                     get: { exerciseSet.setType },
                     set: { exerciseSet.setType = $0 }
@@ -808,7 +838,7 @@ private struct SetRow: View {
                 } label: {
                     Text(String(localized: "组类型", comment: "Set type picker label in menu"))
                 }
-                Divider()
+
                 Toggle(
                     String(localized: "单侧重量", comment: "Unilateral weight toggle in set menu"),
                     isOn: Binding(
@@ -817,16 +847,10 @@ private struct SetRow: View {
                     )
                 )
             } label: {
-                HStack(spacing: 2) {
-                    Text(exerciseSet.setType.displayName)
-                    if exerciseSet.isUnilateral {
-                        Text("·")
-                        Text(String(localized: "左/右", comment: "Each side weight mode label"))
-                    }
-                }
-                .font(.caption)
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
+                Image(systemName: "ellipsis")
+                    .font(.body)
+                    .frame(minWidth: 32, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration menu a11y label"))
             .accessibilityValue(
@@ -948,7 +972,7 @@ private struct SubSetRow: View {
                     keyboardType: .numberPad,
                     font: .preferredFont(forTextStyle: .footnote)
                 )
-                    .frame(width: 52, minHeight: 44)
+                    .frame(width: 52).frame(minHeight: 44)
                     .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数")
                     .accessibilityHint("输入次数")
                     .onChange(of: repsText) { _, newValue in
@@ -967,7 +991,7 @@ private struct SubSetRow: View {
                     keyboardType: .decimalPad,
                     font: .preferredFont(forTextStyle: .footnote)
                 )
-                    .frame(width: 50, minHeight: 44)
+                    .frame(width: 50).frame(minHeight: 44)
                     .accessibilityLabel(String(localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组左侧重量", comment: "SubSet left weight a11y label"))
                     .accessibilityHint(String(localized: "输入左侧重量数值", comment: "SubSet left weight a11y hint"))
                     .onChange(of: weightText) { _, newValue in
@@ -987,7 +1011,7 @@ private struct SubSetRow: View {
                     keyboardType: .decimalPad,
                     font: .preferredFont(forTextStyle: .footnote)
                 )
-                    .frame(width: 50, minHeight: 44)
+                    .frame(width: 50).frame(minHeight: 44)
                     .accessibilityLabel(String(localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组右侧重量", comment: "SubSet right weight a11y label"))
                     .accessibilityHint(String(localized: "输入右侧重量数值", comment: "SubSet right weight a11y hint"))
                     .onChange(of: weightRightText) { _, newValue in
