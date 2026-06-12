@@ -21,7 +21,7 @@ struct ActiveWorkoutView: View {
     @State private var sessionManager: (any WorkoutSessionManaging)?
     #endif
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
-    private let startTime = Date()
+    @State private var startTime = Date()
     let source: WorkoutStartSource
 
     init(source: WorkoutStartSource = .blank) {
