@@ -13,6 +13,7 @@ struct SelectAllTextField: UIViewRepresentable {
         textField.placeholder = placeholder
         textField.keyboardType = keyboardType
         textField.font = font
+        textField.adjustsFontForContentSizeCategory = true
         textField.borderStyle = .roundedRect
         textField.delegate = context.coordinator
         textField.addTarget(
@@ -26,6 +27,15 @@ struct SelectAllTextField: UIViewRepresentable {
     func updateUIView(_ textField: UITextField, context: Context) {
         if textField.text != text {
             textField.text = text
+        }
+        if textField.placeholder != placeholder {
+            textField.placeholder = placeholder
+        }
+        if textField.keyboardType != keyboardType {
+            textField.keyboardType = keyboardType
+        }
+        if textField.font != font {
+            textField.font = font
         }
     }
 

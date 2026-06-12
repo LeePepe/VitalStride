@@ -620,23 +620,6 @@ private struct SetRow: View {
                 .frame(width: 24, alignment: .leading)
 
             SelectAllTextField(
-                placeholder: "次数",
-                text: $repsText,
-                keyboardType: .numberPad
-            )
-                .frame(width: 60)
-                .accessibilityLabel("第 \(index + 1) 组次数")
-                .accessibilityHint("输入次数")
-                .onChange(of: repsText) { _, newValue in
-                    let filtered = newValue.filter { $0.isNumber }
-                    if filtered != newValue { repsText = filtered }
-                    syncRepsToModel()
-                }
-
-            Text("×")
-                .foregroundStyle(.secondary)
-
-            SelectAllTextField(
                 placeholder: weightUnit.rawValue,
                 text: $weightText,
                 keyboardType: .decimalPad
@@ -648,6 +631,23 @@ private struct SetRow: View {
                     let filtered = filterDecimalInput(newValue)
                     if filtered != newValue { weightText = filtered }
                     syncWeightToModel()
+                }
+
+            Text("×")
+                .foregroundStyle(.secondary)
+
+            SelectAllTextField(
+                placeholder: "次数",
+                text: $repsText,
+                keyboardType: .numberPad
+            )
+                .frame(width: 60)
+                .accessibilityLabel("第 \(index + 1) 组次数")
+                .accessibilityHint("输入次数")
+                .onChange(of: repsText) { _, newValue in
+                    let filtered = newValue.filter { $0.isNumber }
+                    if filtered != newValue { repsText = filtered }
+                    syncRepsToModel()
                 }
 
             Menu {
@@ -778,25 +778,6 @@ private struct SubSetRow: View {
                 .accessibilityHidden(true)
 
             SelectAllTextField(
-                placeholder: "次数",
-                text: $repsText,
-                keyboardType: .numberPad,
-                font: .preferredFont(forTextStyle: .footnote)
-            )
-                .frame(width: 52)
-                .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数")
-                .accessibilityHint("输入次数")
-                .onChange(of: repsText) { _, newValue in
-                    let filtered = newValue.filter { $0.isNumber }
-                    if filtered != newValue { repsText = filtered }
-                    syncRepsToModel()
-                }
-
-            Text("×")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
-            SelectAllTextField(
                 placeholder: weightUnit.rawValue,
                 text: $weightText,
                 keyboardType: .decimalPad,
@@ -809,6 +790,25 @@ private struct SubSetRow: View {
                     let filtered = filterDecimalInput(newValue)
                     if filtered != newValue { weightText = filtered }
                     syncWeightToModel()
+                }
+
+            Text("×")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            SelectAllTextField(
+                placeholder: "次数",
+                text: $repsText,
+                keyboardType: .numberPad,
+                font: .preferredFont(forTextStyle: .footnote)
+            )
+                .frame(width: 52)
+                .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数")
+                .accessibilityHint("输入次数")
+                .onChange(of: repsText) { _, newValue in
+                    let filtered = newValue.filter { $0.isNumber }
+                    if filtered != newValue { repsText = filtered }
+                    syncRepsToModel()
                 }
 
             Text(exerciseSet.setType.displayName)
