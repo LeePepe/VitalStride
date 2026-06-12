@@ -11,6 +11,8 @@ struct DataView: View {
     @State private var isCheckingAuth = true
     @State private var authCheckToken = UUID()
     @State private var availableTypes: Set<HealthSampleType>?
+    @State private var aiSummaryState = DataAISummaryState()
+    @AppStorage(aiPrivacyConsentKey) private var aiPrivacyConsented = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.healthKitService) private var healthKitService
     @Environment(\.healthDataCache) private var healthDataCache
@@ -60,10 +62,12 @@ struct DataView: View {
                 } else if needsAuthorization {
                     authorizationCTASection
                 } else if availableTypes == nil {
+                    aiSummarySection
                     summarySection
                     typesLoadingSection
                     workoutSection
                 } else {
+                    aiSummarySection
                     summarySection
                     activitySection
                     heartSection
@@ -76,6 +80,13 @@ struct DataView: View {
             .navigationTitle(String(localized: "数据", comment: "Data tab title"))
             .task(id: authCheckToken) {
                 await checkAuthorizationStatus()
+                if aiPrivacyConsented, let types = availableTypes, !types.isEmpty {
+                    await aiSummaryState.loadIfNeeded(
+                        availableTypes: types,
+                        modelContainer: modelContext.container,
+                        healthDataCache: healthDataCache
+                    )
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .healthKitAuthorizationChanged)) { _ in
                 authCheckToken = UUID()
@@ -97,6 +108,13 @@ struct DataView: View {
     }
 
     // MARK: - Sections
+
+    @ViewBuilder
+    private var aiSummarySection: some View {
+        if aiPrivacyConsented, let types = availableTypes, !types.isEmpty {
+            DataAISummaryCard(state: aiSummaryState)
+        }
+    }
 
     private var authorizationCTASection: some View {
         Section {
