@@ -82,10 +82,13 @@ enum AIAnalysisPrompts {
         var userContent = "以下是我的健康和运动数据：\n\(userData)"
 
         if let previous = previousInsights, !previous.isEmpty {
-            let summary = previous
-                .map { "- \($0.title): \($0.content)" }
-                .joined(separator: "\n")
-            userContent += "\n\n上次分析结果：\n\(summary)"
+            let entries = previous.prefix(10).enumerated().map { index, insight in
+                let title = String(insight.title.prefix(50))
+                let content = String(insight.content.prefix(200))
+                return "\(index + 1). [\(title)] \(content)"
+            }
+            let summary = entries.joined(separator: "\n")
+            userContent += "\n\n---\n上次分析结果（仅供对比参考）：\n\(summary)\n---"
         }
 
         userContent += "\n\n请生成洞察卡片。"

@@ -386,8 +386,9 @@ struct AIAnalysisServiceTests {
 
         #expect(messages.count == 2)
         #expect(messages[1].content.contains("上次分析结果"))
-        #expect(messages[1].content.contains("步数: 今日已走6000步"))
-        #expect(messages[1].content.contains("睡眠: 昨晚睡了7小时"))
+        #expect(messages[1].content.contains("[步数] 今日已走6000步"))
+        #expect(messages[1].content.contains("[睡眠] 昨晚睡了7小时"))
+        #expect(messages[1].content.contains("---"))
     }
 
     @Test("insights prompt without previousInsights does not include summary")
@@ -436,6 +437,23 @@ struct AIAnalysisServiceTests {
         let messages = AIAnalysisPrompts.buildInsightsMessages(context: context)
 
         #expect(messages[0].content.contains("Summarize the most notable change in one sentence"))
+    }
+
+    @Test("insights prompt truncates long previousInsights title and content")
+    func testInsightsPromptTruncatesPreviousInsights() {
+        let context = OverviewContext(todaySteps: 5000, recentWorkoutCount: 1)
+        let longTitle = String(repeating: "标", count: 60)
+        let longContent = String(repeating: "内", count: 250)
+        let previous = [
+            OverviewInsight(key: "long", cardType: "metric", cardSize: "small", title: longTitle, content: longContent),
+        ]
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context, previousInsights: previous)
+
+        let userContent = messages[1].content
+        #expect(!userContent.contains(longTitle))
+        #expect(!userContent.contains(longContent))
+        #expect(userContent.contains(String(repeating: "标", count: 50)))
+        #expect(userContent.contains(String(repeating: "内", count: 200)))
     }
 
     @Test("prompt builder includes training data")
