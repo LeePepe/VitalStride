@@ -80,6 +80,7 @@ final class OverviewDynamicState {
         logger.debug("overview_pending_accepted")
         signposter.emitEvent("overview_pending_accepted")
 
+        writeInsightsCache(response: response, container: container)
         let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
         layoutState = .dynamic(response.insights, lastUpdated: generatedAt)
         pendingResponse = nil
@@ -93,6 +94,7 @@ final class OverviewDynamicState {
         if response.headline != nil {
             pendingResponse = response
         } else {
+            writeInsightsCache(response: response, container: container)
             let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
             layoutState = .dynamic(response.insights, lastUpdated: generatedAt)
             pendingResponse = nil
@@ -143,7 +145,7 @@ final class OverviewDynamicState {
             let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
             let provider = ZhipuProvider(apiKey: apiKey)
             let service = AIAnalysisService(modelContainer: container, provider: provider)
-            let response = try await service.generateInsights(context: context, forceRefresh: true)
+            let response = try await service.generateInsights(context: context, forceRefresh: true, skipCache: true)
 
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000
@@ -199,6 +201,27 @@ final class OverviewDynamicState {
         let context = ModelContext(container)
         let descriptor = FetchDescriptor<OverviewInsightCache>()
         return try? context.fetch(descriptor).first?.generatedAt
+    }
+
+    private func writeInsightsCache(response: AIAnalysisResponse, container: ModelContainer) {
+        guard let data = try? JSONEncoder().encode(response),
+              let json = String(data: data, encoding: .utf8)
+        else { return }
+
+        let context = ModelContext(container)
+        let descriptor = FetchDescriptor<OverviewInsightCache>()
+        let now = Date()
+        let expiry = now.addingTimeInterval(3600)
+
+        if let existing = try? context.fetch(descriptor).first {
+            existing.contentJSON = json
+            existing.generatedAt = now
+            existing.expiresAt = expiry
+        } else {
+            let entry = OverviewInsightCache(contentJSON: json, generatedAt: now, expiresAt: expiry)
+            context.insert(entry)
+        }
+        try? context.save()
     }
 
     private nonisolated func buildContext(snapshot: HealthSnapshotData, workouts: [Workout]) -> OverviewContext {

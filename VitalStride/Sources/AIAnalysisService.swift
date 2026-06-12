@@ -39,7 +39,8 @@ actor AIAnalysisService: ModelActor {
 
     func generateInsights(
         context: OverviewContext,
-        forceRefresh: Bool = false
+        forceRefresh: Bool = false,
+        skipCache: Bool = false
     ) async throws -> AIAnalysisResponse {
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("ai_analysis_e2e", id: signpostID, "method=generateInsights")
@@ -69,7 +70,7 @@ actor AIAnalysisService: ModelActor {
             logger.debug("cache miss: method=generateInsights reason=forceRefresh")
         }
 
-        let result = try await fetchInsights(context: context)
+        let result = try await fetchInsights(context: context, skipCache: skipCache)
         logSuccess(method: "generateInsights", start: start)
         return result
     }
@@ -150,7 +151,7 @@ actor AIAnalysisService: ModelActor {
 
     // MARK: - Fetch + Parse + Cache
 
-    private func fetchInsights(context: OverviewContext) async throws -> AIAnalysisResponse {
+    private func fetchInsights(context: OverviewContext, skipCache: Bool = false) async throws -> AIAnalysisResponse {
         let previousInsights = loadInsightsCache().flatMap { decodeAnalysisResponse($0.contentJSON)?.insights }
 
         let messages = buildPromptWithSignpost("generateInsights") {
@@ -171,7 +172,9 @@ actor AIAnalysisService: ModelActor {
         let json = AIAnalysisPrompts.extractJSON(from: response.content)
 
         if let analysisResponse = parseWithSignpost("generateInsights", { decodeAnalysisResponse(json) }) {
-            saveInsightsCache(response: analysisResponse)
+            if !skipCache {
+                saveInsightsCache(response: analysisResponse)
+            }
             return analysisResponse
         }
 
@@ -181,7 +184,9 @@ actor AIAnalysisService: ModelActor {
 
         if let analysisResponse = parseWithSignpost("generateInsights", { decodeAnalysisResponse(retryJSON) }) {
             logger.log("JSON parse: method=generateInsights result=retrySuccess")
-            saveInsightsCache(response: analysisResponse)
+            if !skipCache {
+                saveInsightsCache(response: analysisResponse)
+            }
             return analysisResponse
         }
 

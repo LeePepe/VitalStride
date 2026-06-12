@@ -566,4 +566,83 @@ struct OverviewLayoutStateTests {
         #expect(state.pendingResponse == nil)
         #expect(state.showRefreshError == false)
     }
+
+    // MARK: - Cache Ordering
+
+    @Test("applyBackgroundRefreshResult with headline does NOT write cache")
+    @MainActor
+    func bgRefreshWithHeadlineDoesNotWriteCache() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let state = OverviewDynamicState()
+
+        let insights = [
+            OverviewInsight(key: "pending", cardType: "metric", cardSize: "small", title: "P", content: "p"),
+        ]
+        let response = AIAnalysisResponse(headline: "变化", insights: insights)
+        state.applyBackgroundRefreshResult(response, container: container)
+
+        #expect(state.pendingResponse != nil)
+
+        let ctx = ModelContext(container)
+        let descriptor = FetchDescriptor<OverviewInsightCache>()
+        let cached = try ctx.fetch(descriptor)
+        #expect(cached.isEmpty, "Cache should NOT be written when headline is present (pending flow)")
+    }
+
+    @Test("applyBackgroundRefreshResult without headline writes cache")
+    @MainActor
+    func bgRefreshWithoutHeadlineWritesCache() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let state = OverviewDynamicState()
+
+        let insights = [
+            OverviewInsight(key: "silent", cardType: "metric", cardSize: "small", title: "S", content: "s"),
+        ]
+        let response = AIAnalysisResponse(headline: nil, insights: insights)
+        state.applyBackgroundRefreshResult(response, container: container)
+
+        let ctx = ModelContext(container)
+        let descriptor = FetchDescriptor<OverviewInsightCache>()
+        let cached = try ctx.fetch(descriptor)
+        #expect(cached.count == 1, "Cache should be written when headline is nil (silent update)")
+
+        let decoded = try JSONDecoder().decode(
+            AIAnalysisResponse.self,
+            from: cached[0].contentJSON.data(using: .utf8)!
+        )
+        #expect(decoded.insights[0].key == "silent")
+    }
+
+    @Test("acceptPendingInsights writes pending response to cache")
+    @MainActor
+    func acceptPendingInsightsWritesCache() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let state = OverviewDynamicState()
+
+        let insights = [
+            OverviewInsight(key: "accepted", cardType: "metric", cardSize: "small", title: "A", content: "a"),
+        ]
+        let response = AIAnalysisResponse(headline: "新洞察", insights: insights)
+        state.applyBackgroundRefreshResult(response, container: container)
+
+        let ctxBefore = ModelContext(container)
+        let descBefore = FetchDescriptor<OverviewInsightCache>()
+        #expect(try ctxBefore.fetch(descBefore).isEmpty, "No cache before accept")
+
+        state.acceptPendingInsights(container: container)
+
+        #expect(state.pendingResponse == nil)
+
+        let ctxAfter = ModelContext(container)
+        let descAfter = FetchDescriptor<OverviewInsightCache>()
+        let cached = try ctxAfter.fetch(descAfter)
+        #expect(cached.count == 1, "Cache should be written after accept")
+
+        let decoded = try JSONDecoder().decode(
+            AIAnalysisResponse.self,
+            from: cached[0].contentJSON.data(using: .utf8)!
+        )
+        #expect(decoded.insights[0].key == "accepted")
+        #expect(decoded.headline == "新洞察")
+    }
 }
