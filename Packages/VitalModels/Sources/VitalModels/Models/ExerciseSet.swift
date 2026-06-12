@@ -10,6 +10,7 @@ public final class ExerciseSet {
     public var restDuration: TimeInterval?
     public var isCompleted: Bool = false
     public var isUnilateral: Bool = false
+    public var weightRight: Double?
     public var workoutExercise: WorkoutExercise?
 
     public init(
@@ -19,7 +20,8 @@ public final class ExerciseSet {
         setType: SetType = .working,
         restDuration: TimeInterval? = nil,
         isCompleted: Bool = false,
-        isUnilateral: Bool = false
+        isUnilateral: Bool = false,
+        weightRight: Double? = nil
     ) {
         self.order = order
         self.weight = weight
@@ -28,12 +30,13 @@ public final class ExerciseSet {
         self.restDuration = restDuration
         self.isCompleted = isCompleted
         self.isUnilateral = isUnilateral
+        self.weightRight = weightRight
     }
 }
 
 extension ExerciseSet: Codable {
     enum CodingKeys: String, CodingKey {
-        case order, weight, reps, setType, restDuration, isCompleted, isUnilateral
+        case order, weight, reps, setType, restDuration, isCompleted, isUnilateral, weightRight
     }
 
     public convenience init(from decoder: Decoder) throws {
@@ -45,7 +48,8 @@ extension ExerciseSet: Codable {
         let restDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .restDuration)
         let isCompleted = try container.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
         let isUnilateral = try container.decodeIfPresent(Bool.self, forKey: .isUnilateral) ?? false
-        self.init(order: order, weight: weight, reps: reps, setType: setType, restDuration: restDuration, isCompleted: isCompleted, isUnilateral: isUnilateral)
+        let weightRight = try container.decodeIfPresent(Double.self, forKey: .weightRight)
+        self.init(order: order, weight: weight, reps: reps, setType: setType, restDuration: restDuration, isCompleted: isCompleted, isUnilateral: isUnilateral, weightRight: weightRight)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -57,5 +61,6 @@ extension ExerciseSet: Codable {
         try container.encodeIfPresent(restDuration, forKey: .restDuration)
         try container.encode(isCompleted, forKey: .isCompleted)
         try container.encode(isUnilateral, forKey: .isUnilateral)
+        try container.encodeIfPresent(weightRight, forKey: .weightRight)
     }
 }

@@ -61,7 +61,8 @@ enum WorkoutCopier {
                         weight: srcSet.weight,
                         reps: srcSet.reps,
                         setType: srcSet.setType,
-                        isUnilateral: srcSet.isUnilateral
+                        isUnilateral: srcSet.isUnilateral,
+                        weightRight: srcSet.weightRight
                     )
                     newSet.workoutExercise = workoutExercise
                     modelContext.insert(newSet)

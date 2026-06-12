@@ -205,4 +205,73 @@ struct ExerciseSetTests {
         let decoded = try JSONDecoder().decode(ExerciseSet.self, from: Data(json.utf8))
         #expect(decoded.isUnilateral == false)
     }
+
+    // MARK: - weightRight Tests
+
+    @Test("weightRight defaults to nil")
+    func weightRightDefaultValue() {
+        let set = ExerciseSet(weight: 60.0, reps: 10)
+        #expect(set.weightRight == nil)
+    }
+
+    @Test("init preserves weightRight value")
+    func initPreservesWeightRight() {
+        let set = ExerciseSet(
+            order: 1,
+            weight: 25.0,
+            reps: 10,
+            setType: .working,
+            isUnilateral: true,
+            weightRight: 22.5
+        )
+        #expect(set.weight == 25.0)
+        #expect(set.weightRight == 22.5)
+        #expect(set.isUnilateral == true)
+    }
+
+    @Test("encode and decode roundtrip preserves weightRight")
+    func codableRoundtripWeightRight() throws {
+        let original = ExerciseSet(
+            order: 1,
+            weight: 25.0,
+            reps: 10,
+            setType: .working,
+            isUnilateral: true,
+            weightRight: 22.5
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: data)
+        #expect(decoded.weight == 25.0)
+        #expect(decoded.weightRight == 22.5)
+        #expect(decoded.isUnilateral == true)
+    }
+
+    @Test("encode omits weightRight when nil")
+    func codableEncodesNilWeightRight() throws {
+        let set = ExerciseSet(weight: 50.0, reps: 8)
+        let data = try JSONEncoder().encode(set)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(json?["weightRight"] == nil)
+    }
+
+    @Test("decode legacy JSON without weightRight defaults to nil")
+    func codableLegacyWithoutWeightRight() throws {
+        let json = """
+        {"order":0,"weight":80.0,"reps":8,"setType":"working","isUnilateral":true}
+        """
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: Data(json.utf8))
+        #expect(decoded.weightRight == nil)
+        #expect(decoded.isUnilateral == true)
+        #expect(decoded.weight == 80.0)
+    }
+
+    @Test("decode JSON with weightRight present")
+    func codableDecodeWithWeightRight() throws {
+        let json = """
+        {"order":1,"weight":25.0,"reps":10,"setType":"working","isUnilateral":true,"weightRight":22.5,"isCompleted":false}
+        """
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: Data(json.utf8))
+        #expect(decoded.weight == 25.0)
+        #expect(decoded.weightRight == 22.5)
+    }
 }
