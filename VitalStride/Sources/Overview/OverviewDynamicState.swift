@@ -131,7 +131,7 @@ final class OverviewDynamicState {
         guard let cached = try? context.fetch(descriptor).first,
               let data = cached.contentJSON.data(using: .utf8),
               let insights = try? JSONDecoder().decode([OverviewInsight].self, from: data),
-              !insights.isEmpty
+              insights.count >= 3
         else {
             return nil
         }

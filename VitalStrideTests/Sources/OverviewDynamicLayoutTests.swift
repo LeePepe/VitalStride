@@ -347,19 +347,62 @@ struct OverviewLayoutStateTests {
         }
     }
 
-    @Test("OverviewDynamicState loads from cache when available")
+    @Test("OverviewDynamicState loads from cache when >= 3 insights cached")
     @MainActor
-    func loadsFromCache() async throws {
+    func loadsFromCacheWithEnoughInsights() async throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+
+        let insights = (1...3).map { i in
+            OverviewInsight(
+                key: "card\(i)",
+                cardType: "metric",
+                cardSize: "small",
+                title: "Card \(i)",
+                content: "Content \(i)"
+            )
+        }
+        let json = String(data: try JSONEncoder().encode(insights), encoding: .utf8)!
+        let cache = OverviewInsightCache(
+            contentJSON: json,
+            generatedAt: Date(),
+            expiresAt: Date().addingTimeInterval(3600)
+        )
+        context.insert(cache)
+        try context.save()
+
+        let state = OverviewDynamicState()
+        let snapshot = HealthSnapshotData(
+            todaySteps: nil,
+            averageBPM: nil,
+            lastNightSleep: nil,
+            latestWeight: nil
+        )
+
+        await state.loadInitial(container: container, snapshot: snapshot, workouts: [])
+
+        if case .dynamic(let loadedInsights, let lastUpdated) = state.layoutState {
+            #expect(loadedInsights.count == 3)
+            #expect(loadedInsights[0].key == "card1")
+            #expect(lastUpdated != nil)
+        } else {
+            #expect(Bool(false), "Expected dynamic state from cache with 3 insights")
+        }
+    }
+
+    @Test("OverviewDynamicState treats cache with < 3 insights as miss and shows fallback")
+    @MainActor
+    func fallbackWhenCacheHasTooFewInsights() async throws {
         let container = try ModelContainerConfiguration.makeTestContainer()
         let context = ModelContext(container)
 
         let insights = [
             OverviewInsight(
-                key: "test",
+                key: "only_one",
                 cardType: "metric",
                 cardSize: "small",
-                title: "Test",
-                content: "Test content"
+                title: "Solo",
+                content: "Solo content"
             ),
         ]
         let json = String(data: try JSONEncoder().encode(insights), encoding: .utf8)!
@@ -381,12 +424,10 @@ struct OverviewLayoutStateTests {
 
         await state.loadInitial(container: container, snapshot: snapshot, workouts: [])
 
-        if case .dynamic(let loadedInsights, let lastUpdated) = state.layoutState {
-            #expect(loadedInsights.count == 1)
-            #expect(loadedInsights[0].key == "test")
-            #expect(lastUpdated != nil)
+        if case .fallback = state.layoutState {
+            #expect(true)
         } else {
-            #expect(Bool(false), "Expected dynamic state from cache")
+            #expect(Bool(false), "Expected fallback when cache has < 3 insights")
         }
     }
 }
