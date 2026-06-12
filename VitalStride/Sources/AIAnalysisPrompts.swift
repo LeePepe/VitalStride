@@ -40,7 +40,10 @@ enum AIAnalysisPrompts {
             - summary: JSON 对象，key-value 对，如 {"Steps":"8K","Calories":"500"}
 
             规则：
-            - 生成 2-4 个洞察卡片
+            - 生成 5-8 个洞察卡片
+            - 必须包含至少 3 种不同的 cardType（例如 metric + insight + list）
+            - 不允许全部使用 metric 类型
+            - 至少包含 1 个 wide 或 large 尺寸的卡片，提供视觉层次
             - cardType 根据内容选择合适的类型
             - cardSize×cardType 必须在上述白名单内
             - 内容简洁，每个 content 控制在 50 字以内（trend/list/summary 的 JSON 不计入）
