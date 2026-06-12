@@ -18,20 +18,25 @@ final class RestTimerController {
 
     let completedDisplayDuration: TimeInterval
     private let notificationScheduler: any RestNotificationScheduling
+    private let liveActivityManager: any RestLiveActivityManaging
     private var restGeneration = 0
+    private var liveActivityStartTask: Task<Void, Never>?
 
     init(
         completedDisplayDuration: TimeInterval = 2,
-        notificationScheduler: any RestNotificationScheduling = RestNotificationScheduler()
+        notificationScheduler: any RestNotificationScheduling = RestNotificationScheduler(),
+        liveActivityManager: any RestLiveActivityManaging = RestLiveActivityManager()
     ) {
         self.completedDisplayDuration = completedDisplayDuration
         self.notificationScheduler = notificationScheduler
+        self.liveActivityManager = liveActivityManager
     }
 
     func startRest(duration: TimeInterval = 60) {
         restGeneration += 1
         let generation = restGeneration
-        restEndDate = Date().addingTimeInterval(duration)
+        let endDate = Date().addingTimeInterval(duration)
+        restEndDate = endDate
         restTotalDuration = duration
         phase = .resting
         Task {
@@ -40,13 +45,22 @@ final class RestTimerController {
                 notificationScheduler.cancelPendingRestNotification()
             }
         }
+        liveActivityStartTask?.cancel()
+        liveActivityStartTask = Task {
+            guard !Task.isCancelled else { return }
+            await liveActivityManager.startActivity(
+                totalDuration: duration,
+                endDate: endDate
+            )
+        }
     }
 
     func adjustRest(by seconds: TimeInterval) {
         guard phase == .resting, let currentEnd = restEndDate else { return }
         let newEnd = currentEnd.addingTimeInterval(seconds)
         restEndDate = newEnd
-        restTotalDuration = max(0, (restTotalDuration ?? 0) + seconds)
+        let newTotal = max(0, (restTotalDuration ?? 0) + seconds)
+        restTotalDuration = newTotal
         let remaining = newEnd.timeIntervalSinceNow
         if remaining > 0 {
             restGeneration += 1
@@ -58,6 +72,12 @@ final class RestTimerController {
                 if restGeneration != generation {
                     notificationScheduler.cancelPendingRestNotification()
                 }
+            }
+            Task {
+                await liveActivityManager.updateActivity(
+                    endDate: newEnd,
+                    totalDuration: newTotal
+                )
             }
             logger.info(
                 "rest_notification_rescheduled remaining=\(Int(remaining), privacy: .public)"
@@ -71,20 +91,30 @@ final class RestTimerController {
 
     func skipRest() {
         restGeneration += 1
+        liveActivityStartTask?.cancel()
+        liveActivityStartTask = nil
         restEndDate = nil
         restTotalDuration = nil
         phase = .idle
         notificationScheduler.cancelPendingRestNotification()
+        Task {
+            await liveActivityManager.endActivity(reason: .skipped)
+        }
         logger.info("rest_notification_cancelled reason=skip")
     }
 
     func cancelRestForWorkoutEnd() {
         restGeneration += 1
+        liveActivityStartTask?.cancel()
+        liveActivityStartTask = nil
         notificationScheduler.cancelPendingRestNotification()
         if phase == .resting {
             restEndDate = nil
             restTotalDuration = nil
             phase = .idle
+            Task {
+                await liveActivityManager.endActivity(reason: .workoutEnded)
+            }
             logger.info("rest_notification_cancelled reason=workout_ended")
         }
     }
@@ -106,6 +136,7 @@ final class RestTimerController {
         }
         guard restEndDate == restEnd else { return }
         phase = .completed
+        await liveActivityManager.endActivity(reason: .completed)
         do {
             try await Task.sleep(for: .seconds(completedDisplayDuration))
         } catch { return }
