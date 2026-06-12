@@ -28,6 +28,10 @@ struct MockAIProvider: AIProvider, Sendable {
 // MARK: - Test Fixtures
 
 private let validInsightsJSON = """
+{"headline":"今日步数达标，睡眠质量良好","insights":[{"key":"steps","cardType":"metric","cardSize":"small","title":"步数","content":"今日已走8000步","suggestion":"再走2000步达标","iconName":"figure.walk"},{"key":"sleep","cardType":"insight","cardSize":"medium","title":"睡眠","content":"昨晚睡了7.5小时","suggestion":null,"iconName":"moon.zzz"}]}
+"""
+
+private let legacyInsightsJSON = """
 [{"key":"steps","cardType":"metric","cardSize":"small","title":"步数","content":"今日已走8000步","suggestion":"再走2000步达标","iconName":"figure.walk"},{"key":"sleep","cardType":"insight","cardSize":"medium","title":"睡眠","content":"昨晚睡了7.5小时","suggestion":null,"iconName":"moon.zzz"}]
 """
 
@@ -97,16 +101,17 @@ struct AIAnalysisServiceTests {
 
     // MARK: - generateInsights
 
-    @Test("generateInsights returns parsed insights on valid JSON response")
+    @Test("generateInsights returns parsed AIAnalysisResponse on valid JSON response")
     func testGenerateInsightsSuccess() async throws {
         let service = try makeService { _, _ in
             ChatResponse(content: validInsightsJSON)
         }
-        let insights = try await service.generateInsights(context: makeOverviewContext())
-        #expect(insights.count == 2)
-        #expect(insights[0].key == "steps")
-        #expect(insights[0].cardType == "metric")
-        #expect(insights[1].key == "sleep")
+        let result = try await service.generateInsights(context: makeOverviewContext())
+        #expect(result.headline == "今日步数达标，睡眠质量良好")
+        #expect(result.insights.count == 2)
+        #expect(result.insights[0].key == "steps")
+        #expect(result.insights[0].cardType == "metric")
+        #expect(result.insights[1].key == "sleep")
     }
 
     @Test("generateInsights returns cached data on cache hit")
@@ -121,7 +126,7 @@ struct AIAnalysisServiceTests {
         _ = try await service.generateInsights(context: context)
         let cached = try await service.generateInsights(context: context)
 
-        #expect(cached.count == 2)
+        #expect(cached.insights.count == 2)
         #expect(callCount.withLock { $0 } == 1)
     }
 
@@ -153,20 +158,17 @@ struct AIAnalysisServiceTests {
         try await Task.sleep(for: .milliseconds(10))
         let stale = try await service.generateInsights(context: context)
 
-        #expect(stale.count == 2)
+        #expect(stale.insights.count == 2)
     }
 
-    @Test("generateInsights falls back on JSON parse failure after retry")
+    @Test("generateInsights throws responseParsingFailed on JSON parse failure after retry")
     func testGenerateInsightsParseFallback() async throws {
         let service = try makeService { _, _ in
             ChatResponse(content: "This is not valid JSON at all")
         }
-        let result = try await service.generateInsights(context: makeOverviewContext())
-
-        #expect(result.count == 1)
-        #expect(result[0].key == "ai_summary")
-        #expect(result[0].cardType == "summary")
-        #expect(result[0].content == "暂时无法生成详细分析，请稍后重试。")
+        await #expect(throws: AIServiceError.self) {
+            try await service.generateInsights(context: makeOverviewContext())
+        }
     }
 
     @Test("generateInsights retries once and succeeds on second parse")
@@ -184,7 +186,7 @@ struct AIAnalysisServiceTests {
         }
 
         let result = try await service.generateInsights(context: makeOverviewContext())
-        #expect(result.count == 2)
+        #expect(result.insights.count == 2)
         #expect(callCount.withLock { $0 } == 2)
     }
 
@@ -217,7 +219,7 @@ struct AIAnalysisServiceTests {
         _ = try await service.generateInsights(context: context)
         let result = try await service.generateInsights(context: context, forceRefresh: true)
 
-        #expect(result.count == 2)
+        #expect(result.insights.count == 2)
     }
 
     @Test("generateInsights handles markdown code block wrapped JSON")
@@ -227,7 +229,7 @@ struct AIAnalysisServiceTests {
             ChatResponse(content: wrappedJSON)
         }
         let result = try await service.generateInsights(context: makeOverviewContext())
-        #expect(result.count == 2)
+        #expect(result.insights.count == 2)
     }
 
     // MARK: - generateTrainingAdvice
@@ -372,6 +374,90 @@ struct AIAnalysisServiceTests {
         #expect(messages[1].content.contains("70"))
     }
 
+    @Test("insights prompt with previousInsights includes summary in user message")
+    func testInsightsPromptWithPreviousInsights() {
+        let context = OverviewContext(
+            todaySteps: 8000,
+            recentWorkoutCount: 3
+        )
+        let previous = [
+            OverviewInsight(key: "steps", cardType: "metric", cardSize: "small", title: "步数", content: "今日已走6000步"),
+            OverviewInsight(key: "sleep", cardType: "insight", cardSize: "medium", title: "睡眠", content: "昨晚睡了7小时"),
+        ]
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context, previousInsights: previous)
+
+        #expect(messages.count == 2)
+        #expect(messages[1].content.contains("上次分析结果"))
+        #expect(messages[1].content.contains("[步数] 今日已走6000步"))
+        #expect(messages[1].content.contains("[睡眠] 昨晚睡了7小时"))
+        #expect(messages[1].content.contains("---"))
+    }
+
+    @Test("insights prompt without previousInsights does not include summary")
+    func testInsightsPromptWithoutPreviousInsights() {
+        let context = OverviewContext(
+            todaySteps: 5000,
+            recentWorkoutCount: 2
+        )
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context)
+
+        #expect(!messages[1].content.contains("上次分析结果"))
+    }
+
+    @Test("insights prompt with empty previousInsights does not include summary")
+    func testInsightsPromptWithEmptyPreviousInsights() {
+        let context = OverviewContext(
+            todaySteps: 5000,
+            recentWorkoutCount: 2
+        )
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context, previousInsights: [])
+
+        #expect(!messages[1].content.contains("上次分析结果"))
+    }
+
+    @Test("insights system prompt requires headline JSON object format")
+    func testInsightsPromptHeadlineFormat() {
+        let context = OverviewContext(recentWorkoutCount: 0)
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context)
+
+        #expect(messages[0].content.contains("\"headline\""))
+        #expect(messages[0].content.contains("\"insights\""))
+        #expect(messages[0].content.contains("JSON 对象"))
+    }
+
+    @Test("insights headline instruction uses Chinese for zh locale")
+    func testInsightsHeadlineChineseLocale() {
+        let context = OverviewContext(recentWorkoutCount: 0, userLocale: "zh-Hans")
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context)
+
+        #expect(messages[0].content.contains("用一句话概括最显著的变化"))
+    }
+
+    @Test("insights headline instruction uses English for non-zh locale")
+    func testInsightsHeadlineEnglishLocale() {
+        let context = OverviewContext(recentWorkoutCount: 0, userLocale: "en")
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context)
+
+        #expect(messages[0].content.contains("Summarize the most notable change in one sentence"))
+    }
+
+    @Test("insights prompt truncates long previousInsights title and content")
+    func testInsightsPromptTruncatesPreviousInsights() {
+        let context = OverviewContext(todaySteps: 5000, recentWorkoutCount: 1)
+        let longTitle = String(repeating: "标", count: 60)
+        let longContent = String(repeating: "内", count: 250)
+        let previous = [
+            OverviewInsight(key: "long", cardType: "metric", cardSize: "small", title: longTitle, content: longContent),
+        ]
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context, previousInsights: previous)
+
+        let userContent = messages[1].content
+        #expect(!userContent.contains(longTitle))
+        #expect(!userContent.contains(longContent))
+        #expect(userContent.contains(String(repeating: "标", count: 50)))
+        #expect(userContent.contains(String(repeating: "内", count: 200)))
+    }
+
     @Test("prompt builder includes training data")
     func testTrainingPromptContainsData() {
         let context = TrainingContext(
@@ -510,6 +596,117 @@ struct AIAnalysisServiceTests {
         }
     }
 
+    // MARK: - buildCategoryTrendMessages
+
+    @Test(
+        "buildCategoryTrendMessages returns category-specific prompt for each core type",
+        arguments: ["stepCount", "heartRate", "sleepAnalysis", "bodyMass", "activeEnergyBurned"]
+    )
+    func testCategoryPromptForCoreTypes(sampleType: String) {
+        let context = makeDataContext(sampleType: sampleType)
+        let messages = AIAnalysisPrompts.buildCategoryTrendMessages(sampleType: sampleType, context: context)
+
+        #expect(messages.count == 2)
+        #expect(messages[0].role == "system")
+        #expect(messages[1].role == "user")
+        #expect(messages[0].content != AIAnalysisPrompts.buildDataTrendMessages(context: context)[0].content)
+    }
+
+    @Test("buildCategoryTrendMessages returns distinct prompts per core type")
+    func testCategoryPromptsAreDistinct() {
+        let coreTypes = ["stepCount", "heartRate", "sleepAnalysis", "bodyMass", "activeEnergyBurned"]
+        var systemContents: [String: String] = [:]
+
+        for sampleType in coreTypes {
+            let context = makeDataContext(sampleType: sampleType)
+            let messages = AIAnalysisPrompts.buildCategoryTrendMessages(sampleType: sampleType, context: context)
+            systemContents[sampleType] = messages[0].content
+        }
+
+        let uniqueContents = Set(systemContents.values)
+        #expect(uniqueContents.count == coreTypes.count)
+    }
+
+    @Test(
+        "buildCategoryTrendMessages falls back to generic prompt for non-core types",
+        arguments: ["restingHeartRate", "vo2Max", "flightsClimbed", "unknownType"]
+    )
+    func testCategoryPromptFallbackForNonCoreTypes(sampleType: String) {
+        let context = makeDataContext(sampleType: sampleType)
+        let categoryMessages = AIAnalysisPrompts.buildCategoryTrendMessages(sampleType: sampleType, context: context)
+        let genericMessages = AIAnalysisPrompts.buildDataTrendMessages(context: context)
+
+        #expect(categoryMessages[0].content == genericMessages[0].content)
+    }
+
+    @Test("buildCategoryTrendMessages user message contains statistics")
+    func testCategoryPromptUserMessageContainsStats() {
+        let context = DataContext(
+            sampleType: "stepCount",
+            dataPointCount: 50,
+            timeRangeDescription: "最近一周",
+            statistics: DataContext.DataStatistics(
+                average: 8500,
+                minimum: 3200,
+                maximum: 15000,
+                latestValue: 9000,
+                unit: "步"
+            )
+        )
+        let messages = AIAnalysisPrompts.buildCategoryTrendMessages(sampleType: "stepCount", context: context)
+
+        #expect(messages[1].content.contains("8500.0"))
+        #expect(messages[1].content.contains("3200.0"))
+        #expect(messages[1].content.contains("15000.0"))
+        #expect(messages[1].content.contains("9000.0"))
+        #expect(messages[1].content.contains("步"))
+    }
+
+    @Test("buildCategoryTrendMessages includes JSON response format in system prompt")
+    func testCategoryPromptIncludesResponseFormat() {
+        let context = makeDataContext(sampleType: "heartRate")
+        let messages = AIAnalysisPrompts.buildCategoryTrendMessages(sampleType: "heartRate", context: context)
+        let systemContent = messages[0].content
+
+        #expect(systemContent.contains("sampleType"))
+        #expect(systemContent.contains("summary"))
+        #expect(systemContent.contains("trend"))
+        #expect(systemContent.contains("rising"))
+        #expect(systemContent.contains("falling"))
+        #expect(systemContent.contains("stable"))
+        #expect(systemContent.contains("insufficient"))
+    }
+
+    @Test(
+        "isCategorySampleType returns true for core types",
+        arguments: ["stepCount", "heartRate", "sleepAnalysis", "bodyMass", "activeEnergyBurned"]
+    )
+    func testIsCategorySampleTypeTrue(sampleType: String) {
+        #expect(AIAnalysisPrompts.isCategorySampleType(sampleType))
+    }
+
+    @Test(
+        "isCategorySampleType returns false for non-core types",
+        arguments: ["restingHeartRate", "vo2Max", "flightsClimbed", "unknown"]
+    )
+    func testIsCategorySampleTypeFalse(sampleType: String) {
+        #expect(!AIAnalysisPrompts.isCategorySampleType(sampleType))
+    }
+
+    @Test("analyzeDataTrend uses category prompt and still parses correctly")
+    func testAnalyzeDataTrendWithCategoryPrompt() async throws {
+        let service = try makeService { messages, _ in
+            #expect(messages[0].content.contains("步数分析"))
+            return ChatResponse(content: """
+                {"sampleType":"stepCount","summary":"今日步数达标","trend":"stable","suggestion":"保持习惯"}
+                """)
+        }
+        let context = makeDataContext(sampleType: "stepCount")
+        let analysis = try await service.analyzeDataTrend(context: context)
+        #expect(analysis.sampleType == "stepCount")
+        #expect(analysis.trend == "stable")
+    }
+
     // MARK: - noProviderAvailable does not refresh timestamps
 
     @Test("noProviderAvailable returns cached data without refreshing cache timestamps")
@@ -531,6 +728,82 @@ struct AIAnalysisServiceTests {
         try await Task.sleep(for: .milliseconds(10))
 
         let result = try await service.generateInsights(context: context, forceRefresh: true)
-        #expect(result.count == 2)
+        #expect(result.insights.count == 2)
+    }
+
+    // MARK: - AIAnalysisResponse Backward Compatibility
+
+    @Test("generateInsights decodes legacy array JSON via backward compat")
+    func testGenerateInsightsLegacyArrayFormat() async throws {
+        let service = try makeService { _, _ in
+            ChatResponse(content: legacyInsightsJSON)
+        }
+        let result = try await service.generateInsights(context: makeOverviewContext())
+        #expect(result.headline == nil)
+        #expect(result.insights.count == 2)
+        #expect(result.insights[0].key == "steps")
+    }
+
+    @Test("generateInsights returns headline as nil when AI omits it")
+    func testGenerateInsightsNullHeadline() async throws {
+        let noHeadlineJSON = """
+        {"headline":null,"insights":[{"key":"test","cardType":"metric","cardSize":"small","title":"Test","content":"Content"}]}
+        """
+        let service = try makeService { _, _ in
+            ChatResponse(content: noHeadlineJSON)
+        }
+        let result = try await service.generateInsights(context: makeOverviewContext())
+        #expect(result.headline == nil)
+        #expect(result.insights.count == 1)
+    }
+
+    @Test("cached legacy array JSON is read back as AIAnalysisResponse")
+    func testCacheLegacyFormatBackwardCompat() async throws {
+        let callCount = Mutex(0)
+        let service = try makeService { _, _ in
+            let current = callCount.withLock { value -> Int in
+                value += 1
+                return value
+            }
+            if current == 1 {
+                return ChatResponse(content: legacyInsightsJSON)
+            }
+            return ChatResponse(content: validInsightsJSON)
+        }
+        let context = makeOverviewContext()
+
+        let first = try await service.generateInsights(context: context)
+        #expect(first.headline == nil)
+        #expect(first.insights.count == 2)
+
+        let cached = try await service.generateInsights(context: context)
+        #expect(cached.headline == nil)
+        #expect(cached.insights.count == 2)
+        #expect(callCount.withLock { $0 } == 1)
+    }
+
+    @Test("generateInsights passes previousInsights to prompt builder")
+    func testGenerateInsightsPassesPreviousInsights() async throws {
+        let capturedMessages = Mutex<[ChatMessage]>([])
+        let callCount = Mutex(0)
+        let service = try makeService { messages, _ in
+            let current = callCount.withLock { value -> Int in
+                value += 1
+                return value
+            }
+            if current == 2 {
+                capturedMessages.withLock { $0 = messages }
+            }
+            return ChatResponse(content: validInsightsJSON)
+        }
+        let context = makeOverviewContext()
+
+        _ = try await service.generateInsights(context: context)
+        _ = try await service.generateInsights(context: context, forceRefresh: true)
+
+        let messages = capturedMessages.withLock { $0 }
+        #expect(!messages.isEmpty)
+        let userMessage = messages.first { $0.role == "user" }
+        #expect(userMessage?.content.contains("上次分析结果") == true)
     }
 }
