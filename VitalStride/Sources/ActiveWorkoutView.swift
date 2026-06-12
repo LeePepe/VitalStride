@@ -386,6 +386,7 @@ struct ActiveWorkoutView: View {
 
     private func finishWorkout() {
         guard let workout else { return }
+        restTimer.cancelRestForWorkoutEnd()
         workout.finish()
         HapticManager.trigger(.workoutFinished)
         try? modelContext.save()
@@ -398,6 +399,7 @@ struct ActiveWorkoutView: View {
     }
 
     private func discardWorkout() {
+        restTimer.cancelRestForWorkoutEnd()
         #if !os(macOS)
         if let manager = sessionManager {
             Task { await manager.endSession(save: false) }
