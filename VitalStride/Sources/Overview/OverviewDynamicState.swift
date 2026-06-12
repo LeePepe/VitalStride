@@ -47,7 +47,7 @@ final class OverviewDynamicState {
             let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
             let provider = ZhipuProvider(apiKey: apiKey)
             let service = AIAnalysisService(modelContainer: container, provider: provider)
-            let insights = try await service.generateInsights(context: context, forceRefresh: true)
+            let response = try await service.generateInsights(context: context, forceRefresh: true)
 
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000
@@ -56,7 +56,7 @@ final class OverviewDynamicState {
             signposter.emitEvent("overview_ai_generate_success", "\(ms)ms")
 
             let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
-            layoutState = .dynamic(insights, lastUpdated: generatedAt)
+            layoutState = .dynamic(response.insights, lastUpdated: generatedAt)
         } catch {
             let errorType = describeErrorType(error)
             logger.error("overview_ai_generate_failure error_type=\(errorType)")
@@ -77,7 +77,7 @@ final class OverviewDynamicState {
             let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
             let provider = ZhipuProvider(apiKey: apiKey)
             let service = AIAnalysisService(modelContainer: container, provider: provider)
-            let insights = try await service.generateInsights(context: context)
+            let response = try await service.generateInsights(context: context)
 
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000
@@ -86,7 +86,7 @@ final class OverviewDynamicState {
             signposter.emitEvent("overview_ai_generate_success", "\(ms)ms")
 
             let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
-            layoutState = .dynamic(insights, lastUpdated: generatedAt)
+            layoutState = .dynamic(response.insights, lastUpdated: generatedAt)
         } catch {
             let errorType = describeErrorType(error)
             logger.error("overview_ai_generate_failure error_type=\(errorType)")
@@ -105,7 +105,7 @@ final class OverviewDynamicState {
             let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
             let provider = ZhipuProvider(apiKey: apiKey)
             let service = AIAnalysisService(modelContainer: container, provider: provider)
-            let insights = try await service.generateInsights(context: context, forceRefresh: true)
+            let response = try await service.generateInsights(context: context, forceRefresh: true)
 
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000
@@ -113,7 +113,7 @@ final class OverviewDynamicState {
             logger.info("overview_ai_generate_success duration_ms=\(ms) source=background_refresh")
 
             let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
-            layoutState = .dynamic(insights, lastUpdated: generatedAt)
+            layoutState = .dynamic(response.insights, lastUpdated: generatedAt)
         } catch {
             let errorType = describeErrorType(error)
             logger.error("overview_ai_generate_failure error_type=\(errorType) source=background_refresh")

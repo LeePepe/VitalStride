@@ -40,7 +40,7 @@ actor AIAnalysisService: ModelActor {
     func generateInsights(
         context: OverviewContext,
         forceRefresh: Bool = false
-    ) async throws -> [OverviewInsight] {
+    ) async throws -> AIAnalysisResponse {
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("ai_analysis_e2e", id: signpostID, "method=generateInsights")
         defer { signposter.endInterval("ai_analysis_e2e", state) }
@@ -51,16 +51,16 @@ actor AIAnalysisService: ModelActor {
             if !cached.isExpired {
                 let age = Date().timeIntervalSince(cached.generatedAt)
                 logger.debug("cache hit: method=generateInsights age=\(Int(age))s")
-                if let insights = decodeInsights(cached.contentJSON) {
-                    return insights
+                if let response = decodeAnalysisResponse(cached.contentJSON) {
+                    return response
                 }
             } else {
                 logger.debug("cache miss: method=generateInsights reason=expired")
-                if let staleInsights = decodeInsights(cached.contentJSON) {
+                if let staleResponse = decodeAnalysisResponse(cached.contentJSON) {
                     scheduleBackgroundRefresh(key: "generateInsights") { service in
                         try await service.refreshInsights(context: context)
                     }
-                    return staleInsights
+                    return staleResponse
                 }
             }
         } else if !forceRefresh {
@@ -150,48 +150,49 @@ actor AIAnalysisService: ModelActor {
 
     // MARK: - Fetch + Parse + Cache
 
-    private func fetchInsights(context: OverviewContext) async throws -> [OverviewInsight] {
+    private func fetchInsights(context: OverviewContext) async throws -> AIAnalysisResponse {
+        let previousInsights = loadInsightsCache().flatMap { decodeAnalysisResponse($0.contentJSON)?.insights }
+
         let messages = buildPromptWithSignpost("generateInsights") {
-            AIAnalysisPrompts.buildInsightsMessages(context: context)
+            AIAnalysisPrompts.buildInsightsMessages(context: context, previousInsights: previousInsights)
         }
 
         let response: ChatResponse
         do {
             response = try await callProvider(method: "generateInsights", messages: messages)
         } catch let error as AIServiceError where error.isNoProvider {
-            if let cached = loadInsightsCache(), let insights = decodeInsights(cached.contentJSON) {
+            if let cached = loadInsightsCache(), let cachedResponse = decodeAnalysisResponse(cached.contentJSON) {
                 logger.info("noProviderAvailable: method=generateInsights returning cached data")
-                return insights
+                return cachedResponse
             }
             throw error
         }
 
         let json = AIAnalysisPrompts.extractJSON(from: response.content)
 
-        if let insights = parseWithSignpost("generateInsights", { decodeInsights(json) }) {
-            saveInsightsCache(json: json)
-            return insights
+        if let analysisResponse = parseWithSignpost("generateInsights", { decodeAnalysisResponse(json) }) {
+            saveInsightsCache(response: analysisResponse)
+            return analysisResponse
         }
 
         logger.log("JSON parse failed: method=generateInsights retry=1")
         let retryResponse = try await callProvider(method: "generateInsights", messages: messages)
         let retryJSON = AIAnalysisPrompts.extractJSON(from: retryResponse.content)
 
-        if let insights = parseWithSignpost("generateInsights", { decodeInsights(retryJSON) }) {
+        if let analysisResponse = parseWithSignpost("generateInsights", { decodeAnalysisResponse(retryJSON) }) {
             logger.log("JSON parse: method=generateInsights result=retrySuccess")
-            saveInsightsCache(json: retryJSON)
-            return insights
+            saveInsightsCache(response: analysisResponse)
+            return analysisResponse
         }
 
         logger.log("JSON parse: method=generateInsights retry=2 result=fallback")
-        let fallback = [OverviewInsight(
+        return AIAnalysisResponse(headline: nil, insights: [OverviewInsight(
             key: "ai_summary",
             cardType: "summary",
             cardSize: "large",
             title: "AI 分析",
             content: "暂时无法生成详细分析，请稍后重试。"
-        )]
-        return fallback
+        )])
     }
 
     private func fetchTrainingAdvice(context: TrainingContext) async throws -> TrainingRecommendation {
@@ -282,11 +283,12 @@ actor AIAnalysisService: ModelActor {
     // MARK: - Background Refresh
 
     private func refreshInsights(context: OverviewContext) async throws {
-        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context)
+        let previousInsights = loadInsightsCache().flatMap { decodeAnalysisResponse($0.contentJSON)?.insights }
+        let messages = AIAnalysisPrompts.buildInsightsMessages(context: context, previousInsights: previousInsights)
         let response = try await callProvider(method: "generateInsights", messages: messages)
         let json = AIAnalysisPrompts.extractJSON(from: response.content)
-        if decodeInsights(json) != nil {
-            saveInsightsCache(json: json)
+        if let analysisResponse = decodeAnalysisResponse(json) {
+            saveInsightsCache(response: analysisResponse)
         }
     }
 
@@ -342,9 +344,15 @@ actor AIAnalysisService: ModelActor {
 
     // MARK: - Decoding
 
-    private func decodeInsights(_ json: String) -> [OverviewInsight]? {
+    private func decodeAnalysisResponse(_ json: String) -> AIAnalysisResponse? {
         guard let data = json.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode([OverviewInsight].self, from: data)
+        if let response = try? JSONDecoder().decode(AIAnalysisResponse.self, from: data) {
+            return response
+        }
+        if let insights = try? JSONDecoder().decode([OverviewInsight].self, from: data) {
+            return AIAnalysisResponse(headline: nil, insights: insights)
+        }
+        return nil
     }
 
     private func decodeTrainingAdvice(_ json: String) -> TrainingRecommendation? {
@@ -378,7 +386,11 @@ actor AIAnalysisService: ModelActor {
 
     // MARK: - Cache Write
 
-    private func saveInsightsCache(json: String) {
+    private func saveInsightsCache(response: AIAnalysisResponse) {
+        guard let data = try? JSONEncoder().encode(response),
+              let json = String(data: data, encoding: .utf8)
+        else { return }
+
         let now = Date()
         let expiry = now.addingTimeInterval(cacheTTL)
 
