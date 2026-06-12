@@ -760,7 +760,7 @@ private struct SetRow: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.body)
-                    .frame(minWidth: 32, minHeight: 44)
+                    .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration menu a11y label"))
