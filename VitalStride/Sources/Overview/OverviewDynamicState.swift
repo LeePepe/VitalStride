@@ -183,12 +183,12 @@ final class OverviewDynamicState {
         }
         let decoder = JSONDecoder()
         if let response = try? decoder.decode(AIAnalysisResponse.self, from: data),
-           !response.insights.isEmpty
+           response.insights.count >= 3
         {
             return (response.insights, cached.generatedAt)
         }
         if let insights = try? decoder.decode([OverviewInsight].self, from: data),
-           !insights.isEmpty
+           insights.count >= 3
         {
             return (insights, cached.generatedAt)
         }
