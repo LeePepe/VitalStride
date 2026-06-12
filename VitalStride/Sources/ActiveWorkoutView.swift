@@ -398,7 +398,9 @@ struct ActiveWorkoutView: View {
                     workout.healthKitUUID = healthKitUUID
                     try? modelContext.save()
                 }
+                dismiss()
             }
+            return
         }
         #endif
         dismiss()
