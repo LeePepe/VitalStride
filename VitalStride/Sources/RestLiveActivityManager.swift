@@ -22,7 +22,7 @@ final class RestLiveActivityManager: RestLiveActivityManaging {
     private var currentActivity: Activity<RestTimerAttributes>?
 
     func startActivity(totalDuration: TimeInterval, endDate: Date) async {
-        await endActivityIfNeeded()
+        await endAllActivities()
 
         let attributes = RestTimerAttributes(totalDuration: totalDuration)
         let state = RestTimerAttributes.ContentState(
@@ -63,35 +63,44 @@ final class RestLiveActivityManager: RestLiveActivityManaging {
     }
 
     func endActivity(reason: RestLiveActivityEndReason) async {
-        guard let activity = currentActivity else { return }
         let finalState = RestTimerAttributes.ContentState(
             endDate: .now,
             totalDuration: 0,
             phase: .completed
         )
-        nonisolated(unsafe) let unsafeActivity = activity
-        await unsafeActivity.end(
-            .init(state: finalState, staleDate: nil),
-            dismissalPolicy: .default
-        )
-        currentActivity = nil
+        if let activity = currentActivity {
+            nonisolated(unsafe) let unsafeActivity = activity
+            await unsafeActivity.end(
+                .init(state: finalState, staleDate: nil),
+                dismissalPolicy: .default
+            )
+            currentActivity = nil
+        }
+        for activity in Activity<RestTimerAttributes>.activities {
+            nonisolated(unsafe) let unsafeActivity = activity
+            await unsafeActivity.end(
+                .init(state: finalState, staleDate: nil),
+                dismissalPolicy: .immediate
+            )
+        }
         logger.info(
             "rest_live_activity_ended reason=\(reason.rawValue, privacy: .public)"
         )
     }
 
-    private func endActivityIfNeeded() async {
-        guard let activity = currentActivity else { return }
+    private func endAllActivities() async {
         let finalState = RestTimerAttributes.ContentState(
             endDate: .now,
             totalDuration: 0,
             phase: .completed
         )
-        nonisolated(unsafe) let unsafeActivity = activity
-        await unsafeActivity.end(
-            .init(state: finalState, staleDate: nil),
-            dismissalPolicy: .immediate
-        )
         currentActivity = nil
+        for activity in Activity<RestTimerAttributes>.activities {
+            nonisolated(unsafe) let unsafeActivity = activity
+            await unsafeActivity.end(
+                .init(state: finalState, staleDate: nil),
+                dismissalPolicy: .immediate
+            )
+        }
     }
 }

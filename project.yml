@@ -211,4 +211,5 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_EMIT_LOC_STRINGS: true
         SKIP_INSTALL: true
+        APPLICATION_EXTENSION_API_ONLY: true
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../Frameworks"

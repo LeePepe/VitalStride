@@ -226,4 +226,42 @@ struct RestTimerLiveActivityIntegrationTests {
         #expect(mock.startCalls[0].totalDuration == 60)
         #expect(mock.startCalls[1].totalDuration == 90)
     }
+
+    @MainActor
+    @Test("skipRest immediately after startRest cancels pending Live Activity start")
+    func skipRestCancelsPendingLiveActivityStart() async {
+        let mock = MockLiveActivityManager()
+        let controller = RestTimerController(
+            completedDisplayDuration: 0.1,
+            notificationScheduler: MockNotificationScheduler(),
+            liveActivityManager: mock
+        )
+
+        controller.startRest(duration: 60)
+        controller.skipRest()
+        try? await Task.sleep(for: .milliseconds(50))
+
+        #expect(mock.startCalls.isEmpty, "Cancelled start should not reach the manager")
+        #expect(mock.endCalls.count == 1)
+        #expect(mock.endCalls[0] == .skipped)
+    }
+
+    @MainActor
+    @Test("cancelRestForWorkoutEnd immediately after startRest cancels pending Live Activity start")
+    func cancelRestCancelsPendingLiveActivityStart() async {
+        let mock = MockLiveActivityManager()
+        let controller = RestTimerController(
+            completedDisplayDuration: 0.1,
+            notificationScheduler: MockNotificationScheduler(),
+            liveActivityManager: mock
+        )
+
+        controller.startRest(duration: 60)
+        controller.cancelRestForWorkoutEnd()
+        try? await Task.sleep(for: .milliseconds(50))
+
+        #expect(mock.startCalls.isEmpty, "Cancelled start should not reach the manager")
+        #expect(mock.endCalls.count == 1)
+        #expect(mock.endCalls[0] == .workoutEnded)
+    }
 }
