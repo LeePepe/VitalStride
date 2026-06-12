@@ -389,4 +389,181 @@ struct OverviewLayoutStateTests {
             #expect(Bool(false), "Expected dynamic state from cache")
         }
     }
+
+    // MARK: - Pending State Management
+
+    @Test("pendingResponse starts nil and pendingHeadline reflects it")
+    @MainActor
+    func pendingResponseInitialState() {
+        let state = OverviewDynamicState()
+        #expect(state.pendingResponse == nil)
+        #expect(state.pendingHeadline == nil)
+    }
+
+    @Test("applyBackgroundRefreshResult stores pending when headline is present")
+    @MainActor
+    func bgRefreshWithHeadlineStoresPending() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let state = OverviewDynamicState()
+
+        let oldInsights = [
+            OverviewInsight(key: "old", cardType: "metric", cardSize: "small", title: "Old", content: "old"),
+        ]
+        state.applyBackgroundRefreshResult(
+            AIAnalysisResponse(headline: nil, insights: oldInsights),
+            container: container
+        )
+
+        if case .dynamic(let loaded, _) = state.layoutState {
+            #expect(loaded[0].key == "old")
+        } else {
+            #expect(Bool(false), "Expected dynamic state after no-headline apply")
+        }
+
+        let newInsights = [
+            OverviewInsight(key: "new", cardType: "metric", cardSize: "small", title: "New", content: "new"),
+        ]
+        let response = AIAnalysisResponse(headline: "有新变化", insights: newInsights)
+        state.applyBackgroundRefreshResult(response, container: container)
+
+        #expect(state.pendingResponse != nil)
+        #expect(state.pendingHeadline == "有新变化")
+        if case .dynamic(let loaded, _) = state.layoutState {
+            #expect(loaded[0].key == "old", "layoutState should NOT change when headline is present")
+        } else {
+            #expect(Bool(false), "layoutState should remain dynamic")
+        }
+    }
+
+    @Test("applyBackgroundRefreshResult silently updates when headline is nil")
+    @MainActor
+    func bgRefreshWithoutHeadlineSilentlyUpdates() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let state = OverviewDynamicState()
+
+        let insights = [
+            OverviewInsight(key: "silent", cardType: "metric", cardSize: "small", title: "Silent", content: "update"),
+        ]
+        let response = AIAnalysisResponse(headline: nil, insights: insights)
+        state.applyBackgroundRefreshResult(response, container: container)
+
+        #expect(state.pendingResponse == nil)
+        #expect(state.pendingHeadline == nil)
+        if case .dynamic(let loaded, _) = state.layoutState {
+            #expect(loaded[0].key == "silent")
+        } else {
+            #expect(Bool(false), "Expected dynamic state after silent update")
+        }
+    }
+
+    @Test("acceptPendingInsights replaces layoutState and clears pending")
+    @MainActor
+    func acceptPendingInsightsFlow() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let state = OverviewDynamicState()
+
+        let oldInsights = [
+            OverviewInsight(key: "old", cardType: "metric", cardSize: "small", title: "Old", content: "old"),
+        ]
+        state.applyBackgroundRefreshResult(
+            AIAnalysisResponse(headline: nil, insights: oldInsights),
+            container: container
+        )
+
+        let newInsights = [
+            OverviewInsight(key: "new", cardType: "metric", cardSize: "small", title: "New", content: "new"),
+        ]
+        state.applyBackgroundRefreshResult(
+            AIAnalysisResponse(headline: "新洞察", insights: newInsights),
+            container: container
+        )
+
+        #expect(state.pendingResponse != nil)
+        if case .dynamic(let loaded, _) = state.layoutState {
+            #expect(loaded[0].key == "old")
+        }
+
+        state.acceptPendingInsights(container: container)
+
+        #expect(state.pendingResponse == nil)
+        #expect(state.pendingHeadline == nil)
+        if case .dynamic(let loaded, _) = state.layoutState {
+            #expect(loaded[0].key == "new")
+        } else {
+            #expect(Bool(false), "Expected dynamic state after accept")
+        }
+    }
+
+    @Test("acceptPendingInsights is no-op when pendingResponse is nil")
+    @MainActor
+    func acceptPendingInsightsNoop() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let state = OverviewDynamicState()
+
+        state.acceptPendingInsights(container: container)
+
+        #expect(state.pendingResponse == nil)
+        if case .loading = state.layoutState {
+            #expect(true)
+        } else {
+            #expect(Bool(false), "Expected loading state unchanged")
+        }
+    }
+
+    @Test("clearPending removes pending response")
+    @MainActor
+    func clearPendingRemovesPending() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let state = OverviewDynamicState()
+
+        let insights = [
+            OverviewInsight(key: "k", cardType: "metric", cardSize: "small", title: "T", content: "C"),
+        ]
+        state.applyBackgroundRefreshResult(
+            AIAnalysisResponse(headline: "H", insights: insights),
+            container: container
+        )
+        #expect(state.pendingResponse != nil)
+
+        state.clearPending()
+        #expect(state.pendingResponse == nil)
+        #expect(state.pendingHeadline == nil)
+    }
+
+    @Test("background refresh failure leaves state and pending unchanged")
+    @MainActor
+    func bgRefreshFailureLeavesStateUnchanged() async throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+
+        let insights = [
+            OverviewInsight(key: "cached", cardType: "metric", cardSize: "small", title: "Cached", content: "data"),
+        ]
+        let json = String(data: try JSONEncoder().encode(insights), encoding: .utf8)!
+        let cache = OverviewInsightCache(
+            contentJSON: json,
+            generatedAt: Date().addingTimeInterval(-7200),
+            expiresAt: Date().addingTimeInterval(-3600)
+        )
+        context.insert(cache)
+        try context.save()
+
+        let state = OverviewDynamicState()
+        let snapshot = HealthSnapshotData(
+            todaySteps: nil,
+            averageBPM: nil,
+            lastNightSleep: nil,
+            latestWeight: nil
+        )
+
+        await state.loadInitial(container: container, snapshot: snapshot, workouts: [])
+
+        if case .dynamic(let loaded, _) = state.layoutState {
+            #expect(loaded[0].key == "cached")
+        } else {
+            #expect(Bool(false), "Expected dynamic state from stale cache")
+        }
+        #expect(state.pendingResponse == nil)
+        #expect(state.showRefreshError == false)
+    }
 }

@@ -12,7 +12,14 @@ private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "O
 final class OverviewDynamicState {
     private(set) var layoutState: OverviewLayoutState = .loading
     private(set) var isRefreshing = false
+    private(set) var pendingResponse: AIAnalysisResponse?
     var showRefreshError = false
+
+    var pendingHeadline: String? {
+        pendingResponse?.headline
+    }
+
+    private var isBackgroundRefreshing = false
 
     func loadInitial(container: ModelContainer, snapshot: HealthSnapshotData, workouts: [Workout]) async {
         let cacheResult = readCache(container: container)
@@ -57,6 +64,7 @@ final class OverviewDynamicState {
 
             let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
             layoutState = .dynamic(response.insights, lastUpdated: generatedAt)
+            pendingResponse = nil
         } catch {
             let errorType = describeErrorType(error)
             logger.error("overview_ai_generate_failure error_type=\(errorType)")
@@ -65,6 +73,30 @@ final class OverviewDynamicState {
         }
 
         isRefreshing = false
+    }
+
+    func acceptPendingInsights(container: ModelContainer) {
+        guard let response = pendingResponse else { return }
+        logger.debug("overview_pending_accepted")
+        signposter.emitEvent("overview_pending_accepted")
+
+        let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
+        layoutState = .dynamic(response.insights, lastUpdated: generatedAt)
+        pendingResponse = nil
+    }
+
+    func clearPending() {
+        pendingResponse = nil
+    }
+
+    func applyBackgroundRefreshResult(_ response: AIAnalysisResponse, container: ModelContainer) {
+        if response.headline != nil {
+            pendingResponse = response
+        } else {
+            let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
+            layoutState = .dynamic(response.insights, lastUpdated: generatedAt)
+            pendingResponse = nil
+        }
     }
 
     // MARK: - Private
@@ -98,6 +130,12 @@ final class OverviewDynamicState {
     }
 
     private func refreshInBackground(container: ModelContainer, snapshot: HealthSnapshotData, workouts: [Workout]) async {
+        guard !isBackgroundRefreshing else { return }
+        isBackgroundRefreshing = true
+        defer { isBackgroundRefreshing = false }
+
+        logger.debug("overview_bg_refresh_start")
+        signposter.emitEvent("overview_bg_refresh_start")
         let start = ContinuousClock.now
 
         do {
@@ -110,13 +148,21 @@ final class OverviewDynamicState {
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000
                 + elapsed.components.attoseconds / 1_000_000_000_000_000
-            logger.info("overview_ai_generate_success duration_ms=\(ms) source=background_refresh")
 
-            let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
-            layoutState = .dynamic(response.insights, lastUpdated: generatedAt)
+            guard !isRefreshing else {
+                logger.debug("overview_bg_refresh_discarded reason=manual_refresh_in_progress")
+                return
+            }
+
+            let hasHeadline = response.headline != nil
+            logger.info("overview_bg_refresh_success headline_present=\(hasHeadline) duration_ms=\(ms)")
+            signposter.emitEvent("overview_bg_refresh_success", "headline=\(hasHeadline) \(ms)ms")
+
+            applyBackgroundRefreshResult(response, container: container)
         } catch {
             let errorType = describeErrorType(error)
-            logger.error("overview_ai_generate_failure error_type=\(errorType) source=background_refresh")
+            logger.error("overview_bg_refresh_failure error_type=\(errorType)")
+            signposter.emitEvent("overview_bg_refresh_failure", "\(errorType)")
         }
     }
 
