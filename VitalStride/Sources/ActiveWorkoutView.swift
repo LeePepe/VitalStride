@@ -4,10 +4,6 @@ import SwiftUI
 import VitalModels
 import VitalUI
 
-#if canImport(UIKit)
-import UIKit
-#endif
-
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -89,6 +85,11 @@ struct ActiveWorkoutView: View {
             .onAppear { setupWorkout() }
             .task(id: restTimer.restEndDate) {
                 await restTimer.handleTimerTask()
+            }
+            .onChange(of: restTimer.phase) { _, newPhase in
+                if newPhase == .completed {
+                    HapticManager.trigger(.restCompleted)
+                }
             }
             #if !os(macOS)
             .task { await observeHeartRate() }
@@ -299,9 +300,7 @@ struct ActiveWorkoutView: View {
 
     private var addExerciseButton: some View {
         Button {
-            #if canImport(UIKit)
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            #endif
+            HapticManager.trigger(.exerciseAdded)
             showingExercisePicker = true
         } label: {
             Image(systemName: "plus")
@@ -388,6 +387,7 @@ struct ActiveWorkoutView: View {
     private func finishWorkout() {
         guard let workout else { return }
         workout.finish()
+        HapticManager.trigger(.workoutFinished)
         try? modelContext.save()
         #if !os(macOS)
         if let manager = sessionManager {
@@ -699,6 +699,9 @@ private struct SetRow: View {
         Button {
             let wasCompleted = exerciseSet.isCompleted
             exerciseSet.isCompleted = !wasCompleted
+            if !wasCompleted {
+                HapticManager.trigger(.setCompleted)
+            }
             onToggleCompleted(wasCompleted)
         } label: {
             Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
@@ -813,6 +816,9 @@ private struct SubSetRow: View {
             Button {
                 let wasCompleted = exerciseSet.isCompleted
                 exerciseSet.isCompleted = !wasCompleted
+                if !wasCompleted {
+                    HapticManager.trigger(.setCompleted)
+                }
                 onToggleCompleted(wasCompleted)
             } label: {
                 Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
