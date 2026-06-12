@@ -23,6 +23,7 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
 
     var sampleQueryResults: [HKSampleType: [HKSample]] = [:]
     var sampleQueryError: (any Error)?
+    var capturedSampleQueryPredicates: [NSPredicate?] = []
     var deleteCalled = false
     var deletedObjects: [HKObject] = []
     var deleteError: (any Error)?
@@ -95,6 +96,7 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
         predicate: NSPredicate?,
         limit: Int
     ) async throws -> [HKSample] {
+        lock.withLock { capturedSampleQueryPredicates.append(predicate) }
         if let error = sampleQueryError {
             throw error
         }
@@ -863,7 +865,6 @@ struct ProbeAvailableTypesTests {
 // MARK: - Workout Deletion Tests
 
 private func makeWorkoutSample(
-    uuid: UUID = UUID(),
     start: Date = Date(),
     end: Date = Date()
 ) -> HKWorkout {
@@ -893,14 +894,19 @@ struct HealthKitServiceDeleteTests {
 
     @Test("deleteWorkout queries and deletes HKWorkout by UUID")
     func deleteWorkoutSuccess() async throws {
-        let workoutUUID = UUID()
-        let hkWorkout = makeWorkoutSample(uuid: workoutUUID)
+        let hkWorkout = makeWorkoutSample()
+        let workoutUUID = hkWorkout.uuid
         mockStore.sampleQueryResults[HKWorkoutType.workoutType()] = [hkWorkout]
 
         try await service.deleteWorkout(healthKitUUID: workoutUUID.uuidString)
 
+        #expect(mockStore.capturedSampleQueryPredicates.count == 1)
+        let capturedPredicate = try #require(mockStore.capturedSampleQueryPredicates[0])
+        let expectedPredicate = HKQuery.predicateForObject(with: workoutUUID)
+        #expect(capturedPredicate == expectedPredicate)
         #expect(mockStore.deleteCalled)
         #expect(mockStore.deletedObjects.count == 1)
+        #expect(mockStore.deletedObjects.first === hkWorkout)
     }
 
     @Test("deleteWorkout returns silently when HKWorkout not found")
