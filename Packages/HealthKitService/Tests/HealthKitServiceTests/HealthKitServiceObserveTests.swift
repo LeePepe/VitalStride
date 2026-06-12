@@ -71,6 +71,16 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
         lock.withLock { _stopQueryCallCount += 1 }
     }
 
+    func executeSampleQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        limit: Int
+    ) async throws -> [HKSample] {
+        []
+    }
+
+    func delete(_ objects: [HKObject]) async throws {}
+
     func yieldSamples(_ result: AnchoredQueryResult) {
         lock.withLock {
             _ = _observerStreamContinuation?.yield(result)

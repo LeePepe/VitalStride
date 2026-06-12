@@ -54,4 +54,5 @@ public enum HealthKitServiceError: Error, Sendable {
     case healthDataNotAvailable
     case authorizationNotDetermined
     case queryFailed(underlying: any Error)
+    case deleteFailed(underlying: any Error)
 }

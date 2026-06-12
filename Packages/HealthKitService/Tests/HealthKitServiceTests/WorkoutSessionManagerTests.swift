@@ -168,6 +168,14 @@ private final class MockFactoryHealthStore: HealthStoreProviding, @unchecked Sen
     }
 
     func stopQuery(_ query: HKQuery) {}
+
+    func executeSampleQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        limit: Int
+    ) async throws -> [HKSample] { [] }
+
+    func delete(_ objects: [HKObject]) async throws {}
 }
 
 import HealthKit
@@ -252,4 +260,12 @@ private final class AuthCaptureMockStore: HealthStoreProviding, @unchecked Senda
     }
 
     func stopQuery(_ query: HKQuery) {}
+
+    func executeSampleQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        limit: Int
+    ) async throws -> [HKSample] { [] }
+
+    func delete(_ objects: [HKObject]) async throws {}
 }

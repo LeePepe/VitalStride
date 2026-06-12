@@ -47,6 +47,18 @@ private final class _PreviewHealthStore: HealthStoreProviding, @unchecked Sendab
     }
 
     func stopQuery(_ query: HKQuery) {}
+
+    func executeSampleQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        limit: Int
+    ) async throws -> [HKSample] {
+        throw HealthKitServiceError.healthDataNotAvailable
+    }
+
+    func delete(_ objects: [HKObject]) async throws {
+        throw HealthKitServiceError.healthDataNotAvailable
+    }
 }
 
 private struct HealthDataCacheKey: EnvironmentKey {

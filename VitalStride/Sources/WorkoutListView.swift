@@ -1,3 +1,4 @@
+import HealthKitService
 import SwiftData
 import SwiftUI
 import VitalModels
@@ -12,6 +13,7 @@ struct WorkoutListView: View {
         order: .reverse
     ) private var workouts: [Workout]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.healthKitService) private var healthKitService
     @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
     @State private var adviceViewModel = TrainingAdviceViewModel()
     @State private var showingStartOptions = false
@@ -128,16 +130,29 @@ struct WorkoutListView: View {
     }
 
     private func deleteWorkout(_ workout: Workout) {
-        logger.info("Deleting workout source=\(workout.source.rawValue, privacy: .private)")
-        modelContext.delete(workout)
-        do {
-            try modelContext.save()
-            workoutToDelete = nil
-        } catch {
-            logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .private)")
-            modelContext.rollback()
-            workoutToDelete = nil
-            showingDeleteError = true
+        let source = workout.source
+        let hkUUID = workout.healthKitUUID
+        logger.info("Deleting workout source=\(source.rawValue, privacy: .private)")
+
+        Task {
+            if source == .recorded, let hkUUID {
+                do {
+                    try await healthKitService.deleteWorkout(healthKitUUID: hkUUID)
+                } catch {
+                    logger.error("HealthKit delete failed uuid=\(hkUUID, privacy: .private) error=\(error.localizedDescription, privacy: .private)")
+                }
+            }
+
+            modelContext.delete(workout)
+            do {
+                try modelContext.save()
+                workoutToDelete = nil
+            } catch {
+                logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .private)")
+                modelContext.rollback()
+                workoutToDelete = nil
+                showingDeleteError = true
+            }
         }
     }
 }

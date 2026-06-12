@@ -225,15 +225,28 @@ struct WorkoutDetailView: View {
     }
 
     private func deleteWorkout() {
-        logger.info("Deleting workout from detail source=\(workout.source.rawValue, privacy: .private)")
-        modelContext.delete(workout)
-        do {
-            try modelContext.save()
-            dismiss()
-        } catch {
-            logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .private)")
-            modelContext.rollback()
-            showingDeleteError = true
+        let source = workout.source
+        let hkUUID = workout.healthKitUUID
+        logger.info("Deleting workout from detail source=\(source.rawValue, privacy: .private)")
+
+        Task {
+            if source == .recorded, let hkUUID {
+                do {
+                    try await healthKitService.deleteWorkout(healthKitUUID: hkUUID)
+                } catch {
+                    logger.error("HealthKit delete failed uuid=\(hkUUID, privacy: .private) error=\(error.localizedDescription, privacy: .private)")
+                }
+            }
+
+            modelContext.delete(workout)
+            do {
+                try modelContext.save()
+                dismiss()
+            } catch {
+                logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .private)")
+                modelContext.rollback()
+                showingDeleteError = true
+            }
         }
     }
 }
