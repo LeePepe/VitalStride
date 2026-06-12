@@ -161,7 +161,19 @@ enum AIAnalysisPrompts {
         return [system, user]
     }
 
-    // MARK: - Data Trend Analysis
+    // MARK: - Category-Specific Data Trend Analysis
+
+    static func buildCategoryTrendMessages(sampleType: String, context: DataContext) -> [ChatMessage] {
+        guard let categoryPrompt = categorySystemPrompt(for: sampleType, context: context) else {
+            return buildDataTrendMessages(context: context)
+        }
+
+        let system = ChatMessage(role: "system", content: categoryPrompt)
+        let user = ChatMessage(role: "user", content: buildDataUserMessage(context: context))
+        return [system, user]
+    }
+
+    // MARK: - Data Trend Analysis (Generic Fallback)
 
     static func buildDataTrendMessages(context: DataContext) -> [ChatMessage] {
         let system = ChatMessage(
@@ -208,6 +220,132 @@ enum AIAnalysisPrompts {
         )
 
         return [system, user]
+    }
+
+    // MARK: - Category Prompt Helpers
+
+    private static let baseResponseFormat = """
+        你必须返回一个 JSON 对象，格式如下：
+        {"sampleType":"<sampleType>","summary":"数据摘要","trend":"rising|falling|stable|insufficient","suggestion":"建议(可选,可为null)"}
+
+        规则：
+        - trend 只能是 rising、falling、stable、insufficient 之一
+        - summary 控制在 80 字以内
+        - suggestion 给出针对性建议，控制在 50 字以内
+        - 只返回 JSON 对象，不要包含其他文字
+        - 使用中文
+        """
+
+    private static let categorySampleTypes: Set<String> = [
+        "stepCount", "heartRate", "sleepAnalysis", "bodyMass", "activeEnergyBurned",
+    ]
+
+    static func isCategorySampleType(_ sampleType: String) -> Bool {
+        categorySampleTypes.contains(sampleType)
+    }
+
+    private static func categorySystemPrompt(for sampleType: String, context: DataContext) -> String? {
+        let responseFormat = baseResponseFormat
+            .replacingOccurrences(of: "<sampleType>", with: sampleType)
+
+        let dataConstraint = """
+            重要：你只能基于用户提供的聚合统计数据（数据点数量、时间范围、平均值、最小值、最大值、最新值）进行分析。\
+            不要推测或编造未提供的信息（如每日明细、工作日/周末拆分、目标值等）。
+            """
+
+        switch sampleType {
+        case "stepCount":
+            return """
+                你是 VitalStride 的步数分析助手。请基于提供的统计数据分析用户的步数情况：
+                1. 最新步数 vs 期间平均值——判断当前活动水平是否高于或低于近期平均
+                2. 达标评估——以 8000 步/日为参考标准，评估平均值和最新值的达标情况
+                3. 波动范围——根据最大值与最小值的差距评估步数稳定性
+                4. 趋势方向——根据最新值与平均值的对比推断近期趋势
+
+                \(dataConstraint)
+
+                \(responseFormat)
+                """
+
+        case "heartRate":
+            return """
+                你是 VitalStride 的心率分析助手。请基于提供的统计数据分析用户的心率情况：
+                1. 平均心率评估——是否处于健康范围（成人静息心率参考 60-100 bpm）
+                2. 心率波动——根据最大值与最小值的差距评估心率变异幅度
+                3. 最新心率状态——最新值与平均值对比，判断当前心率是否偏高或偏低
+                4. 趋势推断——根据最新值与平均值的关系推断近期心率变化方向
+
+                \(dataConstraint)
+
+                \(responseFormat)
+                """
+
+        case "sleepAnalysis":
+            return """
+                你是 VitalStride 的睡眠分析助手。请基于提供的统计数据分析用户的睡眠情况：
+                1. 平均睡眠时长——是否达到 7-9 小时的推荐标准
+                2. 睡眠稳定性——根据最大值与最小值的差距评估睡眠时长是否规律
+                3. 最近睡眠状态——最新值与平均值对比，判断近期睡眠质量趋势
+                4. 数据充分性——根据数据点数量判断分析结果的可信度
+
+                \(dataConstraint)
+
+                \(responseFormat)
+                """
+
+        case "bodyMass":
+            return """
+                你是 VitalStride 的体重分析助手。请基于提供的统计数据分析用户的体重情况：
+                1. 趋势方向——根据最新值与平均值对比推断体重是上升、下降还是稳定
+                2. 波动幅度——根据最大值与最小值的差距评估是否在正常波动范围（±1kg 属正常）
+                3. 当前状态——最新体重相对于期间统计值的位置（偏高端/低端/中间）
+                4. 数据充分性——根据数据点数量和时间范围评估趋势判断的可靠性
+
+                \(dataConstraint)
+
+                \(responseFormat)
+                """
+
+        case "activeEnergyBurned":
+            return """
+                你是 VitalStride 的活动能量分析助手。请基于提供的统计数据分析用户的活动能量情况：
+                1. 日均消耗评估——平均活动能量消耗水平
+                2. 消耗稳定性——根据最大值与最小值的差距评估活动量的规律性
+                3. 最近活动水平——最新值与平均值对比，判断近期活动强度变化
+                4. 趋势方向——根据最新值与平均值的关系推断活动能量的变化趋势
+
+                \(dataConstraint)
+
+                \(responseFormat)
+                """
+
+        default:
+            return nil
+        }
+    }
+
+    private static func buildDataUserMessage(context: DataContext) -> String {
+        var dataParts: [String] = []
+        dataParts.append("数据类型：\(context.sampleType)")
+        dataParts.append("数据点数量：\(context.dataPointCount)")
+        dataParts.append("时间范围：\(context.timeRangeDescription)")
+
+        let stats = context.statistics
+        if let avg = stats.average {
+            dataParts.append("平均值：\(String(format: "%.1f", avg)) \(stats.unit)")
+        }
+        if let min = stats.minimum {
+            dataParts.append("最小值：\(String(format: "%.1f", min)) \(stats.unit)")
+        }
+        if let max = stats.maximum {
+            dataParts.append("最大值：\(String(format: "%.1f", max)) \(stats.unit)")
+        }
+        if let latest = stats.latestValue {
+            dataParts.append("最新值：\(String(format: "%.1f", latest)) \(stats.unit)")
+        }
+
+        let userData = dataParts.joined(separator: "\n")
+        return "以下是我的健康数据统计：\n\(userData)\n\n请分析数据趋势。"
     }
 
     // MARK: - JSON Extraction

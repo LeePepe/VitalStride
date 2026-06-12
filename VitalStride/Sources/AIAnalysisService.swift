@@ -237,8 +237,14 @@ actor AIAnalysisService: ModelActor {
     }
 
     private func fetchDataAnalysis(context: DataContext) async throws -> DataAnalysis {
+        let isCategoryPrompt = AIAnalysisPrompts.isCategorySampleType(context.sampleType)
         let messages = buildPromptWithSignpost("analyzeDataTrend") {
-            AIAnalysisPrompts.buildDataTrendMessages(context: context)
+            AIAnalysisPrompts.buildCategoryTrendMessages(sampleType: context.sampleType, context: context)
+        }
+        if isCategoryPrompt {
+            logger.debug("Using category prompt for \(context.sampleType)")
+        } else {
+            logger.debug("Fallback to generic prompt for \(context.sampleType)")
         }
 
         let response: ChatResponse
@@ -302,7 +308,8 @@ actor AIAnalysisService: ModelActor {
     }
 
     private func refreshDataTrend(context: DataContext) async throws {
-        let messages = AIAnalysisPrompts.buildDataTrendMessages(context: context)
+        let messages = AIAnalysisPrompts.buildCategoryTrendMessages(sampleType: context.sampleType, context: context)
+        logger.debug("Background refresh: sampleType=\(context.sampleType) categoryPrompt=\(AIAnalysisPrompts.isCategorySampleType(context.sampleType))")
         let response = try await callProvider(method: "analyzeDataTrend", messages: messages)
         let json = AIAnalysisPrompts.extractJSON(from: response.content)
         if decodeDataAnalysis(json) != nil {
