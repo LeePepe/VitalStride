@@ -21,6 +21,13 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
     private var _concurrentCount = 0
     private var _peakConcurrentCount = 0
 
+    var sampleQueryResults: [HKSampleType: [HKSample]] = [:]
+    var sampleQueryError: (any Error)?
+    var capturedSampleQueryPredicates: [NSPredicate?] = []
+    var deleteCalled = false
+    var deletedObjects: [HKObject] = []
+    var deleteError: (any Error)?
+
     var peakConcurrentQueries: Int {
         lock.withLock { _peakConcurrentCount }
     }
@@ -83,6 +90,28 @@ final class MockHealthStore: HealthStoreProviding, @unchecked Sendable {
     }
 
     func stopQuery(_ query: HKQuery) {}
+
+    func executeSampleQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        limit: Int
+    ) async throws -> [HKSample] {
+        lock.withLock { capturedSampleQueryPredicates.append(predicate) }
+        if let error = sampleQueryError {
+            throw error
+        }
+        return lock.withLock { sampleQueryResults[type] ?? [] }
+    }
+
+    func delete(_ objects: [HKObject]) async throws {
+        lock.withLock {
+            deleteCalled = true
+            deletedObjects.append(contentsOf: objects)
+        }
+        if let error = deleteError {
+            throw error
+        }
+    }
 }
 
 private final class UnavailableMockHealthStore: HealthStoreProviding, @unchecked Sendable {
@@ -117,6 +146,16 @@ private final class UnavailableMockHealthStore: HealthStoreProviding, @unchecked
     }
 
     func stopQuery(_ query: HKQuery) {}
+
+    func executeSampleQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        limit: Int
+    ) async throws -> [HKSample] {
+        []
+    }
+
+    func delete(_ objects: [HKObject]) async throws {}
 }
 
 // MARK: - Test Helpers
@@ -820,5 +859,109 @@ struct ProbeAvailableTypesTests {
 
         #expect(result == types)
         #expect(mockStore.peakConcurrentQueries > 1)
+    }
+}
+
+// MARK: - Workout Deletion Tests
+
+private func makeWorkoutSample(
+    start: Date = Date(),
+    end: Date = Date()
+) -> HKWorkout {
+    HKWorkout(
+        activityType: .traditionalStrengthTraining,
+        start: start,
+        end: end
+    )
+}
+
+@Suite("HealthKitService Workout Deletion Tests")
+struct HealthKitServiceDeleteTests {
+    let mockStore: MockHealthStore
+    let service: HealthKitService
+
+    init() {
+        let mock = MockHealthStore()
+        let defaults = makeTestDefaults()
+        let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "delete-test")
+        mockStore = mock
+        service = HealthKitService(
+            healthStore: mock,
+            anchorStore: anchors,
+            deviceIdentifier: "test-device"
+        )
+    }
+
+    @Test("deleteWorkout queries and deletes HKWorkout by UUID")
+    func deleteWorkoutSuccess() async throws {
+        let hkWorkout = makeWorkoutSample()
+        let workoutUUID = hkWorkout.uuid
+        mockStore.sampleQueryResults[HKWorkoutType.workoutType()] = [hkWorkout]
+
+        try await service.deleteWorkout(healthKitUUID: workoutUUID.uuidString)
+
+        #expect(mockStore.capturedSampleQueryPredicates.count == 1)
+        let capturedPredicate = try #require(mockStore.capturedSampleQueryPredicates[0])
+        let expectedPredicate = HKQuery.predicateForObject(with: workoutUUID)
+        #expect(capturedPredicate == expectedPredicate)
+        #expect(mockStore.deleteCalled)
+        #expect(mockStore.deletedObjects.count == 1)
+        #expect(mockStore.deletedObjects.first === hkWorkout)
+    }
+
+    @Test("deleteWorkout returns silently when HKWorkout not found")
+    func deleteWorkoutNotFound() async throws {
+        mockStore.sampleQueryResults[HKWorkoutType.workoutType()] = []
+
+        try await service.deleteWorkout(healthKitUUID: UUID().uuidString)
+
+        #expect(!mockStore.deleteCalled)
+    }
+
+    @Test("deleteWorkout returns silently for invalid UUID string")
+    func deleteWorkoutInvalidUUID() async throws {
+        try await service.deleteWorkout(healthKitUUID: "not-a-uuid")
+
+        #expect(!mockStore.deleteCalled)
+    }
+
+    @Test("deleteWorkout throws deleteFailed when query fails")
+    func deleteWorkoutQueryFails() async throws {
+        mockStore.sampleQueryError = TestError.simulated
+
+        await #expect(throws: HealthKitServiceError.self) {
+            try await service.deleteWorkout(healthKitUUID: UUID().uuidString)
+        }
+
+        #expect(!mockStore.deleteCalled)
+    }
+
+    @Test("deleteWorkout throws deleteFailed when delete call fails")
+    func deleteWorkoutDeleteFails() async throws {
+        let hkWorkout = makeWorkoutSample()
+        mockStore.sampleQueryResults[HKWorkoutType.workoutType()] = [hkWorkout]
+        mockStore.deleteError = TestError.simulated
+
+        await #expect(throws: HealthKitServiceError.self) {
+            try await service.deleteWorkout(healthKitUUID: UUID().uuidString)
+        }
+
+        #expect(mockStore.deleteCalled)
+    }
+
+    @Test("deleteWorkout throws when health data unavailable")
+    func deleteWorkoutUnavailable() async throws {
+        let defaults = makeTestDefaults()
+        let unavailableStore = UnavailableMockHealthStore()
+        let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "unavail-test")
+        let unavailableService = HealthKitService(
+            healthStore: unavailableStore,
+            anchorStore: anchors,
+            deviceIdentifier: "test-device"
+        )
+
+        await #expect(throws: HealthKitServiceError.self) {
+            try await unavailableService.deleteWorkout(healthKitUUID: UUID().uuidString)
+        }
     }
 }

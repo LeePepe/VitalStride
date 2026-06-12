@@ -6,7 +6,8 @@ import os
 
 public protocol WorkoutSessionManaging: Sendable {
     func startSession() async
-    func endSession(save: Bool) async
+    @discardableResult
+    func endSession(save: Bool) async -> String?
 }
 
 // MARK: - NoopWorkoutSessionManager
@@ -14,7 +15,7 @@ public protocol WorkoutSessionManaging: Sendable {
 public struct NoopWorkoutSessionManager: WorkoutSessionManaging {
     public init() {}
     public func startSession() async {}
-    public func endSession(save: Bool) async {}
+    public func endSession(save: Bool) async -> String? { nil }
 }
 
 // MARK: - WorkoutSessionManager
@@ -81,7 +82,7 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
         }
     }
 
-    public func endSession(save: Bool) async {
+    public func endSession(save: Bool) async -> String? {
         let (currentSession, currentBuilder) = lock.withLock {
             let result = (session, builder)
             session = nil
@@ -90,7 +91,7 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
         }
 
         guard let currentSession, let currentBuilder else {
-            return
+            return nil
         }
 
         let endDate = Date()
@@ -101,16 +102,19 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
             try await currentBuilder.endCollection(at: endDate)
 
             if save {
-                try await currentBuilder.finishWorkout()
+                let hkWorkout = try await currentBuilder.finishWorkout()
                 logger.info("workout_session_ended saved=true")
+                return hkWorkout?.uuid.uuidString
             } else {
                 currentBuilder.discardWorkout()
                 logger.info("workout_session_ended saved=false")
+                return nil
             }
         } catch {
             logger.error(
                 "workout_session_end_failed error=\(error.localizedDescription, privacy: .private)"
             )
+            return nil
         }
     }
 }

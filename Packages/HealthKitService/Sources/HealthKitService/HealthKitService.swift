@@ -38,6 +38,14 @@ public protocol HealthStoreProviding: Sendable {
     ) -> AsyncStream<AnchoredQueryResult>
 
     func stopQuery(_ query: HKQuery)
+
+    func executeSampleQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        limit: Int
+    ) async throws -> [HKSample]
+
+    func delete(_ objects: [HKObject]) async throws
 }
 
 public struct AnchoredQueryResult: Sendable {
@@ -135,6 +143,40 @@ extension HKHealthStore: HealthStoreProviding {
 
     public func stopQuery(_ query: HKQuery) {
         stop(query)
+    }
+
+    public func executeSampleQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        limit: Int
+    ) async throws -> [HKSample] {
+        try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: limit,
+                sortDescriptors: nil
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: samples ?? [])
+            }
+            self.execute(query)
+        }
+    }
+
+    public func delete(_ objects: [HKObject]) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            self.delete(objects) { success, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
     }
 }
 
@@ -512,6 +554,43 @@ public final class HealthKitService: Sendable {
         } catch {
             logWorkoutQuery(count: 0, start: start, isFirstSync: isFirstSync, error: error)
             throw HealthKitServiceError.queryFailed(underlying: error)
+        }
+    }
+
+    // MARK: - Workout Deletion
+
+    public func deleteWorkout(healthKitUUID: String) async throws {
+        guard type(of: healthStore).isHealthDataAvailable else {
+            throw HealthKitServiceError.healthDataNotAvailable
+        }
+
+        guard let uuid = UUID(uuidString: healthKitUUID) else {
+            logger.error("hk_workout_delete status=invalid_uuid uuid=\(healthKitUUID, privacy: .private)")
+            return
+        }
+
+        let predicate = HKQuery.predicateForObject(with: uuid)
+        let samples: [HKSample]
+        do {
+            samples = try await healthStore.executeSampleQuery(
+                type: HKWorkoutType.workoutType(),
+                predicate: predicate,
+                limit: 1
+            )
+        } catch {
+            throw HealthKitServiceError.deleteFailed(underlying: error)
+        }
+
+        guard !samples.isEmpty else {
+            logger.info("hk_workout_delete uuid=\(healthKitUUID, privacy: .private) status=not_found")
+            return
+        }
+
+        do {
+            try await healthStore.delete(samples)
+            logger.info("hk_workout_delete uuid=\(healthKitUUID, privacy: .private) status=success")
+        } catch {
+            throw HealthKitServiceError.deleteFailed(underlying: error)
         }
     }
 

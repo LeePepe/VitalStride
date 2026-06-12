@@ -392,7 +392,15 @@ struct ActiveWorkoutView: View {
         try? modelContext.save()
         #if !os(macOS)
         if let manager = sessionManager {
-            Task { await manager.endSession(save: true) }
+            Task {
+                let healthKitUUID = await manager.endSession(save: true)
+                if let healthKitUUID {
+                    workout.healthKitUUID = healthKitUUID
+                    try? modelContext.save()
+                }
+                dismiss()
+            }
+            return
         }
         #endif
         dismiss()
