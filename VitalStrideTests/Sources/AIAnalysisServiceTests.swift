@@ -510,6 +510,117 @@ struct AIAnalysisServiceTests {
         }
     }
 
+    // MARK: - buildCategoryTrendMessages
+
+    @Test(
+        "buildCategoryTrendMessages returns category-specific prompt for each core type",
+        arguments: ["stepCount", "heartRate", "sleepAnalysis", "bodyMass", "activeEnergyBurned"]
+    )
+    func testCategoryPromptForCoreTypes(sampleType: String) {
+        let context = makeDataContext(sampleType: sampleType)
+        let messages = AIAnalysisPrompts.buildCategoryTrendMessages(sampleType: sampleType, context: context)
+
+        #expect(messages.count == 2)
+        #expect(messages[0].role == "system")
+        #expect(messages[1].role == "user")
+        #expect(messages[0].content != AIAnalysisPrompts.buildDataTrendMessages(context: context)[0].content)
+    }
+
+    @Test("buildCategoryTrendMessages returns distinct prompts per core type")
+    func testCategoryPromptsAreDistinct() {
+        let coreTypes = ["stepCount", "heartRate", "sleepAnalysis", "bodyMass", "activeEnergyBurned"]
+        var systemContents: [String: String] = [:]
+
+        for sampleType in coreTypes {
+            let context = makeDataContext(sampleType: sampleType)
+            let messages = AIAnalysisPrompts.buildCategoryTrendMessages(sampleType: sampleType, context: context)
+            systemContents[sampleType] = messages[0].content
+        }
+
+        let uniqueContents = Set(systemContents.values)
+        #expect(uniqueContents.count == coreTypes.count)
+    }
+
+    @Test(
+        "buildCategoryTrendMessages falls back to generic prompt for non-core types",
+        arguments: ["restingHeartRate", "vo2Max", "flightsClimbed", "unknownType"]
+    )
+    func testCategoryPromptFallbackForNonCoreTypes(sampleType: String) {
+        let context = makeDataContext(sampleType: sampleType)
+        let categoryMessages = AIAnalysisPrompts.buildCategoryTrendMessages(sampleType: sampleType, context: context)
+        let genericMessages = AIAnalysisPrompts.buildDataTrendMessages(context: context)
+
+        #expect(categoryMessages[0].content == genericMessages[0].content)
+    }
+
+    @Test("buildCategoryTrendMessages user message contains statistics")
+    func testCategoryPromptUserMessageContainsStats() {
+        let context = DataContext(
+            sampleType: "stepCount",
+            dataPointCount: 50,
+            timeRangeDescription: "最近一周",
+            statistics: DataContext.DataStatistics(
+                average: 8500,
+                minimum: 3200,
+                maximum: 15000,
+                latestValue: 9000,
+                unit: "步"
+            )
+        )
+        let messages = AIAnalysisPrompts.buildCategoryTrendMessages(sampleType: "stepCount", context: context)
+
+        #expect(messages[1].content.contains("8500.0"))
+        #expect(messages[1].content.contains("3200.0"))
+        #expect(messages[1].content.contains("15000.0"))
+        #expect(messages[1].content.contains("9000.0"))
+        #expect(messages[1].content.contains("步"))
+    }
+
+    @Test("buildCategoryTrendMessages includes JSON response format in system prompt")
+    func testCategoryPromptIncludesResponseFormat() {
+        let context = makeDataContext(sampleType: "heartRate")
+        let messages = AIAnalysisPrompts.buildCategoryTrendMessages(sampleType: "heartRate", context: context)
+        let systemContent = messages[0].content
+
+        #expect(systemContent.contains("sampleType"))
+        #expect(systemContent.contains("summary"))
+        #expect(systemContent.contains("trend"))
+        #expect(systemContent.contains("rising"))
+        #expect(systemContent.contains("falling"))
+        #expect(systemContent.contains("stable"))
+        #expect(systemContent.contains("insufficient"))
+    }
+
+    @Test(
+        "isCategorySampleType returns true for core types",
+        arguments: ["stepCount", "heartRate", "sleepAnalysis", "bodyMass", "activeEnergyBurned"]
+    )
+    func testIsCategorySampleTypeTrue(sampleType: String) {
+        #expect(AIAnalysisPrompts.isCategorySampleType(sampleType))
+    }
+
+    @Test(
+        "isCategorySampleType returns false for non-core types",
+        arguments: ["restingHeartRate", "vo2Max", "flightsClimbed", "unknown"]
+    )
+    func testIsCategorySampleTypeFalse(sampleType: String) {
+        #expect(!AIAnalysisPrompts.isCategorySampleType(sampleType))
+    }
+
+    @Test("analyzeDataTrend uses category prompt and still parses correctly")
+    func testAnalyzeDataTrendWithCategoryPrompt() async throws {
+        let service = try makeService { messages, _ in
+            #expect(messages[0].content.contains("步数分析"))
+            return ChatResponse(content: """
+                {"sampleType":"stepCount","summary":"今日步数达标","trend":"stable","suggestion":"保持习惯"}
+                """)
+        }
+        let context = makeDataContext(sampleType: "stepCount")
+        let analysis = try await service.analyzeDataTrend(context: context)
+        #expect(analysis.sampleType == "stepCount")
+        #expect(analysis.trend == "stable")
+    }
+
     // MARK: - noProviderAvailable does not refresh timestamps
 
     @Test("noProviderAvailable returns cached data without refreshing cache timestamps")

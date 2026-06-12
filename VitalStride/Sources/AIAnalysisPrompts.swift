@@ -136,7 +136,19 @@ enum AIAnalysisPrompts {
         return [system, user]
     }
 
-    // MARK: - Data Trend Analysis
+    // MARK: - Category-Specific Data Trend Analysis
+
+    static func buildCategoryTrendMessages(sampleType: String, context: DataContext) -> [ChatMessage] {
+        guard let categoryPrompt = categorySystemPrompt(for: sampleType, context: context) else {
+            return buildDataTrendMessages(context: context)
+        }
+
+        let system = ChatMessage(role: "system", content: categoryPrompt)
+        let user = ChatMessage(role: "user", content: buildDataUserMessage(context: context))
+        return [system, user]
+    }
+
+    // MARK: - Data Trend Analysis (Generic Fallback)
 
     static func buildDataTrendMessages(context: DataContext) -> [ChatMessage] {
         let system = ChatMessage(
@@ -183,6 +195,117 @@ enum AIAnalysisPrompts {
         )
 
         return [system, user]
+    }
+
+    // MARK: - Category Prompt Helpers
+
+    private static let baseResponseFormat = """
+        你必须返回一个 JSON 对象，格式如下：
+        {"sampleType":"<sampleType>","summary":"数据摘要","trend":"rising|falling|stable|insufficient","suggestion":"建议(可选,可为null)"}
+
+        规则：
+        - trend 只能是 rising、falling、stable、insufficient 之一
+        - summary 控制在 80 字以内
+        - suggestion 给出针对性建议，控制在 50 字以内
+        - 只返回 JSON 对象，不要包含其他文字
+        - 使用中文
+        """
+
+    private static let categorySampleTypes: Set<String> = [
+        "stepCount", "heartRate", "sleepAnalysis", "bodyMass", "activeEnergyBurned",
+    ]
+
+    static func isCategorySampleType(_ sampleType: String) -> Bool {
+        categorySampleTypes.contains(sampleType)
+    }
+
+    private static func categorySystemPrompt(for sampleType: String, context: DataContext) -> String? {
+        let responseFormat = baseResponseFormat
+            .replacingOccurrences(of: "<sampleType>", with: sampleType)
+
+        switch sampleType {
+        case "stepCount":
+            return """
+                你是 VitalStride 的步数分析助手。请从以下维度分析用户的步数数据：
+                1. 今日步数 vs 7 天均值——是否达标（参考 8000 步/日标准）
+                2. 工作日 vs 周末步数模式差异
+                3. 连续达标天数（连续 ≥8000 步的天数）
+                4. 步数趋势方向（近期是否在增长或下降）
+
+                \(responseFormat)
+                """
+
+        case "heartRate":
+            return """
+                你是 VitalStride 的心率分析助手。请从以下维度分析用户的心率数据：
+                1. 静息心率 7 天趋势——是否保持在健康范围（60-100 bpm）
+                2. 运动后恢复能力——运动心率回落速度
+                3. HRV（心率变异性）趋势——压力与恢复状态
+                4. 跨周均值对比——本周 vs 上周静息心率变化
+
+                \(responseFormat)
+                """
+
+        case "sleepAnalysis":
+            return """
+                你是 VitalStride 的睡眠分析助手。请从以下维度分析用户的睡眠数据：
+                1. 平均睡眠时长——是否达到 7-9 小时推荐标准
+                2. 睡眠规律性——入睡时间和起床时间的波动幅度
+                3. 深睡/REM 占比——睡眠质量评估（如有数据）
+                4. 工作日 vs 周末睡眠模式差异
+
+                \(responseFormat)
+                """
+
+        case "bodyMass":
+            return """
+                你是 VitalStride 的体重分析助手。请从以下维度分析用户的体重数据：
+                1. 30 天趋势方向——整体上升、下降还是稳定
+                2. 周均值变化率——每周平均增减幅度
+                3. 距目标进度——结合趋势评估是否朝目标方向前进
+                4. 波动幅度——日间波动是否在正常范围（±1kg）
+
+                \(responseFormat)
+                """
+
+        case "activeEnergyBurned":
+            return """
+                你是 VitalStride 的活动能量分析助手。请从以下维度分析用户的活动能量数据：
+                1. 日均消耗对比——近期 vs 历史日均消耗量
+                2. 训练日 vs 非训练日差异——运动对能量消耗的贡献
+                3. 趋势方向——活动能量是否在增长或下降
+                4. 消耗稳定性——日间波动是否过大
+
+                \(responseFormat)
+                """
+
+        default:
+            return nil
+        }
+    }
+
+    private static func buildDataUserMessage(context: DataContext) -> String {
+        var dataParts: [String] = []
+        dataParts.append("数据类型：\(context.sampleType)")
+        dataParts.append("数据点数量：\(context.dataPointCount)")
+        dataParts.append("时间范围：\(context.timeRangeDescription)")
+
+        let stats = context.statistics
+        if let avg = stats.average {
+            dataParts.append("平均值：\(String(format: "%.1f", avg)) \(stats.unit)")
+        }
+        if let min = stats.minimum {
+            dataParts.append("最小值：\(String(format: "%.1f", min)) \(stats.unit)")
+        }
+        if let max = stats.maximum {
+            dataParts.append("最大值：\(String(format: "%.1f", max)) \(stats.unit)")
+        }
+        if let latest = stats.latestValue {
+            dataParts.append("最新值：\(String(format: "%.1f", latest)) \(stats.unit)")
+        }
+
+        let userData = dataParts.joined(separator: "\n")
+        return "以下是我的健康数据统计：\n\(userData)\n\n请分析数据趋势。"
     }
 
     // MARK: - JSON Extraction
