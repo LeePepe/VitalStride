@@ -1275,6 +1275,40 @@
           }
         }
       }
+    },
+    "rest_notification_title": {
+      "comment": "Rest complete notification title",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest Complete"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "休息结束"
+          }
+        }
+      }
+    },
+    "rest_notification_body": {
+      "comment": "Rest complete notification body",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Time for your next set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开始下一组"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

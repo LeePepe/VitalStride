@@ -32,7 +32,7 @@ struct ExercisePickerView: View {
     }
 
     private var gridColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)]
+        [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
     }
 
     var body: some View {

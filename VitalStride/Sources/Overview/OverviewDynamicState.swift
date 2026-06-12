@@ -104,8 +104,9 @@ final class OverviewDynamicState {
     // MARK: - Private
 
     private func generateFromAI(container: ModelContainer, snapshot: HealthSnapshotData, workouts: [Workout]) async {
-        let start = ContinuousClock.now
+        layoutState = .fallback
 
+        let start = ContinuousClock.now
         do {
             let context = buildContext(snapshot: snapshot, workouts: workouts)
             let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
@@ -116,7 +117,14 @@ final class OverviewDynamicState {
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000
                 + elapsed.components.attoseconds / 1_000_000_000_000_000
-            logger.info("overview_ai_generate_success duration_ms=\(ms)")
+
+            guard insights.count >= 3 else {
+                logger.info("overview_ai_generate_success duration_ms=\(ms) insights_count=\(insights.count) kept_fallback=true")
+                signposter.emitEvent("overview_ai_generate_success", "\(ms)ms")
+                return
+            }
+
+            logger.info("overview_ai_generate_success duration_ms=\(ms) insights_count=\(insights.count)")
             signposter.emitEvent("overview_ai_generate_success", "\(ms)ms")
 
             let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
@@ -125,9 +133,6 @@ final class OverviewDynamicState {
             let errorType = describeErrorType(error)
             logger.error("overview_ai_generate_failure error_type=\(errorType)")
             signposter.emitEvent("overview_ai_generate_failure", "\(errorType)")
-            logger.info("overview_fallback_triggered reason=ai_failed")
-            signposter.emitEvent("overview_fallback_triggered", "ai_failed")
-            layoutState = .fallback
         }
     }
 
