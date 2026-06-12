@@ -1309,6 +1309,91 @@
           }
         }
       }
+    },
+    "rest_live_activity_title": {
+      "comment": "Live Activity lock screen title",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resting"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "休息中"
+          }
+        }
+      }
+    },
+    "rest_live_activity_completed": {
+      "comment": "Live Activity completed text",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest Complete"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "休息结束"
+          }
+        }
+      }
+    },
+    "rest_live_activity_a11y_label": {
+      "comment": "Live Activity a11y: Resting",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest timer"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "休息计时器"
+          }
+        }
+      }
+    },
+    "rest_live_activity_completed_a11y": {
+      "comment": "Live Activity completed a11y",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest complete"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "休息结束"
+          }
+        }
+      }
+    },
+    "rest_live_activity_compact_a11y": {
+      "comment": "DI compact remaining a11y",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remaining rest time"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "剩余休息时间"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
