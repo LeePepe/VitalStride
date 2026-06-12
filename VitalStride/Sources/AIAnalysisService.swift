@@ -344,7 +344,13 @@ actor AIAnalysisService: ModelActor {
 
     private func decodeInsights(_ json: String) -> [OverviewInsight]? {
         guard let data = json.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode([OverviewInsight].self, from: data)
+        if let insights = try? JSONDecoder().decode([OverviewInsight].self, from: data) {
+            return insights
+        }
+        if let response = try? JSONDecoder().decode(AIAnalysisResponse.self, from: data) {
+            return response.insights
+        }
+        return nil
     }
 
     private func decodeTrainingAdvice(_ json: String) -> TrainingRecommendation? {

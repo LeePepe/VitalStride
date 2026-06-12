@@ -47,6 +47,8 @@ final class DataAISummaryState {
         )
     }
 
+    private static let maxConcurrentAnalyses = 3
+
     func load(
         availableTypes: Set<HealthSampleType>,
         modelContainer: ModelContainer,
@@ -105,8 +107,12 @@ final class DataAISummaryState {
                 of: TypeResult?.self,
                 returning: [TypeResult].self
             ) { group in
-                for sampleType in targetTypes {
-                    nonisolated(unsafe) let sampleType = sampleType
+                var pending = targetTypes.makeIterator()
+                var accumulated: [TypeResult] = []
+
+                for _ in 0..<Self.maxConcurrentAnalyses {
+                    guard let nextType = pending.next() else { break }
+                    nonisolated(unsafe) let sampleType = nextType
                     group.addTask { @Sendable in
                         await Self.analyzeType(
                             sampleType,
@@ -116,10 +122,19 @@ final class DataAISummaryState {
                         )
                     }
                 }
-                var accumulated: [TypeResult] = []
+
                 for await result in group {
-                    if let result {
-                        accumulated.append(result)
+                    if let result { accumulated.append(result) }
+                    if let nextType = pending.next() {
+                        nonisolated(unsafe) let sampleType = nextType
+                        group.addTask { @Sendable in
+                            await Self.analyzeType(
+                                sampleType,
+                                provider: provider,
+                                modelContainer: modelContainer,
+                                healthDataCache: healthDataCache
+                            )
+                        }
                     }
                 }
                 return accumulated

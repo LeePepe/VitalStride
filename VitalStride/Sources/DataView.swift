@@ -62,13 +62,13 @@ struct DataView: View {
                 } else if needsAuthorization {
                     authorizationCTASection
                 } else if availableTypes == nil {
-                    aiSummarySection
                     summarySection
+                    aiSummarySection
                     typesLoadingSection
                     workoutSection
                 } else {
-                    aiSummarySection
                     summarySection
+                    aiSummarySection
                     activitySection
                     heartSection
                     bodySection

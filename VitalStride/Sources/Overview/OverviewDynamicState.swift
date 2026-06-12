@@ -129,12 +129,20 @@ final class OverviewDynamicState {
         let context = ModelContext(container)
         let descriptor = FetchDescriptor<OverviewInsightCache>()
         guard let cached = try? context.fetch(descriptor).first,
-              let data = cached.contentJSON.data(using: .utf8),
-              let insights = try? JSONDecoder().decode([OverviewInsight].self, from: data),
-              insights.count >= 3
+              let data = cached.contentJSON.data(using: .utf8)
         else {
             return nil
         }
+        let decoder = JSONDecoder()
+        let insights: [OverviewInsight]
+        if let array = try? decoder.decode([OverviewInsight].self, from: data) {
+            insights = array
+        } else if let response = try? decoder.decode(AIAnalysisResponse.self, from: data) {
+            insights = response.insights
+        } else {
+            return nil
+        }
+        guard insights.count >= 3 else { return nil }
         return (insights, cached.generatedAt)
     }
 

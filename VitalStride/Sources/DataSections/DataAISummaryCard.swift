@@ -1,9 +1,6 @@
 import Foundation
 import HealthKitService
 import SwiftUI
-import os
-
-private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "DataAISummaryCard")
 
 struct DataAISummaryCard: View {
     let state: DataAISummaryState
@@ -84,18 +81,18 @@ struct DataAISummaryCard: View {
 
             Text(result.sampleType.localizedName)
                 .font(.subheadline.weight(.medium))
-                .frame(width: 80, alignment: .leading)
                 .lineLimit(1)
+                .layoutPriority(1)
 
             Text(truncatedSummary(result.summary))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .lineLimit(2)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             String(
-                localized: "\(result.sampleType.localizedName)，\(trendDescription(result.trend))，\(truncatedSummary(result.summary))",
+                localized: "\(result.sampleType.localizedName)，\(trendDescription(result.trend))，\(result.summary)",
                 comment: "AI summary row a11y"
             )
         )
