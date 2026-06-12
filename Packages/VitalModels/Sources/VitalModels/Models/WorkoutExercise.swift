@@ -39,6 +39,14 @@ extension WorkoutExercise {
         let isFinished = workout?.endDate != nil
         return (sets ?? [])
             .filter { (isFinished || $0.isCompleted) && $0.setType != .warmup }
-            .reduce(0.0) { $0 + $1.weight * Double($1.reps) * ($1.isUnilateral ? 2.0 : 1.0) }
+            .reduce(0.0) { total, set in
+                if set.isUnilateral {
+                    let leftVolume = set.weight * Double(set.reps)
+                    let rightVolume = (set.weightRight ?? set.weight) * Double(set.reps)
+                    return total + leftVolume + rightVolume
+                } else {
+                    return total + set.weight * Double(set.reps)
+                }
+            }
     }
 }
