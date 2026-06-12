@@ -579,6 +579,8 @@ struct OverviewLayoutStateTests {
 
         let insights = [
             OverviewInsight(key: "cached", cardType: "metric", cardSize: "small", title: "Cached", content: "data"),
+            OverviewInsight(key: "cached2", cardType: "metric", cardSize: "small", title: "Cached2", content: "data2"),
+            OverviewInsight(key: "cached3", cardType: "metric", cardSize: "small", title: "Cached3", content: "data3"),
         ]
         let json = String(data: try JSONEncoder().encode(insights), encoding: .utf8)!
         let cache = OverviewInsightCache(
