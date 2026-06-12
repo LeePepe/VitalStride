@@ -150,6 +150,107 @@ struct AIOutputStructsTests {
         }
     }
 
+    // MARK: - AIAnalysisResponse
+
+    @Test("AIAnalysisResponse decodes headline with insights")
+    func aiAnalysisResponseWithHeadline() throws {
+        let json = """
+        {
+            "headline": "睡眠比上周提升12%",
+            "insights": [
+                {
+                    "key": "sleep_improve",
+                    "cardType": "insight",
+                    "cardSize": "medium",
+                    "title": "睡眠改善",
+                    "content": "本周平均睡眠7.5小时"
+                }
+            ]
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(AIAnalysisResponse.self, from: json)
+
+        #expect(decoded.headline == "睡眠比上周提升12%")
+        #expect(decoded.insights.count == 1)
+        #expect(decoded.insights[0].key == "sleep_improve")
+        #expect(decoded.insights[0].title == "睡眠改善")
+    }
+
+    @Test("AIAnalysisResponse decodes null headline")
+    func aiAnalysisResponseNullHeadline() throws {
+        let json = """
+        {
+            "headline": null,
+            "insights": [
+                {
+                    "key": "weight_trend",
+                    "cardType": "trend",
+                    "cardSize": "small",
+                    "title": "体重趋势",
+                    "content": "体重稳定在87kg"
+                }
+            ]
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(AIAnalysisResponse.self, from: json)
+
+        #expect(decoded.headline == nil)
+        #expect(decoded.insights.count == 1)
+    }
+
+    @Test("AIAnalysisResponse decodes missing headline key")
+    func aiAnalysisResponseMissingHeadline() throws {
+        let json = """
+        {
+            "insights": [
+                {
+                    "key": "hr",
+                    "cardType": "metric",
+                    "cardSize": "small",
+                    "title": "心率",
+                    "content": "静息心率62bpm"
+                }
+            ]
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(AIAnalysisResponse.self, from: json)
+
+        #expect(decoded.headline == nil)
+        #expect(decoded.insights.count == 1)
+    }
+
+    @Test("AIAnalysisResponse roundtrip preserves equality")
+    func aiAnalysisResponseRoundtrip() throws {
+        let response = AIAnalysisResponse(
+            headline: "步数创新高",
+            insights: [
+                OverviewInsight(key: "steps", cardType: "metric", cardSize: "large", title: "步数", content: "今日15000步", suggestion: "继续保持", iconName: "figure.walk"),
+                OverviewInsight(key: "cal", cardType: "metric", cardSize: "small", title: "热量", content: "消耗800大卡"),
+            ]
+        )
+
+        let data = try JSONEncoder().encode(response)
+        let decoded = try JSONDecoder().decode(AIAnalysisResponse.self, from: data)
+
+        #expect(decoded == response)
+        #expect(decoded.insights.count == 2)
+    }
+
+    @Test("AIAnalysisResponse with empty insights array")
+    func aiAnalysisResponseEmptyInsights() throws {
+        let json = """
+        {"headline": "无变化", "insights": []}
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(AIAnalysisResponse.self, from: json)
+
+        #expect(decoded.headline == "无变化")
+        #expect(decoded.insights.isEmpty)
+    }
+
     // MARK: - Cross-type JSON
 
     @Test("Different output types produce distinct JSON")

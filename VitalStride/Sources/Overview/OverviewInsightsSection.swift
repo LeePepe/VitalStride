@@ -53,7 +53,7 @@ final class OverviewInsightsState {
 
             let result = try await service.generateInsights(context: context)
             guard !Task.isCancelled else { return }
-            insights = result
+            insights = result.insights
         } catch {
             insights = []
         }
