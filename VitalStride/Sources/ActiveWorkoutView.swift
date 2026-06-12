@@ -619,9 +619,11 @@ private struct SetRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 24, alignment: .leading)
 
-            TextField("次数", text: $repsText)
-                .keyboardType(.numberPad)
-                .textFieldStyle(.roundedBorder)
+            SelectAllTextField(
+                placeholder: "次数",
+                text: $repsText,
+                keyboardType: .numberPad
+            )
                 .frame(width: 60)
                 .accessibilityLabel("第 \(index + 1) 组次数")
                 .accessibilityHint("输入次数")
@@ -634,9 +636,11 @@ private struct SetRow: View {
             Text("×")
                 .foregroundStyle(.secondary)
 
-            TextField(weightUnit.rawValue, text: $weightText)
-                .keyboardType(.decimalPad)
-                .textFieldStyle(.roundedBorder)
+            SelectAllTextField(
+                placeholder: weightUnit.rawValue,
+                text: $weightText,
+                keyboardType: .decimalPad
+            )
                 .frame(width: 70)
                 .accessibilityLabel("第 \(index + 1) 组重量")
                 .accessibilityHint("输入重量数值")
@@ -773,11 +777,13 @@ private struct SubSetRow: View {
             treeLine
                 .accessibilityHidden(true)
 
-            TextField("次数", text: $repsText)
-                .keyboardType(.numberPad)
-                .textFieldStyle(.roundedBorder)
+            SelectAllTextField(
+                placeholder: "次数",
+                text: $repsText,
+                keyboardType: .numberPad,
+                font: .preferredFont(forTextStyle: .footnote)
+            )
                 .frame(width: 52)
-                .font(.footnote)
                 .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数")
                 .accessibilityHint("输入次数")
                 .onChange(of: repsText) { _, newValue in
@@ -790,11 +796,13 @@ private struct SubSetRow: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
-            TextField(weightUnit.rawValue, text: $weightText)
-                .keyboardType(.decimalPad)
-                .textFieldStyle(.roundedBorder)
+            SelectAllTextField(
+                placeholder: weightUnit.rawValue,
+                text: $weightText,
+                keyboardType: .decimalPad,
+                font: .preferredFont(forTextStyle: .footnote)
+            )
                 .frame(width: 62)
-                .font(.footnote)
                 .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组重量")
                 .accessibilityHint("输入重量数值")
                 .onChange(of: weightText) { _, newValue in
