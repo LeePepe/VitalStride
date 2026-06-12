@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.vitalstride", category: "RestTimer")
 
 enum RestPhase {
     case idle
@@ -14,27 +17,52 @@ final class RestTimerController {
     private(set) var phase: RestPhase = .idle
 
     let completedDisplayDuration: TimeInterval
+    private let notificationScheduler: any RestNotificationScheduling
 
-    init(completedDisplayDuration: TimeInterval = 2) {
+    init(
+        completedDisplayDuration: TimeInterval = 2,
+        notificationScheduler: any RestNotificationScheduling = RestNotificationScheduler()
+    ) {
         self.completedDisplayDuration = completedDisplayDuration
+        self.notificationScheduler = notificationScheduler
     }
 
-    func startRest(duration: TimeInterval = 90) {
+    func startRest(duration: TimeInterval = 60) {
         restEndDate = Date().addingTimeInterval(duration)
         restTotalDuration = duration
         phase = .resting
+        Task {
+            await notificationScheduler.scheduleRestComplete(afterSeconds: duration)
+        }
     }
 
     func adjustRest(by seconds: TimeInterval) {
         guard phase == .resting, let currentEnd = restEndDate else { return }
-        restEndDate = currentEnd.addingTimeInterval(seconds)
+        let newEnd = currentEnd.addingTimeInterval(seconds)
+        restEndDate = newEnd
         restTotalDuration = max(0, (restTotalDuration ?? 0) + seconds)
+        let remaining = newEnd.timeIntervalSinceNow
+        if remaining > 0 {
+            Task {
+                await notificationScheduler.scheduleRestComplete(
+                    afterSeconds: remaining
+                )
+            }
+            logger.info(
+                "rest_notification_rescheduled remaining=\(Int(remaining), privacy: .public)"
+            )
+        } else {
+            notificationScheduler.cancelPendingRestNotification()
+            logger.info("rest_notification_cancelled reason=adjust_expired")
+        }
     }
 
     func skipRest() {
         restEndDate = nil
         restTotalDuration = nil
         phase = .idle
+        notificationScheduler.cancelPendingRestNotification()
+        logger.info("rest_notification_cancelled reason=skip")
     }
 
     func dismissCompleted() {
