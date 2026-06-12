@@ -8,6 +8,7 @@ public final class Workout {
     public var endDate: Date?
     public var totalCalories: Double?
     public var source: WorkoutSource = WorkoutSource.recorded
+    public var healthKitUUID: String?
 
     @Relationship(deleteRule: .cascade, inverse: \WorkoutExercise.workout)
     public var exercises: [WorkoutExercise]?
@@ -18,6 +19,7 @@ public final class Workout {
         endDate: Date? = nil,
         totalCalories: Double? = nil,
         source: WorkoutSource = .recorded,
+        healthKitUUID: String? = nil,
         exercises: [WorkoutExercise] = []
     ) {
         self.type = type
@@ -25,6 +27,7 @@ public final class Workout {
         self.endDate = endDate
         self.totalCalories = totalCalories
         self.source = source
+        self.healthKitUUID = healthKitUUID
         self.exercises = exercises
     }
 }

@@ -9,6 +9,7 @@ final class MockWorkoutSessionManager: WorkoutSessionManaging, @unchecked Sendab
     private var _startCallCount = 0
     private var _endCalls: [(save: Bool, date: Date)] = []
     var startShouldDelay: Duration?
+    var stubbedUUID: String? = "MOCK-UUID-1234"
 
     var startCallCount: Int {
         lock.withLock { _startCallCount }
@@ -29,8 +30,9 @@ final class MockWorkoutSessionManager: WorkoutSessionManaging, @unchecked Sendab
         lock.withLock { _startCallCount += 1 }
     }
 
-    func endSession(save: Bool) async {
+    func endSession(save: Bool) async -> String? {
         lock.withLock { _endCalls.append((save: save, date: Date())) }
+        return save ? stubbedUUID : nil
     }
 }
 
@@ -48,8 +50,10 @@ struct WorkoutSessionManagingTests {
     @Test("NoopWorkoutSessionManager end does nothing")
     func noopEndIsNoop() async {
         let noop = NoopWorkoutSessionManager()
-        await noop.endSession(save: true)
-        await noop.endSession(save: false)
+        let uuid1 = await noop.endSession(save: true)
+        let uuid2 = await noop.endSession(save: false)
+        #expect(uuid1 == nil)
+        #expect(uuid2 == nil)
     }
 
     @Test("MockWorkoutSessionManager tracks start calls")
@@ -95,6 +99,20 @@ struct WorkoutSessionManagingTests {
         await mock.endSession(save: true)
 
         #expect(mock.endCallCount == 3)
+    }
+
+    @Test("endSession(save: true) returns UUID")
+    func endSessionSaveReturnsUUID() async {
+        let mock = MockWorkoutSessionManager()
+        let uuid = await mock.endSession(save: true)
+        #expect(uuid == "MOCK-UUID-1234")
+    }
+
+    @Test("endSession(save: false) returns nil")
+    func endSessionDiscardReturnsNil() async {
+        let mock = MockWorkoutSessionManager()
+        let uuid = await mock.endSession(save: false)
+        #expect(uuid == nil)
     }
 }
 
