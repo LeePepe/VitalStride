@@ -118,13 +118,13 @@ final class OverviewDynamicState {
             let ms = elapsed.components.seconds * 1000
                 + elapsed.components.attoseconds / 1_000_000_000_000_000
 
-            guard insights.count >= 3 else {
-                logger.info("overview_ai_generate_success duration_ms=\(ms) insights_count=\(insights.count) kept_fallback=true")
+            guard response.insights.count >= 3 else {
+                logger.info("overview_ai_generate_success duration_ms=\(ms) insights_count=\(response.insights.count) kept_fallback=true")
                 signposter.emitEvent("overview_ai_generate_success", "\(ms)ms")
                 return
             }
 
-            logger.info("overview_ai_generate_success duration_ms=\(ms) insights_count=\(insights.count)")
+            logger.info("overview_ai_generate_success duration_ms=\(ms) insights_count=\(response.insights.count)")
             signposter.emitEvent("overview_ai_generate_success", "\(ms)ms")
 
             let generatedAt = readCacheGeneratedAt(container: container) ?? Date()

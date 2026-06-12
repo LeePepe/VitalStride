@@ -191,6 +191,7 @@ private struct HeadlineBar: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
+            .frame(minHeight: 44)
             .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }

@@ -1309,6 +1309,23 @@
           }
         }
       }
+    },
+    "headline_bar_a11y_hint": {
+      "comment": "VoiceOver hint appended to headline bar text",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to view update"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击查看更新"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
