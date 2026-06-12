@@ -708,21 +708,6 @@ private struct SetRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 24, alignment: .leading)
 
-            TextField(weightUnit.rawValue, text: $weightText)
-                .keyboardType(.decimalPad)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 70)
-                .accessibilityLabel("第 \(index + 1) 组重量")
-                .accessibilityHint("输入重量数值")
-                .onChange(of: weightText) { _, newValue in
-                    let filtered = filterDecimalInput(newValue)
-                    if filtered != newValue { weightText = filtered }
-                    syncWeightToModel()
-                }
-
-            Text("×")
-                .foregroundStyle(.secondary)
-
             TextField("次数", text: $repsText)
                 .keyboardType(.numberPad)
                 .textFieldStyle(.roundedBorder)
@@ -733,6 +718,21 @@ private struct SetRow: View {
                     let filtered = newValue.filter { $0.isNumber }
                     if filtered != newValue { repsText = filtered }
                     syncRepsToModel()
+                }
+
+            Text("×")
+                .foregroundStyle(.secondary)
+
+            TextField(weightUnit.rawValue, text: $weightText)
+                .keyboardType(.decimalPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 70)
+                .accessibilityLabel("第 \(index + 1) 组重量")
+                .accessibilityHint("输入重量数值")
+                .onChange(of: weightText) { _, newValue in
+                    let filtered = filterDecimalInput(newValue)
+                    if filtered != newValue { weightText = filtered }
+                    syncWeightToModel()
                 }
 
             Menu {
@@ -865,23 +865,6 @@ private struct SubSetRow: View {
             treeLine
                 .accessibilityHidden(true)
 
-            TextField(weightUnit.rawValue, text: $weightText)
-                .keyboardType(.decimalPad)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 62)
-                .font(.footnote)
-                .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组重量")
-                .accessibilityHint("输入重量数值")
-                .onChange(of: weightText) { _, newValue in
-                    let filtered = filterDecimalInput(newValue)
-                    if filtered != newValue { weightText = filtered }
-                    syncWeightToModel()
-                }
-
-            Text("×")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
             TextField("次数", text: $repsText)
                 .keyboardType(.numberPad)
                 .textFieldStyle(.roundedBorder)
@@ -893,6 +876,23 @@ private struct SubSetRow: View {
                     let filtered = newValue.filter { $0.isNumber }
                     if filtered != newValue { repsText = filtered }
                     syncRepsToModel()
+                }
+
+            Text("×")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            TextField(weightUnit.rawValue, text: $weightText)
+                .keyboardType(.decimalPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 62)
+                .font(.footnote)
+                .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组重量")
+                .accessibilityHint("输入重量数值")
+                .onChange(of: weightText) { _, newValue in
+                    let filtered = filterDecimalInput(newValue)
+                    if filtered != newValue { weightText = filtered }
+                    syncWeightToModel()
                 }
 
             Text(exerciseSet.setType.displayName)
