@@ -185,14 +185,8 @@ actor AIAnalysisService: ModelActor {
             return analysisResponse
         }
 
-        logger.log("JSON parse: method=generateInsights retry=2 result=fallback")
-        return AIAnalysisResponse(headline: nil, insights: [OverviewInsight(
-            key: "ai_summary",
-            cardType: "summary",
-            cardSize: "large",
-            title: "AI 分析",
-            content: "暂时无法生成详细分析，请稍后重试。"
-        )])
+        logger.log("JSON parse: method=generateInsights retry=2 result=decodeFailed")
+        throw AIServiceError.responseParsingFailed
     }
 
     private func fetchTrainingAdvice(context: TrainingContext) async throws -> TrainingRecommendation {
@@ -287,9 +281,10 @@ actor AIAnalysisService: ModelActor {
         let messages = AIAnalysisPrompts.buildInsightsMessages(context: context, previousInsights: previousInsights)
         let response = try await callProvider(method: "generateInsights", messages: messages)
         let json = AIAnalysisPrompts.extractJSON(from: response.content)
-        if let analysisResponse = decodeAnalysisResponse(json) {
-            saveInsightsCache(response: analysisResponse)
+        guard let analysisResponse = decodeAnalysisResponse(json) else {
+            throw AIServiceError.responseParsingFailed
         }
+        saveInsightsCache(response: analysisResponse)
     }
 
     private func refreshTrainingAdvice(context: TrainingContext) async throws {

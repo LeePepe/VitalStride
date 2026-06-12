@@ -161,18 +161,14 @@ struct AIAnalysisServiceTests {
         #expect(stale.insights.count == 2)
     }
 
-    @Test("generateInsights falls back on JSON parse failure after retry")
+    @Test("generateInsights throws responseParsingFailed on JSON parse failure after retry")
     func testGenerateInsightsParseFallback() async throws {
         let service = try makeService { _, _ in
             ChatResponse(content: "This is not valid JSON at all")
         }
-        let result = try await service.generateInsights(context: makeOverviewContext())
-
-        #expect(result.headline == nil)
-        #expect(result.insights.count == 1)
-        #expect(result.insights[0].key == "ai_summary")
-        #expect(result.insights[0].cardType == "summary")
-        #expect(result.insights[0].content == "暂时无法生成详细分析，请稍后重试。")
+        await #expect(throws: AIServiceError.self) {
+            try await service.generateInsights(context: makeOverviewContext())
+        }
     }
 
     @Test("generateInsights retries once and succeeds on second parse")

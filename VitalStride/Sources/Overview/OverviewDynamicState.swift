@@ -124,13 +124,22 @@ final class OverviewDynamicState {
         let context = ModelContext(container)
         let descriptor = FetchDescriptor<OverviewInsightCache>()
         guard let cached = try? context.fetch(descriptor).first,
-              let data = cached.contentJSON.data(using: .utf8),
-              let insights = try? JSONDecoder().decode([OverviewInsight].self, from: data),
-              !insights.isEmpty
+              let data = cached.contentJSON.data(using: .utf8)
         else {
             return nil
         }
-        return (insights, cached.generatedAt)
+        let decoder = JSONDecoder()
+        if let response = try? decoder.decode(AIAnalysisResponse.self, from: data),
+           !response.insights.isEmpty
+        {
+            return (response.insights, cached.generatedAt)
+        }
+        if let insights = try? decoder.decode([OverviewInsight].self, from: data),
+           !insights.isEmpty
+        {
+            return (insights, cached.generatedAt)
+        }
+        return nil
     }
 
     private func isCacheExpired(container: ModelContainer) -> Bool {
