@@ -14,14 +14,18 @@ final class RestNotificationScheduler: RestNotificationScheduling {
     static let notificationIdentifier = "rest-timer-complete"
 
     private let center = UNUserNotificationCenter.current()
-    private var hasRequestedAuthorization = false
-    private var isAuthorized = false
+    private var authorizationTask: Task<Bool, Never>?
 
     func scheduleRestComplete(afterSeconds seconds: TimeInterval) async {
-        if !hasRequestedAuthorization {
-            await requestAuthorization()
+        let authorized = await ensureAuthorized()
+        guard authorized else {
+            logger.info("rest_notification_skipped reason=not_authorized")
+            return
         }
-        guard isAuthorized, seconds > 0 else { return }
+        guard seconds > 0 else {
+            logger.info("rest_notification_skipped reason=invalid_duration")
+            return
+        }
 
         center.removePendingNotificationRequests(
             withIdentifiers: [Self.notificationIdentifier]
@@ -66,20 +70,27 @@ final class RestNotificationScheduler: RestNotificationScheduling {
         )
     }
 
-    private func requestAuthorization() async {
-        hasRequestedAuthorization = true
-        do {
-            isAuthorized = try await center.requestAuthorization(
-                options: [.alert, .sound]
-            )
-            logger.info(
-                "rest_notification_permission status=\(self.isAuthorized ? "granted" : "denied", privacy: .public)"
-            )
-        } catch {
-            isAuthorized = false
-            logger.error(
-                "rest_notification_permission status=error error=\(error.localizedDescription, privacy: .public)"
-            )
+    private func ensureAuthorized() async -> Bool {
+        if let task = authorizationTask {
+            return await task.value
         }
+        let task = Task<Bool, Never> {
+            do {
+                let granted = try await center.requestAuthorization(
+                    options: [.alert, .sound]
+                )
+                logger.info(
+                    "rest_notification_permission status=\(granted ? "granted" : "denied", privacy: .public)"
+                )
+                return granted
+            } catch {
+                logger.error(
+                    "rest_notification_permission status=error error=\(error.localizedDescription, privacy: .public)"
+                )
+                return false
+            }
+        }
+        authorizationTask = task
+        return await task.value
     }
 }

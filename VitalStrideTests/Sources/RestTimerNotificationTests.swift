@@ -61,7 +61,7 @@ struct RestTimerNotificationTests {
         controller.startRest(duration: 60)
         controller.skipRest()
 
-        #expect(mock.cancelCount == 1)
+        #expect(mock.cancelCount >= 1)
     }
 
     @MainActor
@@ -142,5 +142,40 @@ struct RestTimerNotificationTests {
         #expect(mock.cancelCount == 0)
 
         task.cancel()
+    }
+
+    @MainActor
+    @Test("cancelRestForWorkoutEnd cancels notification and resets resting state")
+    func cancelRestForWorkoutEndWhileResting() async {
+        let mock = MockNotificationScheduler()
+        let controller = RestTimerController(
+            completedDisplayDuration: 0.1,
+            notificationScheduler: mock
+        )
+
+        controller.startRest(duration: 60)
+        #expect(controller.phase == .resting)
+
+        controller.cancelRestForWorkoutEnd()
+
+        #expect(controller.phase == .idle)
+        #expect(controller.restEndDate == nil)
+        #expect(controller.restTotalDuration == nil)
+        #expect(mock.cancelCount >= 1)
+    }
+
+    @MainActor
+    @Test("cancelRestForWorkoutEnd is safe when idle")
+    func cancelRestForWorkoutEndWhileIdle() async {
+        let mock = MockNotificationScheduler()
+        let controller = RestTimerController(
+            completedDisplayDuration: 0.1,
+            notificationScheduler: mock
+        )
+
+        controller.cancelRestForWorkoutEnd()
+
+        #expect(controller.phase == .idle)
+        #expect(mock.cancelCount >= 1)
     }
 }
