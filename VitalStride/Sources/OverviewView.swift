@@ -14,6 +14,7 @@ struct OverviewView: View {
     @Environment(\.healthDataCache) private var healthDataCache
     @Environment(\.healthKitService) private var healthKitService
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @Query private var recentWorkouts: [Workout]
 
@@ -45,6 +46,10 @@ struct OverviewView: View {
                         dynamicContent
                     }
                 }
+                .animation(
+                    reduceMotion ? nil : .easeInOut(duration: 0.3),
+                    value: dynamicState.pendingHeadline != nil
+                )
                 .padding()
             }
             .navigationTitle(String(localized: "overview_title", defaultValue: "概览"))
@@ -95,6 +100,17 @@ struct OverviewView: View {
                 .frame(maxWidth: .infinity, minHeight: 60)
 
         case .dynamic(let insights, let lastUpdated):
+            if let headline = dynamicState.pendingHeadline {
+                HeadlineBar(headline: headline) {
+                    HeadlineBarTelemetry.recordTapped()
+                    dynamicState.acceptPendingInsights(container: modelContext.container)
+                }
+                .transition(
+                    reduceMotion
+                        ? .identity
+                        : .move(edge: .top).combined(with: .opacity)
+                )
+            }
             AdaptiveCardGrid(insights: insights)
             if let lastUpdated {
                 LastUpdatedLabel(date: lastUpdated)
@@ -131,6 +147,63 @@ private struct LastUpdatedLabel: View {
         .font(.caption)
         .foregroundStyle(.tertiary)
         .frame(maxWidth: .infinity, alignment: .center)
+    }
+}
+
+// MARK: - Headline Bar Telemetry
+
+private enum HeadlineBarTelemetry {
+    private static let logger = Logger(subsystem: "com.vitalstride", category: "OverviewCard")
+
+    static func recordShown(headlineLength: Int) {
+        logger.info("overview_headline_bar_shown headline_length=\(headlineLength)")
+    }
+
+    static func recordTapped() {
+        logger.info("overview_headline_bar_tapped")
+    }
+}
+
+// MARK: - Headline Bar
+
+private struct HeadlineBar: View {
+    let headline: String
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+
+                Text(headline)
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            Text(
+                "\(headline), \(String(localized: "headline_bar_a11y_hint", defaultValue: "Tap to view update"))"
+            )
+        )
+        .accessibilityAddTraits(.isButton)
+        .onAppear {
+            HeadlineBarTelemetry.recordShown(headlineLength: headline.count)
+        }
     }
 }
 
