@@ -13,6 +13,7 @@ public enum HapticType: CaseIterable, Sendable {
 
 public enum HapticManager {
     #if canImport(UIKit) && !os(macOS)
+    @MainActor
     public static func trigger(_ type: HapticType) {
         switch type {
         case .setCompleted:
@@ -30,6 +31,7 @@ public enum HapticManager {
         }
     }
     #else
+    @MainActor
     public static func trigger(_ type: HapticType) {}
     #endif
 }

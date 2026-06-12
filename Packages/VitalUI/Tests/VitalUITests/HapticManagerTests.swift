@@ -18,6 +18,7 @@ struct HapticManagerTests {
     }
 
     @Test("trigger does not crash for any haptic type", arguments: HapticType.allCases)
+    @MainActor
     func triggerDoesNotCrash(type: HapticType) {
         HapticManager.trigger(type)
     }
