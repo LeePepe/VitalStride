@@ -554,6 +554,8 @@ private struct ActiveExerciseSection: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .foregroundStyle(.secondary)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
             }
