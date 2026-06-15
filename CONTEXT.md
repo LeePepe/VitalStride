@@ -134,6 +134,7 @@ The project uses XcodeGen + local SPM packages. Business logic lives in packages
 | HealthKitService | HealthKitService, HealthDataPoint, HealthKitAnchorStore, HealthSampleType | VitalModels |
 | AIService | AIProvider protocol, ZhipuProvider (智谱 GLM), ChatMessage/ChatResponse models | None |
 | VitalUI | Shared UI components (DataStoreErrorView) | VitalModels |
+| TelemetryKit | TelemetryEvent, TelemetryProvider protocol, ConsoleTelemetryProvider, TelemetryService | None |
 
 ### Rules
 

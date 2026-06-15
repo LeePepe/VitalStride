@@ -1,7 +1,44 @@
+/// A locale-independent identifier for telemetry parameters.
+///
+/// Enforces that all telemetry string values are ASCII-only identifiers,
+/// preventing localized or free-text values from fragmenting analytics.
+/// Non-conforming characters are stripped at construction time.
+public struct TelemetryIdentifier: Sendable, Equatable, Hashable, ExpressibleByStringLiteral {
+    public let rawValue: String
+
+    public init(stringLiteral value: String) {
+        self.rawValue = Self.normalize(value)
+    }
+
+    public init(_ value: String) {
+        self.rawValue = Self.normalize(value)
+    }
+
+    private static func normalize(_ value: String) -> String {
+        var result = ""
+        result.reserveCapacity(value.count)
+        for scalar in value.unicodeScalars {
+            guard scalar.isASCII else { continue }
+            let v = scalar.value
+            let isAllowed =
+                (v >= 0x30 && v <= 0x39)  // 0-9
+                || (v >= 0x41 && v <= 0x5A)  // A-Z
+                || (v >= 0x61 && v <= 0x7A)  // a-z
+                || v == 0x5F  // _
+                || v == 0x2D  // -
+                || v == 0x2E  // .
+            if isAllowed {
+                result.unicodeScalars.append(scalar)
+            }
+        }
+        return result
+    }
+}
+
 /// All telemetry events tracked by VitalStride.
 ///
-/// Parameter string values MUST be locale-independent English identifiers
-/// (e.g. `tab: "workout"`, `sampleType: "heartRate"`), never localized strings.
+/// String-typed parameters use `TelemetryIdentifier` to enforce
+/// locale-independent ASCII identifiers at construction time.
 /// Remote analytics providers aggregate by parameter value — locale-dependent
 /// values would fragment metrics across languages.
 ///
@@ -11,31 +48,31 @@
 public enum TelemetryEvent: Sendable, Equatable {
     // MARK: - Navigation
 
-    case tabSwitched(tab: String)
+    case tabSwitched(tab: TelemetryIdentifier)
     case onboardingCompleted
 
     // MARK: - Workout lifecycle (CONTEXT.md: Workout / WorkoutExercise / ExerciseSet)
 
-    case workoutStarted(source: String)
+    case workoutStarted(source: TelemetryIdentifier)
     case workoutCompleted(durationSeconds: Int, exerciseCount: Int, setCount: Int)
     case workoutDiscarded
-    case exerciseAdded(name: String)
-    case setCompleted(exerciseName: String)
+    case exerciseAdded(name: TelemetryIdentifier)
+    case setCompleted(exerciseName: TelemetryIdentifier)
     case setDeleted
 
     // MARK: - Health data
 
     case healthKitAuthorized
     case healthKitDenied
-    case dataDetailOpened(sampleType: String)
-    case dataImported(format: String)
+    case dataDetailOpened(sampleType: TelemetryIdentifier)
+    case dataImported(format: TelemetryIdentifier)
 
     // MARK: - AI
 
     case aiInsightGenerated(durationMs: Int, cardCount: Int)
-    case aiInsightFailed(errorType: String)
-    case aiAnalysisRequested(sampleType: String)
-    case aiModelChanged(model: String)
+    case aiInsightFailed(errorType: TelemetryIdentifier)
+    case aiAnalysisRequested(sampleType: TelemetryIdentifier)
+    case aiModelChanged(model: TelemetryIdentifier)
     case aiChatMessageSent
 
     // MARK: - Rest timer
@@ -48,7 +85,7 @@ public enum TelemetryEvent: Sendable, Equatable {
 
     case overviewCacheHit
     case overviewCacheMiss
-    case overviewFallbackTriggered(reason: String)
+    case overviewFallbackTriggered(reason: TelemetryIdentifier)
 }
 
 // MARK: - Console formatting
@@ -85,31 +122,31 @@ extension TelemetryEvent {
     public var parameters: [(key: String, value: String)] {
         switch self {
         case .tabSwitched(let tab):
-            [("tab", tab)]
+            [("tab", tab.rawValue)]
         case .workoutStarted(let source):
-            [("source", source)]
+            [("source", source.rawValue)]
         case .workoutCompleted(let duration, let exercises, let sets):
             [("duration_s", "\(duration)"), ("exercises", "\(exercises)"), ("sets", "\(sets)")]
         case .exerciseAdded(let name):
-            [("name", name)]
+            [("name", name.rawValue)]
         case .setCompleted(let exerciseName):
-            [("exercise", exerciseName)]
+            [("exercise", exerciseName.rawValue)]
         case .dataDetailOpened(let sampleType):
-            [("sample_type", sampleType)]
+            [("sample_type", sampleType.rawValue)]
         case .dataImported(let format):
-            [("format", format)]
+            [("format", format.rawValue)]
         case .aiInsightGenerated(let durationMs, let cardCount):
             [("duration_ms", "\(durationMs)"), ("cards", "\(cardCount)")]
         case .aiInsightFailed(let errorType):
-            [("error_type", errorType)]
+            [("error_type", errorType.rawValue)]
         case .aiAnalysisRequested(let sampleType):
-            [("sample_type", sampleType)]
+            [("sample_type", sampleType.rawValue)]
         case .aiModelChanged(let model):
-            [("model", model)]
+            [("model", model.rawValue)]
         case .restTimerStarted(let duration):
             [("duration_s", "\(duration)")]
         case .overviewFallbackTriggered(let reason):
-            [("reason", reason)]
+            [("reason", reason.rawValue)]
         default:
             []
         }
@@ -129,14 +166,26 @@ extension TelemetryEvent {
     private static func sanitize(_ value: String) -> String {
         var result = ""
         result.reserveCapacity(value.count)
-        for char in value {
-            switch char {
-            case "\\": result += "\\\\"
-            case " ": result += "\\_"
-            case "\n": result += "\\n"
-            case "\r": result += "\\r"
-            case "=": result += "\\="
-            default: result.append(char)
+        for scalar in value.unicodeScalars {
+            guard scalar.isASCII else { continue }
+            let v = scalar.value
+            switch v {
+            case 0x5C:  // backslash
+                result += "\\\\"
+            case 0x20:  // space
+                result += "\\_"
+            case 0x0A:  // newline
+                result += "\\n"
+            case 0x0D:  // carriage return
+                result += "\\r"
+            case 0x3D:  // equals
+                result += "\\="
+            case 0x09:  // tab
+                result += "\\t"
+            case 0x00...0x08, 0x0B, 0x0C, 0x0E...0x1F, 0x7F:
+                continue
+            default:
+                result.unicodeScalars.append(scalar)
             }
         }
         return result

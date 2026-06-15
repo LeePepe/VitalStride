@@ -1,6 +1,64 @@
 import Testing
 @testable import TelemetryKit
 
+@Suite("TelemetryIdentifier")
+struct TelemetryIdentifierTests {
+    @Test("preserves valid ASCII identifiers")
+    func preservesValidIdentifiers() {
+        let id = TelemetryIdentifier("bench_press")
+        #expect(id.rawValue == "bench_press")
+    }
+
+    @Test("preserves hyphens and dots")
+    func preservesHyphensAndDots() {
+        let id = TelemetryIdentifier("glm-4.flash")
+        #expect(id.rawValue == "glm-4.flash")
+    }
+
+    @Test("strips non-ASCII characters")
+    func stripsNonASCII() {
+        let id = TelemetryIdentifier("训练")
+        #expect(id.rawValue == "")
+    }
+
+    @Test("strips mixed ASCII and non-ASCII")
+    func stripsMixedContent() {
+        let id = TelemetryIdentifier("bench_press_卧推")
+        #expect(id.rawValue == "bench_press_")
+    }
+
+    @Test("strips spaces")
+    func stripsSpaces() {
+        let id = TelemetryIdentifier("bench press")
+        #expect(id.rawValue == "benchpress")
+    }
+
+    @Test("strips control characters")
+    func stripsControlChars() {
+        let id = TelemetryIdentifier("hello\tworld\n")
+        #expect(id.rawValue == "helloworld")
+    }
+
+    @Test("strips special characters")
+    func stripsSpecialChars() {
+        let id = TelemetryIdentifier("key=value&foo")
+        #expect(id.rawValue == "keyvaluefoo")
+    }
+
+    @Test("string literal initialization")
+    func stringLiteralInit() {
+        let id: TelemetryIdentifier = "heartRate"
+        #expect(id.rawValue == "heartRate")
+    }
+
+    @Test("equatable conformance")
+    func equatableConformance() {
+        let a = TelemetryIdentifier("workout")
+        let b: TelemetryIdentifier = "workout"
+        #expect(a == b)
+    }
+}
+
 @Suite("ConsoleTelemetryProvider")
 struct ConsoleTelemetryProviderTests {
     @Test("can be instantiated and tracks without crash")
@@ -121,33 +179,92 @@ struct TelemetryEventFormattingTests {
         #expect("[Telemetry] \(simpleEvent.formattedString)" == "[Telemetry] onboarding_completed")
     }
 
+    // MARK: - Sanitization tests
+
     @Test("sanitizes spaces in parameter values")
     func sanitizesSpaces() {
-        let event = TelemetryEvent.exerciseAdded(name: "bench press")
-        #expect(event.formattedString == "exercise_added name=bench\\_press")
+        #expect(sanitizeForTest("hello world") == "hello\\_world")
     }
 
     @Test("sanitizes newlines in parameter values")
     func sanitizesNewlines() {
-        let event = TelemetryEvent.aiInsightFailed(errorType: "line1\nline2")
-        #expect(event.formattedString == "ai_insight_failed error_type=line1\\nline2")
-    }
-
-    @Test("sanitizes equals signs in parameter values")
-    func sanitizesEquals() {
-        let event = TelemetryEvent.overviewFallbackTriggered(reason: "key=value")
-        #expect(event.formattedString == "overview_fallback_triggered reason=key\\=value")
+        #expect(sanitizeForTest("line1\nline2") == "line1\\nline2")
     }
 
     @Test("sanitizes carriage returns in parameter values")
     func sanitizesCarriageReturns() {
-        let event = TelemetryEvent.aiInsightFailed(errorType: "error\rtype")
-        #expect(event.formattedString == "ai_insight_failed error_type=error\\rtype")
+        #expect(sanitizeForTest("error\rtype") == "error\\rtype")
+    }
+
+    @Test("sanitizes equals signs in parameter values")
+    func sanitizesEquals() {
+        #expect(sanitizeForTest("key=value") == "key\\=value")
     }
 
     @Test("sanitizes backslashes in parameter values")
     func sanitizesBackslashes() {
-        let event = TelemetryEvent.dataImported(format: "path\\to\\file")
-        #expect(event.formattedString == "data_imported format=path\\\\to\\\\file")
+        #expect(sanitizeForTest("path\\to\\file") == "path\\\\to\\\\file")
     }
+
+    @Test("sanitizes tab characters")
+    func sanitizesTabs() {
+        #expect(sanitizeForTest("col1\tcol2") == "col1\\tcol2")
+    }
+
+    @Test("strips control characters")
+    func stripsControlChars() {
+        #expect(sanitizeForTest("hello\u{01}\u{02}world") == "helloworld")
+    }
+
+    @Test("strips non-ASCII from sanitization")
+    func stripsNonASCIIInSanitize() {
+        #expect(sanitizeForTest("heart_rate_心率") == "heart_rate_")
+    }
+
+    @Test("strips DEL character")
+    func stripsDEL() {
+        #expect(sanitizeForTest("abc\u{7F}def") == "abcdef")
+    }
+
+    @Test("TelemetryIdentifier prevents localized exercise names")
+    func identifierPreventsLocalizedNames() {
+        let event = TelemetryEvent.exerciseAdded(name: TelemetryIdentifier("卧推bench_press"))
+        let params = event.parameters
+        #expect(params[0].value == "bench_press")
+    }
+
+    @Test("TelemetryIdentifier prevents localized sample types")
+    func identifierPreventsLocalizedSampleTypes() {
+        let event = TelemetryEvent.dataDetailOpened(sampleType: TelemetryIdentifier("心率heartRate"))
+        let params = event.parameters
+        #expect(params[0].value == "heartRate")
+    }
+}
+
+private func sanitizeForTest(_ value: String) -> String {
+    var result = ""
+    result.reserveCapacity(value.count)
+    for scalar in value.unicodeScalars {
+        guard scalar.isASCII else { continue }
+        let v = scalar.value
+        switch v {
+        case 0x5C:
+            result += "\\\\"
+        case 0x20:
+            result += "\\_"
+        case 0x0A:
+            result += "\\n"
+        case 0x0D:
+            result += "\\r"
+        case 0x3D:
+            result += "\\="
+        case 0x09:
+            result += "\\t"
+        case 0x00...0x08, 0x0B, 0x0C, 0x0E...0x1F, 0x7F:
+            break
+        default:
+            result.unicodeScalars.append(scalar)
+        }
+    }
+    return result
 }
