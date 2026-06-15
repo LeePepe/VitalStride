@@ -62,8 +62,10 @@ struct ActiveWorkoutView: View {
                 }
             }
             .sheet(isPresented: $showingExercisePicker) {
-                ExercisePickerView { exercise in
-                    addExercise(exercise)
+                ExercisePickerView { exercises in
+                    for exercise in exercises {
+                        addExercise(exercise)
+                    }
                 }
             }
             .sheet(item: $exerciseToReplace) { workoutExercise in
