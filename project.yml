@@ -88,6 +88,7 @@ targets:
       - path: VitalStride/Sources/DataView.swift
       - path: VitalStride/Sources/UserInterestTracker.swift
       - path: VitalStride/Sources/HealthSummaryCards.swift
+      - path: VitalStride/Sources/Extensions/WorkoutActivityType+Display.swift
       - path: VitalStride/Sources/DataSections
       - path: VitalStride/Sources/UnitPreferencesSection.swift
       - path: VitalStride/Sources/AIView.swift
