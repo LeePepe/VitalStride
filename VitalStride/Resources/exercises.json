@@ -5,8 +5,13 @@
     "nameZh": "杠铃卧推",
     "muscleGroup": "chest",
     "equipment": "barbell",
-    "primaryMuscles": ["pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid", "triceps"]
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440002",
@@ -14,8 +19,13 @@
     "nameZh": "上斜杠铃卧推",
     "muscleGroup": "chest",
     "equipment": "barbell",
-    "primaryMuscles": ["upper pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid", "triceps"]
+    "primaryMuscles": [
+      "upper pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440003",
@@ -23,8 +33,13 @@
     "nameZh": "下斜杠铃卧推",
     "muscleGroup": "chest",
     "equipment": "barbell",
-    "primaryMuscles": ["lower pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid", "triceps"]
+    "primaryMuscles": [
+      "lower pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440004",
@@ -32,8 +47,13 @@
     "nameZh": "哑铃卧推",
     "muscleGroup": "chest",
     "equipment": "dumbbell",
-    "primaryMuscles": ["pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid", "triceps"]
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440005",
@@ -41,8 +61,13 @@
     "nameZh": "上斜哑铃卧推",
     "muscleGroup": "chest",
     "equipment": "dumbbell",
-    "primaryMuscles": ["upper pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid", "triceps"]
+    "primaryMuscles": [
+      "upper pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440006",
@@ -50,8 +75,12 @@
     "nameZh": "哑铃飞鸟",
     "muscleGroup": "chest",
     "equipment": "dumbbell",
-    "primaryMuscles": ["pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid"]
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440007",
@@ -59,8 +88,12 @@
     "nameZh": "绳索夹胸",
     "muscleGroup": "chest",
     "equipment": "cable",
-    "primaryMuscles": ["pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid"]
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440008",
@@ -68,8 +101,13 @@
     "nameZh": "器械推胸",
     "muscleGroup": "chest",
     "equipment": "machine",
-    "primaryMuscles": ["pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid", "triceps"]
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440009",
@@ -77,8 +115,13 @@
     "nameZh": "俯卧撑",
     "muscleGroup": "chest",
     "equipment": "bodyweight",
-    "primaryMuscles": ["pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid", "triceps"]
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440010",
@@ -86,8 +129,12 @@
     "nameZh": "蝴蝶机夹胸",
     "muscleGroup": "chest",
     "equipment": "machine",
-    "primaryMuscles": ["pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid"]
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440011",
@@ -95,8 +142,14 @@
     "nameZh": "杠铃俯身划船",
     "muscleGroup": "back",
     "equipment": "barbell",
-    "primaryMuscles": ["latissimus dorsi", "rhomboids"],
-    "secondaryMuscles": ["biceps", "rear deltoid"]
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440012",
@@ -104,8 +157,13 @@
     "nameZh": "单臂哑铃划船",
     "muscleGroup": "back",
     "equipment": "dumbbell",
-    "primaryMuscles": ["latissimus dorsi"],
-    "secondaryMuscles": ["biceps", "rhomboids"]
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rhomboids"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440013",
@@ -113,8 +171,13 @@
     "nameZh": "引体向上",
     "muscleGroup": "back",
     "equipment": "bodyweight",
-    "primaryMuscles": ["latissimus dorsi"],
-    "secondaryMuscles": ["biceps", "rear deltoid"]
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440014",
@@ -122,8 +185,14 @@
     "nameZh": "反握引体向上",
     "muscleGroup": "back",
     "equipment": "bodyweight",
-    "primaryMuscles": ["latissimus dorsi", "biceps"],
-    "secondaryMuscles": ["rear deltoid", "forearms"]
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "rear deltoid",
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440015",
@@ -131,8 +200,13 @@
     "nameZh": "高位下拉",
     "muscleGroup": "back",
     "equipment": "cable",
-    "primaryMuscles": ["latissimus dorsi"],
-    "secondaryMuscles": ["biceps", "rear deltoid"]
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440016",
@@ -140,8 +214,14 @@
     "nameZh": "坐姿绳索划船",
     "muscleGroup": "back",
     "equipment": "cable",
-    "primaryMuscles": ["latissimus dorsi", "rhomboids"],
-    "secondaryMuscles": ["biceps", "rear deltoid"]
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440017",
@@ -149,8 +229,14 @@
     "nameZh": "T杠划船",
     "muscleGroup": "back",
     "equipment": "barbell",
-    "primaryMuscles": ["latissimus dorsi", "rhomboids"],
-    "secondaryMuscles": ["biceps", "rear deltoid"]
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440018",
@@ -158,8 +244,13 @@
     "nameZh": "器械划船",
     "muscleGroup": "back",
     "equipment": "machine",
-    "primaryMuscles": ["latissimus dorsi"],
-    "secondaryMuscles": ["biceps", "rhomboids"]
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rhomboids"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440019",
@@ -167,8 +258,13 @@
     "nameZh": "哑铃仰卧上拉",
     "muscleGroup": "back",
     "equipment": "dumbbell",
-    "primaryMuscles": ["latissimus dorsi"],
-    "secondaryMuscles": ["pectoralis major", "triceps"]
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "pectoralis major",
+      "triceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440020",
@@ -176,8 +272,13 @@
     "nameZh": "直臂下压",
     "muscleGroup": "back",
     "equipment": "cable",
-    "primaryMuscles": ["latissimus dorsi"],
-    "secondaryMuscles": ["triceps", "rear deltoid"]
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "rear deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440021",
@@ -185,8 +286,14 @@
     "nameZh": "杠铃肩上推举",
     "muscleGroup": "shoulders",
     "equipment": "barbell",
-    "primaryMuscles": ["anterior deltoid", "lateral deltoid"],
-    "secondaryMuscles": ["triceps", "upper trapezius"]
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "upper trapezius"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440022",
@@ -194,8 +301,14 @@
     "nameZh": "哑铃肩推",
     "muscleGroup": "shoulders",
     "equipment": "dumbbell",
-    "primaryMuscles": ["anterior deltoid", "lateral deltoid"],
-    "secondaryMuscles": ["triceps", "upper trapezius"]
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "upper trapezius"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440023",
@@ -203,8 +316,13 @@
     "nameZh": "哑铃侧平举",
     "muscleGroup": "shoulders",
     "equipment": "dumbbell",
-    "primaryMuscles": ["lateral deltoid"],
-    "secondaryMuscles": ["anterior deltoid", "upper trapezius"]
+    "primaryMuscles": [
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "upper trapezius"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440024",
@@ -212,8 +330,13 @@
     "nameZh": "哑铃前平举",
     "muscleGroup": "shoulders",
     "equipment": "dumbbell",
-    "primaryMuscles": ["anterior deltoid"],
-    "secondaryMuscles": ["lateral deltoid", "upper trapezius"]
+    "primaryMuscles": [
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "lateral deltoid",
+      "upper trapezius"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440025",
@@ -221,8 +344,13 @@
     "nameZh": "绳索侧平举",
     "muscleGroup": "shoulders",
     "equipment": "cable",
-    "primaryMuscles": ["lateral deltoid"],
-    "secondaryMuscles": ["anterior deltoid", "upper trapezius"]
+    "primaryMuscles": [
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "upper trapezius"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440026",
@@ -230,8 +358,14 @@
     "nameZh": "面拉",
     "muscleGroup": "shoulders",
     "equipment": "cable",
-    "primaryMuscles": ["rear deltoid", "rhomboids"],
-    "secondaryMuscles": ["upper trapezius", "infraspinatus"]
+    "primaryMuscles": [
+      "rear deltoid",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "upper trapezius",
+      "infraspinatus"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440027",
@@ -239,8 +373,14 @@
     "nameZh": "杠铃直立划船",
     "muscleGroup": "shoulders",
     "equipment": "barbell",
-    "primaryMuscles": ["lateral deltoid", "upper trapezius"],
-    "secondaryMuscles": ["anterior deltoid", "biceps"]
+    "primaryMuscles": [
+      "lateral deltoid",
+      "upper trapezius"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "biceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440028",
@@ -248,8 +388,14 @@
     "nameZh": "器械肩推",
     "muscleGroup": "shoulders",
     "equipment": "machine",
-    "primaryMuscles": ["anterior deltoid", "lateral deltoid"],
-    "secondaryMuscles": ["triceps", "upper trapezius"]
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "upper trapezius"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440029",
@@ -257,8 +403,13 @@
     "nameZh": "反向蝴蝶机飞鸟",
     "muscleGroup": "shoulders",
     "equipment": "machine",
-    "primaryMuscles": ["rear deltoid"],
-    "secondaryMuscles": ["rhomboids", "upper trapezius"]
+    "primaryMuscles": [
+      "rear deltoid"
+    ],
+    "secondaryMuscles": [
+      "rhomboids",
+      "upper trapezius"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440030",
@@ -266,8 +417,14 @@
     "nameZh": "杠铃深蹲",
     "muscleGroup": "legs",
     "equipment": "barbell",
-    "primaryMuscles": ["quadriceps", "glutes"],
-    "secondaryMuscles": ["hamstrings", "erector spinae"]
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "erector spinae"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440031",
@@ -275,8 +432,13 @@
     "nameZh": "杠铃前蹲",
     "muscleGroup": "legs",
     "equipment": "barbell",
-    "primaryMuscles": ["quadriceps"],
-    "secondaryMuscles": ["glutes", "erector spinae"]
+    "primaryMuscles": [
+      "quadriceps"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "erector spinae"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440032",
@@ -284,8 +446,14 @@
     "nameZh": "腿举",
     "muscleGroup": "legs",
     "equipment": "machine",
-    "primaryMuscles": ["quadriceps", "glutes"],
-    "secondaryMuscles": ["hamstrings", "calves"]
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "calves"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440033",
@@ -293,8 +461,14 @@
     "nameZh": "哑铃行走弓步",
     "muscleGroup": "legs",
     "equipment": "dumbbell",
-    "primaryMuscles": ["quadriceps", "glutes"],
-    "secondaryMuscles": ["hamstrings", "calves"]
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "calves"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440034",
@@ -302,8 +476,12 @@
     "nameZh": "腿屈伸",
     "muscleGroup": "legs",
     "equipment": "machine",
-    "primaryMuscles": ["quadriceps"],
-    "secondaryMuscles": ["hip flexors"]
+    "primaryMuscles": [
+      "quadriceps"
+    ],
+    "secondaryMuscles": [
+      "hip flexors"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440035",
@@ -311,8 +489,13 @@
     "nameZh": "俯卧腿弯举",
     "muscleGroup": "legs",
     "equipment": "machine",
-    "primaryMuscles": ["hamstrings"],
-    "secondaryMuscles": ["calves", "glutes"]
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "calves",
+      "glutes"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440036",
@@ -320,8 +503,14 @@
     "nameZh": "杠铃罗马尼亚硬拉",
     "muscleGroup": "legs",
     "equipment": "barbell",
-    "primaryMuscles": ["hamstrings", "glutes"],
-    "secondaryMuscles": ["erector spinae", "forearms"]
+    "primaryMuscles": [
+      "hamstrings",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "erector spinae",
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440037",
@@ -329,8 +518,14 @@
     "nameZh": "哑铃罗马尼亚硬拉",
     "muscleGroup": "legs",
     "equipment": "dumbbell",
-    "primaryMuscles": ["hamstrings", "glutes"],
-    "secondaryMuscles": ["erector spinae", "forearms"]
+    "primaryMuscles": [
+      "hamstrings",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "erector spinae",
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440038",
@@ -338,8 +533,14 @@
     "nameZh": "保加利亚分腿蹲",
     "muscleGroup": "legs",
     "equipment": "dumbbell",
-    "primaryMuscles": ["quadriceps", "glutes"],
-    "secondaryMuscles": ["hamstrings", "calves"]
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "calves"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440039",
@@ -347,8 +548,12 @@
     "nameZh": "器械提踵",
     "muscleGroup": "legs",
     "equipment": "machine",
-    "primaryMuscles": ["calves"],
-    "secondaryMuscles": ["tibialis anterior"]
+    "primaryMuscles": [
+      "calves"
+    ],
+    "secondaryMuscles": [
+      "tibialis anterior"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440040",
@@ -356,8 +561,14 @@
     "nameZh": "高脚杯深蹲",
     "muscleGroup": "legs",
     "equipment": "dumbbell",
-    "primaryMuscles": ["quadriceps", "glutes"],
-    "secondaryMuscles": ["hamstrings", "erector spinae"]
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "erector spinae"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440041",
@@ -365,8 +576,13 @@
     "nameZh": "杠铃臀推",
     "muscleGroup": "legs",
     "equipment": "barbell",
-    "primaryMuscles": ["glutes"],
-    "secondaryMuscles": ["hamstrings", "quadriceps"]
+    "primaryMuscles": [
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "quadriceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440042",
@@ -374,8 +590,13 @@
     "nameZh": "绳索体前屈",
     "muscleGroup": "legs",
     "equipment": "cable",
-    "primaryMuscles": ["glutes", "hamstrings"],
-    "secondaryMuscles": ["erector spinae"]
+    "primaryMuscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "erector spinae"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440043",
@@ -383,8 +604,13 @@
     "nameZh": "杠铃弯举",
     "muscleGroup": "arms",
     "equipment": "barbell",
-    "primaryMuscles": ["biceps"],
-    "secondaryMuscles": ["brachialis", "forearms"]
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "brachialis",
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440044",
@@ -392,8 +618,13 @@
     "nameZh": "哑铃弯举",
     "muscleGroup": "arms",
     "equipment": "dumbbell",
-    "primaryMuscles": ["biceps"],
-    "secondaryMuscles": ["brachialis", "forearms"]
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "brachialis",
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440045",
@@ -401,8 +632,13 @@
     "nameZh": "锤式弯举",
     "muscleGroup": "arms",
     "equipment": "dumbbell",
-    "primaryMuscles": ["biceps", "brachialis"],
-    "secondaryMuscles": ["forearms"]
+    "primaryMuscles": [
+      "biceps",
+      "brachialis"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440046",
@@ -410,8 +646,13 @@
     "nameZh": "绳索弯举",
     "muscleGroup": "arms",
     "equipment": "cable",
-    "primaryMuscles": ["biceps"],
-    "secondaryMuscles": ["brachialis", "forearms"]
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "brachialis",
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440047",
@@ -419,8 +660,13 @@
     "nameZh": "窄握卧推",
     "muscleGroup": "arms",
     "equipment": "barbell",
-    "primaryMuscles": ["triceps"],
-    "secondaryMuscles": ["pectoralis major", "anterior deltoid"]
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "pectoralis major",
+      "anterior deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440048",
@@ -428,8 +674,12 @@
     "nameZh": "绳索下压",
     "muscleGroup": "arms",
     "equipment": "cable",
-    "primaryMuscles": ["triceps"],
-    "secondaryMuscles": ["forearms"]
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440049",
@@ -437,8 +687,12 @@
     "nameZh": "哑铃过头臂屈伸",
     "muscleGroup": "arms",
     "equipment": "dumbbell",
-    "primaryMuscles": ["triceps"],
-    "secondaryMuscles": ["anterior deltoid"]
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440050",
@@ -446,8 +700,13 @@
     "nameZh": "双杠臂屈伸",
     "muscleGroup": "arms",
     "equipment": "bodyweight",
-    "primaryMuscles": ["triceps"],
-    "secondaryMuscles": ["pectoralis major", "anterior deltoid"]
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "pectoralis major",
+      "anterior deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440051",
@@ -455,8 +714,13 @@
     "nameZh": "牧师弯举",
     "muscleGroup": "arms",
     "equipment": "barbell",
-    "primaryMuscles": ["biceps"],
-    "secondaryMuscles": ["brachialis", "forearms"]
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "brachialis",
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440052",
@@ -464,8 +728,14 @@
     "nameZh": "平板支撑",
     "muscleGroup": "core",
     "equipment": "bodyweight",
-    "primaryMuscles": ["rectus abdominis", "transverse abdominis"],
-    "secondaryMuscles": ["obliques", "erector spinae"]
+    "primaryMuscles": [
+      "rectus abdominis",
+      "transverse abdominis"
+    ],
+    "secondaryMuscles": [
+      "obliques",
+      "erector spinae"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440053",
@@ -473,8 +743,12 @@
     "nameZh": "卷腹",
     "muscleGroup": "core",
     "equipment": "bodyweight",
-    "primaryMuscles": ["rectus abdominis"],
-    "secondaryMuscles": ["obliques"]
+    "primaryMuscles": [
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "obliques"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440054",
@@ -482,8 +756,12 @@
     "nameZh": "绳索卷腹",
     "muscleGroup": "core",
     "equipment": "cable",
-    "primaryMuscles": ["rectus abdominis"],
-    "secondaryMuscles": ["obliques"]
+    "primaryMuscles": [
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "obliques"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440055",
@@ -491,8 +769,13 @@
     "nameZh": "悬垂举腿",
     "muscleGroup": "core",
     "equipment": "bodyweight",
-    "primaryMuscles": ["rectus abdominis", "hip flexors"],
-    "secondaryMuscles": ["obliques"]
+    "primaryMuscles": [
+      "rectus abdominis",
+      "hip flexors"
+    ],
+    "secondaryMuscles": [
+      "obliques"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440056",
@@ -500,8 +783,13 @@
     "nameZh": "俄罗斯转体",
     "muscleGroup": "core",
     "equipment": "bodyweight",
-    "primaryMuscles": ["obliques"],
-    "secondaryMuscles": ["rectus abdominis", "hip flexors"]
+    "primaryMuscles": [
+      "obliques"
+    ],
+    "secondaryMuscles": [
+      "rectus abdominis",
+      "hip flexors"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440057",
@@ -509,8 +797,13 @@
     "nameZh": "健腹轮",
     "muscleGroup": "core",
     "equipment": "bodyweight",
-    "primaryMuscles": ["rectus abdominis"],
-    "secondaryMuscles": ["obliques", "latissimus dorsi"]
+    "primaryMuscles": [
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "obliques",
+      "latissimus dorsi"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440058",
@@ -518,8 +811,13 @@
     "nameZh": "绳索伐木",
     "muscleGroup": "core",
     "equipment": "cable",
-    "primaryMuscles": ["obliques"],
-    "secondaryMuscles": ["rectus abdominis", "anterior deltoid"]
+    "primaryMuscles": [
+      "obliques"
+    ],
+    "secondaryMuscles": [
+      "rectus abdominis",
+      "anterior deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440059",
@@ -527,8 +825,16 @@
     "nameZh": "传统硬拉",
     "muscleGroup": "fullBody",
     "equipment": "barbell",
-    "primaryMuscles": ["glutes", "hamstrings", "erector spinae"],
-    "secondaryMuscles": ["quadriceps", "trapezius", "forearms"]
+    "primaryMuscles": [
+      "glutes",
+      "hamstrings",
+      "erector spinae"
+    ],
+    "secondaryMuscles": [
+      "quadriceps",
+      "trapezius",
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440060",
@@ -536,8 +842,16 @@
     "nameZh": "翻杠",
     "muscleGroup": "fullBody",
     "equipment": "barbell",
-    "primaryMuscles": ["glutes", "hamstrings", "trapezius"],
-    "secondaryMuscles": ["quadriceps", "erector spinae", "anterior deltoid"]
+    "primaryMuscles": [
+      "glutes",
+      "hamstrings",
+      "trapezius"
+    ],
+    "secondaryMuscles": [
+      "quadriceps",
+      "erector spinae",
+      "anterior deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440061",
@@ -545,8 +859,15 @@
     "nameZh": "杠铃推举深蹲",
     "muscleGroup": "fullBody",
     "equipment": "barbell",
-    "primaryMuscles": ["quadriceps", "anterior deltoid"],
-    "secondaryMuscles": ["glutes", "triceps", "erector spinae"]
+    "primaryMuscles": [
+      "quadriceps",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "triceps",
+      "erector spinae"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440062",
@@ -554,8 +875,15 @@
     "nameZh": "波比跳",
     "muscleGroup": "fullBody",
     "equipment": "bodyweight",
-    "primaryMuscles": ["quadriceps", "pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid", "triceps", "glutes"]
+    "primaryMuscles": [
+      "quadriceps",
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps",
+      "glutes"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440063",
@@ -563,8 +891,16 @@
     "nameZh": "哑铃综合训练",
     "muscleGroup": "fullBody",
     "equipment": "dumbbell",
-    "primaryMuscles": ["pectoralis major", "anterior deltoid", "quadriceps"],
-    "secondaryMuscles": ["triceps", "glutes", "erector spinae"]
+    "primaryMuscles": [
+      "pectoralis major",
+      "anterior deltoid",
+      "quadriceps"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "glutes",
+      "erector spinae"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440064",
@@ -572,8 +908,12 @@
     "nameZh": "上斜哑铃飞鸟",
     "muscleGroup": "chest",
     "equipment": "dumbbell",
-    "primaryMuscles": ["upper pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid"]
+    "primaryMuscles": [
+      "upper pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440065",
@@ -581,8 +921,13 @@
     "nameZh": "下斜哑铃卧推",
     "muscleGroup": "chest",
     "equipment": "dumbbell",
-    "primaryMuscles": ["lower pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid", "triceps"]
+    "primaryMuscles": [
+      "lower pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440066",
@@ -590,8 +935,12 @@
     "nameZh": "低位绳索飞鸟",
     "muscleGroup": "chest",
     "equipment": "cable",
-    "primaryMuscles": ["upper pectoralis major"],
-    "secondaryMuscles": ["anterior deltoid"]
+    "primaryMuscles": [
+      "upper pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440067",
@@ -599,8 +948,14 @@
     "nameZh": "地雷管推举",
     "muscleGroup": "chest",
     "equipment": "barbell",
-    "primaryMuscles": ["upper pectoralis major", "anterior deltoid"],
-    "secondaryMuscles": ["triceps", "serratus anterior"]
+    "primaryMuscles": [
+      "upper pectoralis major",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "serratus anterior"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440068",
@@ -608,8 +963,14 @@
     "nameZh": "潘德莱划船",
     "muscleGroup": "back",
     "equipment": "barbell",
-    "primaryMuscles": ["latissimus dorsi", "rhomboids"],
-    "secondaryMuscles": ["biceps", "erector spinae"]
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "erector spinae"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440069",
@@ -617,8 +978,14 @@
     "nameZh": "反向划船",
     "muscleGroup": "back",
     "equipment": "bodyweight",
-    "primaryMuscles": ["latissimus dorsi", "rhomboids"],
-    "secondaryMuscles": ["biceps", "rear deltoid"]
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440070",
@@ -626,8 +993,14 @@
     "nameZh": "宽握高位下拉",
     "muscleGroup": "back",
     "equipment": "cable",
-    "primaryMuscles": ["latissimus dorsi"],
-    "secondaryMuscles": ["biceps", "rear deltoid", "rhomboids"]
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid",
+      "rhomboids"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440071",
@@ -635,8 +1008,14 @@
     "nameZh": "梅多斯划船",
     "muscleGroup": "back",
     "equipment": "barbell",
-    "primaryMuscles": ["latissimus dorsi"],
-    "secondaryMuscles": ["biceps", "rear deltoid", "rhomboids"]
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid",
+      "rhomboids"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440072",
@@ -644,8 +1023,14 @@
     "nameZh": "阿诺德推举",
     "muscleGroup": "shoulders",
     "equipment": "dumbbell",
-    "primaryMuscles": ["anterior deltoid", "lateral deltoid"],
-    "secondaryMuscles": ["triceps", "upper trapezius"]
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "upper trapezius"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440073",
@@ -653,8 +1038,13 @@
     "nameZh": "杠铃耸肩",
     "muscleGroup": "shoulders",
     "equipment": "barbell",
-    "primaryMuscles": ["upper trapezius"],
-    "secondaryMuscles": ["lateral deltoid", "rhomboids"]
+    "primaryMuscles": [
+      "upper trapezius"
+    ],
+    "secondaryMuscles": [
+      "lateral deltoid",
+      "rhomboids"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440074",
@@ -662,8 +1052,13 @@
     "nameZh": "哑铃耸肩",
     "muscleGroup": "shoulders",
     "equipment": "dumbbell",
-    "primaryMuscles": ["upper trapezius"],
-    "secondaryMuscles": ["lateral deltoid", "rhomboids"]
+    "primaryMuscles": [
+      "upper trapezius"
+    ],
+    "secondaryMuscles": [
+      "lateral deltoid",
+      "rhomboids"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440075",
@@ -671,8 +1066,13 @@
     "nameZh": "绳索反向飞鸟",
     "muscleGroup": "shoulders",
     "equipment": "cable",
-    "primaryMuscles": ["rear deltoid"],
-    "secondaryMuscles": ["rhomboids", "upper trapezius"]
+    "primaryMuscles": [
+      "rear deltoid"
+    ],
+    "secondaryMuscles": [
+      "rhomboids",
+      "upper trapezius"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440076",
@@ -680,8 +1080,13 @@
     "nameZh": "Lu式侧平举",
     "muscleGroup": "shoulders",
     "equipment": "dumbbell",
-    "primaryMuscles": ["lateral deltoid", "anterior deltoid"],
-    "secondaryMuscles": ["upper trapezius"]
+    "primaryMuscles": [
+      "lateral deltoid",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "upper trapezius"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440077",
@@ -689,8 +1094,13 @@
     "nameZh": "坐姿腿弯举",
     "muscleGroup": "legs",
     "equipment": "machine",
-    "primaryMuscles": ["hamstrings"],
-    "secondaryMuscles": ["calves", "glutes"]
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "calves",
+      "glutes"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440078",
@@ -698,8 +1108,14 @@
     "nameZh": "哈克深蹲",
     "muscleGroup": "legs",
     "equipment": "machine",
-    "primaryMuscles": ["quadriceps", "glutes"],
-    "secondaryMuscles": ["hamstrings", "calves"]
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "calves"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440079",
@@ -707,8 +1123,14 @@
     "nameZh": "哑铃登台阶",
     "muscleGroup": "legs",
     "equipment": "dumbbell",
-    "primaryMuscles": ["quadriceps", "glutes"],
-    "secondaryMuscles": ["hamstrings", "calves"]
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "calves"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440080",
@@ -716,8 +1138,15 @@
     "nameZh": "相扑硬拉",
     "muscleGroup": "legs",
     "equipment": "barbell",
-    "primaryMuscles": ["glutes", "hamstrings", "quadriceps"],
-    "secondaryMuscles": ["erector spinae", "forearms"]
+    "primaryMuscles": [
+      "glutes",
+      "hamstrings",
+      "quadriceps"
+    ],
+    "secondaryMuscles": [
+      "erector spinae",
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440081",
@@ -725,8 +1154,13 @@
     "nameZh": "集中弯举",
     "muscleGroup": "arms",
     "equipment": "dumbbell",
-    "primaryMuscles": ["biceps"],
-    "secondaryMuscles": ["brachialis", "forearms"]
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "brachialis",
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440082",
@@ -734,8 +1168,13 @@
     "nameZh": "曲杆弯举",
     "muscleGroup": "arms",
     "equipment": "barbell",
-    "primaryMuscles": ["biceps"],
-    "secondaryMuscles": ["brachialis", "forearms"]
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "brachialis",
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440083",
@@ -743,8 +1182,12 @@
     "nameZh": "仰卧臂屈伸",
     "muscleGroup": "arms",
     "equipment": "barbell",
-    "primaryMuscles": ["triceps"],
-    "secondaryMuscles": ["anterior deltoid"]
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440084",
@@ -752,8 +1195,12 @@
     "nameZh": "哑铃后踢臂屈伸",
     "muscleGroup": "arms",
     "equipment": "dumbbell",
-    "primaryMuscles": ["triceps"],
-    "secondaryMuscles": ["rear deltoid"]
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "rear deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440085",
@@ -761,8 +1208,13 @@
     "nameZh": "反握弯举",
     "muscleGroup": "arms",
     "equipment": "barbell",
-    "primaryMuscles": ["brachialis", "forearms"],
-    "secondaryMuscles": ["biceps"]
+    "primaryMuscles": [
+      "brachialis",
+      "forearms"
+    ],
+    "secondaryMuscles": [
+      "biceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440086",
@@ -770,8 +1222,12 @@
     "nameZh": "绳索过头臂屈伸",
     "muscleGroup": "arms",
     "equipment": "cable",
-    "primaryMuscles": ["triceps"],
-    "secondaryMuscles": ["anterior deltoid"]
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440087",
@@ -779,8 +1235,14 @@
     "nameZh": "帕洛夫推",
     "muscleGroup": "core",
     "equipment": "cable",
-    "primaryMuscles": ["obliques", "transverse abdominis"],
-    "secondaryMuscles": ["rectus abdominis", "glutes"]
+    "primaryMuscles": [
+      "obliques",
+      "transverse abdominis"
+    ],
+    "secondaryMuscles": [
+      "rectus abdominis",
+      "glutes"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440088",
@@ -788,8 +1250,13 @@
     "nameZh": "自行车卷腹",
     "muscleGroup": "core",
     "equipment": "bodyweight",
-    "primaryMuscles": ["rectus abdominis", "obliques"],
-    "secondaryMuscles": ["hip flexors"]
+    "primaryMuscles": [
+      "rectus abdominis",
+      "obliques"
+    ],
+    "secondaryMuscles": [
+      "hip flexors"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440089",
@@ -797,8 +1264,14 @@
     "nameZh": "死虫式",
     "muscleGroup": "core",
     "equipment": "bodyweight",
-    "primaryMuscles": ["transverse abdominis", "rectus abdominis"],
-    "secondaryMuscles": ["hip flexors", "erector spinae"]
+    "primaryMuscles": [
+      "transverse abdominis",
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "hip flexors",
+      "erector spinae"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440090",
@@ -806,8 +1279,13 @@
     "nameZh": "侧平板支撑",
     "muscleGroup": "core",
     "equipment": "bodyweight",
-    "primaryMuscles": ["obliques"],
-    "secondaryMuscles": ["transverse abdominis", "glutes"]
+    "primaryMuscles": [
+      "obliques"
+    ],
+    "secondaryMuscles": [
+      "transverse abdominis",
+      "glutes"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440091",
@@ -815,8 +1293,13 @@
     "nameZh": "下斜仰卧起坐",
     "muscleGroup": "core",
     "equipment": "bodyweight",
-    "primaryMuscles": ["rectus abdominis"],
-    "secondaryMuscles": ["obliques", "hip flexors"]
+    "primaryMuscles": [
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "obliques",
+      "hip flexors"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440092",
@@ -824,8 +1307,14 @@
     "nameZh": "登山者",
     "muscleGroup": "core",
     "equipment": "bodyweight",
-    "primaryMuscles": ["rectus abdominis", "hip flexors"],
-    "secondaryMuscles": ["obliques", "quadriceps"]
+    "primaryMuscles": [
+      "rectus abdominis",
+      "hip flexors"
+    ],
+    "secondaryMuscles": [
+      "obliques",
+      "quadriceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440093",
@@ -833,8 +1322,16 @@
     "nameZh": "悬垂翻",
     "muscleGroup": "fullBody",
     "equipment": "barbell",
-    "primaryMuscles": ["glutes", "hamstrings", "trapezius"],
-    "secondaryMuscles": ["quadriceps", "erector spinae", "forearms"]
+    "primaryMuscles": [
+      "glutes",
+      "hamstrings",
+      "trapezius"
+    ],
+    "secondaryMuscles": [
+      "quadriceps",
+      "erector spinae",
+      "forearms"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440094",
@@ -842,8 +1339,16 @@
     "nameZh": "借力推举",
     "muscleGroup": "fullBody",
     "equipment": "barbell",
-    "primaryMuscles": ["anterior deltoid", "quadriceps", "glutes"],
-    "secondaryMuscles": ["triceps", "erector spinae", "upper trapezius"]
+    "primaryMuscles": [
+      "anterior deltoid",
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "erector spinae",
+      "upper trapezius"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440095",
@@ -851,8 +1356,16 @@
     "nameZh": "土耳其起立",
     "muscleGroup": "fullBody",
     "equipment": "dumbbell",
-    "primaryMuscles": ["anterior deltoid", "glutes", "quadriceps"],
-    "secondaryMuscles": ["obliques", "triceps", "hamstrings"]
+    "primaryMuscles": [
+      "anterior deltoid",
+      "glutes",
+      "quadriceps"
+    ],
+    "secondaryMuscles": [
+      "obliques",
+      "triceps",
+      "hamstrings"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440096",
@@ -860,8 +1373,16 @@
     "nameZh": "翻站推举",
     "muscleGroup": "fullBody",
     "equipment": "barbell",
-    "primaryMuscles": ["anterior deltoid", "glutes", "trapezius"],
-    "secondaryMuscles": ["quadriceps", "triceps", "erector spinae"]
+    "primaryMuscles": [
+      "anterior deltoid",
+      "glutes",
+      "trapezius"
+    ],
+    "secondaryMuscles": [
+      "quadriceps",
+      "triceps",
+      "erector spinae"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440097",
@@ -869,8 +1390,15 @@
     "nameZh": "农夫行走",
     "muscleGroup": "fullBody",
     "equipment": "dumbbell",
-    "primaryMuscles": ["forearms", "upper trapezius"],
-    "secondaryMuscles": ["erector spinae", "obliques", "quadriceps"]
+    "primaryMuscles": [
+      "forearms",
+      "upper trapezius"
+    ],
+    "secondaryMuscles": [
+      "erector spinae",
+      "obliques",
+      "quadriceps"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440098",
@@ -878,8 +1406,16 @@
     "nameZh": "哑铃抓举",
     "muscleGroup": "fullBody",
     "equipment": "dumbbell",
-    "primaryMuscles": ["anterior deltoid", "glutes", "hamstrings"],
-    "secondaryMuscles": ["quadriceps", "trapezius", "erector spinae"]
+    "primaryMuscles": [
+      "anterior deltoid",
+      "glutes",
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "quadriceps",
+      "trapezius",
+      "erector spinae"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440099",
@@ -887,8 +1423,15 @@
     "nameZh": "熊爬",
     "muscleGroup": "fullBody",
     "equipment": "bodyweight",
-    "primaryMuscles": ["anterior deltoid", "quadriceps"],
-    "secondaryMuscles": ["rectus abdominis", "triceps", "glutes"]
+    "primaryMuscles": [
+      "anterior deltoid",
+      "quadriceps"
+    ],
+    "secondaryMuscles": [
+      "rectus abdominis",
+      "triceps",
+      "glutes"
+    ]
   },
   {
     "id": "550e8400-e29b-41d4-a716-446655440100",
@@ -896,7 +1439,2810 @@
     "nameZh": "过头深蹲",
     "muscleGroup": "fullBody",
     "equipment": "barbell",
-    "primaryMuscles": ["quadriceps", "anterior deltoid", "glutes"],
-    "secondaryMuscles": ["erector spinae", "upper trapezius", "rectus abdominis"]
+    "primaryMuscles": [
+      "quadriceps",
+      "anterior deltoid",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "erector spinae",
+      "upper trapezius",
+      "rectus abdominis"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440101",
+    "nameEn": "Diamond Push-Up",
+    "nameZh": "钻石俯卧撑",
+    "muscleGroup": "chest",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "pectoralis major",
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440102",
+    "nameEn": "Wide Push-Up",
+    "nameZh": "宽距俯卧撑",
+    "muscleGroup": "chest",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440103",
+    "nameEn": "Decline Push-Up",
+    "nameZh": "下斜俯卧撑",
+    "muscleGroup": "chest",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "upper pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440104",
+    "nameEn": "Clap Push-Up",
+    "nameZh": "击掌俯卧撑",
+    "muscleGroup": "chest",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440105",
+    "nameEn": "Archer Push-Up",
+    "nameZh": "弓箭手俯卧撑",
+    "muscleGroup": "chest",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440106",
+    "nameEn": "Pike Push-Up",
+    "nameZh": "屈体俯卧撑",
+    "muscleGroup": "chest",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "upper pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440107",
+    "nameEn": "Spiderman Push-Up",
+    "nameZh": "蜘蛛人俯卧撑",
+    "muscleGroup": "chest",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440108",
+    "nameEn": "Smith Machine Bench Press",
+    "nameZh": "史密斯卧推",
+    "muscleGroup": "chest",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440109",
+    "nameEn": "Smith Machine Incline Press",
+    "nameZh": "史密斯上斜卧推",
+    "muscleGroup": "chest",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "upper pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440110",
+    "nameEn": "Machine Incline Chest Press",
+    "nameZh": "器械上斜推胸",
+    "muscleGroup": "chest",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "upper pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440111",
+    "nameEn": "Machine Pec Fly",
+    "nameZh": "器械飞鸟",
+    "muscleGroup": "chest",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440112",
+    "nameEn": "Barbell Floor Press",
+    "nameZh": "杠铃地板卧推",
+    "muscleGroup": "chest",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "pectoralis major",
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440113",
+    "nameEn": "Dumbbell Floor Press",
+    "nameZh": "哑铃地板卧推",
+    "muscleGroup": "chest",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "pectoralis major",
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440114",
+    "nameEn": "Dumbbell Squeeze Press",
+    "nameZh": "哑铃挤压卧推",
+    "muscleGroup": "chest",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440115",
+    "nameEn": "Close-Grip Dumbbell Press",
+    "nameZh": "窄握哑铃卧推",
+    "muscleGroup": "chest",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "pectoralis major",
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440116",
+    "nameEn": "High Cable Fly",
+    "nameZh": "高位绳索飞鸟",
+    "muscleGroup": "chest",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "lower pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440117",
+    "nameEn": "Incline Cable Fly",
+    "nameZh": "上斜绳索飞鸟",
+    "muscleGroup": "chest",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "upper pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440118",
+    "nameEn": "Single-Arm Cable Fly",
+    "nameZh": "单臂绳索飞鸟",
+    "muscleGroup": "chest",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440119",
+    "nameEn": "Svend Press",
+    "nameZh": "斯文德推胸",
+    "muscleGroup": "chest",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440120",
+    "nameEn": "Kettlebell Floor Press",
+    "nameZh": "壶铃地板卧推",
+    "muscleGroup": "chest",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440121",
+    "nameEn": "Dumbbell Around the World",
+    "nameZh": "哑铃环绕飞鸟",
+    "muscleGroup": "chest",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440122",
+    "nameEn": "Barbell Guillotine Press",
+    "nameZh": "杠铃颈前卧推",
+    "muscleGroup": "chest",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "upper pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440123",
+    "nameEn": "Plate Press-Out",
+    "nameZh": "杠铃片前推",
+    "muscleGroup": "chest",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440124",
+    "nameEn": "Cable Crossover (Low to High)",
+    "nameZh": "低位绳索夹胸",
+    "muscleGroup": "chest",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "upper pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440125",
+    "nameEn": "Decline Machine Press",
+    "nameZh": "下斜器械推胸",
+    "muscleGroup": "chest",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "lower pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440126",
+    "nameEn": "Isometric Push-Up Hold",
+    "nameZh": "俯卧撑等长支撑",
+    "muscleGroup": "chest",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440127",
+    "nameEn": "Incline Barbell Close-Grip Press",
+    "nameZh": "上斜窄握杠铃卧推",
+    "muscleGroup": "chest",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "upper pectoralis major",
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440128",
+    "nameEn": "Deficit Push-Up",
+    "nameZh": "垫高俯卧撑",
+    "muscleGroup": "chest",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440129",
+    "nameEn": "Barbell Deadlift Row",
+    "nameZh": "杠铃硬拉划船",
+    "muscleGroup": "back",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "erector spinae"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440130",
+    "nameEn": "Close-Grip Lat Pulldown",
+    "nameZh": "窄握高位下拉",
+    "muscleGroup": "back",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rhomboids"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440131",
+    "nameEn": "Reverse-Grip Lat Pulldown",
+    "nameZh": "反握高位下拉",
+    "muscleGroup": "back",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "rhomboids"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440132",
+    "nameEn": "Single-Arm Lat Pulldown",
+    "nameZh": "单臂高位下拉",
+    "muscleGroup": "back",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440133",
+    "nameEn": "Cable Face Pull (Back)",
+    "nameZh": "绳索面拉（背部）",
+    "muscleGroup": "back",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "rhomboids",
+      "rear deltoid"
+    ],
+    "secondaryMuscles": [
+      "upper trapezius"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440134",
+    "nameEn": "Machine Lat Pulldown",
+    "nameZh": "器械高位下拉",
+    "muscleGroup": "back",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440135",
+    "nameEn": "Machine Rear Delt Row",
+    "nameZh": "器械反向划船",
+    "muscleGroup": "back",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "rhomboids",
+      "rear deltoid"
+    ],
+    "secondaryMuscles": [
+      "upper trapezius"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440136",
+    "nameEn": "Smith Machine Bent-Over Row",
+    "nameZh": "史密斯俯身划船",
+    "muscleGroup": "back",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440137",
+    "nameEn": "Chest-Supported Dumbbell Row",
+    "nameZh": "俯身支撑哑铃划船",
+    "muscleGroup": "back",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440138",
+    "nameEn": "Seal Row",
+    "nameZh": "海豹划船",
+    "muscleGroup": "back",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440139",
+    "nameEn": "Barbell Shrug (Back)",
+    "nameZh": "杠铃耸肩（背部）",
+    "muscleGroup": "back",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "upper trapezius",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "rear deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440140",
+    "nameEn": "Dumbbell Rear Delt Row",
+    "nameZh": "哑铃后三角划船",
+    "muscleGroup": "back",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "rear deltoid",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "upper trapezius"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440141",
+    "nameEn": "Cable Straight-Arm Pulldown",
+    "nameZh": "绳索直臂下拉",
+    "muscleGroup": "back",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "rear deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440142",
+    "nameEn": "Barbell Rack Pull",
+    "nameZh": "杠铃架上硬拉",
+    "muscleGroup": "back",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "erector spinae",
+      "upper trapezius"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "latissimus dorsi"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440143",
+    "nameEn": "Kettlebell Row",
+    "nameZh": "壶铃划船",
+    "muscleGroup": "back",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440144",
+    "nameEn": "Kettlebell Renegade Row",
+    "nameZh": "壶铃交替划船",
+    "muscleGroup": "back",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "core",
+      "biceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440145",
+    "nameEn": "Dumbbell Prone Y Raise",
+    "nameZh": "哑铃俯卧Y举",
+    "muscleGroup": "back",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "lower trapezius",
+      "rear deltoid"
+    ],
+    "secondaryMuscles": [
+      "rhomboids"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440146",
+    "nameEn": "Dumbbell Prone T Raise",
+    "nameZh": "哑铃俯卧T举",
+    "muscleGroup": "back",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "rhomboids",
+      "rear deltoid"
+    ],
+    "secondaryMuscles": [
+      "lower trapezius"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440147",
+    "nameEn": "Single-Arm Cable Row",
+    "nameZh": "单臂绳索划船",
+    "muscleGroup": "back",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rhomboids"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440148",
+    "nameEn": "Wide-Grip Seated Cable Row",
+    "nameZh": "宽握坐姿划船",
+    "muscleGroup": "back",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "rhomboids",
+      "rear deltoid"
+    ],
+    "secondaryMuscles": [
+      "latissimus dorsi"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440149",
+    "nameEn": "Machine High Row",
+    "nameZh": "器械高位划船",
+    "muscleGroup": "back",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440150",
+    "nameEn": "Bodyweight Back Extension",
+    "nameZh": "自重背伸展",
+    "muscleGroup": "back",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "erector spinae"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440151",
+    "nameEn": "Superman Hold",
+    "nameZh": "超人支撑",
+    "muscleGroup": "back",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "erector spinae"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "rear deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440152",
+    "nameEn": "Dumbbell Gorilla Row",
+    "nameZh": "哑铃大猩猩划船",
+    "muscleGroup": "back",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rhomboids"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440153",
+    "nameEn": "Barbell Yates Row",
+    "nameZh": "耶茨划船",
+    "muscleGroup": "back",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "rhomboids"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440154",
+    "nameEn": "Kettlebell Swing Row",
+    "nameZh": "壶铃摆荡划船",
+    "muscleGroup": "back",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440155",
+    "nameEn": "Neutral-Grip Pull-Up",
+    "nameZh": "对握引体向上",
+    "muscleGroup": "back",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440156",
+    "nameEn": "Wide-Grip Pull-Up",
+    "nameZh": "宽握引体向上",
+    "muscleGroup": "back",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "latissimus dorsi"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440157",
+    "nameEn": "Dumbbell Rear Delt Fly",
+    "nameZh": "哑铃反向飞鸟",
+    "muscleGroup": "shoulders",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "rear deltoid"
+    ],
+    "secondaryMuscles": [
+      "rhomboids",
+      "upper trapezius"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440158",
+    "nameEn": "Barbell Behind-the-Neck Press",
+    "nameZh": "杠铃颈后推举",
+    "muscleGroup": "shoulders",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440159",
+    "nameEn": "Smith Machine Overhead Press",
+    "nameZh": "史密斯肩上推举",
+    "muscleGroup": "shoulders",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440160",
+    "nameEn": "Machine Lateral Raise",
+    "nameZh": "器械侧平举",
+    "muscleGroup": "shoulders",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "upper trapezius"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440161",
+    "nameEn": "Cable Front Raise",
+    "nameZh": "绳索前平举",
+    "muscleGroup": "shoulders",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "lateral deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440162",
+    "nameEn": "Cable Upright Row",
+    "nameZh": "绳索直立划船",
+    "muscleGroup": "shoulders",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "lateral deltoid",
+      "upper trapezius"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440163",
+    "nameEn": "Dumbbell W Press",
+    "nameZh": "哑铃W推举",
+    "muscleGroup": "shoulders",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "upper trapezius"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440164",
+    "nameEn": "Barbell Z Press",
+    "nameZh": "杠铃Z推举",
+    "muscleGroup": "shoulders",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440165",
+    "nameEn": "Plate Front Raise",
+    "nameZh": "杠铃片前平举",
+    "muscleGroup": "shoulders",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "lateral deltoid",
+      "upper trapezius"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440166",
+    "nameEn": "Kettlebell Press",
+    "nameZh": "壶铃推举",
+    "muscleGroup": "shoulders",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "upper trapezius"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440167",
+    "nameEn": "Kettlebell Halo",
+    "nameZh": "壶铃光环",
+    "muscleGroup": "shoulders",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "lateral deltoid",
+      "rear deltoid"
+    ],
+    "secondaryMuscles": [
+      "upper trapezius",
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440168",
+    "nameEn": "Kettlebell Bottoms-Up Press",
+    "nameZh": "壶铃倒置推举",
+    "muscleGroup": "shoulders",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "forearms",
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440169",
+    "nameEn": "Kettlebell Upright Row",
+    "nameZh": "壶铃直立划船",
+    "muscleGroup": "shoulders",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "lateral deltoid",
+      "upper trapezius"
+    ],
+    "secondaryMuscles": [
+      "biceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440170",
+    "nameEn": "Kettlebell Lateral Raise",
+    "nameZh": "壶铃侧平举",
+    "muscleGroup": "shoulders",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440171",
+    "nameEn": "Dumbbell Prone Reverse Fly",
+    "nameZh": "哑铃俯卧反向飞鸟",
+    "muscleGroup": "shoulders",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "rear deltoid"
+    ],
+    "secondaryMuscles": [
+      "rhomboids"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440172",
+    "nameEn": "Dumbbell Scaption",
+    "nameZh": "哑铃肩胛平面举",
+    "muscleGroup": "shoulders",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "upper trapezius"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440173",
+    "nameEn": "Single-Arm Dumbbell Press",
+    "nameZh": "单臂哑铃肩推",
+    "muscleGroup": "shoulders",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "lateral deltoid",
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440174",
+    "nameEn": "Cable Y Raise",
+    "nameZh": "绳索Y举",
+    "muscleGroup": "shoulders",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "lateral deltoid",
+      "lower trapezius"
+    ],
+    "secondaryMuscles": [
+      "rear deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440175",
+    "nameEn": "Dumbbell Bus Driver",
+    "nameZh": "哑铃巴士司机举",
+    "muscleGroup": "shoulders",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440176",
+    "nameEn": "Handstand Push-Up",
+    "nameZh": "倒立推举",
+    "muscleGroup": "shoulders",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "upper trapezius"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440177",
+    "nameEn": "Machine Reverse Fly",
+    "nameZh": "器械反向飞鸟",
+    "muscleGroup": "shoulders",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "rear deltoid"
+    ],
+    "secondaryMuscles": [
+      "rhomboids",
+      "upper trapezius"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440178",
+    "nameEn": "Barbell Bradford Press",
+    "nameZh": "杠铃布拉德福推举",
+    "muscleGroup": "shoulders",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "lateral deltoid"
+    ],
+    "secondaryMuscles": [
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440179",
+    "nameEn": "Barbell Zercher Squat",
+    "nameZh": "杠铃泽奇深蹲",
+    "muscleGroup": "legs",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "core",
+      "biceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440180",
+    "nameEn": "Barbell Pause Squat",
+    "nameZh": "杠铃暂停深蹲",
+    "muscleGroup": "legs",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "erector spinae"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440181",
+    "nameEn": "Safety Bar Squat",
+    "nameZh": "安全杠深蹲",
+    "muscleGroup": "legs",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "erector spinae"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440182",
+    "nameEn": "Barbell Split Squat",
+    "nameZh": "杠铃分腿蹲",
+    "muscleGroup": "legs",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440183",
+    "nameEn": "Smith Machine Squat",
+    "nameZh": "史密斯深蹲",
+    "muscleGroup": "legs",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440184",
+    "nameEn": "Smith Machine Split Squat",
+    "nameZh": "史密斯分腿蹲",
+    "muscleGroup": "legs",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440185",
+    "nameEn": "Single-Leg Press",
+    "nameZh": "单腿腿举",
+    "muscleGroup": "legs",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440186",
+    "nameEn": "Pendulum Squat",
+    "nameZh": "钟摆深蹲",
+    "muscleGroup": "legs",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "quadriceps"
+    ],
+    "secondaryMuscles": [
+      "glutes"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440187",
+    "nameEn": "Sissy Squat",
+    "nameZh": "西西深蹲",
+    "muscleGroup": "legs",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "quadriceps"
+    ],
+    "secondaryMuscles": [
+      "hip flexors"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440188",
+    "nameEn": "Pistol Squat",
+    "nameZh": "单腿深蹲",
+    "muscleGroup": "legs",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440189",
+    "nameEn": "Bodyweight Squat",
+    "nameZh": "自重深蹲",
+    "muscleGroup": "legs",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440190",
+    "nameEn": "Bodyweight Lunge",
+    "nameZh": "自重弓步蹲",
+    "muscleGroup": "legs",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440191",
+    "nameEn": "Reverse Lunge",
+    "nameZh": "反向弓步蹲",
+    "muscleGroup": "legs",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440192",
+    "nameEn": "Lateral Lunge",
+    "nameZh": "侧弓步",
+    "muscleGroup": "legs",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "quadriceps",
+      "adductors"
+    ],
+    "secondaryMuscles": [
+      "glutes"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440193",
+    "nameEn": "Cable Hip Abduction",
+    "nameZh": "绳索髋外展",
+    "muscleGroup": "legs",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "gluteus medius"
+    ],
+    "secondaryMuscles": [
+      "hip flexors"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440194",
+    "nameEn": "Cable Hip Adduction",
+    "nameZh": "绳索髋内收",
+    "muscleGroup": "legs",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "adductors"
+    ],
+    "secondaryMuscles": [
+      "hip flexors"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440195",
+    "nameEn": "Cable Kickback",
+    "nameZh": "绳索后踢",
+    "muscleGroup": "legs",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440196",
+    "nameEn": "Nordic Hamstring Curl",
+    "nameZh": "北欧腿弯举",
+    "muscleGroup": "legs",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "calves"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440197",
+    "nameEn": "Glute-Ham Raise",
+    "nameZh": "臀腿举",
+    "muscleGroup": "legs",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "hamstrings",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "erector spinae"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440198",
+    "nameEn": "Barbell Good Morning",
+    "nameZh": "杠铃早安",
+    "muscleGroup": "legs",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "hamstrings",
+      "erector spinae"
+    ],
+    "secondaryMuscles": [
+      "glutes"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440199",
+    "nameEn": "Barbell Calf Raise",
+    "nameZh": "杠铃提踵",
+    "muscleGroup": "legs",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "calves"
+    ],
+    "secondaryMuscles": [
+      "tibialis anterior"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440200",
+    "nameEn": "Seated Calf Raise",
+    "nameZh": "坐姿提踵",
+    "muscleGroup": "legs",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "calves"
+    ],
+    "secondaryMuscles": [
+      "tibialis anterior"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440201",
+    "nameEn": "Donkey Calf Raise",
+    "nameZh": "驴式提踵",
+    "muscleGroup": "legs",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "calves"
+    ],
+    "secondaryMuscles": [
+      "tibialis anterior"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440202",
+    "nameEn": "Leg Press Calf Raise",
+    "nameZh": "腿举提踵",
+    "muscleGroup": "legs",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "calves"
+    ],
+    "secondaryMuscles": [
+      "tibialis anterior"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440203",
+    "nameEn": "Kettlebell Swing",
+    "nameZh": "壶铃摆荡",
+    "muscleGroup": "legs",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "erector spinae",
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440204",
+    "nameEn": "Kettlebell Goblet Squat",
+    "nameZh": "壶铃高脚杯深蹲",
+    "muscleGroup": "legs",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440205",
+    "nameEn": "Kettlebell Deadlift",
+    "nameZh": "壶铃硬拉",
+    "muscleGroup": "legs",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "hamstrings",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "erector spinae"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440206",
+    "nameEn": "Kettlebell Front Squat",
+    "nameZh": "壶铃前蹲",
+    "muscleGroup": "legs",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440207",
+    "nameEn": "Kettlebell Lunge",
+    "nameZh": "壶铃弓步蹲",
+    "muscleGroup": "legs",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440208",
+    "nameEn": "Kettlebell Single-Leg Deadlift",
+    "nameZh": "壶铃单腿硬拉",
+    "muscleGroup": "legs",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "hamstrings",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "core",
+      "erector spinae"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440209",
+    "nameEn": "Kettlebell Sumo Deadlift",
+    "nameZh": "壶铃相扑硬拉",
+    "muscleGroup": "legs",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "adductors",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "erector spinae"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440210",
+    "nameEn": "Hip Adductor Machine",
+    "nameZh": "髋内收器械",
+    "muscleGroup": "legs",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "adductors"
+    ],
+    "secondaryMuscles": [
+      "hip flexors"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440211",
+    "nameEn": "Hip Abductor Machine",
+    "nameZh": "髋外展器械",
+    "muscleGroup": "legs",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "gluteus medius"
+    ],
+    "secondaryMuscles": [
+      "gluteus minimus"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440212",
+    "nameEn": "Barbell Stiff-Leg Deadlift",
+    "nameZh": "杠铃直腿硬拉",
+    "muscleGroup": "legs",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "erector spinae"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440213",
+    "nameEn": "Wall Sit",
+    "nameZh": "靠墙深蹲",
+    "muscleGroup": "legs",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "quadriceps"
+    ],
+    "secondaryMuscles": [
+      "glutes"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440214",
+    "nameEn": "Incline Dumbbell Curl",
+    "nameZh": "上斜哑铃弯举",
+    "muscleGroup": "arms",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440215",
+    "nameEn": "Spider Curl",
+    "nameZh": "蜘蛛弯举",
+    "muscleGroup": "arms",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440216",
+    "nameEn": "Cable Hammer Curl",
+    "nameZh": "绳索锤式弯举",
+    "muscleGroup": "arms",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "biceps",
+      "brachioradialis"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440217",
+    "nameEn": "Bayesian Cable Curl",
+    "nameZh": "贝叶斯绳索弯举",
+    "muscleGroup": "arms",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440218",
+    "nameEn": "Barbell Drag Curl",
+    "nameZh": "杠铃拖拽弯举",
+    "muscleGroup": "arms",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440219",
+    "nameEn": "Zottman Curl",
+    "nameZh": "佐特曼弯举",
+    "muscleGroup": "arms",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "biceps",
+      "brachioradialis"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440220",
+    "nameEn": "Cross-Body Hammer Curl",
+    "nameZh": "交叉锤式弯举",
+    "muscleGroup": "arms",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "brachioradialis",
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440221",
+    "nameEn": "EZ-Bar Preacher Curl",
+    "nameZh": "曲杆牧师弯举",
+    "muscleGroup": "arms",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440222",
+    "nameEn": "Machine Bicep Curl",
+    "nameZh": "器械弯举",
+    "muscleGroup": "arms",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440223",
+    "nameEn": "Cable Concentration Curl",
+    "nameZh": "绳索集中弯举",
+    "muscleGroup": "arms",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440224",
+    "nameEn": "21s Barbell Curl",
+    "nameZh": "21式杠铃弯举",
+    "muscleGroup": "arms",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440225",
+    "nameEn": "Close-Grip Push-Up",
+    "nameZh": "窄距俯卧撑（肱三头肌）",
+    "muscleGroup": "arms",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "pectoralis major",
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440226",
+    "nameEn": "Bench Dip",
+    "nameZh": "凳上臂屈伸",
+    "muscleGroup": "arms",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "pectoralis major"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440227",
+    "nameEn": "Diamond Tricep Push-Up",
+    "nameZh": "钻石俯卧撑（肱三头肌）",
+    "muscleGroup": "arms",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "pectoralis major"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440228",
+    "nameEn": "Cable Overhead Tricep Extension (Rope)",
+    "nameZh": "绳索过头臂屈伸（绳索头）",
+    "muscleGroup": "arms",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440229",
+    "nameEn": "Single-Arm Cable Pushdown",
+    "nameZh": "单臂绳索下压",
+    "muscleGroup": "arms",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440230",
+    "nameEn": "Cable Kickback",
+    "nameZh": "绳索后踢臂屈伸",
+    "muscleGroup": "arms",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440231",
+    "nameEn": "EZ-Bar Skull Crusher",
+    "nameZh": "曲杆仰卧臂屈伸",
+    "muscleGroup": "arms",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440232",
+    "nameEn": "Dumbbell French Press",
+    "nameZh": "哑铃法式推举",
+    "muscleGroup": "arms",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440233",
+    "nameEn": "JM Press",
+    "nameZh": "JM推举",
+    "muscleGroup": "arms",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "pectoralis major"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440234",
+    "nameEn": "Machine Tricep Extension",
+    "nameZh": "器械臂屈伸",
+    "muscleGroup": "arms",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440235",
+    "nameEn": "Barbell Wrist Curl",
+    "nameZh": "杠铃腕弯举",
+    "muscleGroup": "arms",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "forearms"
+    ],
+    "secondaryMuscles": [
+      "biceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440236",
+    "nameEn": "Barbell Reverse Wrist Curl",
+    "nameZh": "杠铃反握腕弯举",
+    "muscleGroup": "arms",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "forearms"
+    ],
+    "secondaryMuscles": [
+      "brachioradialis"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440237",
+    "nameEn": "Dumbbell Wrist Curl",
+    "nameZh": "哑铃腕弯举",
+    "muscleGroup": "arms",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "forearms"
+    ],
+    "secondaryMuscles": [
+      "biceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440238",
+    "nameEn": "Kettlebell Curl",
+    "nameZh": "壶铃弯举",
+    "muscleGroup": "arms",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440239",
+    "nameEn": "Kettlebell Tricep Extension",
+    "nameZh": "壶铃臂屈伸",
+    "muscleGroup": "arms",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440240",
+    "nameEn": "Machine Preacher Curl",
+    "nameZh": "器械牧师弯举",
+    "muscleGroup": "arms",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440241",
+    "nameEn": "Behind-Back Cable Curl",
+    "nameZh": "体后绳索弯举",
+    "muscleGroup": "arms",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440242",
+    "nameEn": "Hanging Knee Raise",
+    "nameZh": "悬垂屈膝举腿",
+    "muscleGroup": "core",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "rectus abdominis",
+      "hip flexors"
+    ],
+    "secondaryMuscles": [
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440243",
+    "nameEn": "Toes-to-Bar",
+    "nameZh": "悬垂触杠",
+    "muscleGroup": "core",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "hip flexors",
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440244",
+    "nameEn": "Dragon Flag",
+    "nameZh": "龙旗",
+    "muscleGroup": "core",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "hip flexors",
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440245",
+    "nameEn": "L-Sit Hold",
+    "nameZh": "L支撑",
+    "muscleGroup": "core",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "rectus abdominis",
+      "hip flexors"
+    ],
+    "secondaryMuscles": [
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440246",
+    "nameEn": "V-Up",
+    "nameZh": "V字仰卧起坐",
+    "muscleGroup": "core",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "hip flexors"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440247",
+    "nameEn": "Lying Leg Raise",
+    "nameZh": "仰卧举腿",
+    "muscleGroup": "core",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "rectus abdominis",
+      "hip flexors"
+    ],
+    "secondaryMuscles": [
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440248",
+    "nameEn": "Flutter Kick",
+    "nameZh": "交替举腿",
+    "muscleGroup": "core",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "rectus abdominis",
+      "hip flexors"
+    ],
+    "secondaryMuscles": [
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440249",
+    "nameEn": "Hollow Body Hold",
+    "nameZh": "凹体支撑",
+    "muscleGroup": "core",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "hip flexors",
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440250",
+    "nameEn": "Cable Reverse Crunch",
+    "nameZh": "绳索反向卷腹",
+    "muscleGroup": "core",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440251",
+    "nameEn": "Cable Pallof Press (Core)",
+    "nameZh": "绳索帕洛夫推（抗旋转）",
+    "muscleGroup": "core",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "obliques",
+      "transverse abdominis"
+    ],
+    "secondaryMuscles": [
+      "rectus abdominis"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440252",
+    "nameEn": "Dumbbell Side Bend",
+    "nameZh": "哑铃体侧屈",
+    "muscleGroup": "core",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "obliques"
+    ],
+    "secondaryMuscles": [
+      "rectus abdominis"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440253",
+    "nameEn": "Barbell Rollout",
+    "nameZh": "杠铃滚轮",
+    "muscleGroup": "core",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "obliques",
+      "erector spinae"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440254",
+    "nameEn": "Stability Ball Crunch",
+    "nameZh": "瑞士球卷腹",
+    "muscleGroup": "core",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440255",
+    "nameEn": "Plank Shoulder Tap",
+    "nameZh": "平板支撑拍肩",
+    "muscleGroup": "core",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "transverse abdominis"
+    ],
+    "secondaryMuscles": [
+      "obliques",
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440256",
+    "nameEn": "Copenhagen Plank",
+    "nameZh": "哥本哈根侧平板",
+    "muscleGroup": "core",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "obliques",
+      "adductors"
+    ],
+    "secondaryMuscles": [
+      "transverse abdominis"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440257",
+    "nameEn": "Suitcase Carry",
+    "nameZh": "单手提箱行走",
+    "muscleGroup": "core",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "obliques"
+    ],
+    "secondaryMuscles": [
+      "forearms",
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440258",
+    "nameEn": "Turkish Get-Up (Core)",
+    "nameZh": "土耳其起立（核心）",
+    "muscleGroup": "core",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "core",
+      "obliques"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "glutes"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440259",
+    "nameEn": "Kettlebell Windmill",
+    "nameZh": "壶铃风车",
+    "muscleGroup": "core",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "obliques"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440260",
+    "nameEn": "Kettlebell Figure 8",
+    "nameZh": "壶铃八字绕腿",
+    "muscleGroup": "core",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "obliques",
+      "core"
+    ],
+    "secondaryMuscles": [
+      "forearms",
+      "hip flexors"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440261",
+    "nameEn": "Cable Chop (High to Low)",
+    "nameZh": "绳索劈砍（高到低）",
+    "muscleGroup": "core",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "obliques",
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440262",
+    "nameEn": "Cable Chop (Low to High)",
+    "nameZh": "绳索劈砍（低到高）",
+    "muscleGroup": "core",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "obliques",
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440263",
+    "nameEn": "Reverse Crunch",
+    "nameZh": "反向卷腹",
+    "muscleGroup": "core",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "rectus abdominis"
+    ],
+    "secondaryMuscles": [
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440264",
+    "nameEn": "Dumbbell Woodchop",
+    "nameZh": "哑铃伐木",
+    "muscleGroup": "core",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "obliques"
+    ],
+    "secondaryMuscles": [
+      "rectus abdominis",
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440265",
+    "nameEn": "GHD Sit-Up",
+    "nameZh": "GHD仰卧起坐",
+    "muscleGroup": "core",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "rectus abdominis",
+      "hip flexors"
+    ],
+    "secondaryMuscles": [
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440266",
+    "nameEn": "Machine Rotary Torso",
+    "nameZh": "器械旋转训练",
+    "muscleGroup": "core",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "obliques"
+    ],
+    "secondaryMuscles": [
+      "transverse abdominis"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440267",
+    "nameEn": "Kettlebell Clean",
+    "nameZh": "壶铃翻铃",
+    "muscleGroup": "fullBody",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "forearms",
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440268",
+    "nameEn": "Kettlebell Snatch",
+    "nameZh": "壶铃抓举",
+    "muscleGroup": "fullBody",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440269",
+    "nameEn": "Kettlebell Clean and Press",
+    "nameZh": "壶铃翻站推举",
+    "muscleGroup": "fullBody",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "glutes",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "core",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440270",
+    "nameEn": "Kettlebell Thruster",
+    "nameZh": "壶铃推举深蹲",
+    "muscleGroup": "fullBody",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "quadriceps",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440271",
+    "nameEn": "Kettlebell Turkish Get-Up",
+    "nameZh": "壶铃土耳其起立",
+    "muscleGroup": "fullBody",
+    "equipment": "kettlebell",
+    "primaryMuscles": [
+      "core",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "quadriceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440272",
+    "nameEn": "Barbell Snatch",
+    "nameZh": "杠铃抓举",
+    "muscleGroup": "fullBody",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "upper trapezius",
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440273",
+    "nameEn": "Barbell Clean and Jerk",
+    "nameZh": "杠铃挺举",
+    "muscleGroup": "fullBody",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440274",
+    "nameEn": "Hang Snatch",
+    "nameZh": "悬垂抓举",
+    "muscleGroup": "fullBody",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "upper trapezius",
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440275",
+    "nameEn": "Muscle-Up",
+    "nameZh": "双力臂",
+    "muscleGroup": "fullBody",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "pectoralis major"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440276",
+    "nameEn": "Man Maker (Barbell)",
+    "nameZh": "杠铃综合训练",
+    "muscleGroup": "fullBody",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "pectoralis major",
+      "quadriceps"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440277",
+    "nameEn": "Dumbbell Thruster",
+    "nameZh": "哑铃推举深蹲",
+    "muscleGroup": "fullBody",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "quadriceps",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440278",
+    "nameEn": "Dumbbell Clean and Press",
+    "nameZh": "哑铃翻站推举",
+    "muscleGroup": "fullBody",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "glutes",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "core",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440279",
+    "nameEn": "Barbell Complex",
+    "nameZh": "杠铃复合训练",
+    "muscleGroup": "fullBody",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "quadriceps",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "latissimus dorsi"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440280",
+    "nameEn": "Battle Rope Slam",
+    "nameZh": "战绳砸地",
+    "muscleGroup": "fullBody",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "core"
+    ],
+    "secondaryMuscles": [
+      "latissimus dorsi",
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440281",
+    "nameEn": "Battle Rope Wave",
+    "nameZh": "战绳波浪",
+    "muscleGroup": "fullBody",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "core"
+    ],
+    "secondaryMuscles": [
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440282",
+    "nameEn": "Battle Rope Alternating Wave",
+    "nameZh": "战绳交替波浪",
+    "muscleGroup": "fullBody",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "anterior deltoid",
+      "core"
+    ],
+    "secondaryMuscles": [
+      "forearms",
+      "obliques"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440283",
+    "nameEn": "Sled Push",
+    "nameZh": "雪橇推",
+    "muscleGroup": "fullBody",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "calves",
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440284",
+    "nameEn": "Sled Pull",
+    "nameZh": "雪橇拉",
+    "muscleGroup": "fullBody",
+    "equipment": "machine",
+    "primaryMuscles": [
+      "hamstrings",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "erector spinae",
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440285",
+    "nameEn": "Tire Flip",
+    "nameZh": "翻轮胎",
+    "muscleGroup": "fullBody",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "quadriceps",
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440286",
+    "nameEn": "Box Jump",
+    "nameZh": "跳箱",
+    "muscleGroup": "fullBody",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "calves",
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440287",
+    "nameEn": "Jump Squat",
+    "nameZh": "深蹲跳",
+    "muscleGroup": "fullBody",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "calves"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440288",
+    "nameEn": "Broad Jump",
+    "nameZh": "立定跳远",
+    "muscleGroup": "fullBody",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "calves",
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440289",
+    "nameEn": "Wall Ball",
+    "nameZh": "药球对墙抛",
+    "muscleGroup": "fullBody",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "quadriceps",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440290",
+    "nameEn": "Medicine Ball Slam",
+    "nameZh": "药球砸地",
+    "muscleGroup": "fullBody",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "core",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "latissimus dorsi"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440291",
+    "nameEn": "Dumbbell Renegade Row",
+    "nameZh": "哑铃交替划船",
+    "muscleGroup": "fullBody",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "core"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "anterior deltoid"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440292",
+    "nameEn": "Barbell Hang Clean",
+    "nameZh": "杠铃悬垂翻站",
+    "muscleGroup": "fullBody",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "glutes",
+      "upper trapezius"
+    ],
+    "secondaryMuscles": [
+      "quadriceps",
+      "forearms"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440293",
+    "nameEn": "Dumbbell Step-Up to Press",
+    "nameZh": "哑铃登台阶推举",
+    "muscleGroup": "fullBody",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "quadriceps",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440294",
+    "nameEn": "Single-Arm Dumbbell Snatch",
+    "nameZh": "单臂哑铃抓举",
+    "muscleGroup": "fullBody",
+    "equipment": "dumbbell",
+    "primaryMuscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "core"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440295",
+    "nameEn": "Barbell Lunge to Press",
+    "nameZh": "杠铃弓步推举",
+    "muscleGroup": "fullBody",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "quadriceps",
+      "anterior deltoid"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "triceps"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440296",
+    "nameEn": "Jump Lunge",
+    "nameZh": "跳跃弓步",
+    "muscleGroup": "fullBody",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "calves"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440297",
+    "nameEn": "Inchworm",
+    "nameZh": "毛毛虫行走",
+    "muscleGroup": "fullBody",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "hamstrings",
+      "core"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "pectoralis major"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440298",
+    "nameEn": "Sprawl",
+    "nameZh": "俯撑展体",
+    "muscleGroup": "fullBody",
+    "equipment": "bodyweight",
+    "primaryMuscles": [
+      "core",
+      "quadriceps"
+    ],
+    "secondaryMuscles": [
+      "anterior deltoid",
+      "hamstrings"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440299",
+    "nameEn": "Cable Lateral Lunge",
+    "nameZh": "绳索侧弓步",
+    "muscleGroup": "legs",
+    "equipment": "cable",
+    "primaryMuscles": [
+      "quadriceps",
+      "adductors"
+    ],
+    "secondaryMuscles": [
+      "glutes"
+    ]
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440300",
+    "nameEn": "Barbell Landmine Row",
+    "nameZh": "地雷管划船",
+    "muscleGroup": "back",
+    "equipment": "barbell",
+    "primaryMuscles": [
+      "latissimus dorsi",
+      "rhomboids"
+    ],
+    "secondaryMuscles": [
+      "biceps",
+      "rear deltoid"
+    ]
   }
 ]

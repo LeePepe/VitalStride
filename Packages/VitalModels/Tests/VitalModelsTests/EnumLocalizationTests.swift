@@ -52,24 +52,27 @@ struct EquipmentTests {
         #expect(Equipment.machine.localizedName == "固定器械")
         #expect(Equipment.bodyweight.localizedName == "自重")
         #expect(Equipment.cable.localizedName == "绳索")
+        #expect(Equipment.kettlebell.localizedName == "壶铃")
     }
 }
 
 @Suite("MuscleTranslation")
 struct MuscleTranslationTests {
     static let expectedMuscles = [
-        "anterior deltoid", "biceps", "brachialis", "calves",
-        "erector spinae", "forearms", "glutes", "hamstrings",
-        "hip flexors", "infraspinatus", "lateral deltoid", "latissimus dorsi",
-        "lower pectoralis major", "obliques", "pectoralis major", "quadriceps",
-        "rear deltoid", "rectus abdominis", "rhomboids", "serratus anterior",
-        "tibialis anterior", "transverse abdominis", "trapezius", "triceps",
+        "adductors", "anterior deltoid", "biceps", "brachialis", "brachioradialis",
+        "calves", "core", "erector spinae", "forearms", "glutes",
+        "gluteus medius", "gluteus minimus", "hamstrings", "hip flexors",
+        "infraspinatus", "lateral deltoid", "latissimus dorsi",
+        "lower pectoralis major", "lower trapezius", "obliques",
+        "pectoralis major", "quadriceps", "rear deltoid", "rectus abdominis",
+        "rhomboids", "serratus anterior", "tibialis anterior",
+        "transverse abdominis", "trapezius", "triceps",
         "upper pectoralis major", "upper trapezius",
     ]
 
-    @Test("All 26 muscle names have translations")
+    @Test("All 32 muscle names have translations")
     func allMusclesCovered() {
-        #expect(MuscleTranslation.allMuscleNames.count == 26)
+        #expect(MuscleTranslation.allMuscleNames.count == 32)
         for name in MuscleTranslationTests.expectedMuscles {
             let translation = MuscleTranslation.chineseName(for: name)
             #expect(translation != name, "\(name) has no translation (returned original)")

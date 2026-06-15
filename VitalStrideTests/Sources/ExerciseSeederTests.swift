@@ -8,7 +8,7 @@ import VitalModels
 @Suite("ExerciseSeeder")
 struct ExerciseSeederTests {
 
-    @Test("Seeds 100 exercises into empty container")
+    @Test("Seeds 300 exercises into empty container")
     func seedsIntoEmptyContainer() throws {
         let container = try ModelContainerConfiguration.makeTestContainer()
         let context = ModelContext(container)
@@ -19,7 +19,7 @@ struct ExerciseSeederTests {
             predicate: #Predicate { $0.isCustom == false }
         )
         let count = try context.fetchCount(descriptor)
-        #expect(count == 100)
+        #expect(count == 300)
     }
 
     @Test("Idempotent - does not duplicate on repeated calls")
@@ -34,7 +34,7 @@ struct ExerciseSeederTests {
             predicate: #Predicate { $0.isCustom == false }
         )
         let count = try context.fetchCount(descriptor)
-        #expect(count == 100)
+        #expect(count == 300)
     }
 
     @Test("Does not affect custom exercises")
@@ -64,7 +64,7 @@ struct ExerciseSeederTests {
             predicate: #Predicate { $0.isCustom == false }
         )
         let presetCount = try context.fetchCount(presetDescriptor)
-        #expect(presetCount == 100)
+        #expect(presetCount == 300)
     }
 
     @Test("Seeded data matches JSON source")
