@@ -73,12 +73,13 @@ struct EnumTests {
     @Test("Equipment has all expected cases")
     func equipmentCases() {
         let cases = Equipment.allCases
-        #expect(cases.count == 5)
+        #expect(cases.count == 6)
         #expect(cases.contains(.barbell))
         #expect(cases.contains(.dumbbell))
         #expect(cases.contains(.machine))
         #expect(cases.contains(.bodyweight))
         #expect(cases.contains(.cable))
+        #expect(cases.contains(.kettlebell))
     }
 
     @Test("Enums are Codable")

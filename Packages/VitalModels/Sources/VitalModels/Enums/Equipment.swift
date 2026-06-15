@@ -6,6 +6,7 @@ public enum Equipment: String, Codable, CaseIterable, Sendable {
     case machine
     case bodyweight
     case cable
+    case kettlebell
 
     public var localizedName: String {
         switch self {
@@ -14,6 +15,7 @@ public enum Equipment: String, Codable, CaseIterable, Sendable {
         case .machine: "固定器械"
         case .bodyweight: "自重"
         case .cable: "绳索"
+        case .kettlebell: "壶铃"
         }
     }
 
@@ -24,6 +26,7 @@ public enum Equipment: String, Codable, CaseIterable, Sendable {
         case .machine: "figure.indoor.cycle"
         case .bodyweight: "figure.walk"
         case .cable: "cable.coaxial"
+        case .kettlebell: "figure.strengthtraining.traditional"
         }
     }
 }
