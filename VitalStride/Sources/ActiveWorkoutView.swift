@@ -227,6 +227,8 @@ struct ActiveWorkoutView: View {
                             .font(.caption)
                             .fontWeight(.semibold)
                             .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
                     }
                     .frame(width: 32, height: 32)
                     .accessibilityElement(children: .ignore)
@@ -247,6 +249,8 @@ struct ActiveWorkoutView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(Color.secondary.opacity(0.15), in: Capsule())
+            .frame(minHeight: 44)
+            .contentShape(Capsule())
             .accessibilityLabel(String(localized: "缩短十秒", comment: "Subtract 10 seconds a11y label"))
             Button("+10s") {
                 restTimer.adjustRest(by: 10)
@@ -255,6 +259,8 @@ struct ActiveWorkoutView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(Color.secondary.opacity(0.15), in: Capsule())
+            .frame(minHeight: 44)
+            .contentShape(Capsule())
             .accessibilityLabel(String(localized: "延长十秒", comment: "Add 10 seconds a11y label"))
             Button(String(localized: "跳过", comment: "Skip rest button label")) {
                 restTimer.skipRest()
@@ -264,6 +270,8 @@ struct ActiveWorkoutView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(Color.accentColor.opacity(0.15), in: Capsule())
+            .frame(minHeight: 44)
+            .contentShape(Capsule())
             .accessibilityLabel(String(localized: "跳过休息", comment: "Skip rest a11y label"))
         }
         .buttonStyle(.plain)
