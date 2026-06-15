@@ -14,6 +14,7 @@ final class OverviewDynamicState {
     private(set) var layoutState: OverviewLayoutState = .loading
     private(set) var isRefreshing = false
     private(set) var pendingResponse: AIAnalysisResponse?
+    private(set) var refreshErrorType: String?
     var showRefreshError = false
 
     var pendingHeadline: String? {
@@ -71,11 +72,13 @@ final class OverviewDynamicState {
             let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
             layoutState = .dynamic(response.insights, lastUpdated: generatedAt)
             pendingResponse = nil
+            refreshErrorType = nil
         } catch {
             let errorType = describeErrorType(error)
             logger.error("overview_ai_generate_failure error_type=\(errorType)")
             signposter.emitEvent("overview_ai_generate_failure", "\(errorType)")
             TelemetryService.shared.trackNonisolated(.aiInsightFailed(errorType: telemetryErrorType(error)))
+            refreshErrorType = errorType
             showRefreshError = true
         }
 

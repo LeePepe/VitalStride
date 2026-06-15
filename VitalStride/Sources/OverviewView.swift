@@ -81,11 +81,21 @@ struct OverviewView: View {
                 }
             }
             .snackbar(isPresented: $dynamicState.showRefreshError, edge: .top) {
-                Label(
-                    String(localized: "overview_refresh_failed", defaultValue: "刷新失败，请稍后重试"),
-                    systemImage: "exclamationmark.triangle"
-                )
-                .font(.subheadline)
+                if dynamicState.refreshErrorType == "noApiKey"
+                    || dynamicState.refreshErrorType == "missingAPIKey"
+                {
+                    Label(
+                        String(localized: "overview_missing_api_key", defaultValue: "请在设置中添加 API Key 以启用 AI 分析"),
+                        systemImage: "key"
+                    )
+                    .font(.subheadline)
+                } else {
+                    Label(
+                        String(localized: "overview_refresh_failed", defaultValue: "刷新失败，请稍后重试"),
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    .font(.subheadline)
+                }
             }
         }
     }
