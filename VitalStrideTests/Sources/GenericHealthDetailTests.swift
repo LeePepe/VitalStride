@@ -253,17 +253,17 @@ struct GenericHealthDistanceUnitTests {
         }
     }
 
-    @Test("DistanceUnit.km preserves raw meter values as km")
-    func kmConversionFromMeters() {
-        let rawMeters = 5432.1
-        let result = DistanceUnit.km.convert(fromMeters: rawMeters)
+    @Test("DistanceUnit.km passes through raw km values unchanged")
+    func kmConversionFromKilometers() {
+        let rawKm = 5.4321
+        let result = DistanceUnit.km.convert(fromKilometers: rawKm)
         #expect(abs(result - 5.4321) < 0.0001)
     }
 
-    @Test("DistanceUnit.mi converts raw meter values to miles")
-    func miConversionFromMeters() {
-        let rawMeters = 1609.344
-        let result = DistanceUnit.mi.convert(fromMeters: rawMeters)
+    @Test("DistanceUnit.mi converts raw km values to miles")
+    func miConversionFromKilometers() {
+        let rawKm = 1.609344
+        let result = DistanceUnit.mi.convert(fromKilometers: rawKm)
         #expect(abs(result - 1.0) < 0.0001)
     }
 
@@ -278,6 +278,13 @@ struct GenericHealthDistanceUnitTests {
         }
     }
 
+    @Test("Height keeps cm semantics and is not classified as distance")
+    func heightNotDistance() {
+        #expect(HealthSampleType.height.unitLabel == String(localized: "cm", comment: "Centimeters unit"))
+        #expect(HealthSampleType.height != .distanceWalkingRunning)
+        #expect(HealthSampleType.height != .distanceCycling)
+    }
+
     @Test("Distance types use cumulative aggregation")
     func distanceAggregationMode() {
         #expect(HealthSampleType.distanceWalkingRunning.aggregationMode == .cumulative)
@@ -290,10 +297,19 @@ struct GenericHealthDistanceUnitTests {
         #expect(DistanceUnit.mi.abbreviation == "mi")
     }
 
-    @Test("Zero distance converts correctly")
+    @Test("Zero distance converts correctly from km")
     func zeroDistanceConversion() {
-        #expect(DistanceUnit.km.convert(fromMeters: 0) == 0)
-        #expect(DistanceUnit.mi.convert(fromMeters: 0) == 0)
+        #expect(DistanceUnit.km.convert(fromKilometers: 0) == 0)
+        #expect(DistanceUnit.mi.convert(fromKilometers: 0) == 0)
+    }
+
+    @Test("fromKilometers and fromMeters are consistent")
+    func fromKilometersConsistentWithFromMeters() {
+        let meters = 5000.0
+        let km = 5.0
+        let miFromMeters = DistanceUnit.mi.convert(fromMeters: meters)
+        let miFromKm = DistanceUnit.mi.convert(fromKilometers: km)
+        #expect(abs(miFromMeters - miFromKm) < 0.0001)
     }
 }
 

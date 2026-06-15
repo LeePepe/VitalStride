@@ -791,14 +791,14 @@ extension HealthSampleType {
         case .activeEnergyBurned: .kilocalorie()
         case .sleepAnalysis: .count()
         case .basalEnergyBurned: .kilocalorie()
-        case .distanceWalkingRunning: .meter()
-        case .distanceCycling: .meter()
+        case .distanceWalkingRunning: .meterUnit(with: .kilo)
+        case .distanceCycling: .meterUnit(with: .kilo)
         case .appleExerciseTime: .minute()
         case .appleStandTime: .minute()
         case .flightsClimbed: .count()
         case .bodyFatPercentage: .percent()
         case .leanBodyMass: .gramUnit(with: .kilo)
-        case .height: .meter()
+        case .height: .meterUnit(with: .centi)
         case .bodyMassIndex: .count()
         case .restingHeartRate: HKUnit.count().unitDivided(by: .minute())
         case .heartRateVariabilitySDNN: .secondUnit(with: .milli)
@@ -819,14 +819,14 @@ extension HealthSampleType {
         case .activeEnergyBurned: "kcal"
         case .sleepAnalysis: "category"
         case .basalEnergyBurned: "kcal"
-        case .distanceWalkingRunning: "m"
-        case .distanceCycling: "m"
+        case .distanceWalkingRunning: "km"
+        case .distanceCycling: "km"
         case .appleExerciseTime: "min"
         case .appleStandTime: "min"
         case .flightsClimbed: "count"
         case .bodyFatPercentage: "%"
         case .leanBodyMass: "kg"
-        case .height: "m"
+        case .height: "cm"
         case .bodyMassIndex: "count"
         case .restingHeartRate: "bpm"
         case .heartRateVariabilitySDNN: "ms"

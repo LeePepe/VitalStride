@@ -45,11 +45,19 @@ enum DistanceUnit: String, CaseIterable {
     }
 
     static let metersPerMile = 1609.344
+    static let kmPerMile = 1.609344
 
     func convert(fromMeters value: Double) -> Double {
         switch self {
         case .km: return value / 1000.0
         case .mi: return value / Self.metersPerMile
+        }
+    }
+
+    func convert(fromKilometers value: Double) -> Double {
+        switch self {
+        case .km: return value
+        case .mi: return value / Self.kmPerMile
         }
     }
 }

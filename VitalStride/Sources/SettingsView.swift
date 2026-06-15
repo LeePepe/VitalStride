@@ -10,6 +10,7 @@ struct SettingsView: View {
                 AISettingsSection()
                 aboutSection
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("设置")
         }
     }

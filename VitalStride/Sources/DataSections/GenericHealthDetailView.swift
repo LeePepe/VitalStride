@@ -123,7 +123,7 @@ struct GenericHealthDetailView: View {
 
     private func convertedValue(_ value: Double) -> Double {
         guard isDistanceSampleType else { return value }
-        return distanceUnit.convert(fromMeters: value)
+        return distanceUnit.convert(fromKilometers: value)
     }
 
     private var displayUnitLabel: String {
