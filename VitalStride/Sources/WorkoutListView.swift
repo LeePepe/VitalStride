@@ -117,7 +117,11 @@ struct WorkoutListView: View {
                                         )
                                     }
                                 case .healthKit(let record):
-                                    HealthKitWorkoutRowView(record: record)
+                                    NavigationLink {
+                                        HealthKitWorkoutDetailView(record: record)
+                                    } label: {
+                                        HealthKitWorkoutRowView(record: record)
+                                    }
                                 }
                             }
                         }
