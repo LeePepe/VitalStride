@@ -54,6 +54,7 @@ struct OverviewView: View {
             }
             .navigationTitle(String(localized: "overview_title", defaultValue: "概览"))
             .refreshable {
+                await snapshotState.load(cache: healthDataCache, service: healthKitService)
                 await dynamicState.refresh(
                     container: modelContext.container,
                     snapshot: snapshotState.snapshot,
