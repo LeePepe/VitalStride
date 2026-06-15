@@ -17,6 +17,7 @@ struct ActiveWorkoutView: View {
     @State private var exerciseToReplace: WorkoutExercise?
     @State private var restTimer = RestTimerController()
     @State private var currentHeartRate: Double?
+    @State private var heartRateReceivedAt: Date?
     #if !os(macOS)
     @State private var sessionManager: (any WorkoutSessionManaging)?
     #endif
@@ -93,6 +94,7 @@ struct ActiveWorkoutView: View {
             }
             #if !os(macOS)
             .task { await observeHeartRate() }
+            .task { await monitorHeartRateStaleness() }
             #endif
         }
     }
@@ -328,6 +330,20 @@ struct ActiveWorkoutView: View {
         for await dataPoint in healthKitService.observeHeartRate() {
             guard dataPoint.startDate.timeIntervalSinceNow > -120 else { continue }
             currentHeartRate = dataPoint.value
+            heartRateReceivedAt = Date()
+        }
+    }
+
+    private func monitorHeartRateStaleness() async {
+        let freshnessLimit: TimeInterval = 120
+        let checkInterval: Duration = .seconds(10)
+        while !Task.isCancelled {
+            try? await Task.sleep(for: checkInterval)
+            if let receivedAt = heartRateReceivedAt,
+               receivedAt.timeIntervalSinceNow < -freshnessLimit {
+                currentHeartRate = nil
+                heartRateReceivedAt = nil
+            }
         }
     }
     #endif

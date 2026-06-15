@@ -328,7 +328,7 @@ struct HealthKitServiceObserveTests {
         #expect(collected[0].value == 72.0)
     }
 
-    @Test("Observer query uses a time predicate")
+    @Test("Observer query uses a time predicate that filters old samples")
     func observeUsesTimePredicate() async throws {
         let mock = MockHealthStore()
         let (service, _) = makeService(healthStore: mock)
@@ -343,6 +343,11 @@ struct HealthKitServiceObserveTests {
 
         let predicate = mock.lastObserverPredicate
         #expect(predicate != nil)
+
+        let recentSample = makeHeartRateSample(value: 72.0, date: Date().addingTimeInterval(-60))
+        let oldSample = makeHeartRateSample(value: 72.0, date: Date().addingTimeInterval(-600))
+        #expect(predicate!.evaluate(with: recentSample) == true)
+        #expect(predicate!.evaluate(with: oldSample) == false)
 
         mock.finishObserverStream()
         await consumeTask.value
