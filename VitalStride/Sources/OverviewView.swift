@@ -54,7 +54,7 @@ struct OverviewView: View {
             }
             .navigationTitle(String(localized: "overview_title", defaultValue: "概览"))
             .refreshable {
-                await snapshotState.load(cache: healthDataCache, service: healthKitService)
+                await snapshotState.load(cache: healthDataCache, service: healthKitService, forceRefresh: true)
                 await dynamicState.refresh(
                     container: modelContext.container,
                     snapshot: snapshotState.snapshot,
@@ -241,7 +241,7 @@ final class HealthSnapshotState {
 
     var hasAnyHealthData: Bool { snapshot.hasAnyData }
 
-    func load(cache: HealthDataCache, service: HealthKitService) async {
+    func load(cache: HealthDataCache, service: HealthKitService, forceRefresh: Bool = false) async {
         isLoading = true
         do {
             let status = try await service.authorizationStatus()
@@ -256,16 +256,16 @@ final class HealthSnapshotState {
             return
         }
 
-        let data = await Self.fetchAllHealthData(cache: cache)
+        let data = await Self.fetchAllHealthData(cache: cache, forceRefresh: forceRefresh)
         snapshot = data
         isLoading = false
     }
 
-    private nonisolated static func fetchAllHealthData(cache: HealthDataCache) async -> HealthSnapshotData {
-        async let steps = fetchSteps(cache: cache)
-        async let heart = fetchHeartRate(cache: cache)
-        async let sleep = fetchSleep(cache: cache)
-        async let weight = fetchWeight(cache: cache)
+    private nonisolated static func fetchAllHealthData(cache: HealthDataCache, forceRefresh: Bool) async -> HealthSnapshotData {
+        async let steps = fetchSteps(cache: cache, forceRefresh: forceRefresh)
+        async let heart = fetchHeartRate(cache: cache, forceRefresh: forceRefresh)
+        async let sleep = fetchSleep(cache: cache, forceRefresh: forceRefresh)
+        async let weight = fetchWeight(cache: cache, forceRefresh: forceRefresh)
         return await HealthSnapshotData(
             todaySteps: steps,
             averageBPM: heart,
@@ -274,10 +274,12 @@ final class HealthSnapshotState {
         )
     }
 
-    private nonisolated static func fetchSteps(cache: HealthDataCache) async -> Int? {
+    private nonisolated static func fetchSteps(cache: HealthDataCache, forceRefresh: Bool) async -> Int? {
         let interval = TimeRange.day.dateInterval()
         do {
-            let dataPoints = try await cache.data(for: .stepCount, in: interval)
+            let dataPoints = forceRefresh
+                ? try await cache.refresh(.stepCount, in: interval)
+                : try await cache.data(for: .stepCount, in: interval)
             guard !dataPoints.isEmpty else { return nil }
             let aggregated = StepsAggregator.aggregateByDay(dataPoints: dataPoints, in: interval)
             return aggregated.last?.totalSteps
@@ -286,10 +288,12 @@ final class HealthSnapshotState {
         }
     }
 
-    private nonisolated static func fetchHeartRate(cache: HealthDataCache) async -> Int? {
+    private nonisolated static func fetchHeartRate(cache: HealthDataCache, forceRefresh: Bool) async -> Int? {
         let interval = TimeRange.day.dateInterval()
         do {
-            let dataPoints = try await cache.data(for: .heartRate, in: interval)
+            let dataPoints = forceRefresh
+                ? try await cache.refresh(.heartRate, in: interval)
+                : try await cache.data(for: .heartRate, in: interval)
             let filtered = HeartRateStats.filtered(dataPoints, in: interval)
             if let avg = HeartRateStats.average(of: filtered) {
                 return Int(avg.rounded())
@@ -300,10 +304,12 @@ final class HealthSnapshotState {
         }
     }
 
-    private nonisolated static func fetchSleep(cache: HealthDataCache) async -> TimeInterval? {
+    private nonisolated static func fetchSleep(cache: HealthDataCache, forceRefresh: Bool) async -> TimeInterval? {
         let interval = TimeRange.week.dateInterval()
         do {
-            let dataPoints = try await cache.data(for: .sleepAnalysis, in: interval)
+            let dataPoints = forceRefresh
+                ? try await cache.refresh(.sleepAnalysis, in: interval)
+                : try await cache.data(for: .sleepAnalysis, in: interval)
             let nights = SleepAggregator.aggregateByNight(dataPoints: dataPoints, in: interval)
             return nights.last?.totalSleep
         } catch {
@@ -311,10 +317,12 @@ final class HealthSnapshotState {
         }
     }
 
-    private nonisolated static func fetchWeight(cache: HealthDataCache) async -> Double? {
+    private nonisolated static func fetchWeight(cache: HealthDataCache, forceRefresh: Bool) async -> Double? {
         let interval = TimeRange.week.dateInterval()
         do {
-            let dataPoints = try await cache.data(for: .bodyMass, in: interval)
+            let dataPoints = forceRefresh
+                ? try await cache.refresh(.bodyMass, in: interval)
+                : try await cache.data(for: .bodyMass, in: interval)
             let points = WeightAnalyzer.extractWeightPoints(from: dataPoints, in: interval)
             return points.last?.weight
         } catch {
