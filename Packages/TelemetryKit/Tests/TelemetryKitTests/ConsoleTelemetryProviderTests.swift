@@ -3,17 +3,11 @@ import Testing
 
 @Suite("ConsoleTelemetryProvider")
 struct ConsoleTelemetryProviderTests {
-    @Test("can be instantiated and used")
-    func instantiation() {
+    @Test("can be instantiated and tracks without crash")
+    func instantiationAndTrack() {
         let provider = ConsoleTelemetryProvider()
         provider.track(.healthKitDenied)
-    }
-
-    @Test("tracks event without crash")
-    func trackDoesNotCrash() {
-        let provider = ConsoleTelemetryProvider()
         provider.track(.onboardingCompleted)
-        provider.track(.tabSwitched(tab: "workout"))
         provider.track(.workoutCompleted(durationSeconds: 1200, exerciseCount: 4, setCount: 16))
     }
 
@@ -115,5 +109,45 @@ struct TelemetryEventFormattingTests {
         #expect(TelemetryEvent.onboardingCompleted.parameters.isEmpty)
         #expect(TelemetryEvent.healthKitDenied.parameters.isEmpty)
         #expect(TelemetryEvent.overviewCacheHit.parameters.isEmpty)
+    }
+
+    @Test("formattedString matches expected console log format [Telemetry] event_name key=value")
+    func consoleLogFormat() {
+        let event = TelemetryEvent.workoutCompleted(durationSeconds: 1200, exerciseCount: 4, setCount: 16)
+        let expected = "[Telemetry] workout_completed duration_s=1200 exercises=4 sets=16"
+        #expect("[Telemetry] \(event.formattedString)" == expected)
+
+        let simpleEvent = TelemetryEvent.onboardingCompleted
+        #expect("[Telemetry] \(simpleEvent.formattedString)" == "[Telemetry] onboarding_completed")
+    }
+
+    @Test("sanitizes spaces in parameter values")
+    func sanitizesSpaces() {
+        let event = TelemetryEvent.exerciseAdded(name: "bench press")
+        #expect(event.formattedString == "exercise_added name=bench\\_press")
+    }
+
+    @Test("sanitizes newlines in parameter values")
+    func sanitizesNewlines() {
+        let event = TelemetryEvent.aiInsightFailed(errorType: "line1\nline2")
+        #expect(event.formattedString == "ai_insight_failed error_type=line1\\nline2")
+    }
+
+    @Test("sanitizes equals signs in parameter values")
+    func sanitizesEquals() {
+        let event = TelemetryEvent.overviewFallbackTriggered(reason: "key=value")
+        #expect(event.formattedString == "overview_fallback_triggered reason=key\\=value")
+    }
+
+    @Test("sanitizes carriage returns in parameter values")
+    func sanitizesCarriageReturns() {
+        let event = TelemetryEvent.aiInsightFailed(errorType: "error\rtype")
+        #expect(event.formattedString == "ai_insight_failed error_type=error\\rtype")
+    }
+
+    @Test("sanitizes backslashes in parameter values")
+    func sanitizesBackslashes() {
+        let event = TelemetryEvent.dataImported(format: "path\\to\\file")
+        #expect(event.formattedString == "data_imported format=path\\\\to\\\\file")
     }
 }

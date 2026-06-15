@@ -4,6 +4,10 @@
 /// (e.g. `tab: "workout"`, `sampleType: "heartRate"`), never localized strings.
 /// Remote analytics providers aggregate by parameter value — locale-dependent
 /// values would fragment metrics across languages.
+///
+/// For `exerciseAdded(name:)` and `setCompleted(exerciseName:)`, callers MUST
+/// pass the exercise's canonical English identifier (e.g. `"bench_press"`),
+/// NOT the user-facing display name or any localized/custom string.
 public enum TelemetryEvent: Sendable, Equatable {
     // MARK: - Navigation
 
@@ -50,7 +54,7 @@ public enum TelemetryEvent: Sendable, Equatable {
 // MARK: - Console formatting
 
 extension TelemetryEvent {
-    var eventName: String {
+    public var eventName: String {
         switch self {
         case .tabSwitched: "tab_switched"
         case .onboardingCompleted: "onboarding_completed"
@@ -78,7 +82,7 @@ extension TelemetryEvent {
         }
     }
 
-    var parameters: [(key: String, value: String)] {
+    public var parameters: [(key: String, value: String)] {
         switch self {
         case .tabSwitched(let tab):
             [("tab", tab)]
@@ -111,12 +115,30 @@ extension TelemetryEvent {
         }
     }
 
-    var formattedString: String {
+    public var formattedString: String {
         let params = parameters
         if params.isEmpty {
             return eventName
         }
-        let paramString = params.map { "\($0.key)=\($0.value)" }.joined(separator: " ")
+        let paramString = params
+            .map { "\($0.key)=\(Self.sanitize($0.value))" }
+            .joined(separator: " ")
         return "\(eventName) \(paramString)"
+    }
+
+    private static func sanitize(_ value: String) -> String {
+        var result = ""
+        result.reserveCapacity(value.count)
+        for char in value {
+            switch char {
+            case "\\": result += "\\\\"
+            case " ": result += "\\_"
+            case "\n": result += "\\n"
+            case "\r": result += "\\r"
+            case "=": result += "\\="
+            default: result.append(char)
+            }
+        }
+        return result
     }
 }
