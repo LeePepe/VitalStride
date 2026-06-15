@@ -452,9 +452,16 @@ public final class HealthKitService: Sendable {
                 let signpostID = signposter.makeSignpostID()
                 let state = signposter.beginInterval("heartrate_observe", id: signpostID)
 
+                let fiveMinutesAgo = Date().addingTimeInterval(-300)
+                let timePredicate = HKQuery.predicateForSamples(
+                    withStart: fiveMinutesAgo,
+                    end: nil,
+                    options: .strictStartDate
+                )
+
                 let stream = healthStore.executeObserverAnchoredQuery(
                     type: hkType,
-                    predicate: nil,
+                    predicate: timePredicate,
                     anchor: nil,
                     limit: HKObjectQueryNoLimit
                 )
@@ -478,10 +485,9 @@ public final class HealthKitService: Sendable {
                     if !heartRateSamples.isEmpty {
                         logger.info("heartrate_sample_received count=\(heartRateSamples.count)")
                         signposter.emitEvent("heartrate_sample_received", "\(heartRateSamples.count) samples")
-                    }
-
-                    for dataPoint in heartRateSamples {
-                        continuation.yield(dataPoint)
+                        if let latest = heartRateSamples.max(by: { $0.startDate < $1.startDate }) {
+                            continuation.yield(latest)
+                        }
                     }
                 }
 
