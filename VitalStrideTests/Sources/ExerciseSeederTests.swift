@@ -88,4 +88,37 @@ struct ExerciseSeederTests {
         #expect(benchPress.secondaryMuscles == ["anterior deltoid", "triceps"])
         #expect(benchPress.isCustom == false)
     }
+
+    @Test("Upgrades existing preset store by adding only missing exercises")
+    func upgradesExistingPresets() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+
+        let existingNames = ["Barbell Bench Press", "Barbell Back Squat", "Conventional Deadlift"]
+        for name in existingNames {
+            let exercise = Exercise(
+                nameEn: name,
+                nameZh: "测试",
+                muscleGroup: .chest,
+                equipment: .barbell,
+                isCustom: false
+            )
+            context.insert(exercise)
+        }
+        try context.save()
+
+        ExerciseSeeder.seedIfNeeded(context: context)
+
+        let descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.isCustom == false }
+        )
+        let total = try context.fetchCount(descriptor)
+        #expect(total == 300, "Expected 300 total presets after upgrade, got \(total)")
+
+        let benchDescriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.nameEn == "Barbell Bench Press" && $0.isCustom == false }
+        )
+        let benchCount = try context.fetchCount(benchDescriptor)
+        #expect(benchCount == 1, "Expected exactly 1 'Barbell Bench Press', got \(benchCount)")
+    }
 }

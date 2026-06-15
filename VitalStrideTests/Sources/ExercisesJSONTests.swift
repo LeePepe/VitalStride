@@ -45,12 +45,16 @@ struct ExercisesJSONTests {
         }
     }
 
-    @Test("All Equipment enum values are covered")
+    @Test("All Equipment enum values are covered with at least 20 exercises each")
     func allEquipmentCovered() {
         let requiredEquipment = ["barbell", "dumbbell", "machine", "bodyweight", "cable", "kettlebell"]
-        let usedEquipment = Set(exercises.map(\.equipment))
+        var counts: [String: Int] = [:]
+        for exercise in exercises {
+            counts[exercise.equipment, default: 0] += 1
+        }
         for eq in requiredEquipment {
-            #expect(usedEquipment.contains(eq), "Equipment '\(eq)' not found in exercises")
+            let count = counts[eq] ?? 0
+            #expect(count >= 20, "Equipment '\(eq)' has only \(count) exercises, expected >= 20")
         }
     }
 

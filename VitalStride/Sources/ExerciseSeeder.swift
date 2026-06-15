@@ -18,15 +18,6 @@ enum ExerciseSeeder {
 
     static func seedIfNeeded(context: ModelContext) {
         do {
-            let descriptor = FetchDescriptor<Exercise>(
-                predicate: #Predicate { $0.isCustom == false }
-            )
-            let existingCount = try context.fetchCount(descriptor)
-            guard existingCount == 0 else {
-                logger.debug("Skipping seed: \(existingCount) preset exercises already exist")
-                return
-            }
-
             guard let url = Bundle.main.url(forResource: "exercises", withExtension: "json") else {
                 logger.error("exercises.json not found in bundle")
                 return
@@ -35,7 +26,19 @@ enum ExerciseSeeder {
             let data = try Data(contentsOf: url)
             let dtos = try JSONDecoder().decode([ExerciseDTO].self, from: data)
 
-            for dto in dtos {
+            let descriptor = FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.isCustom == false }
+            )
+            let existing = try context.fetch(descriptor)
+            let existingNames = Set(existing.map(\.nameEn))
+
+            let newDTOs = dtos.filter { !existingNames.contains($0.nameEn) }
+            guard !newDTOs.isEmpty else {
+                logger.debug("All \(dtos.count) preset exercises already seeded")
+                return
+            }
+
+            for dto in newDTOs {
                 let exercise = Exercise(
                     nameEn: dto.nameEn,
                     nameZh: dto.nameZh,
@@ -49,7 +52,7 @@ enum ExerciseSeeder {
             }
 
             try context.save()
-            logger.info("Seeded \(dtos.count) preset exercises")
+            logger.info("Seeded \(newDTOs.count) new preset exercises (total: \(existingNames.count + newDTOs.count))")
         } catch {
             logger.error("Failed to seed exercises: \(error.localizedDescription)")
         }
