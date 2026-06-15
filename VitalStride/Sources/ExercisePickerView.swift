@@ -32,7 +32,7 @@ struct ExercisePickerView: View {
     }
 
     private var gridColumns: [GridItem] {
-        [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+        [GridItem(.adaptive(minimum: 140, maximum: 180), spacing: 12)]
     }
 
     var body: some View {
@@ -201,7 +201,7 @@ private struct ExerciseCard: View {
 
                 muscleTags
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(12)
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12))
