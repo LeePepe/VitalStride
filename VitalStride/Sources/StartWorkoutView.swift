@@ -6,6 +6,7 @@ enum WorkoutStartSource {
     case blank
     case fromWorkout(Workout)
     case fromTemplate(WorkoutTemplate)
+    case resume(Workout)
 }
 
 struct StartWorkoutView: View {

@@ -35,6 +35,10 @@ public final class Workout {
 // MARK: - Lifecycle
 
 extension Workout {
+    public var isInProgress: Bool {
+        endDate == nil && source == .recorded
+    }
+
     public func finish(at date: Date = Date()) {
         for exercise in (exercises ?? []) {
             for set in (exercise.sets ?? []) where !set.isCompleted {
