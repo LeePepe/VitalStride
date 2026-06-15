@@ -9,6 +9,9 @@ private let signposter = OSSignposter(
 struct HealthKitWorkoutDetailView: View {
     let record: HealthWorkoutRecord
 
+    @AppStorage("energyUnit") private var energyUnit: EnergyUnit = .kcal
+    @AppStorage("distanceUnit") private var distanceUnit: DistanceUnit = .km
+
     var body: some View {
         List {
             Section {
@@ -38,24 +41,26 @@ struct HealthKitWorkoutDetailView: View {
                 }
 
                 if let energy = record.totalEnergyBurned {
+                    let formatted = Self.formattedEnergy(energy, unit: energyUnit)
                     LabeledContent(String(localized: "消耗热量", comment: "Calories burned label")) {
-                        Text(Self.formattedEnergy(energy))
+                        Text(formatted)
                     }
                     .accessibilityLabel(
                         Text(String(
-                            localized: "消耗热量 \(Self.formattedEnergy(energy))",
+                            localized: "消耗热量 \(formatted)",
                             comment: "Calories a11y label"
                         ))
                     )
                 }
 
                 if let distance = record.totalDistance, distance > 0 {
+                    let formatted = Self.formattedDistance(distance, unit: distanceUnit)
                     LabeledContent(String(localized: "距离", comment: "Distance label")) {
-                        Text(Self.formattedDistance(distance))
+                        Text(formatted)
                     }
                     .accessibilityLabel(
                         Text(String(
-                            localized: "距离 \(Self.formattedDistance(distance))",
+                            localized: "距离 \(formatted)",
                             comment: "Distance a11y label"
                         ))
                     )
@@ -96,27 +101,14 @@ struct HealthKitWorkoutDetailView: View {
             ?? HealthKitWorkoutRowView.formattedDuration(duration)
     }
 
-    static func formattedEnergy(_ kcal: Double) -> String {
-        let measurement = Measurement(value: kcal, unit: UnitEnergy.kilocalories)
-        return Self.energyFormatter.string(from: measurement)
+    static func formattedEnergy(_ kcal: Double, unit: EnergyUnit) -> String {
+        let converted = Int(unit.convert(fromKcal: kcal).rounded())
+        return "\(converted) \(unit.abbreviation)"
     }
 
-    static func formattedDistance(_ meters: Double) -> String {
-        let measurement = Measurement(value: meters, unit: UnitLength.meters)
-        return Self.distanceFormatter.string(from: measurement)
+    static func formattedDistance(_ meters: Double, unit: DistanceUnit) -> String {
+        let converted = unit.convert(fromMeters: meters)
+        let formatted = converted.formatted(.number.precision(.fractionLength(1)))
+        return "\(formatted) \(unit.abbreviation)"
     }
-
-    private static let energyFormatter: MeasurementFormatter = {
-        let formatter = MeasurementFormatter()
-        formatter.unitOptions = .naturalScale
-        formatter.numberFormatter.maximumFractionDigits = 0
-        return formatter
-    }()
-
-    private static let distanceFormatter: MeasurementFormatter = {
-        let formatter = MeasurementFormatter()
-        formatter.unitOptions = .naturalScale
-        formatter.numberFormatter.maximumFractionDigits = 1
-        return formatter
-    }()
 }

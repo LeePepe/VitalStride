@@ -29,6 +29,29 @@ enum DistanceUnit: String, CaseIterable {
         case .mi: return "英里 (mi)"
         }
     }
+
+    var abbreviation: String {
+        switch self {
+        case .km: return "km"
+        case .mi: return "mi"
+        }
+    }
+
+    var accessibilityName: String {
+        switch self {
+        case .km: return String(localized: "公里", comment: "Kilometer a11y name")
+        case .mi: return String(localized: "英里", comment: "Mile a11y name")
+        }
+    }
+
+    static let metersPerMile = 1609.344
+
+    func convert(fromMeters value: Double) -> Double {
+        switch self {
+        case .km: return value / 1000.0
+        case .mi: return value / Self.metersPerMile
+        }
+    }
 }
 
 enum EnergyUnit: String, CaseIterable {
