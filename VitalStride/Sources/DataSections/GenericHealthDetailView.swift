@@ -106,6 +106,7 @@ enum GenericHealthAggregator {
 struct GenericHealthDetailView: View {
     let sampleType: HealthSampleType
 
+    @AppStorage("distanceUnit") private var distanceUnit: DistanceUnit = .km
     @State private var selectedRange: TimeRange = .week
     @State private var dailyData: [GenericHealthAggregator.DailyData] = []
     @State private var statistics: GenericHealthAggregator.Statistics = .empty
@@ -115,6 +116,20 @@ struct GenericHealthDetailView: View {
     @Environment(\.healthDataCache) private var cache
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "GenericHealthDetail")
+
+    private var isDistanceSampleType: Bool {
+        sampleType == .distanceWalkingRunning || sampleType == .distanceCycling
+    }
+
+    private func convertedValue(_ value: Double) -> Double {
+        guard isDistanceSampleType else { return value }
+        return distanceUnit.convert(fromMeters: value)
+    }
+
+    private var displayUnitLabel: String {
+        guard isDistanceSampleType else { return sampleType.unitLabel }
+        return distanceUnit.abbreviation
+    }
 
     var body: some View {
         List {
@@ -222,7 +237,7 @@ struct GenericHealthDetailView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("\(formattedValue(day.value)) \(sampleType.unitLabel)")
+                Text("\(formattedValue(convertedValue(day.value))) \(displayUnitLabel)")
                     .font(.subheadline.weight(.semibold))
             }
             .accessibilityElement(children: .combine)
@@ -232,6 +247,7 @@ struct GenericHealthDetailView: View {
     private var chart: some View {
         Chart {
             ForEach(dailyData) { item in
+                let displayVal = convertedValue(item.value)
                 if sampleType.aggregationMode == .cumulative {
                     BarMark(
                         x: .value(
@@ -239,7 +255,7 @@ struct GenericHealthDetailView: View {
                             item.date,
                             unit: .day
                         ),
-                        y: .value(sampleType.localizedName, item.value)
+                        y: .value(sampleType.localizedName, displayVal)
                     )
                     .foregroundStyle(sampleType.chartColor.gradient)
                     .opacity(barOpacity(for: item.date))
@@ -250,7 +266,7 @@ struct GenericHealthDetailView: View {
                             item.date,
                             unit: .day
                         ),
-                        y: .value(sampleType.localizedName, item.value)
+                        y: .value(sampleType.localizedName, displayVal)
                     )
                     .foregroundStyle(sampleType.chartColor)
                     .interpolationMethod(.catmullRom)
@@ -261,7 +277,7 @@ struct GenericHealthDetailView: View {
                             item.date,
                             unit: .day
                         ),
-                        y: .value(sampleType.localizedName, item.value)
+                        y: .value(sampleType.localizedName, displayVal)
                     )
                     .foregroundStyle(sampleType.chartColor)
                     .symbolSize(20)
@@ -297,17 +313,17 @@ struct GenericHealthDetailView: View {
         Section {
             statRow(
                 label: String(localized: "平均", comment: "Average"),
-                value: formattedValue(statistics.average),
+                value: formattedValue(convertedValue(statistics.average)),
                 image: "chart.bar"
             )
             statRow(
                 label: String(localized: "最高", comment: "Maximum"),
-                value: formattedValue(statistics.max),
+                value: formattedValue(convertedValue(statistics.max)),
                 image: "arrow.up"
             )
             statRow(
                 label: String(localized: "最低", comment: "Minimum"),
-                value: formattedValue(statistics.min),
+                value: formattedValue(convertedValue(statistics.min)),
                 image: "arrow.down"
             )
         }
@@ -319,12 +335,12 @@ struct GenericHealthDetailView: View {
                 HStack {
                     Text(item.date, format: .dateTime.month().day().weekday())
                     Spacer()
-                    Text("\(formattedValue(item.value)) \(sampleType.unitLabel)")
+                    Text("\(formattedValue(convertedValue(item.value))) \(displayUnitLabel)")
                         .foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(
-                    "\(item.date.formatted(.dateTime.month().day())) \(formattedValue(item.value)) \(sampleType.unitLabel)"
+                    "\(item.date.formatted(.dateTime.month().day())) \(formattedValue(convertedValue(item.value))) \(displayUnitLabel)"
                 )
             }
         } header: {
@@ -338,11 +354,11 @@ struct GenericHealthDetailView: View {
         HStack {
             Label(label, systemImage: image)
             Spacer()
-            Text("\(value) \(sampleType.unitLabel)")
+            Text("\(value) \(displayUnitLabel)")
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(label) \(value) \(sampleType.unitLabel)")
+        .accessibilityLabel("\(label) \(value) \(displayUnitLabel)")
     }
 
     private func formattedValue(_ value: Double) -> String {
@@ -359,7 +375,7 @@ struct GenericHealthDetailView: View {
     }
 
     private var chartYDomain: ClosedRange<Double> {
-        let values = dailyData.map(\.value)
+        let values = dailyData.map { convertedValue($0.value) }
         guard let minVal = values.min(), let maxVal = values.max() else {
             return 0...1
         }

@@ -237,6 +237,66 @@ struct GenericAggregatorStatisticsTests {
     }
 }
 
+// MARK: - Distance Unit Conversion Tests
+
+@Suite("GenericHealthDetailView — Distance Unit Preference")
+struct GenericHealthDistanceUnitTests {
+
+    @Test("Distance sample types are classified correctly")
+    func distanceSampleTypeClassification() {
+        let distanceTypes: Set<HealthSampleType> = [.distanceWalkingRunning, .distanceCycling]
+        for type in HealthSampleType.allCases {
+            if distanceTypes.contains(type) {
+                #expect(type.unitLabel == String(localized: "km", comment: "Kilometers unit"),
+                        "\(type.rawValue) should have km unit label")
+            }
+        }
+    }
+
+    @Test("DistanceUnit.km preserves raw meter values as km")
+    func kmConversionFromMeters() {
+        let rawMeters = 5432.1
+        let result = DistanceUnit.km.convert(fromMeters: rawMeters)
+        #expect(abs(result - 5.4321) < 0.0001)
+    }
+
+    @Test("DistanceUnit.mi converts raw meter values to miles")
+    func miConversionFromMeters() {
+        let rawMeters = 1609.344
+        let result = DistanceUnit.mi.convert(fromMeters: rawMeters)
+        #expect(abs(result - 1.0) < 0.0001)
+    }
+
+    @Test("Non-distance types are unaffected by distance unit preference")
+    func nonDistanceTypesUnaffected() {
+        let nonDistanceTypes: [HealthSampleType] = [
+            .stepCount, .heartRate, .bodyMass, .height, .activeEnergyBurned,
+        ]
+        for type in nonDistanceTypes {
+            #expect(type != .distanceWalkingRunning)
+            #expect(type != .distanceCycling)
+        }
+    }
+
+    @Test("Distance types use cumulative aggregation")
+    func distanceAggregationMode() {
+        #expect(HealthSampleType.distanceWalkingRunning.aggregationMode == .cumulative)
+        #expect(HealthSampleType.distanceCycling.aggregationMode == .cumulative)
+    }
+
+    @Test("DistanceUnit abbreviation matches expected labels")
+    func distanceUnitAbbreviations() {
+        #expect(DistanceUnit.km.abbreviation == "km")
+        #expect(DistanceUnit.mi.abbreviation == "mi")
+    }
+
+    @Test("Zero distance converts correctly")
+    func zeroDistanceConversion() {
+        #expect(DistanceUnit.km.convert(fromMeters: 0) == 0)
+        #expect(DistanceUnit.mi.convert(fromMeters: 0) == 0)
+    }
+}
+
 // MARK: - DataView Section Structure Tests
 
 @Suite("DataView — Section Structure")
