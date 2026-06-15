@@ -1,37 +1,35 @@
 /// A locale-independent identifier for telemetry parameters.
 ///
-/// Enforces that all telemetry string values are ASCII-only identifiers,
-/// preventing localized or free-text values from fragmenting analytics.
-/// Non-conforming characters are stripped at construction time.
+/// Only ASCII alphanumerics, underscores, hyphens, and dots are allowed.
+/// Use ``init?(validating:)`` for dynamic strings — it returns `nil` on
+/// non-canonical input instead of silently normalizing, so PII and
+/// localized text cannot be logged as telemetry values.
+/// String literals are validated via `precondition` in debug builds.
 public struct TelemetryIdentifier: Sendable, Equatable, Hashable, ExpressibleByStringLiteral {
     public let rawValue: String
 
     public init(stringLiteral value: String) {
-        self.rawValue = Self.normalize(value)
+        precondition(
+            Self.isCanonical(value),
+            "TelemetryIdentifier literal contains non-canonical characters: \(value)"
+        )
+        self.rawValue = value
     }
 
-    public init(_ value: String) {
-        self.rawValue = Self.normalize(value)
+    public init?(validating value: String) {
+        guard !value.isEmpty, Self.isCanonical(value) else { return nil }
+        self.rawValue = value
     }
 
-    private static func normalize(_ value: String) -> String {
-        var result = ""
-        result.reserveCapacity(value.count)
-        for scalar in value.unicodeScalars {
-            guard scalar.isASCII else { continue }
-            let v = scalar.value
-            let isAllowed =
-                (v >= 0x30 && v <= 0x39)  // 0-9
-                || (v >= 0x41 && v <= 0x5A)  // A-Z
-                || (v >= 0x61 && v <= 0x7A)  // a-z
-                || v == 0x5F  // _
-                || v == 0x2D  // -
-                || v == 0x2E  // .
-            if isAllowed {
-                result.unicodeScalars.append(scalar)
-            }
+    static func isCanonical(_ value: String) -> Bool {
+        value.utf8.allSatisfy { byte in
+            (byte >= 0x30 && byte <= 0x39)    // 0-9
+                || (byte >= 0x41 && byte <= 0x5A)  // A-Z
+                || (byte >= 0x61 && byte <= 0x7A)  // a-z
+                || byte == 0x5F                     // _
+                || byte == 0x2D                     // -
+                || byte == 0x2E                     // .
         }
-        return result
     }
 }
 
@@ -163,7 +161,7 @@ extension TelemetryEvent {
         return "\(eventName) \(paramString)"
     }
 
-    private static func sanitize(_ value: String) -> String {
+    static func sanitize(_ value: String) -> String {
         var result = ""
         result.reserveCapacity(value.count)
         for scalar in value.unicodeScalars {
