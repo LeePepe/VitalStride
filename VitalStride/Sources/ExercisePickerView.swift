@@ -1,13 +1,36 @@
+import os
 import SwiftData
 import SwiftUI
 import VitalModels
+
+private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "ExercisePicker")
 
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
     @State private var searchText = ""
     @State private var selectedMuscleGroup: MuscleGroup?
-    let onSelect: (Exercise) -> Void
+    @State private var selectedIDs: Set<PersistentIdentifier> = []
+    @State private var selectedExercises: [Exercise] = []
+    let selectionMode: SelectionMode
+
+    enum SelectionMode {
+        case single(onSelect: (Exercise) -> Void)
+        case multiple(onConfirm: ([Exercise]) -> Void)
+    }
+
+    init(onSelect: @escaping (Exercise) -> Void) {
+        self.selectionMode = .single(onSelect: onSelect)
+    }
+
+    init(onConfirm: @escaping ([Exercise]) -> Void) {
+        self.selectionMode = .multiple(onConfirm: onConfirm)
+    }
+
+    private var isMultiSelect: Bool {
+        if case .multiple = selectionMode { return true }
+        return false
+    }
 
     private var filteredExercises: [Exercise] {
         var result = exercises
@@ -40,9 +63,9 @@ struct ExercisePickerView: View {
             Group {
                 if exercises.isEmpty {
                     ContentUnavailableView(
-                        "动作库为空",
+                        String(localized: "动作库为空", comment: "Empty exercise library title"),
                         systemImage: "tray",
-                        description: Text("请先导入预置动作库")
+                        description: Text(String(localized: "请先导入预置动作库", comment: "Empty exercise library description"))
                     )
                 } else {
                     HStack(spacing: 0) {
@@ -53,25 +76,46 @@ struct ExercisePickerView: View {
                     }
                 }
             }
-            .searchable(text: $searchText, prompt: "搜索动作")
-            .navigationTitle("选择动作")
+            .searchable(text: $searchText, prompt: String(localized: "搜索动作", comment: "Exercise search prompt"))
+            .navigationTitle(String(localized: "选择动作", comment: "Exercise picker navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button(String(localized: "取消", comment: "Cancel button")) { dismiss() }
+                }
+                if isMultiSelect {
+                    ToolbarItem(placement: .confirmationAction) {
+                        confirmButton
+                    }
                 }
             }
         }
     }
 
-    // MARK: - Muscle Group Sidebar (Regular)
+    @ViewBuilder
+    private var confirmButton: some View {
+        let count = selectedIDs.count
+        Button {
+            if case .multiple(let onConfirm) = selectionMode {
+                signposter.emitEvent("exercise_picker_confirm", "count=\(count)")
+                onConfirm(selectedExercises)
+                dismiss()
+            }
+        } label: {
+            Text(String(localized: "添加 (\(count))", comment: "Confirm multi-select button with count"))
+        }
+        .disabled(count == 0)
+        .accessibilityLabel(String(localized: "添加 \(count) 个动作", comment: "Confirm multi-select a11y label"))
+    }
+
+    // MARK: - Muscle Group Sidebar
 
     private var muscleGroupSidebar: some View {
         ScrollView {
             LazyVStack(spacing: 2) {
                 sidebarItem(
                     icon: "square.grid.2x2",
-                    label: "全部",
+                    label: String(localized: "全部", comment: "All muscle groups sidebar label"),
                     isSelected: selectedMuscleGroup == nil
                 ) {
                     selectedMuscleGroup = nil
@@ -145,15 +189,15 @@ struct ExercisePickerView: View {
             ContentUnavailableView.search(text: searchText)
         } else if let group = selectedMuscleGroup {
             ContentUnavailableView(
-                "没有动作",
+                String(localized: "没有动作", comment: "No exercises found title"),
                 systemImage: "dumbbell",
-                description: Text("\(group.localizedName)分类下暂无动作")
+                description: Text(String(localized: "\(group.localizedName)分类下暂无动作", comment: "No exercises in muscle group description"))
             )
         } else {
             ContentUnavailableView(
-                "没有动作",
+                String(localized: "没有动作", comment: "No exercises found title"),
                 systemImage: "dumbbell",
-                description: Text("暂无可用动作")
+                description: Text(String(localized: "暂无可用动作", comment: "No exercises available description"))
             )
         }
     }
@@ -169,12 +213,36 @@ struct ExercisePickerView: View {
 
             LazyVGrid(columns: gridColumns, spacing: 12) {
                 ForEach(exercises) { exercise in
-                    ExerciseCard(exercise: exercise) {
-                        onSelect(exercise)
-                        dismiss()
+                    ExerciseCard(
+                        exercise: exercise,
+                        isSelected: selectedIDs.contains(exercise.persistentModelID),
+                        showsSelectionIndicator: isMultiSelect
+                    ) {
+                        handleCardTap(exercise)
                     }
                 }
             }
+        }
+    }
+
+    private func handleCardTap(_ exercise: Exercise) {
+        switch selectionMode {
+        case .single(let onSelect):
+            onSelect(exercise)
+            dismiss()
+        case .multiple:
+            toggleSelection(exercise)
+        }
+    }
+
+    private func toggleSelection(_ exercise: Exercise) {
+        let id = exercise.persistentModelID
+        if selectedIDs.contains(id) {
+            selectedIDs.remove(id)
+            selectedExercises.removeAll { $0.persistentModelID == id }
+        } else {
+            selectedIDs.insert(id)
+            selectedExercises.append(exercise)
         }
     }
 }
@@ -183,6 +251,8 @@ struct ExercisePickerView: View {
 
 private struct ExerciseCard: View {
     let exercise: Exercise
+    let isSelected: Bool
+    let showsSelectionIndicator: Bool
     let onTap: () -> Void
 
     var body: some View {
@@ -205,8 +275,24 @@ private struct ExerciseCard: View {
             .padding(12)
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(Color.blue, lineWidth: 2)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if isSelected && showsSelectionIndicator {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.white, Color.blue)
+                        .padding(6)
+                        .accessibilityHidden(true)
+                }
+            }
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     @ViewBuilder
