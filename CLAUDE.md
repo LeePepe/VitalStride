@@ -45,7 +45,7 @@ xcodegen generate
 ## Architecture
 
 - **XcodeGen 项目**：`project.yml` 定义 targets，`xcodegen generate` 生成 `.xcodeproj`
-- **5 个 SPM local packages**：VitalModels、HealthKitService、AIService、VitalUI、TelemetryKit
+- **5 个 SPM local packages**：VitalModels、HealthKitService、AIService、VitalUI、TelemetryKit（TelemetryKit 尚未注册到 `project.yml`，当前独立包，待集成 issue 添加到 app target）
 - **Swift 6 strict concurrency**
 - **SwiftData** 存储训练数据 + HealthKit L2 缓存（`HealthCacheEntry`，本地隔离，`cloudKitDatabase: .none`）
 - **HealthDataCache** 是纯内存 actor L1 缓存层
