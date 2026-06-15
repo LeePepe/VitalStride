@@ -63,9 +63,9 @@ struct ExercisePickerView: View {
             Group {
                 if exercises.isEmpty {
                     ContentUnavailableView(
-                        "动作库为空",
+                        String(localized: "动作库为空", comment: "Empty exercise library title"),
                         systemImage: "tray",
-                        description: Text("请先导入预置动作库")
+                        description: Text(String(localized: "请先导入预置动作库", comment: "Empty exercise library description"))
                     )
                 } else {
                     HStack(spacing: 0) {
@@ -76,7 +76,7 @@ struct ExercisePickerView: View {
                     }
                 }
             }
-            .searchable(text: $searchText, prompt: "搜索动作")
+            .searchable(text: $searchText, prompt: String(localized: "搜索动作", comment: "Exercise search prompt"))
             .navigationTitle(String(localized: "选择动作", comment: "Exercise picker navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -115,7 +115,7 @@ struct ExercisePickerView: View {
             LazyVStack(spacing: 2) {
                 sidebarItem(
                     icon: "square.grid.2x2",
-                    label: "全部",
+                    label: String(localized: "全部", comment: "All muscle groups sidebar label"),
                     isSelected: selectedMuscleGroup == nil
                 ) {
                     selectedMuscleGroup = nil
@@ -189,15 +189,15 @@ struct ExercisePickerView: View {
             ContentUnavailableView.search(text: searchText)
         } else if let group = selectedMuscleGroup {
             ContentUnavailableView(
-                "没有动作",
+                String(localized: "没有动作", comment: "No exercises found title"),
                 systemImage: "dumbbell",
-                description: Text("\(group.localizedName)分类下暂无动作")
+                description: Text(String(localized: "\(group.localizedName)分类下暂无动作", comment: "No exercises in muscle group description"))
             )
         } else {
             ContentUnavailableView(
-                "没有动作",
+                String(localized: "没有动作", comment: "No exercises found title"),
                 systemImage: "dumbbell",
-                description: Text("暂无可用动作")
+                description: Text(String(localized: "暂无可用动作", comment: "No exercises available description"))
             )
         }
     }
@@ -278,14 +278,14 @@ private struct ExerciseCard: View {
             .overlay {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .strokeBorder(Color.blue, lineWidth: 2)
                 }
             }
             .overlay(alignment: .topTrailing) {
                 if isSelected && showsSelectionIndicator {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title3)
-                        .foregroundStyle(.white, Color.accentColor)
+                        .foregroundStyle(.white, Color.blue)
                         .padding(6)
                         .accessibilityHidden(true)
                 }
