@@ -45,6 +45,7 @@ struct WorkoutActivityTypeDisplayTests {
 // MARK: - UnifiedWorkout Tests
 
 @Suite("UnifiedWorkout")
+@MainActor
 struct UnifiedWorkoutTests {
     @Test("HealthKit workout provides correct startDate")
     func healthKitStartDate() {
@@ -165,7 +166,7 @@ struct UnifiedWorkoutTests {
         )
         let unified = UnifiedWorkout.healthKit(record)
 
-        #expect(unified.source == "HealthKit")
+        #expect(unified.source == String(localized: "HealthKit", comment: "Default source name for HealthKit workouts"))
     }
 
     @Test("HealthKit workout id has hk prefix")
@@ -255,7 +256,7 @@ struct UnifiedWorkoutTests {
         #expect(unified.displayIcon == "dumbbell")
     }
 
-    @Test("App workout source is 'app'")
+    @Test("App workout source is localized app label")
     func appWorkoutSource() throws {
         let container = try ModelContainerConfiguration.makeTestContainer()
         let context = ModelContext(container)
@@ -265,7 +266,7 @@ struct UnifiedWorkoutTests {
 
         let unified = UnifiedWorkout.app(workout)
 
-        #expect(unified.source == "app")
+        #expect(unified.source == String(localized: "本应用", comment: "Workout source label for workouts recorded in this app"))
     }
 
     @Test("App workout displayTitle shows exercise names")

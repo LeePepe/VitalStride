@@ -2,11 +2,12 @@ import Foundation
 import HealthKitService
 import VitalModels
 
-enum UnifiedWorkout: Identifiable, @unchecked Sendable {
+@MainActor
+enum UnifiedWorkout: Identifiable {
     case app(Workout)
     case healthKit(HealthWorkoutRecord)
 
-    var id: String {
+    nonisolated var id: String {
         switch self {
         case .app(let workout):
             "app-\(workout.persistentModelID)"
@@ -67,8 +68,10 @@ enum UnifiedWorkout: Identifiable, @unchecked Sendable {
 
     var source: String {
         switch self {
-        case .app: "app"
-        case .healthKit(let record): record.sourceName ?? "HealthKit"
+        case .app:
+            String(localized: "本应用", comment: "Workout source label for workouts recorded in this app")
+        case .healthKit(let record):
+            record.sourceName ?? String(localized: "HealthKit", comment: "Default source name for HealthKit workouts")
         }
     }
 }
