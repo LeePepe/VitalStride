@@ -170,7 +170,7 @@ struct OnboardingView: View {
         Text("左滑继续")
             .font(.footnote)
             .foregroundStyle(.tertiary)
-            .padding(.bottom, 32)
+            .padding(.bottom, 60)
     }
 
     // MARK: - Actions
