@@ -10,6 +10,7 @@ public final class Exercise {
     public var primaryMuscles: [String] = []
     public var secondaryMuscles: [String] = []
     public var isCustom: Bool = false
+    public var presetId: String?
 
     @Relationship(inverse: \WorkoutExercise.exercise)
     public var workoutExercises: [WorkoutExercise]?
@@ -29,7 +30,8 @@ public final class Exercise {
         equipment: Equipment,
         primaryMuscles: [String] = [],
         secondaryMuscles: [String] = [],
-        isCustom: Bool = false
+        isCustom: Bool = false,
+        presetId: String? = nil
     ) {
         self.nameEn = nameEn
         self.nameZh = nameZh
@@ -38,5 +40,6 @@ public final class Exercise {
         self.primaryMuscles = primaryMuscles
         self.secondaryMuscles = secondaryMuscles
         self.isCustom = isCustom
+        self.presetId = presetId
     }
 }
