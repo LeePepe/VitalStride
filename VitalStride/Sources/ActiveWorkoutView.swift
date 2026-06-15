@@ -326,6 +326,7 @@ struct ActiveWorkoutView: View {
     #if !os(macOS)
     private func observeHeartRate() async {
         for await dataPoint in healthKitService.observeHeartRate() {
+            guard dataPoint.startDate.timeIntervalSinceNow > -120 else { continue }
             currentHeartRate = dataPoint.value
         }
     }
