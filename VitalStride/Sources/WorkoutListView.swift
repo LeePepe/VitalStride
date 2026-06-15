@@ -25,6 +25,7 @@ struct WorkoutListView: View {
     @State private var showingDeleteError = false
     @State private var healthKitRecords: [HealthWorkoutRecord] = []
     @State private var isLoadingHealthKit = false
+    @State private var healthKitLoadFailed = false
 
     private var shouldShowAdviceCard: Bool {
         !unifiedWorkouts.isEmpty && privacyConsented
@@ -44,7 +45,7 @@ struct WorkoutListView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if !hasAnyWorkouts && !isLoadingHealthKit {
+                if !hasAnyWorkouts && !isLoadingHealthKit && !healthKitLoadFailed {
                     ContentUnavailableView(
                         String(localized: "暂无训练记录", comment: "No workouts empty state title"),
                         systemImage: "dumbbell",
@@ -75,6 +76,21 @@ struct WorkoutListView: View {
                                         )
                                     Spacer()
                                 }
+                            }
+                        }
+
+                        if healthKitLoadFailed && healthKitRecords.isEmpty {
+                            Section {
+                                VStack(spacing: 4) {
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .font(.title3)
+                                        .foregroundStyle(.secondary)
+                                        .accessibilityHidden(true)
+                                    Text(String(localized: "无法加载外部训练数据", comment: "HealthKit workout load error"))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity)
                             }
                         }
 
@@ -172,9 +188,15 @@ struct WorkoutListView: View {
 
     private func loadHealthKitWorkouts() async {
         isLoadingHealthKit = true
+        healthKitLoadFailed = false
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("workout_list_hk_fetch", id: signpostID)
         let start = ContinuousClock.now
+
+        defer {
+            signposter.endInterval("workout_list_hk_fetch", state)
+            isLoadingHealthKit = false
+        }
 
         do {
             let records = try await healthDataCache.workoutData()
@@ -183,7 +205,6 @@ struct WorkoutListView: View {
             let elapsed = start.duration(to: ContinuousClock.now)
             let ms = elapsed.components.seconds * 1000
                 + elapsed.components.attoseconds / 1_000_000_000_000_000
-            signposter.endInterval("workout_list_hk_fetch", state)
             logger.info(
                 "workout_list_hk_fetch_duration_ms=\(ms) count=\(records.count) success=true"
             )
@@ -202,13 +223,9 @@ struct WorkoutListView: View {
             )
         } catch {
             guard !Task.isCancelled else { return }
-            signposter.endInterval("workout_list_hk_fetch", state)
-            logger.info(
-                "workout_list_hk_fetch_duration_ms=0 count=0 success=false"
-            )
+            logger.error("HealthKit workout load failed: \(error.localizedDescription)")
+            healthKitLoadFailed = true
         }
-
-        isLoadingHealthKit = false
     }
 
     private func deleteWorkout(_ workout: Workout) {
