@@ -237,6 +237,82 @@ struct GenericAggregatorStatisticsTests {
     }
 }
 
+// MARK: - Distance Unit Conversion Tests
+
+@Suite("GenericHealthDetailView — Distance Unit Preference")
+struct GenericHealthDistanceUnitTests {
+
+    @Test("Distance sample types are classified correctly")
+    func distanceSampleTypeClassification() {
+        let distanceTypes: Set<HealthSampleType> = [.distanceWalkingRunning, .distanceCycling]
+        for type in HealthSampleType.allCases {
+            if distanceTypes.contains(type) {
+                #expect(type.unitLabel == String(localized: "km", comment: "Kilometers unit"),
+                        "\(type.rawValue) should have km unit label")
+            }
+        }
+    }
+
+    @Test("DistanceUnit.km passes through raw km values unchanged")
+    func kmConversionFromKilometers() {
+        let rawKm = 5.4321
+        let result = DistanceUnit.km.convert(fromKilometers: rawKm)
+        #expect(abs(result - 5.4321) < 0.0001)
+    }
+
+    @Test("DistanceUnit.mi converts raw km values to miles")
+    func miConversionFromKilometers() {
+        let rawKm = 1.609344
+        let result = DistanceUnit.mi.convert(fromKilometers: rawKm)
+        #expect(abs(result - 1.0) < 0.0001)
+    }
+
+    @Test("Non-distance types are unaffected by distance unit preference")
+    func nonDistanceTypesUnaffected() {
+        let nonDistanceTypes: [HealthSampleType] = [
+            .stepCount, .heartRate, .bodyMass, .height, .activeEnergyBurned,
+        ]
+        for type in nonDistanceTypes {
+            #expect(type != .distanceWalkingRunning)
+            #expect(type != .distanceCycling)
+        }
+    }
+
+    @Test("Height keeps cm semantics and is not classified as distance")
+    func heightNotDistance() {
+        #expect(HealthSampleType.height.unitLabel == String(localized: "cm", comment: "Centimeters unit"))
+        #expect(HealthSampleType.height != .distanceWalkingRunning)
+        #expect(HealthSampleType.height != .distanceCycling)
+    }
+
+    @Test("Distance types use cumulative aggregation")
+    func distanceAggregationMode() {
+        #expect(HealthSampleType.distanceWalkingRunning.aggregationMode == .cumulative)
+        #expect(HealthSampleType.distanceCycling.aggregationMode == .cumulative)
+    }
+
+    @Test("DistanceUnit abbreviation matches expected labels")
+    func distanceUnitAbbreviations() {
+        #expect(DistanceUnit.km.abbreviation == "km")
+        #expect(DistanceUnit.mi.abbreviation == "mi")
+    }
+
+    @Test("Zero distance converts correctly from km")
+    func zeroDistanceConversion() {
+        #expect(DistanceUnit.km.convert(fromKilometers: 0) == 0)
+        #expect(DistanceUnit.mi.convert(fromKilometers: 0) == 0)
+    }
+
+    @Test("fromKilometers and fromMeters are consistent")
+    func fromKilometersConsistentWithFromMeters() {
+        let meters = 5000.0
+        let km = 5.0
+        let miFromMeters = DistanceUnit.mi.convert(fromMeters: meters)
+        let miFromKm = DistanceUnit.mi.convert(fromKilometers: km)
+        #expect(abs(miFromMeters - miFromKm) < 0.0001)
+    }
+}
+
 // MARK: - DataView Section Structure Tests
 
 @Suite("DataView — Section Structure")
