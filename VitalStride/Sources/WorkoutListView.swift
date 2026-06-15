@@ -5,6 +5,7 @@ import VitalModels
 import os
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "WorkoutList")
+private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "WorkoutList")
 
 struct WorkoutListView: View {
     @Query(
@@ -14,6 +15,7 @@ struct WorkoutListView: View {
     ) private var workouts: [Workout]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthKitService) private var healthKitService
+    @Environment(\.healthDataCache) private var healthDataCache
     @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
     @State private var adviceViewModel = TrainingAdviceViewModel()
     @State private var showingStartOptions = false
@@ -21,19 +23,33 @@ struct WorkoutListView: View {
     @State private var pendingSource: WorkoutStartSource?
     @State private var workoutToDelete: Workout?
     @State private var showingDeleteError = false
+    @State private var healthKitRecords: [HealthWorkoutRecord] = []
+    @State private var isLoadingHealthKit = false
+    @State private var healthKitLoadFailed = false
 
     private var shouldShowAdviceCard: Bool {
-        !workouts.isEmpty && privacyConsented
+        !unifiedWorkouts.isEmpty && privacyConsented
+    }
+
+    private var unifiedWorkouts: [UnifiedWorkout] {
+        WorkoutListMerger.merge(
+            appWorkouts: workouts,
+            healthKitRecords: healthKitRecords
+        ).unified
+    }
+
+    private var hasAnyWorkouts: Bool {
+        !workouts.isEmpty || !healthKitRecords.isEmpty
     }
 
     var body: some View {
         NavigationStack {
             Group {
-                if workouts.isEmpty {
+                if !hasAnyWorkouts && !isLoadingHealthKit && !healthKitLoadFailed {
                     ContentUnavailableView(
-                        "暂无训练记录",
+                        String(localized: "暂无训练记录", comment: "No workouts empty state title"),
                         systemImage: "dumbbell",
-                        description: Text("点击 + 开始第一次训练")
+                        description: Text(String(localized: "点击 + 开始第一次训练", comment: "No workouts empty state description"))
                     )
                 } else {
                     List {
@@ -50,23 +66,58 @@ struct WorkoutListView: View {
                             .listRowBackground(Color.clear)
                         }
 
-                        Section {
-                            ForEach(workouts) { workout in
-                                NavigationLink {
-                                    WorkoutDetailView(workout: workout)
-                                } label: {
-                                    WorkoutRowView(workout: workout)
+                        if isLoadingHealthKit && healthKitRecords.isEmpty {
+                            Section {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                        .accessibilityLabel(
+                                            String(localized: "正在加载更多训练数据", comment: "Loading HK workouts a11y")
+                                        )
+                                    Spacer()
                                 }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button(role: .destructive) {
-                                        workoutToDelete = workout
+                            }
+                        }
+
+                        if healthKitLoadFailed && healthKitRecords.isEmpty {
+                            Section {
+                                VStack(spacing: 4) {
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .font(.title3)
+                                        .foregroundStyle(.secondary)
+                                        .accessibilityHidden(true)
+                                    Text(String(localized: "无法加载外部训练数据", comment: "HealthKit workout load error"))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                        }
+
+                        Section {
+                            ForEach(unifiedWorkouts) { item in
+                                switch item {
+                                case .app(let workout):
+                                    NavigationLink {
+                                        WorkoutDetailView(workout: workout)
                                     } label: {
-                                        Label(
-                                            String(localized: "删除", comment: "Delete swipe action"),
-                                            systemImage: "trash"
+                                        WorkoutRowView(workout: workout)
+                                    }
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        Button(role: .destructive) {
+                                            workoutToDelete = workout
+                                        } label: {
+                                            Label(
+                                                String(localized: "删除", comment: "Delete swipe action"),
+                                                systemImage: "trash"
+                                            )
+                                        }
+                                        .accessibilityLabel(
+                                            String(localized: "删除训练", comment: "Delete workout a11y")
                                         )
                                     }
-                                    .accessibilityLabel(String(localized: "删除训练", comment: "Delete workout a11y"))
+                                case .healthKit(let record):
+                                    HealthKitWorkoutRowView(record: record)
                                 }
                             }
                         }
@@ -77,10 +128,16 @@ struct WorkoutListView: View {
                     }
                 }
             }
-            .navigationTitle("训练")
+            .task {
+                await loadHealthKitWorkouts()
+            }
+            .navigationTitle(String(localized: "训练", comment: "Workout tab title"))
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("开始训练", systemImage: "plus") {
+                    Button(
+                        String(localized: "开始训练", comment: "Start workout toolbar button"),
+                        systemImage: "plus"
+                    ) {
                         showingStartOptions = true
                     }
                 }
@@ -129,6 +186,48 @@ struct WorkoutListView: View {
         }
     }
 
+    private func loadHealthKitWorkouts() async {
+        isLoadingHealthKit = true
+        healthKitLoadFailed = false
+        let signpostID = signposter.makeSignpostID()
+        let state = signposter.beginInterval("workout_list_hk_fetch", id: signpostID)
+        let start = ContinuousClock.now
+
+        defer {
+            signposter.endInterval("workout_list_hk_fetch", state)
+            isLoadingHealthKit = false
+        }
+
+        do {
+            let records = try await healthDataCache.workoutData()
+            guard !Task.isCancelled else { return }
+
+            let elapsed = start.duration(to: ContinuousClock.now)
+            let ms = elapsed.components.seconds * 1000
+                + elapsed.components.attoseconds / 1_000_000_000_000_000
+            logger.info(
+                "workout_list_hk_fetch_duration_ms=\(ms) count=\(records.count) success=true"
+            )
+
+            healthKitRecords = records
+
+            let result = WorkoutListMerger.merge(
+                appWorkouts: workouts,
+                healthKitRecords: records
+            )
+            logger.info(
+                "workout_list_dedup_count=\(result.dedupCount)"
+            )
+            logger.info(
+                "workout_list_unified_count local=\(workouts.count) hk=\(records.count) total=\(result.unified.count)"
+            )
+        } catch {
+            guard !Task.isCancelled else { return }
+            logger.error("HealthKit workout load failed: \(error.localizedDescription)")
+            healthKitLoadFailed = true
+        }
+    }
+
     private func deleteWorkout(_ workout: Workout) {
         let source = workout.source
         let hkUUID = workout.healthKitUUID
@@ -139,7 +238,9 @@ struct WorkoutListView: View {
                 do {
                     try await healthKitService.deleteWorkout(healthKitUUID: hkUUID)
                 } catch {
-                    logger.error("HealthKit delete failed uuid=\(hkUUID, privacy: .private) error=\(error.localizedDescription, privacy: .private)")
+                    logger.error(
+                        "HealthKit delete failed uuid=\(hkUUID, privacy: .private) error=\(error.localizedDescription, privacy: .private)"
+                    )
                 }
             }
 
