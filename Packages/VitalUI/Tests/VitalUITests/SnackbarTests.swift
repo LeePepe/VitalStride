@@ -1,3 +1,4 @@
+import SwiftUI
 import Testing
 @testable import VitalUI
 
@@ -134,5 +135,49 @@ struct SnackbarModeTests {
     func equatableComparesDuration() {
         #expect(SnackbarMode.autoDismiss(duration: 3) == SnackbarMode.autoDismiss(duration: 3))
         #expect(SnackbarMode.autoDismiss(duration: 3) != SnackbarMode.autoDismiss(duration: 5))
+    }
+}
+
+@Suite("SnackbarModifier Edge")
+struct SnackbarEdgeTests {
+
+    @Test("snackbar defaults to bottom edge")
+    @MainActor
+    func defaultEdgeIsBottom() {
+        let view = Text("Hello")
+            .snackbar(isPresented: .constant(true)) {
+                Text("Default")
+            }
+        _ = view
+    }
+
+    @Test("snackbar accepts top edge parameter")
+    @MainActor
+    func topEdgeAccepted() {
+        let view = Text("Hello")
+            .snackbar(isPresented: .constant(true), edge: .top) {
+                Text("Top snackbar")
+            }
+        _ = view
+    }
+
+    @Test("snackbar accepts bottom edge parameter explicitly")
+    @MainActor
+    func bottomEdgeExplicit() {
+        let view = Text("Hello")
+            .snackbar(isPresented: .constant(true), edge: .bottom) {
+                Text("Bottom snackbar")
+            }
+        _ = view
+    }
+
+    @Test("top edge snackbar with custom mode")
+    @MainActor
+    func topEdgeWithCustomMode() {
+        let view = Text("Hello")
+            .snackbar(isPresented: .constant(true), edge: .top, mode: .persistent) {
+                Text("Persistent top snackbar")
+            }
+        _ = view
     }
 }

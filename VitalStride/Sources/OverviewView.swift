@@ -80,7 +80,7 @@ struct OverviewView: View {
                     authCheckToken = UUID()
                 }
             }
-            .snackbar(isPresented: $dynamicState.showRefreshError) {
+            .snackbar(isPresented: $dynamicState.showRefreshError, edge: .top) {
                 Label(
                     String(localized: "overview_refresh_failed", defaultValue: "刷新失败，请稍后重试"),
                     systemImage: "exclamationmark.triangle"
