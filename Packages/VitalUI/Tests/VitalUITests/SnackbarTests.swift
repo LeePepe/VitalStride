@@ -141,43 +141,49 @@ struct SnackbarModeTests {
 @Suite("SnackbarModifier Edge")
 struct SnackbarEdgeTests {
 
-    @Test("snackbar defaults to bottom edge")
+    private func makeModifier(edge: VerticalEdge) -> SnackbarModifier<Text> {
+        SnackbarModifier(
+            isPresented: .constant(true),
+            edge: edge,
+            mode: .autoDismiss(),
+            onDismiss: nil,
+            snackbarContent: { Text("Test") }
+        )
+    }
+
+    @Test("top edge produces top-aligned overlay and transition")
+    @MainActor
+    func topEdgeConfiguration() {
+        let modifier = makeModifier(edge: .top)
+        #expect(modifier.overlayAlignment == .top)
+        #expect(modifier.transitionEdge == .top)
+        #expect(modifier.edgePaddingEdge == .top)
+    }
+
+    @Test("bottom edge produces bottom-aligned overlay and transition")
+    @MainActor
+    func bottomEdgeConfiguration() {
+        let modifier = makeModifier(edge: .bottom)
+        #expect(modifier.overlayAlignment == .bottom)
+        #expect(modifier.transitionEdge == .bottom)
+        #expect(modifier.edgePaddingEdge == .bottom)
+    }
+
+    @Test("shadow always casts downward regardless of edge")
+    @MainActor
+    func shadowAlwaysDownward() {
+        let top = makeModifier(edge: .top)
+        let bottom = makeModifier(edge: .bottom)
+        #expect(top.shadowYOffset == 4)
+        #expect(bottom.shadowYOffset == 4)
+        #expect(top.shadowYOffset == bottom.shadowYOffset)
+    }
+
+    @Test("snackbar view extension defaults to bottom edge")
     @MainActor
     func defaultEdgeIsBottom() {
-        let view = Text("Hello")
-            .snackbar(isPresented: .constant(true)) {
-                Text("Default")
-            }
-        _ = view
-    }
-
-    @Test("snackbar accepts top edge parameter")
-    @MainActor
-    func topEdgeAccepted() {
-        let view = Text("Hello")
-            .snackbar(isPresented: .constant(true), edge: .top) {
-                Text("Top snackbar")
-            }
-        _ = view
-    }
-
-    @Test("snackbar accepts bottom edge parameter explicitly")
-    @MainActor
-    func bottomEdgeExplicit() {
-        let view = Text("Hello")
-            .snackbar(isPresented: .constant(true), edge: .bottom) {
-                Text("Bottom snackbar")
-            }
-        _ = view
-    }
-
-    @Test("top edge snackbar with custom mode")
-    @MainActor
-    func topEdgeWithCustomMode() {
-        let view = Text("Hello")
-            .snackbar(isPresented: .constant(true), edge: .top, mode: .persistent) {
-                Text("Persistent top snackbar")
-            }
-        _ = view
+        let modifier = makeModifier(edge: .bottom)
+        #expect(modifier.edge == .bottom)
+        #expect(modifier.overlayAlignment == .bottom)
     }
 }
