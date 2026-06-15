@@ -524,30 +524,49 @@ private struct ActiveExerciseSection: View {
             }
             addSetButton
         } header: {
-            Text(workoutExercise.exercise?.localizedName ?? "动作")
-                .contextMenu {
+            HStack {
+                Text(workoutExercise.exercise?.localizedName ?? "动作")
+                    .contextMenu {
+                        Button {
+                            onReplace()
+                        } label: {
+                            Label(String(localized: "替换动作", comment: "Replace exercise context menu item"), systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        Button(role: .destructive) {
+                            showingDeleteConfirmation = true
+                        } label: {
+                            Label(String(localized: "删除动作", comment: "Delete exercise context menu item"), systemImage: "trash")
+                        }
+                    }
+                    .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
+                Spacer()
+                Menu {
                     Button {
                         onReplace()
                     } label: {
-                        Label("替换动作", systemImage: "arrow.triangle.2.circlepath")
+                        Label(String(localized: "替换动作", comment: "Replace exercise menu item"), systemImage: "arrow.triangle.2.circlepath")
                     }
                     Button(role: .destructive) {
                         showingDeleteConfirmation = true
                     } label: {
-                        Label("删除动作", systemImage: "trash")
+                        Label(String(localized: "删除动作", comment: "Delete exercise menu item"), systemImage: "trash")
                     }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .foregroundStyle(.secondary)
                 }
-                .accessibilityHint("长按可替换或删除动作")
-                .confirmationDialog(
-                    "删除动作？",
-                    isPresented: $showingDeleteConfirmation,
-                    titleVisibility: .visible
-                ) {
-                    Button("删除", role: .destructive) { onDelete() }
-                    Button("取消", role: .cancel) {}
-                } message: {
-                    Text("该动作及所有已录入的组数据将被删除")
-                }
+                .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
+            }
+            .confirmationDialog(
+                String(localized: "删除动作？", comment: "Delete exercise confirmation title"),
+                isPresented: $showingDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "删除", comment: "Delete confirmation button"), role: .destructive) { onDelete() }
+                Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "该动作及所有已录入的组数据将被删除", comment: "Delete exercise confirmation message"))
+            }
         }
     }
 
