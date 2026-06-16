@@ -1,12 +1,16 @@
 import HealthKitService
+import os
 import SwiftData
 import SwiftUI
 import VitalModels
 import VitalUI
 
+private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveWorkout")
+
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     #if !os(macOS)
     @Environment(\.healthKitService) private var healthKitService
     #endif
@@ -92,6 +96,15 @@ struct ActiveWorkoutView: View {
             .onChange(of: restTimer.phase) { _, newPhase in
                 if newPhase == .completed {
                     HapticManager.trigger(.restCompleted)
+                }
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .background else { return }
+                do {
+                    try modelContext.save()
+                    logger.info("Background save triggered: result=success")
+                } catch {
+                    logger.info("Background save triggered: result=failure, error=\(error.localizedDescription)")
                 }
             }
             #if !os(macOS)
@@ -365,19 +378,32 @@ struct ActiveWorkoutView: View {
 
     private func setupWorkout() {
         guard workout == nil else { return }
-        let newWorkout = Workout(type: .strength, startDate: startTime)
-        modelContext.insert(newWorkout)
 
         switch source {
-        case .blank:
-            break
-        case .fromWorkout(let sourceWorkout):
-            WorkoutCopier.copyExercises(from: sourceWorkout, to: newWorkout, using: modelContext)
-        case .fromTemplate(let template):
-            WorkoutCopier.setupFromTemplate(template, into: newWorkout, using: modelContext)
-        }
+        case .resume(let existingWorkout):
+            workout = existingWorkout
+            startTime = existingWorkout.startDate
+            let exerciseCount = existingWorkout.exercises?.count ?? 0
+            let setCount = existingWorkout.exercises?
+                .reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
+            logger.info("Workout resumed: exerciseCount=\(exerciseCount), setCount=\(setCount)")
+        default:
+            let newWorkout = Workout(type: .strength, startDate: startTime)
+            modelContext.insert(newWorkout)
 
-        workout = newWorkout
+            switch source {
+            case .blank:
+                break
+            case .fromWorkout(let sourceWorkout):
+                WorkoutCopier.copyExercises(from: sourceWorkout, to: newWorkout, using: modelContext)
+            case .fromTemplate(let template):
+                WorkoutCopier.setupFromTemplate(template, into: newWorkout, using: modelContext)
+            case .resume:
+                break
+            }
+
+            workout = newWorkout
+        }
 
         #if !os(macOS)
         let manager = healthKitService.makeWorkoutSessionManager()
