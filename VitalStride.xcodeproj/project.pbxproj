@@ -105,6 +105,7 @@
 		796FC59FAC89081E8775FBAD /* ExerciseSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC41CBBB0306141FF6935C5 /* ExerciseSeeder.swift */; };
 		7C1D2D061D081D195C52C135 /* BodyWeightSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8704C3C5463AB8227E880288 /* BodyWeightSection.swift */; };
 		7E9A1E8DD82A8B8644AFEA02 /* StepsSectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65BD2FB8C57EBDB10A5B369E /* StepsSectionTests.swift */; };
+		7F17B4023664CB39C0A34C03 /* WorkoutResumeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F62ACF20BEED2B4F4AE3DD9 /* WorkoutResumeTests.swift */; };
 		7F4B229A477C6BE34A6DC29B /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 193733B006ED472D5112547F /* HealthKit.framework */; };
 		8144A9F5F1E820411467F543 /* AIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 996A0597AEFCDF67B6E7854A /* AIView.swift */; };
 		815258714EA0D8B7FCB7D992 /* WorkoutListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADF0FD53B5A37E442F6ED623 /* WorkoutListView.swift */; };
@@ -172,6 +173,7 @@
 		D715A2B54D839E1CA0132F2F /* AIQuickAnalysisCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCE2FFC21E67820054E56AB9 /* AIQuickAnalysisCard.swift */; };
 		D82E57DE761A8C3D3A6DCF4A /* UnifiedWorkout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43E379EF951B00DF2F648BBF /* UnifiedWorkout.swift */; };
 		DAED4935D4341258B4B8266D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FFE6FD111BCCB764102CEF5 /* ContentView.swift */; };
+		DF82DF8B2BE527AE920DC263 /* WorkoutResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48943C3929C358033063E562 /* WorkoutResolver.swift */; };
 		DFEA6C39AAC73FEF0A65F594 /* RecentWorkoutsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B925AAAA9288232825D9FC9 /* RecentWorkoutsSection.swift */; };
 		E036B69315079F3E55842C6F /* StepsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1023DE772B441A49A3161D1 /* StepsSection.swift */; };
 		E18E096A8AC2CB184661794D /* HealthSampleTypeInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6A2ADC2560DD705A3BDAF8 /* HealthSampleTypeInfo.swift */; };
@@ -253,7 +255,7 @@
 		25A4CD9CFE450104FA8D4F51 /* CardVariantTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardVariantTests.swift; sourceTree = "<group>"; };
 		2682FD70AE06FB9FCF624E81 /* HealthDataCacheEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDataCacheEnvironment.swift; sourceTree = "<group>"; };
 		28F9B1C238C968D436D8F621 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		2F9C6A27CB551B32C0DDFEA0 /* VitalStrideWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VitalStrideWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		2F9C6A27CB551B32C0DDFEA0 /* VitalStrideWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = VitalStrideWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		30B221AD8C11DB7333234B26 /* CardTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardTelemetry.swift; sourceTree = "<group>"; };
 		3274184F69678B14ACB647F8 /* WorkoutAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutAggregator.swift; sourceTree = "<group>"; };
 		33CC0E70D705A66E61C98F69 /* DataImportExportSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataImportExportSection.swift; sourceTree = "<group>"; };
@@ -269,6 +271,7 @@
 		4340E51820609A5B245C166D /* HeartRateSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateSection.swift; sourceTree = "<group>"; };
 		43E379EF951B00DF2F648BBF /* UnifiedWorkout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedWorkout.swift; sourceTree = "<group>"; };
 		46D0B1B4E9C7FD1C63B5C56C /* WorkoutDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDeletionTests.swift; sourceTree = "<group>"; };
+		48943C3929C358033063E562 /* WorkoutResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutResolver.swift; sourceTree = "<group>"; };
 		492DFA7A404099CCF2293717 /* AIAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAnalysisService.swift; sourceTree = "<group>"; };
 		499650DFADFA4A2F78A3D043 /* OverviewDynamicLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewDynamicLayoutTests.swift; sourceTree = "<group>"; };
 		4A5BC15730DE3D0DBEC8FF7E /* SleepSectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSectionTests.swift; sourceTree = "<group>"; };
@@ -285,7 +288,7 @@
 		58C946AE957021F69C8E2C60 /* VitalStrideWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "VitalStrideWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C97E601CF77AF12D843DDBA /* RestLiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestLiveActivityManager.swift; sourceTree = "<group>"; };
 		5EE04A6992C043B64BF1BECE /* HeartRateFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateFormatterTests.swift; sourceTree = "<group>"; };
-		62752D819DEC3C928DEE3CB1 /* VitalStrideMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = VitalStrideMac.app; path = VitalStride.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		62752D819DEC3C928DEE3CB1 /* VitalStrideMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitalStrideMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		65BD2FB8C57EBDB10A5B369E /* StepsSectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepsSectionTests.swift; sourceTree = "<group>"; };
 		675947C2C88283D7D81E0FD0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6BBAC7DE5F687BA6EA90C5B7 /* WorkoutHeartRateStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHeartRateStats.swift; sourceTree = "<group>"; };
@@ -318,8 +321,9 @@
 		9B925AAAA9288232825D9FC9 /* RecentWorkoutsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentWorkoutsSection.swift; sourceTree = "<group>"; };
 		9B96A64C4A8D7C20014602DF /* VitalModels */ = {isa = PBXFileReference; lastKnownFileType = folder; name = VitalModels; path = Packages/VitalModels; sourceTree = SOURCE_ROOT; };
 		9BB4C9A242BEAD1E0445C937 /* VitalStrideApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideApp.swift; sourceTree = "<group>"; };
-		9D2F46A6B7B993E95FDAA5C5 /* VitalStride.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitalStride.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9D2F46A6B7B993E95FDAA5C5 /* VitalStride.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VitalStride.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9F3929A3233515A8A71A3C14 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		9F62ACF20BEED2B4F4AE3DD9 /* WorkoutResumeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutResumeTests.swift; sourceTree = "<group>"; };
 		9F7232012CDFCBAD11665CE0 /* RestTimerLiveActivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerLiveActivityTests.swift; sourceTree = "<group>"; };
 		A09E42EAE0E6BCFD902E8DAF /* OverviewInsightsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewInsightsSection.swift; sourceTree = "<group>"; };
 		A82A8BC200FD8437E939A67D /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
@@ -475,6 +479,7 @@
 				F12CB325C0F7206286AE8D7F /* WorkoutDetailCalculationTests.swift */,
 				9B383C57711C627D92F4DAD0 /* WorkoutHeartRateStatsTests.swift */,
 				8DC61C2BF0124494E72640C2 /* WorkoutListMergerTests.swift */,
+				9F62ACF20BEED2B4F4AE3DD9 /* WorkoutResumeTests.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -620,6 +625,7 @@
 				6BBAC7DE5F687BA6EA90C5B7 /* WorkoutHeartRateStats.swift */,
 				C475E0D51502E60636C6AE22 /* WorkoutListMerger.swift */,
 				ADF0FD53B5A37E442F6ED623 /* WorkoutListView.swift */,
+				48943C3929C358033063E562 /* WorkoutResolver.swift */,
 				74D175BC01BA640310DD07C7 /* WorkoutSetManager.swift */,
 				D65B3BF6E9968F7D07CB9E8C /* WorkoutTrendChart.swift */,
 				7BDBD9F9FC7772276B63B668 /* DataSections */,
@@ -858,6 +864,8 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = C29019B9ACC18F1CF4D99877 /* Build configuration list for PBXProject "VitalStride" */;
 			developmentRegion = en;
@@ -1059,6 +1067,7 @@
 				55C6BC112D82BBB4DEB7EB6F /* WorkoutHistoryView.swift in Sources */,
 				336BCEEC994E6B84411D077E /* WorkoutListMerger.swift in Sources */,
 				815258714EA0D8B7FCB7D992 /* WorkoutListView.swift in Sources */,
+				DF82DF8B2BE527AE920DC263 /* WorkoutResolver.swift in Sources */,
 				CCEBAEC8CCA5BBEBF390BB1F /* WorkoutSetManager.swift in Sources */,
 				55577BEA685D421C9E6228CC /* WorkoutTrendChart.swift in Sources */,
 			);
@@ -1113,6 +1122,7 @@
 				8ADFF3B69575A27255C6AF0C /* WorkoutDetailCalculationTests.swift in Sources */,
 				749B81503D0682D19497EF60 /* WorkoutHeartRateStatsTests.swift in Sources */,
 				B277B26A6CF8F545A3C482B6 /* WorkoutListMergerTests.swift in Sources */,
+				7F17B4023664CB39C0A34C03 /* WorkoutResumeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1188,7 +1198,6 @@
 				CODE_SIGN_ENTITLEMENTS = VitalStride/VitalStride.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
@@ -1216,7 +1225,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "VitalStrideWatch Watch App/VitalStrideWatch.entitlements";
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
@@ -1316,7 +1324,6 @@
 				CODE_SIGN_ENTITLEMENTS = VitalStride/VitalStride.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
@@ -1344,7 +1351,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "VitalStrideWatch Watch App/VitalStrideWatch.entitlements";
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
@@ -1453,12 +1459,8 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				INFOPLIST_FILE = VitalStrideWidgets/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.ios.widgets;
 				PRODUCT_NAME = VitalStrideWidgets;
@@ -1474,12 +1476,8 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				INFOPLIST_FILE = VitalStrideWidgets/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.ios.widgets;
 				PRODUCT_NAME = VitalStrideWidgets;
