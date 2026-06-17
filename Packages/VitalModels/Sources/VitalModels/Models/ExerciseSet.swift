@@ -49,7 +49,16 @@ extension ExerciseSet: Codable {
         let isCompleted = try container.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
         let isUnilateral = try container.decodeIfPresent(Bool.self, forKey: .isUnilateral) ?? false
         let weightRight = try container.decodeIfPresent(Double.self, forKey: .weightRight)
-        self.init(order: order, weight: weight, reps: reps, setType: setType, restDuration: restDuration, isCompleted: isCompleted, isUnilateral: isUnilateral, weightRight: weightRight)
+        self.init(
+            order: order,
+            weight: weight,
+            reps: reps,
+            setType: setType,
+            restDuration: restDuration,
+            isCompleted: isCompleted,
+            isUnilateral: isUnilateral,
+            weightRight: weightRight
+        )
     }
 
     public func encode(to encoder: Encoder) throws {

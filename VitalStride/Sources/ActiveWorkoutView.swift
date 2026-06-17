@@ -737,7 +737,10 @@ private struct SetRow: View {
                 )
                     .frame(width: 56)
                     .frame(minHeight: 44)
-                    .accessibilityLabel(String(localized: "第 \(index + 1) 组左侧重量", comment: "Left weight input a11y label"))
+                    .accessibilityLabel(String(
+                        localized: "第 \(index + 1) 组左侧重量",
+                        comment: "Left weight input a11y label"
+                    ))
                     .accessibilityHint(String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint"))
                     .onChange(of: weightText) { _, newValue in
                         let filtered = filterDecimalInput(newValue)
@@ -755,7 +758,10 @@ private struct SetRow: View {
                     keyboardType: .decimalPad
                 )
                     .frame(width: 56).frame(minHeight: 44)
-                    .accessibilityLabel(String(localized: "第 \(index + 1) 组右侧重量", comment: "Right weight input a11y label"))
+                    .accessibilityLabel(String(
+                        localized: "第 \(index + 1) 组右侧重量",
+                        comment: "Right weight input a11y label"
+                    ))
                     .accessibilityHint(String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint"))
                     .onChange(of: weightRightText) { _, newValue in
                         let filtered = filterDecimalInput(newValue)
@@ -866,8 +872,8 @@ private struct SetRow: View {
         .onAppear {
             let displayW = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
             weightText = formatWeight(displayW)
-            if let wr = exerciseSet.weightRight {
-                let displayWR = weightUnit == .lb ? wr * 2.20462 : wr
+            if let rightWeight = exerciseSet.weightRight {
+                let displayWR = weightUnit == .lb ? rightWeight * 2.20462 : rightWeight
                 weightRightText = formatWeight(displayWR)
             }
             repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
@@ -992,7 +998,10 @@ private struct SubSetRow: View {
                     font: .preferredFont(forTextStyle: .footnote)
                 )
                     .frame(width: 50).frame(minHeight: 44)
-                    .accessibilityLabel(String(localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组左侧重量", comment: "SubSet left weight a11y label"))
+                    .accessibilityLabel(String(
+                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组左侧重量",
+                        comment: "SubSet left weight a11y label"
+                    ))
                     .accessibilityHint(String(localized: "输入左侧重量数值", comment: "SubSet left weight a11y hint"))
                     .onChange(of: weightText) { _, newValue in
                         let filtered = filterDecimalInput(newValue)
@@ -1012,7 +1021,10 @@ private struct SubSetRow: View {
                     font: .preferredFont(forTextStyle: .footnote)
                 )
                     .frame(width: 50).frame(minHeight: 44)
-                    .accessibilityLabel(String(localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组右侧重量", comment: "SubSet right weight a11y label"))
+                    .accessibilityLabel(String(
+                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组右侧重量",
+                        comment: "SubSet right weight a11y label"
+                    ))
                     .accessibilityHint(String(localized: "输入右侧重量数值", comment: "SubSet right weight a11y hint"))
                     .onChange(of: weightRightText) { _, newValue in
                         let filtered = filterDecimalInput(newValue)
@@ -1084,8 +1096,8 @@ private struct SubSetRow: View {
         .onAppear {
             let displayW = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
             weightText = formatWeight(displayW)
-            if let wr = exerciseSet.weightRight {
-                let displayWR = weightUnit == .lb ? wr * 2.20462 : wr
+            if let rightWeight = exerciseSet.weightRight {
+                let displayWR = weightUnit == .lb ? rightWeight * 2.20462 : rightWeight
                 weightRightText = formatWeight(displayWR)
             }
             repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"

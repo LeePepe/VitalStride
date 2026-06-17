@@ -244,24 +244,87 @@ else
 fi
 
 # ---- 5. SwiftLint changed Swift files ---------------------------------------
+#
+# Strict mode is enforced ONLY on lines actually touched by the push.
+# Pre-existing violations on lines this push didn't modify are reported as
+# warnings (printed once, non-fatal) so legacy debt doesn't block legitimate
+# work, but we never add new violations to touched lines.
 
 SWIFT_FILES=$(echo "$CHANGED" | grep '\.swift$' || true)
 
 if [ -n "$SWIFT_FILES" ] && command -v swiftlint >/dev/null 2>&1; then
   echo ""
-  echo "🔍 SwiftLint..."
-  LINT_ARGS=()
+  echo "🔍 SwiftLint (touched lines only — strict; rest reported as warnings)..."
+  LINT_FAIL=0
+  LEGACY_COUNT=0
   while IFS= read -r file; do
-    [ -f "$file" ] && LINT_ARGS+=("$file")
-  done <<< "$SWIFT_FILES"
-  if [ ${#LINT_ARGS[@]} -gt 0 ]; then
-    if swiftlint lint --quiet --strict -- "${LINT_ARGS[@]}"; then
-      echo "✅ SwiftLint passed."
-    else
-      echo "❌ SwiftLint errors. Push aborted."
-      exit 1
+    [ -z "$file" ] && continue
+    [ -f "$file" ] || continue
+
+    # Compute the set of line numbers changed by this push for this file.
+    # Use the same merge_base..local_sha range the SWIFT_FILES list came from.
+    # Parse `@@ -... +<start>[,<count>] @@` hunk headers from `git diff -U0`.
+    # Uses POSIX awk (no gawk-only `match(..., arr)` since macOS ships BSD awk).
+    touched_lines=$(
+      git diff -U0 --diff-filter=ACMR "$merge_base"..."$local_sha" -- "$file" 2>/dev/null \
+        | awk '
+            /^@@/ {
+              # Extract the +<start>[,<count>] token
+              for (i = 1; i <= NF; i++) {
+                if ($i ~ /^\+[0-9]+/) {
+                  tok = substr($i, 2)              # drop leading "+"
+                  split(tok, parts, ",")
+                  start = parts[1] + 0
+                  count = (parts[2] == "" ? 1 : parts[2] + 0)
+                  for (j = 0; j < count; j++) print start + j
+                  break
+                }
+              }
+            }' \
+        | sort -un
+    )
+
+    # Run swiftlint --strict on the file. Capture output.
+    lint_out=$(swiftlint lint --quiet --strict -- "$file" 2>&1) || true
+    [ -z "$lint_out" ] && continue
+
+    new_violations=""
+    legacy_violations=""
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      # SwiftLint output: <path>:<line>:<col>: <severity>: <rule>
+      violation_line=$(echo "$line" | awk -F: '{print $2}')
+      if [ -z "$violation_line" ] || ! [[ "$violation_line" =~ ^[0-9]+$ ]]; then
+        continue
+      fi
+      if echo "$touched_lines" | grep -qx "$violation_line"; then
+        new_violations="${new_violations}${line}"$'\n'
+      else
+        legacy_violations="${legacy_violations}${line}"$'\n'
+      fi
+    done <<< "$lint_out"
+
+    if [ -n "$new_violations" ]; then
+      echo "❌ NEW SwiftLint violations on lines touched by this push ($file):"
+      echo "$new_violations" | sed '/^$/d' | sed 's/^/   /'
+      LINT_FAIL=1
     fi
+    if [ -n "$legacy_violations" ]; then
+      legacy_count=$(echo "$legacy_violations" | sed '/^$/d' | wc -l | tr -d ' ')
+      LEGACY_COUNT=$((LEGACY_COUNT + legacy_count))
+    fi
+  done <<< "$SWIFT_FILES"
+
+  if [ "$LINT_FAIL" -ne 0 ]; then
+    echo ""
+    echo "❌ SwiftLint errors on lines you modified. Push aborted."
+    exit 1
   fi
+
+  if [ "$LEGACY_COUNT" -gt 0 ]; then
+    echo "⚠️  $LEGACY_COUNT pre-existing SwiftLint violation(s) on untouched lines — not blocking."
+  fi
+  echo "✅ SwiftLint passed for touched lines."
 fi
 
 echo ""

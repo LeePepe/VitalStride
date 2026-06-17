@@ -1,3 +1,4 @@
+// swiftlint:disable identifier_name
 import Foundation
 import Testing
 @testable import VitalModels
@@ -141,3 +142,4 @@ struct WorkoutExerciseTests {
         #expect(we.workingVolume == 0.0)
     }
 }
+// swiftlint:enable identifier_name

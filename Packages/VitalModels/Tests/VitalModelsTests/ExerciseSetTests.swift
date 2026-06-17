@@ -267,9 +267,11 @@ struct ExerciseSetTests {
 
     @Test("decode JSON with weightRight present")
     func codableDecodeWithWeightRight() throws {
+        // swiftlint:disable line_length
         let json = """
         {"order":1,"weight":25.0,"reps":10,"setType":"working","isUnilateral":true,"weightRight":22.5,"isCompleted":false}
         """
+        // swiftlint:enable line_length
         let decoded = try JSONDecoder().decode(ExerciseSet.self, from: Data(json.utf8))
         #expect(decoded.weight == 25.0)
         #expect(decoded.weightRight == 22.5)
