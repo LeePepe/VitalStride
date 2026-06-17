@@ -255,7 +255,7 @@
 		25A4CD9CFE450104FA8D4F51 /* CardVariantTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardVariantTests.swift; sourceTree = "<group>"; };
 		2682FD70AE06FB9FCF624E81 /* HealthDataCacheEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDataCacheEnvironment.swift; sourceTree = "<group>"; };
 		28F9B1C238C968D436D8F621 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		2F9C6A27CB551B32C0DDFEA0 /* VitalStrideWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VitalStrideWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		2F9C6A27CB551B32C0DDFEA0 /* VitalStrideWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = VitalStrideWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		30B221AD8C11DB7333234B26 /* CardTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardTelemetry.swift; sourceTree = "<group>"; };
 		3274184F69678B14ACB647F8 /* WorkoutAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutAggregator.swift; sourceTree = "<group>"; };
 		33CC0E70D705A66E61C98F69 /* DataImportExportSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataImportExportSection.swift; sourceTree = "<group>"; };
@@ -288,7 +288,7 @@
 		58C946AE957021F69C8E2C60 /* VitalStrideWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "VitalStrideWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C97E601CF77AF12D843DDBA /* RestLiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestLiveActivityManager.swift; sourceTree = "<group>"; };
 		5EE04A6992C043B64BF1BECE /* HeartRateFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateFormatterTests.swift; sourceTree = "<group>"; };
-		62752D819DEC3C928DEE3CB1 /* VitalStrideMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = VitalStrideMac.app; path = VitalStride.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		62752D819DEC3C928DEE3CB1 /* VitalStrideMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitalStrideMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		65BD2FB8C57EBDB10A5B369E /* StepsSectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepsSectionTests.swift; sourceTree = "<group>"; };
 		675947C2C88283D7D81E0FD0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6BBAC7DE5F687BA6EA90C5B7 /* WorkoutHeartRateStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHeartRateStats.swift; sourceTree = "<group>"; };
@@ -321,7 +321,7 @@
 		9B925AAAA9288232825D9FC9 /* RecentWorkoutsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentWorkoutsSection.swift; sourceTree = "<group>"; };
 		9B96A64C4A8D7C20014602DF /* VitalModels */ = {isa = PBXFileReference; lastKnownFileType = folder; name = VitalModels; path = Packages/VitalModels; sourceTree = SOURCE_ROOT; };
 		9BB4C9A242BEAD1E0445C937 /* VitalStrideApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideApp.swift; sourceTree = "<group>"; };
-		9D2F46A6B7B993E95FDAA5C5 /* VitalStride.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitalStride.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9D2F46A6B7B993E95FDAA5C5 /* VitalStride.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VitalStride.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9F3929A3233515A8A71A3C14 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		9F62ACF20BEED2B4F4AE3DD9 /* WorkoutResumeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutResumeTests.swift; sourceTree = "<group>"; };
 		9F7232012CDFCBAD11665CE0 /* RestTimerLiveActivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerLiveActivityTests.swift; sourceTree = "<group>"; };
@@ -864,6 +864,8 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = C29019B9ACC18F1CF4D99877 /* Build configuration list for PBXProject "VitalStride" */;
 			developmentRegion = en;
@@ -1196,7 +1198,6 @@
 				CODE_SIGN_ENTITLEMENTS = VitalStride/VitalStride.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
@@ -1224,7 +1225,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "VitalStrideWatch Watch App/VitalStrideWatch.entitlements";
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
@@ -1324,7 +1324,6 @@
 				CODE_SIGN_ENTITLEMENTS = VitalStride/VitalStride.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
@@ -1352,7 +1351,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "VitalStrideWatch Watch App/VitalStrideWatch.entitlements";
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
@@ -1461,12 +1459,8 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				INFOPLIST_FILE = VitalStrideWidgets/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.ios.widgets;
 				PRODUCT_NAME = VitalStrideWidgets;
@@ -1482,12 +1476,8 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				INFOPLIST_FILE = VitalStrideWidgets/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.ios.widgets;
 				PRODUCT_NAME = VitalStrideWidgets;
