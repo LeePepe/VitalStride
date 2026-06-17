@@ -501,15 +501,6 @@ private struct ActiveExerciseSection: View {
                             if !wasCompleted { onSetCompleted() }
                         }
                     )
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if sortedSets.count > 1 {
-                            Button(role: .destructive) {
-                                deleteSet(exerciseSet)
-                            } label: {
-                                Label("删除", systemImage: "trash")
-                            }
-                        }
-                    }
                 } else {
                     SetRow(
                         index: mainSetNumber(upTo: index),
@@ -959,7 +950,7 @@ private struct SetRow: View {
     }
 }
 
-// MARK: - Sub-Set Row (Compact, Indented with Tree Lines)
+// MARK: - Sub-Set Row (Compact, Indented, Read-Only — see MY-875)
 
 private struct SubSetRow: View {
     let exerciseSet: ExerciseSet
@@ -968,114 +959,89 @@ private struct SubSetRow: View {
     let parentSetNumber: Int
     let onToggleCompleted: (_ wasCompleted: Bool) -> Void
 
-    @State private var weightText: String = ""
-    @State private var weightRightText: String = ""
-    @State private var repsText: String = ""
-
     var body: some View {
         HStack(spacing: 6) {
             treeLine
                 .accessibilityHidden(true)
 
             if exerciseSet.isUnilateral {
-                SelectAllTextField(
-                    placeholder: "次数",
-                    text: $repsText,
-                    keyboardType: .numberPad,
-                    font: .preferredFont(forTextStyle: .footnote)
-                )
-                    .frame(width: 52).frame(minHeight: 44)
-                    .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数")
-                    .accessibilityHint("输入次数")
-                    .onChange(of: repsText) { _, newValue in
-                        let filtered = newValue.filter { $0.isNumber }
-                        if filtered != newValue { repsText = filtered }
-                        syncRepsToModel()
-                    }
+                Text(repsDisplay)
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 52, alignment: .center)
+                    .frame(minHeight: 44)
+                    .accessibilityLabel(String(
+                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数",
+                        comment: "SubSet reps a11y label"
+                    ))
+                    .accessibilityValue(repsDisplay)
 
                 Text("×")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
 
-                SelectAllTextField(
-                    placeholder: weightUnit.rawValue,
-                    text: $weightText,
-                    keyboardType: .decimalPad,
-                    font: .preferredFont(forTextStyle: .footnote)
-                )
-                    .frame(width: 50).frame(minHeight: 44)
+                Text(weightDisplay(exerciseSet.weight))
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 50, alignment: .center)
+                    .frame(minHeight: 44)
                     .accessibilityLabel(String(
                         localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组左侧重量",
                         comment: "SubSet left weight a11y label"
                     ))
-                    .accessibilityHint(String(localized: "输入左侧重量数值", comment: "SubSet left weight a11y hint"))
-                    .onChange(of: weightText) { _, newValue in
-                        let filtered = filterDecimalInput(newValue)
-                        if filtered != newValue { weightText = filtered }
-                        syncWeightToModel()
-                    }
+                    .accessibilityValue("\(weightDisplay(exerciseSet.weight)) \(weightUnit.rawValue)")
 
                 Text("/")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
 
-                SelectAllTextField(
-                    placeholder: weightUnit.rawValue,
-                    text: $weightRightText,
-                    keyboardType: .decimalPad,
-                    font: .preferredFont(forTextStyle: .footnote)
-                )
-                    .frame(width: 50).frame(minHeight: 44)
+                Text(weightDisplay(exerciseSet.weightRight ?? exerciseSet.weight))
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 50, alignment: .center)
+                    .frame(minHeight: 44)
                     .accessibilityLabel(String(
                         localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组右侧重量",
                         comment: "SubSet right weight a11y label"
                     ))
-                    .accessibilityHint(String(localized: "输入右侧重量数值", comment: "SubSet right weight a11y hint"))
-                    .onChange(of: weightRightText) { _, newValue in
-                        let filtered = filterDecimalInput(newValue)
-                        if filtered != newValue { weightRightText = filtered }
-                        syncWeightRightToModel()
-                    }
+                    .accessibilityValue(
+                        "\(weightDisplay(exerciseSet.weightRight ?? exerciseSet.weight)) \(weightUnit.rawValue)"
+                    )
             } else {
-                SelectAllTextField(
-                    placeholder: weightUnit.rawValue,
-                    text: $weightText,
-                    keyboardType: .decimalPad,
-                    font: .preferredFont(forTextStyle: .footnote)
-                )
-                    .frame(width: 62)
-                    .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组重量")
-                    .accessibilityHint("输入重量数值")
-                    .onChange(of: weightText) { _, newValue in
-                        let filtered = filterDecimalInput(newValue)
-                        if filtered != newValue { weightText = filtered }
-                        syncWeightToModel()
-                    }
+                Text(weightDisplay(exerciseSet.weight))
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 62, alignment: .center)
+                    .frame(minHeight: 44)
+                    .accessibilityLabel(String(
+                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组重量",
+                        comment: "SubSet weight a11y label"
+                    ))
+                    .accessibilityValue("\(weightDisplay(exerciseSet.weight)) \(weightUnit.rawValue)")
 
                 Text("×")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
 
-                SelectAllTextField(
-                    placeholder: "次数",
-                    text: $repsText,
-                    keyboardType: .numberPad,
-                    font: .preferredFont(forTextStyle: .footnote)
-                )
-                    .frame(width: 52)
-                    .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数")
-                    .accessibilityHint("输入次数")
-                    .onChange(of: repsText) { _, newValue in
-                        let filtered = newValue.filter { $0.isNumber }
-                        if filtered != newValue { repsText = filtered }
-                        syncRepsToModel()
-                    }
+                Text(repsDisplay)
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 52, alignment: .center)
+                    .frame(minHeight: 44)
+                    .accessibilityLabel(String(
+                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数",
+                        comment: "SubSet reps a11y label"
+                    ))
+                    .accessibilityValue(repsDisplay)
             }
 
             Text(exerciseSet.setType.displayName)
                 .font(.caption)
                 .foregroundStyle(exerciseSet.setType.labelColor)
+                .frame(width: 44, alignment: .leading)
                 .accessibilityLabel(exerciseSet.setType.displayName)
 
             Spacer()
@@ -1100,15 +1066,6 @@ private struct SubSetRow: View {
             .accessibilityHint("双击切换完成状态")
         }
         .padding(.vertical, -2)
-        .onAppear {
-            let displayW = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
-            weightText = formatWeight(displayW)
-            if let rightWeight = exerciseSet.weightRight {
-                let displayWR = weightUnit == .lb ? rightWeight * 2.20462 : rightWeight
-                weightRightText = formatWeight(displayWR)
-            }
-            repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
-        }
     }
 
     private var treeLine: some View {
@@ -1120,56 +1077,19 @@ private struct SubSetRow: View {
         .frame(width: 28, alignment: .leading)
     }
 
-    private func syncWeightToModel() {
-        let weight: Double
-        if weightText.isEmpty {
-            weight = 0
-        } else {
-            guard let parsed = Double(weightText) else { return }
-            weight = parsed
-        }
-        guard weight.isFinite, weight >= 0 else { return }
-        exerciseSet.weight = weightUnit == .lb ? weight / 2.20462 : weight
+    private var repsDisplay: String {
+        exerciseSet.reps == 0 ? "—" : "\(exerciseSet.reps)"
     }
 
-    private func syncWeightRightToModel() {
-        if weightRightText.isEmpty {
-            exerciseSet.weightRight = nil
-            return
-        }
-        guard let parsed = Double(weightRightText), parsed.isFinite, parsed >= 0 else { return }
-        exerciseSet.weightRight = weightUnit == .lb ? parsed / 2.20462 : parsed
-    }
-
-    private func syncRepsToModel() {
-        let reps: Int
-        if repsText.isEmpty {
-            reps = 0
-        } else {
-            guard let parsed = Int(repsText) else { return }
-            reps = parsed
-        }
-        guard reps >= 0 else { return }
-        exerciseSet.reps = reps
-    }
-
-    private func filterDecimalInput(_ text: String) -> String {
-        var result = ""
-        var hasDecimalPoint = false
-        for char in text {
-            if char.isNumber {
-                result.append(char)
-            } else if char == "." && !hasDecimalPoint {
-                hasDecimalPoint = true
-                result.append(char)
-            }
-        }
-        return result
+    private func weightDisplay(_ weightKg: Double) -> String {
+        let displayValue = weightUnit == .lb ? weightKg * 2.20462 : weightKg
+        return formatWeight(displayValue)
     }
 
     private func formatWeight(_ value: Double) -> String {
-        value.truncatingRemainder(dividingBy: 1) == 0
-            ? (value == 0 ? "" : String(Int(value)))
+        if value == 0 { return "—" }
+        return value.truncatingRemainder(dividingBy: 1) == 0
+            ? String(Int(value))
             : String(format: "%.1f", value)
     }
 }
