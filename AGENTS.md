@@ -52,5 +52,106 @@ xcodegen generate
 
 ## Key Conventions
 
-- HealthKit 健康数值禁止出现在任何日志中（隐私合规）
+- HealthKit 健康数值禁止出现在任何日志中（隐私合规)
 - 详见 CONTEXT.md 的架构决策
+
+## Git Workflow (no-PR)
+
+**This project uses a no-PR workflow.** The public GitHub remote (`github`) is the source of truth for `main`, but agent feature branches never live there. They live in the LOCAL bare repo only. See `docs/adr/0001-no-pr-workflow.md` for full rationale.
+
+### Roles
+
+| Role | What they do | Where they push |
+|------|--------------|-----------------|
+| **Fullstack Engineer (FS)** | implement code + commit | LOCAL bare repo `agent/<issue-key>-<task-id-short>` |
+| **Team Lead (TL)** | rebase FS branches onto `github/main`, resolve trivial conflicts, push `main` | `github` remote (public), `main` only |
+| **AI Reviewer** | review FS commits in the bare repo | (does not push) |
+
+**Hard rule (enforced by `scripts/hooks/pre-push`):**
+> Only `main` may be pushed to public remotes (`github` / `gitlab`). Pushing any other branch to `github` is rejected by the hook.
+
+### FS workflow
+
+The Multica daemon already created your worktree at `<task-dir>/workdir/`. **Do NOT create another worktree.** Just `cd` into the workdir and work there.
+
+1. **Resolve issue identifier**:
+   ```bash
+   ISSUE_UUID=$(grep "Issue ID:" .agent_context/issue_context.md | awk '{print $3}')
+   ISSUE_KEY=$(multica issue get "$ISSUE_UUID" --output json \
+     | python3 -c "import sys,json; print(json.load(sys.stdin)['identifier'].lower())")
+   TASK_ID_SHORT=${MULTICA_TASK_ID:0:8}
+   BRANCH="agent/${ISSUE_KEY}-${TASK_ID_SHORT}"
+   BARE=$(cd "$(git rev-parse --git-common-dir)" && pwd)
+   ```
+
+2. **Implement + commit** as usual on whatever branch the daemon checked out for you (it's already a fresh branch off `origin/main`).
+
+3. **Push your work to the LOCAL bare repo**:
+   ```bash
+   git push "$BARE" HEAD:refs/heads/$BRANCH
+   ```
+   The pre-push hook will run `xcodebuild test` (or `swift build/test` for SPM-only changes). If it fails, fix and retry.
+
+4. **Comment + assign back to TL** so TL can pick it up:
+   ```bash
+   COMMIT_SHA=$(git rev-parse HEAD)
+   multica issue comment add "$ISSUE_UUID" --content "Pushed to \`$BRANCH\` (commit \`${COMMIT_SHA}\`). Ready for TL merge."
+   multica issue assign "$ISSUE_UUID" "Team Lead"
+   ```
+
+**Never** `git push github` anything. **Never** `gh pr create`. The hook will block it.
+
+### TL workflow (merging FS work into `main`)
+
+When you receive an issue with state `in_review` and an FS comment reporting a branch:
+
+1. **Locate the latest FS branch** for this issue:
+   ```bash
+   BARE=$(cd "$(git rev-parse --git-common-dir)" && pwd)
+   ISSUE_KEY=$(multica issue get "$ISSUE_UUID" --output json \
+     | python3 -c "import sys,json; print(json.load(sys.stdin)['identifier'].lower())")
+   git fetch "$BARE" "+refs/heads/agent/${ISSUE_KEY}-*:refs/heads/agent/${ISSUE_KEY}-*"
+
+   # Pick the latest by committerdate
+   LATEST_BRANCH=$(git for-each-ref --sort=-committerdate \
+     --format='%(refname:short)' "refs/heads/agent/${ISSUE_KEY}-*" | head -1)
+   LATEST_SHA=$(git rev-parse "$LATEST_BRANCH")
+   ```
+
+2. **Verify against FS comment SHA** (latest comment from FS should mention the SHA). If mismatch, comment + reassign FS to clarify.
+
+3. **Sync `github/main`** and rebase the FS branch on top:
+   ```bash
+   git fetch github main
+   git checkout "$LATEST_BRANCH"
+   git rebase github/main
+   ```
+
+4. **Conflict policy (B2)**:
+   - **Trivial conflicts** (different lines, import additions, separate methods, format-only): resolve yourself, continue.
+   - **Semantic conflicts** (same line, deletion of changed code, logic-overlapping): abort the rebase, comment with the conflict details, reassign back to FS:
+     ```bash
+     git rebase --abort
+     multica issue comment add "$ISSUE_UUID" --content "Semantic conflict in <file>:<line>; needs FS rework."
+     multica issue assign "$ISSUE_UUID" "Fullstack Engineer"
+     ```
+
+5. **Push HEAD to `github main`**:
+   ```bash
+   git push github HEAD:refs/heads/main
+   ```
+   The pre-push hook validates `xcodebuild test` again. If push fails (build error after merge, or non-fast-forward race with another TL):
+   - Decide yourself how to recover: re-fetch and re-rebase, split commits, or hand back to FS.
+   - The bare repo's local `main` does not need updating — daemon uses `origin/main` for new worktrees.
+
+6. **Close the issue**:
+   ```bash
+   multica issue status "$ISSUE_UUID" done
+   ```
+
+### Common pitfalls
+
+- **Bare repo path** is whatever `git rev-parse --git-common-dir` resolves to inside the worktree. Always compute it fresh — never hardcode.
+- **`MULTICA_TASK_ID`** is provided by the daemon as an env var (full UUID; we use the first 8 chars).
+- **GitHub access tokens** are still valid (TL needs them to push `main`). Don't unset `gh` auth.
+- The `github` remote name is by convention; some clones may use `origin`. The hook accepts either as long as the URL contains `github.com`.

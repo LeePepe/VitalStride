@@ -1,118 +1,267 @@
 #!/bin/bash
+# VitalStride pre-push hook
+#
+# This project uses a no-PR workflow (see AGENTS.md → Git Workflow):
+#   - FS pushes agent/<issue>-<task-id> branches to the LOCAL bare repo
+#   - TL rebases onto github/main and pushes main to the public remote
+#   - No PRs, no agent branches on github
+#
+# This hook runs on EVERY push (FS bare-repo push and TL github push)
+# and enforces:
+#
+#   1. Only 'main' may be pushed to public remotes (github/gitlab)
+#   2. xcodebuild test (combined build+test) for app-target changes
+#   3. swift build + swift test for Packages/* only changes
+#   4. Skip build for pure docs/hooks/scripts changes
+#   5. SwiftLint on changed Swift files
+#
+# Performance:
+#   - Shared DerivedData at <git-common-dir>/derived-data
+#   - flock (or mkdir fallback) at <git-common-dir>/build.lock
+#     so parallel agent worktrees serialize xcodebuild but share cache.
+
 set -uo pipefail
 
-# Pre-push hook: build + test + lint before push
-# VitalStride project
-
 REMOTE="$1"
+REMOTE_URL="$2"
+ZERO_SHA="0000000000000000000000000000000000000000"
 
 PROJECT_DIR="$(git rev-parse --show-toplevel)"
 cd "$PROJECT_DIR"
 
-ZERO_SHA="0000000000000000000000000000000000000000"
-SWIFT_FILES_TMPDIR=$(mktemp -d)
-SWIFT_FILES_ALL="$SWIFT_FILES_TMPDIR/all.txt"
-touch "$SWIFT_FILES_ALL"
+GIT_COMMON_DIR="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
+LOCK_FILE="$GIT_COMMON_DIR/build.lock"
+LOCK_DIR="$GIT_COMMON_DIR/build.lock.d"
+DERIVED_DATA="$GIT_COMMON_DIR/derived-data"
+
+TMPDIR=$(mktemp -d)
+USING_MKDIR_LOCK=false
+
+cleanup() {
+  rm -rf "$TMPDIR"
+  if [ "$USING_MKDIR_LOCK" = true ]; then
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+# ---- 1. Detect remote type ---------------------------------------------------
+
+IS_PUBLIC_REMOTE=false
+case "$REMOTE_URL" in
+  *github.com*|*gitlab.com*) IS_PUBLIC_REMOTE=true ;;
+esac
+
+# ---- 2. Parse push refs from stdin -------------------------------------------
+
 HAS_NON_DELETE_REF=false
+ALL_CHANGED="$TMPDIR/changed.txt"
+touch "$ALL_CHANGED"
+
+# Find a github remote name for diff base fallback
+GH_REMOTE=$(git remote -v 2>/dev/null \
+  | awk '/github\.com.*\(push\)/ {print $1; exit}' || true)
+GH_REMOTE="${GH_REMOTE:-origin}"
 
 while read -r local_ref local_sha remote_ref remote_sha; do
+  # Branch deletion
   if [ "$local_sha" = "$ZERO_SHA" ]; then
     continue
   fi
   HAS_NON_DELETE_REF=true
 
+  # GUARD: only 'main' may go to github/gitlab
+  if [ "$IS_PUBLIC_REMOTE" = true ] && [ "$local_ref" != "refs/heads/main" ]; then
+    echo "❌ BLOCKED: only 'main' may be pushed to public remote ($REMOTE_URL)"
+    echo ""
+    echo "  Attempted: $local_ref"
+    echo ""
+    echo "  This project uses no-PR workflow:"
+    echo "    FS  → push agent/<issue>-<task-id> to LOCAL bare repo"
+    echo "    TL  → rebase onto github/main, push main to public remote"
+    echo "  See AGENTS.md → Git Workflow"
+    exit 1
+  fi
+
+  # Determine merge base for the changed-files diff
   if [ "$remote_sha" = "$ZERO_SHA" ]; then
-    merge_base=$(git merge-base "${REMOTE}/main" "$local_sha" 2>/dev/null || git merge-base HEAD~10 "$local_sha" 2>/dev/null || echo "")
-    if [ -n "$merge_base" ]; then
-      git diff --name-only --diff-filter=ACMR "$merge_base".."$local_sha" -- '*.swift' 2>/dev/null >> "$SWIFT_FILES_ALL" || true
+    base_ref="$GH_REMOTE/main"
+    merge_base=$(git merge-base "$base_ref" "$local_sha" 2>/dev/null || echo "")
+    if [ -z "$merge_base" ]; then
+      merge_base=$(git rev-parse "$local_sha~10" 2>/dev/null \
+        || git rev-list --max-parents=0 "$local_sha" 2>/dev/null \
+        || echo "")
     fi
   else
-    git diff --name-only --diff-filter=ACMR "$remote_sha".."$local_sha" -- '*.swift' 2>/dev/null >> "$SWIFT_FILES_ALL" || true
+    merge_base="$remote_sha"
+  fi
+
+  if [ -n "$merge_base" ]; then
+    git diff --name-only --diff-filter=ACMR \
+      "$merge_base"..."$local_sha" 2>/dev/null >> "$ALL_CHANGED" || true
   fi
 done
 
 if [ "$HAS_NON_DELETE_REF" = false ]; then
   echo "Deleting remote ref, skipping checks."
-  rm -rf "$SWIFT_FILES_TMPDIR"
   exit 0
 fi
 
-# --- Build ---
-echo "🔨 Pre-push: Building VitalStride (iOS Simulator)..."
-BUILD_LOG=$(mktemp)
-if xcodebuild -project VitalStride.xcodeproj \
-  -scheme VitalStride \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
-  -configuration Debug \
-  build 2>&1 | tee "$BUILD_LOG" | tail -5; then
-  echo "✅ Build succeeded."
-else
-  echo ""
-  echo "❌ Build failed. Push aborted."
-  echo "Last 20 lines of build log:"
-  tail -20 "$BUILD_LOG"
-  rm -f "$BUILD_LOG"
-  rm -rf "$SWIFT_FILES_TMPDIR"
-  exit 1
+CHANGED=$(sort -u "$ALL_CHANGED" | grep -v '^$' || true)
+
+if [ -z "$CHANGED" ]; then
+  echo "ℹ️  No file changes detected, skipping checks."
+  exit 0
 fi
-rm -f "$BUILD_LOG"
 
-# --- Tests ---
-echo ""
-echo "🧪 Pre-push: Running tests..."
-TEST_LOG=$(mktemp)
-if xcodebuild -project VitalStride.xcodeproj \
-  -scheme VitalStride \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
-  -configuration Debug \
-  test 2>&1 | tee "$TEST_LOG" | tail -10; then
-  echo "✅ Tests passed."
-else
-  echo ""
-  echo "❌ Tests failed. Push aborted."
-  echo "Last 20 lines of test log:"
-  tail -20 "$TEST_LOG"
-  rm -f "$TEST_LOG"
-  rm -rf "$SWIFT_FILES_TMPDIR"
-  exit 1
+# ---- 3. Classify changes -----------------------------------------------------
+
+# Pure-docs pattern: nothing affects the build
+DOC_PATTERN='^(docs/|[^/]*\.md$|scripts/hooks/|scripts/setup-hooks\.sh$|\.gitignore$|LICENSE$|\.github/)'
+
+NON_DOC=$(echo "$CHANGED" | grep -vE "$DOC_PATTERN" || true)
+if [ -z "$NON_DOC" ]; then
+  echo "📝 Pure docs/hooks/scripts changes — skipping build."
+  exit 0
 fi
-rm -f "$TEST_LOG"
 
-# --- Lint ---
-echo ""
-echo "🔍 Pre-push: Swift lint check..."
+# Packages touched (per-package list)
+PACKAGES_TOUCHED=$(echo "$CHANGED" \
+  | grep -E '^Packages/[^/]+/' \
+  | sed -E 's|^Packages/([^/]+)/.*|\1|' \
+  | sort -u || true)
 
-SWIFT_FILES=$(sort -u "$SWIFT_FILES_ALL")
-rm -rf "$SWIFT_FILES_TMPDIR"
+# Anything outside Packages/ that isn't a doc — forces full xcodebuild
+NON_PACKAGE=$(echo "$NON_DOC" | grep -vE '^Packages/' || true)
 
-if [ -n "$SWIFT_FILES" ]; then
-  while IFS= read -r file; do
-    [ -f "$file" ] || continue
-    if [[ "$file" != *Tests* ]] && grep -n '![[:space:]]*$\|!\.self\b' "$file" 2>/dev/null | grep -v '//' | grep -v 'IBOutlet' | grep -v '@objc' | head -3; then
-      echo "  ⚠️  Potential force unwrap in $file"
+# ---- 4. Build / test ---------------------------------------------------------
+
+if [ -z "$NON_PACKAGE" ] && [ -n "$PACKAGES_TOUCHED" ]; then
+  # SPM-only path: swift build + swift test for each touched package
+  echo "📦 Package-only changes detected:"
+  while IFS= read -r pkg; do
+    [ -z "$pkg" ] && continue
+    echo "    - $pkg"
+  done <<< "$PACKAGES_TOUCHED"
+  echo ""
+
+  while IFS= read -r pkg; do
+    [ -z "$pkg" ] && continue
+    [ -d "Packages/$pkg" ] || continue
+
+    echo "🔨 swift build [$pkg]"
+    LOG=$(mktemp)
+    if (cd "Packages/$pkg" && swift build 2>&1) > "$LOG"; then
+      :
+    else
+      tail -30 "$LOG"
+      rm -f "$LOG"
+      echo "❌ swift build failed for Packages/$pkg"
+      exit 1
     fi
-  done <<< "$SWIFT_FILES"
+    rm -f "$LOG"
 
-  if command -v swiftlint &>/dev/null; then
-    LINT_ARGS=()
-    while IFS= read -r file; do
-      [ -f "$file" ] && LINT_ARGS+=("$file")
-    done <<< "$SWIFT_FILES"
-    if [ ${#LINT_ARGS[@]} -gt 0 ]; then
-      if swiftlint lint --quiet --strict -- "${LINT_ARGS[@]}" 2>/dev/null; then
-        echo "✅ SwiftLint passed."
-      else
-        echo "❌ SwiftLint found errors. Push aborted."
+    echo "🧪 swift test  [$pkg]"
+    LOG=$(mktemp)
+    if (cd "Packages/$pkg" && swift test 2>&1) > "$LOG"; then
+      :
+    else
+      tail -30 "$LOG"
+      rm -f "$LOG"
+      echo "❌ swift test failed for Packages/$pkg"
+      exit 1
+    fi
+    rm -f "$LOG"
+  done <<< "$PACKAGES_TOUCHED"
+
+  echo "✅ Package builds + tests passed."
+
+else
+  # App-target path: full xcodebuild test (combined build+test)
+  mkdir -p "$DERIVED_DATA"
+  echo "🔨 Pre-push: xcodebuild test"
+  echo "   DerivedData: $DERIVED_DATA"
+  echo "   Lock:        $LOCK_FILE"
+  echo ""
+
+  TEST_LOG=$(mktemp)
+
+  run_xcodebuild_test() {
+    set -o pipefail
+    xcodebuild test \
+      -project VitalStride.xcodeproj \
+      -scheme VitalStride \
+      -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
+      -configuration Debug \
+      -derivedDataPath "$DERIVED_DATA" \
+      -skipPackagePluginValidation \
+      2>&1 | tee "$TEST_LOG" | tail -10
+  }
+
+  if command -v flock >/dev/null 2>&1; then
+    ( flock -w 1800 9 || { echo "❌ build lock timeout (30min)"; exit 1; }
+      run_xcodebuild_test
+    ) 9>"$LOCK_FILE"
+    build_exit=$?
+  else
+    # mkdir-based fallback (macOS doesn't ship flock)
+    # Stale-lock cleanup: remove dirs older than 1h
+    if [ -d "$LOCK_DIR" ]; then
+      lock_age=$(( $(date +%s) - $(stat -f %m "$LOCK_DIR" 2>/dev/null || echo 0) ))
+      if [ "$lock_age" -gt 3600 ]; then
+        echo "⚠️  Removing stale lock dir (>1h old)"
+        rmdir "$LOCK_DIR" 2>/dev/null || true
+      fi
+    fi
+    USING_MKDIR_LOCK=true
+    RETRIES=180
+    while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+      RETRIES=$((RETRIES - 1))
+      if [ $RETRIES -le 0 ]; then
+        echo "❌ build lock timeout (30min)"
+        rm -f "$TEST_LOG"
         exit 1
       fi
-    else
-      echo "ℹ️  No existing Swift files to lint, skipping."
-    fi
-  else
-    echo "ℹ️  SwiftLint not installed, skipping lint."
+      sleep 10
+    done
+    run_xcodebuild_test
+    build_exit=$?
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+    USING_MKDIR_LOCK=false
   fi
-else
-  echo "ℹ️  No Swift files changed, skipping lint."
+
+  if [ "$build_exit" -ne 0 ]; then
+    echo ""
+    echo "❌ xcodebuild test failed (exit $build_exit). Push aborted."
+    echo "Last 30 lines of build log:"
+    tail -30 "$TEST_LOG"
+    rm -f "$TEST_LOG"
+    exit "$build_exit"
+  fi
+
+  rm -f "$TEST_LOG"
+  echo "✅ xcodebuild test passed."
+fi
+
+# ---- 5. SwiftLint changed Swift files ---------------------------------------
+
+SWIFT_FILES=$(echo "$CHANGED" | grep '\.swift$' || true)
+
+if [ -n "$SWIFT_FILES" ] && command -v swiftlint >/dev/null 2>&1; then
+  echo ""
+  echo "🔍 SwiftLint..."
+  LINT_ARGS=()
+  while IFS= read -r file; do
+    [ -f "$file" ] && LINT_ARGS+=("$file")
+  done <<< "$SWIFT_FILES"
+  if [ ${#LINT_ARGS[@]} -gt 0 ]; then
+    if swiftlint lint --quiet --strict -- "${LINT_ARGS[@]}"; then
+      echo "✅ SwiftLint passed."
+    else
+      echo "❌ SwiftLint errors. Push aborted."
+      exit 1
+    fi
+  fi
 fi
 
 echo ""

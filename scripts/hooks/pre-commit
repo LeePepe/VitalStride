@@ -1,6 +1,47 @@
-#!/bin/sh
+#!/bin/bash
+# VitalStride pre-commit hook
+#
+# 1. Block direct commits to main / master
+# 2. SwiftLint staged Swift files (fast — no build)
+#
+# pre-push runs the slow checks (xcodebuild, swift build/test, full SwiftLint).
+# Keep this hook fast (<5s) so the inner-loop stays snappy.
+
+set -uo pipefail
+
+# ---- 1. Block direct commits to main/master ---------------------------------
+
 branch=$(git branch --show-current)
 if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
-  echo "ERROR: Direct commits to '$branch' are forbidden."
+  echo "❌ ERROR: direct commits to '$branch' are forbidden."
+  echo ""
+  echo "  Use a feature branch (or agent/* worktree branch) and let the pre-push"
+  echo "  / TL workflow advance main."
+  exit 1
+fi
+
+# ---- 2. SwiftLint staged files ----------------------------------------------
+
+if ! command -v swiftlint >/dev/null 2>&1; then
+  exit 0
+fi
+
+STAGED_SWIFT=$(git diff --cached --name-only --diff-filter=ACMR -- '*.swift' 2>/dev/null || true)
+
+if [ -z "$STAGED_SWIFT" ]; then
+  exit 0
+fi
+
+LINT_ARGS=()
+while IFS= read -r file; do
+  [ -f "$file" ] && LINT_ARGS+=("$file")
+done <<< "$STAGED_SWIFT"
+
+if [ ${#LINT_ARGS[@]} -eq 0 ]; then
+  exit 0
+fi
+
+if ! swiftlint lint --quiet --strict -- "${LINT_ARGS[@]}"; then
+  echo "❌ SwiftLint errors in staged files. Commit aborted."
   exit 1
 fi
