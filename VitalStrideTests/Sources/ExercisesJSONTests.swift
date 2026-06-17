@@ -11,19 +11,33 @@ struct PresetExercise: Decodable {
     let secondaryMuscles: [String]
 }
 
+/// Envelope shape introduced in MY-850 (PR #97) — `{version, exercises: [...]}`.
+private struct ExerciseCatalogTestEnvelope: Decodable {
+    let version: String
+    let exercises: [PresetExercise]
+}
+
 @Suite("Exercises JSON")
 struct ExercisesJSONTests {
+    let version: String
     let exercises: [PresetExercise]
 
     init() throws {
         let url = Bundle.main.url(forResource: "exercises", withExtension: "json")!
         let data = try Data(contentsOf: url)
-        exercises = try JSONDecoder().decode([PresetExercise].self, from: data)
+        let catalog = try JSONDecoder().decode(ExerciseCatalogTestEnvelope.self, from: data)
+        version = catalog.version
+        exercises = catalog.exercises
     }
 
     @Test("JSON parses into valid exercise array")
     func jsonParsesSuccessfully() {
         #expect(!exercises.isEmpty)
+    }
+
+    @Test("Envelope has non-empty version string")
+    func versionPresent() {
+        #expect(!version.isEmpty, "Envelope version should be non-empty (MY-850 envelope)")
     }
 
     @Test("Contains between 250 and 350 exercises")
@@ -52,9 +66,9 @@ struct ExercisesJSONTests {
         for exercise in exercises {
             counts[exercise.equipment, default: 0] += 1
         }
-        for eq in requiredEquipment {
-            let count = counts[eq] ?? 0
-            #expect(count >= 20, "Equipment '\(eq)' has only \(count) exercises, expected >= 20")
+        for equipment in requiredEquipment {
+            let count = counts[equipment] ?? 0
+            #expect(count >= 20, "Equipment '\(equipment)' has only \(count) exercises, expected >= 20")
         }
     }
 
@@ -83,16 +97,16 @@ struct ExercisesJSONTests {
     @Test("MuscleGroup values are valid enum values")
     func validMuscleGroupValues() {
         let validGroups: Set<String> = ["chest", "back", "shoulders", "legs", "arms", "core", "fullBody"]
-        for exercise in exercises {
-            #expect(validGroups.contains(exercise.muscleGroup), "\(exercise.nameEn) has invalid muscleGroup: \(exercise.muscleGroup)")
+        for exercise in exercises where !validGroups.contains(exercise.muscleGroup) {
+            Issue.record("\(exercise.nameEn) has invalid muscleGroup: \(exercise.muscleGroup)")
         }
     }
 
     @Test("Equipment values are valid enum values")
     func validEquipmentValues() {
         let validEquipment: Set<String> = ["barbell", "dumbbell", "machine", "bodyweight", "cable", "kettlebell"]
-        for exercise in exercises {
-            #expect(validEquipment.contains(exercise.equipment), "\(exercise.nameEn) has invalid equipment: \(exercise.equipment)")
+        for exercise in exercises where !validEquipment.contains(exercise.equipment) {
+            Issue.record("\(exercise.nameEn) has invalid equipment: \(exercise.equipment)")
         }
     }
 }
