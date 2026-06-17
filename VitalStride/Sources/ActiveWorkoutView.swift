@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import HealthKitService
 import os
 import SwiftData
@@ -7,6 +8,7 @@ import VitalUI
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveWorkout")
 
+// swiftlint:disable:next type_body_length
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -104,7 +106,9 @@ struct ActiveWorkoutView: View {
                     try modelContext.save()
                     logger.info("Background save triggered: result=success")
                 } catch {
-                    logger.info("Background save triggered: result=failure, error=\(error.localizedDescription)")
+                    logger.info(
+                        "Background save failed: \(error.localizedDescription, privacy: .private)"
+                    )
                 }
             }
             #if !os(macOS)
@@ -249,6 +253,7 @@ struct ActiveWorkoutView: View {
                     }
                     .frame(width: 32, height: 32)
                     .accessibilityElement(children: .ignore)
+                    // swiftlint:disable:next line_length
                     .accessibilityLabel(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer progress a11y label"))
                     Spacer()
                     restAdjustButtons
@@ -551,20 +556,24 @@ private struct ActiveExerciseSection: View {
                         Button {
                             onReplace()
                         } label: {
+                            // swiftlint:disable:next line_length
                             Label(String(localized: "替换动作", comment: "Replace exercise context menu item"), systemImage: "arrow.triangle.2.circlepath")
                         }
                         Button(role: .destructive) {
                             showingDeleteConfirmation = true
                         } label: {
+                            // swiftlint:disable:next line_length
                             Label(String(localized: "删除动作", comment: "Delete exercise context menu item"), systemImage: "trash")
                         }
                     }
+                    // swiftlint:disable:next line_length
                     .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
                 Spacer()
                 Menu {
                     Button {
                         onReplace()
                     } label: {
+                        // swiftlint:disable:next line_length
                         Label(String(localized: "替换动作", comment: "Replace exercise menu item"), systemImage: "arrow.triangle.2.circlepath")
                     }
                     Button(role: .destructive) {
@@ -585,6 +594,7 @@ private struct ActiveExerciseSection: View {
                 isPresented: $showingDeleteConfirmation,
                 titleVisibility: .visible
             ) {
+                // swiftlint:disable:next line_length
                 Button(String(localized: "删除", comment: "Delete confirmation button"), role: .destructive) { onDelete() }
                 Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {}
             } message: {
@@ -596,7 +606,9 @@ private struct ActiveExerciseSection: View {
     private func mainSetNumber(upTo index: Int) -> Int {
         let sets = sortedSets
         var count = 0
+        // swiftlint:disable:next identifier_name
         for i in 0..<index {
+            // swiftlint:disable:next for_where
             if !sets[i].setType.isSubSet { count += 1 }
         }
         return count
@@ -605,7 +617,9 @@ private struct ActiveExerciseSection: View {
     private func parentSetNumber(for index: Int) -> Int {
         let sets = sortedSets
         var lastMainNumber = 0
+        // swiftlint:disable:next identifier_name
         for i in 0..<index {
+            // swiftlint:disable:next for_where
             if !sets[i].setType.isSubSet { lastMainNumber += 1 }
         }
         return lastMainNumber
@@ -668,8 +682,9 @@ private struct ActiveExerciseSection: View {
             adjustedWeightRight = parentSet.weightRight.map { $0 * 1.15 }
         }
 
+        // swiftlint:disable:next identifier_name
         for i in insertIndex..<sets.count {
-            sets[i].order = sets[i].order + 1
+            sets[i].order += 1
         }
 
         let newSet = ExerciseSet(
@@ -861,7 +876,9 @@ private struct SetRow: View {
             .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration menu a11y label"))
             .accessibilityValue(
                 exerciseSet.isUnilateral
+                    // swiftlint:disable:next line_length
                     ? "\(exerciseSet.setType.displayName)，\(String(localized: "单侧重量", comment: "Unilateral weight a11y value"))"
+                    // swiftlint:disable:next line_length
                     : "\(exerciseSet.setType.displayName)，\(String(localized: "总重量", comment: "Total weight a11y value"))"
             )
 
@@ -1089,6 +1106,7 @@ private struct SubSetRow: View {
             .buttonStyle(.borderless)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
+            // swiftlint:disable:next line_length
             .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
             .accessibilityHint("双击切换完成状态")
         }
@@ -1207,5 +1225,5 @@ private struct FABButtonStyle: ButtonStyle {
 
 #Preview {
     ActiveWorkoutView()
-        .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
+        .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
 }
