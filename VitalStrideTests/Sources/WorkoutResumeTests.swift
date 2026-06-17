@@ -25,12 +25,20 @@ struct WorkoutResumeTests {
         )
         context.insert(exercise)
 
-        let set1 = ExerciseSet(order: 0, weight: 100.0, reps: 5, setType: .working, isCompleted: true)
-        let set2 = ExerciseSet(order: 1, weight: 100.0, reps: 5, setType: .working)
+        let set1 = ExerciseSet(
+            order: 0, weight: 100.0, reps: 5,
+            setType: .working, isCompleted: true
+        )
+        let set2 = ExerciseSet(
+            order: 1, weight: 100.0, reps: 5,
+            setType: .working
+        )
         context.insert(set1)
         context.insert(set2)
 
-        let workoutExercise = WorkoutExercise(order: 0, exercise: exercise, sets: [set1, set2])
+        let workoutExercise = WorkoutExercise(
+            order: 0, exercise: exercise, sets: [set1, set2]
+        )
         context.insert(workoutExercise)
 
         let workout = Workout(
@@ -43,62 +51,80 @@ struct WorkoutResumeTests {
         return workout
     }
 
-    private func resolveResumeSource(_ source: WorkoutStartSource) -> Workout? {
-        switch source {
-        case .resume(let existingWorkout):
-            return existingWorkout
-        default:
-            return nil
-        }
-    }
+    // MARK: - Resume path via WorkoutResolver
 
-    @Test("Resume source carries the existing workout identity")
-    func resumeSourceCarriesWorkout() throws {
+    @Test("Resume resolver returns the existing workout identity")
+    func resumeResolverReturnsExistingWorkout() throws {
         let context = ModelContext(container)
         let workout = try makeInProgressWorkout(in: context)
 
-        let source = WorkoutStartSource.resume(workout)
-        let resolved = resolveResumeSource(source)
+        let result = WorkoutResolver.resolve(
+            source: .resume(workout),
+            startTime: Date(),
+            using: context
+        )
 
-        #expect(resolved?.persistentModelID == workout.persistentModelID)
+        #expect(
+            result.workout.persistentModelID == workout.persistentModelID
+        )
     }
 
-    @Test("Resume does not create a new Workout — only the original exists")
+    @Test("Resume resolver does not insert a new Workout — count stays 1 after resolve")
     func resumeDoesNotCreateNewWorkout() throws {
         let context = ModelContext(container)
-        _ = try makeInProgressWorkout(in: context)
+        let workout = try makeInProgressWorkout(in: context)
 
-        let descriptor = FetchDescriptor<Workout>()
-        let allWorkouts = try context.fetch(descriptor)
-        #expect(allWorkouts.count == 1)
+        let beforeCount = try context.fetchCount(FetchDescriptor<Workout>())
+        #expect(beforeCount == 1)
+
+        _ = WorkoutResolver.resolve(
+            source: .resume(workout),
+            startTime: Date(),
+            using: context
+        )
+        try context.save()
+
+        let afterCount = try context.fetchCount(FetchDescriptor<Workout>())
+        #expect(afterCount == 1, "Resume must not insert a duplicate Workout")
     }
 
-    @Test("Resumed workout preserves original startDate")
+    @Test("Resume resolver preserves the original startDate")
     func resumePreservesStartDate() throws {
         let context = ModelContext(container)
         let originalStart = Date(timeIntervalSince1970: 1_700_000_000)
-        let workout = try makeInProgressWorkout(in: context, startDate: originalStart)
+        let workout = try makeInProgressWorkout(
+            in: context, startDate: originalStart
+        )
 
-        let source = WorkoutStartSource.resume(workout)
-        let resolved = resolveResumeSource(source)!
+        let result = WorkoutResolver.resolve(
+            source: .resume(workout),
+            startTime: Date(), // caller's "now" — should be overridden
+            using: context
+        )
 
-        #expect(resolved.startDate == originalStart)
-        #expect(resolved.isInProgress == true)
+        #expect(result.startTime == originalStart)
+        #expect(result.workout.startDate == originalStart)
+        #expect(result.workout.isInProgress == true)
     }
 
-    @Test("Resumed workout exposes existing exercises and sets")
+    @Test("Resume resolver exposes existing exercises and sets")
     func resumeExposesExistingData() throws {
         let context = ModelContext(container)
         let workout = try makeInProgressWorkout(in: context)
 
-        let source = WorkoutStartSource.resume(workout)
-        let resolved = resolveResumeSource(source)!
+        let result = WorkoutResolver.resolve(
+            source: .resume(workout),
+            startTime: Date(),
+            using: context
+        )
 
-        let exercises = (resolved.exercises ?? []).sorted { $0.order < $1.order }
+        let exercises = (result.workout.exercises ?? [])
+            .sorted { $0.order < $1.order }
         #expect(exercises.count == 1)
         #expect(exercises[0].exercise?.nameEn == "Squat")
 
-        let sets = (exercises[0].sets ?? []).sorted { $0.order < $1.order }
+        let sets = (exercises[0].sets ?? [])
+            .sorted { $0.order < $1.order }
         #expect(sets.count == 2)
         #expect(sets[0].weight == 100.0)
         #expect(sets[0].reps == 5)
@@ -106,13 +132,17 @@ struct WorkoutResumeTests {
         #expect(sets[1].isCompleted == false)
     }
 
-    @Test("Finish on resumed workout sets endDate and marks incomplete sets completed")
+    @Test("Finish on resolved-resume workout sets endDate and marks incomplete sets completed")
     func finishResumedWorkout() throws {
         let context = ModelContext(container)
         let workout = try makeInProgressWorkout(in: context)
 
-        let source = WorkoutStartSource.resume(workout)
-        let resolved = resolveResumeSource(source)!
+        let result = WorkoutResolver.resolve(
+            source: .resume(workout),
+            startTime: Date(),
+            using: context
+        )
+        let resolved = result.workout
         let originalStart = resolved.startDate
 
         #expect(resolved.endDate == nil)
@@ -130,13 +160,17 @@ struct WorkoutResumeTests {
         }
     }
 
-    @Test("Discard (delete) on resumed workout removes it from the store")
+    @Test("Discard (delete) on resolved-resume workout removes it from the store")
     func discardResumedWorkout() throws {
         let context = ModelContext(container)
         let workout = try makeInProgressWorkout(in: context)
 
-        let source = WorkoutStartSource.resume(workout)
-        let resolved = resolveResumeSource(source)!
+        let result = WorkoutResolver.resolve(
+            source: .resume(workout),
+            startTime: Date(),
+            using: context
+        )
+        let resolved = result.workout
         #expect(resolved.isInProgress == true)
 
         context.delete(resolved)
@@ -153,8 +187,12 @@ struct WorkoutResumeTests {
         let context = ModelContext(container)
         let workout = try makeInProgressWorkout(in: context)
 
-        let source = WorkoutStartSource.resume(workout)
-        let resolved = resolveResumeSource(source)!
+        let result = WorkoutResolver.resolve(
+            source: .resume(workout),
+            startTime: Date(),
+            using: context
+        )
+        let resolved = result.workout
         #expect(resolved.exercises?.isEmpty == false)
 
         context.delete(resolved)
@@ -168,5 +206,25 @@ struct WorkoutResumeTests {
         let setDescriptor = FetchDescriptor<ExerciseSet>()
         let remainingSets = try readContext.fetch(setDescriptor)
         #expect(remainingSets.isEmpty)
+    }
+
+    // MARK: - Contrast: blank source DOES create a new Workout
+
+    @Test("Blank source inserts a new Workout into the context")
+    func blankSourceCreatesNewWorkout() throws {
+        let context = ModelContext(container)
+
+        let beforeCount = try context.fetchCount(FetchDescriptor<Workout>())
+        #expect(beforeCount == 0)
+
+        _ = WorkoutResolver.resolve(
+            source: .blank,
+            startTime: Date(),
+            using: context
+        )
+        try context.save()
+
+        let afterCount = try context.fetchCount(FetchDescriptor<Workout>())
+        #expect(afterCount == 1, "Blank source must insert a new Workout")
     }
 }

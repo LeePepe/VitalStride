@@ -384,30 +384,19 @@ struct ActiveWorkoutView: View {
     private func setupWorkout() {
         guard workout == nil else { return }
 
-        switch source {
-        case .resume(let existingWorkout):
-            workout = existingWorkout
-            startTime = existingWorkout.startDate
-            let exerciseCount = existingWorkout.exercises?.count ?? 0
-            let setCount = existingWorkout.exercises?
+        let result = WorkoutResolver.resolve(
+            source: source,
+            startTime: startTime,
+            using: modelContext
+        )
+        workout = result.workout
+        startTime = result.startTime
+
+        if case .resume = source {
+            let exerciseCount = result.workout.exercises?.count ?? 0
+            let setCount = result.workout.exercises?
                 .reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
             logger.info("Workout resumed: exerciseCount=\(exerciseCount), setCount=\(setCount)")
-        default:
-            let newWorkout = Workout(type: .strength, startDate: startTime)
-            modelContext.insert(newWorkout)
-
-            switch source {
-            case .blank:
-                break
-            case .fromWorkout(let sourceWorkout):
-                WorkoutCopier.copyExercises(from: sourceWorkout, to: newWorkout, using: modelContext)
-            case .fromTemplate(let template):
-                WorkoutCopier.setupFromTemplate(template, into: newWorkout, using: modelContext)
-            case .resume:
-                break
-            }
-
-            workout = newWorkout
         }
 
         #if !os(macOS)
