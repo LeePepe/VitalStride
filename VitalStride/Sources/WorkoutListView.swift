@@ -16,6 +16,7 @@ struct WorkoutListView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthKitService) private var healthKitService
     @Environment(\.healthDataCache) private var healthDataCache
+    @Environment(AppNavigation.self) private var navigation
     @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
     @State private var adviceViewModel = TrainingAdviceViewModel()
     @State private var showingStartOptions = false
@@ -49,7 +50,12 @@ struct WorkoutListView: View {
                     ContentUnavailableView(
                         String(localized: "暂无训练记录", comment: "No workouts empty state title"),
                         systemImage: "dumbbell",
-                        description: Text(String(localized: "点击 + 开始第一次训练", comment: "No workouts empty state description"))
+                        description: Text(
+                            String(
+                                localized: "点击 + 开始第一次训练",
+                                comment: "No workouts empty state description"
+                            )
+                        )
                     )
                 } else {
                     List {
@@ -172,25 +178,47 @@ struct WorkoutListView: View {
             } message: {
                 Text(String(localized: "无法删除训练记录，请稍后重试。", comment: "Delete failure message"))
             }
-            .sheet(isPresented: $showingStartOptions, onDismiss: {
-                if pendingSource != nil {
-                    showingActiveWorkout = true
+            .sheet(
+                isPresented: $showingStartOptions,
+                onDismiss: {
+                    if pendingSource != nil {
+                        showingActiveWorkout = true
+                    }
+                },
+                content: {
+                    StartWorkoutView { source in
+                        pendingSource = source
+                        showingStartOptions = false
+                    }
                 }
-            }) {
-                StartWorkoutView { source in
-                    pendingSource = source
-                    showingStartOptions = false
+            )
+            .fullScreenCover(
+                isPresented: $showingActiveWorkout,
+                onDismiss: {
+                    pendingSource = nil
+                },
+                content: {
+                    ActiveWorkoutView(source: pendingSource ?? .blank)
                 }
-            }
-            .fullScreenCover(isPresented: $showingActiveWorkout, onDismiss: {
-                pendingSource = nil
-            }) {
-                ActiveWorkoutView(source: pendingSource ?? .blank)
+            )
+            .onAppear { triggerResumeIfNeeded() }
+            .onChange(of: navigation.crashRecoveryResume?.persistentModelID) { _, _ in
+                triggerResumeIfNeeded()
             }
         }
     }
+}
 
-    private func loadHealthKitWorkouts() async {
+extension WorkoutListView {
+    fileprivate func triggerResumeIfNeeded() {
+        guard let workout = navigation.crashRecoveryResume else { return }
+        guard !showingActiveWorkout else { return }
+        pendingSource = .resume(workout)
+        showingActiveWorkout = true
+        navigation.crashRecoveryResume = nil
+    }
+
+    fileprivate func loadHealthKitWorkouts() async {
         isLoadingHealthKit = true
         healthKitLoadFailed = false
         let signpostID = signposter.makeSignpostID()
@@ -207,10 +235,10 @@ struct WorkoutListView: View {
             guard !Task.isCancelled else { return }
 
             let elapsed = start.duration(to: ContinuousClock.now)
-            let ms = elapsed.components.seconds * 1000
+            let durationMs = elapsed.components.seconds * 1000
                 + elapsed.components.attoseconds / 1_000_000_000_000_000
             logger.info(
-                "workout_list_hk_fetch_duration_ms=\(ms) count=\(records.count) success=true"
+                "workout_list_hk_fetch_duration_ms=\(durationMs) count=\(records.count) success=true"
             )
 
             healthKitRecords = records
@@ -232,7 +260,7 @@ struct WorkoutListView: View {
         }
     }
 
-    private func deleteWorkout(_ workout: Workout) {
+    fileprivate func deleteWorkout(_ workout: Workout) {
         let source = workout.source
         let hkUUID = workout.healthKitUUID
         logger.info("Deleting workout source=\(source.rawValue, privacy: .private)")
@@ -243,6 +271,7 @@ struct WorkoutListView: View {
                     try await healthKitService.deleteWorkout(healthKitUUID: hkUUID)
                 } catch {
                     logger.error(
+                        // swiftlint:disable:next line_length
                         "HealthKit delete failed uuid=\(hkUUID, privacy: .private) error=\(error.localizedDescription, privacy: .private)"
                     )
                 }
@@ -302,5 +331,7 @@ private struct WorkoutRowView: View {
 
 #Preview {
     WorkoutListView()
+        // swiftlint:disable:next force_try
         .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
+        .environment(AppNavigation())
 }

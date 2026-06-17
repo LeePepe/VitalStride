@@ -1,12 +1,18 @@
 import SwiftUI
+import VitalModels
 
 enum AppTab: Hashable {
+    // swiftlint:disable:next identifier_name
     case overview, workout, data, ai, settings
 }
 
 @Observable
 final class AppNavigation {
     var selectedTab = AppTab.overview
+    /// Set by `CrashRecoveryModifier` when the user chooses "恢复训练".
+    /// `WorkoutListView` observes this, opens `ActiveWorkoutView` in resume
+    /// mode, and clears it back to `nil`.
+    var crashRecoveryResume: Workout?
 }
 
 struct ContentView: View {
@@ -41,6 +47,7 @@ struct ContentView: View {
             .accessibilityLabel("设置")
         }
         .environment(navigation)
+        .detectsCrashRecovery()
     }
 }
 
