@@ -18,7 +18,13 @@ private let logger = Logger(subsystem: "com.vitalstride", category: "CrashRecove
 /// chosen action only — never workout numeric content (privacy constraint).
 struct CrashRecoveryModifier: ViewModifier {
     @Environment(\.modelContext) private var modelContext
-    @Environment(AppNavigation.self) private var navigation
+    /// Passed in explicitly by the caller rather than read from
+    /// `@Environment`. The custom modifier is typically applied at the same
+    /// level as `.environment(navigation)`, and SwiftUI's environment
+    /// values only propagate *down* the view hierarchy — sibling modifiers
+    /// in the chain sit outside that writer and would receive a fresh
+    /// `AppNavigation`. Taking the dependency by value avoids that gap.
+    let navigation: AppNavigation
     @State private var didCheck = false
     @State private var pendingOrphan: Workout?
     @State private var showAlert = false
@@ -163,7 +169,12 @@ struct CrashRecoveryModifier: ViewModifier {
 
 extension View {
     /// Attaches the crash recovery detection + alert to a view.
-    func detectsCrashRecovery() -> some View {
-        modifier(CrashRecoveryModifier())
+    ///
+    /// - Parameter navigation: The shared navigation observable. Pass the
+    ///   same instance you supply to `.environment(navigation)` so that the
+    ///   "恢复训练" choice can route through `crashRecoveryResume` /
+    ///   `selectedTab`.
+    func detectsCrashRecovery(navigation: AppNavigation) -> some View {
+        modifier(CrashRecoveryModifier(navigation: navigation))
     }
 }

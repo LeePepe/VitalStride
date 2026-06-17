@@ -47,7 +47,7 @@ struct ContentView: View {
             .accessibilityLabel("设置")
         }
         .environment(navigation)
-        .detectsCrashRecovery()
+        .detectsCrashRecovery(navigation: navigation)
     }
 }
 
