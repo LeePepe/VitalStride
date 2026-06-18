@@ -1,0 +1,28 @@
+included:
+  - VitalStride
+  - VitalStrideMac
+  - VitalStrideWatch Watch App
+  - Packages
+
+excluded:
+  - .git
+  - VitalStrideTests
+  - Packages/*/.build
+  - Packages/*/Tests
+
+only_rules:
+  - no_hardcoded_chinese
+
+custom_rules:
+  no_hardcoded_chinese:
+    name: "No Hardcoded Chinese"
+    message: "中文字符串应放在 Localizable.strings (用 NSLocalizedString/String(localized:) 引用 key)"
+    regex: '"[^"]*[\u4e00-\u9fff][^"]*"'
+    match_kinds:
+      - string
+    severity: warning
+    excluded:
+      - ".*Tests/.*"
+      - ".*Tests\\.swift"
+      - "VitalStrideTests/.*"
+      - "Packages/.*/Tests/.*"

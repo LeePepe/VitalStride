@@ -400,5 +400,27 @@ if [ -n "$SWIFT_FILES" ] && command -v swiftlint >/dev/null 2>&1; then
   echo "✅ SwiftLint passed for touched lines."
 fi
 
+# ---- 6. Optional i18n parity report ----------------------------------------
+
+if [ -f "scripts/i18n_check_lproj_parity.py" ] && command -v python3 >/dev/null 2>&1; then
+  echo ""
+  echo "🌐 i18n parity baseline (non-blocking)..."
+  I18N_LOG=$(mktemp)
+  if python3 scripts/i18n_check_lproj_parity.py > "$I18N_LOG" 2>&1; then
+    cat "$I18N_LOG"
+    coverage=$(awk -F': ' '/^en_coverage_pct:/ {print $2}' "$I18N_LOG" | tail -1)
+    if [ -n "$coverage" ]; then
+      awk -v pct="$coverage" 'BEGIN { exit (pct < 50.0 ? 0 : 1) }'
+      if [ "$?" -eq 0 ]; then
+        echo "⚠️  en localization coverage is below 50% (${coverage}%) — warning only."
+      fi
+    fi
+  else
+    echo "⚠️  i18n parity check failed — warning only."
+    tail -20 "$I18N_LOG"
+  fi
+  rm -f "$I18N_LOG"
+fi
+
 echo ""
 echo "✅ All pre-push checks passed."

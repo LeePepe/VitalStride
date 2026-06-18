@@ -50,6 +50,13 @@ xcodegen generate
 - **SwiftData** 存储训练数据 + HealthKit L2 缓存（`HealthCacheEntry`，本地隔离，`cloudKitDatabase: .none`）
 - **HealthDataCache** 是纯内存 actor L1 缓存层
 
+## I18n
+
+- UI 字符串用 `String(localized: "key", comment: "...")` 或 `NSLocalizedString("key", ...)` 引用 strings 文件
+- 源代码硬编码中文字面量会被 SwiftLint 标 warning（非 error）
+- 添加新 key 后同步更新 zh-Hans.lproj 和 en.lproj
+- 工具：`python3 scripts/i18n_extract_hardcoded.py` 识别需要迁移的，`python3 scripts/i18n_check_lproj_parity.py` 检查覆盖率
+
 ## Key Conventions
 
 - HealthKit 健康数值禁止出现在任何日志中（隐私合规)
