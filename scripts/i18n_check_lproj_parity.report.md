@@ -7,13 +7,6 @@ en coverage: 100.0%
 ## Sources
 
 - `VitalStride/Resources/Localizable.xcstrings`
-- `VitalStride/Resources/en.lproj/Localizable.strings`
-- `VitalStrideWatch Watch App/Resources/en.lproj/Localizable.strings`
-
-## Created Empty en Localizable.strings
-
-- `VitalStride/Resources/en.lproj/Localizable.strings`
-- `VitalStrideWatch Watch App/Resources/en.lproj/Localizable.strings`
 
 ## zh-Hans only
 

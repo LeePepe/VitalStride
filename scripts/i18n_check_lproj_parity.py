@@ -11,7 +11,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REPORT_PATH = REPO_ROOT / "scripts" / "i18n_check_lproj_parity.report.md"
 STRINGS_RE = re.compile(r'^\s*"((?:\\.|[^"\\])*)"\s*=\s*"', re.MULTILINE)
-STANDARD_HEADER = "/* Localizable.strings\n   VitalStride\n*/\n\n"
 
 
 def decode_strings_key(raw: str) -> str:
@@ -24,16 +23,14 @@ def parse_strings(path: Path) -> set[str]:
     return {decode_strings_key(match.group(1)) for match in STRINGS_RE.finditer(path.read_text(encoding="utf-8"))}
 
 
-def ensure_en_localizable_files() -> list[Path]:
-    created: list[Path] = []
-    for en_dir in sorted(REPO_ROOT.rglob("en.lproj")):
-        if ".git" in en_dir.parts:
-            continue
-        path = en_dir / "Localizable.strings"
-        if not path.exists():
-            path.write_text(STANDARD_HEADER, encoding="utf-8")
-            created.append(path)
-    return created
+# NOTE: Previously this script created empty Localizable.strings stubs in every
+# en.lproj/ directory when missing. That caused Xcode 26 to emit
+#   "Localizable.xcstrings cannot co-exist with other .strings or .stringsdict
+#    tables with the same name"
+# because the empty .strings was indexed by xcodegen alongside the canonical
+# Localizable.xcstrings (MY-882). We now treat Localizable.xcstrings as the
+# sole source of truth and intentionally do NOT auto-create empty .strings
+# stubs. If you genuinely want a legacy .strings file, create it explicitly.
 
 
 def lproj_key_sets() -> tuple[set[str], set[str], list[str]]:
@@ -124,7 +121,7 @@ def write_report(
 
 
 def main() -> int:
-    created = ensure_en_localizable_files()
+    created: list[Path] = []
     zh_lproj, en_lproj, lproj_sources = lproj_key_sets()
     zh_xc, en_xc, xc_sources = xcstrings_key_sets()
     zh_keys = zh_lproj | zh_xc
