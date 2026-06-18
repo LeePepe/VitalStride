@@ -866,23 +866,23 @@
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					014DB075EC88DB68BB66224D = {
-						DevelopmentTeam = RADE22GAMA;
+						DevelopmentTeam = 4Z8GG667QD;
 						ProvisioningStyle = Automatic;
 					};
 					6868D7B2B319ADA46F70B615 = {
-						DevelopmentTeam = RADE22GAMA;
+						DevelopmentTeam = 4Z8GG667QD;
 						ProvisioningStyle = Automatic;
 					};
 					C094206A853C4AAA3D71EFD9 = {
-						DevelopmentTeam = RADE22GAMA;
+						DevelopmentTeam = 4Z8GG667QD;
 						ProvisioningStyle = Automatic;
 					};
 					E43685623584B2F760F1AF45 = {
-						DevelopmentTeam = RADE22GAMA;
+						DevelopmentTeam = 4Z8GG667QD;
 						ProvisioningStyle = Automatic;
 					};
 					F192035F877F1B2AA721CDCF = {
-						DevelopmentTeam = RADE22GAMA;
+						DevelopmentTeam = 4Z8GG667QD;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -1297,7 +1297,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = RADE22GAMA;
+				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -1425,7 +1425,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = RADE22GAMA;
+				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
