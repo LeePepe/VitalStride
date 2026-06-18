@@ -86,6 +86,14 @@ The Multica daemon already created your worktree at `<task-dir>/workdir/`. **Do 
 
 2. **Implement + commit** as usual on whatever branch the daemon checked out for you (it's already a fresh branch off `origin/main`).
 
+   **Commit message 必须包含 issue key**（如 `MY-852`），可在 subject 或 body 任意位置。pre-push hook 会校验；多个 commit 则每个都必须包含。这样 retro/审计工具能通过 grep `MY-\d+` 关联 commit ↔ issue。
+
+   ```bash
+   git commit -m "feat: ExercisePickerView 多选批量添加 (MY-852)"
+   # 或 body 引用:
+   git commit -m "feat: 多选 picker" -m "Implements MY-852."
+   ```
+
 3. **Push your work to the LOCAL bare repo**:
    ```bash
    git push "$BARE" HEAD:refs/heads/$BRANCH
