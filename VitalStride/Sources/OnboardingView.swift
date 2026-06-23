@@ -183,19 +183,24 @@ struct OnboardingView: View {
         }
 
         isRequestingAuth = true
-        var authorizationSucceeded = false
+        var requestSucceeded = false
         do {
             try await healthStore.requestAuthorization(
                 toShare: Self.shareTypes,
                 read: Self.readTypes
             )
-            authorizationSucceeded = true
+            requestSucceeded = true
         } catch {}
         isRequestingAuth = false
         NotificationCenter.default.post(name: .healthKitAuthorizationChanged, object: nil)
 
+        // HealthKit hides read denial post-prompt; the strongest signal we have is
+        // the share authorization on the requested write types. Treat any missing
+        // share authorization (or a thrown request) as denied for telemetry purposes.
+        let granted = requestSucceeded
+            && Self.shareTypes.allSatisfy { healthStore.authorizationStatus(for: $0) == .sharingAuthorized }
         TelemetryService.shared.trackNonisolated(
-            authorizationSucceeded ? .healthKitAuthorized : .healthKitDenied
+            granted ? .healthKitAuthorized : .healthKitDenied
         )
 
         completeOnboarding()

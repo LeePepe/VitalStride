@@ -708,7 +708,8 @@ private struct ActiveExerciseSection: View {
     }
 
     private func deleteSet(_ exerciseSet: ExerciseSet) {
-        WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
+        let didDelete = WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
+        guard didDelete else { return }
         onSetDeleted()
     }
 }

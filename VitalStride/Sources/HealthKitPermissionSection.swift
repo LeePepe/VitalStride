@@ -142,19 +142,25 @@ struct HealthKitPermissionSection: View {
     private func requestAuthorization() async {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         isRequesting = true
-        var authorizationSucceeded = false
+        var requestSucceeded = false
         do {
             try await healthStore.requestAuthorization(
                 toShare: Self.shareTypes,
                 read: Self.readTypes
             )
-            authorizationSucceeded = true
+            requestSucceeded = true
         } catch {}
         await checkAuthorization()
         isRequesting = false
         NotificationCenter.default.post(name: .healthKitAuthorizationChanged, object: nil)
+        // HealthKit deliberately hides read-denial; the strongest signal we can get
+        // post-request is the share authorization on the requested write types. If
+        // any requested share type is still not authorized after the prompt closed,
+        // treat the consent as denied. (Request-API error also counts as denied.)
+        let granted = requestSucceeded
+            && Self.shareTypes.allSatisfy { healthStore.authorizationStatus(for: $0) == .sharingAuthorized }
         TelemetryService.shared.trackNonisolated(
-            authorizationSucceeded ? .healthKitAuthorized : .healthKitDenied
+            granted ? .healthKitAuthorized : .healthKitDenied
         )
     }
 
