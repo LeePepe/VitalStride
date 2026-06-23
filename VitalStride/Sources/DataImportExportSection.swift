@@ -1,4 +1,5 @@
 import SwiftUI
+import TelemetryKit
 import UniformTypeIdentifiers
 
 struct DataImportExportSection: View {
@@ -92,6 +93,16 @@ struct DataImportExportSection: View {
                 )
             }
             importedFiles = importedFiles + newRecords
+            for url in urls {
+                let ext = url.pathExtension.lowercased()
+                let format: TelemetryIdentifier
+                switch ext {
+                case "gpx": format = "gpx"
+                case "fit": format = "fit"
+                default: continue
+                }
+                TelemetryService.shared.trackNonisolated(.dataImported(format: format))
+            }
         case .failure(let error):
             importError = "导入失败: \(error.localizedDescription)"
         }

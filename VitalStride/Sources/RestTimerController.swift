@@ -1,5 +1,6 @@
 import Foundation
 import os
+import TelemetryKit
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "RestTimer")
 
@@ -53,6 +54,9 @@ final class RestTimerController {
                 endDate: endDate
             )
         }
+        TelemetryService.shared.trackNonisolated(
+            .restTimerStarted(durationSeconds: max(0, Int(duration)))
+        )
     }
 
     func adjustRest(by seconds: TimeInterval) {
@@ -93,6 +97,7 @@ final class RestTimerController {
         restGeneration += 1
         liveActivityStartTask?.cancel()
         liveActivityStartTask = nil
+        let wasResting = phase == .resting
         restEndDate = nil
         restTotalDuration = nil
         phase = .idle
@@ -101,6 +106,9 @@ final class RestTimerController {
             await liveActivityManager.endActivity(reason: .skipped)
         }
         logger.info("rest_notification_cancelled reason=skip")
+        if wasResting {
+            TelemetryService.shared.trackNonisolated(.restTimerSkipped)
+        }
     }
 
     func cancelRestForWorkoutEnd() {
@@ -137,6 +145,7 @@ final class RestTimerController {
         guard restEndDate == restEnd else { return }
         phase = .completed
         await liveActivityManager.endActivity(reason: .completed)
+        TelemetryService.shared.trackNonisolated(.restTimerCompleted)
         do {
             try await Task.sleep(for: .seconds(completedDisplayDuration))
         } catch { return }

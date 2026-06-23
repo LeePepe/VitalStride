@@ -3,6 +3,7 @@ import HealthKitService
 import os
 import SwiftData
 import SwiftUI
+import TelemetryKit
 import VitalModels
 import VitalUI
 
@@ -315,6 +316,13 @@ struct ActiveWorkoutView: View {
                         workoutExercise: workoutExercise,
                         onSetCompleted: {
                             restTimer.startRest()
+                            TelemetryService.shared.trackNonisolated(
+                                .setCompleted(exerciseName: TelemetryHelpers
+                                    .exerciseIdentifier(workoutExercise.exercise))
+                            )
+                        },
+                        onSetDeleted: {
+                            TelemetryService.shared.trackNonisolated(.setDeleted)
                         },
                         onReplace: {
                             exerciseToReplace = workoutExercise
@@ -399,6 +407,10 @@ struct ActiveWorkoutView: View {
             logger.info("Workout resumed: exerciseCount=\(exerciseCount), setCount=\(setCount)")
         }
 
+        TelemetryService.shared.trackNonisolated(
+            .workoutStarted(source: TelemetryHelpers.sourceIdentifier(source))
+        )
+
         #if !os(macOS)
         let manager = healthKitService.makeWorkoutSessionManager()
         sessionManager = manager
@@ -416,6 +428,10 @@ struct ActiveWorkoutView: View {
         let defaultSet = ExerciseSet(order: 0, weight: 0, reps: 0, setType: .working)
         defaultSet.workoutExercise = workoutExercise
         modelContext.insert(defaultSet)
+
+        TelemetryService.shared.trackNonisolated(
+            .exerciseAdded(name: TelemetryHelpers.exerciseIdentifier(exercise))
+        )
     }
 
     private func moveExercises(from source: IndexSet, to destination: Int) {
@@ -442,6 +458,16 @@ struct ActiveWorkoutView: View {
         workout.finish()
         HapticManager.trigger(.workoutFinished)
         try? modelContext.save()
+
+        let exerciseCount = workout.exercises?.count ?? 0
+        let setCount = workout.exercises?.reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
+        let durationSeconds = Int(Date().timeIntervalSince(startTime))
+        TelemetryService.shared.trackNonisolated(.workoutCompleted(
+            durationSeconds: max(0, durationSeconds),
+            exerciseCount: exerciseCount,
+            setCount: setCount
+        ))
+
         #if !os(macOS)
         if let manager = sessionManager {
             Task {
@@ -469,6 +495,7 @@ struct ActiveWorkoutView: View {
             modelContext.delete(workout)
             try? modelContext.save()
         }
+        TelemetryService.shared.trackNonisolated(.workoutDiscarded)
         dismiss()
     }
 }
@@ -478,6 +505,7 @@ struct ActiveWorkoutView: View {
 private struct ActiveExerciseSection: View {
     let workoutExercise: WorkoutExercise
     let onSetCompleted: () -> Void
+    let onSetDeleted: () -> Void
     let onReplace: () -> Void
     let onDelete: () -> Void
     @Environment(\.modelContext) private var modelContext
@@ -681,6 +709,7 @@ private struct ActiveExerciseSection: View {
 
     private func deleteSet(_ exerciseSet: ExerciseSet) {
         WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
+        onSetDeleted()
     }
 }
 

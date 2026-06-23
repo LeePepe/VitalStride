@@ -1,6 +1,7 @@
 import HealthKit
 import HealthKitService
 import SwiftUI
+import TelemetryKit
 
 struct HealthKitPermissionSection: View {
     @State private var authorizationStatus: HKAuthorizationRequestStatus?
@@ -141,15 +142,20 @@ struct HealthKitPermissionSection: View {
     private func requestAuthorization() async {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         isRequesting = true
+        var authorizationSucceeded = false
         do {
             try await healthStore.requestAuthorization(
                 toShare: Self.shareTypes,
                 read: Self.readTypes
             )
+            authorizationSucceeded = true
         } catch {}
         await checkAuthorization()
         isRequesting = false
         NotificationCenter.default.post(name: .healthKitAuthorizationChanged, object: nil)
+        TelemetryService.shared.trackNonisolated(
+            authorizationSucceeded ? .healthKitAuthorized : .healthKitDenied
+        )
     }
 
     private func openHealthSettings() {

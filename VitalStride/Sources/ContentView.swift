@@ -1,4 +1,5 @@
 import SwiftUI
+import TelemetryKit
 import VitalModels
 
 enum AppTab: Hashable {
@@ -48,6 +49,11 @@ struct ContentView: View {
         }
         .environment(navigation)
         .detectsCrashRecovery(navigation: navigation)
+        .onChange(of: nav.selectedTab) { _, newTab in
+            TelemetryService.shared.trackNonisolated(
+                .tabSwitched(tab: TelemetryHelpers.tabIdentifier(newTab))
+            )
+        }
     }
 }
 

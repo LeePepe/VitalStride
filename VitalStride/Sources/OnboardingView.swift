@@ -1,6 +1,7 @@
 import HealthKit
 import HealthKitService
 import SwiftUI
+import TelemetryKit
 
 struct OnboardingView: View {
     @Binding var hasCompletedOnboarding: Bool
@@ -182,19 +183,30 @@ struct OnboardingView: View {
         }
 
         isRequestingAuth = true
+        var authorizationSucceeded = false
         do {
             try await healthStore.requestAuthorization(
                 toShare: Self.shareTypes,
                 read: Self.readTypes
             )
+            authorizationSucceeded = true
         } catch {}
         isRequestingAuth = false
         NotificationCenter.default.post(name: .healthKitAuthorizationChanged, object: nil)
+
+        TelemetryService.shared.trackNonisolated(
+            authorizationSucceeded ? .healthKitAuthorized : .healthKitDenied
+        )
+
         completeOnboarding()
     }
 
     private func completeOnboarding() {
+        let wasAlreadyCompleted = hasCompletedOnboarding
         hasCompletedOnboarding = true
+        if !wasAlreadyCompleted {
+            TelemetryService.shared.trackNonisolated(.onboardingCompleted)
+        }
     }
 }
 
