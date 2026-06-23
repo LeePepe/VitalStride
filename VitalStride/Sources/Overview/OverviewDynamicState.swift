@@ -2,6 +2,7 @@ import AIService
 import Foundation
 import OSLog
 import SwiftData
+import TelemetryKit
 import VitalModels
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "OverviewDynamic")
@@ -27,6 +28,7 @@ final class OverviewDynamicState {
         if let (insights, generatedAt) = cacheResult {
             logger.debug("overview_cache_hit")
             signposter.emitEvent("overview_cache_hit")
+            TelemetryService.shared.trackNonisolated(.overviewCacheHit)
             layoutState = .dynamic(insights, lastUpdated: generatedAt)
 
             let isExpired = isCacheExpired(container: container)
@@ -38,6 +40,7 @@ final class OverviewDynamicState {
 
         logger.debug("overview_cache_miss")
         signposter.emitEvent("overview_cache_miss")
+        TelemetryService.shared.trackNonisolated(.overviewCacheMiss)
         await generateFromAI(container: container, snapshot: snapshot, workouts: workouts)
     }
 
@@ -61,6 +64,9 @@ final class OverviewDynamicState {
                 + elapsed.components.attoseconds / 1_000_000_000_000_000
             logger.info("overview_ai_generate_success duration_ms=\(ms)")
             signposter.emitEvent("overview_ai_generate_success", "\(ms)ms")
+            TelemetryService.shared.trackNonisolated(
+                .aiInsightGenerated(durationMs: Int(ms), cardCount: response.insights.count)
+            )
 
             let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
             layoutState = .dynamic(response.insights, lastUpdated: generatedAt)
@@ -69,6 +75,7 @@ final class OverviewDynamicState {
             let errorType = describeErrorType(error)
             logger.error("overview_ai_generate_failure error_type=\(errorType)")
             signposter.emitEvent("overview_ai_generate_failure", "\(errorType)")
+            TelemetryService.shared.trackNonisolated(.aiInsightFailed(errorType: telemetryErrorType(error)))
             showRefreshError = true
         }
 
@@ -121,11 +128,20 @@ final class OverviewDynamicState {
             guard response.insights.count >= 3 else {
                 logger.info("overview_ai_generate_success duration_ms=\(ms) insights_count=\(response.insights.count) kept_fallback=true")
                 signposter.emitEvent("overview_ai_generate_success", "\(ms)ms")
+                TelemetryService.shared.trackNonisolated(
+                    .aiInsightGenerated(durationMs: Int(ms), cardCount: response.insights.count)
+                )
+                TelemetryService.shared.trackNonisolated(
+                    .overviewFallbackTriggered(reason: "insufficientInsights")
+                )
                 return
             }
 
             logger.info("overview_ai_generate_success duration_ms=\(ms) insights_count=\(response.insights.count)")
             signposter.emitEvent("overview_ai_generate_success", "\(ms)ms")
+            TelemetryService.shared.trackNonisolated(
+                .aiInsightGenerated(durationMs: Int(ms), cardCount: response.insights.count)
+            )
 
             let generatedAt = readCacheGeneratedAt(container: container) ?? Date()
             layoutState = .dynamic(response.insights, lastUpdated: generatedAt)
@@ -133,6 +149,10 @@ final class OverviewDynamicState {
             let errorType = describeErrorType(error)
             logger.error("overview_ai_generate_failure error_type=\(errorType)")
             signposter.emitEvent("overview_ai_generate_failure", "\(errorType)")
+            TelemetryService.shared.trackNonisolated(.aiInsightFailed(errorType: telemetryErrorType(error)))
+            TelemetryService.shared.trackNonisolated(
+                .overviewFallbackTriggered(reason: "aiGenerateFailure")
+            )
         }
     }
 
@@ -164,12 +184,16 @@ final class OverviewDynamicState {
             let hasHeadline = response.headline != nil
             logger.info("overview_bg_refresh_success headline_present=\(hasHeadline) duration_ms=\(ms)")
             signposter.emitEvent("overview_bg_refresh_success", "headline=\(hasHeadline) \(ms)ms")
+            TelemetryService.shared.trackNonisolated(
+                .aiInsightGenerated(durationMs: Int(ms), cardCount: response.insights.count)
+            )
 
             applyBackgroundRefreshResult(response, container: container)
         } catch {
             let errorType = describeErrorType(error)
             logger.error("overview_bg_refresh_failure error_type=\(errorType)")
             signposter.emitEvent("overview_bg_refresh_failure", "\(errorType)")
+            TelemetryService.shared.trackNonisolated(.aiInsightFailed(errorType: telemetryErrorType(error)))
         }
     }
 
@@ -265,6 +289,23 @@ final class OverviewDynamicState {
             case .noProviderAvailable: return "noProviderAvailable"
             case .networkError: return "networkError"
             case .httpError(let code): return "httpError(\(code))"
+            case .missingAPIKey: return "missingAPIKey"
+            case .responseParsingFailed: return "responseParsingFailed"
+            case .streamingInterrupted: return "streamingInterrupted"
+            }
+        }
+        if error is KeychainError {
+            return "noApiKey"
+        }
+        return "unknown"
+    }
+
+    private nonisolated func telemetryErrorType(_ error: Error) -> TelemetryIdentifier {
+        if let aiError = error as? AIServiceError {
+            switch aiError {
+            case .noProviderAvailable: return "noProviderAvailable"
+            case .networkError: return "networkError"
+            case .httpError(let code): return TelemetryIdentifier(validating: "httpError_\(code)") ?? "httpError"
             case .missingAPIKey: return "missingAPIKey"
             case .responseParsingFailed: return "responseParsingFailed"
             case .streamingInterrupted: return "streamingInterrupted"

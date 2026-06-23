@@ -3,6 +3,7 @@ import HealthKitService
 import OSLog
 import SwiftData
 import SwiftUI
+import TelemetryKit
 import VitalModels
 import VitalUI
 
@@ -121,6 +122,11 @@ struct OverviewView: View {
                 snapshotState: snapshotState,
                 hasWorkoutData: hasWorkoutData
             )
+            .onAppear {
+                TelemetryService.shared.trackNonisolated(
+                    .overviewFallbackTriggered(reason: "dynamicLayoutFallback")
+                )
+            }
         }
     }
 }

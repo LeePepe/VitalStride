@@ -2,6 +2,7 @@ import HealthKitService
 import os
 import SwiftData
 import SwiftUI
+import TelemetryKit
 import VitalModels
 
 // MARK: - DataView
@@ -491,6 +492,9 @@ struct DataView: View {
     // MARK: - User Interest
 
     private func recordTap(for sampleType: HealthSampleType) {
+        if let identifier = TelemetryIdentifier(validating: sampleType.rawValue) {
+            TelemetryService.shared.trackNonisolated(.dataDetailOpened(sampleType: identifier))
+        }
         let container = modelContext.container
         Task.detached {
             let context = ModelContext(container)

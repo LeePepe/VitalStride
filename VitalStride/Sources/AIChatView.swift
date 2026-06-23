@@ -2,6 +2,7 @@ import AIService
 import HealthKitService
 import SwiftData
 import SwiftUI
+import TelemetryKit
 import VitalModels
 import os
 
@@ -78,6 +79,7 @@ final class AIChatViewModel {
 
         inputText = ""
         logger.info("chat_message_sent")
+        TelemetryService.shared.trackNonisolated(.aiChatMessageSent)
 
         messages.append(AIChatMessage(role: .user, content: text))
         startStreaming(modelContext: modelContext)

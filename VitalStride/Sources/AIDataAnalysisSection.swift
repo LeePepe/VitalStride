@@ -2,6 +2,7 @@ import AIService
 import HealthKitService
 import SwiftData
 import SwiftUI
+import TelemetryKit
 import VitalModels
 import os
 
@@ -151,6 +152,10 @@ struct AIDataAnalysisSection: View {
 
     private func loadAnalysis(forceRefresh: Bool) async {
         let sampleTypeRaw = sampleType.rawValue
+
+        if let identifier = TelemetryIdentifier(validating: sampleTypeRaw) {
+            TelemetryService.shared.trackNonisolated(.aiAnalysisRequested(sampleType: identifier))
+        }
 
         if forceRefresh {
             emitRefreshTelemetry()

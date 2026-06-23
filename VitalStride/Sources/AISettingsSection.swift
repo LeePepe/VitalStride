@@ -1,6 +1,7 @@
 import AIService
 import OSLog
 import SwiftUI
+import TelemetryKit
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "AISettings")
 
@@ -113,6 +114,9 @@ struct AISettingsSection: View {
         .accessibilityLabel(String(localized: "AI 模型选择", comment: "AI model picker a11y"))
         .onChange(of: selectedModel) { oldValue, newValue in
             logger.info("AI model changed: from=\(oldValue.rawValue) to=\(newValue.rawValue)")
+            if let identifier = TelemetryIdentifier(validating: newValue.rawValue) {
+                TelemetryService.shared.trackNonisolated(.aiModelChanged(model: identifier))
+            }
         }
     }
 

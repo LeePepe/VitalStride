@@ -1,6 +1,7 @@
 import AIService
 import SwiftData
 import SwiftUI
+import TelemetryKit
 import VitalModels
 
 @Observable
@@ -51,12 +52,39 @@ final class OverviewInsightsState {
                 provider: provider
             )
 
+            let start = ContinuousClock.now
             let result = try await service.generateInsights(context: context)
             guard !Task.isCancelled else { return }
+            let elapsed = ContinuousClock.now - start
+            let ms = Int(elapsed.components.seconds * 1000
+                + elapsed.components.attoseconds / 1_000_000_000_000_000)
+            TelemetryService.shared.trackNonisolated(
+                .aiInsightGenerated(durationMs: ms, cardCount: result.insights.count)
+            )
             insights = result.insights
         } catch {
+            TelemetryService.shared.trackNonisolated(
+                .aiInsightFailed(errorType: Self.telemetryErrorType(error))
+            )
             insights = []
         }
+    }
+
+    private nonisolated static func telemetryErrorType(_ error: Error) -> TelemetryIdentifier {
+        if let aiError = error as? AIServiceError {
+            switch aiError {
+            case .noProviderAvailable: return "noProviderAvailable"
+            case .networkError: return "networkError"
+            case .httpError(let code): return TelemetryIdentifier(validating: "httpError_\(code)") ?? "httpError"
+            case .missingAPIKey: return "missingAPIKey"
+            case .responseParsingFailed: return "responseParsingFailed"
+            case .streamingInterrupted: return "streamingInterrupted"
+            }
+        }
+        if error is KeychainError {
+            return "noApiKey"
+        }
+        return "unknown"
     }
 }
 
