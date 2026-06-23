@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import TelemetryKit
 import VitalModels
 import VitalUI
 
@@ -9,6 +10,12 @@ struct VitalStrideWatchApp: App {
     private let containerError: String?
 
     init() {
+        #if DEBUG
+        Task {
+            await TelemetryService.shared.register(ConsoleTelemetryProvider())
+        }
+        #endif
+
         do {
             let modelContainer = try ModelContainerConfiguration.makeContainer()
             container = modelContainer

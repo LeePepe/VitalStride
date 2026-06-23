@@ -1,6 +1,7 @@
 import HealthKitService
 import SwiftData
 import SwiftUI
+import TelemetryKit
 import VitalModels
 import VitalUI
 
@@ -16,6 +17,12 @@ struct VitalStrideMacApp: App {
     init() {
         let service = HealthKitService(deviceIdentifier: "mac-display")
         healthKitService = service
+
+        #if DEBUG
+        Task {
+            await TelemetryService.shared.register(ConsoleTelemetryProvider())
+        }
+        #endif
 
         do {
             let modelContainer = try ModelContainerConfiguration.makeContainer()
