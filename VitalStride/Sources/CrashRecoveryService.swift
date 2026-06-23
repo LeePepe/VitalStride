@@ -1,6 +1,9 @@
 import Foundation
+import os
 import SwiftData
 import VitalModels
+
+private let logger = Logger(subsystem: "com.vitalstride", category: "CrashRecovery")
 
 /// Pure, testable helpers for detecting and handling workouts that were left
 /// unfinished by an app crash or termination.
@@ -38,12 +41,28 @@ enum CrashRecoveryService {
     /// The SwiftData `#Predicate` macro only filters by `endDate`. The
     /// `source == .recorded` check is performed in Swift to sidestep the
     /// enum-in-predicate limitation observed in earlier predicate macros.
+    ///
+    /// On fetch failure the underlying error is logged (with the
+    /// description redacted as `.private`) and an empty list is returned.
+    /// The launch flow treats an empty result as "no orphans to recover",
+    /// which is the safest user-facing fallback if the store is
+    /// unreadable — but the error is surfaced via `os_log` so a recovery
+    /// gap does not go silently undiagnosed.
     static func findOrphans(in context: ModelContext) -> [Workout] {
         let descriptor = FetchDescriptor<Workout>(
             predicate: #Predicate<Workout> { $0.endDate == nil },
             sortBy: [SortDescriptor(\.startDate, order: .reverse)]
         )
-        let candidates = (try? context.fetch(descriptor)) ?? []
+        let candidates: [Workout]
+        do {
+            candidates = try context.fetch(descriptor)
+        } catch {
+            logger.error(
+                // swiftlint:disable:next line_length
+                "Crash recovery fetch failed: error=\(error.localizedDescription, privacy: .private)"
+            )
+            return []
+        }
         return candidates.filter { $0.source == .recorded }
     }
 
@@ -107,10 +126,20 @@ enum CrashRecoveryService {
         case persistFailed
     }
 
-    /// Finishes the workout at `date` and attempts to persist. On failure
-    /// the in-memory `endDate` mutation is *not* rolled back — the caller
-    /// is expected to re-try the save (or, on cancel, leave the orphan in
-    /// place so the next launch's recovery flow can pick it up again).
+    /// Finishes the workout at `date` and attempts to persist. On
+    /// persistence failure the workout's prior `endDate` and the
+    /// `isCompleted` flags on every set are restored to their pre-call
+    /// values, then `context.rollback()` is called to discard any other
+    /// pending context-level changes. After rollback the workout
+    /// reverts to its pre-call orphan state and the next launch's
+    /// recovery flow can pick it up again — or the caller can re-attempt
+    /// the save.
+    ///
+    /// Property restoration is done explicitly because `context.rollback()`
+    /// only reverts context-level pending operations (insert/delete);
+    /// direct `@Model` property mutations survive a rollback and would
+    /// otherwise leave the workout finished in memory while the store
+    /// still has it as an orphan.
     ///
     /// `save` defaults to `context.save()` and is injectable for testing
     /// failure paths without mocking SwiftData internals.
@@ -121,11 +150,25 @@ enum CrashRecoveryService {
         at date: Date = Date(),
         save: (() throws -> Void)? = nil
     ) -> ResolutionOutcome {
+        // Snapshot the pre-call state so we can restore on failure.
+        let priorEndDate = workout.endDate
+        let priorCompletedFlags: [(ExerciseSet, Bool)] = (workout.exercises ?? [])
+            .flatMap { $0.sets ?? [] }
+            .map { ($0, $0.isCompleted) }
+
         workout.finish(at: date)
         do {
             try (save ?? { try context.save() })()
             return .success
         } catch {
+            // Restore the in-memory property mutations that finish(at:)
+            // made (endDate + each set's isCompleted), then rollback the
+            // context for any other pending operations.
+            workout.endDate = priorEndDate
+            for (set, wasCompleted) in priorCompletedFlags {
+                set.isCompleted = wasCompleted
+            }
+            context.rollback()
             return .persistFailed
         }
     }

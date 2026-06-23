@@ -74,11 +74,12 @@ struct CrashRecoveryNavigationTests {
     }
 
     /// When persistence fails the caller must learn so it can surface a
-    /// retry prompt. The workout's `endDate` mutation in memory is kept so
-    /// the retry has the right state to re-attempt; the user-facing surface
-    /// is responsible for either retrying or leaving the orphan to be
-    /// detected again on the next launch.
-    @Test("saveAndEnd reports persistFailed when context.save throws")
+    /// retry prompt. The workout's in-memory mutation MUST be rolled back
+    /// via `context.rollback()` so the workout reverts to its pre-call
+    /// orphan state — otherwise a subsequent autosave could persist the
+    /// unintended finished state, and the user-facing "Resume" path
+    /// would no longer see an in-progress workout.
+    @Test("saveAndEnd reports persistFailed and rolls back endDate when context.save throws")
     func saveAndEndReportsPersistFailure() throws {
         let container = try ModelContainerConfiguration.makeTestContainer()
         let context = ModelContext(container)
@@ -92,6 +93,10 @@ struct CrashRecoveryNavigationTests {
         )
 
         #expect(outcome == .persistFailed)
+        // Rollback contract: workout reverts to orphan state.
+        #expect(workout.endDate == nil)
+        #expect(workout.isInProgress == true)
+        #expect(CrashRecoveryService.findOrphans(in: context).count == 1)
     }
 
     // MARK: - Discard
