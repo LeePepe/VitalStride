@@ -93,4 +93,59 @@ enum CrashRecoveryService {
             setCount: setCount
         )
     }
+
+    // MARK: - Resolution actions
+
+    /// The outcome of a save / discard attempt. The caller (the SwiftUI
+    /// modifier) uses this to decide whether to dismiss the alert, surface
+    /// an error prompt, or re-try.
+    enum ResolutionOutcome: Equatable {
+        case success
+        /// Persistence threw — the caller should surface a retry path. The
+        /// underlying error is captured for logging but not surfaced to
+        /// the user (privacy: error descriptions can leak data).
+        case persistFailed
+    }
+
+    /// Finishes the workout at `date` and attempts to persist. On failure
+    /// the in-memory `endDate` mutation is *not* rolled back — the caller
+    /// is expected to re-try the save (or, on cancel, leave the orphan in
+    /// place so the next launch's recovery flow can pick it up again).
+    ///
+    /// `save` defaults to `context.save()` and is injectable for testing
+    /// failure paths without mocking SwiftData internals.
+    @discardableResult
+    static func saveAndEnd(
+        workout: Workout,
+        context: ModelContext,
+        at date: Date = Date(),
+        save: (() throws -> Void)? = nil
+    ) -> ResolutionOutcome {
+        workout.finish(at: date)
+        do {
+            try (save ?? { try context.save() })()
+            return .success
+        } catch {
+            return .persistFailed
+        }
+    }
+
+    /// Deletes the workout and attempts to persist. On failure the delete
+    /// is rolled back via `context.rollback()` so the workout remains
+    /// available for retry rather than being left in a half-deleted state.
+    @discardableResult
+    static func discard(
+        workout: Workout,
+        context: ModelContext,
+        save: (() throws -> Void)? = nil
+    ) -> ResolutionOutcome {
+        context.delete(workout)
+        do {
+            try (save ?? { try context.save() })()
+            return .success
+        } catch {
+            context.rollback()
+            return .persistFailed
+        }
+    }
 }

@@ -13,9 +13,10 @@ private let logger = Logger(subsystem: "com.vitalstride", category: "CrashRecove
 /// save-and-end, or discard. Any additional orphans are auto-finished
 /// immediately so they appear in history rather than lingering as ghosts.
 ///
-/// All user-visible strings flow through `LocalizedStringKey` / `String(localized:)`
-/// so the alert localizes automatically. Logs record counts and the user's
-/// chosen action only — never workout numeric content (privacy constraint).
+/// All user-visible strings are English (matching `Localizable.xcstrings`
+/// source language) and route through `String(localized:)` so the alert
+/// localizes automatically. Logs record counts and the user's chosen action
+/// only — never workout numeric content (privacy constraint).
 struct CrashRecoveryModifier: ViewModifier {
     @Environment(\.modelContext) private var modelContext
     /// Passed in explicitly by the caller rather than read from
@@ -25,10 +26,26 @@ struct CrashRecoveryModifier: ViewModifier {
     /// in the chain sit outside that writer and would receive a fresh
     /// `AppNavigation`. Taking the dependency by value avoids that gap.
     let navigation: AppNavigation
+    /// Injectable persistence hook so tests can simulate `modelContext.save()`
+    /// failure without mocking SwiftData. `nil` (the default) uses the real
+    /// `modelContext.save()`.
+    var saveOverride: (() throws -> Void)?
     @State private var didCheck = false
     @State private var pendingOrphan: Workout?
     @State private var showAlert = false
     @State private var alertSummary: CrashRecoveryService.Summary?
+    /// Surfaced when a save/discard operation's `modelContext.save()` throws.
+    /// The user gets a retry prompt; the pending workout is kept in
+    /// `pendingOrphan` so the original action can be re-attempted.
+    @State private var showError = false
+    @State private var lastFailedAction: FailedAction?
+
+    /// Which user action triggered a persistence failure. Drives the retry
+    /// branch in the error alert.
+    enum FailedAction: Equatable {
+        case saveAndEnd
+        case discard
+    }
 
     func body(content: Content) -> some View {
         content
@@ -37,7 +54,7 @@ struct CrashRecoveryModifier: ViewModifier {
             }
             .alert(
                 String(
-                    localized: "检测到未完成的训练",
+                    localized: "Unfinished Workout Detected",
                     comment: "Crash recovery alert title"
                 ),
                 isPresented: $showAlert,
@@ -45,7 +62,7 @@ struct CrashRecoveryModifier: ViewModifier {
             ) { _ in
                 Button(
                     String(
-                        localized: "恢复训练",
+                        localized: "Resume",
                         comment: "Crash recovery resume button"
                     )
                 ) {
@@ -53,7 +70,7 @@ struct CrashRecoveryModifier: ViewModifier {
                 }
                 Button(
                     String(
-                        localized: "保存并结束",
+                        localized: "Save & End",
                         comment: "Crash recovery save-and-end button"
                     )
                 ) {
@@ -61,7 +78,7 @@ struct CrashRecoveryModifier: ViewModifier {
                 }
                 Button(
                     String(
-                        localized: "丢弃",
+                        localized: "Discard",
                         comment: "Crash recovery discard button"
                     ),
                     role: .destructive
@@ -70,6 +87,43 @@ struct CrashRecoveryModifier: ViewModifier {
                 }
             } message: { summary in
                 Text(messageText(for: summary))
+            }
+            .alert(
+                String(
+                    localized: "Couldn't Save Workout",
+                    comment: "Crash recovery save-failure alert title"
+                ),
+                isPresented: $showError,
+                presenting: lastFailedAction
+            ) { action in
+                Button(
+                    String(
+                        localized: "Retry",
+                        comment: "Crash recovery retry failed save button"
+                    )
+                ) {
+                    retry(action)
+                }
+                Button(
+                    String(
+                        localized: "Cancel",
+                        comment: "Crash recovery cancel failed save button"
+                    ),
+                    role: .cancel
+                ) {
+                    // Re-open the original choice alert so the user can pick
+                    // a different action rather than being left with an
+                    // unfinished workout silently in the background.
+                    lastFailedAction = nil
+                    showAlert = pendingOrphan != nil
+                }
+            } message: { _ in
+                Text(
+                    String(
+                        localized: "Saving failed. You can retry, or cancel and try a different option.",
+                        comment: "Crash recovery save-failure alert body"
+                    )
+                )
             }
     }
 
@@ -93,6 +147,10 @@ struct CrashRecoveryModifier: ViewModifier {
                     "Auto-finished orphan workouts: count=\(partition.autoFinish.count, privacy: .public)"
                 )
             }
+            // If auto-finish save failed we still continue to show the
+            // resume alert for the most recent orphan — the user-facing
+            // outcome of save_and_end / discard will be re-attempted on
+            // their choice below.
         }
 
         if let resumable = partition.resumable {
@@ -115,29 +173,78 @@ struct CrashRecoveryModifier: ViewModifier {
     private func handleSaveAndEnd() {
         guard let workout = pendingOrphan else { return }
         logger.info("Crash recovery action: choice=save")
-        workout.finish(at: Date())
-        _ = persist(reason: "save_and_end")
-        clearAlertState()
+        let outcome = CrashRecoveryService.saveAndEnd(
+            workout: workout,
+            context: modelContext,
+            save: saveOverride
+        )
+        finish(action: .saveAndEnd, outcome: outcome)
     }
 
     private func handleDiscard() {
         guard let workout = pendingOrphan else { return }
         logger.info("Crash recovery action: choice=discard")
-        modelContext.delete(workout)
-        _ = persist(reason: "discard")
-        clearAlertState()
+        let outcome = CrashRecoveryService.discard(
+            workout: workout,
+            context: modelContext,
+            save: saveOverride
+        )
+        finish(action: .discard, outcome: outcome)
+    }
+
+    private func finish(
+        action: FailedAction,
+        outcome: CrashRecoveryService.ResolutionOutcome
+    ) {
+        switch outcome {
+        case .success:
+            clearAlertState()
+        case .persistFailed:
+            logger.error(
+                "Crash recovery save failed: action=\(String(describing: action), privacy: .public)"
+            )
+            surfaceFailure(action)
+        }
+    }
+
+    private func retry(_ action: FailedAction) {
+        logger.info(
+            "Crash recovery retry: action=\(String(describing: action), privacy: .public)"
+        )
+        lastFailedAction = nil
+        switch action {
+        case .saveAndEnd:
+            handleSaveAndEnd()
+        case .discard:
+            handleDiscard()
+        }
+    }
+
+    private func surfaceFailure(_ action: FailedAction) {
+        lastFailedAction = action
+        // Keep `pendingOrphan` and `alertSummary` populated so the retry
+        // path knows which workout to operate on. The choice alert is
+        // dismissed while the error alert is shown; the cancel branch
+        // re-opens it.
+        showAlert = false
+        showError = true
     }
 
     private func clearAlertState() {
         pendingOrphan = nil
         alertSummary = nil
+        lastFailedAction = nil
     }
 
     // MARK: - Helpers
 
     private func persist(reason: String) -> Bool {
         do {
-            try modelContext.save()
+            if let saveOverride {
+                try saveOverride()
+            } else {
+                try modelContext.save()
+            }
             return true
         } catch {
             logger.error(
@@ -156,12 +263,12 @@ struct CrashRecoveryModifier: ViewModifier {
 
         if summary.isEmpty {
             return String(
-                localized: "训练开始于 \(startedAt)，空训练（未添加动作），建议丢弃。",
+                localized: "Started at \(startedAt). Empty workout (no exercises) — recommend discarding.",
                 comment: "Crash recovery message for empty workout"
             )
         }
         return String(
-            localized: "训练开始于 \(startedAt)，已记录 \(summary.exerciseCount) 个动作、\(summary.setCount) 组数据。",
+            localized: "Started at \(startedAt). Recorded \(summary.exerciseCount) exercises across \(summary.setCount) sets.",
             comment: "Crash recovery message including exercise and set counts"
         )
     }
@@ -172,7 +279,7 @@ extension View {
     ///
     /// - Parameter navigation: The shared navigation observable. Pass the
     ///   same instance you supply to `.environment(navigation)` so that the
-    ///   "恢复训练" choice can route through `crashRecoveryResume` /
+    ///   "Resume" choice can route through `crashRecoveryResume` /
     ///   `selectedTab`.
     func detectsCrashRecovery(navigation: AppNavigation) -> some View {
         modifier(CrashRecoveryModifier(navigation: navigation))

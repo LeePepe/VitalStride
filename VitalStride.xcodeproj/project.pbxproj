@@ -137,6 +137,7 @@
 		9CBF3EF6871D2AA5B28C4CA0 /* AIDataAnalysisSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D88D0FEEBECFC2EF4C1887F /* AIDataAnalysisSection.swift */; };
 		9D012B43BDF88A4635A1C13F /* DataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E4C9428C75CCA9843D6864F /* DataView.swift */; };
 		A03656DE3C2C3FBB1EDA2B3C /* CrashRecoveryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7DE063A8B4121131715ED6C /* CrashRecoveryServiceTests.swift */; };
+		A17EC09ACC944A1E4D18A3E9 /* CrashRecoveryNavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BDF89E8E3C53D5F9EAB725B /* CrashRecoveryNavigationTests.swift */; };
 		A1BA6B0B4E7D5AC09286E2DC /* GenericHealthDetailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 738B030EACEFB69B50A7D9C3 /* GenericHealthDetailTests.swift */; };
 		A3436DAEA2A872163B0538EB /* VitalModels in Frameworks */ = {isa = PBXBuildFile; productRef = C44380B390C4B9743AAB1053 /* VitalModels */; };
 		A35DE297023B3A6047D4FE3D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 224D8E4161C7961EC3D7E22A /* Localizable.xcstrings */; };
@@ -291,6 +292,7 @@
 		584CFBB57DF2FA059790F81B /* ActiveEnergySectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveEnergySectionTests.swift; sourceTree = "<group>"; };
 		58713437993C2C6908610F8E /* ActivitySummaryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivitySummaryCard.swift; sourceTree = "<group>"; };
 		58C946AE957021F69C8E2C60 /* VitalStrideWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "VitalStrideWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		5BDF89E8E3C53D5F9EAB725B /* CrashRecoveryNavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashRecoveryNavigationTests.swift; sourceTree = "<group>"; };
 		5C97E601CF77AF12D843DDBA /* RestLiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestLiveActivityManager.swift; sourceTree = "<group>"; };
 		5EE04A6992C043B64BF1BECE /* HeartRateFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateFormatterTests.swift; sourceTree = "<group>"; };
 		62752D819DEC3C928DEE3CB1 /* VitalStrideMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitalStrideMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -454,6 +456,7 @@
 				AE94FDEEC4102CF17E7E3DD3 /* BodyWeightSectionTests.swift */,
 				9B6A0B6A42590D338CAC61A6 /* CardSystemModelTests.swift */,
 				25A4CD9CFE450104FA8D4F51 /* CardVariantTests.swift */,
+				5BDF89E8E3C53D5F9EAB725B /* CrashRecoveryNavigationTests.swift */,
 				E7DE063A8B4121131715ED6C /* CrashRecoveryServiceTests.swift */,
 				3A7664EB59C867B7F8FDAD25 /* DataViewTests.swift */,
 				D8B254B7B0D02CADEF442964 /* EnumTests.swift */,
@@ -1123,6 +1126,7 @@
 				46E713E7E29F1ADC0BE2AB3C /* BodyWeightSectionTests.swift in Sources */,
 				505FC5D46CE8D1018A49A6DB /* CardSystemModelTests.swift in Sources */,
 				523B44D4A5ACBB5A933D46AA /* CardVariantTests.swift in Sources */,
+				A17EC09ACC944A1E4D18A3E9 /* CrashRecoveryNavigationTests.swift in Sources */,
 				A03656DE3C2C3FBB1EDA2B3C /* CrashRecoveryServiceTests.swift in Sources */,
 				C23F5779720EA5E1DBD23E29 /* DataViewTests.swift in Sources */,
 				12A433540C8B86B2F89298E5 /* EnumTests.swift in Sources */,

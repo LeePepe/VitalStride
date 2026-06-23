@@ -374,6 +374,42 @@
         }
       }
     },
+    "Couldn't Save Workout" : {
+      "comment" : "Crash recovery save-failure alert title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Save Workout"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存训练"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "comment" : "Crash recovery cancel failed save button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
     "card_size_large" : {
       "comment" : "Card size: full-width, tall height (complete charts/detailed content)",
       "localizations" : {
@@ -563,6 +599,24 @@
     },
     "Date" : {
       "comment" : "Chart axis"
+    },
+    "Discard" : {
+      "comment" : "Crash recovery discard button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "丢弃"
+          }
+        }
+      }
     },
     "g" : {
       "comment" : "Grams unit",
@@ -781,6 +835,78 @@
     "REM" : {
       "comment" : "REM\nREM sleep"
     },
+    "Saving failed. You can retry, or cancel and try a different option." : {
+      "comment" : "Crash recovery save-failure alert body",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving failed. You can retry, or cancel and try a different option."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存失败。你可以重试，或取消并尝试其他选项。"
+          }
+        }
+      }
+    },
+    "Save & End" : {
+      "comment" : "Crash recovery save-and-end button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save & End"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存并结束"
+          }
+        }
+      }
+    },
+    "Retry" : {
+      "comment" : "Crash recovery retry failed save button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试"
+          }
+        }
+      }
+    },
+    "Resume" : {
+      "comment" : "Crash recovery resume button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复训练"
+          }
+        }
+      }
+    },
     "rest_live_activity_a11y_label" : {
       "comment" : "DI expanded a11y label\nLive Activity a11y: Resting",
       "localizations" : {
@@ -902,6 +1028,60 @@
     },
     "Selected" : {
 
+    },
+    "Unfinished Workout Detected" : {
+      "comment" : "Crash recovery alert title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unfinished Workout Detected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检测到未完成的训练"
+          }
+        }
+      }
+    },
+    "Started at %@. Recorded %lld exercises across %lld sets." : {
+      "comment" : "Crash recovery message including exercise and set counts",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started at %@. Recorded %lld exercises across %lld sets."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "训练开始于 %1$@，已记录 %2$lld 个动作、%3$lld 组数据。"
+          }
+        }
+      }
+    },
+    "Started at %@. Empty workout (no exercises) — recommend discarding." : {
+      "comment" : "Crash recovery message for empty workout",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started at %@. Empty workout (no exercises) — recommend discarding."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "训练开始于 %@。空训练（未添加动作），建议丢弃。"
+          }
+        }
+      }
     },
     "Value" : {
       "comment" : "Chart axis"
