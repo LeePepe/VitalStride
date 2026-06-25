@@ -170,3 +170,8 @@ When you receive an issue with state `in_review` and an FS comment reporting a b
 - **`MULTICA_TASK_ID`** is provided by the daemon as an env var (full UUID; we use the first 8 chars).
 - **GitHub access tokens** are still valid (TL needs them to push `main`). Don't unset `gh` auth.
 - The `github` remote name is by convention; some clones may use `origin`. The hook accepts either as long as the URL contains `github.com`.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->
