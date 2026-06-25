@@ -1,7 +1,7 @@
 # Localization Parity Baseline
 
-zh-Hans key count: 83
-en key count: 126
+zh-Hans key count: 93
+en key count: 136
 en coverage: 100.0%
 
 ## Sources

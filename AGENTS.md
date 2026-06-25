@@ -172,6 +172,17 @@ When you receive an issue with state `in_review` and an FS comment reporting a b
 - The `github` remote name is by convention; some clones may use `origin`. The hook accepts either as long as the URL contains `github.com`.
 
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+## Spec-Driven Development (spec-kit)
+
+VitalStride 使用 [spec-kit](https://github.com/github/spec-kit) 管理产品 spec / plan / tasks。Agent 在做任何改动前应阅读：
+
+1. **`.specify/memory/constitution.md`** —— 项目宪法，含 7 条 Core Principles + Cross-Cutting Quality Bars。**这是 reviewer 唯一权威 finding 源**，不在这里的约束不能作为 PR block 理由。
+2. **`specs/000-baseline-existing-codebase/spec.md`** —— 当前已实现内容（FR-001 ~ FR-016 + NFR）。新功能与 baseline 的关系应该在新 spec 里说清。
+3. **`specs/000-baseline-existing-codebase/plan.md`** —— 已知 gap（G-01 ~ G-08）与处理路径。
+4. **`docs/adr/`** —— 7 个已落地的架构决策记录。新方向冲突时先写新 ADR 推翻。
+5. 本文件（`AGENTS.md`）—— build/test/git 操作手册。
+
+**新 feature 流程**：`/speckit-specify` → `/speckit-plan` → `/speckit-tasks`，然后通过 `multica-quick-issue` 入 Multica project `7adf8b88`。**`/speckit-implement` 不使用** —— 实现由 Multica TL → FS → Reviewer pipeline 完成（Constitution §Development Workflow）。
+
+**写 spec/plan/tasks 必须**：reference Constitution 章节，不要重述规则。issue 标题 `[T###] [Story] Brief description`。
 <!-- SPECKIT END -->
