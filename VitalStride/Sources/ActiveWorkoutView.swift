@@ -900,7 +900,7 @@ private struct SetRow: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.body)
-                    .frame(width: 36, height: 36)
+                    .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration menu a11y label"))
@@ -941,7 +941,7 @@ private struct SetRow: View {
                 .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
         }
         .buttonStyle(.borderless)
-        .frame(width: 36, height: 36)
+        .frame(minWidth: 44, minHeight: 44)
         .contentShape(Rectangle())
         .accessibilityLabel("第 \(index + 1) 组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
         .accessibilityHint("双击切换完成状态")
@@ -1107,7 +1107,7 @@ private struct SubSetRow: View {
                     .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
             }
             .buttonStyle(.borderless)
-            .frame(width: 28, height: 28)
+            .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
             // swiftlint:disable:next line_length
             .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
