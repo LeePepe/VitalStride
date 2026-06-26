@@ -154,14 +154,33 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     exit 1
   fi
 
-  # Determine merge base for the changed-files diff
+  # Determine merge base for the changed-files diff (MY-876).
+  # For new agent branches (remote_sha is ZERO_SHA) we must compare against
+  # a true fork point so every commit on the branch is classified — never
+  # against a fixed depth like $local_sha~N, which silently drops older
+  # commits and lets unrelated app/package changes bypass the build/lint
+  # gate. Order: real GitHub remote first → any fetched remote-tracking
+  # main → repo root commit. If none exists, leave merge_base empty.
   if [ "$remote_sha" = "$ZERO_SHA" ]; then
-    base_ref="$GH_REMOTE/main"
-    merge_base=$(git merge-base "$base_ref" "$local_sha" 2>/dev/null || echo "")
+    merge_base=""
+    if [ -n "$GH_REMOTE" ] && git rev-parse --verify -q "$GH_REMOTE/main^{commit}" >/dev/null 2>&1; then
+      merge_base=$(git merge-base "$GH_REMOTE/main" "$local_sha" 2>/dev/null || echo "")
+    fi
     if [ -z "$merge_base" ]; then
-      merge_base=$(git rev-parse --verify -q "$local_sha~10^{commit}" 2>/dev/null \
-        || git rev-list --max-parents=0 "$local_sha" 2>/dev/null \
-        || echo "")
+      # Fallback: any remote-tracking main we have locally (origin/main,
+      # local-bare/main, etc.). Avoids depth heuristics.
+      for ref in $(git for-each-ref --format='%(refname)' 'refs/remotes/*/main' 2>/dev/null); do
+        candidate=$(git merge-base "$ref" "$local_sha" 2>/dev/null || true)
+        if [ -n "$candidate" ]; then
+          merge_base="$candidate"
+          break
+        fi
+      done
+    fi
+    if [ -z "$merge_base" ]; then
+      # Final fallback: repository root commit. Classifies every commit
+      # on this branch instead of silently skipping older history.
+      merge_base=$(git rev-list --max-parents=0 "$local_sha" 2>/dev/null | tail -1)
     fi
   else
     merge_base="$remote_sha"
