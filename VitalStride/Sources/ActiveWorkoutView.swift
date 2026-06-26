@@ -900,9 +900,10 @@ private struct SetRow: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.body)
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
+            .padding(.vertical, -4)
             .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration menu a11y label"))
             .accessibilityValue(
                 exerciseSet.isUnilateral
@@ -941,8 +942,13 @@ private struct SetRow: View {
                 .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
         }
         .buttonStyle(.borderless)
-        .frame(minWidth: 44, minHeight: 44)
+        // MY-877: rendered hit area stays 44pt (Constitution P1-H), but the
+        // negative layout padding lets the button bleed into the row's
+        // separator zone so the visible row height can target ~36pt.
+        // SwiftUI hit-tests against rendered geometry, not layout claim.
+        .frame(width: 44, height: 44)
         .contentShape(Rectangle())
+        .padding(.vertical, -4)
         .accessibilityLabel("第 \(index + 1) 组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
         .accessibilityHint("双击切换完成状态")
     }
@@ -1107,8 +1113,13 @@ private struct SubSetRow: View {
                     .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
             }
             .buttonStyle(.borderless)
-            .frame(minWidth: 44, minHeight: 44)
+            // MY-877: same hit-target/visual-row tension as main SetRow.
+            // 44pt rendered frame for P1-H hit target; negative vertical
+            // padding lets the button bleed into the row separator so
+            // SubSet rows can visually target ~28pt.
+            .frame(width: 44, height: 44)
             .contentShape(Rectangle())
+            .padding(.vertical, -8)
             // swiftlint:disable:next line_length
             .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
             .accessibilityHint("双击切换完成状态")
