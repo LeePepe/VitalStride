@@ -346,7 +346,12 @@ struct ActiveWorkoutView: View {
                 }
                 Section {} footer: { Color.clear.frame(height: 72) }
             }
-            .listStyle(.insetGrouped)
+            // MY-877: plain list style + immediate keyboard dismissal on scroll
+            // for compact, scannable in-workout entry. Reduce default row floor
+            // so main SetRow targets ~36pt and SubSetRow targets ~28pt.
+            .listStyle(.plain)
+            .scrollDismissesKeyboard(.immediately)
+            .environment(\.defaultMinListRowHeight, 28)
         }
     }
 
@@ -538,6 +543,7 @@ private struct ActiveExerciseSection: View {
                             if !wasCompleted { onSetCompleted() }
                         }
                     )
+                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                 } else {
                     SetRow(
                         index: mainSetNumber(upTo: index),
@@ -554,6 +560,7 @@ private struct ActiveExerciseSection: View {
                             addSubSet(after: exerciseSet, type: type)
                         }
                     )
+                    .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if sortedSets.count > 1 {
                             Button(role: .destructive) {
@@ -657,10 +664,13 @@ private struct ActiveExerciseSection: View {
                     .foregroundStyle(Color.accentColor)
                 Text("添加一组")
             }
+            .font(.subheadline)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(minHeight: 44)
+            .frame(minHeight: 36)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
+        .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
         .accessibilityLabel("添加一组")
         .accessibilityHint("在列表末尾插入新的一组")
     }
@@ -755,7 +765,6 @@ private struct SetRow: View {
                     keyboardType: .decimalPad
                 )
                     .frame(width: 56)
-                    .frame(minHeight: 44)
                     .accessibilityLabel(String(
                         localized: "第 \(index + 1) 组左侧重量",
                         comment: "Left weight input a11y label"
@@ -776,7 +785,7 @@ private struct SetRow: View {
                     text: $weightRightText,
                     keyboardType: .decimalPad
                 )
-                    .frame(width: 56).frame(minHeight: 44)
+                    .frame(width: 56)
                     .accessibilityLabel(String(
                         localized: "第 \(index + 1) 组右侧重量",
                         comment: "Right weight input a11y label"
@@ -797,7 +806,6 @@ private struct SetRow: View {
                     keyboardType: .numberPad
                 )
                     .frame(width: 60)
-                    .frame(minHeight: 44)
                     .accessibilityLabel("第 \(index + 1) 组次数")
                     .accessibilityHint("输入次数")
                     .onChange(of: repsText) { _, newValue in
@@ -892,7 +900,7 @@ private struct SetRow: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.body)
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(width: 36, height: 36)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration menu a11y label"))
@@ -933,7 +941,8 @@ private struct SetRow: View {
                 .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
         }
         .buttonStyle(.borderless)
-        .frame(minWidth: 44, minHeight: 44)
+        .frame(width: 36, height: 36)
+        .contentShape(Rectangle())
         .accessibilityLabel("第 \(index + 1) 组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
         .accessibilityHint("双击切换完成状态")
     }
@@ -1013,7 +1022,6 @@ private struct SubSetRow: View {
                     .font(.footnote.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .frame(width: 50, alignment: .center)
-                    .frame(minHeight: 44)
                     .accessibilityLabel(String(
                         localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组左侧重量",
                         comment: "SubSet left weight a11y label"
@@ -1029,7 +1037,6 @@ private struct SubSetRow: View {
                     .font(.footnote.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .frame(width: 50, alignment: .center)
-                    .frame(minHeight: 44)
                     .accessibilityLabel(String(
                         localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组右侧重量",
                         comment: "SubSet right weight a11y label"
@@ -1047,7 +1054,6 @@ private struct SubSetRow: View {
                     .font(.footnote.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .frame(width: 52, alignment: .center)
-                    .frame(minHeight: 44)
                     .accessibilityLabel(String(
                         localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数",
                         comment: "SubSet reps a11y label"
@@ -1058,7 +1064,6 @@ private struct SubSetRow: View {
                     .font(.footnote.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .frame(width: 62, alignment: .center)
-                    .frame(minHeight: 44)
                     .accessibilityLabel(String(
                         localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组重量",
                         comment: "SubSet weight a11y label"
@@ -1074,7 +1079,6 @@ private struct SubSetRow: View {
                     .font(.footnote.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .frame(width: 52, alignment: .center)
-                    .frame(minHeight: 44)
                     .accessibilityLabel(String(
                         localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数",
                         comment: "SubSet reps a11y label"
@@ -1103,13 +1107,12 @@ private struct SubSetRow: View {
                     .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
             }
             .buttonStyle(.borderless)
-            .frame(minWidth: 44, minHeight: 44)
+            .frame(width: 28, height: 28)
             .contentShape(Rectangle())
             // swiftlint:disable:next line_length
             .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
             .accessibilityHint("双击切换完成状态")
         }
-        .padding(.vertical, -2)
     }
 
     private var treeLine: some View {
