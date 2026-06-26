@@ -276,4 +276,48 @@ struct ExerciseSetTests {
         #expect(decoded.weight == 25.0)
         #expect(decoded.weightRight == 22.5)
     }
+
+    // MARK: - MY-876 — toggling isUnilateral must not clear stored values
+
+    @Test("toggling isUnilateral off preserves weight, weightRight, and reps")
+    func toggleUnilateralOffPreservesValues() {
+        let set = ExerciseSet(
+            weight: 25.0,
+            reps: 10,
+            isUnilateral: true,
+            weightRight: 22.5
+        )
+        set.isUnilateral = false
+        #expect(set.weight == 25.0)
+        #expect(set.weightRight == 22.5)
+        #expect(set.reps == 10)
+    }
+
+    @Test("toggling isUnilateral on preserves weight and reps")
+    func toggleUnilateralOnPreservesValues() {
+        let set = ExerciseSet(weight: 60.0, reps: 8)
+        #expect(set.isUnilateral == false)
+        #expect(set.weightRight == nil)
+        set.isUnilateral = true
+        #expect(set.weight == 60.0)
+        #expect(set.reps == 8)
+        // weightRight stays nil until the user fills it in
+        #expect(set.weightRight == nil)
+    }
+
+    @Test("multiple isUnilateral toggles do not corrupt stored values")
+    func toggleUnilateralRoundTripPreservesValues() {
+        let set = ExerciseSet(
+            weight: 40.0,
+            reps: 12,
+            isUnilateral: true,
+            weightRight: 37.5
+        )
+        set.isUnilateral = false
+        set.isUnilateral = true
+        set.isUnilateral = false
+        #expect(set.weight == 40.0)
+        #expect(set.weightRight == 37.5)
+        #expect(set.reps == 12)
+    }
 }
