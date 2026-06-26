@@ -23,4 +23,23 @@ enum WorkoutListMerger {
         let merged = (appItems + hkItems).sorted { $0.startDate > $1.startDate }
         return (unified: merged, dedupCount: dedupCount)
     }
+
+    /// Partition a unified list into per-source groups for grouped display.
+    ///
+    /// Within each group, items keep their original order (the merge sort is
+    /// already startDate descending, so each group is also startDate
+    /// descending). Items are placed in the group that matches their case.
+    static func partitionBySource(
+        _ unified: [UnifiedWorkout]
+    ) -> (app: [UnifiedWorkout], healthKit: [UnifiedWorkout]) {
+        var app: [UnifiedWorkout] = []
+        var healthKit: [UnifiedWorkout] = []
+        for item in unified {
+            switch item {
+            case .app: app.append(item)
+            case .healthKit: healthKit.append(item)
+            }
+        }
+        return (app: app, healthKit: healthKit)
+    }
 }

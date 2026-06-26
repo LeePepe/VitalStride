@@ -337,6 +337,23 @@
     "Apple Frameworks" : {
 
     },
+    "Apple 健康训练" : {
+      "comment" : "Workout list section header for workouts from Apple HealthKit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Health Workouts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 健康训练"
+          }
+        }
+      }
+    },
     "Average" : {
       "comment" : "Chart average line"
     },
@@ -1091,6 +1108,23 @@
     },
     "VitalStride 使用了以下开源技术和框架：" : {
 
+    },
+    "VitalStride 训练" : {
+      "comment" : "Workout list section header for workouts recorded in this app",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VitalStride Workouts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VitalStride 训练"
+          }
+        }
+      }
     },
     "VitalStride 需要访问你的健康数据来展示心率、步数等信息，并将训练记录写入 HealthKit。" : {
 

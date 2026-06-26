@@ -39,6 +39,18 @@ struct WorkoutListView: View {
         ).unified
     }
 
+    private var partitionedWorkouts: (app: [UnifiedWorkout], healthKit: [UnifiedWorkout]) {
+        WorkoutListMerger.partitionBySource(unifiedWorkouts)
+    }
+
+    private var appUnifiedWorkouts: [UnifiedWorkout] {
+        partitionedWorkouts.app
+    }
+
+    private var healthKitUnifiedWorkouts: [UnifiedWorkout] {
+        partitionedWorkouts.healthKit
+    }
+
     private var hasAnyWorkouts: Bool {
         !workouts.isEmpty || !healthKitRecords.isEmpty
     }
@@ -95,35 +107,62 @@ struct WorkoutListView: View {
                             }
                         }
 
-                        Section {
-                            ForEach(unifiedWorkouts) { item in
-                                switch item {
-                                case .app(let workout):
-                                    NavigationLink {
-                                        WorkoutDetailView(workout: workout)
-                                    } label: {
-                                        WorkoutRowView(workout: workout)
-                                    }
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                        Button(role: .destructive) {
-                                            workoutToDelete = workout
+                        if !appUnifiedWorkouts.isEmpty {
+                            Section {
+                                ForEach(appUnifiedWorkouts) { item in
+                                    if case .app(let workout) = item {
+                                        NavigationLink {
+                                            WorkoutDetailView(workout: workout)
                                         } label: {
-                                            Label(
-                                                String(localized: "删除", comment: "Delete swipe action"),
-                                                systemImage: "trash"
+                                            WorkoutRowView(workout: workout)
+                                        }
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                            Button(role: .destructive) {
+                                                workoutToDelete = workout
+                                            } label: {
+                                                Label(
+                                                    // swiftlint:disable:next no_hardcoded_chinese
+                                                    String(localized: "删除", comment: "Delete swipe action"),
+                                                    systemImage: "trash"
+                                                )
+                                            }
+                                            .accessibilityLabel(
+                                                // swiftlint:disable:next no_hardcoded_chinese
+                                                String(localized: "删除训练", comment: "Delete workout a11y")
                                             )
                                         }
-                                        .accessibilityLabel(
-                                            String(localized: "删除训练", comment: "Delete workout a11y")
-                                        )
-                                    }
-                                case .healthKit(let record):
-                                    NavigationLink {
-                                        HealthKitWorkoutDetailView(record: record)
-                                    } label: {
-                                        HealthKitWorkoutRowView(record: record)
                                     }
                                 }
+                            } header: {
+                                Text(String(
+                                    localized:
+                                    // swiftlint:disable:next no_hardcoded_chinese
+                                    "VitalStride 训练",
+                                    comment: "Workout list section header for workouts recorded in this app"
+                                ))
+                                .accessibilityAddTraits(.isHeader)
+                            }
+                        }
+
+                        if !healthKitUnifiedWorkouts.isEmpty {
+                            Section {
+                                ForEach(healthKitUnifiedWorkouts) { item in
+                                    if case .healthKit(let record) = item {
+                                        NavigationLink {
+                                            HealthKitWorkoutDetailView(record: record)
+                                        } label: {
+                                            HealthKitWorkoutRowView(record: record)
+                                        }
+                                    }
+                                }
+                            } header: {
+                                Text(String(
+                                    localized:
+                                    // swiftlint:disable:next no_hardcoded_chinese
+                                    "Apple 健康训练",
+                                    comment: "Workout list section header for workouts from Apple HealthKit"
+                                ))
+                                .accessibilityAddTraits(.isHeader)
                             }
                         }
                     }

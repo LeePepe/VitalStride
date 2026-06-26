@@ -239,6 +239,126 @@ struct WorkoutListMergerTests {
             Issue.record("Expected app workout")
         }
     }
+
+    // MARK: - partitionBySource
+
+    @Test("partitionBySource returns empty groups for empty input")
+    func partitionEmpty() {
+        let result = WorkoutListMerger.partitionBySource([])
+        #expect(result.app.isEmpty)
+        #expect(result.healthKit.isEmpty)
+    }
+
+    @Test("partitionBySource separates app and HealthKit items, preserving order")
+    func partitionMixed() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+
+        let appWorkout = Workout(
+            type: .strength,
+            startDate: Date(timeIntervalSince1970: 1_500_000),
+            endDate: Date(timeIntervalSince1970: 1_503_600)
+        )
+        context.insert(appWorkout)
+        try context.save()
+
+        let hkOlder = makeHealthKitRecord(
+            startDate: Date(timeIntervalSince1970: 1_000_000)
+        )
+        let hkNewer = makeHealthKitRecord(
+            startDate: Date(timeIntervalSince1970: 2_000_000)
+        )
+
+        let merged = WorkoutListMerger.merge(
+            appWorkouts: [appWorkout],
+            healthKitRecords: [hkOlder, hkNewer]
+        ).unified
+        // merged order is: hkNewer (2_000_000), appWorkout (1_500_000), hkOlder (1_000_000)
+
+        let result = WorkoutListMerger.partitionBySource(merged)
+        #expect(result.app.count == 1)
+        #expect(result.healthKit.count == 2)
+        // app group preserves descending order
+        #expect(result.app[0].startDate == Date(timeIntervalSince1970: 1_500_000))
+        // HealthKit group preserves descending order from the merged input
+        #expect(result.healthKit[0].startDate == Date(timeIntervalSince1970: 2_000_000))
+        #expect(result.healthKit[1].startDate == Date(timeIntervalSince1970: 1_000_000))
+    }
+
+    @Test("partitionBySource excludes deduped HK records when fed merged output")
+    func partitionRespectsDedup() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+
+        let sharedUUID = UUID()
+        let appWorkout = Workout(
+            type: .strength,
+            startDate: Date(timeIntervalSince1970: 1_500_000),
+            endDate: Date(timeIntervalSince1970: 1_503_600)
+        )
+        appWorkout.healthKitUUID = sharedUUID.uuidString
+        context.insert(appWorkout)
+        try context.save()
+
+        let duplicateRecord = makeHealthKitRecord(
+            id: sharedUUID,
+            startDate: Date(timeIntervalSince1970: 1_500_000)
+        )
+        let uniqueRecord = makeHealthKitRecord(
+            startDate: Date(timeIntervalSince1970: 2_000_000)
+        )
+
+        let merged = WorkoutListMerger.merge(
+            appWorkouts: [appWorkout],
+            healthKitRecords: [duplicateRecord, uniqueRecord]
+        ).unified
+
+        let result = WorkoutListMerger.partitionBySource(merged)
+        #expect(result.app.count == 1)
+        // The duplicate HK record was filtered by merge before partitioning;
+        // it must NOT appear in the HealthKit group.
+        #expect(result.healthKit.count == 1)
+        #expect(result.healthKit[0].startDate == Date(timeIntervalSince1970: 2_000_000))
+    }
+
+    @Test("partitionBySource yields empty HealthKit group when no HK records")
+    func partitionAppOnly() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+
+        let workout = Workout(
+            type: .strength,
+            startDate: Date(timeIntervalSince1970: 1_500_000),
+            endDate: Date(timeIntervalSince1970: 1_503_600)
+        )
+        context.insert(workout)
+        try context.save()
+
+        let merged = WorkoutListMerger.merge(
+            appWorkouts: [workout],
+            healthKitRecords: []
+        ).unified
+
+        let result = WorkoutListMerger.partitionBySource(merged)
+        #expect(result.app.count == 1)
+        #expect(result.healthKit.isEmpty)
+    }
+
+    @Test("partitionBySource yields empty app group when no app workouts")
+    func partitionHealthKitOnly() {
+        let record = makeHealthKitRecord(
+            startDate: Date(timeIntervalSince1970: 1_500_000)
+        )
+
+        let merged = WorkoutListMerger.merge(
+            appWorkouts: [],
+            healthKitRecords: [record]
+        ).unified
+
+        let result = WorkoutListMerger.partitionBySource(merged)
+        #expect(result.app.isEmpty)
+        #expect(result.healthKit.count == 1)
+    }
 }
 
 // MARK: - HealthKitWorkoutRowView Formatting Tests
