@@ -79,7 +79,7 @@ struct WorkoutListView: View {
                             .listRowBackground(Color.clear)
                         }
 
-                        if isLoadingHealthKit && healthKitRecords.isEmpty {
+                        if isLoadingHealthKit && healthKitUnifiedWorkouts.isEmpty {
                             Section {
                                 HStack {
                                     Spacer()
@@ -92,7 +92,7 @@ struct WorkoutListView: View {
                             }
                         }
 
-                        if healthKitLoadFailed && healthKitRecords.isEmpty {
+                        if healthKitLoadFailed && healthKitUnifiedWorkouts.isEmpty {
                             Section {
                                 VStack(spacing: 4) {
                                     Image(systemName: "exclamationmark.triangle")
