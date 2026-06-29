@@ -171,6 +171,149 @@ When you receive an issue with state `in_review` and an FS comment reporting a b
 - **GitHub access tokens** are still valid (TL needs them to push `main`). Don't unset `gh` auth.
 - The `github` remote name is by convention; some clones may use `origin`. The hook accepts either as long as the URL contains `github.com`.
 
+## Pipeline Recovery
+
+> 这一节定义 pipeline 失败时的恢复路径。**所有失败路径都自动化，禁止 `waiting_on: human_triage`**。
+> 唯一例外：constitution P0 违规（例如健康数据隐私破坏）才升人工。其它一律走 Hermes auto-dispatch。
+
+### Ship-gate flake quarantine（pre-push test 失败）
+
+TL push `github main` 时 pre-push hook 跑 `xcodebuild test` / `swift test`。失败时**不要无脑 retry / 不要回 FS**——先判定是不是当前 patch 引入的：
+
+```bash
+# 1. 拿到当前 ship 范围（FS branch vs github/main）
+git fetch github main
+CHANGED_FILES=$(git diff --name-only github/main...HEAD)
+
+# 2. 解析 hook 输出，找到失败 test 所属的文件路径
+#    （xcodebuild test 输出形如 "FILE:LINE: error: -[Suite testMethod] : ..."）
+FAILED_TEST_FILES=$(grep -oE '/[^ ]+\.swift' .ship-gate.log | sort -u)
+
+# 3. 判定 patch-induced vs pre-existing flake
+PATCH_INDUCED=0
+for f in $FAILED_TEST_FILES; do
+  REL=$(echo "$f" | sed "s|$(git rev-parse --show-toplevel)/||")
+  if echo "$CHANGED_FILES" | grep -qx "$REL"; then PATCH_INDUCED=1; break; fi
+  # 同 module 下源码改动也算 patch-induced
+  MOD=$(dirname "$REL" | sed 's|/Tests/.*||; s|Tests/.*||')
+  if echo "$CHANGED_FILES" | grep -q "^$MOD/"; then PATCH_INDUCED=1; break; fi
+done
+```
+
+**分支决策**：
+
+- `PATCH_INDUCED=1` → 正常 retry（最多 5 次 in 同 issue），重复失败回 FS
+- `PATCH_INDUCED=0` → **Quarantine 路径**：
+  1. **不**计入当前 issue 的 run-count budget
+  2. 在 Multica 开新 issue `[Flake] <test_name> in <test_file>`，description 引用失败日志、所属 module、最近一次让它过的 commit
+  3. 把当前 issue 的 metadata 设为 `pipeline_status=blocked_pretest_flake`，`waiting_on=auto:hermes:<new_flake_issue_id>`
+  4. 自动触发 Hermes（见下节）去处理新 flake issue
+  5. 当前 ship issue 在 flake issue done 后由 cron 自动 unblock 重 dispatch（不要让 TL 阻塞）
+
+### Infra-failure auto-escalation（Hermes 接管）
+
+下列错误是 **infra failure**，不算 code 问题，**不计入 run-count guard**：
+
+- CLI routing failure（Copilot/Codex CLI 返回非业务错误：路由 timeout、provider 限流、subprocess crash、`exit 128`）
+- Multica runtime crash / 任务卡死 > 1h 未推进
+- ship-gate flake quarantine 路径（见上一节）
+- Network / DNS / 认证 token 过期
+
+**处理**：TL 不打 human_triage，而是 dispatch Hermes 子代理处理。Hermes 已安装在 `/Users/tianpli/.local/bin/hermes`（v0.11.5，model `claude-opus-4.7` via GitHub Copilot），支持非交互式 `hermes -z` 单 prompt 调用。
+
+```bash
+# 在 TL 工作区根目录运行
+HERMES_PROMPT="VitalStride Multica issue $ISSUE_KEY ($ISSUE_UUID) 触发 infra failure。
+错误类型: $FAIL_TYPE
+错误日志摘要: $LOG_TAIL_500
+最近 run: $LAST_RUN_INFO
+
+请按以下顺序处理:
+1. 读 .specify/memory/constitution.md §Pipeline Recovery Protocols
+2. 读 AGENTS.md §Pipeline Recovery
+3. 诊断 root cause（区分 transient vs persistent）
+4. transient: 等 60s 后用 'multica issue rerun $ISSUE_UUID' 重 dispatch，最多 3 次
+5. persistent: 修底层问题（CLI 配置、token、runtime config），修复后 rerun
+6. 全过程 comment 到 issue: multica issue comment add $ISSUE_UUID --content '...'
+完成后退出，不要等人工回复。"
+
+nohup hermes -z "$HERMES_PROMPT" --yolo --ignore-rules \
+  > "/tmp/hermes-infra-$ISSUE_KEY-$(date +%s).log" 2>&1 &
+HERMES_PID=$!
+
+multica issue metadata set "$ISSUE_UUID" \
+  pipeline_status=infra_failure_auto_recover \
+  waiting_on="auto:hermes:pid=$HERMES_PID" \
+  hermes_log="/tmp/hermes-infra-$ISSUE_KEY-$(date +%s).log"
+```
+
+**Hermes 失败兜底**：Hermes 进程退出但 issue 仍是 `infra_failure_auto_recover` 状态超 30 min → cron 升级为 `waiting_on=human`（这才是允许人工介入的唯一时机）。
+
+### Run-count guard 分类
+
+`run_count_guard` 区分两类计数器：
+
+| Counter | 触发条件 | 默认 budget | 超限行为 |
+|---------|----------|-------------|---------|
+| `run_attempts` | code-review iterate、test 失败、patch-induced ship-gate fail | 15 | 升 `pipeline_status=blocked_iterate_budget` + Hermes auto-dispatch 重新评估方案（拆任务 / 换思路 / 改 spec） |
+| `infra_failures` | CLI routing fail、runtime crash、quarantined flake、network/auth | ∞（不计） | 永远走 Hermes auto-recover，不阻塞 issue |
+
+TL dispatch 前必须把失败归类到正确 counter，并在 `multica issue runs` 评估时只比对 `run_attempts`。
+
+### Startup scan（每次 pipeline 起手）
+
+TL 在 dispatch 任何 stage 前跑：
+
+```bash
+# 1. 检查 no-PR 工作流违规（不应有 open PR）
+OPEN_PRS=$(gh pr list --state open --json number,title,updatedAt 2>/dev/null)
+if [ "$(echo "$OPEN_PRS" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))')" -gt 0 ]; then
+  multica issue comment add "$ISSUE_UUID" --content "⚠️ Startup scan: $OPEN_PRS 个 open public PR 与 no-PR 工作流冲突，记录但不阻塞当前 task。详: $(echo "$OPEN_PRS" | head -200)"
+  # 不阻塞，继续 dispatch
+fi
+
+# 2. 检查同 parent 的 sibling sub-issue（防三胞胎）— 详 §Sub-issue 幂等
+```
+
+### Sub-issue 幂等
+
+任何阶段（Planner Lead 拆分、TL fast-path bug-fix 拆分、补救新 issue）创建 sub-issue 前都要：
+
+```bash
+PARENT_UUID="$1"
+PROPOSED_TITLE="$2"
+PROPOSED_BRANCH="$3"   # 可选
+
+# 查同 parent 的所有 alive sub-issue
+ALIVE=$(multica issue list --output json --limit 200 \
+  | python3 -c "
+import json, sys
+parent = '$PARENT_UUID'
+proposed_branch = '$PROPOSED_BRANCH'
+data = json.load(sys.stdin)
+alive_statuses = {'todo', 'in_progress', 'in_review', 'blocked'}
+matches = []
+for i in data['issues']:
+    if i.get('parent_issue_id') != parent: continue
+    if i.get('status') not in alive_statuses: continue
+    desc = i.get('description','') or ''
+    title = i.get('title','') or ''
+    if proposed_branch and proposed_branch in desc: matches.append(i['identifier'])
+    elif title.strip() == '$PROPOSED_TITLE'.strip(): matches.append(i['identifier'])
+print(','.join(matches))
+")
+
+if [ -n "$ALIVE" ]; then
+  echo "复用已有 sub-issue: $ALIVE（跳过创建）" >&2
+  exit 0  # 上层应 reassign 而非 create
+fi
+```
+
+Scope 同一性判定（任一即视为重复）：
+1. 同 `Branch:` 字段
+2. 同 title（trim 后）
+3. Files-in-scope 重合度 ≥ 80%（拆分阶段才有这个字段）
+
 <!-- SPECKIT START -->
 ## Spec-Driven Development (spec-kit)
 

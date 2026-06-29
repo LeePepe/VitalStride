@@ -190,6 +190,15 @@ HealthKitService ┘
 
 - 风格、注释优化、命名建议。
 
+### J — Ship-Gate Failure Classification (P0 verdict aggregation modifier)
+
+Ship gate (`xcodebuild test` / `swift test` 在 pre-push hook) 失败时，Reviewer / TL **必须**先判定失败是否由当前 patch 引入：
+
+- **Patch-induced**：失败 test 文件 ∈ `git diff github/main...HEAD --name-only`，或失败 test 所属 module 有源码改动 → 正常 P0 FAIL，回 FS
+- **Pre-existing flake**：失败 test 与当前 patch 无源码关联 → **不计入 verdict**，走 AGENTS.md §Pipeline Recovery → Quarantine 路径
+
+把 pre-existing flake 当作 P0 FAIL 阻塞 patch = 宪法违规（reviewer 责任）。
+
 ### Verdict Aggregation
 
 - 任意 P0 → 🔴 FAIL
@@ -198,6 +207,41 @@ HealthKitService ┘
 - 仅 P2 / 无 finding → 🟢 PASS
 
 ---
+
+## Pipeline Recovery Protocols
+
+> Pipeline 失败时 agent 行为的宪法级约束。具体命令实现见 `AGENTS.md` §Pipeline Recovery。
+
+### PR-1: 禁止 `human_triage` 作为常规状态
+
+`waiting_on=human_triage` 仅在以下场景允许：
+- Constitution P0 违规需人判断（例如隐私越界争议、范围争议）
+- 自动恢复（Hermes）尝试 3 次后仍 fail 同一根因
+
+其它 infra failure（CLI routing、runtime crash、quarantined flake、限流、网络）一律 Hermes auto-dispatch，TL **禁止**直接打 `human_triage` 标。
+
+### PR-2: Sub-issue 幂等
+
+Planner Lead / TL 创建 sub-issue 前必须查同 parent 的 alive (`todo`/`in_progress`/`in_review`/`blocked`) sub-issue；若 Scope 重合（同 Branch / 同 title trim / files ≥80% 重合）→ 复用而非新建。重复创建 sibling = 宪法违规。
+
+历史教训：MY-857 / MY-859 / MY-999 三胞胎，同一 scope 三条独立 issue 同时被 dispatch，导致并行修改冲突 + run-count 浪费。
+
+### PR-3: Run-Count Guard 区分 `run_attempts` vs `infra_failures`
+
+- `run_attempts`：code-review iterate、patch-induced 测试失败（计 budget，默认 15）
+- `infra_failures`：CLI 错误、runtime crash、quarantined flake、auth/network（不计 budget）
+
+把 infra failure 计入 `run_attempts` 浪费 budget 并提早 stall pipeline = 宪法违规。
+
+### PR-4: Ship-Gate Failure Classification
+
+参见 Cross-Cutting Quality Bars §J。
+
+### PR-5: Startup Scan
+
+TL 每次 pipeline 起手前必须扫描：
+- `gh pr list --state open`：no-PR 工作流应为 0，非 0 时 comment 警告但不阻塞当前 task
+- 同 parent alive sub-issue（PR-2 前置）
 
 ## Governance
 
@@ -209,4 +253,4 @@ HealthKitService ┘
   - MAJOR — 删除/反转原则；MINOR — 新增原则/新 Quality Bar；PATCH — 文字澄清不改语义
 - 与本宪法相关：AGENTS.md（agent 操作手册）、CONTEXT.md（数据架构细节）、`docs/adr/`（决策档案）、`scripts/hooks/`（强制规则机器实现）。
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-25
+**Version**: 1.1.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-26
