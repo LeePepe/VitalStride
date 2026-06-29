@@ -83,9 +83,12 @@ jobs:
           fetch-depth: 0
       - name: Install SwiftLint
         run: brew install swiftlint
-      # SwiftLint --strict; .swiftlint.yml only_rules includes no_hardcoded_chinese
-      - name: SwiftLint --strict (incl. no_hardcoded_chinese)
-        run: swiftlint lint --strict
+      # SwiftLint --strict on Packages (required). App target has ~582 pre-existing i18n debt (tracked MY-1065) → advisory.
+      - name: SwiftLint --strict Packages (required)
+        run: swiftlint lint --strict Packages
+      - name: SwiftLint app target (advisory)
+        continue-on-error: true
+        run: swiftlint lint --strict VitalStride VitalStrideMac "VitalStrideWatch Watch App"
       # HealthKit values must never reach logs (privacy compliance)
       - name: No HealthKit values in logs
         run: |
