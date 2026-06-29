@@ -10,12 +10,12 @@ public enum Equipment: String, Codable, CaseIterable, Sendable {
 
     public var localizedName: String {
         switch self {
-        case .barbell: "杠铃"
-        case .dumbbell: "哑铃"
-        case .machine: "固定器械"
-        case .bodyweight: "自重"
-        case .cable: "绳索"
-        case .kettlebell: "壶铃"
+        case .barbell: String(localized: "equipment.barbell", bundle: .module)
+        case .dumbbell: String(localized: "equipment.dumbbell", bundle: .module)
+        case .machine: String(localized: "equipment.machine", bundle: .module)
+        case .bodyweight: String(localized: "equipment.bodyweight", bundle: .module)
+        case .cable: String(localized: "equipment.cable", bundle: .module)
+        case .kettlebell: String(localized: "equipment.kettlebell", bundle: .module)
         }
     }
 

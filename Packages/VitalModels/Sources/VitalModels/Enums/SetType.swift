@@ -8,10 +8,10 @@ public enum SetType: String, Codable, CaseIterable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .working: "正式"
-        case .warmup: "热身"
-        case .dropSet: "递减"
-        case .pyramid: "递增"
+        case .working: String(localized: "set_type.working", bundle: .module)
+        case .warmup: String(localized: "set_type.warmup", bundle: .module)
+        case .dropSet: String(localized: "set_type.dropSet", bundle: .module)
+        case .pyramid: String(localized: "set_type.pyramid", bundle: .module)
         }
     }
 

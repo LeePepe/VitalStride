@@ -1,0 +1,164 @@
+{
+  "sourceLanguage" : "zh-Hans",
+  "strings" : {
+    "equipment.barbell" : {
+      "comment" : "Equipment: barbell",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "杠铃" } }
+      }
+    },
+    "equipment.bodyweight" : {
+      "comment" : "Equipment: bodyweight",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自重" } }
+      }
+    },
+    "equipment.cable" : {
+      "comment" : "Equipment: cable",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "绳索" } }
+      }
+    },
+    "equipment.dumbbell" : {
+      "comment" : "Equipment: dumbbell",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "哑铃" } }
+      }
+    },
+    "equipment.kettlebell" : {
+      "comment" : "Equipment: kettlebell",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "壶铃" } }
+      }
+    },
+    "equipment.machine" : {
+      "comment" : "Equipment: machine",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "固定器械" } }
+      }
+    },
+    "muscle.arms" : {
+      "comment" : "MuscleGroup: arms",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "臂" } }
+      }
+    },
+    "muscle.back" : {
+      "comment" : "MuscleGroup: back",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "背" } }
+      }
+    },
+    "muscle.chest" : {
+      "comment" : "MuscleGroup: chest",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "胸" } }
+      }
+    },
+    "muscle.core" : {
+      "comment" : "MuscleGroup: core",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "核心" } }
+      }
+    },
+    "muscle.fullBody" : {
+      "comment" : "MuscleGroup: full body",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全身" } }
+      }
+    },
+    "muscle.legs" : {
+      "comment" : "MuscleGroup: legs",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "腿" } }
+      }
+    },
+    "muscle.shoulders" : {
+      "comment" : "MuscleGroup: shoulders",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "肩" } }
+      }
+    },
+    "set_type.dropSet" : {
+      "comment" : "SetType: drop set",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "递减" } }
+      }
+    },
+    "set_type.pyramid" : {
+      "comment" : "SetType: pyramid",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "递增" } }
+      }
+    },
+    "set_type.warmup" : {
+      "comment" : "SetType: warmup",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "热身" } }
+      }
+    },
+    "set_type.working" : {
+      "comment" : "SetType: working",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正式" } }
+      }
+    },
+    "time_range.day" : {
+      "comment" : "Time range: day",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "日" } }
+      }
+    },
+    "time_range.month" : {
+      "comment" : "Time range: month",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "月" } }
+      }
+    },
+    "time_range.week" : {
+      "comment" : "Time range: week",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "周" } }
+      }
+    },
+    "time_range.year" : {
+      "comment" : "Time range: year",
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "年" } }
+      }
+    },
+    "muscle_trans.adductors" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "内收肌群" } } } },
+    "muscle_trans.anterior_deltoid" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "三角肌前束" } } } },
+    "muscle_trans.biceps" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "肱二头肌" } } } },
+    "muscle_trans.brachialis" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "肱肌" } } } },
+    "muscle_trans.brachioradialis" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "肱桡肌" } } } },
+    "muscle_trans.calves" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "小腿" } } } },
+    "muscle_trans.core" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "核心肌群" } } } },
+    "muscle_trans.erector_spinae" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "竖脊肌" } } } },
+    "muscle_trans.forearms" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "前臂" } } } },
+    "muscle_trans.glutes" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "臀肌" } } } },
+    "muscle_trans.gluteus_medius" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "臀中肌" } } } },
+    "muscle_trans.gluteus_minimus" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "臀小肌" } } } },
+    "muscle_trans.hamstrings" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "腘绳肌" } } } },
+    "muscle_trans.hip_flexors" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "髋屈肌" } } } },
+    "muscle_trans.infraspinatus" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "冈下肌" } } } },
+    "muscle_trans.lateral_deltoid" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "三角肌中束" } } } },
+    "muscle_trans.latissimus_dorsi" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "背阔肌" } } } },
+    "muscle_trans.lower_pectoralis_major" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "胸大肌下部" } } } },
+    "muscle_trans.lower_trapezius" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "下斜方肌" } } } },
+    "muscle_trans.obliques" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "腹斜肌" } } } },
+    "muscle_trans.pectoralis_major" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "胸大肌" } } } },
+    "muscle_trans.quadriceps" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "股四头肌" } } } },
+    "muscle_trans.rear_deltoid" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "三角肌后束" } } } },
+    "muscle_trans.rectus_abdominis" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "腹直肌" } } } },
+    "muscle_trans.rhomboids" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "菱形肌" } } } },
+    "muscle_trans.serratus_anterior" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "前锯肌" } } } },
+    "muscle_trans.tibialis_anterior" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "胫骨前肌" } } } },
+    "muscle_trans.transverse_abdominis" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "腹横肌" } } } },
+    "muscle_trans.trapezius" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "斜方肌" } } } },
+    "muscle_trans.triceps" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "肱三头肌" } } } },
+    "muscle_trans.upper_pectoralis_major" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "胸大肌上部" } } } },
+    "muscle_trans.upper_trapezius" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "上斜方肌" } } } }
+  },
+  "version" : "1.0"
+}

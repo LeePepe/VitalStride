@@ -24,10 +24,10 @@ public enum TimeRange: String, CaseIterable, Identifiable, Sendable {
 
     public var localizedLabel: String {
         switch self {
-        case .day: String(localized: "日", comment: "Time range: day")
-        case .week: String(localized: "周", comment: "Time range: week")
-        case .month: String(localized: "月", comment: "Time range: month")
-        case .year: String(localized: "年", comment: "Time range: year")
+        case .day: String(localized: "time_range.day", bundle: .module, comment: "Time range: day")
+        case .week: String(localized: "time_range.week", bundle: .module, comment: "Time range: week")
+        case .month: String(localized: "time_range.month", bundle: .module, comment: "Time range: month")
+        case .year: String(localized: "time_range.year", bundle: .module, comment: "Time range: year")
         }
     }
 

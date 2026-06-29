@@ -11,13 +11,13 @@ public enum MuscleGroup: String, Codable, CaseIterable, Sendable {
 
     public var localizedName: String {
         switch self {
-        case .chest: "胸"
-        case .back: "背"
-        case .shoulders: "肩"
-        case .legs: "腿"
-        case .arms: "臂"
-        case .core: "核心"
-        case .fullBody: "全身"
+        case .chest: String(localized: "muscle.chest", bundle: .module)
+        case .back: String(localized: "muscle.back", bundle: .module)
+        case .shoulders: String(localized: "muscle.shoulders", bundle: .module)
+        case .legs: String(localized: "muscle.legs", bundle: .module)
+        case .arms: String(localized: "muscle.arms", bundle: .module)
+        case .core: String(localized: "muscle.core", bundle: .module)
+        case .fullBody: String(localized: "muscle.fullBody", bundle: .module)
         }
     }
 
