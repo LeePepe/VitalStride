@@ -125,8 +125,8 @@ xcodegen generate
 | **Team Lead (TL)** | rebase FS branches onto `github/main`, resolve trivial conflicts, push `main` | `github` remote (public), `main` only |
 | **AI Reviewer** | review FS commits in the bare repo | (does not push) |
 
-**Hard rule (enforced by `scripts/hooks/pre-push`):**
-> Only `main` may be pushed to public remotes (`github` / `gitlab`). Pushing any other branch to `github` is rejected by the hook.
+**约定（不再由 hook 强制）：**
+> 按 no-PR workflow，通常仍只把 `main` 推到 `github`（TL 职责）。但 pre-push hook **不再拦截**其它分支推到 public remote —— 需要时可直接推 feature 分支到 `github`。此约束已于移除 MY-key 强制的同批改动中解除。
 
 ### FS workflow
 

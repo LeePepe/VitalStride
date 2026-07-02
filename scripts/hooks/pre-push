@@ -1,19 +1,12 @@
 #!/bin/bash
 # VitalStride pre-push hook
 #
-# This project uses a no-PR workflow (see AGENTS.md → Git Workflow):
-#   - FS pushes agent/<issue>-<task-id> branches to the LOCAL bare repo
-#   - TL rebases onto github/main and pushes main to the public remote
-#   - No PRs, no agent branches on github
+# This hook runs on EVERY push and enforces:
 #
-# This hook runs on EVERY push (FS bare-repo push and TL github push)
-# and enforces:
-#
-#   1. Only 'main' may be pushed to public remotes (github/gitlab)
-#   2. xcodebuild test (combined build+test) for app-target changes
-#   3. swift build + swift test for Packages/* only changes
-#   4. Skip build for pure docs/hooks/scripts changes
-#   5. SwiftLint on changed Swift files
+#   1. xcodebuild test (combined build+test) for app-target changes
+#   2. swift build + swift test for Packages/* only changes
+#   3. Skip build for pure docs/hooks/scripts changes
+#   4. SwiftLint on changed Swift files
 #
 # Performance:
 #   - Shared DerivedData at <git-common-dir>/derived-data
@@ -45,14 +38,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# ---- 1. Detect remote type ---------------------------------------------------
-
-IS_PUBLIC_REMOTE=false
-case "$REMOTE_URL" in
-  *github.com*|*gitlab.com*) IS_PUBLIC_REMOTE=true ;;
-esac
-
-# ---- 2. Parse push refs from stdin -------------------------------------------
+# ---- 1. Parse push refs from stdin -------------------------------------------
 
 HAS_NON_DELETE_REF=false
 ALL_CHANGED="$TMPDIR/changed.txt"
@@ -69,19 +55,6 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     continue
   fi
   HAS_NON_DELETE_REF=true
-
-  # GUARD: only 'main' may go to github/gitlab
-  if [ "$IS_PUBLIC_REMOTE" = true ] && [ "$local_ref" != "refs/heads/main" ]; then
-    echo "❌ BLOCKED: only 'main' may be pushed to public remote ($REMOTE_URL)"
-    echo ""
-    echo "  Attempted: $local_ref"
-    echo ""
-    echo "  This project uses no-PR workflow:"
-    echo "    FS  → push agent/<issue>-<task-id> to LOCAL bare repo"
-    echo "    TL  → rebase onto github/main, push main to public remote"
-    echo "  See AGENTS.md → Git Workflow"
-    exit 1
-  fi
 
   # Determine merge base for the changed-files diff (MY-876).
   # For new agent branches (remote_sha is ZERO_SHA) we must compare against
