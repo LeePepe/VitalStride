@@ -192,7 +192,7 @@ struct ExercisePickerView: View {
                             }
                         }
                         .padding()
-                        .padding(.trailing, showsIndexBar ? 32 : 0)
+                        .padding(.trailing, showsIndexBar ? 48 : 0)
                         .scrollTargetLayout()
                     }
                     .scrollPosition(id: $visibleEquipment, anchor: .top)
@@ -451,24 +451,29 @@ private struct EquipmentIndexBar: View {
 
     private static let verticalPadding: CGFloat = 8
     private static let barWidth: CGFloat = 28
+    // Constitution §H: interactive hit targets must be at least 44pt.
+    static let hitWidth: CGFloat = 44
 
     var body: some View {
         GeometryReader { geo in
-            VStack(spacing: 2) {
-                ForEach(equipments, id: \.self) { equipment in
-                    Image(systemName: equipment.sfSymbol)
-                        .font(.system(size: 11, weight: .medium))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .foregroundStyle(activeEquipment == equipment ? Color.accentColor : Color.secondary)
-                        .contentShape(Rectangle())
-                        .accessibilityLabel(equipment.localizedName)
+            ZStack(alignment: .trailing) {
+                VStack(spacing: 2) {
+                    ForEach(equipments, id: \.self) { equipment in
+                        Image(systemName: equipment.sfSymbol)
+                            .font(.system(size: 11, weight: .medium))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .foregroundStyle(activeEquipment == equipment ? Color.accentColor : Color.secondary)
+                            .accessibilityLabel(equipment.localizedName)
+                    }
                 }
+                .frame(width: Self.barWidth)
+                .padding(.vertical, Self.verticalPadding)
+                .background(
+                    Capsule().fill(Color(.tertiarySystemFill).opacity(0.7))
+                )
             }
-            .frame(width: Self.barWidth)
-            .padding(.vertical, Self.verticalPadding)
-            .background(
-                Capsule().fill(Color(.tertiarySystemFill).opacity(0.7))
-            )
+            .frame(width: Self.hitWidth, alignment: .trailing)
+            .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
@@ -489,7 +494,7 @@ private struct EquipmentIndexBar: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel(String(localized: "器械分区索引", comment: "Equipment section index bar a11y label"))
         }
-        .frame(width: Self.barWidth + 4)
+        .frame(width: Self.hitWidth)
     }
 
     private func equipmentAt(y: CGFloat, totalHeight: CGFloat) -> Equipment? {
