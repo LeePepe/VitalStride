@@ -1,3 +1,20 @@
+---
+layer: VitalModels
+role: SwiftData @Model 定义 + 枚举 + ModelContainer 配置；全项目数据层基础
+depends_on: []
+depended_by: [HealthKitService, VitalUI]
+red_lines:
+  - HealthKit L2 缓存模型（HealthCacheEntry / AvailableTypesEntry）必须 cloudKitDatabase:.none，禁止 CloudKit 同步（宪法 I）
+  - AI 缓存模型（OverviewInsightCache / TrainingAdviceCache / DataAnalysisCache）必须 cloudKitDatabase:.none（宪法 I）
+  - 仅训练数据（Workout/WorkoutExercise/ExerciseSet/Exercise/WorkoutTemplate/TemplateExercise/UserInterest）允许 CloudKit-synced
+  - Swift 6 strict concurrency，禁止 @unchecked Sendable / nonisolated(unsafe) 绕过（宪法 II）
+roles:
+  Types:  [Enums, Models]
+  Config: [Persistence]
+test: swift test --package-path Packages/VitalModels
+owns: [Workout, Exercise, ExerciseSet, WorkoutTemplate, HealthCacheEntry, ModelContainerConfiguration]
+---
+
 # VitalModels Context
 
 ## 职责

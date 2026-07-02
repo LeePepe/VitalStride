@@ -1,3 +1,22 @@
+---
+layer: AIService
+role: AI 推理 Provider 抽象层；定义 AIProvider 协议 + ProviderChain + 输出结构（不含缓存）
+depends_on: []
+depended_by: []
+red_lines:
+  - 禁止引入 OpenAI/Anthropic/Google 等第三方 AI SDK；provider 走 OpenAI-compatible REST via URLSession（宪法 V）
+  - API key 仅存 Keychain，禁止硬编码（宪法 V）
+  - 新 provider = 实现 AIProvider 协议接入 chain，不替换、不新建包（宪法 III/V）
+  - Apple Intelligence 本地优先 + 智谱 GLM fallback 的 chain 顺序不得反转（宪法 V）
+  - Swift 6 strict concurrency，provider 须 Sendable（宪法 II）
+roles:
+  Types:   [Models, AIProvider, AIAnalysisResponse, DataAnalysis, TrainingRecommendation, OverviewInsight, AIServiceError]
+  Repo:    [KeychainHelper]
+  Service: [AIProviderChain, ZhipuProvider, AppleIntelligenceProvider]
+test: swift test --package-path Packages/AIService
+owns: [AIProvider, AIProviderChain, ZhipuProvider, AppleIntelligenceProvider]
+---
+
 # AIService Context
 
 ## 职责

@@ -441,5 +441,18 @@ if [ -f "scripts/i18n_check_lproj_parity.py" ] && command -v python3 >/dev/null 
   rm -f "$I18N_LOG"
 fi
 
+# ---- 7. Layer frontmatter anti-rot check -----------------------------------
+# 校验 Packages/*/CONTEXT.md frontmatter 与代码一致（layer 名 / depends_on 双向 /
+# test 路径 / roles ∈ canonical_roles 且目录存在）。腐烂即阻塞。
+
+if [ -f "scripts/check-frontmatter.sh" ]; then
+  echo ""
+  echo "🧭 Layer frontmatter 防腐校验..."
+  if ! bash scripts/check-frontmatter.sh; then
+    echo "❌ frontmatter 与代码不一致。更新对应 CONTEXT.md 后重推。Push aborted."
+    exit 1
+  fi
+fi
+
 echo ""
 echo "✅ All pre-push checks passed."

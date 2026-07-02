@@ -1,3 +1,16 @@
+---
+canonical_roles: [Types, Config, Repo, Service, Runtime, UI]
+# Intra-layer stereotype order (class-role dependency axis), NOT package deps.
+# Package deps live in each Packages/<X>/CONTEXT.md `depends_on`.
+# A lower-role type must never import a higher-role type WITHIN the same package.
+#   Types   — models, enums, protocols, DTOs, pure value types
+#   Config  — container / configuration assembly
+#   Repo    — persistence, keychain, anchor stores, external data access
+#   Service — orchestration, providers, business logic
+#   Runtime — process/UI-adjacent helpers (haptics, managers)
+#   UI      — SwiftUI views / modifiers
+---
+
 # VitalStride Context
 
 ## Product Identity
@@ -194,8 +207,8 @@ Git hooks live in `scripts/hooks/` and are activated via `core.hooksPath`. This 
 
 | Hook | Purpose |
 |------|---------|
-| `pre-commit` | Blocks direct commits to `main` / `master`; SwiftLint on staged Swift files (fast, no build) |
-| `pre-push` | Public-remote-only-main guard; `xcodebuild test` (or `swift build/test` for SPM-only); SwiftLint on changed Swift files |
+| `pre-commit` | Blocks direct commits to `main` / `master`; SwiftLint on staged Swift files; incremental `swift build`(+`test`) for each touched `Packages/<X>` layer (fast, no sim; >3 layers → build-only) |
+| `pre-push` | Public-remote-only-main guard; `xcodebuild test` (or `swift build/test` for SPM-only); SwiftLint on changed Swift files; layer frontmatter anti-rot check (`scripts/check-frontmatter.sh`) |
 
 **Build performance**: `pre-push` shares `<git-common-dir>/derived-data` across all worktrees of the same bare repo (so agent worktrees benefit from each other's build cache), and serializes concurrent `xcodebuild` invocations via a `flock`-protected `<git-common-dir>/build.lock` to avoid DerivedData corruption. `xcodebuild test` is invoked instead of separate `build` + `test` steps (test re-builds internally — running both wastes ~50% of build time).
 

@@ -102,6 +102,9 @@ jobs:
             exit 1
           fi
           echo "OK: no HealthKit values logged."
+      # Layer frontmatter must stay consistent with code (anti-rot)
+      - name: Layer frontmatter anti-rot check
+        run: bash scripts/check-frontmatter.sh
       # main commit subjects must carry an MY-NNN issue key
       - name: Commit subjects carry MY-NNN
         run: |

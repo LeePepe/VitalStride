@@ -1,5 +1,55 @@
 # VitalStride — Agent Instructions
 
+## Agent 读取契约（Read Contract）
+
+任务开始前，按你要碰的东西先读对应文档 —— 不读就动手 = 违规。这张表是**薄索引**，
+内容留在被指向的文档里，按需下钻（渐进展开），不要一次性预读全部。
+
+| 你要做的事 | 必读（前置） | 拿什么 |
+|---|---|---|
+| 任何任务 | `.specify/memory/constitution.md` | 7 条不可违反的红线（先确认不踩） |
+| 决定做什么 / 改需求 | `specs/000-baseline-existing-codebase/spec.md`（+ `plan.md` 看 gap） | 功能意图、验收标准、已知 gap |
+| 改全局架构 / 跨层设计 | `CONTEXT.md`（顶层，含 `canonical_roles`） | 架构决策、数据流、layer 划分、类角色顺序 |
+| 改 `Packages/<X>/**` | `Packages/<X>/CONTEXT.md`（该层 frontmatter） | 该层职责 / 依赖 / red_lines / test 命令 |
+| build / test / git 操作 | 本文件（AGENTS.md） | 命令手册、no-PR 工作流 |
+| 架构方向冲突 | `docs/adr/` | 已落地决策；要推翻先写新 ADR |
+
+## Layer 索引（Layer Map）
+
+业务逻辑住 `Packages/`（5 个本地 SPM 包）；app target（`VitalStride/`、`VitalStrideMac/`、
+`VitalStrideWatch Watch App/`、`VitalStrideWidgets/`）只放平台入口 + UI，**不属于任何 layer**
+（其门禁走 pre-push 全量 xcodebuild）。
+
+| Layer | 职责（一句话） | 文档 | 依赖（depends_on） |
+|---|---|---|---|
+| VitalModels | SwiftData models / enums / 容器配置 | `Packages/VitalModels/CONTEXT.md` | （无） |
+| HealthKitService | HealthKit 读取 + 双层缓存 + 授权 | `Packages/HealthKitService/CONTEXT.md` | VitalModels |
+| AIService | AIProvider 抽象 + provider chain | `Packages/AIService/CONTEXT.md` | （无） |
+| VitalUI | 跨 target 共享 SwiftUI 组件 | `Packages/VitalUI/CONTEXT.md` | VitalModels |
+| TelemetryKit | 埋点抽象（standalone，待集成） | `Packages/TelemetryKit/CONTEXT.md` | （无） |
+
+**渐进展开**：先读本表定位相关 layer → 只下钻该 layer 的 CONTEXT.md → 拿约束再动手。
+改哪层读哪层，不预读所有层文档。
+
+**按 layer 收窄范围**：
+- 改动只落 1 个 layer（或只落 app target）→ 一个任务直接做。
+- 跨 2+ layer → 太大，按 layer 拆成 N 个独立可 `swift build/test` 的子任务（一层一 commit）。
+- 单层内仍很大 → 按技术切面再拆：纯逻辑 → 输入/校验 → 处理/编排 → 输出转换 → fixture → 文档 → 迁移。
+- **收尾遗留记为新任务，不回头扩大当前任务。**
+
+**两条依赖轴**（同一原则「依赖只能向下」）：
+- **层间**（包）：各层 frontmatter 的 `depends_on`。反向即违规（如 VitalModels 不得 import HealthKitService）。
+- **层内**（类角色）：各层 `roles` + 顶层 `CONTEXT.md` 的 `canonical_roles`。低角色类不得 import 高角色类
+  （如 VitalModels 的 `Models/` 不得依赖 `Persistence/`）。
+
+## 分层修复约定
+
+lint/test 失败信号带 `{layer, red_lines}`。无论谁来修：
+- 只在失败所在 layer 内改；根因在别层则记新任务，不跨层改。
+- 带着该层 red_lines 修（别为了过测试踩红线，例：把健康数值打进 debug 日志违反宪法 I）。
+- 修完跑该层 `test`（frontmatter 里的命令）验证再交。
+- red_lines 是宪法的**投影**，不新增独立规则；宪法变则同步各层 frontmatter。
+
 ## Build & Test
 
 ### SPM Packages（优先使用）

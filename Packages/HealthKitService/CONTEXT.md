@@ -1,3 +1,22 @@
+---
+layer: HealthKitService
+role: HealthKit 数据读取、双层缓存、授权管理；app target 访问健康数据的唯一入口
+depends_on: [VitalModels]
+depended_by: []
+red_lines:
+  - 健康数值禁止进任何日志（os_log/print/SDK）；仅可记录 sample type / 数量 / 时间范围（宪法 I）
+  - L2 缓存（HealthCacheEntry）本地隔离，cloudKitDatabase:.none，不参与 CloudKit 同步（宪法 I）
+  - 权限撤销即完整清除：invalidateAll() + 删除全部 HealthCacheEntry + removeAllAnchors() + 清零 telemetry 计数器（宪法 I）
+  - L1 actor 缓存整桶替换（immutable pattern），禁止 in-place mutation
+  - Swift 6 strict concurrency，Apple API 边界例外须在 ADR 记录（宪法 II）
+roles:
+  Types:   [HealthDataPoint, HealthSampleType, HealthWorkoutRecord]
+  Repo:    [HealthKitAnchorStore, SwiftDataCachePersistence, HealthCachePersisting]
+  Service: [HealthDataCache, HealthKitService, WorkoutSessionManager]
+test: swift test --package-path Packages/HealthKitService
+owns: [HealthKitService, HealthDataCache, HealthKitAnchorStore, HealthSampleType]
+---
+
 # HealthKitService Context
 
 ## 职责
