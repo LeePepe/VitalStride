@@ -26,7 +26,7 @@
 | HealthKitService | HealthKit 读取 + 双层缓存 + 授权 | `Packages/HealthKitService/CONTEXT.md` | VitalModels |
 | AIService | AIProvider 抽象 + provider chain | `Packages/AIService/CONTEXT.md` | （无） |
 | VitalUI | 跨 target 共享 SwiftUI 组件 | `Packages/VitalUI/CONTEXT.md` | VitalModels |
-| TelemetryKit | 埋点抽象（standalone，待集成） | `Packages/TelemetryKit/CONTEXT.md` | （无） |
+| TelemetryKit | 埋点抽象（独立，无本地依赖） | `Packages/TelemetryKit/CONTEXT.md` | （无） |
 | DesignKit | 设计语言：seed 配色 token + SwiftUI 组件 | `Packages/DesignKit/CONTEXT.md` | （无） |
 
 **渐进展开**：先读本表定位相关 layer → 只下钻该 layer 的 CONTEXT.md → 拿约束再动手。
@@ -96,7 +96,7 @@ xcodegen generate
 ## Architecture
 
 - **XcodeGen 项目**：`project.yml` 定义 targets，`xcodegen generate` 生成 `.xcodeproj`
-- **5 个 SPM local packages**：VitalModels、HealthKitService、AIService、VitalUI、TelemetryKit（TelemetryKit 尚未注册到 `project.yml`，当前仅作为独立包使用，待集成 issue 添加到 app target）
+- **6 个 SPM local packages**：VitalModels、HealthKitService、AIService、VitalUI、TelemetryKit、DesignKit（均已注册到 `project.yml` 并接入 app target；TelemetryKit/DesignKit 为无本地依赖的独立包）
 - **Swift 6 strict concurrency**
 - **SwiftData** 存储训练数据 + HealthKit L2 缓存（`HealthCacheEntry`，本地隔离，`cloudKitDatabase: .none`）
 - **HealthDataCache** 是纯内存 actor L1 缓存层

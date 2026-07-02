@@ -41,7 +41,7 @@ HealthKit 数值不离设备、不入日志、权限撤销即清除。
 - 改动仅涉及 `Packages/<X>/` 时，**必须**用 `swift build && swift test` 验证；禁止用 xcodebuild（慢且无意义）。
 - 新增 package 需 ADR 并更新 `project.yml` + 本宪法表格。
 
-参考：ADR-0004 (五个本地 SPM 包)、ADR-0007 (TelemetryKit standalone)。
+参考：ADR-0004 (本地 SPM 包拆分)、ADR-0007 (TelemetryKit 独立包)、ADR-0008 (DesignKit 设计系统包)。
 
 ### IV. XcodeGen 是配置真理之源 (NON-NEGOTIABLE)
 

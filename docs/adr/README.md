@@ -34,6 +34,7 @@ Each ADR is its own file, numbered sequentially: `NNNN-kebab-case-title.md`.
 | [0005](0005-ai-provider-chain.md) | AI ProviderChain (Apple Intelligence Primary, Zhipu Fallback) | Accepted | 2026-06-18 |
 | [0006](0006-live-activity-for-rest-timer.md) | Live Activity for Rest Timer | Accepted | 2026-06-18 |
 | [0007](0007-telemetrykit-standalone-spm-package.md) | TelemetryKit as Standalone SPM Package | Accepted | 2026-06-18 |
+| [0008](0008-designkit-seed-based-design-system.md) | DesignKit — One Seed-Based Design System Package | Accepted | 2026-07-02 |
 
 ## Writing a new ADR
 

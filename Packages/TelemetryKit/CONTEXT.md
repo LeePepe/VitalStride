@@ -21,9 +21,8 @@ owns: [TelemetryEvent, TelemetryProvider, TelemetryService, ConsoleTelemetryProv
 轻量埋点抽象层。定义结构化 `TelemetryEvent` + `TelemetryProvider` 协议，并由 `actor TelemetryService`
 把事件分发到已注册的 provider。不含 UI、不含业务逻辑、不落库。
 
-> **集成状态**：TelemetryKit 目前是 standalone package，**尚未注册到 `project.yml` app target**
-> （宪法 III 表格 / ADR-0007）。待集成 issue 完成后加入 app target 依赖。在此之前它只以独立
-> `swift build/test` 参与 CI Job A。
+> **集成状态**：已注册到 `project.yml`（`packages:` + iOS/macOS/watchOS 三个 app target
+> + VitalStrideTests 依赖）。仍是无本地依赖的独立包（不依赖其它 layer），埋点调用点接入见 ADR-0007。
 
 ## 架构
 

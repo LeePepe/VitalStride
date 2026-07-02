@@ -4,6 +4,13 @@
 **Date**: 2026-06-18 (backfilled)
 **Deciders**: tianpli (project owner)
 
+> **Update 2026-07-02**: The "App-target registration" open follow-up below is **done** —
+> TelemetryKit is now registered in `project.yml` (`packages:` + iOS/macOS/watchOS app
+> targets + `VitalStrideTests`). The standalone-package decision itself is unchanged: it
+> remains a package with no local dependencies and a single sanitization choke point.
+> Call-site migration (`print`/`os_log` → `Telemetry.*`) and the first real provider
+> remain open.
+
 ## Context
 
 VitalStride has telemetry needs across many code paths:
