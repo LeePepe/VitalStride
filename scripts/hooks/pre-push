@@ -14,7 +14,6 @@
 #   3. swift build + swift test for Packages/* only changes
 #   4. Skip build for pure docs/hooks/scripts changes
 #   5. SwiftLint on changed Swift files
-#   6. FS agent branches must include the active MY-* issue key in every commit
 #
 # Performance:
 #   - Shared DerivedData at <git-common-dir>/derived-data
@@ -58,76 +57,6 @@ esac
 HAS_NON_DELETE_REF=false
 ALL_CHANGED="$TMPDIR/changed.txt"
 touch "$ALL_CHANGED"
-
-ISSUE_CONTEXT="$PROJECT_DIR/.agent_context/issue_context.md"
-ISSUE_KEY=""
-if [ -f "$ISSUE_CONTEXT" ]; then
-  ISSUE_KEY=$(grep -Eo 'MY-[0-9]+' "$ISSUE_CONTEXT" | head -1 || true)
-fi
-
-check_agent_commit_issue_key() {
-  local local_sha="$1"
-  local remote_ref="$2"
-  local remote_sha="$3"
-  local merge_base="$4"
-
-  case "$remote_ref" in
-    refs/heads/agent/*) ;;
-    *) return 0 ;;
-  esac
-
-  if [ ! -f "$ISSUE_CONTEXT" ]; then
-    echo "⚠️  .agent_context/issue_context.md not found; skipping MY-* commit-message check."
-    return 0
-  fi
-
-  if [ -z "$ISSUE_KEY" ]; then
-    echo "⚠️  No MY-* issue key found in .agent_context/issue_context.md; skipping commit-message check."
-    return 0
-  fi
-
-  local range_start=""
-  if [ "$remote_sha" = "$ZERO_SHA" ]; then
-    range_start="$merge_base"
-  else
-    range_start="$remote_sha"
-  fi
-
-  local commits=""
-  if [ -n "$range_start" ]; then
-    commits=$(git rev-list --reverse "$range_start..$local_sha" 2>/dev/null || true)
-  else
-    commits=$(git rev-list --reverse "$local_sha" 2>/dev/null || true)
-  fi
-
-  [ -n "$commits" ] || return 0
-
-  local missing=0
-  local commit subject body
-  while IFS= read -r commit; do
-    [ -n "$commit" ] || continue
-    subject=$(git log -1 --format=%s "$commit")
-    body=$(git log -1 --format=%b "$commit")
-    if ! printf '%s\n%s\n' "$subject" "$body" | grep -Fq "$ISSUE_KEY"; then
-      if [ "$missing" -eq 0 ]; then
-        echo "❌ BLOCKED: commits pushed to $remote_ref must mention $ISSUE_KEY"
-        echo ""
-        echo "  Add the issue key to each commit subject or body."
-        echo "  Examples:"
-        echo "    git commit -m \"feat: ExercisePickerView 多选批量添加 ($ISSUE_KEY)\""
-        echo "    git commit -m \"feat: 多选 picker\" -m \"Implements $ISSUE_KEY.\""
-        echo ""
-        echo "  Missing $ISSUE_KEY:"
-      fi
-      printf '    - %s %s\n' "$(git rev-parse --short "$commit")" "$subject"
-      missing=1
-    fi
-  done <<< "$commits"
-
-  if [ "$missing" -ne 0 ]; then
-    exit 1
-  fi
-}
 
 # Find a github remote name for diff base fallback
 GH_REMOTE=$(git remote -v 2>/dev/null \
@@ -185,8 +114,6 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   else
     merge_base="$remote_sha"
   fi
-
-  check_agent_commit_issue_key "$local_sha" "$remote_ref" "$remote_sha" "$merge_base"
 
   if [ -n "$merge_base" ]; then
     git diff --name-only --diff-filter=ACMR \
