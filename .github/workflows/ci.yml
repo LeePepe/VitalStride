@@ -77,19 +77,20 @@ jobs:
   policy:
     name: Lint & policy
     runs-on: macos-15
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Install SwiftLint
         run: brew install swiftlint
-      # SwiftLint --strict on Packages (required). App target has ~582 pre-existing i18n debt (tracked MY-1065) → advisory.
-      - name: SwiftLint --strict Packages (required)
-        run: swiftlint lint --strict Packages || true  # advisory: cross-platform HK false-positives
-      - name: SwiftLint app target (advisory)
-        continue-on-error: true
-        run: swiftlint lint --strict VitalStride VitalStrideMac "VitalStrideWatch Watch App"
+      # SwiftLint --strict is a REQUIRED blocking gate. The ~602 pre-existing
+      # no_hardcoded_chinese violations (app-target i18n debt, tracked MY-1065)
+      # are grandfathered via .swiftlint-baseline.json, so CI blocks only NEW
+      # violations without a mass red-out. Regenerate the baseline as debt is
+      # paid: `swiftlint lint --write-baseline .swiftlint-baseline.json`.
+      # Scopes come from .swiftlint.yml `included:` (app targets + Packages).
+      - name: SwiftLint --strict (required, blocks on new violations)
+        run: swiftlint lint --strict --baseline .swiftlint-baseline.json
       # HealthKit values must never reach logs (privacy compliance)
       - name: No HealthKit values in logs
         run: |
