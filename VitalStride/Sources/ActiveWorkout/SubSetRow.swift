@@ -1,0 +1,153 @@
+// swiftlint:disable no_hardcoded_chinese
+// Sub-Set Row (Compact, Indented, Read-Only — see MY-875).
+// Extracted verbatim from ActiveWorkoutView.swift (MY-874). The pre-existing
+// `no_hardcoded_chinese` literals move with the code and stay silenced at file
+// scope until the dedicated i18n cleanup (MY-1065) migrates them. This split
+// does not change localization semantics.
+
+import SwiftUI
+import VitalModels
+import VitalUI
+
+struct SubSetRow: View {
+    let exerciseSet: ExerciseSet
+    let weightUnit: WeightUnit
+    let isLast: Bool
+    let parentSetNumber: Int
+    let onToggleCompleted: (_ wasCompleted: Bool) -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            treeLine
+                .accessibilityHidden(true)
+
+            if exerciseSet.isUnilateral {
+                // MY-876: SubSet read-only order matches bilateral
+                // "weight × reps": left-weight / right-weight × reps.
+                Text(weightDisplay(exerciseSet.weight))
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 50, alignment: .center)
+                    .accessibilityLabel(String(
+                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组左侧重量",
+                        comment: "SubSet left weight a11y label"
+                    ))
+                    .accessibilityValue("\(weightDisplay(exerciseSet.weight)) \(weightUnit.rawValue)")
+
+                Text("/")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+
+                Text(weightDisplay(exerciseSet.weightRight ?? exerciseSet.weight))
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 50, alignment: .center)
+                    .accessibilityLabel(String(
+                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组右侧重量",
+                        comment: "SubSet right weight a11y label"
+                    ))
+                    .accessibilityValue(
+                        "\(weightDisplay(exerciseSet.weightRight ?? exerciseSet.weight)) \(weightUnit.rawValue)"
+                    )
+
+                Text("×")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+
+                Text(repsDisplay)
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 52, alignment: .center)
+                    .accessibilityLabel(String(
+                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数",
+                        comment: "SubSet reps a11y label"
+                    ))
+                    .accessibilityValue(repsDisplay)
+            } else {
+                Text(weightDisplay(exerciseSet.weight))
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 62, alignment: .center)
+                    .accessibilityLabel(String(
+                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组重量",
+                        comment: "SubSet weight a11y label"
+                    ))
+                    .accessibilityValue("\(weightDisplay(exerciseSet.weight)) \(weightUnit.rawValue)")
+
+                Text("×")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+
+                Text(repsDisplay)
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 52, alignment: .center)
+                    .accessibilityLabel(String(
+                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数",
+                        comment: "SubSet reps a11y label"
+                    ))
+                    .accessibilityValue(repsDisplay)
+            }
+
+            Text(exerciseSet.setType.displayName)
+                .font(.caption)
+                .foregroundStyle(exerciseSet.setType.labelColor)
+                .frame(width: 44, alignment: .leading)
+                .accessibilityLabel(exerciseSet.setType.displayName)
+
+            Spacer()
+
+            Button {
+                let wasCompleted = exerciseSet.isCompleted
+                exerciseSet.isCompleted = !wasCompleted
+                if !wasCompleted {
+                    HapticManager.trigger(.setCompleted)
+                }
+                onToggleCompleted(wasCompleted)
+            } label: {
+                Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.subheadline)
+                    .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
+            }
+            .buttonStyle(.borderless)
+            // MY-877: same hit-target/visual-row tension as main SetRow.
+            // 44pt rendered frame for P1-H hit target; negative vertical
+            // padding lets the button bleed into the row separator so
+            // SubSet rows can visually target ~28pt.
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+            .padding(.vertical, -8)
+            // swiftlint:disable:next line_length
+            .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
+            .accessibilityHint("双击切换完成状态")
+        }
+    }
+
+    private var treeLine: some View {
+        HStack(spacing: 2) {
+            Text(isLast ? "└─" : "├─")
+                .font(.caption.monospaced())
+                .foregroundStyle(.tertiary)
+        }
+        .frame(width: 28, alignment: .leading)
+    }
+
+    private var repsDisplay: String {
+        exerciseSet.reps == 0 ? "—" : "\(exerciseSet.reps)"
+    }
+
+    private func weightDisplay(_ weightKg: Double) -> String {
+        let displayValue = weightUnit == .lb ? weightKg * 2.20462 : weightKg
+        return formatWeight(displayValue)
+    }
+
+    private func formatWeight(_ value: Double) -> String {
+        if value == 0 { return "—" }
+        return value.truncatingRemainder(dividingBy: 1) == 0
+            ? String(Int(value))
+            : String(format: "%.1f", value)
+    }
+}

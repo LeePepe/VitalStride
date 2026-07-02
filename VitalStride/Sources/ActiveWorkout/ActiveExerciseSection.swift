@@ -1,0 +1,227 @@
+// swiftlint:disable no_hardcoded_chinese
+// Active Exercise Section.
+// Extracted verbatim from ActiveWorkoutView.swift (MY-874). Pre-existing
+// `no_hardcoded_chinese` literals move with the code and stay silenced at file
+// scope until the dedicated i18n cleanup (MY-1065). No semantic change.
+
+import SwiftData
+import SwiftUI
+import VitalModels
+import VitalUI
+
+struct ActiveExerciseSection: View {
+    let workoutExercise: WorkoutExercise
+    let onSetCompleted: () -> Void
+    let onSetDeleted: () -> Void
+    let onReplace: () -> Void
+    let onDelete: () -> Void
+    @Environment(\.modelContext) private var modelContext
+    @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
+    @State private var showingDeleteConfirmation = false
+
+    private var sortedSets: [ExerciseSet] {
+        (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
+    }
+
+    var body: some View {
+        Section {
+            ForEach(Array(sortedSets.enumerated()), id: \.element.persistentModelID) { index, exerciseSet in
+                if exerciseSet.setType.isSubSet {
+                    SubSetRow(
+                        exerciseSet: exerciseSet,
+                        weightUnit: weightUnit,
+                        isLast: isLastSubSet(at: index),
+                        parentSetNumber: parentSetNumber(for: index),
+                        onToggleCompleted: { wasCompleted in
+                            if !wasCompleted { onSetCompleted() }
+                        }
+                    )
+                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                } else {
+                    SetRow(
+                        index: mainSetNumber(upTo: index),
+                        exerciseSet: exerciseSet,
+                        weightUnit: weightUnit,
+                        canDelete: sortedSets.count > 1,
+                        onToggleCompleted: { wasCompleted in
+                            if !wasCompleted { onSetCompleted() }
+                        },
+                        onDelete: {
+                            deleteSet(exerciseSet)
+                        },
+                        onAddSubSet: { type in
+                            addSubSet(after: exerciseSet, type: type)
+                        }
+                    )
+                    .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        if sortedSets.count > 1 {
+                            Button(role: .destructive) {
+                                deleteSet(exerciseSet)
+                            } label: {
+                                Label("删除", systemImage: "trash")
+                            }
+                        }
+                    }
+                }
+            }
+            addSetButton
+        } header: {
+            HStack {
+                Text(workoutExercise.exercise?.localizedName ?? "动作")
+                    .contextMenu {
+                        Button {
+                            onReplace()
+                        } label: {
+                            // swiftlint:disable:next line_length
+                            Label(String(localized: "替换动作", comment: "Replace exercise context menu item"), systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        Button(role: .destructive) {
+                            showingDeleteConfirmation = true
+                        } label: {
+                            // swiftlint:disable:next line_length
+                            Label(String(localized: "删除动作", comment: "Delete exercise context menu item"), systemImage: "trash")
+                        }
+                    }
+                    // swiftlint:disable:next line_length
+                    .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
+                Spacer()
+                Menu {
+                    Button {
+                        onReplace()
+                    } label: {
+                        // swiftlint:disable:next line_length
+                        Label(String(localized: "替换动作", comment: "Replace exercise menu item"), systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    Button(role: .destructive) {
+                        showingDeleteConfirmation = true
+                    } label: {
+                        Label(String(localized: "删除动作", comment: "Delete exercise menu item"), systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .foregroundStyle(.secondary)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
+            }
+            .confirmationDialog(
+                String(localized: "删除动作？", comment: "Delete exercise confirmation title"),
+                isPresented: $showingDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                // swiftlint:disable:next line_length
+                Button(String(localized: "删除", comment: "Delete confirmation button"), role: .destructive) { onDelete() }
+                Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "该动作及所有已录入的组数据将被删除", comment: "Delete exercise confirmation message"))
+            }
+        }
+    }
+
+    private func mainSetNumber(upTo index: Int) -> Int {
+        let sets = sortedSets
+        var count = 0
+        // swiftlint:disable:next identifier_name
+        for i in 0..<index {
+            // swiftlint:disable:next for_where
+            if !sets[i].setType.isSubSet { count += 1 }
+        }
+        return count
+    }
+
+    private func parentSetNumber(for index: Int) -> Int {
+        let sets = sortedSets
+        var lastMainNumber = 0
+        // swiftlint:disable:next identifier_name
+        for i in 0..<index {
+            // swiftlint:disable:next for_where
+            if !sets[i].setType.isSubSet { lastMainNumber += 1 }
+        }
+        return lastMainNumber
+    }
+
+    private func isLastSubSet(at index: Int) -> Bool {
+        let sets = sortedSets
+        if index + 1 >= sets.count { return true }
+        return !sets[index + 1].setType.isSubSet
+    }
+
+    private var addSetButton: some View {
+        Button {
+            addSet()
+        } label: {
+            HStack {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundStyle(Color.accentColor)
+                Text("添加一组")
+            }
+            .font(.subheadline)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minHeight: 36)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
+        .accessibilityLabel("添加一组")
+        .accessibilityHint("在列表末尾插入新的一组")
+    }
+
+    private func addSet() {
+        let lastMainSet = sortedSets.last(where: { !$0.setType.isSubSet })
+        let order = workoutExercise.sets?.count ?? 0
+        let newSet = ExerciseSet(
+            order: order,
+            weight: lastMainSet?.weight ?? 0,
+            reps: lastMainSet?.reps ?? 0,
+            setType: lastMainSet?.setType ?? .working,
+            isUnilateral: lastMainSet?.isUnilateral ?? false,
+            weightRight: lastMainSet?.weightRight
+        )
+        newSet.workoutExercise = workoutExercise
+        modelContext.insert(newSet)
+    }
+
+    private func addSubSet(after parentSet: ExerciseSet, type: SetType) {
+        let sets = sortedSets
+        let parentIndex = sets.firstIndex(where: { $0.persistentModelID == parentSet.persistentModelID }) ?? 0
+
+        var insertIndex = parentIndex + 1
+        while insertIndex < sets.count && sets[insertIndex].setType.isSubSet {
+            insertIndex += 1
+        }
+
+        let adjustedWeight: Double
+        let adjustedWeightRight: Double?
+        if type == .dropSet {
+            adjustedWeight = parentSet.weight * 0.85
+            adjustedWeightRight = parentSet.weightRight.map { $0 * 0.85 }
+        } else {
+            adjustedWeight = parentSet.weight * 1.15
+            adjustedWeightRight = parentSet.weightRight.map { $0 * 1.15 }
+        }
+
+        // swiftlint:disable:next identifier_name
+        for i in insertIndex..<sets.count {
+            sets[i].order += 1
+        }
+
+        let newSet = ExerciseSet(
+            order: insertIndex,
+            weight: adjustedWeight,
+            reps: parentSet.reps,
+            setType: type,
+            isUnilateral: parentSet.isUnilateral,
+            weightRight: adjustedWeightRight
+        )
+        newSet.workoutExercise = workoutExercise
+        modelContext.insert(newSet)
+    }
+
+    private func deleteSet(_ exerciseSet: ExerciseSet) {
+        let didDelete = WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
+        guard didDelete else { return }
+        onSetDeleted()
+    }
+}
