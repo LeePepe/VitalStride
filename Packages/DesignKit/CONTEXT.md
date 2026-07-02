@@ -23,8 +23,8 @@ VitalStride **唯一**设计语言(iOS / macOS / watchOS 共用)。核心是"**�
 的确定性生成 + 固定的 neutral / semantic palette + 一组 SwiftUI 组件。与 design-system web 端
 共用同一套 seed 数学,保证跨平台视觉一致。
 
-> **集成状态**:目前是 standalone package(同 TelemetryKit),**尚未注册到 `project.yml` app target**。
-> 待把 UI 接到这些 token 时,在 `project.yml` 注册并加入各 app target 依赖。
+> **集成状态**:已注册到 `project.yml`(`packages:` + iOS/macOS/watchOS 三个 app target
+> 依赖),与 VitalUI 同级共享。改动 target 配置后需 `xcodegen generate`(宪法 §IV)。
 
 ## 架构
 

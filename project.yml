@@ -26,6 +26,8 @@ packages:
     path: Packages/VitalUI
   TelemetryKit:
     path: Packages/TelemetryKit
+  DesignKit:
+    path: Packages/DesignKit
 
 schemes:
   VitalStride:
@@ -61,6 +63,7 @@ targets:
       - package: AIService
       - package: VitalUI
       - package: TelemetryKit
+      - package: DesignKit
       - sdk: HealthKit.framework
       - target: VitalStrideWidgets
     settings:
@@ -114,6 +117,7 @@ targets:
       - package: AIService
       - package: VitalUI
       - package: TelemetryKit
+      - package: DesignKit
       - sdk: HealthKit.framework
     entitlements:
       path: VitalStrideMac/VitalStrideMac.entitlements
@@ -180,6 +184,7 @@ targets:
       - package: AIService
       - package: VitalUI
       - package: TelemetryKit
+      - package: DesignKit
       - sdk: HealthKit.framework
     settings:
       base:

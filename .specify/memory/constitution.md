@@ -33,6 +33,7 @@ HealthKit 数值不离设备、不入日志、权限撤销即清除。
 | AIService | AIProvider 协议、ZhipuProvider、ChatMessage/Response | — |
 | VitalUI | 共享 UI 组件 | VitalModels |
 | TelemetryKit | TelemetryEvent、TelemetryProvider、Console/Service | — |
+| DesignKit | 设计语言：seed 配色 token（Seed/PrimaryPalette/Theme）+ SwiftUI 组件 | — |
 
 **规则**：
 - App target 不互相依赖，只依赖 packages。
@@ -96,6 +97,7 @@ VitalUI ←── VitalModels
 HealthKitService ┘
     AIService    (独立, 无依赖)
     TelemetryKit (独立, 无依赖)
+    DesignKit    (独立, 无依赖 — 设计系统 token + 组件)
 ```
 
 **Rules**：

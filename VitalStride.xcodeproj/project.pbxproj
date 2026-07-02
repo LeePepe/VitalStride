@@ -28,6 +28,7 @@
 		1E06F16DD57D8E064BC3B60C /* OverviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37A2DA5D0FBEDC56FC2670D9 /* OverviewTests.swift */; };
 		221FE0EF38B52019483DA001 /* WorkoutDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C5574C1FC8DDE5C487EE9D9 /* WorkoutDetailView.swift */; };
 		22C19377FDFD5EA376D046E2 /* VitalStrideWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF086042D6EB5A13265C3488 /* VitalStrideWidgetsBundle.swift */; };
+		24049DC353AC862315CC94A8 /* DesignKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0296EF141386246700DAC8BE /* DesignKit */; };
 		241C123020BB726A7BE4A7E3 /* VitalModels in Frameworks */ = {isa = PBXBuildFile; productRef = CB3E59DF5DD7171D458124F1 /* VitalModels */; };
 		245D15F1013471299B900C62 /* OverviewCardContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB2F07E07B3EAEAB86E0D94 /* OverviewCardContainer.swift */; };
 		24EAE5B84187FC3EA60DC015 /* GenericHealthDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78DCB0AB8EDE0CEE01A0C7A3 /* GenericHealthDetailView.swift */; };
@@ -55,6 +56,7 @@
 		473766D9F7CFC9E387FD8D27 /* DataAISummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E3CA126282A9E5D7B6CF8A /* DataAISummaryCard.swift */; };
 		475E831CA333AD5E120BDE00 /* HealthSampleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE09961F4651DB3AC057BA0E /* HealthSampleTests.swift */; };
 		4894F1F94E8BFCDF0672C57F /* OverviewLayoutState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81EA85E25A4A8CF1692CB407 /* OverviewLayoutState.swift */; };
+		4DB9D7A57ECD542BCDB830F0 /* DesignKit in Frameworks */ = {isa = PBXBuildFile; productRef = CE27A93297D1F20EEE6B7557 /* DesignKit */; };
 		4DE7F4027037BB2150649A1E /* UserInterestTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AE17B68B9690E64E34762B /* UserInterestTracker.swift */; };
 		4EC5DC12E2E639E66CB22CD8 /* AIService in Frameworks */ = {isa = PBXBuildFile; productRef = E9FDBB39F3258B8EB6B2A9EF /* AIService */; };
 		4FACDC444EDA44870FB139F9 /* CardContentParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 091AC62B58FCCA35C59E659B /* CardContentParser.swift */; };
@@ -171,6 +173,7 @@
 		C23F5779720EA5E1DBD23E29 /* DataViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7664EB59C867B7F8FDAD25 /* DataViewTests.swift */; };
 		C2732E2BA5AC135709D388CF /* ActiveEnergySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2006662F4E40A3B02201E47 /* ActiveEnergySection.swift */; };
 		C2D80D80EEBB56ED09746B83 /* UnifiedWorkoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0F2C179353A73AE3F6E0E8 /* UnifiedWorkoutTests.swift */; };
+		C3F7804856CFE4D12794902A /* DesignKit in Frameworks */ = {isa = PBXBuildFile; productRef = CC6A54D931703266EC568983 /* DesignKit */; };
 		C6542FA6257E8803078E471F /* CardVariant.swift in Sources */ = {isa = PBXBuildFile; fileRef = D32DBAED1356728A1F9461EE /* CardVariant.swift */; };
 		C91957186700998E3139316F /* VitalUI in Frameworks */ = {isa = PBXBuildFile; productRef = 025591A7DBDF37484A293198 /* VitalUI */; };
 		CCA8B4CA07DE1BF001FCC359 /* HeartRateSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4340E51820609A5B245C166D /* HeartRateSection.swift */; };
@@ -344,6 +347,7 @@
 		9F7232012CDFCBAD11665CE0 /* RestTimerLiveActivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerLiveActivityTests.swift; sourceTree = "<group>"; };
 		A09E42EAE0E6BCFD902E8DAF /* OverviewInsightsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewInsightsSection.swift; sourceTree = "<group>"; };
 		A2A0AF58A52ACE39CDC88618 /* TelemetryHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryHelpers.swift; sourceTree = "<group>"; };
+		A34BDCB4AA6B85F99F274579 /* DesignKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DesignKit; path = Packages/DesignKit; sourceTree = SOURCE_ROOT; };
 		A82A8BC200FD8437E939A67D /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
 		A97AABE49D975C1A283CCD79 /* HealthKitServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitServiceTests.swift; sourceTree = "<group>"; };
 		ABDA52DB11F3CD67FF68F80C /* AITrainingAdviceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITrainingAdviceCard.swift; sourceTree = "<group>"; };
@@ -412,6 +416,7 @@
 				70E3C00479522CA7710199DB /* AIService in Frameworks */,
 				821982CDD01D5ED20EA41300 /* VitalUI in Frameworks */,
 				0273611783A76142F2691B5E /* TelemetryKit in Frameworks */,
+				C3F7804856CFE4D12794902A /* DesignKit in Frameworks */,
 				7F4B229A477C6BE34A6DC29B /* HealthKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -436,6 +441,7 @@
 				134E599765D647CC058A53BC /* AIService in Frameworks */,
 				A852815843A816E5EFC283BD /* VitalUI in Frameworks */,
 				F0F3FC5920CEDCB652729AC8 /* TelemetryKit in Frameworks */,
+				24049DC353AC862315CC94A8 /* DesignKit in Frameworks */,
 				6DD9EA5894C16A881C94A162 /* HealthKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -449,6 +455,7 @@
 				4EC5DC12E2E639E66CB22CD8 /* AIService in Frameworks */,
 				C91957186700998E3139316F /* VitalUI in Frameworks */,
 				5D0BB215484E7A60F8B80315 /* TelemetryKit in Frameworks */,
+				4DB9D7A57ECD542BCDB830F0 /* DesignKit in Frameworks */,
 				BE7FE5DFE1252469CEA058CF /* HealthKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -518,6 +525,7 @@
 			isa = PBXGroup;
 			children = (
 				C9F649F6B6D57C975DA355BD /* AIService */,
+				A34BDCB4AA6B85F99F274579 /* DesignKit */,
 				96A87540682A2A03C936E592 /* HealthKitService */,
 				74545E444A4D8FE24EB20080 /* TelemetryKit */,
 				9B96A64C4A8D7C20014602DF /* VitalModels */,
@@ -800,6 +808,7 @@
 				15836A3AF17C4009DBCB9AC5 /* AIService */,
 				B1158D1F2C58CCE12B5E58B9 /* VitalUI */,
 				45BB7EF4AA81DA202BAAD171 /* TelemetryKit */,
+				0296EF141386246700DAC8BE /* DesignKit */,
 			);
 			productName = VitalStride;
 			productReference = 9D2F46A6B7B993E95FDAA5C5 /* VitalStride.app */;
@@ -824,6 +833,7 @@
 				E9FDBB39F3258B8EB6B2A9EF /* AIService */,
 				025591A7DBDF37484A293198 /* VitalUI */,
 				BF9DF2D70B7B69BCE90402AC /* TelemetryKit */,
+				CE27A93297D1F20EEE6B7557 /* DesignKit */,
 			);
 			productName = "VitalStrideWatch Watch App";
 			productReference = 58C946AE957021F69C8E2C60 /* VitalStrideWatch Watch App.app */;
@@ -889,6 +899,7 @@
 				B3562C046D2991E1019C1427 /* AIService */,
 				6F987A4D67E18D6C3093080D /* VitalUI */,
 				31A393B085E5BC456473AD7E /* TelemetryKit */,
+				CC6A54D931703266EC568983 /* DesignKit */,
 			);
 			productName = VitalStrideMac;
 			productReference = 62752D819DEC3C928DEE3CB1 /* VitalStrideMac.app */;
@@ -937,6 +948,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				7592CF6FAFA494CDFC151097 /* XCLocalSwiftPackageReference "Packages/AIService" */,
+				2972DA7A54C474330721E6CE /* XCLocalSwiftPackageReference "Packages/DesignKit" */,
 				B0A5FEAA6E86103280C3437A /* XCLocalSwiftPackageReference "Packages/HealthKitService" */,
 				74A05B9934489AF53F595EF9 /* XCLocalSwiftPackageReference "Packages/TelemetryKit" */,
 				02083876BFD25C47D793DE16 /* XCLocalSwiftPackageReference "Packages/VitalModels" */,
@@ -1645,6 +1657,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/VitalModels;
 		};
+		2972DA7A54C474330721E6CE /* XCLocalSwiftPackageReference "Packages/DesignKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/DesignKit;
+		};
 		362B1DEE5BF0E3E3506C6134 /* XCLocalSwiftPackageReference "Packages/VitalUI" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/VitalUI;
@@ -1667,6 +1683,10 @@
 		025591A7DBDF37484A293198 /* VitalUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = VitalUI;
+		};
+		0296EF141386246700DAC8BE /* DesignKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DesignKit;
 		};
 		09FDFCB9311B7330669EE78F /* HealthKitService */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1735,6 +1755,14 @@
 		CB3E59DF5DD7171D458124F1 /* VitalModels */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = VitalModels;
+		};
+		CC6A54D931703266EC568983 /* DesignKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DesignKit;
+		};
+		CE27A93297D1F20EEE6B7557 /* DesignKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DesignKit;
 		};
 		E9FDBB39F3258B8EB6B2A9EF /* AIService */ = {
 			isa = XCSwiftPackageProductDependency;
