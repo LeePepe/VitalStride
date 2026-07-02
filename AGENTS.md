@@ -27,6 +27,7 @@
 | AIService | AIProvider 抽象 + provider chain | `Packages/AIService/CONTEXT.md` | （无） |
 | VitalUI | 跨 target 共享 SwiftUI 组件 | `Packages/VitalUI/CONTEXT.md` | VitalModels |
 | TelemetryKit | 埋点抽象（standalone，待集成） | `Packages/TelemetryKit/CONTEXT.md` | （无） |
+| DesignKit | 设计语言：seed 配色 token + SwiftUI 组件（standalone，待集成） | `Packages/DesignKit/CONTEXT.md` | （无） |
 
 **渐进展开**：先读本表定位相关 layer → 只下钻该 layer 的 CONTEXT.md → 拿约束再动手。
 改哪层读哪层，不预读所有层文档。

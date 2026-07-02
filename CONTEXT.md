@@ -148,6 +148,7 @@ The project uses XcodeGen + local SPM packages. Business logic lives in packages
 | AIService | AIProvider protocol, ZhipuProvider (智谱 GLM), ChatMessage/ChatResponse models | None |
 | VitalUI | Shared UI components (DataStoreErrorView) | VitalModels |
 | TelemetryKit | TelemetryEvent, TelemetryProvider protocol, ConsoleTelemetryProvider, TelemetryService | None |
+| DesignKit | 设计语言:seed-based 配色 token (Seed/PrimaryPalette/Theme) + SwiftUI 组件 (Card/Metric/Sparkline/DashboardView) | None |
 
 ### Rules
 
