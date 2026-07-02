@@ -1,7 +1,11 @@
+// swiftlint:disable no_hardcoded_chinese
 import os
 import SwiftData
 import SwiftUI
 import VitalModels
+#if canImport(UIKit)
+import UIKit
+#endif
 
 private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "ExercisePicker")
 
@@ -13,6 +17,8 @@ struct ExercisePickerView: View {
     @State private var selectedMuscleGroup: MuscleGroup?
     @State private var selectedIDs: Set<PersistentIdentifier> = []
     @State private var selectedExercises: [Exercise] = []
+    @State private var visibleEquipment: Equipment?
+    @State private var draggedEquipment: Equipment?
     let selectionMode: SelectionMode
 
     enum SelectionMode {
@@ -174,15 +180,75 @@ struct ExercisePickerView: View {
         if equipmentGroups.isEmpty {
             emptyState
         } else {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 20) {
-                    ForEach(equipmentGroups, id: \.0) { equipment, items in
-                        equipmentSection(equipment: equipment, exercises: items)
+            let equipments = equipmentGroups.map { $0.0 }
+            let showsIndexBar = equipments.count >= 2
+            ScrollViewReader { gridProxy in
+                ZStack(alignment: .trailing) {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 20) {
+                            ForEach(equipmentGroups, id: \.0) { equipment, items in
+                                equipmentSection(equipment: equipment, exercises: items)
+                                    .id(equipment)
+                            }
+                        }
+                        .padding()
+                        .padding(.trailing, showsIndexBar ? 32 : 0)
+                        .scrollTargetLayout()
+                    }
+                    .scrollPosition(id: $visibleEquipment, anchor: .top)
+
+                    if showsIndexBar {
+                        EquipmentIndexBar(
+                            equipments: equipments,
+                            activeEquipment: visibleEquipment ?? draggedEquipment,
+                            onSelect: { equipment in
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    gridProxy.scrollTo(equipment, anchor: .top)
+                                }
+                            },
+                            onDragChanged: { equipment in
+                                draggedEquipment = equipment
+                            },
+                            onDragEnded: {
+                                draggedEquipment = nil
+                            }
+                        )
+                        .padding(.trailing, 4)
+                        .padding(.vertical, 16)
                     }
                 }
-                .padding()
+                .overlay(alignment: .center) {
+                    if let dragged = draggedEquipment {
+                        sectionPreviewPopup(equipment: dragged)
+                            .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                            .allowsHitTesting(false)
+                    }
+                }
+                .animation(.easeOut(duration: 0.18), value: draggedEquipment)
+                .onChange(of: equipmentGroups.map(\.0)) { _, newEquipments in
+                    if let current = visibleEquipment, !newEquipments.contains(current) {
+                        visibleEquipment = newEquipments.first
+                    } else if visibleEquipment == nil {
+                        visibleEquipment = newEquipments.first
+                    }
+                }
             }
         }
+    }
+
+    private func sectionPreviewPopup(equipment: Equipment) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: equipment.sfSymbol)
+                .font(.system(size: 48, weight: .light))
+            Text(equipment.localizedName)
+                .font(.title3)
+                .fontWeight(.medium)
+        }
+        .foregroundStyle(.white)
+        .padding(24)
+        .frame(minWidth: 140, minHeight: 140)
+        .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 20))
+        .accessibilityHidden(true)
     }
 
     @ViewBuilder
@@ -372,4 +438,73 @@ private struct WrappingHStack: Layout {
 private struct Row {
     var indices: [Int] = []
     var height: CGFloat = 0
+}
+
+// MARK: - Equipment Index Bar
+
+private struct EquipmentIndexBar: View {
+    let equipments: [Equipment]
+    let activeEquipment: Equipment?
+    let onSelect: (Equipment) -> Void
+    let onDragChanged: (Equipment) -> Void
+    let onDragEnded: () -> Void
+
+    private static let verticalPadding: CGFloat = 8
+    private static let barWidth: CGFloat = 28
+
+    var body: some View {
+        GeometryReader { geo in
+            VStack(spacing: 2) {
+                ForEach(equipments, id: \.self) { equipment in
+                    Image(systemName: equipment.sfSymbol)
+                        .font(.system(size: 11, weight: .medium))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .foregroundStyle(activeEquipment == equipment ? Color.accentColor : Color.secondary)
+                        .contentShape(Rectangle())
+                        .accessibilityLabel(equipment.localizedName)
+                }
+            }
+            .frame(width: Self.barWidth)
+            .padding(.vertical, Self.verticalPadding)
+            .background(
+                Capsule().fill(Color(.tertiarySystemFill).opacity(0.7))
+            )
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        guard let equipment = equipmentAt(
+                            y: value.location.y,
+                            totalHeight: geo.size.height
+                        ) else { return }
+                        if equipment != activeEquipment {
+                            onSelect(equipment)
+                            triggerSelectionHaptic()
+                        }
+                        onDragChanged(equipment)
+                    }
+                    .onEnded { _ in
+                        onDragEnded()
+                    }
+            )
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(String(localized: "器械分区索引", comment: "Equipment section index bar a11y label"))
+        }
+        .frame(width: Self.barWidth + 4)
+    }
+
+    private func equipmentAt(y: CGFloat, totalHeight: CGFloat) -> Equipment? {
+        guard !equipments.isEmpty else { return nil }
+        let usable = max(totalHeight - Self.verticalPadding * 2, 1)
+        let clamped = min(max(y - Self.verticalPadding, 0), usable - 0.001)
+        let rowHeight = usable / CGFloat(equipments.count)
+        let index = Int(clamped / rowHeight)
+        let bounded = min(max(index, 0), equipments.count - 1)
+        return equipments[bounded]
+    }
+
+    private func triggerSelectionHaptic() {
+        #if canImport(UIKit) && !os(watchOS)
+        UISelectionFeedbackGenerator().selectionChanged()
+        #endif
+    }
 }
