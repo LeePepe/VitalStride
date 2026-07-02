@@ -20,6 +20,9 @@ enum ExerciseSeeder {
         let equipment: Equipment
         let primaryMuscles: [String]
         let secondaryMuscles: [String]
+        let defaultWeightLow: Double?
+        let defaultWeightMid: Double?
+        let defaultWeightHigh: Double?
     }
 
     static func seedIfNeeded(
@@ -65,7 +68,15 @@ enum ExerciseSeeder {
 
         let insertedCount = try insertNewExercises(context: context, dtos: catalog.exercises)
 
-        if insertedCount > 0 {
+        // Backfill defaults for existing preset exercises when advancing to a
+        // new catalog version. Nil-only writes so any user-modified value is
+        // preserved. Runs both on fresh installs (harmless — no-op) and on
+        // upgrades from v1 (or an empty storedVersion with legacy presets).
+        if storedVersion != catalog.version {
+            try backfillDefaults(context: context, dtos: catalog.exercises)
+        }
+
+        if insertedCount > 0 || storedVersion != catalog.version {
             try context.save()
         }
 
@@ -118,12 +129,45 @@ enum ExerciseSeeder {
                 primaryMuscles: dto.primaryMuscles,
                 secondaryMuscles: dto.secondaryMuscles,
                 isCustom: false,
-                presetId: dto.id
+                presetId: dto.id,
+                defaultWeightLow: dto.defaultWeightLow,
+                defaultWeightMid: dto.defaultWeightMid,
+                defaultWeightHigh: dto.defaultWeightHigh
             )
             context.insert(exercise)
             insertedCount += 1
         }
 
         return insertedCount
+    }
+
+    /// Backfill defaultWeight* on existing preset Exercises when advancing to
+    /// catalog version 2. Only writes fields that are currently nil — never
+    /// overwrites user-modified values (isCustom exercises are excluded via
+    /// the presetId predicate).
+    static func backfillDefaults(context: ModelContext, dtos: [ExerciseDTO]) throws {
+        let descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.presetId != nil }
+        )
+        let existing = try context.fetch(descriptor)
+        guard !existing.isEmpty else { return }
+
+        let idToDTO = Dictionary(
+            dtos.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        for exercise in existing {
+            guard let presetId = exercise.presetId, let dto = idToDTO[presetId] else { continue }
+            if exercise.defaultWeightLow == nil {
+                exercise.defaultWeightLow = dto.defaultWeightLow
+            }
+            if exercise.defaultWeightMid == nil {
+                exercise.defaultWeightMid = dto.defaultWeightMid
+            }
+            if exercise.defaultWeightHigh == nil {
+                exercise.defaultWeightHigh = dto.defaultWeightHigh
+            }
+        }
     }
 }

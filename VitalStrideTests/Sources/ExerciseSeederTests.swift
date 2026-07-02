@@ -27,9 +27,12 @@ struct ExerciseSeederTests {
         nameEn: String,
         nameZh: String = "",
         muscleGroup: String = "chest",
-        equipment: String = "barbell"
+        equipment: String = "barbell",
+        defaultWeightLow: Double? = nil,
+        defaultWeightMid: Double? = nil,
+        defaultWeightHigh: Double? = nil
     ) -> [String: Any] {
-        [
+        var payload: [String: Any] = [
             "id": id,
             "nameEn": nameEn,
             "nameZh": nameZh,
@@ -38,6 +41,10 @@ struct ExerciseSeederTests {
             "primaryMuscles": [] as [String],
             "secondaryMuscles": [] as [String],
         ]
+        if let low = defaultWeightLow { payload["defaultWeightLow"] = low }
+        if let mid = defaultWeightMid { payload["defaultWeightMid"] = mid }
+        if let high = defaultWeightHigh { payload["defaultWeightHigh"] = high }
+        return payload
     }
 
     // MARK: - Full Bundle Tests
@@ -146,7 +153,7 @@ struct ExerciseSeederTests {
 
         ExerciseSeeder.seedIfNeeded(context: context, userDefaults: defaults)
 
-        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == "1")
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == "2")
     }
 
     // MARK: - Version Skip + Empty DB Recovery
@@ -348,5 +355,182 @@ struct ExerciseSeederTests {
         #expect(customs.count == 1)
         #expect(customs.first?.nameEn == "My Move")
         #expect(customs.first?.presetId == nil)
+    }
+
+    // MARK: - v1 → v2 backfill (defaultWeight)
+
+    @Test("Seeds new exercises with defaultWeight from JSON on fresh install")
+    func seedsWithDefaultWeightOnFreshInstall() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let catalog = makeCatalogData(version: "2", exercises: [
+            makeExerciseJSON(
+                id: "bench",
+                nameEn: "Bench Press",
+                defaultWeightLow: 80,
+                defaultWeightMid: 60,
+                defaultWeightHigh: 40
+            ),
+            makeExerciseJSON(
+                id: "plank",
+                nameEn: "Plank",
+                muscleGroup: "core",
+                equipment: "bodyweight"
+            ),
+        ])
+
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalog)
+
+        let all = try context.fetch(FetchDescriptor<Exercise>())
+        #expect(all.count == 2)
+
+        let bench = try #require(all.first { $0.presetId == "bench" })
+        #expect(bench.defaultWeightLow == 80)
+        #expect(bench.defaultWeightMid == 60)
+        #expect(bench.defaultWeightHigh == 40)
+
+        let plank = try #require(all.first { $0.presetId == "plank" })
+        #expect(plank.defaultWeightLow == nil)
+        #expect(plank.defaultWeightMid == nil)
+        #expect(plank.defaultWeightHigh == nil)
+    }
+
+    @Test("v1 → v2 upgrade backfills defaultWeight on existing presets")
+    func backfillsDefaultsOnV2Upgrade() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        // v1: no defaultWeight fields → presets stored with nil
+        let catalogV1 = makeCatalogData(version: "1", exercises: [
+            makeExerciseJSON(id: "bench", nameEn: "Bench Press"),
+            makeExerciseJSON(id: "plank", nameEn: "Plank",
+                             muscleGroup: "core", equipment: "bodyweight"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV1)
+
+        let benchV1 = try #require(
+            try context.fetch(FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.presetId == "bench" }
+            )).first
+        )
+        #expect(benchV1.defaultWeightLow == nil)
+
+        // v2: same presets now carry weights → backfill should populate them
+        let catalogV2 = makeCatalogData(version: "2", exercises: [
+            makeExerciseJSON(
+                id: "bench",
+                nameEn: "Bench Press",
+                defaultWeightLow: 80,
+                defaultWeightMid: 60,
+                defaultWeightHigh: 40
+            ),
+            makeExerciseJSON(id: "plank", nameEn: "Plank",
+                             muscleGroup: "core", equipment: "bodyweight"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV2)
+
+        let benchV2 = try #require(
+            try context.fetch(FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.presetId == "bench" }
+            )).first
+        )
+        #expect(benchV2.defaultWeightLow == 80)
+        #expect(benchV2.defaultWeightMid == 60)
+        #expect(benchV2.defaultWeightHigh == 40)
+
+        // Plank preset stays nil (core / bodyweight — no baseline)
+        let plankV2 = try #require(
+            try context.fetch(FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.presetId == "plank" }
+            )).first
+        )
+        #expect(plankV2.defaultWeightLow == nil)
+
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == "2")
+    }
+
+    @Test("v1 → v2 backfill does not overwrite user-modified weight values")
+    func backfillDoesNotOverwriteUserValues() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let catalogV1 = makeCatalogData(version: "1", exercises: [
+            makeExerciseJSON(id: "bench", nameEn: "Bench Press"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV1)
+
+        let bench = try #require(
+            try context.fetch(FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.presetId == "bench" }
+            )).first
+        )
+        // Simulate user overriding the low bucket only
+        bench.defaultWeightLow = 100
+        try context.save()
+
+        let catalogV2 = makeCatalogData(version: "2", exercises: [
+            makeExerciseJSON(
+                id: "bench",
+                nameEn: "Bench Press",
+                defaultWeightLow: 80,
+                defaultWeightMid: 60,
+                defaultWeightHigh: 40
+            ),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV2)
+
+        let benchAfter = try #require(
+            try context.fetch(FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.presetId == "bench" }
+            )).first
+        )
+        // User's Low value preserved; nil Mid/High filled from DTO
+        #expect(benchAfter.defaultWeightLow == 100)
+        #expect(benchAfter.defaultWeightMid == 60)
+        #expect(benchAfter.defaultWeightHigh == 40)
+    }
+
+    @Test("Backfill leaves isCustom exercises alone")
+    func backfillIgnoresCustomExercises() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let custom = Exercise(
+            nameEn: "My Move",
+            nameZh: "自定义",
+            muscleGroup: .chest,
+            equipment: .barbell,
+            isCustom: true
+        )
+        context.insert(custom)
+        try context.save()
+
+        let catalogV2 = makeCatalogData(version: "2", exercises: [
+            makeExerciseJSON(
+                id: "bench",
+                nameEn: "Bench Press",
+                defaultWeightLow: 80,
+                defaultWeightMid: 60,
+                defaultWeightHigh: 40
+            ),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV2)
+
+        let customs = try context.fetch(FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.isCustom == true }
+        ))
+        #expect(customs.count == 1)
+        #expect(customs.first?.defaultWeightLow == nil)
+        #expect(customs.first?.defaultWeightMid == nil)
+        #expect(customs.first?.defaultWeightHigh == nil)
     }
 }

@@ -12,6 +12,13 @@ public final class Exercise {
     public var isCustom: Bool = false
     public var presetId: String?
 
+    public var defaultWeightLow: Double?
+    public var defaultWeightMid: Double?
+    public var defaultWeightHigh: Double?
+    public var defaultRepsLow: Int = 5
+    public var defaultRepsMid: Int = 10
+    public var defaultRepsHigh: Int = 15
+
     @Relationship(inverse: \WorkoutExercise.exercise)
     public var workoutExercises: [WorkoutExercise]?
 
@@ -31,7 +38,13 @@ public final class Exercise {
         primaryMuscles: [String] = [],
         secondaryMuscles: [String] = [],
         isCustom: Bool = false,
-        presetId: String? = nil
+        presetId: String? = nil,
+        defaultWeightLow: Double? = nil,
+        defaultWeightMid: Double? = nil,
+        defaultWeightHigh: Double? = nil,
+        defaultRepsLow: Int = 5,
+        defaultRepsMid: Int = 10,
+        defaultRepsHigh: Int = 15
     ) {
         self.nameEn = nameEn
         self.nameZh = nameZh
@@ -41,5 +54,11 @@ public final class Exercise {
         self.secondaryMuscles = secondaryMuscles
         self.isCustom = isCustom
         self.presetId = presetId
+        self.defaultWeightLow = defaultWeightLow
+        self.defaultWeightMid = defaultWeightMid
+        self.defaultWeightHigh = defaultWeightHigh
+        self.defaultRepsLow = defaultRepsLow
+        self.defaultRepsMid = defaultRepsMid
+        self.defaultRepsHigh = defaultRepsHigh
     }
 }

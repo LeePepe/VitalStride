@@ -1,5 +1,5 @@
 {
-  "version": "1",
+  "version": "2",
   "exercises": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440001",
@@ -13,7 +13,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440002",
@@ -27,7 +30,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440003",
@@ -41,7 +47,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440004",
@@ -55,7 +64,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440005",
@@ -69,7 +81,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440006",
@@ -82,7 +97,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440007",
@@ -95,7 +113,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440008",
@@ -109,7 +130,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440009",
@@ -123,7 +147,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440010",
@@ -136,7 +163,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440011",
@@ -151,7 +181,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440012",
@@ -165,7 +198,10 @@
       "secondaryMuscles": [
         "biceps",
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 32.0,
+      "defaultWeightMid": 24.0,
+      "defaultWeightHigh": 16.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440013",
@@ -179,7 +215,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440014",
@@ -194,7 +233,10 @@
       "secondaryMuscles": [
         "rear deltoid",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440015",
@@ -208,7 +250,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440016",
@@ -223,7 +268,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440017",
@@ -238,7 +286,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440018",
@@ -252,7 +303,10 @@
       "secondaryMuscles": [
         "biceps",
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 55.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440019",
@@ -266,7 +320,10 @@
       "secondaryMuscles": [
         "pectoralis major",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 32.0,
+      "defaultWeightMid": 24.0,
+      "defaultWeightHigh": 16.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440020",
@@ -280,7 +337,10 @@
       "secondaryMuscles": [
         "triceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440021",
@@ -295,7 +355,10 @@
       "secondaryMuscles": [
         "triceps",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 50.0,
+      "defaultWeightMid": 40.0,
+      "defaultWeightHigh": 25.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440022",
@@ -310,7 +373,10 @@
       "secondaryMuscles": [
         "triceps",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 18.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 9.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440023",
@@ -324,7 +390,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 18.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 9.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440024",
@@ -338,7 +407,10 @@
       "secondaryMuscles": [
         "lateral deltoid",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 18.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 9.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440025",
@@ -352,7 +424,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 15.0,
+      "defaultWeightMid": 11.0,
+      "defaultWeightHigh": 7.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440026",
@@ -367,7 +442,10 @@
       "secondaryMuscles": [
         "upper trapezius",
         "infraspinatus"
-      ]
+      ],
+      "defaultWeightLow": 15.0,
+      "defaultWeightMid": 11.0,
+      "defaultWeightHigh": 7.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440027",
@@ -382,7 +460,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "biceps"
-      ]
+      ],
+      "defaultWeightLow": 50.0,
+      "defaultWeightMid": 40.0,
+      "defaultWeightHigh": 25.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440028",
@@ -397,7 +478,10 @@
       "secondaryMuscles": [
         "triceps",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 50.0,
+      "defaultWeightMid": 40.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440029",
@@ -411,7 +495,10 @@
       "secondaryMuscles": [
         "rhomboids",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 50.0,
+      "defaultWeightMid": 40.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440030",
@@ -426,7 +513,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 120.0,
+      "defaultWeightMid": 90.0,
+      "defaultWeightHigh": 60.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440031",
@@ -440,7 +530,10 @@
       "secondaryMuscles": [
         "glutes",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 120.0,
+      "defaultWeightMid": 90.0,
+      "defaultWeightHigh": 60.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440032",
@@ -455,7 +548,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "calves"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440033",
@@ -470,7 +566,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "calves"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440034",
@@ -483,7 +582,10 @@
       ],
       "secondaryMuscles": [
         "hip flexors"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440035",
@@ -497,7 +599,10 @@
       "secondaryMuscles": [
         "calves",
         "glutes"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440036",
@@ -512,7 +617,10 @@
       "secondaryMuscles": [
         "erector spinae",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 120.0,
+      "defaultWeightMid": 90.0,
+      "defaultWeightHigh": 60.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440037",
@@ -527,7 +635,10 @@
       "secondaryMuscles": [
         "erector spinae",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440038",
@@ -542,7 +653,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "calves"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440039",
@@ -555,7 +669,10 @@
       ],
       "secondaryMuscles": [
         "tibialis anterior"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440040",
@@ -570,7 +687,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440041",
@@ -584,7 +704,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "quadriceps"
-      ]
+      ],
+      "defaultWeightLow": 120.0,
+      "defaultWeightMid": 90.0,
+      "defaultWeightHigh": 60.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440042",
@@ -598,7 +721,10 @@
       ],
       "secondaryMuscles": [
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440043",
@@ -612,7 +738,10 @@
       "secondaryMuscles": [
         "brachialis",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440044",
@@ -626,7 +755,10 @@
       "secondaryMuscles": [
         "brachialis",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 16.0,
+      "defaultWeightMid": 12.0,
+      "defaultWeightHigh": 8.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440045",
@@ -640,7 +772,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 16.0,
+      "defaultWeightMid": 12.0,
+      "defaultWeightHigh": 8.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440046",
@@ -654,7 +789,10 @@
       "secondaryMuscles": [
         "brachialis",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440047",
@@ -668,7 +806,10 @@
       "secondaryMuscles": [
         "pectoralis major",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440048",
@@ -681,7 +822,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440049",
@@ -694,7 +838,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 16.0,
+      "defaultWeightMid": 12.0,
+      "defaultWeightHigh": 8.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440050",
@@ -708,7 +855,10 @@
       "secondaryMuscles": [
         "pectoralis major",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440051",
@@ -722,7 +872,10 @@
       "secondaryMuscles": [
         "brachialis",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440052",
@@ -737,7 +890,10 @@
       "secondaryMuscles": [
         "obliques",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440053",
@@ -750,7 +906,10 @@
       ],
       "secondaryMuscles": [
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440054",
@@ -763,7 +922,10 @@
       ],
       "secondaryMuscles": [
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440055",
@@ -777,7 +939,10 @@
       ],
       "secondaryMuscles": [
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440056",
@@ -791,7 +956,10 @@
       "secondaryMuscles": [
         "rectus abdominis",
         "hip flexors"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440057",
@@ -805,7 +973,10 @@
       "secondaryMuscles": [
         "obliques",
         "latissimus dorsi"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440058",
@@ -819,7 +990,10 @@
       "secondaryMuscles": [
         "rectus abdominis",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440059",
@@ -836,7 +1010,10 @@
         "quadriceps",
         "trapezius",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440060",
@@ -853,7 +1030,10 @@
         "quadriceps",
         "erector spinae",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440061",
@@ -869,7 +1049,10 @@
         "glutes",
         "triceps",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440062",
@@ -885,7 +1068,10 @@
         "anterior deltoid",
         "triceps",
         "glutes"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440063",
@@ -902,7 +1088,10 @@
         "triceps",
         "glutes",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440064",
@@ -915,7 +1104,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440065",
@@ -929,7 +1121,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440066",
@@ -942,7 +1137,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440067",
@@ -957,7 +1155,10 @@
       "secondaryMuscles": [
         "triceps",
         "serratus anterior"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440068",
@@ -972,7 +1173,10 @@
       "secondaryMuscles": [
         "biceps",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440069",
@@ -987,7 +1191,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440070",
@@ -1002,7 +1209,10 @@
         "biceps",
         "rear deltoid",
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440071",
@@ -1017,7 +1227,10 @@
         "biceps",
         "rear deltoid",
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440072",
@@ -1032,7 +1245,10 @@
       "secondaryMuscles": [
         "triceps",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 18.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 9.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440073",
@@ -1046,7 +1262,10 @@
       "secondaryMuscles": [
         "lateral deltoid",
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 50.0,
+      "defaultWeightMid": 40.0,
+      "defaultWeightHigh": 25.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440074",
@@ -1060,7 +1279,10 @@
       "secondaryMuscles": [
         "lateral deltoid",
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 18.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 9.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440075",
@@ -1074,7 +1296,10 @@
       "secondaryMuscles": [
         "rhomboids",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 15.0,
+      "defaultWeightMid": 11.0,
+      "defaultWeightHigh": 7.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440076",
@@ -1088,7 +1313,10 @@
       ],
       "secondaryMuscles": [
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 18.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 9.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440077",
@@ -1102,7 +1330,10 @@
       "secondaryMuscles": [
         "calves",
         "glutes"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440078",
@@ -1117,7 +1348,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "calves"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440079",
@@ -1132,7 +1366,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "calves"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440080",
@@ -1148,7 +1385,10 @@
       "secondaryMuscles": [
         "erector spinae",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 120.0,
+      "defaultWeightMid": 90.0,
+      "defaultWeightHigh": 60.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440081",
@@ -1162,7 +1402,10 @@
       "secondaryMuscles": [
         "brachialis",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 16.0,
+      "defaultWeightMid": 12.0,
+      "defaultWeightHigh": 8.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440082",
@@ -1176,7 +1419,10 @@
       "secondaryMuscles": [
         "brachialis",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440083",
@@ -1189,7 +1435,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440084",
@@ -1202,7 +1451,10 @@
       ],
       "secondaryMuscles": [
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 16.0,
+      "defaultWeightMid": 12.0,
+      "defaultWeightHigh": 8.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440085",
@@ -1216,7 +1468,10 @@
       ],
       "secondaryMuscles": [
         "biceps"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440086",
@@ -1229,7 +1484,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440087",
@@ -1244,7 +1502,10 @@
       "secondaryMuscles": [
         "rectus abdominis",
         "glutes"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440088",
@@ -1258,7 +1519,10 @@
       ],
       "secondaryMuscles": [
         "hip flexors"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440089",
@@ -1273,7 +1537,10 @@
       "secondaryMuscles": [
         "hip flexors",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440090",
@@ -1287,7 +1554,10 @@
       "secondaryMuscles": [
         "transverse abdominis",
         "glutes"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440091",
@@ -1301,7 +1571,10 @@
       "secondaryMuscles": [
         "obliques",
         "hip flexors"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440092",
@@ -1316,7 +1589,10 @@
       "secondaryMuscles": [
         "obliques",
         "quadriceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440093",
@@ -1333,7 +1609,10 @@
         "quadriceps",
         "erector spinae",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440094",
@@ -1350,7 +1629,10 @@
         "triceps",
         "erector spinae",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440095",
@@ -1367,7 +1649,10 @@
         "obliques",
         "triceps",
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440096",
@@ -1384,7 +1669,10 @@
         "quadriceps",
         "triceps",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440097",
@@ -1400,7 +1688,10 @@
         "erector spinae",
         "obliques",
         "quadriceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440098",
@@ -1417,7 +1708,10 @@
         "quadriceps",
         "trapezius",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440099",
@@ -1433,7 +1727,10 @@
         "rectus abdominis",
         "triceps",
         "glutes"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440100",
@@ -1450,7 +1747,10 @@
         "erector spinae",
         "upper trapezius",
         "rectus abdominis"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440101",
@@ -1464,7 +1764,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440102",
@@ -1478,7 +1781,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440103",
@@ -1492,7 +1798,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440104",
@@ -1506,7 +1815,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440105",
@@ -1520,7 +1832,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440106",
@@ -1534,7 +1849,10 @@
       ],
       "secondaryMuscles": [
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440107",
@@ -1548,7 +1866,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440108",
@@ -1562,7 +1883,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440109",
@@ -1576,7 +1900,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440110",
@@ -1590,7 +1917,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440111",
@@ -1603,7 +1933,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440112",
@@ -1617,7 +1950,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440113",
@@ -1631,7 +1967,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440114",
@@ -1645,7 +1984,10 @@
       "secondaryMuscles": [
         "triceps",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440115",
@@ -1659,7 +2001,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440116",
@@ -1672,7 +2017,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440117",
@@ -1685,7 +2033,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440118",
@@ -1698,7 +2049,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440119",
@@ -1712,7 +2066,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440120",
@@ -1726,7 +2083,10 @@
       "secondaryMuscles": [
         "triceps",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440121",
@@ -1739,7 +2099,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440122",
@@ -1753,7 +2116,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440123",
@@ -1767,7 +2133,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440124",
@@ -1780,7 +2149,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440125",
@@ -1794,7 +2166,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440126",
@@ -1808,7 +2183,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440127",
@@ -1822,7 +2200,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440128",
@@ -1836,7 +2217,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440129",
@@ -1851,7 +2235,10 @@
       "secondaryMuscles": [
         "biceps",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440130",
@@ -1865,7 +2252,10 @@
       "secondaryMuscles": [
         "biceps",
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440131",
@@ -1879,7 +2269,10 @@
       ],
       "secondaryMuscles": [
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440132",
@@ -1893,7 +2286,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440133",
@@ -1907,7 +2303,10 @@
       ],
       "secondaryMuscles": [
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440134",
@@ -1921,7 +2320,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 55.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440135",
@@ -1935,7 +2337,10 @@
       ],
       "secondaryMuscles": [
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 55.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440136",
@@ -1949,7 +2354,10 @@
       ],
       "secondaryMuscles": [
         "biceps"
-      ]
+      ],
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 55.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440137",
@@ -1963,7 +2371,10 @@
       ],
       "secondaryMuscles": [
         "biceps"
-      ]
+      ],
+      "defaultWeightLow": 32.0,
+      "defaultWeightMid": 24.0,
+      "defaultWeightHigh": 16.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440138",
@@ -1978,7 +2389,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440139",
@@ -1992,7 +2406,10 @@
       ],
       "secondaryMuscles": [
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440140",
@@ -2006,7 +2423,10 @@
       ],
       "secondaryMuscles": [
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 32.0,
+      "defaultWeightMid": 24.0,
+      "defaultWeightHigh": 16.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440141",
@@ -2019,7 +2439,10 @@
       ],
       "secondaryMuscles": [
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440142",
@@ -2034,7 +2457,10 @@
       "secondaryMuscles": [
         "glutes",
         "latissimus dorsi"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440143",
@@ -2048,7 +2474,10 @@
       ],
       "secondaryMuscles": [
         "biceps"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440144",
@@ -2062,7 +2491,10 @@
       "secondaryMuscles": [
         "core",
         "biceps"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440145",
@@ -2076,7 +2508,10 @@
       ],
       "secondaryMuscles": [
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 32.0,
+      "defaultWeightMid": 24.0,
+      "defaultWeightHigh": 16.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440146",
@@ -2090,7 +2525,10 @@
       ],
       "secondaryMuscles": [
         "lower trapezius"
-      ]
+      ],
+      "defaultWeightLow": 32.0,
+      "defaultWeightMid": 24.0,
+      "defaultWeightHigh": 16.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440147",
@@ -2104,7 +2542,10 @@
       "secondaryMuscles": [
         "biceps",
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440148",
@@ -2118,7 +2559,10 @@
       ],
       "secondaryMuscles": [
         "latissimus dorsi"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440149",
@@ -2132,7 +2576,10 @@
       ],
       "secondaryMuscles": [
         "biceps"
-      ]
+      ],
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 55.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440150",
@@ -2146,7 +2593,10 @@
       "secondaryMuscles": [
         "glutes",
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440151",
@@ -2160,7 +2610,10 @@
       "secondaryMuscles": [
         "glutes",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440152",
@@ -2174,7 +2627,10 @@
       "secondaryMuscles": [
         "biceps",
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 32.0,
+      "defaultWeightMid": 24.0,
+      "defaultWeightHigh": 16.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440153",
@@ -2188,7 +2644,10 @@
       ],
       "secondaryMuscles": [
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440154",
@@ -2203,7 +2662,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440155",
@@ -2217,7 +2679,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440156",
@@ -2231,7 +2696,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440157",
@@ -2245,7 +2713,10 @@
       "secondaryMuscles": [
         "rhomboids",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 18.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 9.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440158",
@@ -2259,7 +2730,10 @@
       ],
       "secondaryMuscles": [
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 50.0,
+      "defaultWeightMid": 40.0,
+      "defaultWeightHigh": 25.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440159",
@@ -2273,7 +2747,10 @@
       ],
       "secondaryMuscles": [
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 50.0,
+      "defaultWeightMid": 40.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440160",
@@ -2286,7 +2763,10 @@
       ],
       "secondaryMuscles": [
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 50.0,
+      "defaultWeightMid": 40.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440161",
@@ -2299,7 +2779,10 @@
       ],
       "secondaryMuscles": [
         "lateral deltoid"
-      ]
+      ],
+      "defaultWeightLow": 15.0,
+      "defaultWeightMid": 11.0,
+      "defaultWeightHigh": 7.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440162",
@@ -2313,7 +2796,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 15.0,
+      "defaultWeightMid": 11.0,
+      "defaultWeightHigh": 7.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440163",
@@ -2328,7 +2814,10 @@
       "secondaryMuscles": [
         "triceps",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 18.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 9.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440164",
@@ -2343,7 +2832,10 @@
       "secondaryMuscles": [
         "triceps",
         "core"
-      ]
+      ],
+      "defaultWeightLow": 50.0,
+      "defaultWeightMid": 40.0,
+      "defaultWeightHigh": 25.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440165",
@@ -2357,7 +2849,10 @@
       "secondaryMuscles": [
         "lateral deltoid",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 50.0,
+      "defaultWeightMid": 40.0,
+      "defaultWeightHigh": 25.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440166",
@@ -2372,7 +2867,10 @@
       "secondaryMuscles": [
         "triceps",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440167",
@@ -2387,7 +2885,10 @@
       "secondaryMuscles": [
         "upper trapezius",
         "core"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440168",
@@ -2401,7 +2902,10 @@
       "secondaryMuscles": [
         "forearms",
         "core"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440169",
@@ -2415,7 +2919,10 @@
       ],
       "secondaryMuscles": [
         "biceps"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440170",
@@ -2428,7 +2935,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440171",
@@ -2441,7 +2951,10 @@
       ],
       "secondaryMuscles": [
         "rhomboids"
-      ]
+      ],
+      "defaultWeightLow": 18.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 9.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440172",
@@ -2455,7 +2968,10 @@
       ],
       "secondaryMuscles": [
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 18.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 9.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440173",
@@ -2469,7 +2985,10 @@
       "secondaryMuscles": [
         "lateral deltoid",
         "core"
-      ]
+      ],
+      "defaultWeightLow": 18.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 9.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440174",
@@ -2483,7 +3002,10 @@
       ],
       "secondaryMuscles": [
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 15.0,
+      "defaultWeightMid": 11.0,
+      "defaultWeightHigh": 7.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440175",
@@ -2497,7 +3019,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 18.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 9.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440176",
@@ -2512,7 +3037,10 @@
       "secondaryMuscles": [
         "triceps",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440177",
@@ -2526,7 +3054,10 @@
       "secondaryMuscles": [
         "rhomboids",
         "upper trapezius"
-      ]
+      ],
+      "defaultWeightLow": 50.0,
+      "defaultWeightMid": 40.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440178",
@@ -2540,7 +3071,10 @@
       ],
       "secondaryMuscles": [
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 50.0,
+      "defaultWeightMid": 40.0,
+      "defaultWeightHigh": 25.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440179",
@@ -2555,7 +3089,10 @@
       "secondaryMuscles": [
         "core",
         "biceps"
-      ]
+      ],
+      "defaultWeightLow": 120.0,
+      "defaultWeightMid": 90.0,
+      "defaultWeightHigh": 60.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440180",
@@ -2570,7 +3107,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 120.0,
+      "defaultWeightMid": 90.0,
+      "defaultWeightHigh": 60.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440181",
@@ -2584,7 +3124,10 @@
       ],
       "secondaryMuscles": [
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 120.0,
+      "defaultWeightMid": 90.0,
+      "defaultWeightHigh": 60.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440182",
@@ -2598,7 +3141,10 @@
       ],
       "secondaryMuscles": [
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": 120.0,
+      "defaultWeightMid": 90.0,
+      "defaultWeightHigh": 60.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440183",
@@ -2612,7 +3158,10 @@
       ],
       "secondaryMuscles": [
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440184",
@@ -2626,7 +3175,10 @@
       ],
       "secondaryMuscles": [
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440185",
@@ -2640,7 +3192,10 @@
       ],
       "secondaryMuscles": [
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440186",
@@ -2653,7 +3208,10 @@
       ],
       "secondaryMuscles": [
         "glutes"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440187",
@@ -2666,7 +3224,10 @@
       ],
       "secondaryMuscles": [
         "hip flexors"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440188",
@@ -2681,7 +3242,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "core"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440189",
@@ -2695,7 +3259,10 @@
       ],
       "secondaryMuscles": [
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440190",
@@ -2709,7 +3276,10 @@
       ],
       "secondaryMuscles": [
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440191",
@@ -2723,7 +3293,10 @@
       ],
       "secondaryMuscles": [
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440192",
@@ -2737,7 +3310,10 @@
       ],
       "secondaryMuscles": [
         "glutes"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.5,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440193",
@@ -2750,7 +3326,10 @@
       ],
       "secondaryMuscles": [
         "hip flexors"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440194",
@@ -2763,7 +3342,10 @@
       ],
       "secondaryMuscles": [
         "hip flexors"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440195",
@@ -2776,7 +3358,10 @@
       ],
       "secondaryMuscles": [
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440196",
@@ -2790,7 +3375,10 @@
       "secondaryMuscles": [
         "glutes",
         "calves"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440197",
@@ -2804,7 +3392,10 @@
       ],
       "secondaryMuscles": [
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440198",
@@ -2818,7 +3409,10 @@
       ],
       "secondaryMuscles": [
         "glutes"
-      ]
+      ],
+      "defaultWeightLow": 120.0,
+      "defaultWeightMid": 90.0,
+      "defaultWeightHigh": 60.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440199",
@@ -2831,7 +3425,10 @@
       ],
       "secondaryMuscles": [
         "tibialis anterior"
-      ]
+      ],
+      "defaultWeightLow": 120.0,
+      "defaultWeightMid": 90.0,
+      "defaultWeightHigh": 60.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440200",
@@ -2844,7 +3441,10 @@
       ],
       "secondaryMuscles": [
         "tibialis anterior"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440201",
@@ -2857,7 +3457,10 @@
       ],
       "secondaryMuscles": [
         "tibialis anterior"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440202",
@@ -2870,7 +3473,10 @@
       ],
       "secondaryMuscles": [
         "tibialis anterior"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440203",
@@ -2885,7 +3491,10 @@
       "secondaryMuscles": [
         "erector spinae",
         "core"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440204",
@@ -2899,7 +3508,10 @@
       ],
       "secondaryMuscles": [
         "core"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440205",
@@ -2913,7 +3525,10 @@
       ],
       "secondaryMuscles": [
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440206",
@@ -2927,7 +3542,10 @@
       ],
       "secondaryMuscles": [
         "core"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440207",
@@ -2941,7 +3559,10 @@
       ],
       "secondaryMuscles": [
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440208",
@@ -2956,7 +3577,10 @@
       "secondaryMuscles": [
         "core",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440209",
@@ -2971,7 +3595,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440210",
@@ -2984,7 +3611,10 @@
       ],
       "secondaryMuscles": [
         "hip flexors"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440211",
@@ -2997,7 +3627,10 @@
       ],
       "secondaryMuscles": [
         "gluteus minimus"
-      ]
+      ],
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440212",
@@ -3011,7 +3644,10 @@
       "secondaryMuscles": [
         "glutes",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": 120.0,
+      "defaultWeightMid": 90.0,
+      "defaultWeightHigh": 60.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440213",
@@ -3024,7 +3660,10 @@
       ],
       "secondaryMuscles": [
         "glutes"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440214",
@@ -3037,7 +3676,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 16.0,
+      "defaultWeightMid": 12.0,
+      "defaultWeightHigh": 8.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440215",
@@ -3050,7 +3692,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 16.0,
+      "defaultWeightMid": 12.0,
+      "defaultWeightHigh": 8.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440216",
@@ -3064,7 +3709,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440217",
@@ -3077,7 +3725,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440218",
@@ -3090,7 +3741,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440219",
@@ -3104,7 +3758,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 16.0,
+      "defaultWeightMid": 12.0,
+      "defaultWeightHigh": 8.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440220",
@@ -3118,7 +3775,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 16.0,
+      "defaultWeightMid": 12.0,
+      "defaultWeightHigh": 8.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440221",
@@ -3131,7 +3791,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440222",
@@ -3144,7 +3807,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440223",
@@ -3157,7 +3823,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440224",
@@ -3170,7 +3839,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440225",
@@ -3184,7 +3856,10 @@
       "secondaryMuscles": [
         "pectoralis major",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440226",
@@ -3198,7 +3873,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "pectoralis major"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440227",
@@ -3211,7 +3889,10 @@
       ],
       "secondaryMuscles": [
         "pectoralis major"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440228",
@@ -3224,7 +3905,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440229",
@@ -3237,7 +3921,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440230",
@@ -3250,7 +3937,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440231",
@@ -3263,7 +3953,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440232",
@@ -3276,7 +3969,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 16.0,
+      "defaultWeightMid": 12.0,
+      "defaultWeightHigh": 8.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440233",
@@ -3289,7 +3985,10 @@
       ],
       "secondaryMuscles": [
         "pectoralis major"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440234",
@@ -3302,7 +4001,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440235",
@@ -3315,7 +4017,10 @@
       ],
       "secondaryMuscles": [
         "biceps"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440236",
@@ -3328,7 +4033,10 @@
       ],
       "secondaryMuscles": [
         "brachioradialis"
-      ]
+      ],
+      "defaultWeightLow": 35.0,
+      "defaultWeightMid": 25.0,
+      "defaultWeightHigh": 18.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440237",
@@ -3341,7 +4049,10 @@
       ],
       "secondaryMuscles": [
         "biceps"
-      ]
+      ],
+      "defaultWeightLow": 16.0,
+      "defaultWeightMid": 12.0,
+      "defaultWeightHigh": 8.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440238",
@@ -3354,7 +4065,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440239",
@@ -3367,7 +4081,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 20.0,
+      "defaultWeightMid": 14.0,
+      "defaultWeightHigh": 10.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440240",
@@ -3380,7 +4097,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440241",
@@ -3393,7 +4113,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 25.0,
+      "defaultWeightMid": 18.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440242",
@@ -3407,7 +4130,10 @@
       ],
       "secondaryMuscles": [
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440243",
@@ -3421,7 +4147,10 @@
       "secondaryMuscles": [
         "hip flexors",
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440244",
@@ -3435,7 +4164,10 @@
       "secondaryMuscles": [
         "hip flexors",
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440245",
@@ -3449,7 +4181,10 @@
       ],
       "secondaryMuscles": [
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440246",
@@ -3462,7 +4197,10 @@
       ],
       "secondaryMuscles": [
         "hip flexors"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440247",
@@ -3476,7 +4214,10 @@
       ],
       "secondaryMuscles": [
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440248",
@@ -3490,7 +4231,10 @@
       ],
       "secondaryMuscles": [
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440249",
@@ -3504,7 +4248,10 @@
       "secondaryMuscles": [
         "hip flexors",
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440250",
@@ -3517,7 +4264,10 @@
       ],
       "secondaryMuscles": [
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440251",
@@ -3531,7 +4281,10 @@
       ],
       "secondaryMuscles": [
         "rectus abdominis"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440252",
@@ -3544,7 +4297,10 @@
       ],
       "secondaryMuscles": [
         "rectus abdominis"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440253",
@@ -3558,7 +4314,10 @@
       "secondaryMuscles": [
         "obliques",
         "erector spinae"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440254",
@@ -3571,7 +4330,10 @@
       ],
       "secondaryMuscles": [
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440255",
@@ -3585,7 +4347,10 @@
       "secondaryMuscles": [
         "obliques",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440256",
@@ -3599,7 +4364,10 @@
       ],
       "secondaryMuscles": [
         "transverse abdominis"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440257",
@@ -3613,7 +4381,10 @@
       "secondaryMuscles": [
         "forearms",
         "core"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440258",
@@ -3628,7 +4399,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "glutes"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440259",
@@ -3642,7 +4416,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440260",
@@ -3657,7 +4434,10 @@
       "secondaryMuscles": [
         "forearms",
         "hip flexors"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440261",
@@ -3671,7 +4451,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440262",
@@ -3685,7 +4468,10 @@
       ],
       "secondaryMuscles": [
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440263",
@@ -3698,7 +4484,10 @@
       ],
       "secondaryMuscles": [
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440264",
@@ -3712,7 +4501,10 @@
       "secondaryMuscles": [
         "rectus abdominis",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440265",
@@ -3726,7 +4518,10 @@
       ],
       "secondaryMuscles": [
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440266",
@@ -3739,7 +4534,10 @@
       ],
       "secondaryMuscles": [
         "transverse abdominis"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440267",
@@ -3754,7 +4552,10 @@
       "secondaryMuscles": [
         "forearms",
         "core"
-      ]
+      ],
+      "defaultWeightLow": 24.0,
+      "defaultWeightMid": 16.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440268",
@@ -3769,7 +4570,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "core"
-      ]
+      ],
+      "defaultWeightLow": 24.0,
+      "defaultWeightMid": 16.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440269",
@@ -3784,7 +4588,10 @@
       "secondaryMuscles": [
         "core",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 24.0,
+      "defaultWeightMid": 16.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440270",
@@ -3799,7 +4606,10 @@
       "secondaryMuscles": [
         "glutes",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 24.0,
+      "defaultWeightMid": 16.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440271",
@@ -3814,7 +4624,10 @@
       "secondaryMuscles": [
         "glutes",
         "quadriceps"
-      ]
+      ],
+      "defaultWeightLow": 24.0,
+      "defaultWeightMid": 16.0,
+      "defaultWeightHigh": 12.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440272",
@@ -3829,7 +4642,10 @@
       "secondaryMuscles": [
         "upper trapezius",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440273",
@@ -3844,7 +4660,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440274",
@@ -3859,7 +4678,10 @@
       "secondaryMuscles": [
         "upper trapezius",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440275",
@@ -3874,7 +4696,10 @@
       "secondaryMuscles": [
         "biceps",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440276",
@@ -3889,7 +4714,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440277",
@@ -3904,7 +4732,10 @@
       "secondaryMuscles": [
         "glutes",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440278",
@@ -3919,7 +4750,10 @@
       "secondaryMuscles": [
         "core",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440279",
@@ -3934,7 +4768,10 @@
       "secondaryMuscles": [
         "glutes",
         "latissimus dorsi"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440280",
@@ -3949,7 +4786,10 @@
       "secondaryMuscles": [
         "latissimus dorsi",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440281",
@@ -3963,7 +4803,10 @@
       ],
       "secondaryMuscles": [
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440282",
@@ -3978,7 +4821,10 @@
       "secondaryMuscles": [
         "forearms",
         "obliques"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440283",
@@ -3993,7 +4839,10 @@
       "secondaryMuscles": [
         "calves",
         "core"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440284",
@@ -4008,7 +4857,10 @@
       "secondaryMuscles": [
         "erector spinae",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440285",
@@ -4023,7 +4875,10 @@
       "secondaryMuscles": [
         "quadriceps",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440286",
@@ -4038,7 +4893,10 @@
       "secondaryMuscles": [
         "calves",
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440287",
@@ -4052,7 +4910,10 @@
       ],
       "secondaryMuscles": [
         "calves"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440288",
@@ -4067,7 +4928,10 @@
       "secondaryMuscles": [
         "calves",
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440289",
@@ -4082,7 +4946,10 @@
       "secondaryMuscles": [
         "glutes",
         "core"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440290",
@@ -4096,7 +4963,10 @@
       ],
       "secondaryMuscles": [
         "latissimus dorsi"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440291",
@@ -4111,7 +4981,10 @@
       "secondaryMuscles": [
         "biceps",
         "anterior deltoid"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440292",
@@ -4126,7 +4999,10 @@
       "secondaryMuscles": [
         "quadriceps",
         "forearms"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440293",
@@ -4141,7 +5017,10 @@
       "secondaryMuscles": [
         "glutes",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440294",
@@ -4156,7 +5035,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "core"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440295",
@@ -4171,7 +5053,10 @@
       "secondaryMuscles": [
         "glutes",
         "triceps"
-      ]
+      ],
+      "defaultWeightLow": 60.0,
+      "defaultWeightMid": 45.0,
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440296",
@@ -4186,7 +5071,10 @@
       "secondaryMuscles": [
         "hamstrings",
         "calves"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440297",
@@ -4201,7 +5089,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "pectoralis major"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440298",
@@ -4216,7 +5107,10 @@
       "secondaryMuscles": [
         "anterior deltoid",
         "hamstrings"
-      ]
+      ],
+      "defaultWeightLow": null,
+      "defaultWeightMid": null,
+      "defaultWeightHigh": null
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440299",
@@ -4230,7 +5124,10 @@
       ],
       "secondaryMuscles": [
         "glutes"
-      ]
+      ],
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "550e8400-e29b-41d4-a716-446655440300",
@@ -4245,7 +5142,10 @@
       "secondaryMuscles": [
         "biceps",
         "rear deltoid"
-      ]
+      ],
+      "defaultWeightLow": 80.0,
+      "defaultWeightMid": 60.0,
+      "defaultWeightHigh": 40.0
     }
   ]
 }
