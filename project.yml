@@ -177,6 +177,10 @@ targets:
         excludes:
           - "*.entitlements"
       - path: VitalStride/Resources
+        excludes:
+          # watch 自带 Resources/*.lproj/InfoPlist.strings（内容相同），
+          # 避免与共享份 copy 到同一产物路径冲突（Multiple commands produce）
+          - "**/InfoPlist.strings"
       - path: VitalStride/Sources/ExerciseSeeder.swift
     dependencies:
       - package: VitalModels
