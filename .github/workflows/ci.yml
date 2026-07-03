@@ -28,7 +28,7 @@ jobs:
       matrix:
         package: [VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
       - name: swift build
@@ -47,7 +47,7 @@ jobs:
     runs-on: macos-15
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
       - name: Install XcodeGen
@@ -84,9 +84,16 @@ jobs:
     name: Lint & policy
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+      # Secret scan (required): block hardcoded API keys / tokens / passwords.
+      # Real risk surface — Keychain + Zhipu API key handling. Test-fixture
+      # fake keys are allowlisted in .gitleaks.toml (verified: no false red).
+      - name: Install gitleaks
+        run: brew install gitleaks
+      - name: gitleaks detect (required, full history)
+        run: gitleaks detect --no-banner --config .gitleaks.toml --redact
       - name: Install SwiftLint
         run: brew install swiftlint
       # SwiftLint --strict is a REQUIRED blocking gate. The ~602 pre-existing
