@@ -32,6 +32,12 @@ opt_in_rules:
   - contains_over_first_not_nil
   - sorted_first_last
 
+disabled_rules:
+  # 纯风格,信号低,且与既有整文件 i18n 豁免(// swiftlint:disable
+  # no_hardcoded_chinese,4 处)直接冲突 —— 关掉避免 pre-push hook 误拦
+  # 未被本次改动触碰的文件。i18n 债务本身由 no_hardcoded_chinese + baseline 追踪。
+  - blanket_disable_command
+
 custom_rules:
   no_hardcoded_chinese:
     name: "No Hardcoded Chinese"
