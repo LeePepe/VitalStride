@@ -10,14 +10,33 @@ excluded:
   - Packages/*/.build
   - Packages/*/Tests
 
-only_rules:
-  - no_hardcoded_chinese
+# ─────────────────────────────────────────────────────────────────────────────
+# 规则策略:标准规则集(默认) + 高价值 opt-in + 项目特定自定义规则。
+#
+# 历史:曾用 `only_rules: [no_hardcoded_chinese]` 只开一条规则,标准规则集全关,
+# 导致 force_unwrap / 空 catch / try? save 等真实缺陷无门禁拦截(2026-07 审查发现)。
+#
+# 棘轮(ratchet):全部存量违规 grandfather 进 .swiftlint-baseline.json,CI 用
+# `--strict --baseline` 只拦【新增】违规,不因存量红。偿还存量后重生成 baseline:
+#   swiftlint lint --write-baseline .swiftlint-baseline.json
+# ─────────────────────────────────────────────────────────────────────────────
+
+opt_in_rules:
+  # 直接对准 2026-07 审查发现的缺陷类别
+  - force_unwrapping          # 危险强解包(存量 27,已 baseline)
+  - empty_count               # .count == 0 → isEmpty
+  - empty_string
+  # 集合/可选安全 & 可读性
+  - first_where
+  - last_where
+  - contains_over_first_not_nil
+  - sorted_first_last
 
 custom_rules:
   no_hardcoded_chinese:
     name: "No Hardcoded Chinese"
     message: "中文字符串应放在 Localizable.strings (用 NSLocalizedString/String(localized:) 引用 key)"
-    regex: '"[^"]*[\u4e00-\u9fff][^"]*"'
+    regex: '"[^"]*[一-鿿][^"]*"'
     match_kinds:
       - string
     severity: warning
@@ -26,3 +45,21 @@ custom_rules:
       - ".*Tests\\.swift"
       - "VitalStrideTests/.*"
       - "Packages/.*/Tests/.*"
+
+  empty_catch:
+    name: "Empty catch swallows errors"
+    message: "空 catch{} 会静默吞错;至少 logger.error(隐私红线:不记健康数值)或设置错误状态驱动 UI 降级。参考 CrashRecoveryService / fetchError 范式"
+    regex: '\}\s*catch\s*\{\s*\}'
+    severity: warning
+    excluded:
+      - ".*Tests/.*"
+      - ".*Tests\\.swift"
+
+  silent_model_save:
+    name: "Silent try? on modelContext.save"
+    message: "try? modelContext.save() 会静默吞掉持久化失败(可能丢用户训练数据);改 do/catch 记录或 rollback"
+    regex: 'try\?\s+\w*[Cc]ontext\.save\(\)'
+    severity: warning
+    excluded:
+      - ".*Tests/.*"
+      - ".*Tests\\.swift"
