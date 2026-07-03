@@ -11,32 +11,34 @@ excluded:
   - Packages/*/Tests
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 规则策略:标准规则集(默认) + 高价值 opt-in + 项目特定自定义规则。
+# 规则策略:only_rules 白名单 —— 只启用「对准真实缺陷」的高信号规则。
 #
-# 历史:曾用 `only_rules: [no_hardcoded_chinese]` 只开一条规则,标准规则集全关,
-# 导致 force_unwrap / 空 catch / try? save 等真实缺陷无门禁拦截(2026-07 审查发现)。
+# 历史:曾用 `only_rules: [no_hardcoded_chinese]` 只开一条,标准集全关,导致
+# force_unwrap / 空 catch / try? save 等真实缺陷无门禁(2026-07 审查发现)。
+# 反过来「全标准集」又引入 identifier_name(色彩/数学代码的单字母)、line_length、
+# large_tuple、trailing_comma 等风格噪音,信号低且回溯性误伤既有代码。
+# 故取中道:白名单精选,只留能对准 bug 的规则。收窄/放宽只改此列表。
 #
-# 棘轮(ratchet):全部存量违规 grandfather 进 .swiftlint-baseline.json,CI 用
-# `--strict --baseline` 只拦【新增】违规,不因存量红。偿还存量后重生成 baseline:
+# 棘轮(ratchet):存量违规 grandfather 进 .swiftlint-baseline.json,CI 用
+# `--strict --baseline` 只拦【新增】,不因存量红。偿还后重生成:
 #   swiftlint lint --write-baseline .swiftlint-baseline.json
 # ─────────────────────────────────────────────────────────────────────────────
 
-opt_in_rules:
-  # 直接对准 2026-07 审查发现的缺陷类别
-  - force_unwrapping          # 危险强解包(存量 27,已 baseline)
+only_rules:
+  # ── 对准 2026-07 审查发现的缺陷类别(内置规则)──
+  - force_unwrapping          # 危险强解包
+  - force_try                 # 危险 force try
+  - force_cast                # 危险 force cast
   - empty_count               # .count == 0 → isEmpty
   - empty_string
-  # 集合/可选安全 & 可读性
-  - first_where
+  - first_where               # 集合/可选安全 & 可读性
   - last_where
   - contains_over_first_not_nil
   - sorted_first_last
-
-disabled_rules:
-  # 纯风格,信号低,且与既有整文件 i18n 豁免(// swiftlint:disable
-  # no_hardcoded_chinese,4 处)直接冲突 —— 关掉避免 pre-push hook 误拦
-  # 未被本次改动触碰的文件。i18n 债务本身由 no_hardcoded_chinese + baseline 追踪。
-  - blanket_disable_command
+  # ── 项目特定自定义规则(见下方 custom_rules)──
+  - no_hardcoded_chinese
+  - empty_catch
+  - silent_model_save
 
 custom_rules:
   no_hardcoded_chinese:
