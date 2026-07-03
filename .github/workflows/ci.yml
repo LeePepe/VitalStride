@@ -1,11 +1,12 @@
 name: CI
 
 # Enforcement runs server-side. Two triggers:
-#   - pull_request → main: gate PRs BEFORE merge (set spm + policy as required
-#     status checks in branch protection so a red run blocks the merge).
-#   - push → main: post-merge safety net (also covers the No-PR / TL-advances-
-#     main path where FS pushes agent/* and TL advances github/main directly).
-# See AGENTS.md → Git Workflow. Audit: repo-vitalstride.md §4 (3-job CI plan).
+#   - pull_request → main: gate PRs BEFORE merge. spm + policy are set as
+#     required status checks in branch protection so a red run blocks the merge.
+#   - push → main: post-merge safety net (main only lands via merged PRs, but
+#     this re-verifies the merged result).
+# PR-required workflow: see docs/adr/0009-pr-required-workflow.md + AGENTS.md
+# → Git Workflow. Audit: repo-vitalstride.md §4 (3-job CI plan).
 on:
   push:
     branches: [main]

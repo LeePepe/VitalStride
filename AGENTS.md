@@ -11,7 +11,7 @@
 | 决定做什么 / 改需求 | `specs/000-baseline-existing-codebase/spec.md`（+ `plan.md` 看 gap） | 功能意图、验收标准、已知 gap |
 | 改全局架构 / 跨层设计 | `CONTEXT.md`（顶层，含 `canonical_roles`） | 架构决策、数据流、layer 划分、类角色顺序 |
 | 改 `Packages/<X>/**` | `Packages/<X>/CONTEXT.md`（该层 frontmatter） | 该层职责 / 依赖 / red_lines / test 命令 |
-| build / test / git 操作 | 本文件（AGENTS.md） | 命令手册、no-PR 工作流 |
+| build / test / git 操作 | 本文件（AGENTS.md） | 命令手册、PR 工作流 |
 | 架构方向冲突 | `docs/adr/` | 已落地决策；要推翻先写新 ADR |
 
 ## Layer 索引（Layer Map）
@@ -113,20 +113,23 @@ xcodegen generate
 - HealthKit 健康数值禁止出现在任何日志中（隐私合规)
 - 详见 CONTEXT.md 的架构决策
 
-## Git Workflow (no-PR)
+## Git Workflow (PR-required)
 
-**This project uses a no-PR workflow.** The public GitHub remote (`github`) is the source of truth for `main`, but agent feature branches never live there. They live in the LOCAL bare repo only. See `docs/adr/0001-no-pr-workflow.md` for full rationale.
+**This project uses a PR-required workflow.** All code reaches `main` only via a GitHub Pull
+Request that passes the required status checks and one review. `main` is branch-protected
+(6 required checks: `Lint & policy` + 5× `SPM …`; 1 review; `enforce_admins=true`). See
+`docs/adr/0009-pr-required-workflow.md` for full rationale (supersedes ADR-0001).
 
 ### Roles
 
 | Role | What they do | Where they push |
 |------|--------------|-----------------|
-| **Fullstack Engineer (FS)** | implement code + commit | LOCAL bare repo `agent/<issue-key>-<task-id-short>` |
-| **Team Lead (TL)** | rebase FS branches onto `github/main`, resolve trivial conflicts, push `main` | `github` remote (public), `main` only |
-| **AI Reviewer** | review FS commits in the bare repo | (does not push) |
+| **Fullstack Engineer (FS)** | implement code + commit + open PR | `github` remote `agent/<issue-key>-<task-id-short>`, then `gh pr create` |
+| **Team Lead (TL)** | ensure CI green + review, merge PR, resolve trivial rebase conflicts | merges via `gh pr merge` (never pushes `main` directly) |
+| **AI Reviewer** | review the PR | (approves/comments on the PR) |
 
-**约定（不再由 hook 强制）：**
-> 按 no-PR workflow，通常仍只把 `main` 推到 `github`（TL 职责）。但 pre-push hook **不再拦截**其它分支推到 public remote —— 需要时可直接推 feature 分支到 `github`。此约束已于移除 MY-key 强制的同批改动中解除。
+> `main` cannot be pushed to directly (branch protection + `pre-commit` block). The only path to
+> `main` is a merged PR whose required checks are green.
 
 ### FS workflow
 
@@ -139,7 +142,6 @@ The Multica daemon already created your worktree at `<task-dir>/workdir/`. **Do 
      | python3 -c "import sys,json; print(json.load(sys.stdin)['identifier'].lower())")
    TASK_ID_SHORT=${MULTICA_TASK_ID:0:8}
    BRANCH="agent/${ISSUE_KEY}-${TASK_ID_SHORT}"
-   BARE=$(cd "$(git rev-parse --git-common-dir)" && pwd)
    ```
 
 2. **Implement + commit** as usual on whatever branch the daemon checked out for you (it's already a fresh branch off `origin/main`).
@@ -152,75 +154,77 @@ The Multica daemon already created your worktree at `<task-dir>/workdir/`. **Do 
    git commit -m "feat: 多选 picker" -m "Implements MY-852."
    ```
 
-3. **Push your work to the LOCAL bare repo**:
+3. **Push your branch to `github` and open a PR**:
    ```bash
-   git push "$BARE" HEAD:refs/heads/$BRANCH
+   git push -u github HEAD:$BRANCH
+   gh pr create --base main --head "$BRANCH" \
+     --title "<type>: <summary> (MY-XXX)" \
+     --body "Implements MY-XXX. <what changed + test plan>"
    ```
-   The pre-push hook will run `xcodebuild test` (or `swift build/test` for SPM-only changes). If it fails, fix and retry.
+   The pre-push hook runs `xcodebuild test` (or `swift build/test` for SPM-only changes) locally
+   first. If it fails, fix and retry. CI then re-runs the required checks on the PR.
 
-4. **Comment + assign back to TL** so TL can pick it up:
+4. **Comment the PR link + assign back to TL**:
    ```bash
-   COMMIT_SHA=$(git rev-parse HEAD)
-   multica issue comment add "$ISSUE_UUID" --content "Pushed to \`$BRANCH\` (commit \`${COMMIT_SHA}\`). Ready for TL merge."
+   PR_URL=$(gh pr view "$BRANCH" --json url -q .url)
+   multica issue comment add "$ISSUE_UUID" --content "Opened PR: ${PR_URL}. Ready for review + merge."
    multica issue assign "$ISSUE_UUID" "Team Lead"
    ```
 
-**Never** `git push github` anything. **Never** `gh pr create`. The hook will block it.
+**Do** push `agent/*` to `github` and open a PR. **Never** push `main` directly — branch
+protection and the `pre-commit` hook block it.
 
 ### TL workflow (merging FS work into `main`)
 
-When you receive an issue with state `in_review` and an FS comment reporting a branch:
+When you receive an issue with state `in_review` and an FS comment reporting a PR:
 
-1. **Locate the latest FS branch** for this issue:
+1. **Locate the PR** for this issue (by branch or the URL in the FS comment):
    ```bash
-   BARE=$(cd "$(git rev-parse --git-common-dir)" && pwd)
    ISSUE_KEY=$(multica issue get "$ISSUE_UUID" --output json \
      | python3 -c "import sys,json; print(json.load(sys.stdin)['identifier'].lower())")
-   git fetch "$BARE" "+refs/heads/agent/${ISSUE_KEY}-*:refs/heads/agent/${ISSUE_KEY}-*"
-
-   # Pick the latest by committerdate
-   LATEST_BRANCH=$(git for-each-ref --sort=-committerdate \
-     --format='%(refname:short)' "refs/heads/agent/${ISSUE_KEY}-*" | head -1)
-   LATEST_SHA=$(git rev-parse "$LATEST_BRANCH")
+   PR_NUM=$(gh pr list --head "agent/${ISSUE_KEY}-"* --json number -q '.[0].number' \
+     || gh pr list --search "$ISSUE_KEY" --json number -q '.[0].number')
    ```
 
-2. **Verify against FS comment SHA** (latest comment from FS should mention the SHA). If mismatch, comment + reassign FS to clarify.
-
-3. **Sync `github/main`** and rebase the FS branch on top:
+2. **Check CI + review status**:
    ```bash
-   git fetch github main
-   git checkout "$LATEST_BRANCH"
-   git rebase github/main
+   gh pr checks "$PR_NUM"        # all required checks must be green
+   gh pr view "$PR_NUM" --json reviewDecision -q .reviewDecision   # APPROVED
    ```
+   If checks are red, diagnose (see §Pipeline Recovery) and reassign FS if it's a code problem.
 
-4. **Conflict policy (B2)**:
-   - **Trivial conflicts** (different lines, import additions, separate methods, format-only): resolve yourself, continue.
-   - **Semantic conflicts** (same line, deletion of changed code, logic-overlapping): abort the rebase, comment with the conflict details, reassign back to FS:
+3. **Rebase conflicts (B2 policy)** — if the PR is behind `main` and conflicts:
+   - **Trivial** (different lines, import additions, separate methods, format-only): resolve on
+     the branch and push the update.
+   - **Semantic** (same line, deletion of changed code, logic-overlapping): comment the conflict
+     details and reassign back to FS:
      ```bash
-     git rebase --abort
      multica issue comment add "$ISSUE_UUID" --content "Semantic conflict in <file>:<line>; needs FS rework."
      multica issue assign "$ISSUE_UUID" "Fullstack Engineer"
      ```
 
-5. **Push HEAD to `github main`**:
+4. **Merge the PR** (only after green + approved). Delete the merged branch to keep the remote clean:
    ```bash
-   git push github HEAD:refs/heads/main
+   gh pr merge "$PR_NUM" --squash --delete-branch
    ```
-   The pre-push hook validates `xcodebuild test` again. If push fails (build error after merge, or non-fast-forward race with another TL):
-   - Decide yourself how to recover: re-fetch and re-rebase, split commits, or hand back to FS.
-   - The bare repo's local `main` does not need updating — daemon uses `origin/main` for new worktrees.
+   > `--squash` keeps `main` history linear; use `--merge`/`--rebase` per preference. Consider
+   > enabling **GitHub auto-merge** (`gh pr merge --auto`) so the PR merges itself the moment
+   > checks + review pass (see ADR-0009).
 
-6. **Close the issue**:
+5. **Close the issue**:
    ```bash
    multica issue status "$ISSUE_UUID" done
    ```
 
 ### Common pitfalls
 
-- **Bare repo path** is whatever `git rev-parse --git-common-dir` resolves to inside the worktree. Always compute it fresh — never hardcode.
+- **Never push `main` directly** — branch protection (`enforce_admins=true`) rejects it even for
+  admins. Merge via `gh pr merge`.
 - **`MULTICA_TASK_ID`** is provided by the daemon as an env var (full UUID; we use the first 8 chars).
-- **GitHub access tokens** are still valid (TL needs them to push `main`). Don't unset `gh` auth.
-- The `github` remote name is by convention; some clones may use `origin`. The hook accepts either as long as the URL contains `github.com`.
+- **GitHub access tokens** must be valid (FS needs them to push `agent/*` + open PRs; TL to merge).
+  Don't unset `gh` auth.
+- The `github` remote name is by convention; some clones may use `origin`. Commands accept either
+  as long as the URL contains `github.com`.
 
 ## Pipeline Recovery
 
@@ -316,11 +320,11 @@ TL dispatch 前必须把失败归类到正确 counter，并在 `multica issue ru
 TL 在 dispatch 任何 stage 前跑：
 
 ```bash
-# 1. 检查 no-PR 工作流违规（不应有 open PR）
+# 1. Review 待处理的 open PR（PR 工作流下是正常状态，非违规）
 OPEN_PRS=$(gh pr list --state open --json number,title,updatedAt 2>/dev/null)
 if [ "$(echo "$OPEN_PRS" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))')" -gt 0 ]; then
-  multica issue comment add "$ISSUE_UUID" --content "⚠️ Startup scan: $OPEN_PRS 个 open public PR 与 no-PR 工作流冲突，记录但不阻塞当前 task。详: $(echo "$OPEN_PRS" | head -200)"
-  # 不阻塞，继续 dispatch
+  # open PR 是 PR 工作流的常态 —— TL 应推进（CI 绿 + review 后 gh pr merge），停滞过久的 comment 跟进
+  multica issue comment add "$ISSUE_UUID" --content "ℹ️ Startup scan: $OPEN_PRS 个 open PR 待 review/merge。详: $(echo "$OPEN_PRS" | head -200)"
 fi
 
 # 2. 检查同 parent 的 sibling sub-issue（防三胞胎）— 详 §Sub-issue 幂等

@@ -79,17 +79,15 @@ dispatch 任何 stage 前，对 working repo 跑一次扫描：
 ```bash
 WORKDIR="$(pwd)"
 
-# 1. Workflow-violation scan: no-PR 工作流应无 open public PR
-if grep -qiE "no-pr|no_pr" "$WORKDIR/AGENTS.md" 2>/dev/null; then
-  OPEN_COUNT=$(gh pr list --state open --json number,title,updatedAt 2>/dev/null \
-    | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))' 2>/dev/null || echo 0)
-  if [ "$OPEN_COUNT" -gt 0 ]; then
-    OPEN_LIST=$(gh pr list --state open --json number,title,updatedAt 2>/dev/null \
-      | python3 -c 'import sys,json; print(json.dumps(json.load(sys.stdin), ensure_ascii=False))')
-    multica issue comment add "$ISSUE_UUID" --content \
-      "⚠️ Startup scan: $OPEN_COUNT 个 open public PR 与 no-PR workflow 冲突，记录但不阻塞当前 task：$OPEN_LIST"
-    # 继续，不阻塞
-  fi
+# 1. Open-PR review scan: PR 工作流下 open PR 是常态 —— TL 应推进而非视为违规
+OPEN_COUNT=$(gh pr list --state open --json number,title,updatedAt 2>/dev/null \
+  | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))' 2>/dev/null || echo 0)
+if [ "$OPEN_COUNT" -gt 0 ]; then
+  OPEN_LIST=$(gh pr list --state open --json number,title,updatedAt 2>/dev/null \
+    | python3 -c 'import sys,json; print(json.dumps(json.load(sys.stdin), ensure_ascii=False))')
+  # open PR 待 review/merge：CI 绿 + review 通过后 gh pr merge；停滞过久 comment 跟进
+  multica issue comment add "$ISSUE_UUID" --content \
+    "ℹ️ Startup scan: $OPEN_COUNT 个 open PR 待 review/merge：$OPEN_LIST"
 fi
 
 # 2. Sub-issue idempotency pre-check（见上一段）— 在拆分/补救新 issue 前执行
@@ -189,7 +187,7 @@ $LOG_TAIL
 3. 诊断 root cause（transient vs persistent）
 4. transient (rate-limit / DNS / 偶发网络): 等 60s，'multica issue rerun $ISSUE_UUID'，最多 3 次
 5. persistent (CLI 配置/token/runtime config 损坏): 修底层问题后 rerun
-6. ship-gate flake 场景: 处理已创建的 [Flake] sub-issue，修测试 stub 后 push 回 bare repo，等 review 通过 ship 完成后再 rerun 原 issue
+6. ship-gate flake 场景: 处理已创建的 [Flake] sub-issue，修测试 stub 后 push 到 PR 分支，等 CI 绿 + review 通过 merge 完成后再 rerun 原 issue
 7. iterate_budget_exhausted: 重读 issue description + 已有 run 历史，评估是否需要拆任务 / 改 spec / 换实现思路；在 issue 上 comment 决策并相应调整 metadata
 8. 全过程关键节点 comment 到 issue: 'multica issue comment add $ISSUE_UUID --content "...[hermes-recover] ..."'
 9. 完成后退出，不要等人工。如果 3 次尝试同一根因都失败，再升级 'waiting_on=human' 并 comment 说明。

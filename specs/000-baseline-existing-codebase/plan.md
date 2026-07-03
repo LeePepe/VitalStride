@@ -46,7 +46,7 @@ This is NOT a forward-looking build plan. VitalStride V1 已经在线运行约 7
 | FR-013 (Rest Timer Live Activity) | iOS app target + ActivityKit Widget extension |
 | FR-014 (i18n) | `Localizable.xcstrings` (Resources/) + SwiftLint `no_hardcoded_chinese` |
 | FR-015 (TelemetryKit) | `Packages/TelemetryKit/` |
-| FR-016 (no-PR git workflow) | `scripts/hooks/pre-commit`, `scripts/hooks/pre-push`, `AGENTS.md` §Git Workflow |
+| FR-016 (PR-required git workflow) | branch protection on `main` (6 checks + 1 review + enforce_admins), `.github/workflows/ci.yml`, `scripts/hooks/pre-commit`, `AGENTS.md` §Git Workflow |
 
 ### Key View Files
 

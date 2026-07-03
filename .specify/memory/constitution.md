@@ -131,21 +131,26 @@ HealthKitService ┘
 
 ## Development Workflow
 
-### Git: No-PR Workflow (NON-NEGOTIABLE)
+### Git: PR-Required Workflow (NON-NEGOTIABLE)
 
 | 角色 | 推到哪 | 推什么 |
 |------|--------|--------|
-| Fullstack (FS) | 本地 bare repo | `agent/<issue-key>-<task-id-short>` |
-| Team Lead (TL) | `github` remote | **只 main** |
-| AI Reviewer | （不推） | review FS commits |
+| Fullstack (FS) | `github` remote | `agent/<issue-key>-<task-id-short>` + 开 PR (`gh pr create`) |
+| Team Lead (TL) | `github` remote | 审 CI 绿 + review 后 `gh pr merge` |
+| AI Reviewer | （在 PR 上 review） | review PR commits |
 
-`scripts/hooks/pre-push` 强制：只 `main` 能推 `github`/`gitlab`；agent/* 分支每个 commit 必须含 `MY-\d+`。详见 ADR-0001、AGENTS.md §Git Workflow。
+所有代码只能经 PR 进 `main`。`main` 受 branch protection 保护：**6 个 required status
+check**（`Lint & policy` + 5× `SPM …`）+ **1 个 review** + **enforce_admins=true** —— 红的 CI
+或未 review 的改动进不了 main，admin 也不例外。`scripts/hooks/pre-commit` 禁止直接 commit 到
+main；`pre-push` 本地跑全量 build/test + lint 作为 PR 前的快速门。详见 [ADR-0009](../../docs/adr/0009-pr-required-workflow.md)、AGENTS.md §Git Workflow。
 
 ### Commit Message 约定
 
-- **Agent 分支**：每个 commit 必须含 `MY-\d+`（issue key），subject 或 body 任一位置。
-- **Main 直 commit（工程改动）**：用 `chore(...)` / `docs(...)` / `ci(...)` 前缀，无 issue key 时加 `(retro A-XX)` 占位以保留追溯。
-- 历史教训：2026-06 retro 发现 92% commit 缺 issue key，pre-push 已强制。
+- **Agent 分支**：每个 commit **建议**含 `MY-\d+`（issue key），subject 或 body 任一位置（约定，
+  非强制 —— pre-push 的 MY-key 强制已移除，见 commit `13505cd`）。
+- **工程改动 commit**：用 `chore(...)` / `docs(...)` / `ci(...)` 前缀，无 issue key 时加
+  `(retro A-XX)` 占位以保留追溯。
+- 历史教训：2026-06 retro 发现 92% commit 缺 issue key —— 保留 MY-key 约定以维持可追溯。
 
 ### Build & Test Gate
 
@@ -242,7 +247,8 @@ Planner Lead / TL 创建 sub-issue 前必须查同 parent 的 alive (`todo`/`in_
 ### PR-5: Startup Scan
 
 TL 每次 pipeline 起手前必须扫描：
-- `gh pr list --state open`：no-PR 工作流应为 0，非 0 时 comment 警告但不阻塞当前 task
+- `gh pr list --state open`：PR 工作流下 open PR 是正常状态 —— TL 应 review 并推进（CI 绿 +
+  review 后 `gh pr merge`），而非视为违规。长时间停滞的 PR 需 comment 跟进。
 - 同 parent alive sub-issue（PR-2 前置）
 
 ## Governance
@@ -255,4 +261,6 @@ TL 每次 pipeline 起手前必须扫描：
   - MAJOR — 删除/反转原则；MINOR — 新增原则/新 Quality Bar；PATCH — 文字澄清不改语义
 - 与本宪法相关：AGENTS.md（agent 操作手册）、CONTEXT.md（数据架构细节）、`docs/adr/`（决策档案）、`scripts/hooks/`（强制规则机器实现）。
 
-**Version**: 1.1.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-26
+**Version**: 2.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-03
+
+> 2.0.0（MAJOR，反转原则）：Git 工作流由 no-PR 反转为 PR-required（[ADR-0009](../../docs/adr/0009-pr-required-workflow.md) supersede ADR-0001）。`main` 改由 branch protection（6 required checks + 1 review + enforce_admins）强制，替代已移除的 pre-push main-only / MY-key 强制。

@@ -20,8 +20,8 @@ branch=$(git branch --show-current)
 if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
   echo "❌ ERROR: direct commits to '$branch' are forbidden."
   echo ""
-  echo "  Use a feature branch (or agent/* worktree branch) and let the pre-push"
-  echo "  / TL workflow advance main."
+  echo "  Use a feature branch (agent/* worktree branch), push it, and open a PR."
+  echo "  main is updated only by merging a PR (branch protection blocks direct pushes)."
   exit 1
 fi
 

@@ -27,7 +27,7 @@ Each ADR is its own file, numbered sequentially: `NNNN-kebab-case-title.md`.
 
 | # | Title | Status | Date |
 |---|-------|--------|------|
-| [0001](0001-no-pr-workflow.md) | No-PR Git Workflow | Accepted | 2026-06-16 |
+| [0001](0001-no-pr-workflow.md) | No-PR Git Workflow | Superseded by [0009](0009-pr-required-workflow.md) | 2026-06-16 |
 | [0002](0002-defer-watchos-macos-feature-work.md) | Defer Dedicated watchOS / macOS Feature Work | Accepted (deferred) | 2026-06-18 |
 | [0003](0003-healthkit-swiftdata-dual-data-source.md) | HealthKit + SwiftData Dual Data Source | Accepted | 2026-06-18 |
 | [0004](0004-five-local-spm-packages.md) | Five Local SPM Packages | Accepted | 2026-06-18 |
@@ -35,6 +35,7 @@ Each ADR is its own file, numbered sequentially: `NNNN-kebab-case-title.md`.
 | [0006](0006-live-activity-for-rest-timer.md) | Live Activity for Rest Timer | Accepted | 2026-06-18 |
 | [0007](0007-telemetrykit-standalone-spm-package.md) | TelemetryKit as Standalone SPM Package | Accepted | 2026-06-18 |
 | [0008](0008-designkit-seed-based-design-system.md) | DesignKit — One Seed-Based Design System Package | Accepted | 2026-07-02 |
+| [0009](0009-pr-required-workflow.md) | PR-Required Git Workflow (supersedes 0001) | Accepted | 2026-07-03 |
 
 ## Writing a new ADR
 

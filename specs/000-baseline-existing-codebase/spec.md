@@ -113,7 +113,7 @@
 - **FR-013**: Rest Timer 使用 ActivityKit Live Activity（iOS 16.1+）；不支持时降级为 in-app 计时器。
 - **FR-014**: UI 字符串必须用 `String(localized:)` / `NSLocalizedString`，源为 `Localizable.xcstrings`（单源）。
 - **FR-015**: TelemetryKit 提供 `TelemetryProvider` 协议；当前实现 `ConsoleTelemetryProvider`；缓存命中/未命中/fetch 耗时/refresh 计数有埋点，**不含任何 HealthKit 数值**。
-- **FR-016**: Git 流程为 no-PR workflow：FS push 到 local bare repo `agent/*` 分支；TL rebase 后 push `github main`；pre-push hook 强制 main-only 公共远端 + agent/* 含 `MY-\d+`。
+- **FR-016**: Git 流程为 PR-required workflow：FS push `agent/*` 分支到 `github` 并开 PR；CI 以 required status check 在 PR 上运行；TL 在 CI 绿 + review 通过后 `gh pr merge` 合入 `main`。`main` 受 branch protection 强制（6 required checks + 1 review + enforce_admins）；`pre-commit` 禁止直接 commit main。（原 pre-push main-only + `MY-\d+` 强制已移除，见 ADR-0009。）
 
 ### Non-Functional Requirements
 
@@ -156,7 +156,7 @@
 |------|------|
 | 数据架构细节 | `CONTEXT.md` |
 | 操作手册 / 命令行流程 | `AGENTS.md` |
-| Git 流程 | `docs/adr/0001-no-pr-workflow.md` |
+| Git 流程 | `docs/adr/0009-pr-required-workflow.md` |
 | watchOS/macOS 范围 | `docs/adr/0002-defer-watchos-macos-feature-work.md` |
 | 双数据源决策 | `docs/adr/0003-healthkit-swiftdata-dual-data-source.md` |
 | SPM 包拆分 | `docs/adr/0004-five-local-spm-packages.md` |
