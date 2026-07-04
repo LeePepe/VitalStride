@@ -1,9 +1,27 @@
 # ADR-0009: PR-Required Git Workflow
 
-**Status**: Accepted
+**Status**: Accepted (amended 2026-07-04)
 **Date**: 2026-07-03
 **Deciders**: tianpli (project owner)
 **Supersedes**: [ADR-0001](0001-no-pr-workflow.md)
+
+## Amendment 2026-07-04 — required review count 1 → 0
+
+The **required-review** count on `main` was lowered from **1 → 0**. Everything else in
+this ADR stands: the PR-required flow, the **6 required status checks** (`Lint & policy`
++ 5× `SPM …`), `enforce_admins: true`, and `pre-commit`/`pre-push` local gates are all
+unchanged. `main` still only moves via a PR whose required checks are green.
+
+Why: this is a **single-owner repo**. GitHub forbids approving your own PR, so a
+`required_approving_review_count: 1` gate permanently blocked the owner's own PRs
+(`REVIEW_REQUIRED → BLOCKED`) with no second human to approve — pure friction, not a
+safety gain. The server-side protection that actually stops bad code (the CI checks) is
+retained; only the human-approval requirement that could never be satisfied solo is
+dropped. If a second reviewer (human or an automated Claude reviewer via the
+`auto-review-merge` mechanism) is later added, restore the count to 1.
+
+Sections below retain the original "1 required review" wording for historical accuracy;
+read them through this amendment.
 
 ## Context
 
@@ -71,7 +89,8 @@ that passes the required checks and review.
   editing repo docs alone does not change running-agent behavior.
 
 ## Implementation references
-- Branch protection: 6 required checks + 1 review + enforce_admins on `main`.
+- Branch protection: 6 required checks + enforce_admins on `main` (required-review count 0 as of
+  Amendment 2026-07-04; was 1 at original acceptance).
 - `.github/workflows/ci.yml` — `pull_request → main` + `push → main`.
 - `AGENTS.md` § Git Workflow (PR-required) — full FS/TL command sequences.
 - `scripts/hooks/pre-commit` — main-protect + staged-file lint; `scripts/hooks/pre-push` —
