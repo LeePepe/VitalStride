@@ -116,8 +116,9 @@ xcodegen generate
 ## Git Workflow (PR-required)
 
 **This project uses a PR-required workflow.** All code reaches `main` only via a GitHub Pull
-Request that passes the required status checks and one review. `main` is branch-protected
-(6 required checks: `Lint & policy` + 5× `SPM …`; 1 review; `enforce_admins=true`). See
+Request that passes the required status checks. `main` is branch-protected
+(6 required checks: `Lint & policy` + 5× `SPM …`; `enforce_admins=true`; required-review
+count is **0** — single-owner repo, see ADR-0009 Amendment 2026-07-04). See
 `docs/adr/0009-pr-required-workflow.md` for full rationale (supersedes ADR-0001).
 
 ### Roles
@@ -186,11 +187,13 @@ When you receive an issue with state `in_review` and an FS comment reporting a P
      || gh pr list --search "$ISSUE_KEY" --json number -q '.[0].number')
    ```
 
-2. **Check CI + review status**:
+2. **Check CI status**:
    ```bash
    gh pr checks "$PR_NUM"        # all required checks must be green
-   gh pr view "$PR_NUM" --json reviewDecision -q .reviewDecision   # APPROVED
    ```
+   Review is **not** required to merge (required-review count is 0 — see ADR-0009 Amendment
+   2026-07-04). If an AI Reviewer left a `CHANGES_REQUESTED` review, honor it before merging;
+   but do **not** block on waiting for an `APPROVED` decision — green required checks are the gate.
    If checks are red, diagnose (see §Pipeline Recovery) and reassign FS if it's a code problem.
 
 3. **Rebase conflicts (B2 policy)** — if the PR is behind `main` and conflicts:
@@ -203,7 +206,7 @@ When you receive an issue with state `in_review` and an FS comment reporting a P
      multica issue assign "$ISSUE_UUID" "Fullstack Engineer"
      ```
 
-4. **Merge the PR** (only after green + approved). Delete the merged branch to keep the remote clean:
+4. **Merge the PR** (only after required checks are green). Delete the merged branch to keep the remote clean:
    ```bash
    gh pr merge "$PR_NUM" --squash --delete-branch
    ```
