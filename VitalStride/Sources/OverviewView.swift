@@ -42,6 +42,7 @@ struct OverviewView: View {
                             .frame(maxWidth: .infinity, minHeight: 60)
                     } else if !snapshotState.isAuthorized, !hasWorkoutData {
                         OverviewEmptyState()
+                        MuscleGroupFrequencyCard(counts: dynamicState.recentMuscleGroupCounts)
                     } else {
                         dynamicContent
                     }
