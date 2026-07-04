@@ -98,6 +98,7 @@ struct TelemetryServiceTests {
             .healthKitDenied,
             .dataDetailOpened(sampleType: "heartRate"),
             .dataImported(format: "fit"),
+            .healthSummaryLoadFailed(sampleType: "stepCount"),
             .aiInsightGenerated(durationMs: 2300, cardCount: 6),
             .aiInsightFailed(errorType: "timeout"),
             .aiAnalysisRequested(sampleType: "stepCount"),

@@ -64,6 +64,7 @@ public enum TelemetryEvent: Sendable, Equatable {
     case healthKitDenied
     case dataDetailOpened(sampleType: TelemetryIdentifier)
     case dataImported(format: TelemetryIdentifier)
+    case healthSummaryLoadFailed(sampleType: TelemetryIdentifier)
 
     // MARK: - AI
 
@@ -103,6 +104,7 @@ extension TelemetryEvent {
         case .healthKitDenied: "healthkit_denied"
         case .dataDetailOpened: "data_detail_opened"
         case .dataImported: "data_imported"
+        case .healthSummaryLoadFailed: "health_summary_load_failed"
         case .aiInsightGenerated: "ai_insight_generated"
         case .aiInsightFailed: "ai_insight_failed"
         case .aiAnalysisRequested: "ai_analysis_requested"
@@ -133,6 +135,8 @@ extension TelemetryEvent {
             [("sample_type", sampleType.rawValue)]
         case .dataImported(let format):
             [("format", format.rawValue)]
+        case .healthSummaryLoadFailed(let sampleType):
+            [("sample_type", sampleType.rawValue)]
         case .aiInsightGenerated(let durationMs, let cardCount):
             [("duration_ms", "\(durationMs)"), ("cards", "\(cardCount)")]
         case .aiInsightFailed(let errorType):
