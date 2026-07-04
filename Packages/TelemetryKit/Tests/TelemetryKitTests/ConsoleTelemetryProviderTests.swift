@@ -121,6 +121,7 @@ struct TelemetryEventFormattingTests {
         #expect(TelemetryEvent.aiAnalysisRequested(sampleType: "stepCount").eventName == "ai_analysis_requested")
         #expect(TelemetryEvent.aiModelChanged(model: "glm-4-flash").eventName == "ai_model_changed")
         #expect(TelemetryEvent.aiChatMessageSent.eventName == "ai_chat_message_sent")
+        #expect(TelemetryEvent.aiCacheFailure(operation: "read", errorType: "io_error").eventName == "ai_cache_failure")
         #expect(TelemetryEvent.restTimerStarted(durationSeconds: 60).eventName == "rest_timer_started")
         #expect(TelemetryEvent.restTimerSkipped.eventName == "rest_timer_skipped")
         #expect(TelemetryEvent.restTimerCompleted.eventName == "rest_timer_completed")
@@ -164,6 +165,20 @@ struct TelemetryEventFormattingTests {
             TelemetryEvent.overviewFallbackTriggered(reason: "network_error").formattedString
                 == "overview_fallback_triggered reason=network_error"
         )
+        #expect(
+            TelemetryEvent.aiCacheFailure(operation: "read", errorType: "decode_error").formattedString
+                == "ai_cache_failure operation=read error_type=decode_error"
+        )
+    }
+
+    @Test("parameters for ai cache failure events")
+    func aiCacheFailureParams() {
+        let params = TelemetryEvent.aiCacheFailure(operation: "write", errorType: "io_error").parameters
+        #expect(params.count == 2)
+        #expect(params[0].key == "operation")
+        #expect(params[0].value == "write")
+        #expect(params[1].key == "error_type")
+        #expect(params[1].value == "io_error")
     }
 
     @Test("parameters for single-param events")
