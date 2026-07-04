@@ -86,13 +86,13 @@ struct OverviewView: View {
                     || dynamicState.refreshErrorType == "missingAPIKey"
                 {
                     Label(
-                        String(localized: "overview_missing_api_key", defaultValue: "请在设置中添加 API Key 以启用 AI 分析"),
+                        String(localized: "overview_missing_api_key", comment: "Snackbar shown when AI refresh fails due to missing API key"),
                         systemImage: "key"
                     )
                     .font(.subheadline)
                 } else {
                     Label(
-                        String(localized: "overview_refresh_failed", defaultValue: "刷新失败，请稍后重试"),
+                        String(localized: "overview_refresh_failed", comment: "Snackbar shown when overview refresh fails"),
                         systemImage: "exclamationmark.triangle"
                     )
                     .font(.subheadline)
