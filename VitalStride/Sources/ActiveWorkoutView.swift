@@ -1,10 +1,3 @@
-// MY-874: training-in-progress row/section UI extracted to
-// `ActiveWorkout/` (ActiveExerciseSection, SetRow, SubSetRow, SetTypeColor).
-// This file keeps the session-level view. The ~25 remaining pre-existing
-// `no_hardcoded_chinese` literals (titles, alert buttons, a11y labels/hints)
-// predate the `--strict` hook and stay silenced at file scope until the
-// dedicated i18n cleanup (MY-1065) migrates them. No semantic change.
-// swiftlint:disable no_hardcoded_chinese
 import HealthKitService
 import os
 import SwiftData
@@ -58,16 +51,19 @@ struct ActiveWorkoutView: View {
                     .padding(.bottom, restTimer.phase != .idle ? 100 : 0)
                     .animation(.spring(duration: 0.35, bounce: 0.2), value: restTimer.phase != .idle)
             }
-            .navigationTitle("训练中")
+            .navigationTitle(String(localized: "训练中", comment: "Active workout navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("放弃", role: .destructive) {
+                    Button(
+                        String(localized: "放弃", comment: "Discard workout toolbar button"),
+                        role: .destructive
+                    ) {
                         showingDiscardAlert = true
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("结束训练") {
+                    Button(String(localized: "结束训练", comment: "Finish workout toolbar button")) {
                         showingFinishAlert = true
                     }
                     .fontWeight(.semibold)
@@ -85,17 +81,36 @@ struct ActiveWorkoutView: View {
                     workoutExercise.exercise = newExercise
                 }
             }
-            .alert("完成训练？", isPresented: $showingFinishAlert) {
-                Button("完成") { finishWorkout() }
-                Button("取消", role: .cancel) {}
+            .alert(
+                String(localized: "完成训练？", comment: "Finish workout alert title"),
+                isPresented: $showingFinishAlert
+            ) {
+                Button(String(localized: "完成", comment: "Confirm finish workout button")) {
+                    finishWorkout()
+                }
+                Button(
+                    String(localized: "取消", comment: "Cancel finish workout button"),
+                    role: .cancel
+                ) {}
             } message: {
-                Text("训练将被保存到历史记录")
+                Text(String(localized: "训练将被保存到历史记录", comment: "Finish workout alert message"))
             }
-            .alert("放弃训练？", isPresented: $showingDiscardAlert) {
-                Button("放弃", role: .destructive) { discardWorkout() }
-                Button("继续训练", role: .cancel) {}
+            .alert(
+                String(localized: "放弃训练？", comment: "Discard workout alert title"),
+                isPresented: $showingDiscardAlert
+            ) {
+                Button(
+                    String(localized: "放弃", comment: "Confirm discard workout button"),
+                    role: .destructive
+                ) {
+                    discardWorkout()
+                }
+                Button(
+                    String(localized: "继续训练", comment: "Cancel discard workout button"),
+                    role: .cancel
+                ) {}
             } message: {
-                Text("训练数据将不会保存")
+                Text(String(localized: "训练数据将不会保存", comment: "Discard workout alert message"))
             }
             .onAppear { setupWorkout() }
             .task(id: restTimer.restEndDate) {
@@ -141,7 +156,10 @@ struct ActiveWorkoutView: View {
             let volumeKg = totalVolumeKg
             let displayVolume = weightUnit == .lb ? volumeKg * 2.20462 : volumeKg
             let volumeText = Int(displayVolume).formatted()
-            let summaryText = "\(exerciseCount) 动作 · \(setCount) 组 · \(volumeText) \(weightUnit.rawValue)"
+            let summaryText = String(
+                localized: "\(exerciseCount) 动作 · \(setCount) 组 · \(volumeText) \(weightUnit.rawValue)",
+                comment: "Workout summary: exercise count, set count, total volume"
+            )
             ViewThatFits(in: .horizontal) {
                 HStack {
                     timerLabel
@@ -180,7 +198,7 @@ struct ActiveWorkoutView: View {
         HStack(spacing: 4) {
             Image(systemName: "timer")
                 .foregroundStyle(.secondary)
-            Text("训练时长")
+            Text(String(localized: "训练时长", comment: "Workout duration label"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -310,9 +328,14 @@ struct ActiveWorkoutView: View {
         let exercises = (workout?.exercises ?? []).sorted { $0.order < $1.order }
         if exercises.isEmpty {
             ContentUnavailableView(
-                "添加第一个动作",
+                String(localized: "添加第一个动作", comment: "Empty active workout title"),
                 systemImage: "figure.strengthtraining.traditional",
-                description: Text("点击下方按钮选择训练动作")
+                description: Text(
+                    String(
+                        localized: "点击下方按钮选择训练动作",
+                        comment: "Empty active workout description"
+                    )
+                )
             )
         } else {
             List {
@@ -366,7 +389,7 @@ struct ActiveWorkoutView: View {
                 .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
         }
         .buttonStyle(FABButtonStyle())
-        .accessibilityLabel("添加动作")
+        .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise FAB a11y label"))
         .padding()
     }
 
