@@ -141,6 +141,7 @@ struct SnackbarModeTests {
 @Suite("SnackbarModifier Edge")
 struct SnackbarEdgeTests {
 
+    @MainActor
     private func makeModifier(edge: VerticalEdge) -> SnackbarModifier<Text> {
         SnackbarModifier(
             isPresented: .constant(true),
