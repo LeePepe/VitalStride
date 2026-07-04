@@ -10,11 +10,11 @@ struct SelectAllTextField: UIViewRepresentable {
     var font: UIFont = .preferredFont(forTextStyle: .body)
 
     // MARK: MY-1073 — custom keyboard wiring
-    /// When non-nil, the text field's `inputView` is replaced with the shared
-    /// `WorkoutNumericKeyboard` UIView instead of the system numeric keyboard.
-    /// The keyboard is retained by the coordinator so it survives across
-    /// `updateUIView` cycles.
-    var customKeyboard: WorkoutNumericKeyboard?
+    /// When true, the coordinator lazily builds a `WorkoutNumericKeyboard`
+    /// and installs it as the text field's `inputView`, replacing the system
+    /// numeric keyboard. The keyboard is owned by the coordinator so it
+    /// survives across `updateUIView` cycles.
+    var useCustomKeyboard: Bool = false
     /// Which set field is being edited. Passed through to the keyboard on
     /// focus so it can render the correct digit set + preset keys.
     var field: SetField = .weight
@@ -46,7 +46,9 @@ struct SelectAllTextField: UIViewRepresentable {
             for: .editingChanged
         )
         context.coordinator.attach(textField: textField)
-        context.coordinator.installCustomKeyboardIfNeeded(customKeyboard, on: textField)
+        if useCustomKeyboard {
+            context.coordinator.installCustomKeyboardIfNeeded(on: textField)
+        }
         return textField
     }
 
@@ -71,8 +73,10 @@ struct SelectAllTextField: UIViewRepresentable {
             onLeftAction: onLeftAction,
             onPresetReps: onPresetReps
         )
-        context.coordinator.installCustomKeyboardIfNeeded(customKeyboard, on: textField)
-        context.coordinator.refreshCustomKeyboardContextIfInstalled()
+        if useCustomKeyboard {
+            context.coordinator.installCustomKeyboardIfNeeded(on: textField)
+            context.coordinator.refreshCustomKeyboardContextIfInstalled()
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -87,6 +91,7 @@ struct SelectAllTextField: UIViewRepresentable {
         )
     }
 
+    @MainActor
     final class Coordinator: NSObject, UITextFieldDelegate {
         var text: Binding<String>
 
@@ -148,32 +153,32 @@ struct SelectAllTextField: UIViewRepresentable {
             self.onPresetReps = onPresetReps
         }
 
-        /// Install the custom keyboard as `inputView` on first sight. We only
-        /// swap once — SwiftUI recreates the representable's struct on every
-        /// update, but the coordinator (and thus the retained keyboard) is
-        /// stable, so we install exactly once and keep the same UIView.
-        func installCustomKeyboardIfNeeded(
-            _ keyboard: WorkoutNumericKeyboard?,
-            on textField: UITextField
-        ) {
-            guard let keyboard, installedKeyboard !== keyboard else { return }
+        /// Build and install the custom keyboard on first sight. The keyboard
+        /// is owned here — its callbacks capture `self` weakly so latest
+        /// coordinator state (bindings, exercise, setType) always wins.
+        func installCustomKeyboardIfNeeded(on textField: UITextField) {
+            guard installedKeyboard == nil else { return }
+            let keyboard = WorkoutNumericKeyboard(
+                field: field,
+                setType: setType,
+                exercise: exercise,
+                recentWeightKg: recentWeightKg,
+                onKeyPress: { [weak self, weak textField] key in
+                    guard let self, let textField else { return }
+                    self.handleKeyPress(key, on: textField)
+                },
+                onLeftAction: { [weak self] action in
+                    self?.onLeftAction?(action)
+                },
+                onPresetReps: { [weak self] weightKg, reps in
+                    self?.onPresetReps?(weightKg, reps)
+                },
+                onDone: { [weak textField] in
+                    textField?.resignFirstResponder()
+                }
+            )
             installedKeyboard = keyboard
             textField.inputView = keyboard
-            // Route digit key presses into the focused text field's binding.
-            keyboard.onKeyPress = { [weak self, weak textField] key in
-                guard let self, let textField else { return }
-                self.handleKeyPress(key, on: textField)
-            }
-            keyboard.onLeftActionOverride = { [weak self] action in
-                self?.onLeftAction?(action)
-            }
-            keyboard.onPresetRepsOverride = { [weak self] weightKg, reps in
-                self?.onPresetReps?(weightKg, reps)
-            }
-            keyboard.onDoneOverride = { [weak textField] in
-                textField?.resignFirstResponder()
-            }
-            // Force the input view to swap in on next focus.
             if textField.isFirstResponder {
                 textField.reloadInputViews()
             }

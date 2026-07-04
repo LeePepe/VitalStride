@@ -5,7 +5,7 @@ import VitalModels
 
 @testable import VitalStride
 
-/// MY-1073 — copy-to-next branches for `WorkoutCopyToNext.apply`.
+/// MY-1073 — copy-to-next branches for `ActiveExerciseSection.copyToNext`.
 ///
 /// The helper backs the Copy key of `WorkoutNumericKeyboard`. Two branches
 /// need coverage per the issue's acceptance list:
@@ -37,7 +37,7 @@ struct WorkoutCopyToNextTests {
         let source = sets[0]
         let target = sets[1]
 
-        WorkoutCopyToNext.apply(from: source, in: workoutExercise, using: context)
+        ActiveExerciseSection.copyToNext(from: source, in: workoutExercise, using: context)
         try context.save()
 
         #expect(target.weight == 80)
@@ -62,7 +62,7 @@ struct WorkoutCopyToNextTests {
         let source = sets[0]
         let target = sets[1]
 
-        WorkoutCopyToNext.apply(from: source, in: workoutExercise, using: context)
+        ActiveExerciseSection.copyToNext(from: source, in: workoutExercise, using: context)
         try context.save()
 
         #expect(target.isUnilateral == true)
@@ -87,7 +87,7 @@ struct WorkoutCopyToNextTests {
         target.isCompleted = true
         try context.save()
 
-        WorkoutCopyToNext.apply(from: source, in: workoutExercise, using: context)
+        ActiveExerciseSection.copyToNext(from: source, in: workoutExercise, using: context)
         try context.save()
 
         #expect(target.isCompleted == true) // untouched
@@ -107,7 +107,7 @@ struct WorkoutCopyToNextTests {
         )
         let source = sets[0]
 
-        WorkoutCopyToNext.apply(from: source, in: workoutExercise, using: context)
+        ActiveExerciseSection.copyToNext(from: source, in: workoutExercise, using: context)
         try context.save()
 
         let remaining = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
@@ -133,7 +133,7 @@ struct WorkoutCopyToNextTests {
         )
         let source = sets[0]
 
-        WorkoutCopyToNext.apply(from: source, in: workoutExercise, using: context)
+        ActiveExerciseSection.copyToNext(from: source, in: workoutExercise, using: context)
         try context.save()
 
         let remaining = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
@@ -162,7 +162,7 @@ struct WorkoutCopyToNextTests {
         let source = sets[0]
         let subSet = sets[1]
 
-        WorkoutCopyToNext.apply(from: source, in: workoutExercise, using: context)
+        ActiveExerciseSection.copyToNext(from: source, in: workoutExercise, using: context)
         try context.save()
 
         #expect(subSet.weight == 80)

@@ -35,12 +35,6 @@ struct SetRow: View {
     @State private var weightRightText: String = ""
     @State private var repsText: String = ""
 
-    #if canImport(UIKit) && !os(macOS)
-    /// Retained here (not in State) so it survives view updates but is
-    /// re-created per-SetRow instance. Assigned lazily on first appearance.
-    @State private var keyboards: SetRowKeyboards = SetRowKeyboards()
-    #endif
-
     var body: some View {
         HStack(spacing: 8) {
             Text("\(index + 1)")
@@ -152,7 +146,7 @@ struct SetRow: View {
             placeholder: weightUnit.rawValue,
             text: binding,
             keyboardType: .decimalPad,
-            customKeyboard: keyboards.keyboard(for: field),
+            useCustomKeyboard: true,
             field: field,
             exercise: exercise,
             setType: exerciseSet.setType,
@@ -200,7 +194,7 @@ struct SetRow: View {
             placeholder: "次数",
             text: $repsText,
             keyboardType: .numberPad,
-            customKeyboard: keyboards.keyboard(for: .reps),
+            useCustomKeyboard: true,
             field: .reps,
             exercise: exercise,
             setType: exerciseSet.setType,
@@ -263,16 +257,32 @@ struct SetRow: View {
     private func handleLeftAction(_ action: LeftKeyAction, field: SetField) {
         switch action {
         case .addPyramid:
+            #if canImport(UIKit) && !os(macOS)
+            HapticManager.trigger(.exerciseAdded)
+            #endif
             onAddSubSet(.pyramid)
         case .addDropSet:
+            #if canImport(UIKit) && !os(macOS)
+            HapticManager.trigger(.exerciseAdded)
+            #endif
             onAddSubSet(.dropSet)
         case .toggleUnilateral:
+            #if canImport(UIKit) && !os(macOS)
+            HapticManager.trigger(.setCompleted)
+            #endif
             exerciseSet.isUnilateral.toggle()
             if !exerciseSet.isUnilateral {
                 exerciseSet.weightRight = nil
                 weightRightText = ""
             }
         case .copyToNext:
+            // MY-1073 reviewer P0: the audio input click emitted by the keyboard
+            // is not sufficient — the acceptance criterion requires haptic
+            // feedback for every left-column function key. `.exerciseAdded`
+            // matches the semantic of "added another set-worth of data".
+            #if canImport(UIKit) && !os(macOS)
+            HapticManager.trigger(.exerciseAdded)
+            #endif
             onCopyToNext()
         }
     }
@@ -340,36 +350,3 @@ struct SetRow: View {
             : String(format: "%.1f", value)
     }
 }
-
-#if canImport(UIKit) && !os(macOS)
-
-/// Lazy cache of one `WorkoutNumericKeyboard` per `SetField` for a single
-/// SetRow. Keeping one keyboard per field lets each `SelectAllTextField`
-/// install its inputView independently while still sharing the same layout.
-@MainActor
-final class SetRowKeyboards {
-    private var storage: [SetField: WorkoutNumericKeyboard] = [:]
-
-    func keyboard(for field: SetField) -> WorkoutNumericKeyboard {
-        if let existing = storage[field] {
-            return existing
-        }
-        // Base closures are placeholders — SelectAllTextField.Coordinator
-        // installs the real overrides. `onDone` is overridden to resign the
-        // text field's first-responder status.
-        let keyboard = WorkoutNumericKeyboard(
-            field: field,
-            setType: .working,
-            exercise: nil,
-            recentWeightKg: nil,
-            onKeyPress: { _ in },
-            onLeftAction: { _ in },
-            onPresetReps: { _, _ in },
-            onDone: {}
-        )
-        storage[field] = keyboard
-        return keyboard
-    }
-}
-
-#endif

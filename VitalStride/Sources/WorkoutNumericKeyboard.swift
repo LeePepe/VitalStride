@@ -244,23 +244,10 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
     private var setType: SetType
     private var exercise: Exercise?
     private var recentWeightKg: Double?
-    private let baseOnKeyPress: @MainActor (NumericKeypadKey) -> Void
-    private let baseOnLeftAction: @MainActor (LeftKeyAction) -> Void
-    private let baseOnPresetReps: @MainActor (_ weightKg: Double?, _ reps: Int) -> Void
-    private let baseOnDone: @MainActor () -> Void
-
-    // MARK: MY-1073 — overrides installed by SelectAllTextField.Coordinator
-    /// When set, replaces the digit-key handler installed at init. Allows the
-    /// hosting `SelectAllTextField` to funnel key presses into its own text
-    /// binding rather than the (usually empty) closure passed at construction.
-    var onKeyPress: (@MainActor (NumericKeypadKey) -> Void)?
-    /// Optional override for the left-column function key callback.
-    var onLeftActionOverride: (@MainActor (LeftKeyAction) -> Void)?
-    /// Optional override for the right-column preset key callback.
-    var onPresetRepsOverride: (@MainActor (_ weightKg: Double?, _ reps: Int) -> Void)?
-    /// Optional override for the Done key. When set, this replaces the base
-    /// `onDone` closure (useful for `resignFirstResponder`).
-    var onDoneOverride: (@MainActor () -> Void)?
+    private let onKeyPress: @MainActor (NumericKeypadKey) -> Void
+    private let onLeftAction: @MainActor (LeftKeyAction) -> Void
+    private let onPresetReps: @MainActor (_ weightKg: Double?, _ reps: Int) -> Void
+    private let onDone: @MainActor () -> Void
 
     /// SwiftUI hosting controller — retained so its view stays anchored while
     /// the keyboard is on-screen.
@@ -289,32 +276,29 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         self.setType = setType
         self.exercise = exercise
         self.recentWeightKg = recentWeightKg
-        self.baseOnKeyPress = onKeyPress
-        self.baseOnLeftAction = onLeftAction
-        self.baseOnPresetReps = onPresetReps
-        self.baseOnDone = onDone
+        self.onKeyPress = onKeyPress
+        self.onLeftAction = onLeftAction
+        self.onPresetReps = onPresetReps
+        self.onDone = onDone
 
         // Build content view with wrappers that also emit the standard input
         // click. Wrapping the closures keeps the audio feedback contract local
-        // to this view (Stage 3 doesn't have to remember to call it). The
-        // wrappers dispatch through instance vars so overrides installed post-
-        // construction (see MY-1073 wiring) take precedence.
-        let hostRef = Wrapper()
+        // to this view (Stage 3 doesn't have to remember to call it).
         let clickingKeyPress: @MainActor (NumericKeypadKey) -> Void = { key in
             UIDevice.current.playInputClick()
-            hostRef.owner?.dispatchKeyPress(key)
+            onKeyPress(key)
         }
         let clickingLeft: @MainActor (LeftKeyAction) -> Void = { action in
             UIDevice.current.playInputClick()
-            hostRef.owner?.dispatchLeftAction(action)
+            onLeftAction(action)
         }
         let clickingPreset: @MainActor (Double?, Int) -> Void = { weight, reps in
             UIDevice.current.playInputClick()
-            hostRef.owner?.dispatchPresetReps(weight, reps)
+            onPresetReps(weight, reps)
         }
         let clickingDone: @MainActor () -> Void = {
             UIDevice.current.playInputClick()
-            hostRef.owner?.dispatchDone()
+            onDone()
         }
 
         let content = WorkoutNumericKeyboardContentView(
@@ -329,7 +313,6 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         )
         self.host = UIHostingController(rootView: content)
         super.init(frame: .zero)
-        hostRef.owner = self
 
         setUp()
     }
@@ -403,49 +386,6 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
     static func preferredHeight() -> CGFloat {
         let isPad = UIDevice.current.userInterfaceIdiom == .pad
         return isPad ? 260 : 240
-    }
-
-    // MARK: MY-1073 — dispatch helpers
-
-    /// Weak back-reference used by the click-wrapper closures. Because the
-    /// wrappers are `@escaping` and are constructed *before* `super.init`, we
-    /// cannot capture `self` directly. `Wrapper` is set to `owner = self`
-    /// immediately after `super.init` and forwards to the current dispatch
-    /// methods so overrides installed after construction take effect.
-    fileprivate final class Wrapper {
-        weak var owner: WorkoutNumericKeyboard?
-    }
-
-    fileprivate func dispatchKeyPress(_ key: NumericKeypadKey) {
-        if let onKeyPress {
-            onKeyPress(key)
-        } else {
-            baseOnKeyPress(key)
-        }
-    }
-
-    fileprivate func dispatchLeftAction(_ action: LeftKeyAction) {
-        if let onLeftActionOverride {
-            onLeftActionOverride(action)
-        } else {
-            baseOnLeftAction(action)
-        }
-    }
-
-    fileprivate func dispatchPresetReps(_ weightKg: Double?, _ reps: Int) {
-        if let onPresetRepsOverride {
-            onPresetRepsOverride(weightKg, reps)
-        } else {
-            baseOnPresetReps(weightKg, reps)
-        }
-    }
-
-    fileprivate func dispatchDone() {
-        if let onDoneOverride {
-            onDoneOverride()
-        } else {
-            baseOnDone()
-        }
     }
 }
 
