@@ -1,5 +1,7 @@
+// swiftlint:disable no_hardcoded_chinese
 import HealthKitService
 import SwiftUI
+import TelemetryKit
 import VitalModels
 
 // MARK: - Summary Card Container
@@ -85,7 +87,11 @@ struct StepsSummaryCard: View {
             let dataPoints = try await cache.data(for: .stepCount, in: interval)
             let aggregated = StepsAggregator.aggregateByDay(dataPoints: dataPoints, in: interval)
             todaySteps = aggregated.last?.totalSteps
-        } catch {}
+        } catch {
+            TelemetryService.shared.trackNonisolated(
+                .healthSummaryLoadFailed(sampleType: "stepCount")
+            )
+        }
         isLoading = false
     }
 }
@@ -143,7 +149,11 @@ struct HeartRateSummaryCard: View {
             if let avg = HeartRateStats.average(of: filtered) {
                 latestBPM = Int(avg.rounded())
             }
-        } catch {}
+        } catch {
+            TelemetryService.shared.trackNonisolated(
+                .healthSummaryLoadFailed(sampleType: "heartRate")
+            )
+        }
         isLoading = false
     }
 }
@@ -196,7 +206,11 @@ struct SleepSummaryCard: View {
             let dataPoints = try await cache.data(for: .sleepAnalysis, in: interval)
             let nights = SleepAggregator.aggregateByNight(dataPoints: dataPoints, in: interval)
             lastNightSleep = nights.last?.totalSleep
-        } catch {}
+        } catch {
+            TelemetryService.shared.trackNonisolated(
+                .healthSummaryLoadFailed(sampleType: "sleep")
+            )
+        }
         isLoading = false
     }
 }
@@ -252,7 +266,11 @@ struct WeightSummaryCard: View {
             let dataPoints = try await cache.data(for: .bodyMass, in: interval)
             let points = WeightAnalyzer.extractWeightPoints(from: dataPoints, in: interval)
             latestWeight = points.last?.weight
-        } catch {}
+        } catch {
+            TelemetryService.shared.trackNonisolated(
+                .healthSummaryLoadFailed(sampleType: "bodyMass")
+            )
+        }
         isLoading = false
     }
 }

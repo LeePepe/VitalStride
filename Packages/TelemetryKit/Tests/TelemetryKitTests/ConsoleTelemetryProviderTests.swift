@@ -116,6 +116,7 @@ struct TelemetryEventFormattingTests {
         #expect(TelemetryEvent.healthKitDenied.eventName == "healthkit_denied")
         #expect(TelemetryEvent.dataDetailOpened(sampleType: "heartRate").eventName == "data_detail_opened")
         #expect(TelemetryEvent.dataImported(format: "fit").eventName == "data_imported")
+        #expect(TelemetryEvent.healthSummaryLoadFailed(sampleType: "stepCount").eventName == "health_summary_load_failed")
         #expect(TelemetryEvent.aiInsightGenerated(durationMs: 0, cardCount: 0).eventName == "ai_insight_generated")
         #expect(TelemetryEvent.aiInsightFailed(errorType: "timeout").eventName == "ai_insight_failed")
         #expect(TelemetryEvent.aiAnalysisRequested(sampleType: "stepCount").eventName == "ai_analysis_requested")
