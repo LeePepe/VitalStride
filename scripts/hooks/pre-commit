@@ -3,11 +3,16 @@
 #
 # 1. Block direct commits to main / master
 # 2. SwiftLint staged Swift files (fast — no build)
+# 3. Incremental per-layer discovery: swift build + test for each touched
+#    Packages/<X> (seconds each). App-target / docs-only changes skip this.
 #
-# pre-push runs the slow checks (xcodebuild, swift build/test, full SwiftLint).
-# Keep this hook fast (<5s) so the inner-loop stays snappy.
+# pre-push still runs the FULL checks (xcodebuild, all-package build/test,
+# full SwiftLint, frontmatter anti-rot) — this hook is the fast inner-loop
+# subset scoped to the layers you actually touched.
 
 set -uo pipefail
+
+REPO="$(git rev-parse --show-toplevel)"; cd "$REPO"
 
 # ---- 1. Block direct commits to main/master ---------------------------------
 
@@ -15,33 +20,81 @@ branch=$(git branch --show-current)
 if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
   echo "❌ ERROR: direct commits to '$branch' are forbidden."
   echo ""
-  echo "  Use a feature branch (or agent/* worktree branch) and let the pre-push"
-  echo "  / TL workflow advance main."
+  echo "  Use a feature branch (agent/* worktree branch), push it, and open a PR."
+  echo "  main is updated only by merging a PR (branch protection blocks direct pushes)."
   exit 1
 fi
 
-# ---- 2. SwiftLint staged files ----------------------------------------------
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
+[ -z "$STAGED" ] && exit 0
 
-if ! command -v swiftlint >/dev/null 2>&1; then
+# ---- 2. SwiftLint staged Swift files ----------------------------------------
+
+if command -v swiftlint >/dev/null 2>&1; then
+  STAGED_SWIFT=$(echo "$STAGED" | grep -E '\.swift$' || true)
+  if [ -n "$STAGED_SWIFT" ]; then
+    LINT_ARGS=()
+    while IFS= read -r file; do
+      [ -f "$file" ] && LINT_ARGS+=("$file")
+    done <<< "$STAGED_SWIFT"
+    if [ ${#LINT_ARGS[@]} -gt 0 ]; then
+      if ! swiftlint lint --quiet --strict -- "${LINT_ARGS[@]}"; then
+        echo "❌ SwiftLint errors in staged files. Commit aborted."
+        exit 1
+      fi
+    fi
+  fi
+fi
+
+# ---- 3. Incremental per-layer swift build + test ----------------------------
+# Map staged paths → touched Packages/<X> layers, then build+test each.
+# Only runs when a package layer's sources are touched. Fast (SPM, no sim).
+
+if ! command -v swift >/dev/null 2>&1; then
   exit 0
 fi
 
-STAGED_SWIFT=$(git diff --cached --name-only --diff-filter=ACMR -- '*.swift' 2>/dev/null || true)
+TOUCHED_LAYERS=$(echo "$STAGED" \
+  | grep -E '^Packages/[^/]+/' \
+  | sed -E 's|^Packages/([^/]+)/.*|\1|' \
+  | sort -u || true)
 
-if [ -z "$STAGED_SWIFT" ]; then
-  exit 0
+[ -z "$TOUCHED_LAYERS" ] && exit 0
+
+# Guard: many touched layers × per-layer build+test can break the "fast" promise.
+# Above the cap, build only (defer full test to pre-push).
+LAYER_COUNT=$(echo "$TOUCHED_LAYERS" | sed '/^$/d' | wc -l | tr -d ' ')
+MAX_TEST_LAYERS=3
+RUN_TESTS=true
+if [ "$LAYER_COUNT" -gt "$MAX_TEST_LAYERS" ]; then
+  RUN_TESTS=false
+  echo "⚠️  改动涉及 ${LAYER_COUNT} 个 layer（>${MAX_TEST_LAYERS}）：pre-commit 只 build，测试交给 pre-push。"
 fi
 
-LINT_ARGS=()
-while IFS= read -r file; do
-  [ -f "$file" ] && LINT_ARGS+=("$file")
-done <<< "$STAGED_SWIFT"
+FAIL=0
+while IFS= read -r pkg; do
+  [ -z "$pkg" ] && continue
+  [ -d "Packages/$pkg" ] || continue
+  LOG=$(mktemp)
 
-if [ ${#LINT_ARGS[@]} -eq 0 ]; then
-  exit 0
-fi
+  echo "🔨 swift build [$pkg]"
+  if ! (cd "Packages/$pkg" && swift build) > "$LOG" 2>&1; then
+    echo "❌ swift build failed [$pkg]"; tail -20 "$LOG"; FAIL=1; rm -f "$LOG"; continue
+  fi
 
-if ! swiftlint lint --quiet --strict -- "${LINT_ARGS[@]}"; then
-  echo "❌ SwiftLint errors in staged files. Commit aborted."
+  if [ "$RUN_TESTS" = true ]; then
+    echo "🧪 swift test  [$pkg]"
+    if ! (cd "Packages/$pkg" && swift test) > "$LOG" 2>&1; then
+      echo "❌ swift test failed [$pkg]"; tail -30 "$LOG"; FAIL=1
+    fi
+  fi
+  rm -f "$LOG"
+done <<< "$TOUCHED_LAYERS"
+
+if [ "$FAIL" -ne 0 ]; then
+  echo ""
+  echo "❌ Layer build/test failed. Commit aborted（勿 --no-verify；CI 照样拦）。"
   exit 1
 fi
+
+echo "✅ pre-commit: touched layer(s) build/test passed."

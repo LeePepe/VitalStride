@@ -1,10 +1,16 @@
 name: CI
 
-# No-PR workflow: enforcement runs server-side on every push to main
-# (FS pushes agent/* to a local bare repo; TL advances github/main).
-# See AGENTS.md → Git Workflow. Audit: repo-vitalstride.md §4 (3-job CI plan).
+# Enforcement runs server-side. Two triggers:
+#   - pull_request → main: gate PRs BEFORE merge. spm + policy are set as
+#     required status checks in branch protection so a red run blocks the merge.
+#   - push → main: post-merge safety net (main only lands via merged PRs, but
+#     this re-verifies the merged result).
+# PR-required workflow: see docs/adr/0009-pr-required-workflow.md + AGENTS.md
+# → Git Workflow. Audit: repo-vitalstride.md §4 (3-job CI plan).
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -22,7 +28,7 @@ jobs:
       matrix:
         package: [VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
       - name: swift build
@@ -41,7 +47,7 @@ jobs:
     runs-on: macos-15
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
       - name: Install XcodeGen
@@ -77,19 +83,27 @@ jobs:
   policy:
     name: Lint & policy
     runs-on: macos-15
-    continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+      # Secret scan (required): block hardcoded API keys / tokens / passwords.
+      # Real risk surface — Keychain + Zhipu API key handling. Test-fixture
+      # fake keys are allowlisted in .gitleaks.toml (verified: no false red).
+      - name: Install gitleaks
+        run: brew install gitleaks
+      - name: gitleaks detect (required, full history)
+        run: gitleaks detect --no-banner --config .gitleaks.toml --redact
       - name: Install SwiftLint
         run: brew install swiftlint
-      # SwiftLint --strict on Packages (required). App target has ~582 pre-existing i18n debt (tracked MY-1065) → advisory.
-      - name: SwiftLint --strict Packages (required)
-        run: swiftlint lint --strict Packages || true  # advisory: cross-platform HK false-positives
-      - name: SwiftLint app target (advisory)
-        continue-on-error: true
-        run: swiftlint lint --strict VitalStride VitalStrideMac "VitalStrideWatch Watch App"
+      # SwiftLint --strict is a REQUIRED blocking gate. The ~602 pre-existing
+      # no_hardcoded_chinese violations (app-target i18n debt, tracked MY-1065)
+      # are grandfathered via .swiftlint-baseline.json, so CI blocks only NEW
+      # violations without a mass red-out. Regenerate the baseline as debt is
+      # paid: `swiftlint lint --write-baseline .swiftlint-baseline.json`.
+      # Scopes come from .swiftlint.yml `included:` (app targets + Packages).
+      - name: SwiftLint --strict (required, blocks on new violations)
+        run: swiftlint lint --strict --baseline .swiftlint-baseline.json
       # HealthKit values must never reach logs (privacy compliance)
       - name: No HealthKit values in logs
         run: |
@@ -102,27 +116,6 @@ jobs:
             exit 1
           fi
           echo "OK: no HealthKit values logged."
-      # main commit subjects must carry an MY-NNN issue key
-      - name: Commit subjects carry MY-NNN
-        run: |
-          set -uo pipefail
-          if [ "${{ github.event_name }}" != "push" ]; then
-            echo "Not a push event; skipping commit-key check."; exit 0
-          fi
-          BEFORE="${{ github.event.before }}"
-          if [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            RANGE="HEAD~1..HEAD"
-          else
-            RANGE="$BEFORE..HEAD"
-          fi
-          missing=0
-          while IFS= read -r sha; do
-            [ -n "$sha" ] || continue
-            subj=$(git log -1 --format=%s "$sha")
-            body=$(git log -1 --format=%b "$sha")
-            if ! printf '%s\n%s\n' "$subj" "$body" | grep -qE 'MY-[0-9]+'; then
-              echo "  missing MY-NNN: $(git rev-parse --short "$sha") $subj"
-              missing=1
-            fi
-          done < <(git rev-list "$RANGE")
-          [ "$missing" -eq 0 ] && echo "OK: all commits carry MY-NNN." || exit 1
+      # Layer frontmatter must stay consistent with code (anti-rot)
+      - name: Layer frontmatter anti-rot check
+        run: bash scripts/check-frontmatter.sh

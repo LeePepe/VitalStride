@@ -46,7 +46,7 @@ This is NOT a forward-looking build plan. VitalStride V1 已经在线运行约 7
 | FR-013 (Rest Timer Live Activity) | iOS app target + ActivityKit Widget extension |
 | FR-014 (i18n) | `Localizable.xcstrings` (Resources/) + SwiftLint `no_hardcoded_chinese` |
 | FR-015 (TelemetryKit) | `Packages/TelemetryKit/` |
-| FR-016 (no-PR git workflow) | `scripts/hooks/pre-commit`, `scripts/hooks/pre-push`, `AGENTS.md` §Git Workflow |
+| FR-016 (PR-required git workflow) | branch protection on `main` (6 checks + 1 review + enforce_admins), `.github/workflows/ci.yml`, `scripts/hooks/pre-commit`, `AGENTS.md` §Git Workflow |
 
 ### Key View Files
 
@@ -123,6 +123,15 @@ This is NOT a forward-looking build plan. VitalStride V1 已经在线运行约 7
 - **现状**: 当前依赖 user-triggered，不主动重试；但若加自动 retry，需 backoff 策略。
 - **处理路径**: 加 retry 时再写；当前 baseline OK。
 - **优先级**: P3
+
+### G-09 OverviewHealthSnapshotTests.loadAllMetrics flaky
+
+- **来源**: 2026-06-26 MY-867 ship gate 卡两次（同时阻塞 MY-863 整条键盘 epic）
+- **现状**: `VitalStrideTests/Sources/OverviewHealthSnapshotTests.swift:171-235` 的 `loadAllMetrics` 测试只 stub 了 5 个 `HealthSampleType.allCases` 中的 case（stepCount/heartRate/sleepAnalysis/bodyMass/activeEnergyBurned），其余 case **未注入 `AnchoredQueryResult`**，依赖 mock 默认行为。`load(cache:service:)` 并发查询多 type 时，未 stub 的 type 返回顺序非确定性可影响其它 type 的 cache fill 时序，导致 `state.snapshot.todaySteps == nil` 偶发。
+- **正确修法**: 调用 `setupEmptyResults(for: mock, except: nil)`（如需扩展该 helper 支持 nil）或显式枚举所有 `HealthSampleType.allCases` 补空 stub，与 `loadAuthorizedNoData`（行 144-167）的覆盖方式一致。
+- **风险**: 任何无关 ship 都可能被 quarantine（详 AGENTS.md §Pipeline Recovery），消耗 Hermes 配额。
+- **处理路径**: 单独开 `[Flake]` issue 修测试 stub；不耦合到任何 feature PR。Constitution PR-4 保证 quarantine 期间不阻塞业务 patch。
+- **优先级**: P1
 
 ---
 

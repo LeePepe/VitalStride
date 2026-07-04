@@ -1,6 +1,6 @@
 # ADR-0001: No-PR Git Workflow
 
-**Status**: Accepted
+**Status**: Superseded by [ADR-0009](0009-pr-required-workflow.md)
 **Date**: 2026-06-16
 **Deciders**: tianpli (project owner)
 

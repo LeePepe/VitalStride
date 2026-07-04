@@ -1,0 +1,27 @@
+# gitleaks 配置 — CI required secret 扫描 (policy job)
+#
+# 目的:防止真实密钥(API key / token / password)被硬编码提交进仓库。
+# 本项目有 Keychain + 智谱 API key 处理,密钥泄露是真实风险面。
+#
+# 扩展默认规则集(见 gitleaks 内置规则),仅在下方追加项目特定的 allowlist。
+# 加白名单前必须确认该匹配确为测试 fixture / 占位符,绝不为真实密钥。
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "项目特定豁免:测试 fixture 假密钥与占位符"
+
+# 测试文件里的假密钥(如 "test-api-key-12345")是单元测试 fixture,非真实密钥。
+# 按路径豁免整个 Tests/ 目录,避免 MockURLProtocol / Provider 测试的假凭据误报。
+paths = [
+  '''.*Tests/.*\.swift$''',
+  '''.*Tests\.swift$''',
+]
+
+# 显式豁免明显的占位符/测试模式,即使出现在非测试文件(如 .env.example、文档)。
+regexes = [
+  '''test-api-key-[0-9]+''',
+  '''(?i)(your|example|placeholder|dummy|fake|sample)[_-]?(api[_-]?key|token|secret)''',
+  '''xx+''',
+]

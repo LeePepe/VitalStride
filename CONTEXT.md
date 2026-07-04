@@ -1,3 +1,16 @@
+---
+canonical_roles: [Types, Config, Repo, Service, Runtime, UI]
+# Intra-layer stereotype order (class-role dependency axis), NOT package deps.
+# Package deps live in each Packages/<X>/CONTEXT.md `depends_on`.
+# A lower-role type must never import a higher-role type WITHIN the same package.
+#   Types   — models, enums, protocols, DTOs, pure value types
+#   Config  — container / configuration assembly
+#   Repo    — persistence, keychain, anchor stores, external data access
+#   Service — orchestration, providers, business logic
+#   Runtime — process/UI-adjacent helpers (haptics, managers)
+#   UI      — SwiftUI views / modifiers
+---
+
 # VitalStride Context
 
 ## Product Identity
@@ -135,6 +148,7 @@ The project uses XcodeGen + local SPM packages. Business logic lives in packages
 | AIService | AIProvider protocol, ZhipuProvider (智谱 GLM), ChatMessage/ChatResponse models | None |
 | VitalUI | Shared UI components (DataStoreErrorView) | VitalModels |
 | TelemetryKit | TelemetryEvent, TelemetryProvider protocol, ConsoleTelemetryProvider, TelemetryService | None |
+| DesignKit | 设计语言:seed-based 配色 token (Seed/PrimaryPalette/Theme) + SwiftUI 组件 (Card/Metric/Sparkline/DashboardView) | None |
 
 ### Rules
 
@@ -164,20 +178,24 @@ public protocol AIProvider: Sendable {
 
 Swappable: ZhipuProvider now, DeepSeek/OpenAI/通义 later — same protocol.
 
-## Git Workflow (no-PR)
+## Git Workflow (PR-required)
 
-VitalStride uses a **no-PR Git workflow**. Full rationale: [`docs/adr/0001-no-pr-workflow.md`](docs/adr/0001-no-pr-workflow.md). FS/TL command sequences: `AGENTS.md` § Git Workflow.
+VitalStride uses a **PR-required Git workflow**. Full rationale: [`docs/adr/0009-pr-required-workflow.md`](docs/adr/0009-pr-required-workflow.md) (supersedes ADR-0001). FS/TL command sequences: `AGENTS.md` § Git Workflow.
 
-**One-line summary**: GitHub remote stays as the canonical mirror of `main`, but agent feature branches live only in the local bare repo. FS pushes `agent/<issue>-<task>` to the bare repo; TL rebases onto `github/main` and pushes only `main` back to GitHub.
+**One-line summary**: all code reaches `main` only via a GitHub PR that passes the required
+checks + review. FS pushes `agent/<issue>-<task>` to `github` and opens a PR; TL merges via
+`gh pr merge` after CI is green and the PR is approved.
 
 **Roles**:
 
 | Role | Pushes to | Pushes what |
 |------|-----------|-------------|
-| FS | local bare repo | `agent/<issue-key>-<task-id-short>` |
-| TL | `github` | `main` (only) |
+| FS | `github` | `agent/<issue-key>-<task-id-short>` + opens PR |
+| TL | — | merges the PR (`gh pr merge`); never pushes `main` directly |
 
-**Hard rule**: pushing anything other than `main` to `github` is rejected by `scripts/hooks/pre-push`.
+**Hard rule**: `main` is branch-protected (6 required checks + 1 review + `enforce_admins=true`);
+direct pushes to `main` are rejected — even for admins. The only path to `main` is a merged PR
+whose required checks are green. `pre-commit` also blocks local commits to `main`.
 
 **Conflict policy (B2)**: TL resolves trivial conflicts (different lines, import additions, separate methods, whitespace) inline; semantic conflicts (same line, deletion of changed code, logic-overlap) get reassigned to FS.
 
@@ -194,9 +212,9 @@ Git hooks live in `scripts/hooks/` and are activated via `core.hooksPath`. This 
 
 | Hook | Purpose |
 |------|---------|
-| `pre-commit` | Blocks direct commits to `main` / `master`; SwiftLint on staged Swift files (fast, no build) |
-| `pre-push` | Public-remote-only-main guard; `xcodebuild test` (or `swift build/test` for SPM-only); SwiftLint on changed Swift files |
+| `pre-commit` | Blocks direct commits to `main` / `master`; SwiftLint on staged Swift files; incremental `swift build`(+`test`) for each touched `Packages/<X>` layer (fast, no sim; >3 layers → build-only) |
+| `pre-push` | `xcodebuild test` (or `swift build/test` for SPM-only); SwiftLint on changed Swift files; layer frontmatter anti-rot check (`scripts/check-frontmatter.sh`). Runs as a fast pre-gate before the PR |
 
-**Build performance**: `pre-push` shares `<git-common-dir>/derived-data` across all worktrees of the same bare repo (so agent worktrees benefit from each other's build cache), and serializes concurrent `xcodebuild` invocations via a `flock`-protected `<git-common-dir>/build.lock` to avoid DerivedData corruption. `xcodebuild test` is invoked instead of separate `build` + `test` steps (test re-builds internally — running both wastes ~50% of build time).
+**Build performance**: `pre-push` shares `<git-common-dir>/derived-data` across all worktrees sharing the same git-common-dir (so agent worktrees benefit from each other's build cache), and serializes concurrent `xcodebuild` invocations via a `flock`-protected `<git-common-dir>/build.lock` to avoid DerivedData corruption. `xcodebuild test` is invoked instead of separate `build` + `test` steps (test re-builds internally — running both wastes ~50% of build time).
 
 **SPM-only fast path**: when changes are confined to `Packages/<X>/` and no app-target files are touched, `pre-push` runs `swift build && swift test` per touched package instead of full `xcodebuild test`. Pure docs/hooks/scripts changes skip build entirely.

@@ -33,6 +33,7 @@ HealthKit 数值不离设备、不入日志、权限撤销即清除。
 | AIService | AIProvider 协议、ZhipuProvider、ChatMessage/Response | — |
 | VitalUI | 共享 UI 组件 | VitalModels |
 | TelemetryKit | TelemetryEvent、TelemetryProvider、Console/Service | — |
+| DesignKit | 设计语言：seed 配色 token（Seed/PrimaryPalette/Theme）+ SwiftUI 组件 | — |
 
 **规则**：
 - App target 不互相依赖，只依赖 packages。
@@ -40,7 +41,7 @@ HealthKit 数值不离设备、不入日志、权限撤销即清除。
 - 改动仅涉及 `Packages/<X>/` 时，**必须**用 `swift build && swift test` 验证；禁止用 xcodebuild（慢且无意义）。
 - 新增 package 需 ADR 并更新 `project.yml` + 本宪法表格。
 
-参考：ADR-0004 (五个本地 SPM 包)、ADR-0007 (TelemetryKit standalone)。
+参考：ADR-0004 (本地 SPM 包拆分)、ADR-0007 (TelemetryKit 独立包)、ADR-0008 (DesignKit 设计系统包)。
 
 ### IV. XcodeGen 是配置真理之源 (NON-NEGOTIABLE)
 
@@ -96,6 +97,7 @@ VitalUI ←── VitalModels
 HealthKitService ┘
     AIService    (独立, 无依赖)
     TelemetryKit (独立, 无依赖)
+    DesignKit    (独立, 无依赖 — 设计系统 token + 组件)
 ```
 
 **Rules**：
@@ -129,21 +131,26 @@ HealthKitService ┘
 
 ## Development Workflow
 
-### Git: No-PR Workflow (NON-NEGOTIABLE)
+### Git: PR-Required Workflow (NON-NEGOTIABLE)
 
 | 角色 | 推到哪 | 推什么 |
 |------|--------|--------|
-| Fullstack (FS) | 本地 bare repo | `agent/<issue-key>-<task-id-short>` |
-| Team Lead (TL) | `github` remote | **只 main** |
-| AI Reviewer | （不推） | review FS commits |
+| Fullstack (FS) | `github` remote | `agent/<issue-key>-<task-id-short>` + 开 PR (`gh pr create`) |
+| Team Lead (TL) | `github` remote | 审 CI 绿 + review 后 `gh pr merge` |
+| AI Reviewer | （在 PR 上 review） | review PR commits |
 
-`scripts/hooks/pre-push` 强制：只 `main` 能推 `github`/`gitlab`；agent/* 分支每个 commit 必须含 `MY-\d+`。详见 ADR-0001、AGENTS.md §Git Workflow。
+所有代码只能经 PR 进 `main`。`main` 受 branch protection 保护：**6 个 required status
+check**（`Lint & policy` + 5× `SPM …`）+ **1 个 review** + **enforce_admins=true** —— 红的 CI
+或未 review 的改动进不了 main，admin 也不例外。`scripts/hooks/pre-commit` 禁止直接 commit 到
+main；`pre-push` 本地跑全量 build/test + lint 作为 PR 前的快速门。详见 [ADR-0009](../../docs/adr/0009-pr-required-workflow.md)、AGENTS.md §Git Workflow。
 
 ### Commit Message 约定
 
-- **Agent 分支**：每个 commit 必须含 `MY-\d+`（issue key），subject 或 body 任一位置。
-- **Main 直 commit（工程改动）**：用 `chore(...)` / `docs(...)` / `ci(...)` 前缀，无 issue key 时加 `(retro A-XX)` 占位以保留追溯。
-- 历史教训：2026-06 retro 发现 92% commit 缺 issue key，pre-push 已强制。
+- **Agent 分支**：每个 commit **建议**含 `MY-\d+`（issue key），subject 或 body 任一位置（约定，
+  非强制 —— pre-push 的 MY-key 强制已移除，见 commit `13505cd`）。
+- **工程改动 commit**：用 `chore(...)` / `docs(...)` / `ci(...)` 前缀，无 issue key 时加
+  `(retro A-XX)` 占位以保留追溯。
+- 历史教训：2026-06 retro 发现 92% commit 缺 issue key —— 保留 MY-key 约定以维持可追溯。
 
 ### Build & Test Gate
 
@@ -190,6 +197,15 @@ HealthKitService ┘
 
 - 风格、注释优化、命名建议。
 
+### J — Ship-Gate Failure Classification (P0 verdict aggregation modifier)
+
+Ship gate (`xcodebuild test` / `swift test` 在 pre-push hook) 失败时，Reviewer / TL **必须**先判定失败是否由当前 patch 引入：
+
+- **Patch-induced**：失败 test 文件 ∈ `git diff github/main...HEAD --name-only`，或失败 test 所属 module 有源码改动 → 正常 P0 FAIL，回 FS
+- **Pre-existing flake**：失败 test 与当前 patch 无源码关联 → **不计入 verdict**，走 AGENTS.md §Pipeline Recovery → Quarantine 路径
+
+把 pre-existing flake 当作 P0 FAIL 阻塞 patch = 宪法违规（reviewer 责任）。
+
 ### Verdict Aggregation
 
 - 任意 P0 → 🔴 FAIL
@@ -198,6 +214,42 @@ HealthKitService ┘
 - 仅 P2 / 无 finding → 🟢 PASS
 
 ---
+
+## Pipeline Recovery Protocols
+
+> Pipeline 失败时 agent 行为的宪法级约束。具体命令实现见 `AGENTS.md` §Pipeline Recovery。
+
+### PR-1: 禁止 `human_triage` 作为常规状态
+
+`waiting_on=human_triage` 仅在以下场景允许：
+- Constitution P0 违规需人判断（例如隐私越界争议、范围争议）
+- 自动恢复（Hermes）尝试 3 次后仍 fail 同一根因
+
+其它 infra failure（CLI routing、runtime crash、quarantined flake、限流、网络）一律 Hermes auto-dispatch，TL **禁止**直接打 `human_triage` 标。
+
+### PR-2: Sub-issue 幂等
+
+Planner Lead / TL 创建 sub-issue 前必须查同 parent 的 alive (`todo`/`in_progress`/`in_review`/`blocked`) sub-issue；若 Scope 重合（同 Branch / 同 title trim / files ≥80% 重合）→ 复用而非新建。重复创建 sibling = 宪法违规。
+
+历史教训：MY-857 / MY-859 / MY-999 三胞胎，同一 scope 三条独立 issue 同时被 dispatch，导致并行修改冲突 + run-count 浪费。
+
+### PR-3: Run-Count Guard 区分 `run_attempts` vs `infra_failures`
+
+- `run_attempts`：code-review iterate、patch-induced 测试失败（计 budget，默认 15）
+- `infra_failures`：CLI 错误、runtime crash、quarantined flake、auth/network（不计 budget）
+
+把 infra failure 计入 `run_attempts` 浪费 budget 并提早 stall pipeline = 宪法违规。
+
+### PR-4: Ship-Gate Failure Classification
+
+参见 Cross-Cutting Quality Bars §J。
+
+### PR-5: Startup Scan
+
+TL 每次 pipeline 起手前必须扫描：
+- `gh pr list --state open`：PR 工作流下 open PR 是正常状态 —— TL 应 review 并推进（CI 绿 +
+  review 后 `gh pr merge`），而非视为违规。长时间停滞的 PR 需 comment 跟进。
+- 同 parent alive sub-issue（PR-2 前置）
 
 ## Governance
 
@@ -209,4 +261,6 @@ HealthKitService ┘
   - MAJOR — 删除/反转原则；MINOR — 新增原则/新 Quality Bar；PATCH — 文字澄清不改语义
 - 与本宪法相关：AGENTS.md（agent 操作手册）、CONTEXT.md（数据架构细节）、`docs/adr/`（决策档案）、`scripts/hooks/`（强制规则机器实现）。
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-25
+**Version**: 2.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-03
+
+> 2.0.0（MAJOR，反转原则）：Git 工作流由 no-PR 反转为 PR-required（[ADR-0009](../../docs/adr/0009-pr-required-workflow.md) supersede ADR-0001）。`main` 改由 branch protection（6 required checks + 1 review + enforce_admins）强制，替代已移除的 pre-push main-only / MY-key 强制。

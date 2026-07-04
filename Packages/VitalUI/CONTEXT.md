@@ -1,3 +1,19 @@
+---
+layer: VitalUI
+role: 跨 app target 共享的 SwiftUI 组件；轻量，仅含不依赖业务逻辑的通用 UI
+depends_on: [VitalModels]
+depended_by: []
+red_lines:
+  - 仅放不含业务逻辑的通用 UI；业务逻辑住 Packages 其它层或 app target（宪法 III）
+  - UI 字符串必须用 String(localized:) / NSLocalizedString 引用 xcstrings，禁止硬编码中文（宪法 VI）
+  - Swift 6 strict concurrency，View/Modifier 遵守 MainActor isolation（宪法 II）
+roles:
+  Runtime: [HapticManager]
+  UI:      [SnackbarMode, SnackbarModifier, DataStoreErrorView]
+test: swift test --package-path Packages/VitalUI
+owns: [DataStoreErrorView, SnackbarModifier, HapticManager]
+---
+
 # VitalUI Context
 
 ## 职责

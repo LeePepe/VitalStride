@@ -10,14 +10,41 @@ excluded:
   - Packages/*/.build
   - Packages/*/Tests
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 规则策略:only_rules 白名单 —— 只启用「对准真实缺陷」的高信号规则。
+#
+# 历史:曾用 `only_rules: [no_hardcoded_chinese]` 只开一条,标准集全关,导致
+# force_unwrap / 空 catch / try? save 等真实缺陷无门禁(2026-07 审查发现)。
+# 反过来「全标准集」又引入 identifier_name(色彩/数学代码的单字母)、line_length、
+# large_tuple、trailing_comma 等风格噪音,信号低且回溯性误伤既有代码。
+# 故取中道:白名单精选,只留能对准 bug 的规则。收窄/放宽只改此列表。
+#
+# 棘轮(ratchet):存量违规 grandfather 进 .swiftlint-baseline.json,CI 用
+# `--strict --baseline` 只拦【新增】,不因存量红。偿还后重生成:
+#   swiftlint lint --write-baseline .swiftlint-baseline.json
+# ─────────────────────────────────────────────────────────────────────────────
+
 only_rules:
+  # ── 对准 2026-07 审查发现的缺陷类别(内置规则)──
+  - force_unwrapping          # 危险强解包
+  - force_try                 # 危险 force try
+  - force_cast                # 危险 force cast
+  - empty_count               # .count == 0 → isEmpty
+  - empty_string
+  - first_where               # 集合/可选安全 & 可读性
+  - last_where
+  - contains_over_first_not_nil
+  - sorted_first_last
+  # ── 项目特定自定义规则(见下方 custom_rules)──
   - no_hardcoded_chinese
+  - empty_catch
+  - silent_model_save
 
 custom_rules:
   no_hardcoded_chinese:
     name: "No Hardcoded Chinese"
     message: "中文字符串应放在 Localizable.strings (用 NSLocalizedString/String(localized:) 引用 key)"
-    regex: '"[^"]*[\u4e00-\u9fff][^"]*"'
+    regex: '"[^"]*[一-鿿][^"]*"'
     match_kinds:
       - string
     severity: warning
@@ -26,3 +53,21 @@ custom_rules:
       - ".*Tests\\.swift"
       - "VitalStrideTests/.*"
       - "Packages/.*/Tests/.*"
+
+  empty_catch:
+    name: "Empty catch swallows errors"
+    message: "空 catch{} 会静默吞错;至少 logger.error(隐私红线:不记健康数值)或设置错误状态驱动 UI 降级。参考 CrashRecoveryService / fetchError 范式"
+    regex: '\}\s*catch\s*\{\s*\}'
+    severity: warning
+    excluded:
+      - ".*Tests/.*"
+      - ".*Tests\\.swift"
+
+  silent_model_save:
+    name: "Silent try? on modelContext.save"
+    message: "try? modelContext.save() 会静默吞掉持久化失败(可能丢用户训练数据);改 do/catch 记录或 rollback"
+    regex: 'try\?\s+\w*[Cc]ontext\.save\(\)'
+    severity: warning
+    excluded:
+      - ".*Tests/.*"
+      - ".*Tests\\.swift"
