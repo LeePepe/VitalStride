@@ -2,24 +2,44 @@
 // Set Row (Always Editable).
 // Extracted verbatim from ActiveWorkoutView.swift (MY-874). Pre-existing
 // `no_hardcoded_chinese` literals move with the code and stay silenced at file
-// scope until the dedicated i18n cleanup (MY-1065). No semantic change.
+// scope until the dedicated i18n cleanup (MY-1065). MY-1073 wires each weight
+// / reps input to the shared custom `WorkoutNumericKeyboard` and consolidates
+// the previous Menu function items (pyramid / drop-set / unilateral toggle)
+// into the keyboard's left column.
 
 import SwiftUI
 import VitalModels
 import VitalUI
+
+#if canImport(UIKit) && !os(macOS)
+import UIKit
+#endif
 
 struct SetRow: View {
     let index: Int
     let exerciseSet: ExerciseSet
     let weightUnit: WeightUnit
     let canDelete: Bool
+    /// Optional exercise context for the keyboard's preset resolver.
+    let exercise: Exercise?
+    /// Most recent same-exercise weight (kg) for the preset fallback chain.
+    let recentWeightKg: Double?
     let onToggleCompleted: (_ wasCompleted: Bool) -> Void
     let onDelete: () -> Void
     let onAddSubSet: (_ type: SetType) -> Void
+    /// MY-1073 — invoked when the keyboard's Copy key fires. The parent
+    /// section covers/appends the next set as documented in the issue.
+    let onCopyToNext: () -> Void
 
     @State private var weightText: String = ""
     @State private var weightRightText: String = ""
     @State private var repsText: String = ""
+
+    #if canImport(UIKit) && !os(macOS)
+    /// Retained here (not in State) so it survives view updates but is
+    /// re-created per-SetRow instance. Assigned lazily on first appearance.
+    @State private var keyboards: SetRowKeyboards = SetRowKeyboards()
+    #endif
 
     var body: some View {
         HStack(spacing: 8) {
@@ -32,91 +52,34 @@ struct SetRow: View {
                 // MY-876: unilateral order matches bilateral "weight × reps":
                 // left-weight / right-weight × reps. Reps stays at the tail so
                 // the visual/accessibility sequence is consistent across modes.
-                SelectAllTextField(
-                    placeholder: weightUnit.rawValue,
-                    text: $weightText,
-                    keyboardType: .decimalPad
-                )
-                    .frame(width: 56)
-                    .accessibilityLabel(String(
-                        localized: "第 \(index + 1) 组左侧重量",
-                        comment: "Left weight input a11y label"
-                    ))
-                    .accessibilityHint(String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint"))
-                    .onChange(of: weightText) { _, newValue in
-                        let filtered = filterDecimalInput(newValue)
-                        if filtered != newValue { weightText = filtered }
-                        syncWeightToModel()
-                    }
+                weightField(binding: $weightText, field: .weight, width: 56, a11yLabel: String(
+                    localized: "第 \(index + 1) 组左侧重量",
+                    comment: "Left weight input a11y label"
+                ), a11yHint: String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint"))
 
                 Text("/")
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
 
-                SelectAllTextField(
-                    placeholder: weightUnit.rawValue,
-                    text: $weightRightText,
-                    keyboardType: .decimalPad
-                )
-                    .frame(width: 56)
-                    .accessibilityLabel(String(
-                        localized: "第 \(index + 1) 组右侧重量",
-                        comment: "Right weight input a11y label"
-                    ))
-                    .accessibilityHint(String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint"))
-                    .onChange(of: weightRightText) { _, newValue in
-                        let filtered = filterDecimalInput(newValue)
-                        if filtered != newValue { weightRightText = filtered }
-                        syncWeightRightToModel()
-                    }
+                weightField(binding: $weightRightText, field: .weightRight, width: 56, a11yLabel: String(
+                    localized: "第 \(index + 1) 组右侧重量",
+                    comment: "Right weight input a11y label"
+                ), a11yHint: String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint"))
 
                 Text("×")
                     .foregroundStyle(.secondary)
 
-                SelectAllTextField(
-                    placeholder: "次数",
-                    text: $repsText,
-                    keyboardType: .numberPad
-                )
-                    .frame(width: 60)
-                    .accessibilityLabel("第 \(index + 1) 组次数")
-                    .accessibilityHint("输入次数")
-                    .onChange(of: repsText) { _, newValue in
-                        let filtered = newValue.filter { $0.isNumber }
-                        if filtered != newValue { repsText = filtered }
-                        syncRepsToModel()
-                    }
+                repsField(width: 60)
             } else {
-                SelectAllTextField(
-                    placeholder: weightUnit.rawValue,
-                    text: $weightText,
-                    keyboardType: .decimalPad
-                )
-                    .frame(width: 70)
-                    .accessibilityLabel("第 \(index + 1) 组重量")
-                    .accessibilityHint("输入重量数值")
-                    .onChange(of: weightText) { _, newValue in
-                        let filtered = filterDecimalInput(newValue)
-                        if filtered != newValue { weightText = filtered }
-                        syncWeightToModel()
-                    }
+                weightField(binding: $weightText, field: .weight, width: 70, a11yLabel: String(
+                    localized: "第 \(index + 1) 组重量",
+                    comment: "Total weight input a11y label"
+                ), a11yHint: String(localized: "输入重量数值", comment: "Total weight input a11y hint"))
 
                 Text("×")
                     .foregroundStyle(.secondary)
 
-                SelectAllTextField(
-                    placeholder: "次数",
-                    text: $repsText,
-                    keyboardType: .numberPad
-                )
-                    .frame(width: 60)
-                    .accessibilityLabel("第 \(index + 1) 组次数")
-                    .accessibilityHint("输入次数")
-                    .onChange(of: repsText) { _, newValue in
-                        let filtered = newValue.filter { $0.isNumber }
-                        if filtered != newValue { repsText = filtered }
-                        syncRepsToModel()
-                    }
+                repsField(width: 60)
             }
 
             Menu {
@@ -127,25 +90,6 @@ struct SetRow: View {
                         Label(
                             String(localized: "删除", comment: "Delete set menu item"),
                             systemImage: "trash"
-                        )
-                    }
-                }
-
-                if exerciseSet.setType == .working {
-                    Button {
-                        onAddSubSet(.pyramid)
-                    } label: {
-                        Label(
-                            String(localized: "添加递增组", comment: "Add pyramid subset menu item"),
-                            systemImage: "arrow.up.right"
-                        )
-                    }
-                    Button {
-                        onAddSubSet(.dropSet)
-                    } label: {
-                        Label(
-                            String(localized: "添加递减组", comment: "Add drop set subset menu item"),
-                            systemImage: "arrow.down.right"
                         )
                     }
                 }
@@ -162,14 +106,6 @@ struct SetRow: View {
                 } label: {
                     Text(String(localized: "组类型", comment: "Set type picker label in menu"))
                 }
-
-                Toggle(
-                    String(localized: "单侧重量", comment: "Unilateral weight toggle in set menu"),
-                    isOn: Binding(
-                        get: { exerciseSet.isUnilateral },
-                        set: { exerciseSet.isUnilateral = $0 }
-                    )
-                )
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.body)
@@ -201,6 +137,102 @@ struct SetRow: View {
         }
     }
 
+    // MARK: - Field builders (routes through the custom keyboard on iOS)
+
+    @ViewBuilder
+    private func weightField(
+        binding: Binding<String>,
+        field: SetField,
+        width: CGFloat,
+        a11yLabel: String,
+        a11yHint: String
+    ) -> some View {
+        #if canImport(UIKit) && !os(macOS)
+        SelectAllTextField(
+            placeholder: weightUnit.rawValue,
+            text: binding,
+            keyboardType: .decimalPad,
+            customKeyboard: keyboards.keyboard(for: field),
+            field: field,
+            exercise: exercise,
+            setType: exerciseSet.setType,
+            recentWeightKg: recentWeightKg,
+            onLeftAction: { action in handleLeftAction(action, field: field) },
+            onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
+        )
+        .frame(width: width)
+        .accessibilityLabel(a11yLabel)
+        .accessibilityHint(a11yHint)
+        .onChange(of: binding.wrappedValue) { _, newValue in
+            let filtered = filterDecimalInput(newValue)
+            if filtered != newValue { binding.wrappedValue = filtered }
+            if field == .weight {
+                syncWeightToModel()
+            } else {
+                syncWeightRightToModel()
+            }
+        }
+        #else
+        SelectAllTextField(
+            placeholder: weightUnit.rawValue,
+            text: binding,
+            keyboardType: .decimalPad
+        )
+        .frame(width: width)
+        .accessibilityLabel(a11yLabel)
+        .accessibilityHint(a11yHint)
+        .onChange(of: binding.wrappedValue) { _, newValue in
+            let filtered = filterDecimalInput(newValue)
+            if filtered != newValue { binding.wrappedValue = filtered }
+            if field == .weight {
+                syncWeightToModel()
+            } else {
+                syncWeightRightToModel()
+            }
+        }
+        #endif
+    }
+
+    @ViewBuilder
+    private func repsField(width: CGFloat) -> some View {
+        #if canImport(UIKit) && !os(macOS)
+        SelectAllTextField(
+            placeholder: "次数",
+            text: $repsText,
+            keyboardType: .numberPad,
+            customKeyboard: keyboards.keyboard(for: .reps),
+            field: .reps,
+            exercise: exercise,
+            setType: exerciseSet.setType,
+            recentWeightKg: recentWeightKg,
+            onLeftAction: { action in handleLeftAction(action, field: .reps) },
+            onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
+        )
+        .frame(width: width)
+        .accessibilityLabel("第 \(index + 1) 组次数")
+        .accessibilityHint("输入次数")
+        .onChange(of: repsText) { _, newValue in
+            let filtered = newValue.filter { $0.isNumber }
+            if filtered != newValue { repsText = filtered }
+            syncRepsToModel()
+        }
+        #else
+        SelectAllTextField(
+            placeholder: "次数",
+            text: $repsText,
+            keyboardType: .numberPad
+        )
+        .frame(width: width)
+        .accessibilityLabel("第 \(index + 1) 组次数")
+        .accessibilityHint("输入次数")
+        .onChange(of: repsText) { _, newValue in
+            let filtered = newValue.filter { $0.isNumber }
+            if filtered != newValue { repsText = filtered }
+            syncRepsToModel()
+        }
+        #endif
+    }
+
     private var completionButton: some View {
         Button {
             let wasCompleted = exerciseSet.isCompleted
@@ -224,6 +256,35 @@ struct SetRow: View {
         .padding(.vertical, -4)
         .accessibilityLabel("第 \(index + 1) 组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
         .accessibilityHint("双击切换完成状态")
+    }
+
+    // MARK: - Keyboard callbacks
+
+    private func handleLeftAction(_ action: LeftKeyAction, field: SetField) {
+        switch action {
+        case .addPyramid:
+            onAddSubSet(.pyramid)
+        case .addDropSet:
+            onAddSubSet(.dropSet)
+        case .toggleUnilateral:
+            exerciseSet.isUnilateral.toggle()
+            if !exerciseSet.isUnilateral {
+                exerciseSet.weightRight = nil
+                weightRightText = ""
+            }
+        case .copyToNext:
+            onCopyToNext()
+        }
+    }
+
+    private func handlePresetReps(weightKg: Double?, reps: Int) {
+        if let weightKg {
+            let displayWeight = weightUnit == .lb ? weightKg * 2.20462 : weightKg
+            weightText = formatWeight(displayWeight)
+            syncWeightToModel()
+        }
+        repsText = "\(reps)"
+        syncRepsToModel()
     }
 
     private func syncWeightToModel() {
@@ -279,3 +340,36 @@ struct SetRow: View {
             : String(format: "%.1f", value)
     }
 }
+
+#if canImport(UIKit) && !os(macOS)
+
+/// Lazy cache of one `WorkoutNumericKeyboard` per `SetField` for a single
+/// SetRow. Keeping one keyboard per field lets each `SelectAllTextField`
+/// install its inputView independently while still sharing the same layout.
+@MainActor
+final class SetRowKeyboards {
+    private var storage: [SetField: WorkoutNumericKeyboard] = [:]
+
+    func keyboard(for field: SetField) -> WorkoutNumericKeyboard {
+        if let existing = storage[field] {
+            return existing
+        }
+        // Base closures are placeholders — SelectAllTextField.Coordinator
+        // installs the real overrides. `onDone` is overridden to resign the
+        // text field's first-responder status.
+        let keyboard = WorkoutNumericKeyboard(
+            field: field,
+            setType: .working,
+            exercise: nil,
+            recentWeightKg: nil,
+            onKeyPress: { _ in },
+            onLeftAction: { _ in },
+            onPresetReps: { _, _ in },
+            onDone: {}
+        )
+        storage[field] = keyboard
+        return keyboard
+    }
+}
+
+#endif
