@@ -40,7 +40,6 @@
 		28DF13D76D0CFED226684AF1 /* RelationshipTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01517EF3D1E025ABF280B721 /* RelationshipTests.swift */; };
 		29AF3A64C7A5D09B19B9CDAF /* CardTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30B221AD8C11DB7333234B26 /* CardTelemetry.swift */; };
 		2FB91717EBC48670C3AAD328 /* HealthKitService in Frameworks */ = {isa = PBXBuildFile; productRef = 09FDFCB9311B7330669EE78F /* HealthKitService */; };
-		30003E4BDD7EDA582F9A8AF4 /* ActiveWorkoutLargeModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7488427045E6A36AE93D99CC /* ActiveWorkoutLargeModeTests.swift */; };
 		32B35753CA49878D00699140 /* SetTypeColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF0A92FF1A86943026723A0 /* SetTypeColor.swift */; };
 		32C5AC0265AFA7662A7175F7 /* HeartRateSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4340E51820609A5B245C166D /* HeartRateSection.swift */; };
 		335DBBDC8A3BD67D9782C953 /* AIChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C8F2FA78A3BA5986CF1486C /* AIChatView.swift */; };
@@ -331,7 +330,6 @@
 		7130E924ED6698DC80DA5B73 /* OverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewView.swift; sourceTree = "<group>"; };
 		738B030EACEFB69B50A7D9C3 /* GenericHealthDetailTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenericHealthDetailTests.swift; sourceTree = "<group>"; };
 		74545E444A4D8FE24EB20080 /* TelemetryKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TelemetryKit; path = Packages/TelemetryKit; sourceTree = SOURCE_ROOT; };
-		7488427045E6A36AE93D99CC /* ActiveWorkoutLargeModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutLargeModeTests.swift; sourceTree = "<group>"; };
 		74D175BC01BA640310DD07C7 /* WorkoutSetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSetManager.swift; sourceTree = "<group>"; };
 		78DCB0AB8EDE0CEE01A0C7A3 /* GenericHealthDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenericHealthDetailView.swift; sourceTree = "<group>"; };
 		7A881C46913F6885CF69BA78 /* AIPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIPromptBuilder.swift; sourceTree = "<group>"; };
@@ -488,7 +486,6 @@
 			isa = PBXGroup;
 			children = (
 				584CFBB57DF2FA059790F81B /* ActiveEnergySectionTests.swift */,
-				7488427045E6A36AE93D99CC /* ActiveWorkoutLargeModeTests.swift */,
 				D96449D8FC9C4215DC12132B /* AdaptiveCardGridTests.swift */,
 				D551D352FEC3C216F4BAB58A /* AIAnalysisServiceTests.swift */,
 				0378B7BEA27F039A09AE83A8 /* AIChatViewTests.swift */,
@@ -1212,7 +1209,6 @@
 				5A8F9A179F81838ED043331F /* AISettingsSectionTests.swift in Sources */,
 				6F7D70DDEB1E80E8134A0BD9 /* AITrainingAdviceCardTests.swift in Sources */,
 				6DC642F94DA823F4D74F469E /* ActiveEnergySectionTests.swift in Sources */,
-				30003E4BDD7EDA582F9A8AF4 /* ActiveWorkoutLargeModeTests.swift in Sources */,
 				5B39C3BDABBEAA6BEEF55728 /* AdaptiveCardGridTests.swift in Sources */,
 				6AB2D0B30AA82E34BFA57E32 /* BackgroundSaveTests.swift in Sources */,
 				46E713E7E29F1ADC0BE2AB3C /* BodyWeightSectionTests.swift in Sources */,
