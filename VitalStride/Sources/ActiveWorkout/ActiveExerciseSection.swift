@@ -43,6 +43,8 @@ struct ActiveExerciseSection: View {
                         exerciseSet: exerciseSet,
                         weightUnit: weightUnit,
                         canDelete: sortedSets.count > 1,
+                        exercise: workoutExercise.exercise,
+                        recentWeightKg: recentWeightKg(before: index),
                         onToggleCompleted: { wasCompleted in
                             if !wasCompleted { onSetCompleted() }
                         },
@@ -51,6 +53,9 @@ struct ActiveExerciseSection: View {
                         },
                         onAddSubSet: { type in
                             addSubSet(after: exerciseSet, type: type)
+                        },
+                        onCopyToNext: {
+                            copyToNext(from: exerciseSet)
                         }
                     )
                     .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
@@ -223,5 +228,64 @@ struct ActiveExerciseSection: View {
         let didDelete = WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
         guard didDelete else { return }
         onSetDeleted()
+    }
+
+    /// Most recent weight (kg) recorded for this exercise in the current
+    /// workout, walking backwards from `index` and skipping sub-sets. Used to
+    /// feed the keyboard's preset resolver when the exercise has no seeded
+    /// default weight for the tapped bucket.
+    private func recentWeightKg(before index: Int) -> Double? {
+        let sets = sortedSets
+        // swiftlint:disable:next identifier_name
+        for i in stride(from: index - 1, through: 0, by: -1) where !sets[i].setType.isSubSet {
+            let weight = sets[i].weight
+            if weight > 0 { return weight }
+        }
+        return nil
+    }
+
+    /// MY-1073 — Copy current set to next. If a next set exists (main or sub),
+    /// its weight/weightRight/reps/setType/isUnilateral are overwritten. If
+    /// none exists, a new main set is appended using the same ordering rules
+    /// as `addSet()`. Extracted to a static helper on this type so it can be
+    /// exercised from tests without instantiating the SwiftUI view.
+    private func copyToNext(from source: ExerciseSet) {
+        Self.copyToNext(from: source, in: workoutExercise, using: modelContext)
+    }
+
+    /// Nonisolated so tests (and any callers off the main actor) can invoke it
+    /// without hopping through `@MainActor` — SwiftData `ModelContext` /
+    /// `PersistentModel` writes are safe from any actor that owns the context.
+    nonisolated static func copyToNext(
+        from source: ExerciseSet,
+        in workoutExercise: WorkoutExercise,
+        using modelContext: ModelContext
+    ) {
+        let sortedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
+        guard let sourceIndex = sortedSets.firstIndex(where: {
+            $0.persistentModelID == source.persistentModelID
+        }) else { return }
+
+        let nextIndex = sourceIndex + 1
+        if nextIndex < sortedSets.count {
+            let target = sortedSets[nextIndex]
+            target.weight = source.weight
+            target.weightRight = source.weightRight
+            target.reps = source.reps
+            target.setType = source.setType
+            target.isUnilateral = source.isUnilateral
+        } else {
+            let order = workoutExercise.sets?.count ?? 0
+            let newSet = ExerciseSet(
+                order: order,
+                weight: source.weight,
+                reps: source.reps,
+                setType: source.setType,
+                isUnilateral: source.isUnilateral,
+                weightRight: source.weightRight
+            )
+            newSet.workoutExercise = workoutExercise
+            modelContext.insert(newSet)
+        }
     }
 }
