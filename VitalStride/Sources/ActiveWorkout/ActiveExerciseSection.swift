@@ -16,8 +16,6 @@ struct ActiveExerciseSection: View {
     let onReplace: () -> Void
     let onDelete: () -> Void
     @Environment(\.modelContext) private var modelContext
-    // MY-1088: workout Large Mode toggle read from ActiveWorkoutView.
-    @Environment(\.isLargeWorkoutMode) private var isLargeMode
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     @State private var showingDeleteConfirmation = false
 
@@ -76,7 +74,6 @@ struct ActiveExerciseSection: View {
         } header: {
             HStack {
                 Text(workoutExercise.exercise?.localizedName ?? "动作")
-                    .font(LargeWorkoutFonts.exerciseName(large: isLargeMode))
                     .contextMenu {
                         Button {
                             onReplace()

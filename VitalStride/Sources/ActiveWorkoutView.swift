@@ -34,14 +34,27 @@ struct ActiveWorkoutView: View {
     @State private var sessionManager: (any WorkoutSessionManaging)?
     #endif
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
-    // MY-1088: workout-specific Large Mode toggle. Persisted across sessions so
-    // the user's last choice is restored on next workout entry.
+    // MY-1088: workout-specific Large Mode toggle. Persisted across sessions.
     @AppStorage("activeWorkoutLargeMode") private var largeMode = false
     @State private var startTime = Date()
     let source: WorkoutStartSource
 
     init(source: WorkoutStartSource = .blank) {
         self.source = source
+    }
+
+    // MY-1088: header timer font. Stacks with the user's system Dynamic Type
+    // via `.system(_ style:)` — Large Mode raises the base text style from
+    // .title3 to .largeTitle; the system size then scales on top of that.
+    private var timerFont: Font {
+        Font.system(largeMode ? .largeTitle : .title3, design: .default)
+            .monospacedDigit()
+    }
+
+    // MY-1088: header summary line ("N 动作 · M 组 · V kg") font. Same
+    // Dynamic-Type-stacking approach as `timerFont`.
+    private var summaryFont: Font {
+        Font.system(largeMode ? .title3 : .subheadline, design: .default)
     }
 
     var body: some View {
@@ -61,7 +74,6 @@ struct ActiveWorkoutView: View {
                     .padding(.bottom, restTimer.phase != .idle ? 100 : 0)
                     .animation(.spring(duration: 0.35, bounce: 0.2), value: restTimer.phase != .idle)
             }
-            .environment(\.isLargeWorkoutMode, largeMode)
             .navigationTitle("训练中")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -176,27 +188,27 @@ struct ActiveWorkoutView: View {
                 HStack {
                     timerLabel
                     Text(timeString)
-                        .font(LargeWorkoutFonts.timer(large: largeMode))
+                        .font(timerFont)
                     #if !os(macOS)
                     heartRateLabel
                     #endif
                     Spacer()
                     Text(summaryText)
-                        .font(LargeWorkoutFonts.summary(large: largeMode))
+                        .font(summaryFont)
                         .foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         timerLabel
                         Text(timeString)
-                            .font(LargeWorkoutFonts.timer(large: largeMode))
+                            .font(timerFont)
                         #if !os(macOS)
                         heartRateLabel
                         #endif
                         Spacer()
                     }
                     Text(summaryText)
-                        .font(LargeWorkoutFonts.summary(large: largeMode))
+                        .font(summaryFont)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -571,15 +583,24 @@ private struct FABButtonStyle: ButtonStyle {
     }
 }
 
-#Preview("Normal Mode") {
-    ActiveWorkoutView()
-        .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+// MY-1088: preview wrapper. Seeds the `activeWorkoutLargeMode` @AppStorage
+// key BEFORE `ActiveWorkoutView` initializes, so its own @AppStorage read
+// picks up the seeded value and the Large Mode preview drives the same
+// toolbar/render path as production instead of a synthetic environment.
+private struct ActiveWorkoutPreview: View {
+    init(largeMode: Bool) {
+        UserDefaults.standard.set(largeMode, forKey: "activeWorkoutLargeMode")
+    }
+    var body: some View {
+        ActiveWorkoutView()
+            .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+    }
 }
 
-// MY-1088: exercise Large Mode preview via the same environment key the
-// toolbar toggle writes, so the visual delta can be reviewed in Xcode.
+#Preview("Normal Mode") {
+    ActiveWorkoutPreview(largeMode: false)
+}
+
 #Preview("Large Mode") {
-    ActiveWorkoutView()
-        .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
-        .environment(\.isLargeWorkoutMode, true)
+    ActiveWorkoutPreview(largeMode: true)
 }

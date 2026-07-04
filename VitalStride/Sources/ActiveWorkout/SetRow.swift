@@ -35,68 +35,45 @@ struct SetRow: View {
     @State private var weightRightText: String = ""
     @State private var repsText: String = ""
 
-    // MY-1088: workout-specific Large Mode. Propagated via
-    // `ActiveWorkoutView`'s environment — a nil-safe default of `false` keeps
-    // previews / snapshot tests that construct SetRow directly working.
-    @Environment(\.isLargeWorkoutMode) private var isLargeMode
-
     var body: some View {
         HStack(spacing: 8) {
             Text("\(index + 1)")
-                .font(LargeWorkoutFonts.summary(large: isLargeMode).monospacedDigit())
+                .font(.subheadline.monospacedDigit())
                 .foregroundStyle(.secondary)
-                .frame(width: isLargeMode ? 32 : 24, alignment: .leading)
+                .frame(width: 24, alignment: .leading)
 
             if exerciseSet.isUnilateral {
                 // MY-876: unilateral order matches bilateral "weight × reps":
                 // left-weight / right-weight × reps. Reps stays at the tail so
                 // the visual/accessibility sequence is consistent across modes.
-                weightField(
-                    binding: $weightText,
-                    field: .weight,
-                    width: LargeWorkoutFieldWidth.unilateralWeight(large: isLargeMode),
-                    a11yLabel: String(
-                        localized: "第 \(index + 1) 组左侧重量",
-                        comment: "Left weight input a11y label"
-                    ),
-                    a11yHint: String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint")
-                )
+                weightField(binding: $weightText, field: .weight, width: 56, a11yLabel: String(
+                    localized: "第 \(index + 1) 组左侧重量",
+                    comment: "Left weight input a11y label"
+                ), a11yHint: String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint"))
 
                 Text("/")
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
 
-                weightField(
-                    binding: $weightRightText,
-                    field: .weightRight,
-                    width: LargeWorkoutFieldWidth.unilateralWeight(large: isLargeMode),
-                    a11yLabel: String(
-                        localized: "第 \(index + 1) 组右侧重量",
-                        comment: "Right weight input a11y label"
-                    ),
-                    a11yHint: String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint")
-                )
+                weightField(binding: $weightRightText, field: .weightRight, width: 56, a11yLabel: String(
+                    localized: "第 \(index + 1) 组右侧重量",
+                    comment: "Right weight input a11y label"
+                ), a11yHint: String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint"))
 
                 Text("×")
                     .foregroundStyle(.secondary)
 
-                repsField(width: LargeWorkoutFieldWidth.reps(large: isLargeMode))
+                repsField(width: 60)
             } else {
-                weightField(
-                    binding: $weightText,
-                    field: .weight,
-                    width: LargeWorkoutFieldWidth.bilateralWeight(large: isLargeMode),
-                    a11yLabel: String(
-                        localized: "第 \(index + 1) 组重量",
-                        comment: "Total weight input a11y label"
-                    ),
-                    a11yHint: String(localized: "输入重量数值", comment: "Total weight input a11y hint")
-                )
+                weightField(binding: $weightText, field: .weight, width: 70, a11yLabel: String(
+                    localized: "第 \(index + 1) 组重量",
+                    comment: "Total weight input a11y label"
+                ), a11yHint: String(localized: "输入重量数值", comment: "Total weight input a11y hint"))
 
                 Text("×")
                     .foregroundStyle(.secondary)
 
-                repsField(width: LargeWorkoutFieldWidth.reps(large: isLargeMode))
+                repsField(width: 60)
             }
 
             Menu {
@@ -177,9 +154,7 @@ struct SetRow: View {
             onLeftAction: { action in handleLeftAction(action, field: field) },
             onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
         )
-        .font(LargeWorkoutFonts.weight(large: isLargeMode))
         .frame(width: width)
-        .frame(minHeight: isLargeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
@@ -197,9 +172,7 @@ struct SetRow: View {
             text: binding,
             keyboardType: .decimalPad
         )
-        .font(LargeWorkoutFonts.weight(large: isLargeMode))
         .frame(width: width)
-        .frame(minHeight: isLargeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
@@ -229,9 +202,7 @@ struct SetRow: View {
             onLeftAction: { action in handleLeftAction(action, field: .reps) },
             onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
         )
-        .font(LargeWorkoutFonts.reps(large: isLargeMode))
         .frame(width: width)
-        .frame(minHeight: isLargeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .accessibilityLabel("第 \(index + 1) 组次数")
         .accessibilityHint("输入次数")
         .onChange(of: repsText) { _, newValue in
@@ -245,9 +216,7 @@ struct SetRow: View {
             text: $repsText,
             keyboardType: .numberPad
         )
-        .font(LargeWorkoutFonts.reps(large: isLargeMode))
         .frame(width: width)
-        .frame(minHeight: isLargeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .accessibilityLabel("第 \(index + 1) 组次数")
         .accessibilityHint("输入次数")
         .onChange(of: repsText) { _, newValue in
