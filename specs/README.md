@@ -7,7 +7,8 @@ VitalStride 使用 [spec-kit](https://github.com/github/spec-kit) Spec-Driven De
 | 目录 | 用途 |
 |------|------|
 | `000-baseline-existing-codebase/` | 现有代码库的 audit baseline（spec as documentation + plan as gap analysis）。**不要修改**，作为后续 feature 的回归基线。 |
-| `001-*` / `002-*` / ... | 新 feature。每个 feature 一个目录，编号自增。 |
+| `001-future-roadmap/` | V2+ 未来功能 roadmap（**umbrella / planning-only**，承接已删除的 `docs/DESIGN.md`）。不入 Multica；功能启动时 fork 出 `002+` 独立 spec。 |
+| `002-*` / `003-*` / ... | 具体 feature（可从 `001` roadmap fork）。每个 feature 一个目录，编号自增。 |
 
 ## 一个新 feature 的标准流程
 

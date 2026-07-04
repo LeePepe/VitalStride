@@ -8,7 +8,8 @@
 | 你要做的事 | 必读（前置） | 拿什么 |
 |---|---|---|
 | 任何任务 | `.specify/memory/constitution.md` | 7 条不可违反的红线（先确认不踩） |
-| 决定做什么 / 改需求 | `specs/000-baseline-existing-codebase/spec.md`（+ `plan.md` 看 gap） | 功能意图、验收标准、已知 gap |
+| 了解已实现基线 / 回归基准 | `specs/000-baseline-existing-codebase/spec.md`（+ `plan.md` 看 gap） | 已实现功能意图、验收标准、已知 gap（不可改） |
+| 决定做未来功能 / V2+ 规划 | `specs/001-future-roadmap/spec.md`（+ `plan.md` 看扩展点与 fork 顺序） | 未来功能意图、优先级、宪法预检、复用锚点（umbrella，启动时 fork 出 `specs/002-*`） |
 | 改全局架构 / 跨层设计 | `CONTEXT.md`（顶层，含 `canonical_roles`） | 架构决策、数据流、layer 划分、类角色顺序 |
 | 改 `Packages/<X>/**` | `Packages/<X>/CONTEXT.md`（该层 frontmatter） | 该层职责 / 依赖 / red_lines / test 命令 |
 | build / test / git 操作 | 本文件（AGENTS.md） | 命令手册、PR 工作流 |
@@ -16,7 +17,7 @@
 
 ## Layer 索引（Layer Map）
 
-业务逻辑住 `Packages/`（5 个本地 SPM 包）；app target（`VitalStride/`、`VitalStrideMac/`、
+业务逻辑住 `Packages/`（6 个本地 SPM 包）；app target（`VitalStride/`、`VitalStrideMac/`、
 `VitalStrideWatch Watch App/`、`VitalStrideWidgets/`）只放平台入口 + UI，**不属于任何 layer**
 （其门禁走 pre-push 全量 xcodebuild）。
 
@@ -55,7 +56,7 @@ lint/test 失败信号带 `{layer, red_lines}`。无论谁来修：
 
 ### SPM Packages（优先使用）
 
-`Packages/` 下的五个独立 SPM 包（VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit）支持 `swift build` 和 `swift test`，无需 Xcode 项目、无需模拟器，秒级完成。
+`Packages/` 下的六个独立 SPM 包（VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit, DesignKit）支持 `swift build` 和 `swift test`，无需 Xcode 项目、无需模拟器，秒级完成。
 
 **改动仅涉及 Packages/ 时，必须用 swift build/test 验证，禁止用 xcodebuild。**
 
@@ -379,11 +380,12 @@ VitalStride 使用 [spec-kit](https://github.com/github/spec-kit) 管理产品 s
 
 1. **`.specify/memory/constitution.md`** —— 项目宪法，含 7 条 Core Principles + Cross-Cutting Quality Bars。**这是 reviewer 唯一权威 finding 源**，不在这里的约束不能作为 PR block 理由。
 2. **`specs/000-baseline-existing-codebase/spec.md`** —— 当前已实现内容（FR-001 ~ FR-016 + NFR）。新功能与 baseline 的关系应该在新 spec 里说清。
-3. **`specs/000-baseline-existing-codebase/plan.md`** —— 已知 gap（G-01 ~ G-08）与处理路径。
-4. **`docs/adr/`** —— 7 个已落地的架构决策记录。新方向冲突时先写新 ADR 推翻。
-5. 本文件（`AGENTS.md`）—— build/test/git 操作手册。
+3. **`specs/000-baseline-existing-codebase/plan.md`** —— 已知 gap（G-01 ~ G-09）与处理路径。
+4. **`specs/001-future-roadmap/spec.md`** —— V2+ 未来功能 roadmap（承接原 `docs/DESIGN.md`）。是 **umbrella / planning-only** spec：功能启动时 fork 出 `specs/00N-<name>/` 才写可执行 spec + tasks + Multica issue，此前**不入 Multica**。
+5. **`docs/adr/`** —— 9 个已落地的架构决策记录。新方向冲突时先写新 ADR 推翻。
+6. 本文件（`AGENTS.md`）—— build/test/git 操作手册。
 
-**新 feature 流程**：`/speckit-specify` → `/speckit-plan` → `/speckit-tasks`，然后通过 `multica-quick-issue` 入 Multica project `7adf8b88`。**`/speckit-implement` 不使用** —— 实现由 Multica TL → FS → Reviewer pipeline 完成（Constitution §Development Workflow）。
+**新 feature 流程**：`/speckit-specify` → `/speckit-plan` → `/speckit-tasks`，然后通过 `multica-quick-issue` 入 Multica project `7adf8b88`。**`/speckit-implement` 不使用** —— 实现由 Multica TL → FS → Reviewer pipeline 完成（Constitution §Development Workflow）。若新功能已列在 `001-future-roadmap` roadmap 里，从 `001` **fork**（复制方向性 FR 到 `specs/002+`）而非从零 specify。
 
 **写 spec/plan/tasks 必须**：reference Constitution 章节，不要重述规则。issue 标题 `[T###] [Story] Brief description`。
 <!-- SPECKIT END -->
