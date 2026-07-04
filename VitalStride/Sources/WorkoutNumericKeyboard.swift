@@ -319,7 +319,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("WorkoutNumericKeyboard must be initialized programmatically")
+        return nil
     }
 
     private func setUp() {
