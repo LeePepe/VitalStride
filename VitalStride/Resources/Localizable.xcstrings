@@ -1419,6 +1419,40 @@
     "切换到设置页面配置 API Key" : {
       "comment" : "API key settings a11y hint"
     },
+    "切换大字号" : {
+      "comment" : "Active workout toggle: switch to large text size",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch to large text"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换大字号"
+          }
+        }
+      }
+    },
+    "切换普通字号" : {
+      "comment" : "Active workout toggle: switch back to normal text size",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch to normal text"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换普通字号"
+          }
+        }
+      }
+    },
     "划船" : {
       "comment" : "Rowing",
       "localizations" : {

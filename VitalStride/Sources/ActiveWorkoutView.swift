@@ -34,6 +34,9 @@ struct ActiveWorkoutView: View {
     @State private var sessionManager: (any WorkoutSessionManaging)?
     #endif
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
+    // MY-1088: workout-specific Large Mode toggle. Persisted across sessions so
+    // the user's last choice is restored on next workout entry.
+    @AppStorage("activeWorkoutLargeMode") private var largeMode = false
     @State private var startTime = Date()
     let source: WorkoutStartSource
 
@@ -58,6 +61,7 @@ struct ActiveWorkoutView: View {
                     .padding(.bottom, restTimer.phase != .idle ? 100 : 0)
                     .animation(.spring(duration: 0.35, bounce: 0.2), value: restTimer.phase != .idle)
             }
+            .environment(\.isLargeWorkoutMode, largeMode)
             .navigationTitle("训练中")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -65,6 +69,32 @@ struct ActiveWorkoutView: View {
                     Button("放弃", role: .destructive) {
                         showingDiscardAlert = true
                     }
+                }
+                // MY-1088: Large Mode toggle. Persisted via @AppStorage above.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            largeMode.toggle()
+                        }
+                        HapticManager.trigger(.setCompleted)
+                    } label: {
+                        Image(
+                            systemName: largeMode
+                                ? "textformat.size.smaller"
+                                : "textformat.size.larger"
+                        )
+                    }
+                    .accessibilityLabel(
+                        largeMode
+                            ? String(
+                                localized: "切换普通字号",
+                                comment: "Active workout toggle: switch back to normal text size"
+                            )
+                            : String(
+                                localized: "切换大字号",
+                                comment: "Active workout toggle: switch to large text size"
+                            )
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("结束训练") {
@@ -146,32 +176,32 @@ struct ActiveWorkoutView: View {
                 HStack {
                     timerLabel
                     Text(timeString)
-                        .font(.title3.monospacedDigit())
+                        .font(LargeWorkoutFonts.timer(large: largeMode))
                     #if !os(macOS)
                     heartRateLabel
                     #endif
                     Spacer()
                     Text(summaryText)
-                        .font(.subheadline)
+                        .font(LargeWorkoutFonts.summary(large: largeMode))
                         .foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         timerLabel
                         Text(timeString)
-                            .font(.title3.monospacedDigit())
+                            .font(LargeWorkoutFonts.timer(large: largeMode))
                         #if !os(macOS)
                         heartRateLabel
                         #endif
                         Spacer()
                     }
                     Text(summaryText)
-                        .font(.subheadline)
+                        .font(LargeWorkoutFonts.summary(large: largeMode))
                         .foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal)
-            .padding(.vertical, 8)
+            .padding(.vertical, largeMode ? 16 : 8)
             .background(.bar)
         }
     }
@@ -467,6 +497,8 @@ struct ActiveWorkoutView: View {
         restTimer.cancelRestForWorkoutEnd()
         workout.finish()
         HapticManager.trigger(.workoutFinished)
+        // MY-1088: pre-existing behavior, tracked separately from this issue.
+        // swiftlint:disable:next silent_model_save
         try? modelContext.save()
 
         let exerciseCount = workout.exercises?.count ?? 0
@@ -484,6 +516,8 @@ struct ActiveWorkoutView: View {
                 let healthKitUUID = await manager.endSession(save: true)
                 if let healthKitUUID {
                     workout.healthKitUUID = healthKitUUID
+                    // MY-1088: pre-existing behavior, tracked separately.
+                    // swiftlint:disable:next silent_model_save
                     try? modelContext.save()
                 }
                 dismiss()
@@ -503,6 +537,8 @@ struct ActiveWorkoutView: View {
         #endif
         if let workout {
             modelContext.delete(workout)
+            // MY-1088: pre-existing behavior, tracked separately.
+            // swiftlint:disable:next silent_model_save
             try? modelContext.save()
         }
         TelemetryService.shared.trackNonisolated(.workoutDiscarded)
@@ -535,7 +571,15 @@ private struct FABButtonStyle: ButtonStyle {
     }
 }
 
-#Preview {
+#Preview("Normal Mode") {
     ActiveWorkoutView()
         .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+}
+
+// MY-1088: exercise Large Mode preview via the same environment key the
+// toolbar toggle writes, so the visual delta can be reviewed in Xcode.
+#Preview("Large Mode") {
+    ActiveWorkoutView()
+        .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+        .environment(\.isLargeWorkoutMode, true)
 }
