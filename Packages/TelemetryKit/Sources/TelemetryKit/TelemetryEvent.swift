@@ -72,6 +72,16 @@ public enum TelemetryEvent: Sendable, Equatable {
     case aiAnalysisRequested(sampleType: TelemetryIdentifier)
     case aiModelChanged(model: TelemetryIdentifier)
     case aiChatMessageSent
+    /// AI cache/decode persistence failure.
+    ///
+    /// `operation` identifies the failing cache action (e.g. `read`, `write`,
+    /// `decode`, `encode`, `delete`). `errorType` identifies the failure class
+    /// (e.g. `io_error`, `decode_error`, `not_found`).
+    ///
+    /// Both parameters MUST be canonical ASCII identifiers — never raw error
+    /// messages, HealthKit values, AI response content, prompt text, cache
+    /// JSON, or localized strings.
+    case aiCacheFailure(operation: TelemetryIdentifier, errorType: TelemetryIdentifier)
 
     // MARK: - Rest timer
 
@@ -108,6 +118,7 @@ extension TelemetryEvent {
         case .aiAnalysisRequested: "ai_analysis_requested"
         case .aiModelChanged: "ai_model_changed"
         case .aiChatMessageSent: "ai_chat_message_sent"
+        case .aiCacheFailure: "ai_cache_failure"
         case .restTimerStarted: "rest_timer_started"
         case .restTimerSkipped: "rest_timer_skipped"
         case .restTimerCompleted: "rest_timer_completed"
@@ -141,6 +152,8 @@ extension TelemetryEvent {
             [("sample_type", sampleType.rawValue)]
         case .aiModelChanged(let model):
             [("model", model.rawValue)]
+        case .aiCacheFailure(let operation, let errorType):
+            [("operation", operation.rawValue), ("error_type", errorType.rawValue)]
         case .restTimerStarted(let duration):
             [("duration_s", "\(duration)")]
         case .overviewFallbackTriggered(let reason):
