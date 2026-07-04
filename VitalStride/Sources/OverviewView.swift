@@ -133,9 +133,7 @@ struct OverviewView: View {
                 snapshotState: snapshotState,
                 hasWorkoutData: hasWorkoutData
             )
-            if hasWorkoutData {
-                MuscleGroupFrequencyCard(counts: dynamicState.recentMuscleGroupCounts)
-            }
+            MuscleGroupFrequencyCard(counts: dynamicState.recentMuscleGroupCounts)
         }
     }
 }

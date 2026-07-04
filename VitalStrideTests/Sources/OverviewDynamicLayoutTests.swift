@@ -761,4 +761,30 @@ struct OverviewLayoutStateTests {
         let counts = OverviewDynamicState.computeMuscleGroupCounts(from: [old, inProgress])
         #expect(counts[.chest] == 0, "old + in-progress should not be counted")
     }
+
+    @Test("MuscleGroupFrequencyCard.sortedEntries returns all 7 groups with zero counts for empty input")
+    @MainActor
+    func muscleGroupCardEmptyRendersAllZeroChips() {
+        let entries = MuscleGroupFrequencyCard.sortedEntries(counts: [:])
+        #expect(entries.count == MuscleGroup.allCases.count)
+        for entry in entries {
+            #expect(entry.1 == 0, "expected 0 for \(entry.0)")
+        }
+        let groups = Set(entries.map { $0.0 })
+        #expect(groups == Set(MuscleGroup.allCases))
+    }
+
+    @Test("MuscleGroupFrequencyCard.sortedEntries orders by count desc with stable enum tie-break")
+    @MainActor
+    func muscleGroupCardSortOrder() {
+        let counts: [MuscleGroup: Int] = [.chest: 3, .back: 3, .legs: 5, .arms: 0, .shoulders: 0, .core: 0, .fullBody: 0]
+        let entries = MuscleGroupFrequencyCard.sortedEntries(counts: counts)
+        let orderIndex = Dictionary(uniqueKeysWithValues: MuscleGroup.allCases.enumerated().map { ($1, $0) })
+        #expect(entries.first?.0 == .legs, "legs (5) should come first")
+        let tiedThrees = entries.prefix(3).dropFirst().map { $0.0 }
+        #expect(tiedThrees.count == 2)
+        for i in 0..<(tiedThrees.count - 1) {
+            #expect((orderIndex[tiedThrees[i]] ?? 0) < (orderIndex[tiedThrees[i + 1]] ?? 0), "ties break by MuscleGroup.allCases order")
+        }
+    }
 }

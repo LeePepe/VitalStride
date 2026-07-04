@@ -4,7 +4,7 @@ import VitalModels
 struct MuscleGroupFrequencyCard: View {
     let counts: [MuscleGroup: Int]
 
-    private var sortedEntries: [(MuscleGroup, Int)] {
+    static func sortedEntries(counts: [MuscleGroup: Int]) -> [(MuscleGroup, Int)] {
         let all = MuscleGroup.allCases.map { ($0, counts[$0] ?? 0) }
         let orderIndex = Dictionary(
             uniqueKeysWithValues: MuscleGroup.allCases.enumerated().map { ($1, $0) }
@@ -13,6 +13,10 @@ struct MuscleGroupFrequencyCard: View {
             if lhs.1 != rhs.1 { return lhs.1 > rhs.1 }
             return (orderIndex[lhs.0] ?? 0) < (orderIndex[rhs.0] ?? 0)
         }
+    }
+
+    private var sortedEntries: [(MuscleGroup, Int)] {
+        Self.sortedEntries(counts: counts)
     }
 
     private let gridColumns = [
