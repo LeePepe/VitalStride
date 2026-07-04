@@ -2,11 +2,20 @@ import AIService
 import Foundation
 import OSLog
 import SwiftData
+import TelemetryKit
 import VitalModels
 import os
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "AIAnalysisService")
 private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "AIAnalysisService")
+
+private enum AICacheOperation {
+    static let decode: TelemetryIdentifier = "decode"
+    static let encode: TelemetryIdentifier = "encode"
+    static let fetch: TelemetryIdentifier = "fetch"
+    static let save: TelemetryIdentifier = "save"
+    static let clear: TelemetryIdentifier = "clear"
+}
 
 actor AIAnalysisService: ModelActor {
     nonisolated let modelExecutor: any ModelExecutor
@@ -33,8 +42,14 @@ actor AIAnalysisService: ModelActor {
         deleteAll(OverviewInsightCache.self)
         deleteAll(TrainingAdviceCache.self)
         deleteAll(DataAnalysisCache.self)
-        try? modelContext.save()
-        logger.info("AI analysis caches cleared")
+        do {
+            try modelContext.save()
+            logger.info("AI analysis caches cleared")
+        } catch {
+            let errorType = describeErrorType(error)
+            logger.error("cache clear save failed: method=clearAllCaches error=\(errorType)")
+            trackCacheFailure(operation: AICacheOperation.clear, error: error)
+        }
     }
 
     func generateInsights(
@@ -229,9 +244,11 @@ actor AIAnalysisService: ModelActor {
 
         logger.log("JSON parse: method=generateTrainingAdvice retry=2 result=fallback")
         return TrainingRecommendation(
+            // swiftlint:disable:next no_hardcoded_chinese
             title: "训练建议",
             muscleGroups: [],
             exercises: [],
+            // swiftlint:disable:next no_hardcoded_chinese
             reasoning: "暂时无法生成训练建议，请稍后重试。"
         )
     }
@@ -280,6 +297,7 @@ actor AIAnalysisService: ModelActor {
         logger.log("JSON parse: method=analyzeDataTrend retry=2 result=fallback")
         return DataAnalysis(
             sampleType: context.sampleType,
+            // swiftlint:disable:next no_hardcoded_chinese
             summary: "暂时无法分析数据趋势，请稍后重试。",
             trend: "insufficient"
         )
@@ -353,50 +371,103 @@ actor AIAnalysisService: ModelActor {
 
     private func decodeAnalysisResponse(_ json: String) -> AIAnalysisResponse? {
         guard let data = json.data(using: .utf8) else { return nil }
-        if let response = try? JSONDecoder().decode(AIAnalysisResponse.self, from: data) {
-            return response
+        do {
+            return try JSONDecoder().decode(AIAnalysisResponse.self, from: data)
+        } catch let primaryError {
+            do {
+                let insights = try JSONDecoder().decode([OverviewInsight].self, from: data)
+                return AIAnalysisResponse(headline: nil, insights: insights)
+            } catch let fallbackError {
+                let errorType = describeErrorType(fallbackError)
+                logger.error("cache decode failed: method=decodeAnalysisResponse type=AIAnalysisResponse error=\(errorType)")
+                trackCacheFailure(operation: AICacheOperation.decode, error: primaryError)
+                return nil
+            }
         }
-        if let insights = try? JSONDecoder().decode([OverviewInsight].self, from: data) {
-            return AIAnalysisResponse(headline: nil, insights: insights)
-        }
-        return nil
     }
 
     private func decodeTrainingAdvice(_ json: String) -> TrainingRecommendation? {
         guard let data = json.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(TrainingRecommendation.self, from: data)
+        do {
+            return try JSONDecoder().decode(TrainingRecommendation.self, from: data)
+        } catch {
+            let errorType = describeErrorType(error)
+            logger.error("cache decode failed: method=decodeTrainingAdvice type=TrainingRecommendation error=\(errorType)")
+            trackCacheFailure(operation: AICacheOperation.decode, error: error)
+            return nil
+        }
     }
 
     private func decodeDataAnalysis(_ json: String) -> DataAnalysis? {
         guard let data = json.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(DataAnalysis.self, from: data)
+        do {
+            return try JSONDecoder().decode(DataAnalysis.self, from: data)
+        } catch {
+            let errorType = describeErrorType(error)
+            logger.error("cache decode failed: method=decodeDataAnalysis type=DataAnalysis error=\(errorType)")
+            trackCacheFailure(operation: AICacheOperation.decode, error: error)
+            return nil
+        }
     }
 
     // MARK: - Cache Read
 
     private func loadInsightsCache() -> OverviewInsightCache? {
         let descriptor = FetchDescriptor<OverviewInsightCache>()
-        return try? modelContext.fetch(descriptor).first
+        do {
+            return try modelContext.fetch(descriptor).first
+        } catch {
+            let errorType = describeErrorType(error)
+            logger.error("cache fetch failed: method=loadInsightsCache error=\(errorType)")
+            trackCacheFailure(operation: AICacheOperation.fetch, error: error)
+            return nil
+        }
     }
 
     private func loadTrainingCache() -> TrainingAdviceCache? {
         let descriptor = FetchDescriptor<TrainingAdviceCache>()
-        return try? modelContext.fetch(descriptor).first
+        do {
+            return try modelContext.fetch(descriptor).first
+        } catch {
+            let errorType = describeErrorType(error)
+            logger.error("cache fetch failed: method=loadTrainingCache error=\(errorType)")
+            trackCacheFailure(operation: AICacheOperation.fetch, error: error)
+            return nil
+        }
     }
 
     private func loadDataAnalysisCache(sampleType: String) -> DataAnalysisCache? {
         let descriptor = FetchDescriptor<DataAnalysisCache>(
             predicate: #Predicate<DataAnalysisCache> { $0.sampleType == sampleType }
         )
-        return try? modelContext.fetch(descriptor).first
+        do {
+            return try modelContext.fetch(descriptor).first
+        } catch {
+            let errorType = describeErrorType(error)
+            logger.error("cache fetch failed: method=loadDataAnalysisCache error=\(errorType)")
+            trackCacheFailure(operation: AICacheOperation.fetch, error: error)
+            return nil
+        }
     }
 
     // MARK: - Cache Write
 
     private func saveInsightsCache(response: AIAnalysisResponse) {
-        guard let data = try? JSONEncoder().encode(response),
-              let json = String(data: data, encoding: .utf8)
-        else { return }
+        let json: String
+        do {
+            let data = try JSONEncoder().encode(response)
+            guard let encoded = String(data: data, encoding: .utf8) else {
+                logger.error("cache encode failed: method=saveInsightsCache error=utf8Conversion")
+                trackCacheFailure(operation: AICacheOperation.encode, errorType: "utf8_conversion")
+                return
+            }
+            json = encoded
+        } catch {
+            let errorType = describeErrorType(error)
+            logger.error("cache encode failed: method=saveInsightsCache error=\(errorType)")
+            trackCacheFailure(operation: AICacheOperation.encode, error: error)
+            return
+        }
 
         let now = Date()
         let expiry = now.addingTimeInterval(cacheTTL)
@@ -409,7 +480,13 @@ actor AIAnalysisService: ModelActor {
             let entry = OverviewInsightCache(contentJSON: json, generatedAt: now, expiresAt: expiry)
             modelContext.insert(entry)
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            let errorType = describeErrorType(error)
+            logger.error("cache save failed: method=saveInsightsCache error=\(errorType)")
+            trackCacheFailure(operation: AICacheOperation.save, error: error)
+        }
     }
 
     private func saveTrainingCache(json: String) {
@@ -424,7 +501,13 @@ actor AIAnalysisService: ModelActor {
             let entry = TrainingAdviceCache(contentJSON: json, generatedAt: now, expiresAt: expiry)
             modelContext.insert(entry)
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            let errorType = describeErrorType(error)
+            logger.error("cache save failed: method=saveTrainingCache error=\(errorType)")
+            trackCacheFailure(operation: AICacheOperation.save, error: error)
+        }
     }
 
     private func saveDataAnalysisCache(sampleType: String, json: String) {
@@ -444,7 +527,13 @@ actor AIAnalysisService: ModelActor {
             )
             modelContext.insert(entry)
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            let errorType = describeErrorType(error)
+            logger.error("cache save failed: method=saveDataAnalysisCache error=\(errorType)")
+            trackCacheFailure(operation: AICacheOperation.save, error: error)
+        }
     }
 
     // MARK: - Signpost Helpers
@@ -491,12 +580,65 @@ actor AIAnalysisService: ModelActor {
             case .streamingInterrupted: return "streamingInterrupted"
             }
         }
+        if error is DecodingError {
+            return "decodingError"
+        }
+        if error is EncodingError {
+            return "encodingError"
+        }
         return "unknown"
+    }
+
+    private nonisolated func telemetryErrorType(_ error: Error) -> TelemetryIdentifier {
+        if let aiError = error as? AIServiceError {
+            switch aiError {
+            case .noProviderAvailable: return "no_provider_available"
+            case .networkError: return "network_error"
+            case .httpError(let code):
+                return TelemetryIdentifier(validating: "http_error_\(code)") ?? "http_error"
+            case .missingAPIKey: return "missing_api_key"
+            case .responseParsingFailed: return "response_parsing_failed"
+            case .streamingInterrupted: return "streaming_interrupted"
+            }
+        }
+        if error is DecodingError {
+            return "decode_error"
+        }
+        if error is EncodingError {
+            return "encode_error"
+        }
+        return "unknown"
+    }
+
+    private nonisolated func trackCacheFailure(
+        operation: TelemetryIdentifier,
+        error: Error
+    ) {
+        TelemetryService.shared.trackNonisolated(
+            .aiCacheFailure(operation: operation, errorType: telemetryErrorType(error))
+        )
+    }
+
+    private nonisolated func trackCacheFailure(
+        operation: TelemetryIdentifier,
+        errorType: TelemetryIdentifier
+    ) {
+        TelemetryService.shared.trackNonisolated(
+            .aiCacheFailure(operation: operation, errorType: errorType)
+        )
     }
 
     private func deleteAll<T: PersistentModel>(_ type: T.Type) {
         let descriptor = FetchDescriptor<T>()
-        guard let items = try? modelContext.fetch(descriptor) else { return }
+        let items: [T]
+        do {
+            items = try modelContext.fetch(descriptor)
+        } catch {
+            let errorType = describeErrorType(error)
+            logger.error("cache fetch failed: method=deleteAll type=\(String(describing: T.self)) error=\(errorType)")
+            trackCacheFailure(operation: AICacheOperation.fetch, error: error)
+            return
+        }
         for item in items {
             modelContext.delete(item)
         }
