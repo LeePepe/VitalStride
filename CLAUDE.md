@@ -4,7 +4,7 @@
 
 ### SPM Packages（优先使用）
 
-`Packages/` 下的五个独立 SPM 包（VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit）支持 `swift build` 和 `swift test`，无需 Xcode 项目、无需模拟器，秒级完成。
+`Packages/` 下的六个独立 SPM 包（VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit, DesignKit）支持 `swift build` 和 `swift test`，无需 Xcode 项目、无需模拟器，秒级完成。
 
 **改动仅涉及 Packages/ 时，必须用 swift build/test 验证，禁止用 xcodebuild。**
 
