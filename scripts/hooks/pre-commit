@@ -38,7 +38,11 @@ if command -v swiftlint >/dev/null 2>&1; then
       [ -f "$file" ] && LINT_ARGS+=("$file")
     done <<< "$STAGED_SWIFT"
     if [ ${#LINT_ARGS[@]} -gt 0 ]; then
-      if ! swiftlint lint --quiet --strict -- "${LINT_ARGS[@]}"; then
+      LINT_FLAGS=(--quiet --strict)
+      if [ -f "$REPO/.swiftlint-baseline.json" ]; then
+        LINT_FLAGS+=(--baseline "$REPO/.swiftlint-baseline.json")
+      fi
+      if ! swiftlint lint "${LINT_FLAGS[@]}" -- "${LINT_ARGS[@]}"; then
         echo "❌ SwiftLint errors in staged files. Commit aborted."
         exit 1
       fi

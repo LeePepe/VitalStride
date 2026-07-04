@@ -15,6 +15,7 @@ final class OverviewDynamicState {
     private(set) var isRefreshing = false
     private(set) var pendingResponse: AIAnalysisResponse?
     private(set) var refreshErrorType: String?
+    private(set) var recentMuscleGroupCounts: [MuscleGroup: Int] = [:]
     var showRefreshError = false
 
     var pendingHeadline: String? {
@@ -24,6 +25,7 @@ final class OverviewDynamicState {
     private var isBackgroundRefreshing = false
 
     func loadInitial(container: ModelContainer, snapshot: HealthSnapshotData, workouts: [Workout]) async {
+        recentMuscleGroupCounts = Self.computeMuscleGroupCounts(from: workouts)
         let cacheResult = readCache(container: container)
 
         if let (insights, generatedAt) = cacheResult {
@@ -256,17 +258,16 @@ final class OverviewDynamicState {
         try? context.save()
     }
 
-    private nonisolated func buildContext(snapshot: HealthSnapshotData, workouts: [Workout]) -> OverviewContext {
+    private func buildContext(snapshot: HealthSnapshotData, workouts: [Workout]) -> OverviewContext {
         let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
         let recentWorkouts = workouts.filter { $0.startDate >= sevenDaysAgo && $0.endDate != nil }
 
+        let typedCounts = Self.computeMuscleGroupCounts(from: recentWorkouts)
+        recentMuscleGroupCounts = typedCounts
+
         var muscleGroupCounts: [String: Int] = [:]
-        for workout in recentWorkouts {
-            for exercise in (workout.exercises ?? []) {
-                if let group = exercise.exercise?.muscleGroup.rawValue {
-                    muscleGroupCounts[group, default: 0] += 1
-                }
-            }
+        for (group, count) in typedCounts {
+            muscleGroupCounts[group.rawValue] = count
         }
 
         let sleepHours: Double? = if let sleep = snapshot.lastNightSleep {
@@ -284,6 +285,24 @@ final class OverviewDynamicState {
             recentMuscleGroups: muscleGroupCounts,
             userLocale: Locale.current.identifier
         )
+    }
+
+    static func computeMuscleGroupCounts(from workouts: [Workout]) -> [MuscleGroup: Int] {
+        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        let recentWorkouts = workouts.filter { $0.startDate >= sevenDaysAgo && $0.endDate != nil }
+
+        var counts: [MuscleGroup: Int] = [:]
+        for group in MuscleGroup.allCases {
+            counts[group] = 0
+        }
+        for workout in recentWorkouts {
+            for exercise in (workout.exercises ?? []) {
+                if let group = exercise.exercise?.muscleGroup {
+                    counts[group, default: 0] += 1
+                }
+            }
+        }
+        return counts
     }
 
     private nonisolated func describeErrorType(_ error: Error) -> String {

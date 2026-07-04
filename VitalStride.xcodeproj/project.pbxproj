@@ -63,6 +63,7 @@
 		4894F1F94E8BFCDF0672C57F /* OverviewLayoutState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81EA85E25A4A8CF1692CB407 /* OverviewLayoutState.swift */; };
 		4DB9D7A57ECD542BCDB830F0 /* DesignKit in Frameworks */ = {isa = PBXBuildFile; productRef = CE27A93297D1F20EEE6B7557 /* DesignKit */; };
 		4DE7F4027037BB2150649A1E /* UserInterestTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AE17B68B9690E64E34762B /* UserInterestTracker.swift */; };
+		4E894B0F249EF8EBA16B3AF5 /* MuscleGroupFrequencyCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5F9807A864A73FB553CC29C /* MuscleGroupFrequencyCard.swift */; };
 		4EC5DC12E2E639E66CB22CD8 /* AIService in Frameworks */ = {isa = PBXBuildFile; productRef = E9FDBB39F3258B8EB6B2A9EF /* AIService */; };
 		4FACDC444EDA44870FB139F9 /* CardContentParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 091AC62B58FCCA35C59E659B /* CardContentParser.swift */; };
 		4FC47B4C3D8C4D19D2AA7BB0 /* WorkoutCopier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 815CE0258AB09DB05826E41B /* WorkoutCopier.swift */; };
@@ -396,6 +397,7 @@
 		D344548ECC2B711E8DC1897B /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		D3AD223B725AFEBB33444035 /* ExercisePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisePickerView.swift; sourceTree = "<group>"; };
 		D551D352FEC3C216F4BAB58A /* AIAnalysisServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAnalysisServiceTests.swift; sourceTree = "<group>"; };
+		D5F9807A864A73FB553CC29C /* MuscleGroupFrequencyCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleGroupFrequencyCard.swift; sourceTree = "<group>"; };
 		D65B3BF6E9968F7D07CB9E8C /* WorkoutTrendChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTrendChart.swift; sourceTree = "<group>"; };
 		D8B254B7B0D02CADEF442964 /* EnumTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnumTests.swift; sourceTree = "<group>"; };
 		D96449D8FC9C4215DC12132B /* AdaptiveCardGridTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveCardGridTests.swift; sourceTree = "<group>"; };
@@ -606,6 +608,7 @@
 			isa = PBXGroup;
 			children = (
 				1D1431725938026D6E946363 /* AdaptiveCardGrid.swift */,
+				D5F9807A864A73FB553CC29C /* MuscleGroupFrequencyCard.swift */,
 				EEBAEB2529E34AFEFB87D518 /* OverviewDynamicState.swift */,
 				A09E42EAE0E6BCFD902E8DAF /* OverviewInsightsSection.swift */,
 				81EA85E25A4A8CF1692CB407 /* OverviewLayoutState.swift */,
@@ -1154,6 +1157,7 @@
 				883430F88AF4926AB8B25A3C /* InsightCardView.swift in Sources */,
 				BDF0D43401B90AEC27A36D00 /* ListCardView.swift in Sources */,
 				13858537F761B04ACCEBEE2C /* MetricCardView.swift in Sources */,
+				4E894B0F249EF8EBA16B3AF5 /* MuscleGroupFrequencyCard.swift in Sources */,
 				F4F00A7A9A8AF6C48752A0E5 /* NumericKeypad.swift in Sources */,
 				ABFB1D957B476C9D3066097B /* OnboardingView.swift in Sources */,
 				245D15F1013471299B900C62 /* OverviewCardContainer.swift in Sources */,

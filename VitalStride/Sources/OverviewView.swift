@@ -123,6 +123,7 @@ struct OverviewView: View {
                 )
             }
             AdaptiveCardGrid(insights: insights)
+            MuscleGroupFrequencyCard(counts: dynamicState.recentMuscleGroupCounts)
             if let lastUpdated {
                 LastUpdatedLabel(date: lastUpdated)
             }
@@ -132,6 +133,9 @@ struct OverviewView: View {
                 snapshotState: snapshotState,
                 hasWorkoutData: hasWorkoutData
             )
+            if hasWorkoutData {
+                MuscleGroupFrequencyCard(counts: dynamicState.recentMuscleGroupCounts)
+            }
         }
     }
 }

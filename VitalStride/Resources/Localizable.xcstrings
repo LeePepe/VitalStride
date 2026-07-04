@@ -838,6 +838,40 @@
         }
       }
     },
+    "overview_muscle_group_chip_a11y" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$lld times"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@：%2$lld 次"
+          }
+        }
+      }
+    },
+    "overview_muscle_group_frequency_title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muscle group frequency (last 7 days)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "过去 7 天肌群分布"
+          }
+        }
+      }
+    },
     "overview_refresh_failed" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
