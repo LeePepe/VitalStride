@@ -277,7 +277,16 @@ if [ -n "$SWIFT_FILES" ] && command -v swiftlint >/dev/null 2>&1; then
     )
 
     # Run swiftlint --strict on the file. Capture output.
-    lint_out=$(swiftlint lint --quiet --strict -- "$file" 2>&1) || true
+    # Match CI: use --baseline so grandfathered violations (see
+    # .swiftlint-baseline.json + .swiftlint.yml 棘轮 note) do not block.
+    # Required for i18n migrations where the regex-based custom rule
+    # matches String(localized:) calls same as raw literals.
+    baseline_args=""
+    if [ -f ".swiftlint-baseline.json" ]; then
+      baseline_args="--baseline .swiftlint-baseline.json"
+    fi
+    # shellcheck disable=SC2086
+    lint_out=$(swiftlint lint --quiet --strict $baseline_args -- "$file" 2>&1) || true
     [ -z "$lint_out" ] && continue
 
     new_violations=""
