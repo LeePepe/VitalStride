@@ -827,6 +827,17 @@
         }
       }
     },
+    "overview_missing_api_key" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "请在设置中添加 API Key 以启用 AI 分析"
+          }
+        }
+      }
+    },
     "overview_refresh_failed" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {

@@ -24,8 +24,9 @@ final class SnackbarDismissScheduler {
     var isScheduled: Bool { task != nil && !(task?.isCancelled ?? true) }
 }
 
-private struct SnackbarModifier<SnackbarContent: View>: ViewModifier {
+struct SnackbarModifier<SnackbarContent: View>: ViewModifier {
     @Binding var isPresented: Bool
+    let edge: VerticalEdge
     let mode: SnackbarMode
     let onDismiss: (() -> Void)?
     @ViewBuilder let snackbarContent: () -> SnackbarContent
@@ -33,9 +34,23 @@ private struct SnackbarModifier<SnackbarContent: View>: ViewModifier {
     @State private var scheduler = SnackbarDismissScheduler()
     @AccessibilityFocusState private var isSnackbarFocused: Bool
 
+    var overlayAlignment: Alignment {
+        edge == .top ? .top : .bottom
+    }
+
+    var transitionEdge: Edge {
+        edge == .top ? .top : .bottom
+    }
+
+    var edgePaddingEdge: Edge.Set {
+        edge == .top ? .top : .bottom
+    }
+
+    var shadowYOffset: CGFloat { 4 }
+
     func body(content: Content) -> some View {
         content
-            .overlay(alignment: .bottom) {
+            .overlay(alignment: overlayAlignment) {
                 if isPresented {
                     snackbarContent()
                         .padding(.horizontal, 16)
@@ -43,10 +58,10 @@ private struct SnackbarModifier<SnackbarContent: View>: ViewModifier {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(.bar)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+                        .shadow(color: .black.opacity(0.15), radius: 8, y: shadowYOffset)
                         .padding(.horizontal, 16)
-                        .padding(.bottom, 16)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(edgePaddingEdge, 16)
+                        .transition(.move(edge: transitionEdge).combined(with: .opacity))
                         .accessibilityElement(children: .contain)
                         .accessibilityFocused($isSnackbarFocused)
                 }
@@ -95,6 +110,7 @@ private struct SnackbarModifier<SnackbarContent: View>: ViewModifier {
 extension View {
     public func snackbar<Content: View>(
         isPresented: Binding<Bool>,
+        edge: VerticalEdge = .bottom,
         mode: SnackbarMode = .autoDismiss(),
         onDismiss: (() -> Void)? = nil,
         @ViewBuilder content: @escaping () -> Content
@@ -102,6 +118,7 @@ extension View {
         modifier(
             SnackbarModifier(
                 isPresented: isPresented,
+                edge: edge,
                 mode: mode,
                 onDismiss: onDismiss,
                 snackbarContent: content

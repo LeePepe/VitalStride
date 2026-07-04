@@ -233,6 +233,51 @@ struct HealthSnapshotStateTests {
         #expect(state.snapshot.averageBPM == 68)
         #expect(state.snapshot.latestWeight == 75.5)
     }
+
+    @Test("forceRefresh bypasses cache and returns fresh HealthKit data")
+    @MainActor
+    func forceRefreshBypassesCache() async {
+        let mock = MockHealthStore()
+        mock.authorizationRequestStatus = .unnecessary
+        let now = Date()
+
+        let staleSample = HKQuantitySample(
+            type: HKQuantityType(.stepCount),
+            quantity: HKQuantity(unit: .count(), doubleValue: 5000),
+            start: now.addingTimeInterval(-3600),
+            end: now
+        )
+        mock.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
+            samples: [staleSample], deletedObjectUUIDs: [], newAnchor: HKQueryAnchor(fromValue: 1)
+        )
+        setupEmptyResults(for: mock, except: .stepCount)
+
+        let defaults = UserDefaults(suiteName: "SnapshotTest_\(UUID().uuidString)")!
+        let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test")
+        let service = HealthKitService(healthStore: mock, anchorStore: anchors, deviceIdentifier: "test")
+        let cache = HealthDataCache(dataProvider: service)
+
+        let state = HealthSnapshotState()
+
+        await state.load(cache: cache, service: service)
+        #expect(state.snapshot.todaySteps == 5000)
+
+        let freshSample = HKQuantitySample(
+            type: HKQuantityType(.stepCount),
+            quantity: HKQuantity(unit: .count(), doubleValue: 10000),
+            start: now.addingTimeInterval(-1800),
+            end: now
+        )
+        mock.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
+            samples: [freshSample], deletedObjectUUIDs: [], newAnchor: HKQueryAnchor(fromValue: 2)
+        )
+
+        await state.load(cache: cache, service: service)
+        #expect(state.snapshot.todaySteps == 5000, "Default load should return cached stale data")
+
+        await state.load(cache: cache, service: service, forceRefresh: true)
+        #expect(state.snapshot.todaySteps == 10000, "forceRefresh should bypass cache and return fresh data")
+    }
 }
 
 // MARK: - Overview Display Logic Tests

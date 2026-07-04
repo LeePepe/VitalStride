@@ -1,3 +1,4 @@
+import SwiftUI
 import Testing
 @testable import VitalUI
 
@@ -134,5 +135,56 @@ struct SnackbarModeTests {
     func equatableComparesDuration() {
         #expect(SnackbarMode.autoDismiss(duration: 3) == SnackbarMode.autoDismiss(duration: 3))
         #expect(SnackbarMode.autoDismiss(duration: 3) != SnackbarMode.autoDismiss(duration: 5))
+    }
+}
+
+@Suite("SnackbarModifier Edge")
+struct SnackbarEdgeTests {
+
+    @MainActor
+    private func makeModifier(edge: VerticalEdge) -> SnackbarModifier<Text> {
+        SnackbarModifier(
+            isPresented: .constant(true),
+            edge: edge,
+            mode: .autoDismiss(),
+            onDismiss: nil,
+            snackbarContent: { Text("Test") }
+        )
+    }
+
+    @Test("top edge produces top-aligned overlay and transition")
+    @MainActor
+    func topEdgeConfiguration() {
+        let modifier = makeModifier(edge: .top)
+        #expect(modifier.overlayAlignment == .top)
+        #expect(modifier.transitionEdge == .top)
+        #expect(modifier.edgePaddingEdge == .top)
+    }
+
+    @Test("bottom edge produces bottom-aligned overlay and transition")
+    @MainActor
+    func bottomEdgeConfiguration() {
+        let modifier = makeModifier(edge: .bottom)
+        #expect(modifier.overlayAlignment == .bottom)
+        #expect(modifier.transitionEdge == .bottom)
+        #expect(modifier.edgePaddingEdge == .bottom)
+    }
+
+    @Test("shadow always casts downward regardless of edge")
+    @MainActor
+    func shadowAlwaysDownward() {
+        let top = makeModifier(edge: .top)
+        let bottom = makeModifier(edge: .bottom)
+        #expect(top.shadowYOffset == 4)
+        #expect(bottom.shadowYOffset == 4)
+        #expect(top.shadowYOffset == bottom.shadowYOffset)
+    }
+
+    @Test("snackbar view extension defaults to bottom edge")
+    @MainActor
+    func defaultEdgeIsBottom() {
+        let modifier = makeModifier(edge: .bottom)
+        #expect(modifier.edge == .bottom)
+        #expect(modifier.overlayAlignment == .bottom)
     }
 }
