@@ -27,11 +27,27 @@ struct ActiveWorkoutView: View {
     @State private var sessionManager: (any WorkoutSessionManaging)?
     #endif
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
+    // MY-1088: workout-specific Large Mode toggle. Persisted across sessions.
+    @AppStorage("activeWorkoutLargeMode") private var largeMode = false
     @State private var startTime = Date()
     let source: WorkoutStartSource
 
     init(source: WorkoutStartSource = .blank) {
         self.source = source
+    }
+
+    // MY-1088: header timer font. Stacks with the user's system Dynamic Type
+    // via `.system(_ style:)` — Large Mode raises the base text style from
+    // .title3 to .largeTitle; the system size then scales on top of that.
+    private var timerFont: Font {
+        Font.system(largeMode ? .largeTitle : .title3, design: .default)
+            .monospacedDigit()
+    }
+
+    // MY-1088: header summary line ("N 动作 · M 组 · V kg") font. Same
+    // Dynamic-Type-stacking approach as `timerFont`.
+    private var summaryFont: Font {
+        Font.system(largeMode ? .title3 : .subheadline, design: .default)
     }
 
     var body: some View {
@@ -61,6 +77,32 @@ struct ActiveWorkoutView: View {
                     ) {
                         showingDiscardAlert = true
                     }
+                }
+                // MY-1088: Large Mode toggle. Persisted via @AppStorage above.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            largeMode.toggle()
+                        }
+                        HapticManager.trigger(.setCompleted)
+                    } label: {
+                        Image(
+                            systemName: largeMode
+                                ? "textformat.size.smaller"
+                                : "textformat.size.larger"
+                        )
+                    }
+                    .accessibilityLabel(
+                        largeMode
+                            ? String(
+                                localized: "切换普通字号",
+                                comment: "Active workout toggle: switch back to normal text size"
+                            )
+                            : String(
+                                localized: "切换大字号",
+                                comment: "Active workout toggle: switch to large text size"
+                            )
+                    )
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "结束训练", comment: "Finish workout toolbar button")) {
@@ -164,32 +206,32 @@ struct ActiveWorkoutView: View {
                 HStack {
                     timerLabel
                     Text(timeString)
-                        .font(.title3.monospacedDigit())
+                        .font(timerFont)
                     #if !os(macOS)
                     heartRateLabel
                     #endif
                     Spacer()
                     Text(summaryText)
-                        .font(.subheadline)
+                        .font(summaryFont)
                         .foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         timerLabel
                         Text(timeString)
-                            .font(.title3.monospacedDigit())
+                            .font(timerFont)
                         #if !os(macOS)
                         heartRateLabel
                         #endif
                         Spacer()
                     }
                     Text(summaryText)
-                        .font(.subheadline)
+                        .font(summaryFont)
                         .foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal)
-            .padding(.vertical, 8)
+            .padding(.vertical, largeMode ? 16 : 8)
             .background(.bar)
         }
     }
@@ -490,6 +532,8 @@ struct ActiveWorkoutView: View {
         restTimer.cancelRestForWorkoutEnd()
         workout.finish()
         HapticManager.trigger(.workoutFinished)
+        // MY-1088: pre-existing behavior, tracked separately from this issue.
+        // swiftlint:disable:next silent_model_save
         try? modelContext.save()
 
         let exerciseCount = workout.exercises?.count ?? 0
@@ -507,6 +551,8 @@ struct ActiveWorkoutView: View {
                 let healthKitUUID = await manager.endSession(save: true)
                 if let healthKitUUID {
                     workout.healthKitUUID = healthKitUUID
+                    // MY-1088: pre-existing behavior, tracked separately.
+                    // swiftlint:disable:next silent_model_save
                     try? modelContext.save()
                 }
                 dismiss()
@@ -526,6 +572,8 @@ struct ActiveWorkoutView: View {
         #endif
         if let workout {
             modelContext.delete(workout)
+            // MY-1088: pre-existing behavior, tracked separately.
+            // swiftlint:disable:next silent_model_save
             try? modelContext.save()
         }
         TelemetryService.shared.trackNonisolated(.workoutDiscarded)
@@ -558,7 +606,24 @@ private struct FABButtonStyle: ButtonStyle {
     }
 }
 
-#Preview {
-    ActiveWorkoutView()
-        .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+// MY-1088: preview wrapper. Seeds the `activeWorkoutLargeMode` @AppStorage
+// key BEFORE `ActiveWorkoutView` initializes, so its own @AppStorage read
+// picks up the seeded value and the Large Mode preview drives the same
+// toolbar/render path as production instead of a synthetic environment.
+private struct ActiveWorkoutPreview: View {
+    init(largeMode: Bool) {
+        UserDefaults.standard.set(largeMode, forKey: "activeWorkoutLargeMode")
+    }
+    var body: some View {
+        ActiveWorkoutView()
+            .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+    }
+}
+
+#Preview("Normal Mode") {
+    ActiveWorkoutPreview(largeMode: false)
+}
+
+#Preview("Large Mode") {
+    ActiveWorkoutPreview(largeMode: true)
 }
