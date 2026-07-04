@@ -38,7 +38,14 @@ if command -v swiftlint >/dev/null 2>&1; then
       [ -f "$file" ] && LINT_ARGS+=("$file")
     done <<< "$STAGED_SWIFT"
     if [ ${#LINT_ARGS[@]} -gt 0 ]; then
-      if ! swiftlint lint --quiet --strict -- "${LINT_ARGS[@]}"; then
+      # Match CI behavior: use --baseline so pre-existing grandfathered
+      # violations (see .swiftlint-baseline.json + .swiftlint.yml 棘轮 note)
+      # do not block commits touching files that already carry them.
+      BASELINE_ARGS=()
+      if [ -f ".swiftlint-baseline.json" ]; then
+        BASELINE_ARGS+=(--baseline .swiftlint-baseline.json)
+      fi
+      if ! swiftlint lint --quiet --strict "${BASELINE_ARGS[@]}" -- "${LINT_ARGS[@]}"; then
         echo "❌ SwiftLint errors in staged files. Commit aborted."
         exit 1
       fi
