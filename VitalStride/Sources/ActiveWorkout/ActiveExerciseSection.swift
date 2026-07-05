@@ -17,6 +17,9 @@ struct ActiveExerciseSection: View {
     let onDelete: () -> Void
     @Environment(\.modelContext) private var modelContext
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
+    // MY-1091: header font ramps up in Large Mode (`.title2` vs `.headline`)
+    // so the currently-worked exercise name is legible from a rack step away.
+    @AppStorage("activeWorkoutLargeMode") private var largeMode = false
     @State private var showingDeleteConfirmation = false
 
     private var sortedSets: [ExerciseSet] {
@@ -74,6 +77,7 @@ struct ActiveExerciseSection: View {
         } header: {
             HStack {
                 Text(workoutExercise.exercise?.localizedName ?? "动作")
+                    .font(LargeWorkoutFonts.exerciseName(large: largeMode))
                     .contextMenu {
                         Button {
                             onReplace()

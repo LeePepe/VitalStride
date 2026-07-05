@@ -34,46 +34,69 @@ struct SetRow: View {
     @State private var weightText: String = ""
     @State private var weightRightText: String = ""
     @State private var repsText: String = ""
+    // MY-1091: row-level Large Mode is driven off the same persisted flag the
+    // toolbar toggle writes in MY-1088. @AppStorage observes the key so the
+    // row re-renders when the toolbar toggles without any explicit
+    // environment plumbing from ActiveWorkoutView.
+    @AppStorage("activeWorkoutLargeMode") private var largeMode = false
 
     var body: some View {
         HStack(spacing: 8) {
             Text("\(index + 1)")
-                .font(.subheadline.monospacedDigit())
+                .font(LargeWorkoutFonts.setIndex(large: largeMode))
                 .foregroundStyle(.secondary)
-                .frame(width: 24, alignment: .leading)
+                .frame(width: largeMode ? 32 : 24, alignment: .leading)
 
             if exerciseSet.isUnilateral {
                 // MY-876: unilateral order matches bilateral "weight × reps":
                 // left-weight / right-weight × reps. Reps stays at the tail so
                 // the visual/accessibility sequence is consistent across modes.
-                weightField(binding: $weightText, field: .weight, width: 56, a11yLabel: String(
-                    localized: "第 \(index + 1) 组左侧重量",
-                    comment: "Left weight input a11y label"
-                ), a11yHint: String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint"))
+                weightField(
+                    binding: $weightText,
+                    field: .weight,
+                    width: LargeWorkoutFieldWidth.unilateralWeight(large: largeMode),
+                    a11yLabel: String(
+                        localized: "第 \(index + 1) 组左侧重量",
+                        comment: "Left weight input a11y label"
+                    ),
+                    a11yHint: String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint")
+                )
 
                 Text("/")
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
 
-                weightField(binding: $weightRightText, field: .weightRight, width: 56, a11yLabel: String(
-                    localized: "第 \(index + 1) 组右侧重量",
-                    comment: "Right weight input a11y label"
-                ), a11yHint: String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint"))
+                weightField(
+                    binding: $weightRightText,
+                    field: .weightRight,
+                    width: LargeWorkoutFieldWidth.unilateralWeight(large: largeMode),
+                    a11yLabel: String(
+                        localized: "第 \(index + 1) 组右侧重量",
+                        comment: "Right weight input a11y label"
+                    ),
+                    a11yHint: String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint")
+                )
 
                 Text("×")
                     .foregroundStyle(.secondary)
 
-                repsField(width: 60)
+                repsField(width: LargeWorkoutFieldWidth.reps(large: largeMode))
             } else {
-                weightField(binding: $weightText, field: .weight, width: 70, a11yLabel: String(
-                    localized: "第 \(index + 1) 组重量",
-                    comment: "Total weight input a11y label"
-                ), a11yHint: String(localized: "输入重量数值", comment: "Total weight input a11y hint"))
+                weightField(
+                    binding: $weightText,
+                    field: .weight,
+                    width: LargeWorkoutFieldWidth.bilateralWeight(large: largeMode),
+                    a11yLabel: String(
+                        localized: "第 \(index + 1) 组重量",
+                        comment: "Total weight input a11y label"
+                    ),
+                    a11yHint: String(localized: "输入重量数值", comment: "Total weight input a11y hint")
+                )
 
                 Text("×")
                     .foregroundStyle(.secondary)
 
-                repsField(width: 60)
+                repsField(width: LargeWorkoutFieldWidth.reps(large: largeMode))
             }
 
             Menu {
@@ -133,6 +156,16 @@ struct SetRow: View {
 
     // MARK: - Field builders (routes through the custom keyboard on iOS)
 
+    /// MY-1091: Large Mode weight/reps input font. Text-style-driven so it
+    /// stacks with Dynamic Type (see LargeWorkoutMode.swift). Falls back to
+    /// `.body` — the SelectAllTextField default — outside Large Mode so the
+    /// row keeps its pre-MY-1091 visual density.
+    #if canImport(UIKit) && !os(macOS)
+    private var inputUIFont: UIFont {
+        LargeWorkoutInputFont.weightReps(large: largeMode)
+    }
+    #endif
+
     @ViewBuilder
     private func weightField(
         binding: Binding<String>,
@@ -146,6 +179,7 @@ struct SetRow: View {
             placeholder: weightUnit.rawValue,
             text: binding,
             keyboardType: .decimalPad,
+            font: inputUIFont,
             useCustomKeyboard: true,
             field: field,
             exercise: exercise,
@@ -155,6 +189,7 @@ struct SetRow: View {
             onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
         )
         .frame(width: width)
+        .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
@@ -173,6 +208,7 @@ struct SetRow: View {
             keyboardType: .decimalPad
         )
         .frame(width: width)
+        .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
@@ -194,6 +230,7 @@ struct SetRow: View {
             placeholder: "次数",
             text: $repsText,
             keyboardType: .numberPad,
+            font: inputUIFont,
             useCustomKeyboard: true,
             field: .reps,
             exercise: exercise,
@@ -203,6 +240,7 @@ struct SetRow: View {
             onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
         )
         .frame(width: width)
+        .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .accessibilityLabel("第 \(index + 1) 组次数")
         .accessibilityHint("输入次数")
         .onChange(of: repsText) { _, newValue in
@@ -217,6 +255,7 @@ struct SetRow: View {
             keyboardType: .numberPad
         )
         .frame(width: width)
+        .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .accessibilityLabel("第 \(index + 1) 组次数")
         .accessibilityHint("输入次数")
         .onChange(of: repsText) { _, newValue in
