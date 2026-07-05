@@ -389,3 +389,77 @@ struct SetRow: View {
             : String(format: "%.1f", value)
     }
 }
+
+// MARK: - Previews (MY-1091 row visual verification)
+//
+// The reviewer P0 for MY-1091 requires visual verification of normal vs. large
+// row layout AND the unilateral overflow risk called out in the AC. These
+// previews render `SetRow` in the three shapes so a designer / reviewer can
+// eyeball the layout on a 375pt iPhone canvas without spinning up the full
+// ActiveWorkoutView. Wrapping `SetRow` in a `List` reproduces the row insets
+// and section container the row is designed for; the persisted
+// `activeWorkoutLargeMode` @AppStorage key is seeded before the wrapper
+// initializes so the row picks up the mode via the same production path.
+
+private struct SetRowPreviewWrapper: View {
+    let unilateral: Bool
+    let largeMode: Bool
+
+    init(unilateral: Bool, largeMode: Bool) {
+        self.unilateral = unilateral
+        self.largeMode = largeMode
+        UserDefaults.standard.set(largeMode, forKey: "activeWorkoutLargeMode")
+    }
+
+    var body: some View {
+        let exercise = Exercise(
+            nameEn: "Bench Press",
+            nameZh: "卧推",
+            muscleGroup: .chest,
+            equipment: .barbell
+        )
+        // Three-digit weight + a two-digit reps value stress the input widths
+        // enough to expose overflow (unilateral) and truncation (bilateral).
+        let sampleSet = ExerciseSet(
+            order: 0,
+            weight: 102.5,
+            reps: 12,
+            setType: .working,
+            isUnilateral: unilateral,
+            weightRight: unilateral ? 100 : nil
+        )
+        return List {
+            Section {
+                SetRow(
+                    index: 0,
+                    exerciseSet: sampleSet,
+                    weightUnit: .kg,
+                    canDelete: true,
+                    exercise: exercise,
+                    recentWeightKg: 100,
+                    onToggleCompleted: { _ in },
+                    onDelete: {},
+                    onAddSubSet: { _ in },
+                    onCopyToNext: {}
+                )
+                .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
+            } header: {
+                Text(exercise.localizedName)
+                    .font(LargeWorkoutFonts.exerciseName(large: largeMode))
+            }
+        }
+        .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+    }
+}
+
+#Preview("Row - Normal Mode") {
+    SetRowPreviewWrapper(unilateral: false, largeMode: false)
+}
+
+#Preview("Row - Large Mode") {
+    SetRowPreviewWrapper(unilateral: false, largeMode: true)
+}
+
+#Preview("Row - Large Mode Unilateral") {
+    SetRowPreviewWrapper(unilateral: true, largeMode: true)
+}

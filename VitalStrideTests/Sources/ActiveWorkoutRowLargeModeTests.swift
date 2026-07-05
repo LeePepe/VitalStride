@@ -10,11 +10,11 @@ import Testing
 /// the width/font/min-height tokens introduced in `LargeWorkoutMode.swift`
 /// and the persistence key shared with the toolbar toggle from MY-1088.
 ///
-/// The visual side (SwiftUI layout of both modes, including unilateral
-/// weight overflow risk on a 375pt-wide phone) is covered by the
+/// Row layout is verified visually via the
 /// `#Preview("Row - Normal Mode")` / `#Preview("Row - Large Mode")` /
-/// `#Preview("Row - Large Mode Unilateral")` blocks in
-/// `LargeWorkoutMode.swift`.
+/// `#Preview("Row - Large Mode Unilateral")` blocks that live at the bottom
+/// of `SetRow.swift`; the unilateral preview specifically exposes the
+/// two-input overflow risk the AC calls out.
 @Suite("Active Workout row-level Large Mode (MY-1091)")
 struct ActiveWorkoutRowLargeModeTests {
     private static let largeModeKey = "activeWorkoutLargeMode"
@@ -115,10 +115,14 @@ struct ActiveWorkoutRowLargeModeTests {
         #endif
     }
 
-    @Test("Exercise name font token defined for both modes (no crash / nil path)")
+    @Test("Exercise name font is nil in normal mode (default header sizing preserved) and .title2 in Large Mode")
     func exerciseNameFontResolvesForBothModes() {
-        _ = LargeWorkoutFonts.exerciseName(large: false)
-        _ = LargeWorkoutFonts.exerciseName(large: true)
+        // Normal mode must return nil so `.font(nil)` is applied to the
+        // section header — this preserves the pre-MY-1091 default header
+        // font (AC: "normal sizing must remain unchanged"). Any concrete
+        // Font value here would be a regression.
+        #expect(LargeWorkoutFonts.exerciseName(large: false) == nil)
+        #expect(LargeWorkoutFonts.exerciseName(large: true) != nil)
     }
 
     @Test("Set-index badge font token defined for both modes (no crash / nil path)")

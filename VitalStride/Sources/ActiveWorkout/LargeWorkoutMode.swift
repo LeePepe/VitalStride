@@ -42,10 +42,13 @@ extension EnvironmentValues {
 /// (MY-1088 review lesson: `.system(size: N)` blocks Dynamic Type).
 enum LargeWorkoutFonts {
     /// Exercise name shown in the section header. `.title2` in Large Mode so
-    /// the currently-worked movement stays legible from a rack step away;
-    /// `.headline` in normal mode preserves current density.
-    static func exerciseName(large: Bool) -> Font {
-        Font.system(large ? .title2 : .headline, design: .default).weight(.semibold)
+    /// the currently-worked movement stays legible from a rack step away.
+    /// Returns `nil` in normal mode so the caller applies no explicit font —
+    /// the pre-MY-1091 header rendered with SwiftUI's default `Section` header
+    /// style (inherited via `Text` in a `List` `Section` `header`), and the
+    /// AC pins that normal sizing must remain unchanged (MY-1091 P0).
+    static func exerciseName(large: Bool) -> Font? {
+        large ? Font.system(.title2, design: .default).weight(.semibold) : nil
     }
 
     /// Set-index badge ("1", "2", …) leading the row. `.title3` in Large Mode,
