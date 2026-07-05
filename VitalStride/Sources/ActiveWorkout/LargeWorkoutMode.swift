@@ -92,22 +92,112 @@ enum LargeWorkoutInputFont {
 /// Normal-mode values mirror the pre-MY-1088 shape (bilateral 70 / unilateral
 /// 56 / reps 60) so the existing UI does not shift. Large-mode values expand
 /// the inputs to keep multi-digit weights/reps readable at glance distance.
+///
+/// Large Mode ships two width variants — `.large` (wide preference) and
+/// `.largeCompact` (compact fallback). `SetRow` picks between them with
+/// `ViewThatFits(in: .horizontal)`: on wide phones (Pro Max, landscape) the
+/// wide variant renders; on compact phones (iPhone SE / iPhone Mini, 375pt
+/// content width) SwiftUI substitutes the compact variant so the row does not
+/// clip its trailing menu / completion controls off-screen.
 enum LargeWorkoutFieldWidth {
-    /// Bilateral weight input width. Normal 70pt → Large 110pt so a three-digit
-    /// kg/lb value stays on one line without truncation (per issue AC).
-    static func bilateralWeight(large: Bool) -> CGFloat { large ? 110 : 70 }
+    /// Sizing variant a row can request. `.normal` matches the pre-MY-1091
+    /// density; `.large` is the wide Large Mode preference; `.largeCompact`
+    /// is the Large Mode fallback that fits an iPhone SE list content width.
+    enum Variant {
+        case normal
+        case large
+        case largeCompact
+    }
 
-    /// Per-side (unilateral) weight input width. Normal 56pt → Large 88pt.
-    /// A single unilateral row shows two side-by-side weight inputs plus a
-    /// "/" divider plus "×" plus reps; 88pt per side keeps three digits + a
-    /// decimal on one line without overflowing the row on 375pt-wide phones.
-    static func unilateralWeight(large: Bool) -> CGFloat { large ? 88 : 56 }
+    /// Bilateral weight input width per variant.
+    ///
+    /// Wide-large 110 keeps a three-digit kg/lb value on one line at a glance;
+    /// compact-large 88 preserves the ≥28pt input font (via `.title1`) and
+    /// still fits an iPhone SE (375pt) list content width once the compact
+    /// spacing / set-index tokens below are also applied. Values wider than
+    /// 88 would push the bilateral row past the 343pt budget after row insets.
+    static func bilateralWeight(_ variant: Variant) -> CGFloat {
+        switch variant {
+        case .normal: return 70
+        case .large: return 110
+        case .largeCompact: return 88
+        }
+    }
 
-    /// Reps input width. Normal 60pt → Large 88pt so a two-digit reps value
-    /// plus the larger-mode font still fits without clipping.
-    static func reps(large: Bool) -> CGFloat { large ? 88 : 60 }
+    /// Per-side (unilateral) weight input width per variant.
+    ///
+    /// Unilateral rows show two side-by-side weight inputs plus a "/" divider
+    /// plus "×" plus reps — the widest path the AC calls out. Wide-large 88
+    /// keeps three digits + a decimal on one line at Pro Max width;
+    /// compact-large 56 matches the current normal-mode width so the row
+    /// still fits an iPhone SE budget after the two-input footprint. The
+    /// Large Mode `.title1` font is still applied by `SetRow` in both
+    /// variants — legibility comes from the font ramp; only the width falls
+    /// back to normal here.
+    static func unilateralWeight(_ variant: Variant) -> CGFloat {
+        switch variant {
+        case .normal: return 56
+        case .large: return 88
+        case .largeCompact: return 56
+        }
+    }
+
+    /// Reps input width per variant. Wide-large 88 keeps a two-digit reps
+    /// value + Large Mode font comfortable; compact-large 60 matches
+    /// normal-mode width — the Large Mode font ramp preserves legibility
+    /// while freeing horizontal budget for the two-input unilateral case.
+    static func reps(_ variant: Variant) -> CGFloat {
+        switch variant {
+        case .normal: return 60
+        case .large: return 88
+        case .largeCompact: return 60
+        }
+    }
+
+    /// Set-index badge width per variant. The wide-large badge is 32pt (fits
+    /// a `.title3` two-digit number); compact-large drops back to 28pt to
+    /// reclaim 4pt of horizontal budget without going below the normal 24pt.
+    static func setIndexWidth(_ variant: Variant) -> CGFloat {
+        switch variant {
+        case .normal: return 24
+        case .large: return 32
+        case .largeCompact: return 28
+        }
+    }
+
+    /// Row `HStack` spacing per variant. Compact-large drops from 8 to 4 to
+    /// reclaim ~16-32pt across the row's spacer count without visibly
+    /// crowding — the Large Mode font ramp keeps individual inputs distinct
+    /// even at tighter gaps.
+    static func rowSpacing(_ variant: Variant) -> CGFloat {
+        switch variant {
+        case .normal, .large: return 8
+        case .largeCompact: return 4
+        }
+    }
 
     /// Row min-height applied to every editable input in Large Mode. 60pt is
     /// the AC target; the HIG 44pt floor is preserved implicitly (60 > 44).
+    /// Applied to both `.large` and `.largeCompact` — the compact variant
+    /// still targets a rack-step-away reading distance.
     static let largeMinHeight: CGFloat = 60
+
+    // MARK: - Bool convenience overloads (retained for the token contract)
+    //
+    // The `Bool` variants below preserve the pre-adaptive contract so the
+    // existing token-level tests keep passing and any callers that only know
+    // "large mode on/off" (e.g. non-row surfaces, tests) keep resolving to
+    // the current wide-Large values.
+
+    static func bilateralWeight(large: Bool) -> CGFloat {
+        bilateralWeight(large ? .large : .normal)
+    }
+
+    static func unilateralWeight(large: Bool) -> CGFloat {
+        unilateralWeight(large ? .large : .normal)
+    }
+
+    static func reps(large: Bool) -> CGFloat {
+        reps(large ? .large : .normal)
+    }
 }

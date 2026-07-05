@@ -41,11 +41,47 @@ struct SetRow: View {
     @AppStorage("activeWorkoutLargeMode") private var largeMode = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        // MY-1091 P0 fix: wrap Large Mode's row in `ViewThatFits(in: .horizontal)`
+        // so the wide 110/88/88 tokens render on Pro Max / landscape and the
+        // compact 88/64/68 tokens render on iPhone SE / Mini (375pt content
+        // width after 16pt list insets = 343pt). Normal mode has always fit
+        // compact widths, so it skips the ViewThatFits wrapper entirely.
+        Group {
+            if largeMode {
+                ViewThatFits(in: .horizontal) {
+                    rowContent(variant: .large)
+                    rowContent(variant: .largeCompact)
+                }
+            } else {
+                rowContent(variant: .normal)
+            }
+        }
+        .onAppear {
+            let displayW = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
+            weightText = formatWeight(displayW)
+            if let rightWeight = exerciseSet.weightRight {
+                let displayWR = weightUnit == .lb ? rightWeight * 2.20462 : rightWeight
+                weightRightText = formatWeight(displayWR)
+            }
+            repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
+        }
+    }
+
+    /// Row layout parameterized by a Large Mode `Variant`. `ViewThatFits`
+    /// picks between `.large` and `.largeCompact` based on the offered
+    /// horizontal space, so the trailing menu / completion button never
+    /// clip off-screen on compact phones.
+    @ViewBuilder
+    private func rowContent(variant: LargeWorkoutFieldWidth.Variant) -> some View {
+        // Map the Large Mode variant back to the `large: Bool` axis used by
+        // font/min-height tokens — both `.large` and `.largeCompact` still
+        // want the larger fonts and 60pt min-height; only widths shrink.
+        let isLarge = variant != .normal
+        HStack(spacing: LargeWorkoutFieldWidth.rowSpacing(variant)) {
             Text("\(index + 1)")
-                .font(LargeWorkoutFonts.setIndex(large: largeMode))
+                .font(LargeWorkoutFonts.setIndex(large: isLarge))
                 .foregroundStyle(.secondary)
-                .frame(width: largeMode ? 32 : 24, alignment: .leading)
+                .frame(width: LargeWorkoutFieldWidth.setIndexWidth(variant), alignment: .leading)
 
             if exerciseSet.isUnilateral {
                 // MY-876: unilateral order matches bilateral "weight × reps":
@@ -54,7 +90,7 @@ struct SetRow: View {
                 weightField(
                     binding: $weightText,
                     field: .weight,
-                    width: LargeWorkoutFieldWidth.unilateralWeight(large: largeMode),
+                    width: LargeWorkoutFieldWidth.unilateralWeight(variant),
                     a11yLabel: String(
                         localized: "第 \(index + 1) 组左侧重量",
                         comment: "Left weight input a11y label"
@@ -69,7 +105,7 @@ struct SetRow: View {
                 weightField(
                     binding: $weightRightText,
                     field: .weightRight,
-                    width: LargeWorkoutFieldWidth.unilateralWeight(large: largeMode),
+                    width: LargeWorkoutFieldWidth.unilateralWeight(variant),
                     a11yLabel: String(
                         localized: "第 \(index + 1) 组右侧重量",
                         comment: "Right weight input a11y label"
@@ -80,12 +116,12 @@ struct SetRow: View {
                 Text("×")
                     .foregroundStyle(.secondary)
 
-                repsField(width: LargeWorkoutFieldWidth.reps(large: largeMode))
+                repsField(width: LargeWorkoutFieldWidth.reps(variant))
             } else {
                 weightField(
                     binding: $weightText,
                     field: .weight,
-                    width: LargeWorkoutFieldWidth.bilateralWeight(large: largeMode),
+                    width: LargeWorkoutFieldWidth.bilateralWeight(variant),
                     a11yLabel: String(
                         localized: "第 \(index + 1) 组重量",
                         comment: "Total weight input a11y label"
@@ -96,7 +132,7 @@ struct SetRow: View {
                 Text("×")
                     .foregroundStyle(.secondary)
 
-                repsField(width: LargeWorkoutFieldWidth.reps(large: largeMode))
+                repsField(width: LargeWorkoutFieldWidth.reps(variant))
             }
 
             Menu {
@@ -142,15 +178,6 @@ struct SetRow: View {
             Spacer()
 
             completionButton
-        }
-        .onAppear {
-            let displayW = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
-            weightText = formatWeight(displayW)
-            if let rightWeight = exerciseSet.weightRight {
-                let displayWR = weightUnit == .lb ? rightWeight * 2.20462 : rightWeight
-                weightRightText = formatWeight(displayWR)
-            }
-            repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
         }
     }
 
@@ -392,22 +419,29 @@ struct SetRow: View {
 
 // MARK: - Previews (MY-1091 row visual verification)
 //
-// The reviewer P0 for MY-1091 requires visual verification of normal vs. large
-// row layout AND the unilateral overflow risk called out in the AC. These
-// previews render `SetRow` in the three shapes so a designer / reviewer can
-// eyeball the layout on a 375pt iPhone canvas without spinning up the full
-// ActiveWorkoutView. Wrapping `SetRow` in a `List` reproduces the row insets
-// and section container the row is designed for; the persisted
-// `activeWorkoutLargeMode` @AppStorage key is seeded before the wrapper
-// initializes so the row picks up the mode via the same production path.
+// Reviewer P0 for MY-1091 requires visual verification of normal vs. large
+// row layout at COMPACT phone width (iPhone SE / Mini, 375pt), plus the
+// unilateral overflow risk the AC calls out. These previews render `SetRow`
+// through the real production code path — wrapping it in a `List` reproduces
+// the row insets + section container, and seeding `activeWorkoutLargeMode`
+// via `@AppStorage` before the wrapper initializes drives the same
+// `ViewThatFits(in: .horizontal)` substitution production uses. The compact
+// previews constrain the outer frame to 375pt so the ViewThatFits fallback
+// path (`.largeCompact` widths) is exercised rather than the wide 110/88/88
+// tokens that only fit landscape / Pro Max.
 
 private struct SetRowPreviewWrapper: View {
     let unilateral: Bool
     let largeMode: Bool
+    /// When non-nil, constrains the outer frame width so ViewThatFits
+    /// substitutes the `.largeCompact` variant. `nil` lets the row expand
+    /// to the preview canvas width (used by the "wide" previews below).
+    let constrainedWidth: CGFloat?
 
-    init(unilateral: Bool, largeMode: Bool) {
+    init(unilateral: Bool, largeMode: Bool, constrainedWidth: CGFloat? = nil) {
         self.unilateral = unilateral
         self.largeMode = largeMode
+        self.constrainedWidth = constrainedWidth
         UserDefaults.standard.set(largeMode, forKey: "activeWorkoutLargeMode")
     }
 
@@ -428,7 +462,7 @@ private struct SetRowPreviewWrapper: View {
             isUnilateral: unilateral,
             weightRight: unilateral ? 100 : nil
         )
-        return List {
+        let list = List {
             Section {
                 SetRow(
                     index: 0,
@@ -448,18 +482,37 @@ private struct SetRowPreviewWrapper: View {
                     .font(LargeWorkoutFonts.exerciseName(large: largeMode))
             }
         }
+        .listStyle(.plain)
         .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+
+        return Group {
+            if let constrainedWidth {
+                list.frame(width: constrainedWidth)
+            } else {
+                list
+            }
+        }
     }
 }
 
-#Preview("Row - Normal Mode") {
-    SetRowPreviewWrapper(unilateral: false, largeMode: false)
+// Compact (iPhone SE / Mini, 375pt) — exercises the ViewThatFits fallback.
+#Preview("Row - Compact Normal") {
+    SetRowPreviewWrapper(unilateral: false, largeMode: false, constrainedWidth: 375)
 }
 
-#Preview("Row - Large Mode") {
+#Preview("Row - Compact Large Bilateral") {
+    SetRowPreviewWrapper(unilateral: false, largeMode: true, constrainedWidth: 375)
+}
+
+#Preview("Row - Compact Large Unilateral (overflow guard)") {
+    SetRowPreviewWrapper(unilateral: true, largeMode: true, constrainedWidth: 375)
+}
+
+// Wide (Pro Max / landscape) — exercises the primary wide ViewThatFits path.
+#Preview("Row - Wide Large Bilateral") {
     SetRowPreviewWrapper(unilateral: false, largeMode: true)
 }
 
-#Preview("Row - Large Mode Unilateral") {
+#Preview("Row - Wide Large Unilateral") {
     SetRowPreviewWrapper(unilateral: true, largeMode: true)
 }

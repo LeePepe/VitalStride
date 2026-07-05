@@ -143,4 +143,122 @@ struct ActiveWorkoutRowLargeModeTests {
         #expect(UserDefaults.standard.bool(forKey: Self.largeModeKey))
         UserDefaults.standard.removeObject(forKey: Self.largeModeKey)
     }
+
+    // MARK: Compact-width fit (MY-1091 P0 fix)
+
+    /// iPhone SE / iPhone Mini list content width. `List.plain` on a 375pt
+    /// device gives ≈343pt of horizontal space to a row after the row's own
+    /// 16pt leading + 16pt trailing insets set in `ActiveExerciseSection`.
+    /// This is the compact-width budget every Large Mode row must fit.
+    private static let compactRowContentWidth: CGFloat = 343
+
+    /// The trailing chrome the row unconditionally reserves: menu ellipsis
+    /// button (44pt hit target) + completion button (44pt hit target). The
+    /// `Spacer()` between them can fully collapse when the row is tight, so
+    /// only the two fixed 44pt frames are counted against the fit budget.
+    private static let trailingChromeWidth: CGFloat = 44 + 44
+
+    /// Bilateral-row minimum required width.
+    ///
+    /// HStack children with fixed widths: setIndex, weight, reps, menu,
+    /// Spacer, completion. The `Spacer()` between menu and completion
+    /// collapses fully under pressure. The "×" glyph between weight and
+    /// reps is not sized by us — SwiftUI lays it out at its intrinsic
+    /// width, which is a handful of points at the row's font size and is
+    /// dwarfed by the field widths. Counted spacings are the 4 non-Spacer
+    /// HStack gaps (setIndex↔weight, weight↔×, ×↔reps, reps↔menu).
+    private static func bilateralMinWidth(_ variant: LargeWorkoutFieldWidth.Variant) -> CGFloat {
+        let spacing = LargeWorkoutFieldWidth.rowSpacing(variant)
+        return LargeWorkoutFieldWidth.setIndexWidth(variant)
+            + LargeWorkoutFieldWidth.bilateralWeight(variant)
+            + LargeWorkoutFieldWidth.reps(variant)
+            + trailingChromeWidth
+            + spacing * 4
+    }
+
+    /// Unilateral-row minimum required width.
+    ///
+    /// HStack children with fixed widths: setIndex, weightL, weightR, reps,
+    /// menu, Spacer, completion. The Spacer collapses fully under pressure.
+    /// The "/" and "×" glyphs use intrinsic widths as above. Counted
+    /// spacings are the 6 non-Spacer HStack gaps (setIndex↔wL, wL↔/,
+    /// /↔wR, wR↔×, ×↔reps, reps↔menu).
+    private static func unilateralMinWidth(_ variant: LargeWorkoutFieldWidth.Variant) -> CGFloat {
+        let spacing = LargeWorkoutFieldWidth.rowSpacing(variant)
+        return LargeWorkoutFieldWidth.setIndexWidth(variant)
+            + LargeWorkoutFieldWidth.unilateralWeight(variant) * 2
+            + LargeWorkoutFieldWidth.reps(variant)
+            + trailingChromeWidth
+            + spacing * 6
+    }
+
+    @Test("Wide Large Mode intentionally exceeds iPhone SE budget (justifies the ViewThatFits fallback)")
+    func wideLargeExceedsCompactBudget() {
+        // Reviewer P0 baseline: proves the wide variant does NOT fit compact
+        // rows. If a future refactor accidentally shrinks the wide tokens
+        // enough to fit, this test fails loudly and the ViewThatFits
+        // fallback becomes redundant / dead code.
+        #expect(Self.bilateralMinWidth(.large) > Self.compactRowContentWidth)
+        #expect(Self.unilateralMinWidth(.large) > Self.compactRowContentWidth)
+    }
+
+    @Test("Compact Large Mode fits iPhone SE list content width (bilateral)")
+    func compactBilateralFitsCompactWidth() {
+        // Reviewer P0 fix: the .largeCompact variant is what ViewThatFits
+        // substitutes on 375pt phones. Its full row footprint MUST stay
+        // within the 343pt content budget or the trailing menu / completion
+        // controls clip off-screen — exactly the failure the reviewer cited.
+        #expect(Self.bilateralMinWidth(.largeCompact) <= Self.compactRowContentWidth)
+    }
+
+    @Test("Compact Large Mode fits iPhone SE list content width (unilateral overflow guard)")
+    func compactUnilateralFitsCompactWidth() {
+        // The AC explicitly calls out the unilateral overflow risk — two
+        // side-by-side weight inputs plus a divider are the widest path.
+        // The compact fallback must clear the budget here or the ViewThatFits
+        // substitution is meaningless for the very case the reviewer cited.
+        #expect(Self.unilateralMinWidth(.largeCompact) <= Self.compactRowContentWidth)
+    }
+
+    @Test("Compact Large Mode still ramps at least one width above normal (Large intent preserved)")
+    func compactLargeStillRampsAboveNormal() {
+        // The compact fallback shrinks vs. wide Large so the unilateral row
+        // fits an iPhone SE budget — for the two-input case, per-side weight
+        // and reps must fall back to normal-mode widths (56 / 60) or the row
+        // would clip its trailing controls. The Large Mode font ramp still
+        // applies to those inputs (via SelectAllTextField's `.title1` font),
+        // so legibility is preserved even at normal widths. But at LEAST one
+        // width must still strictly ramp up in compact-large, otherwise
+        // Large Mode delivers no visible sizing win on compact phones —
+        // bilateral weight is the canonical ramp target because bilateral
+        // rows have the horizontal headroom for it.
+        #expect(
+            LargeWorkoutFieldWidth.bilateralWeight(.largeCompact)
+                > LargeWorkoutFieldWidth.bilateralWeight(.normal)
+        )
+        // Set-index badge also ramps up in Large Mode (both variants) so
+        // multi-digit set counts stay legible without shifting column.
+        #expect(
+            LargeWorkoutFieldWidth.setIndexWidth(.largeCompact)
+                > LargeWorkoutFieldWidth.setIndexWidth(.normal)
+        )
+        // The width fallback tokens must never *shrink* below normal — that
+        // would be strictly worse than the pre-Large-Mode UI.
+        #expect(
+            LargeWorkoutFieldWidth.unilateralWeight(.largeCompact)
+                >= LargeWorkoutFieldWidth.unilateralWeight(.normal)
+        )
+        #expect(
+            LargeWorkoutFieldWidth.reps(.largeCompact)
+                >= LargeWorkoutFieldWidth.reps(.normal)
+        )
+    }
+
+    @Test("Normal mode already fits compact width (no ViewThatFits needed off Large Mode)")
+    func normalFitsCompactWidth() {
+        // Pins the "normal path is safe" invariant so a future refactor
+        // that widens normal tokens gets caught here rather than by users.
+        #expect(Self.bilateralMinWidth(.normal) <= Self.compactRowContentWidth)
+        #expect(Self.unilateralMinWidth(.normal) <= Self.compactRowContentWidth)
+    }
 }
