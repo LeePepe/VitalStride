@@ -42,6 +42,7 @@ struct OverviewView: View {
                             .frame(maxWidth: .infinity, minHeight: 60)
                     } else if !snapshotState.isAuthorized, !hasWorkoutData {
                         OverviewEmptyState()
+                        MuscleGroupFrequencyCard(counts: dynamicState.recentMuscleGroupCounts)
                     } else {
                         dynamicContent
                     }
@@ -123,6 +124,7 @@ struct OverviewView: View {
                 )
             }
             AdaptiveCardGrid(insights: insights)
+            MuscleGroupFrequencyCard(counts: dynamicState.recentMuscleGroupCounts)
             if let lastUpdated {
                 LastUpdatedLabel(date: lastUpdated)
             }
@@ -132,6 +134,7 @@ struct OverviewView: View {
                 snapshotState: snapshotState,
                 hasWorkoutData: hasWorkoutData
             )
+            MuscleGroupFrequencyCard(counts: dynamicState.recentMuscleGroupCounts)
         }
     }
 }

@@ -688,4 +688,103 @@ struct OverviewLayoutStateTests {
         #expect(decoded.insights[0].key == "accepted")
         #expect(decoded.headline == "新洞察")
     }
+
+    // MARK: - Muscle Group Frequency
+
+    @Test("computeMuscleGroupCounts returns zeros for all groups on empty input")
+    @MainActor
+    func muscleGroupCountsEmpty() {
+        let counts = OverviewDynamicState.computeMuscleGroupCounts(from: [])
+        #expect(counts.count == MuscleGroup.allCases.count)
+        for group in MuscleGroup.allCases {
+            #expect(counts[group] == 0, "expected 0 for \(group)")
+        }
+    }
+
+    @Test("computeMuscleGroupCounts tallies exercises in last 7 days")
+    @MainActor
+    func muscleGroupCountsRecent() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+
+        let chest = Exercise(nameEn: "Bench", nameZh: "卧推", muscleGroup: .chest, equipment: .barbell)
+        let back = Exercise(nameEn: "Row", nameZh: "划船", muscleGroup: .back, equipment: .barbell)
+        context.insert(chest)
+        context.insert(back)
+
+        let now = Date()
+        let we1 = WorkoutExercise(order: 0, exercise: chest)
+        let we2 = WorkoutExercise(order: 1, exercise: chest)
+        let we3 = WorkoutExercise(order: 0, exercise: back)
+        context.insert(we1); context.insert(we2); context.insert(we3)
+
+        let workoutA = Workout(type: .strength, startDate: now.addingTimeInterval(-3600), endDate: now, exercises: [we1, we2])
+        let workoutB = Workout(type: .strength, startDate: now.addingTimeInterval(-2 * 86400), endDate: now.addingTimeInterval(-2 * 86400 + 1800), exercises: [we3])
+        context.insert(workoutA); context.insert(workoutB)
+        try context.save()
+
+        let counts = OverviewDynamicState.computeMuscleGroupCounts(from: [workoutA, workoutB])
+        #expect(counts[.chest] == 2)
+        #expect(counts[.back] == 1)
+        #expect(counts[.legs] == 0)
+    }
+
+    @Test("computeMuscleGroupCounts excludes workouts older than 7 days and in-progress workouts")
+    @MainActor
+    func muscleGroupCountsExcludesOldAndInProgress() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+
+        let chest = Exercise(nameEn: "Bench", nameZh: "卧推", muscleGroup: .chest, equipment: .barbell)
+        context.insert(chest)
+
+        let now = Date()
+        let weOld = WorkoutExercise(order: 0, exercise: chest)
+        let weInProgress = WorkoutExercise(order: 0, exercise: chest)
+        context.insert(weOld); context.insert(weInProgress)
+
+        let old = Workout(
+            type: .strength,
+            startDate: now.addingTimeInterval(-30 * 86400),
+            endDate: now.addingTimeInterval(-30 * 86400 + 1800),
+            exercises: [weOld]
+        )
+        let inProgress = Workout(
+            type: .strength,
+            startDate: now.addingTimeInterval(-3600),
+            endDate: nil,
+            exercises: [weInProgress]
+        )
+        context.insert(old); context.insert(inProgress)
+        try context.save()
+
+        let counts = OverviewDynamicState.computeMuscleGroupCounts(from: [old, inProgress])
+        #expect(counts[.chest] == 0, "old + in-progress should not be counted")
+    }
+
+    @Test("MuscleGroupFrequencyCard.sortedEntries returns all 7 groups with zero counts for empty input")
+    @MainActor
+    func muscleGroupCardEmptyRendersAllZeroChips() {
+        let entries = MuscleGroupFrequencyCard.sortedEntries(counts: [:])
+        #expect(entries.count == MuscleGroup.allCases.count)
+        for entry in entries {
+            #expect(entry.1 == 0, "expected 0 for \(entry.0)")
+        }
+        let groups = Set(entries.map { $0.0 })
+        #expect(groups == Set(MuscleGroup.allCases))
+    }
+
+    @Test("MuscleGroupFrequencyCard.sortedEntries orders by count desc with stable enum tie-break")
+    @MainActor
+    func muscleGroupCardSortOrder() {
+        let counts: [MuscleGroup: Int] = [.chest: 3, .back: 3, .legs: 5, .arms: 0, .shoulders: 0, .core: 0, .fullBody: 0]
+        let entries = MuscleGroupFrequencyCard.sortedEntries(counts: counts)
+        let orderIndex = Dictionary(uniqueKeysWithValues: MuscleGroup.allCases.enumerated().map { ($1, $0) })
+        #expect(entries.first?.0 == .legs, "legs (5) should come first")
+        let tiedThrees = entries.prefix(3).dropFirst().map { $0.0 }
+        #expect(tiedThrees.count == 2)
+        for i in 0..<(tiedThrees.count - 1) {
+            #expect((orderIndex[tiedThrees[i]] ?? 0) < (orderIndex[tiedThrees[i + 1]] ?? 0), "ties break by MuscleGroup.allCases order")
+        }
+    }
 }

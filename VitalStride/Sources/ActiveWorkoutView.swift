@@ -95,11 +95,13 @@ struct ActiveWorkoutView: View {
                     .accessibilityLabel(
                         largeMode
                             ? String(
-                                localized: "切换普通字号",
+                                localized: "active_workout_toggle_normal_text_size",
+                                defaultValue: "Switch to normal text size",
                                 comment: "Active workout toggle: switch back to normal text size"
                             )
                             : String(
-                                localized: "切换大字号",
+                                localized: "active_workout_toggle_large_text_size",
+                                defaultValue: "Switch to large text size",
                                 comment: "Active workout toggle: switch to large text size"
                             )
                     )
