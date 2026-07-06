@@ -1374,6 +1374,42 @@
         }
       }
     },
+    "set_row_rpe_picker_label" : {
+      "comment" : "RPE (rate of perceived exertion) picker label in the SetRow menu",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RPE"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RPE"
+          }
+        }
+      }
+    },
+    "set_row_rpe_option_unset" : {
+      "comment" : "RPE picker option representing an unlabeled (nil) set — user has not annotated the perceived exertion for this set",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not set"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未标注"
+          }
+        }
+      }
+    },
     "Resume" : {
       "comment" : "Crash recovery resume button",
       "extractionState" : "manual",
