@@ -320,4 +320,71 @@ struct ExerciseSetTests {
         #expect(set.weightRight == 37.5)
         #expect(set.reps == 12)
     }
+
+    // MARK: - rpe Tests
+
+    @Test("rpe defaults to nil")
+    func rpeDefaultValue() {
+        let set = ExerciseSet(weight: 60.0, reps: 10)
+        #expect(set.rpe == nil)
+    }
+
+    @Test("init preserves rpe value")
+    func initPreservesRpe() {
+        let set = ExerciseSet(
+            order: 1,
+            weight: 80.0,
+            reps: 8,
+            setType: .working,
+            rpe: 8
+        )
+        #expect(set.rpe == 8)
+        #expect(set.weight == 80.0)
+        #expect(set.reps == 8)
+    }
+
+    @Test("encode and decode roundtrip preserves rpe")
+    func codableRoundtripRpe() throws {
+        let original = ExerciseSet(
+            order: 1,
+            weight: 80.0,
+            reps: 8,
+            setType: .working,
+            rpe: 9
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: data)
+        #expect(decoded.rpe == 9)
+        #expect(decoded.weight == 80.0)
+        #expect(decoded.reps == 8)
+    }
+
+    @Test("encode omits rpe when nil")
+    func codableEncodesNilRpe() throws {
+        let set = ExerciseSet(weight: 50.0, reps: 8)
+        let data = try JSONEncoder().encode(set)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(json?["rpe"] == nil)
+    }
+
+    @Test("decode legacy JSON without rpe defaults to nil")
+    func codableLegacyWithoutRpe() throws {
+        let json = """
+        {"order":0,"weight":80.0,"reps":8,"setType":"working"}
+        """
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: Data(json.utf8))
+        #expect(decoded.rpe == nil)
+        #expect(decoded.weight == 80.0)
+        #expect(decoded.reps == 8)
+    }
+
+    @Test("decode JSON with rpe present")
+    func codableDecodeWithRpe() throws {
+        let json = """
+        {"order":1,"weight":75.0,"reps":6,"setType":"working","rpe":10}
+        """
+        let decoded = try JSONDecoder().decode(ExerciseSet.self, from: Data(json.utf8))
+        #expect(decoded.rpe == 10)
+        #expect(decoded.weight == 75.0)
+    }
 }
