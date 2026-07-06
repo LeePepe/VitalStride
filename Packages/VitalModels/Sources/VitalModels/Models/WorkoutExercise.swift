@@ -49,4 +49,11 @@ extension WorkoutExercise {
                 }
             }
     }
+
+    public var bestEstimatedOneRepMax: Double? {
+        (sets ?? [])
+            .filter { $0.isOneRepMaxCandidate }
+            .map { $0.estimatedOneRepMax }
+            .max()
+    }
 }
