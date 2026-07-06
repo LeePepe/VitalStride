@@ -18,7 +18,7 @@ enum AIModel: String, CaseIterable, Sendable {
 }
 
 struct AISettingsSection: View {
-    static let apiKeyKeychainService = "\(KeychainHelper.defaultServicePrefix).apikey"
+    nonisolated static let apiKeyKeychainService = "\(KeychainHelper.defaultServicePrefix).apikey"
 
     @AppStorage("aiModel") private var selectedModel: AIModel = .glm4Flash
     @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
