@@ -384,39 +384,41 @@ struct SetRow: View {
     /// sides as "L/R" while keeping reps at the tail (spec edge case).
     ///
     /// The format string is `active_workout.previous_set_hint_format`, added
-    /// to `Localizable.xcstrings` by T007 (FR-006). The row substitutes the
-    /// fully-formatted weight+reps segment into a single `%@` placeholder so
-    /// translations can reorder or re-punctuate the sentence without leaking
-    /// unit / L/R glyphs into the caller.
+    /// to `Localizable.xcstrings` by T007 (FR-006). Per the T007 catalog
+    /// contract, the format takes two positional arguments — `%1$@` for the
+    /// formatted weight+unit segment and `%2$lld` for the reps count — so
+    /// translations can reorder them without the caller pre-joining them
+    /// into a single string.
     @ViewBuilder
     private func previousSetCaption(_ previous: ExerciseSet) -> some View {
         Text(
             String(
                 format: String(
                     localized: "active_workout.previous_set_hint_format",
-                    defaultValue: "上次 %@",
-                    comment: "SetRow previous-set hint. %@ is e.g. \"60kg × 10\" or \"60/58kg × 10\""
+                    defaultValue: "上次 %1$@ × %2$lld",
+                    comment: "SetRow previous-set hint. %1$@ is the formatted weight+unit (e.g. \"60kg\" or \"60/58kg\"), %2$lld is the reps count."
                 ),
-                previousSetSummary(previous)
+                previousSetWeightSegment(previous),
+                Int64(previous.reps)
             )
         )
         .font(.caption)
         .foregroundStyle(.tertiary)
     }
 
-    /// Builds the "{weight}{unit} × {reps}" (or "{L}/{R}{unit} × {reps}"
-    /// unilateral) segment for the caption. Weight values are converted from
-    /// canonical kg storage to the current `weightUnit` (FR-004).
-    private func previousSetSummary(_ previous: ExerciseSet) -> String {
+    /// Builds the "{weight}{unit}" (or "{L}/{R}{unit}" unilateral) weight
+    /// segment for the caption. Weight values are converted from canonical
+    /// kg storage to the current `weightUnit` (FR-004). Reps are supplied
+    /// separately to the localized format string.
+    private func previousSetWeightSegment(_ previous: ExerciseSet) -> String {
         let unitSuffix = weightUnit.rawValue
-        let repsSegment = "× \(previous.reps)"
         if previous.isUnilateral, let rightKg = previous.weightRight {
             let leftDisplay = weightUnit == .lb ? previous.weight * 2.20462 : previous.weight
             let rightDisplay = weightUnit == .lb ? rightKg * 2.20462 : rightKg
-            return "\(formatCaptionWeight(leftDisplay))/\(formatCaptionWeight(rightDisplay))\(unitSuffix) \(repsSegment)"
+            return "\(formatCaptionWeight(leftDisplay))/\(formatCaptionWeight(rightDisplay))\(unitSuffix)"
         }
         let display = weightUnit == .lb ? previous.weight * 2.20462 : previous.weight
-        return "\(formatCaptionWeight(display))\(unitSuffix) \(repsSegment)"
+        return "\(formatCaptionWeight(display))\(unitSuffix)"
     }
 
     /// Caption-side weight formatter. Mirrors `formatWeight(_:)` for the
