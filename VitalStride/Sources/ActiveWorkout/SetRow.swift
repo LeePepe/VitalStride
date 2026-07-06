@@ -582,11 +582,18 @@ private struct SetRowPreviewWrapper: View {
     /// substitutes the `.largeCompact` variant. `nil` lets the row expand
     /// to the preview canvas width (used by the "wide" previews below).
     let constrainedWidth: CGFloat?
+    /// MY-1158 (T012): seed value for `ExerciseSet.rpe` so previews cover both
+    /// the annotated (`rpe == 8`) and unannotated (`nil`) menu states without
+    /// requiring a running app. The RPE picker lives in the row's ellipsis
+    /// Menu, so the preview surface itself is unchanged — this exists so the
+    /// SwiftData-seeded row round-trips both values.
+    let rpe: Int?
 
-    init(unilateral: Bool, largeMode: Bool, constrainedWidth: CGFloat? = nil) {
+    init(unilateral: Bool, largeMode: Bool, constrainedWidth: CGFloat? = nil, rpe: Int? = nil) {
         self.unilateral = unilateral
         self.largeMode = largeMode
         self.constrainedWidth = constrainedWidth
+        self.rpe = rpe
         UserDefaults.standard.set(largeMode, forKey: "activeWorkoutLargeMode")
     }
 
@@ -605,7 +612,8 @@ private struct SetRowPreviewWrapper: View {
             reps: 12,
             setType: .working,
             isUnilateral: unilateral,
-            weightRight: unilateral ? 100 : nil
+            weightRight: unilateral ? 100 : nil,
+            rpe: rpe
         )
         let list = List {
             Section {
@@ -660,4 +668,17 @@ private struct SetRowPreviewWrapper: View {
 
 #Preview("Row - Wide Large Unilateral") {
     SetRowPreviewWrapper(unilateral: true, largeMode: true)
+}
+
+// MY-1158 (spec 007-rpe-field T012): RPE coverage — rpe = 8 (annotated) and
+// rpe = nil (unannotated). The picker lives in the ellipsis Menu so the row
+// surface itself doesn't change, but the seeded `ExerciseSet.rpe` round-trips
+// both states through the SwiftData model container in the preview so
+// downstream consumers (AI prompt builder, exports) exercise both paths.
+#Preview("Row - RPE Annotated (rpe = 8)") {
+    SetRowPreviewWrapper(unilateral: false, largeMode: false, constrainedWidth: 375, rpe: 8)
+}
+
+#Preview("Row - RPE Not Set (rpe = nil)") {
+    SetRowPreviewWrapper(unilateral: false, largeMode: false, constrainedWidth: 375, rpe: nil)
 }
