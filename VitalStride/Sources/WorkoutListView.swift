@@ -285,30 +285,26 @@ struct WorkoutListView: View {
     }
 
     private func deleteWorkout(_ workout: Workout) {
-        let source = workout.source
-        let hkUUID = workout.healthKitUUID
-        logger.info("Deleting workout source=\(source.rawValue, privacy: .private)")
+        let snapshot = WorkoutDeleter.snapshot(of: workout)
+        logger.info("Deleting workout source=\(snapshot.source.rawValue, privacy: .private)")
+        let context = modelContext
+        let hkService = healthKitService
 
-        Task {
-            if source == .recorded, let hkUUID {
-                do {
-                    try await healthKitService.deleteWorkout(healthKitUUID: hkUUID)
-                } catch {
-                    logger.error(
-                        // swiftlint:disable:next line_length
-                        "HealthKit delete failed uuid=\(hkUUID, privacy: .private) error=\(error.localizedDescription, privacy: .private)"
-                    )
-                }
-            }
+        // Clear the deletion target immediately so the confirmation alert's
+        // binding stops holding a reference to the about-to-be-deleted model.
+        workoutToDelete = nil
 
-            modelContext.delete(workout)
+        Task { @MainActor in
             do {
-                try modelContext.save()
-                workoutToDelete = nil
+                _ = try await WorkoutDeleter.delete(
+                    snapshot: snapshot,
+                    in: context,
+                    healthKitDelete: { uuid in
+                        try await hkService.deleteWorkout(healthKitUUID: uuid)
+                    }
+                )
             } catch {
                 logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .private)")
-                modelContext.rollback()
-                workoutToDelete = nil
                 showingDeleteError = true
             }
         }

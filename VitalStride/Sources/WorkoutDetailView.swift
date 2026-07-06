@@ -14,6 +14,7 @@ struct WorkoutDetailView: View {
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     @State private var showingDeleteAlert = false
     @State private var showingDeleteError = false
+    @State private var isDeleting = false
     @State private var heartRateStats: WorkoutHeartRateStats?
 
     private var sortedExercises: [WorkoutExercise] {
@@ -21,6 +22,48 @@ struct WorkoutDetailView: View {
     }
 
     var body: some View {
+        content
+            .navigationTitle("训练详情")
+            .toolbar { deleteToolbarItem }
+            .alert(
+                String(localized: "确认删除", comment: "Delete confirmation alert title"),
+                isPresented: $showingDeleteAlert
+            ) {
+                Button(String(localized: "取消", comment: "Cancel button"), role: .cancel) {}
+                Button(String(localized: "删除", comment: "Delete confirm button"), role: .destructive) {
+                    beginDelete()
+                }
+            } message: {
+                Text(String(localized: "确定删除这次训练？", comment: "Delete confirmation message"))
+            }
+            .alert(
+                String(localized: "删除失败", comment: "Delete failure alert title"),
+                isPresented: $showingDeleteError
+            ) {
+                Button(String(localized: "好", comment: "OK button")) {}
+            } message: {
+                Text(String(localized: "无法删除训练记录，请稍后重试。", comment: "Delete failure message"))
+            }
+            .task {
+                await loadHeartRateStats()
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if isDeleting {
+            // Once deletion begins, stop reading any property on `workout`.
+            // If SwiftData detaches the backing store before dismissal, reading
+            // e.g. `\Workout.type` on the stale reference traps with
+            // "backing data was detached without resolving faults".
+            Color.clear
+                .accessibilityHidden(true)
+        } else {
+            detailList
+        }
+    }
+
+    private var detailList: some View {
         List {
             Section("概要") {
                 LabeledContent("日期") {
@@ -163,41 +206,20 @@ struct WorkoutDetailView: View {
                 }
             }
         }
-        .navigationTitle("训练详情")
-        .toolbar {
-            ToolbarItem(placement: .destructiveAction) {
-                Button(role: .destructive) {
-                    showingDeleteAlert = true
-                } label: {
-                    Label(
-                        String(localized: "删除训练", comment: "Delete workout toolbar button"),
-                        systemImage: "trash"
-                    )
-                }
-                .accessibilityLabel(String(localized: "删除训练", comment: "Delete workout a11y"))
+    }
+
+    private var deleteToolbarItem: some ToolbarContent {
+        ToolbarItem(placement: .destructiveAction) {
+            Button(role: .destructive) {
+                showingDeleteAlert = true
+            } label: {
+                Label(
+                    String(localized: "删除训练", comment: "Delete workout toolbar button"),
+                    systemImage: "trash"
+                )
             }
-        }
-        .alert(
-            String(localized: "确认删除", comment: "Delete confirmation alert title"),
-            isPresented: $showingDeleteAlert
-        ) {
-            Button(String(localized: "取消", comment: "Cancel button"), role: .cancel) {}
-            Button(String(localized: "删除", comment: "Delete confirm button"), role: .destructive) {
-                deleteWorkout()
-            }
-        } message: {
-            Text(String(localized: "确定删除这次训练？", comment: "Delete confirmation message"))
-        }
-        .alert(
-            String(localized: "删除失败", comment: "Delete failure alert title"),
-            isPresented: $showingDeleteError
-        ) {
-            Button(String(localized: "好", comment: "OK button")) {}
-        } message: {
-            Text(String(localized: "无法删除训练记录，请稍后重试。", comment: "Delete failure message"))
-        }
-        .task {
-            await loadHeartRateStats()
+            .disabled(isDeleting)
+            .accessibilityLabel(String(localized: "删除训练", comment: "Delete workout a11y"))
         }
     }
 
@@ -224,27 +246,30 @@ struct WorkoutDetailView: View {
         weightUnit == .lb ? kgValue * 2.20462 : kgValue
     }
 
-    private func deleteWorkout() {
-        let source = workout.source
-        let hkUUID = workout.healthKitUUID
-        logger.info("Deleting workout from detail source=\(source.rawValue, privacy: .private)")
+    private func beginDelete() {
+        guard !isDeleting else { return }
+        // Capture everything we need as a value BEFORE flipping isDeleting.
+        // After this point the view will not read any property on `workout`.
+        let snapshot = WorkoutDeleter.snapshot(of: workout)
+        logger.info("Deleting workout from detail source=\(snapshot.source.rawValue, privacy: .private)")
 
-        Task {
-            if source == .recorded, let hkUUID {
-                do {
-                    try await healthKitService.deleteWorkout(healthKitUUID: hkUUID)
-                } catch {
-                    logger.error("HealthKit delete failed uuid=\(hkUUID, privacy: .private) error=\(error.localizedDescription, privacy: .private)")
-                }
-            }
+        isDeleting = true
+        let context = modelContext
+        let hkService = healthKitService
 
-            modelContext.delete(workout)
+        Task { @MainActor in
             do {
-                try modelContext.save()
+                _ = try await WorkoutDeleter.delete(
+                    snapshot: snapshot,
+                    in: context,
+                    healthKitDelete: { uuid in
+                        try await hkService.deleteWorkout(healthKitUUID: uuid)
+                    }
+                )
                 dismiss()
             } catch {
                 logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .private)")
-                modelContext.rollback()
+                isDeleting = false
                 showingDeleteError = true
             }
         }
