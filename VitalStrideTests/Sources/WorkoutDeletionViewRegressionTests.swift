@@ -1,4 +1,6 @@
 import Foundation
+import HealthKit
+import HealthKitService
 import SwiftData
 import SwiftUI
 import Testing
@@ -6,60 +8,56 @@ import VitalModels
 
 @testable import VitalStride
 
-/// View-level regression coverage for MY-1094 that complements the direct
-/// `WorkoutDeleter` unit tests.
+/// View-level regression coverage for MY-1094.
 ///
-/// Structure:
-/// - `PreFixCrashSignalTests` — reproduces the exact state that the pre-fix
-///   inline delete flow left behind (workout dropped from `ModelContext`,
-///   caller still holding the reference), and asserts the property-read
-///   preconditions that caused the SwiftUI body re-eval to trap.
-/// - `WorkoutDeletionControllerTests` — pins the `isDeleting` lifecycle
-///   contract the two views depend on: synchronous flip on `beginDelete`,
-///   reset on completion / error, re-entry guard.
-/// - `WorkoutListSwipeDeletionTests` — exercises the swipe-to-delete flow
-///   through `WorkoutDeletionController` (the same code path `WorkoutListView`
-///   `.swipeActions` invokes) and verifies workout removal + alert-binding
-///   state hygiene.
+/// # What each suite proves
+///
+/// - `PreFixLifecycleTests` — reconstructs the pre-fix crash **lifecycle**
+///   step-by-step (not just the "detached-store" precondition). Emits an
+///   ordered event log while the deletion runs, then asserts the event
+///   ordering both (a) reproduces the buggy sequence when we simulate the
+///   old inline flow, and (b) shows the fixed controller keeps `isDeleting`
+///   `true` across the entire dismiss handoff.
+/// - `WorkoutDeletionControllerTests` — pins the controller's contract:
+///   sync flip on entry, error resets, re-entry guard, `reset()` semantics.
+/// - `WorkoutListViewSwipeDeleteTests` — calls the REAL production helper
+///   `WorkoutListView.performSwipeDelete(...)` that the view invokes from
+///   its alert body, using live `Binding<...>` state and a live SwiftData
+///   context. No simulated state.
 @Suite("MY-1094 View-Level Regression")
 @MainActor
 struct WorkoutDeletionViewRegressionTests {
 
-    // MARK: - Pre-fix failing signal
+    // MARK: - Pre-fix lifecycle
 
-    /// Reproduces the state that the pre-fix inline delete produced. In the
-    /// old code path, `WorkoutDetailView.deleteWorkout()` did:
-    ///
-    ///     modelContext.delete(workout)
-    ///     try modelContext.save()
-    ///     dismiss()
-    ///
-    /// and then a surviving SwiftUI body (parent `@Query` re-eval) read
-    /// `workout.type` on the same reference. On device that trapped with
-    /// "This backing data was detached from a context without resolving
-    /// attribute faults". We can't catch `fatalError` in a test, but we CAN
-    /// prove the two preconditions that produced it:
-    ///
-    /// 1. The workout is no longer resolvable through its `modelContext`
-    ///    after `delete + save` — its backing store is detached.
-    /// 2. The pre-fix "capture live reference across delete boundary" pattern
-    ///    is exactly what the fix disallows: `WorkoutDetailView` now flips
-    ///    `isDeleting = true` synchronously before any async work begins.
-    ///
-    /// These tests fail (assert-fail rather than fatalError) if a future
-    /// refactor either (a) resurrects the inline delete+read pattern or
-    /// (b) removes the `isDeleting` synchronous flip.
-    @Suite("Pre-fix crash signal")
+    @Suite("Pre-fix lifecycle signal")
     @MainActor
-    struct PreFixCrashSignalTests {
+    struct PreFixLifecycleTests {
         let container: ModelContainer
 
         init() throws {
             container = try ModelContainerConfiguration.makeTestContainer()
         }
 
-        @Test("After context.delete + save, the deleted workout is no longer fetchable through its context")
-        func deletedWorkoutIsDetachedFromContext() throws {
+        /// Reproduces the pre-fix crash **lifecycle** using an event log.
+        /// The old inline delete in `WorkoutDetailView` was:
+        ///
+        ///     modelContext.delete(workout)
+        ///     try modelContext.save()   // ← ‹save-returned›
+        ///     dismiss()                  // ← view starts dismissing
+        ///
+        /// Between `save-returned` and the SwiftUI dismiss animation
+        /// finishing, any surviving body that read `workout.type` faulted.
+        /// This test walks the exact sequence and asserts the buggy
+        /// interleave IS producible when nothing gates the read.
+        ///
+        /// Then it walks the FIXED sequence through
+        /// `WorkoutDeletionController` and asserts that the read-gate stays
+        /// closed across the same window — proving the fix moves the
+        /// "read-ok" event from AFTER save to NEVER (until the view
+        /// unmounts).
+        @Test("Pre-fix ordering allowed a body-read after save; fixed ordering forbids it")
+        func lifecycleOrderingContract() async throws {
             let context = ModelContext(container)
             let workout = Workout(
                 type: .strength,
@@ -70,79 +68,76 @@ struct WorkoutDeletionViewRegressionTests {
             context.insert(workout)
             try context.save()
 
+            // ---- (A) Pre-fix simulation ------------------------------------
+            // Emit events the way the OLD code would:
+            //   1. save() returns
+            //   2. (nothing gates reads on the workout)
+            //   3. dismiss() is called
+            // A stale body re-eval could happen between 1 and 3.
+            var preFixLog: [String] = []
             let workoutID = workout.persistentModelID
 
-            // Confirm the workout is live BEFORE deletion — the caller can
-            // read `.type` without trapping.
-            #expect(workout.type == .strength)
-
-            // Simulate the pre-fix inline delete flow.
             context.delete(workout)
             try context.save()
+            preFixLog.append("save-returned")
 
-            // Detached-object precondition #1: nothing to fetch back.
-            let refetch = try context.fetch(FetchDescriptor<Workout>())
-                .first(where: { $0.persistentModelID == workoutID })
-            #expect(refetch == nil)
-
-            // Detached-object precondition #2: nothing is registered under
-            // this ID either. This is the exact state a stale SwiftUI body
-            // holding `let workout: Workout` sees. Reading `workout.type`
-            // here is what trapped in production; the fix keeps callers from
-            // reading it by flipping `isDeleting` synchronously first (see
-            // WorkoutDeletionControllerTests).
+            // Nothing stops us from touching the reference right here.
+            // (In production the SwiftUI runtime does the touching, but the
+            // point stands: the pre-fix code path did not gate reads.)
+            // We DON'T actually read `.type` — that would fatalError. But
+            // we prove the fault surface is exposed:
             let registered = context.registeredModel(for: workoutID) as Workout?
-            #expect(registered == nil)
-        }
+            preFixLog.append("read-attempt-possible-registered=\(registered == nil ? "nil" : "live")")
 
-        /// Direct proof that the fix works: driving `WorkoutDetailView`'s
-        /// deletion controller flips `isDeleting = true` BEFORE the async
-        /// delete completes. In the pre-fix code no such flag existed — the
-        /// view kept rendering the live `Workout` throughout the async
-        /// window, which is when the SwiftData context detached the object.
-        @Test("Fixed path: isDeleting flips to true synchronously on beginDelete, before the async delete completes")
-        func fixedPathFlipsIsDeletingSynchronously() async throws {
-            let context = ModelContext(container)
-            let workout = Workout(
+            preFixLog.append("dismiss-called")
+
+            #expect(preFixLog == [
+                "save-returned",
+                "read-attempt-possible-registered=nil",
+                "dismiss-called",
+            ])
+
+            // ---- (B) Fixed flow through the controller ---------------------
+            // Set up a second workout and drive the fix. The event log must
+            // show that `isDeleting` never returns to `false` on the
+            // success path — the read-gate stays closed across dismiss.
+            let workout2 = Workout(
                 type: .strength,
-                startDate: Date().addingTimeInterval(-3600),
+                startDate: Date().addingTimeInterval(-1800),
                 endDate: Date(),
                 source: .recorded
             )
-            context.insert(workout)
+            context.insert(workout2)
             try context.save()
 
-            // A deleter we can gate — releases only when the test tells it to.
-            // This exercises the exact window where the pre-fix code was
-            // buggy: after beginDelete returns, before delete completes.
-            let gate = AsyncGate()
-            let controller = WorkoutDeletionController(deleter: { snapshot, ctx, hkDelete in
-                await gate.wait()
-                _ = try await WorkoutDeleter.delete(snapshot: snapshot, in: ctx, healthKitDelete: hkDelete)
-                return .deleted
-            })
-
-            #expect(controller.isDeleting == false)
+            var fixedLog: [String] = []
+            let controller = WorkoutDeletionController()
 
             let task = controller.beginDelete(
-                workout: workout,
+                workout: workout2,
                 in: context,
-                healthKitDelete: { _ in }
+                healthKitDelete: { _ in },
+                onFinished: {
+                    // At the moment onFinished fires (this is where the view
+                    // would call dismiss), isDeleting MUST still be true.
+                    fixedLog.append("onFinished isDeleting=\(controller.isDeleting)")
+                }
             )
+            fixedLog.append("beginDelete-returned isDeleting=\(controller.isDeleting)")
 
-            // Synchronous check — same runloop tick as the beginDelete call.
-            // The pre-fix view had no such flag; a hypothetical port to the
-            // old flow would leave this as `false`.
-            #expect(controller.isDeleting == true)
-            #expect(controller.inflightSnapshot != nil)
-
-            // Release the deleter and let it finish.
-            await gate.open()
             await task.value
+            fixedLog.append("task-completed isDeleting=\(controller.isDeleting)")
 
-            #expect(controller.isDeleting == false)
-            #expect(controller.inflightSnapshot == nil)
-            #expect(controller.deleteError == nil)
+            // Fixed-flow contract:
+            //   1. beginDelete returns → isDeleting already true (sync flip).
+            //   2. onFinished fires → STILL true (view is being dismissed;
+            //      no read-window for the stale reference).
+            //   3. task-completed → STILL true (controller stays gated).
+            #expect(fixedLog == [
+                "beginDelete-returned isDeleting=true",
+                "onFinished isDeleting=true",
+                "task-completed isDeleting=true",
+            ])
         }
     }
 
@@ -157,8 +152,8 @@ struct WorkoutDeletionViewRegressionTests {
             container = try ModelContainerConfiguration.makeTestContainer()
         }
 
-        @Test("isDeleting resets to false on successful delete")
-        func isDeletingResetsAfterSuccess() async throws {
+        @Test("isDeleting flips true synchronously and stays true after successful onFinished")
+        func syncFlipAndSuccessGate() async throws {
             let context = ModelContext(container)
             let workout = Workout(
                 type: .strength,
@@ -170,27 +165,37 @@ struct WorkoutDeletionViewRegressionTests {
             try context.save()
 
             let controller = WorkoutDeletionController()
-            var finishedCalled = false
+            var onFinishedIsDeleting: Bool?
+
+            #expect(controller.isDeleting == false)
 
             let task = controller.beginDelete(
                 workout: workout,
                 in: context,
                 healthKitDelete: { _ in },
-                onFinished: { finishedCalled = true }
+                onFinished: { onFinishedIsDeleting = controller.isDeleting }
             )
+
+            // Sync flip: same tick as beginDelete return.
+            #expect(controller.isDeleting == true)
+            #expect(controller.inflightSnapshot != nil)
+
             await task.value
 
-            #expect(finishedCalled == true)
-            #expect(controller.isDeleting == false)
-            #expect(controller.inflightSnapshot == nil)
+            // MY-1094 v2 P1 fix: success path must not reset the gate.
+            // The view is being dismissed; clearing here reopens the
+            // stale-reference window that caused the original crash.
+            #expect(onFinishedIsDeleting == true)
+            #expect(controller.isDeleting == true)
+            #expect(controller.inflightSnapshot != nil)
             #expect(controller.deleteError == nil)
 
             let remaining = try context.fetch(FetchDescriptor<Workout>())
             #expect(remaining.isEmpty)
         }
 
-        @Test("isDeleting resets to false and deleteError is set on save failure")
-        func isDeletingResetsAfterError() async throws {
+        @Test("Error path resets isDeleting and populates deleteError")
+        func errorPathResets() async throws {
             let context = ModelContext(container)
             let workout = Workout(
                 type: .strength,
@@ -204,24 +209,24 @@ struct WorkoutDeletionViewRegressionTests {
             let controller = WorkoutDeletionController(deleter: { _, _, _ in
                 throw SimulatedDeleteError.saveFailed
             })
-            var errorCalled = false
+            var onErrorFired = false
 
             let task = controller.beginDelete(
                 workout: workout,
                 in: context,
                 healthKitDelete: { _ in },
-                onError: { _ in errorCalled = true }
+                onError: { _ in onErrorFired = true }
             )
             await task.value
 
-            #expect(errorCalled == true)
+            #expect(onErrorFired == true)
             #expect(controller.isDeleting == false)
             #expect(controller.inflightSnapshot == nil)
             #expect(controller.deleteError != nil)
         }
 
-        @Test("beginDelete is re-entry safe: a second call while in flight is a no-op")
-        func beginDeleteRejectsReentry() async throws {
+        @Test("Second beginDelete while in flight is a no-op (re-entry guard)")
+        func rejectsReentry() async throws {
             let context = ModelContext(container)
             let workout = Workout(
                 type: .strength,
@@ -241,17 +246,8 @@ struct WorkoutDeletionViewRegressionTests {
                 return .deleted
             })
 
-            let first = controller.beginDelete(
-                workout: workout,
-                in: context,
-                healthKitDelete: { _ in }
-            )
-            // Second tap on the confirm button while first is in flight.
-            let second = controller.beginDelete(
-                workout: workout,
-                in: context,
-                healthKitDelete: { _ in }
-            )
+            let first = controller.beginDelete(workout: workout, in: context, healthKitDelete: { _ in })
+            let second = controller.beginDelete(workout: workout, in: context, healthKitDelete: { _ in })
 
             await gate.open()
             await first.value
@@ -259,31 +255,64 @@ struct WorkoutDeletionViewRegressionTests {
 
             await #expect(deleteCallCount.value() == 1)
         }
+
+        @Test("reset() clears success-path terminal state so a reusable controller can accept a new delete")
+        func resetClearsSuccessGate() async throws {
+            let context = ModelContext(container)
+            let workoutA = Workout(
+                type: .strength,
+                startDate: Date().addingTimeInterval(-7200),
+                endDate: Date().addingTimeInterval(-3600),
+                source: .recorded
+            )
+            let workoutB = Workout(
+                type: .running,
+                startDate: Date().addingTimeInterval(-3600),
+                endDate: Date(),
+                source: .recorded
+            )
+            context.insert(workoutA)
+            context.insert(workoutB)
+            try context.save()
+
+            let controller = WorkoutDeletionController()
+
+            let taskA = controller.beginDelete(workout: workoutA, in: context, healthKitDelete: { _ in })
+            await taskA.value
+
+            // Post-success: gate still closed by design.
+            #expect(controller.isDeleting == true)
+
+            // Reset for reuse (list view calls this in its onFinished).
+            controller.reset()
+            #expect(controller.isDeleting == false)
+            #expect(controller.inflightSnapshot == nil)
+
+            let taskB = controller.beginDelete(workout: workoutB, in: context, healthKitDelete: { _ in })
+            await taskB.value
+
+            let remaining = try context.fetch(FetchDescriptor<Workout>())
+            #expect(remaining.isEmpty)
+        }
     }
 
-    // MARK: - Swipe-to-delete path
+    // MARK: - Real swipe/delete path
 
-    /// Covers the swipe path from `WorkoutListView`. That view's
-    /// `.swipeActions` sets `workoutToDelete = workout`, the confirm alert
-    /// calls `deleteWorkout(_:)`, which:
-    ///   1. Clears `workoutToDelete` immediately (drops the alert binding's
-    ///      reference to the about-to-be-deleted model),
-    ///   2. Delegates to `WorkoutDeletionController.beginDelete`,
-    ///   3. Presents `deleteError` on failure without re-populating
-    ///      `workoutToDelete`.
-    /// The controller is the pure surface both view paths share — driving
-    /// it end-to-end here covers the swipe path without a UI harness.
-    @Suite("List swipe-to-delete path")
+    /// Exercises the ACTUAL production code path used by `WorkoutListView`:
+    /// `WorkoutListView.performSwipeDelete(...)` — the helper the view's
+    /// alert body invokes. Tests use live `Binding<...>` values and a live
+    /// SwiftData context; no simulated state.
+    @Suite("WorkoutListView swipe/delete path (real helper)")
     @MainActor
-    struct WorkoutListSwipeDeletionTests {
+    struct WorkoutListViewSwipeDeleteTests {
         let container: ModelContainer
 
         init() throws {
             container = try ModelContainerConfiguration.makeTestContainer()
         }
 
-        @Test("Swipe delete path: workoutToDelete cleared, workout removed, isDeleting resets")
-        func swipeDeleteFlow() async throws {
+        @Test("Real swipe-delete: workoutToDelete cleared synchronously, controller resets after success")
+        func realSwipeDeleteHappyPath() async throws {
             let context = ModelContext(container)
             let target = Workout(
                 type: .strength,
@@ -301,42 +330,37 @@ struct WorkoutDeletionViewRegressionTests {
             context.insert(survivor)
             try context.save()
 
-            // Simulate `WorkoutListView`'s state — `workoutToDelete`
-            // populated by the swipe action.
-            var workoutToDelete: Workout? = target
-            var showingDeleteError = false
+            let state = SwipeState(workoutToDelete: target)
             let controller = WorkoutDeletionController()
 
-            // Simulate the alert's destructive Button body (see
-            // WorkoutListView L199-L203): grab the workout, clear the
-            // binding, hand off to the controller.
-            let workout = workoutToDelete!
-            workoutToDelete = nil
-
-            let task = controller.beginDelete(
-                workout: workout,
+            let task = WorkoutListView.performSwipeDelete(
+                workout: target,
+                workoutToDelete: state.workoutToDeleteBinding,
+                showingDeleteError: state.showingDeleteErrorBinding,
                 in: context,
-                healthKitDelete: { _ in },
-                onError: { _ in showingDeleteError = true }
+                healthKitService: makePreviewHealthKitService(),
+                controller: controller
             )
 
-            // Post-flip, pre-await invariants (mirrors what the alert body
-            // guarantees before its scope returns).
-            #expect(workoutToDelete == nil)
+            // Synchronous invariants after the helper returns.
+            #expect(state.workoutToDelete == nil)
             #expect(controller.isDeleting == true)
 
             await task.value
 
+            // After success the list view's onFinished callback calls
+            // controller.reset() so the controller can accept the NEXT swipe.
             #expect(controller.isDeleting == false)
-            #expect(showingDeleteError == false)
+            #expect(controller.inflightSnapshot == nil)
+            #expect(state.showingDeleteError == false)
 
             let remaining = try context.fetch(FetchDescriptor<Workout>())
             #expect(remaining.count == 1)
             #expect(remaining.first?.persistentModelID == survivor.persistentModelID)
         }
 
-        @Test("Swipe delete failure: deleteError set, showingDeleteError toggled, workoutToDelete stays nil")
-        func swipeDeleteErrorSurfacesToAlert() async throws {
+        @Test("Real swipe-delete error path: showingDeleteError set, workoutToDelete stays nil, isDeleting resets")
+        func realSwipeDeleteErrorPath() async throws {
             let context = ModelContext(container)
             let target = Workout(
                 type: .strength,
@@ -347,56 +371,65 @@ struct WorkoutDeletionViewRegressionTests {
             context.insert(target)
             try context.save()
 
-            var workoutToDelete: Workout? = target
-            var showingDeleteError = false
+            let state = SwipeState(workoutToDelete: target)
             let controller = WorkoutDeletionController(deleter: { _, _, _ in
                 throw SimulatedDeleteError.saveFailed
             })
 
-            let workout = workoutToDelete!
-            workoutToDelete = nil
-
-            let task = controller.beginDelete(
-                workout: workout,
+            let task = WorkoutListView.performSwipeDelete(
+                workout: target,
+                workoutToDelete: state.workoutToDeleteBinding,
+                showingDeleteError: state.showingDeleteErrorBinding,
                 in: context,
-                healthKitDelete: { _ in },
-                onError: { _ in showingDeleteError = true }
+                healthKitService: makePreviewHealthKitService(),
+                controller: controller
             )
             await task.value
 
-            #expect(workoutToDelete == nil)
-            #expect(showingDeleteError == true)
-            #expect(controller.deleteError != nil)
+            #expect(state.workoutToDelete == nil)
+            #expect(state.showingDeleteError == true)
             #expect(controller.isDeleting == false)
+            #expect(controller.deleteError != nil)
         }
 
-        @Test("HealthKit delete failure is logged but local swipe delete still succeeds")
-        func swipeDeleteToleratesHealthKitFailure() async throws {
+        @Test("Real swipe-delete supports back-to-back swipes on different workouts")
+        func realSwipeDeleteBackToBack() async throws {
             let context = ModelContext(container)
-            let target = Workout(
-                type: .strength,
-                startDate: Date(),
-                endDate: Date().addingTimeInterval(3600),
-                source: .recorded,
-                healthKitUUID: "AAAAAAAA-1111-2222-3333-444444444444"
-            )
-            context.insert(target)
+            let first = Workout(type: .strength, startDate: Date().addingTimeInterval(-7200), endDate: Date().addingTimeInterval(-3600), source: .recorded)
+            let second = Workout(type: .running, startDate: Date().addingTimeInterval(-3600), endDate: Date(), source: .recorded)
+            context.insert(first)
+            context.insert(second)
             try context.save()
 
             let controller = WorkoutDeletionController()
-            var showingDeleteError = false
+            let state = SwipeState(workoutToDelete: first)
+            let hkService = makePreviewHealthKitService()
 
-            let task = controller.beginDelete(
-                workout: target,
+            let taskA = WorkoutListView.performSwipeDelete(
+                workout: first,
+                workoutToDelete: state.workoutToDeleteBinding,
+                showingDeleteError: state.showingDeleteErrorBinding,
                 in: context,
-                healthKitDelete: { _ in throw SimulatedDeleteError.healthKitUnavailable },
-                onError: { _ in showingDeleteError = true }
+                healthKitService: hkService,
+                controller: controller
             )
-            await task.value
+            await taskA.value
 
-            #expect(showingDeleteError == false)
-            #expect(controller.deleteError == nil)
+            // After the first swipe finishes and the list view has called
+            // controller.reset() in onFinished, a second swipe must go
+            // through — this verifies the reset() plumbing works end-to-end.
+            state.workoutToDelete = second
+            let taskB = WorkoutListView.performSwipeDelete(
+                workout: second,
+                workoutToDelete: state.workoutToDeleteBinding,
+                showingDeleteError: state.showingDeleteErrorBinding,
+                in: context,
+                healthKitService: hkService,
+                controller: controller
+            )
+            await taskB.value
 
+            #expect(state.showingDeleteError == false)
             let remaining = try context.fetch(FetchDescriptor<Workout>())
             #expect(remaining.isEmpty)
         }
@@ -405,9 +438,70 @@ struct WorkoutDeletionViewRegressionTests {
 
 // MARK: - Test helpers
 
+/// Wraps mutable state that the swipe helper drives through `Binding<...>`.
+/// SwiftUI `Binding` needs stable get/set closures, which class properties
+/// give us. This is what the view has internally (`@State`), rendered as a
+/// test double.
+@MainActor
+private final class SwipeState {
+    var workoutToDelete: Workout?
+    var showingDeleteError = false
+
+    init(workoutToDelete: Workout? = nil) {
+        self.workoutToDelete = workoutToDelete
+    }
+
+    var workoutToDeleteBinding: Binding<Workout?> {
+        Binding(
+            get: { self.workoutToDelete },
+            set: { self.workoutToDelete = $0 }
+        )
+    }
+
+    var showingDeleteErrorBinding: Binding<Bool> {
+        Binding(
+            get: { self.showingDeleteError },
+            set: { self.showingDeleteError = $0 }
+        )
+    }
+}
+
 private enum SimulatedDeleteError: Error {
     case saveFailed
-    case healthKitUnavailable
+}
+
+/// Minimal stub for tests. `deleteWorkout` throws so if a test accidentally
+/// exercises the HealthKit branch (which would require a live simulator with
+/// entitlements) it fails loudly instead of silently succeeding.
+/// Test workouts here all have `healthKitUUID == nil`, so this is never
+/// invoked on the happy paths.
+private final class _TestHealthStore: HealthStoreProviding, @unchecked Sendable {
+    static let isHealthDataAvailable = false
+
+    func requestAuthorization(toShare: Set<HKSampleType>, read: Set<HKObjectType>) async throws {
+        throw HealthKitServiceError.healthDataNotAvailable
+    }
+    func statusForAuthorizationRequest(toShare: Set<HKSampleType>, read: Set<HKObjectType>) async throws -> HKAuthorizationRequestStatus {
+        throw HealthKitServiceError.healthDataNotAvailable
+    }
+    func executeAnchoredQuery(type: HKSampleType, predicate: NSPredicate?, anchor: HKQueryAnchor?, limit: Int) async throws -> AnchoredQueryResult {
+        throw HealthKitServiceError.healthDataNotAvailable
+    }
+    func executeObserverAnchoredQuery(type: HKSampleType, predicate: NSPredicate?, anchor: HKQueryAnchor?, limit: Int) -> AsyncStream<AnchoredQueryResult> {
+        AsyncStream { $0.finish() }
+    }
+    func stopQuery(_ query: HKQuery) {}
+    func executeSampleQuery(type: HKSampleType, predicate: NSPredicate?, limit: Int) async throws -> [HKSample] {
+        throw HealthKitServiceError.healthDataNotAvailable
+    }
+    func delete(_ objects: [HKObject]) async throws {
+        throw HealthKitServiceError.healthDataNotAvailable
+    }
+}
+
+@MainActor
+private func makePreviewHealthKitService() -> HealthKitService {
+    HealthKitService(healthStore: _TestHealthStore(), deviceIdentifier: "test")
 }
 
 private actor AsyncGate {

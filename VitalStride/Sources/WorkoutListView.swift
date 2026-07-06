@@ -286,19 +286,58 @@ struct WorkoutListView: View {
     }
 
     private func deleteWorkout(_ workout: Workout) {
-        let hkService = healthKitService
+        WorkoutListView.performSwipeDelete(
+            workout: workout,
+            workoutToDelete: Binding(
+                get: { workoutToDelete },
+                set: { workoutToDelete = $0 }
+            ),
+            showingDeleteError: Binding(
+                get: { showingDeleteError },
+                set: { showingDeleteError = $0 }
+            ),
+            in: modelContext,
+            healthKitService: healthKitService,
+            controller: deletionController
+        )
+    }
 
+    /// The production swipe-to-delete flow, extracted so tests exercise the
+    /// exact same sequence the view uses (see MY-1094 P1 v2 repair).
+    ///
+    /// Behavior contract:
+    /// - `workoutToDelete` is cleared **synchronously** so the confirmation
+    ///   alert's binding drops the reference before any async work starts.
+    /// - Delegates to `WorkoutDeletionController.beginDelete`. On success the
+    ///   controller stays gated; the list view stays mounted so we `reset()`
+    ///   it once the deleted row is gone. On error we set `showingDeleteError`.
+    ///
+    /// Returns the delete `Task` for tests to await; production callers ignore.
+    @discardableResult
+    static func performSwipeDelete(
+        workout: Workout,
+        workoutToDelete: Binding<Workout?>,
+        showingDeleteError: Binding<Bool>,
+        in modelContext: ModelContext,
+        healthKitService: HealthKitService,
+        controller: WorkoutDeletionController
+    ) -> Task<Void, Never> {
         // Clear the deletion target immediately so the confirmation alert's
         // binding stops holding a reference to the about-to-be-deleted model.
-        workoutToDelete = nil
+        workoutToDelete.wrappedValue = nil
 
-        deletionController.beginDelete(
+        return controller.beginDelete(
             workout: workout,
             in: modelContext,
             healthKitDelete: { uuid in
-                try await hkService.deleteWorkout(healthKitUUID: uuid)
+                try await healthKitService.deleteWorkout(healthKitUUID: uuid)
             },
-            onError: { _ in showingDeleteError = true }
+            onFinished: {
+                // List view stays mounted across deletes, so release the
+                // controller's terminal-success gate for the next swipe.
+                controller.reset()
+            },
+            onError: { _ in showingDeleteError.wrappedValue = true }
         )
     }
 }
