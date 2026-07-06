@@ -197,6 +197,42 @@
         }
       }
     },
+    "workout_detail_hrr_1min" : {
+      "extractionState" : "manual",
+      "comment" : "1-minute heart rate recovery (HRR) label in workout summary",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1-min HRR"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 分钟 HRR"
+          }
+        }
+      }
+    },
+    "workout_detail_hrr_1min_a11y" : {
+      "extractionState" : "manual",
+      "comment" : "1-minute heart rate recovery a11y; %lld is the HRR value in bpm",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1-minute heart rate recovery %lld beats per minute"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 分钟心率恢复 %lld 次每分钟"
+          }
+        }
+      }
+    },
     "workout_detail_estimated_1rm" : {
       "extractionState" : "manual",
       "comment" : "Per-exercise estimated one-rep max label + a11y",
@@ -2394,7 +2430,22 @@
       }
     },
     "心率区间：%@" : {
-      "comment" : "Heart rate zone distribution a11y"
+      "extractionState" : "manual",
+      "comment" : "Heart rate zone distribution a11y; %@ is comma-separated list of zone name + percentage",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heart rate zones: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "心率区间：%@"
+          }
+        }
+      }
     },
     "心率变异性" : {
       "comment" : "Heart rate variability",
@@ -2542,7 +2593,22 @@
       "comment" : "No chart data a11y\nNo data a11y\nNo data a11y value"
     },
     "无氧" : {
-      "comment" : "Heart rate zone 4 name — Anaerobic"
+      "extractionState" : "manual",
+      "comment" : "Heart rate zone 4 name — Anaerobic",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anaerobic"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无氧"
+          }
+        }
+      }
     },
     "无法删除训练记录，请稍后重试。" : {
       "comment" : "Delete failure message"
@@ -2723,7 +2789,22 @@
       "comment" : "Replace exercise context menu item\nReplace exercise menu item"
     },
     "有氧" : {
-      "comment" : "Heart rate zone 3 name — Cardio"
+      "extractionState" : "manual",
+      "comment" : "Heart rate zone 3 name — Cardio",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cardio"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有氧"
+          }
+        }
+      }
     },
     "服务商" : {
       "comment" : "AI provider label"
@@ -2741,7 +2822,22 @@
       "comment" : "Workout source label"
     },
     "极限" : {
-      "comment" : "Heart rate zone 5 name — Maximum"
+      "extractionState" : "manual",
+      "comment" : "Heart rate zone 5 name — Maximum",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maximum"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "极限"
+          }
+        }
+      }
     },
     "核心" : {
       "comment" : "Core muscle group"
@@ -3054,10 +3150,40 @@
       "comment" : "Start analysis a11y hint"
     },
     "热身" : {
-      "comment" : "Heart rate zone 1 name — Warm Up"
+      "extractionState" : "manual",
+      "comment" : "Heart rate zone 1 name — Warm Up",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warm Up"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "热身"
+          }
+        }
+      }
     },
     "燃脂" : {
-      "comment" : "Heart rate zone 2 name — Fat Burn"
+      "extractionState" : "manual",
+      "comment" : "Heart rate zone 2 name — Fat Burn",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fat Burn"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "燃脂"
+          }
+        }
+      }
     },
     "版本" : {
 
