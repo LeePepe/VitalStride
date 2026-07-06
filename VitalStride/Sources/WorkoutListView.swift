@@ -24,6 +24,7 @@ struct WorkoutListView: View {
     @State private var pendingSource: WorkoutStartSource?
     @State private var workoutToDelete: Workout?
     @State private var showingDeleteError = false
+    @State private var deletionController = WorkoutDeletionController()
     @State private var healthKitRecords: [HealthWorkoutRecord] = []
     @State private var isLoadingHealthKit = false
     @State private var healthKitLoadFailed = false
@@ -285,29 +286,20 @@ struct WorkoutListView: View {
     }
 
     private func deleteWorkout(_ workout: Workout) {
-        let snapshot = WorkoutDeleter.snapshot(of: workout)
-        logger.info("Deleting workout source=\(snapshot.source.rawValue, privacy: .private)")
-        let context = modelContext
         let hkService = healthKitService
 
         // Clear the deletion target immediately so the confirmation alert's
         // binding stops holding a reference to the about-to-be-deleted model.
         workoutToDelete = nil
 
-        Task { @MainActor in
-            do {
-                _ = try await WorkoutDeleter.delete(
-                    snapshot: snapshot,
-                    in: context,
-                    healthKitDelete: { uuid in
-                        try await hkService.deleteWorkout(healthKitUUID: uuid)
-                    }
-                )
-            } catch {
-                logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .private)")
-                showingDeleteError = true
-            }
-        }
+        deletionController.beginDelete(
+            workout: workout,
+            in: modelContext,
+            healthKitDelete: { uuid in
+                try await hkService.deleteWorkout(healthKitUUID: uuid)
+            },
+            onError: { _ in showingDeleteError = true }
+        )
     }
 }
 

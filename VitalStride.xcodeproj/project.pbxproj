@@ -163,6 +163,8 @@
 		A852815843A816E5EFC283BD /* VitalUI in Frameworks */ = {isa = PBXBuildFile; productRef = B1158D1F2C58CCE12B5E58B9 /* VitalUI */; };
 		A9EFB85A810FDA7E5BF3BD57 /* VitalStrideMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EC3F9204735BAE46DFFDF0 /* VitalStrideMacApp.swift */; };
 		ABFB1D957B476C9D3066097B /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C452054A5F7F0CDF19E2C9F /* OnboardingView.swift */; };
+		AC56A5C455E118D1C33D1315 /* WorkoutDeletionViewRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FA41165B996BEE1CFBDD1EC /* WorkoutDeletionViewRegressionTests.swift */; };
+		ACA2D61324C98F8AFA260AF4 /* WorkoutDeletionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE2FA1A8E1E27B63AD30F9B /* WorkoutDeletionController.swift */; };
 		ACC08D13B766E99C12E97D28 /* RestNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F464F0C73BCCC0FFE329F9 /* RestNotificationScheduler.swift */; };
 		ACFCFCD2F630CFD1D9C8E427 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 28F9B1C238C968D436D8F621 /* Assets.xcassets */; };
 		AD99CE7BBDCBD358C3430AE6 /* OverviewInsight+CardParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FD2ADEBFF5552DB57E72823 /* OverviewInsight+CardParsing.swift */; };
@@ -274,6 +276,7 @@
 		0CB2F07E07B3EAEAB86E0D94 /* OverviewCardContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewCardContainer.swift; sourceTree = "<group>"; };
 		0CC23B44CAEE7B8B2FBEF401 /* WorkoutHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHistoryView.swift; sourceTree = "<group>"; };
 		0D88D0FEEBECFC2EF4C1887F /* AIDataAnalysisSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIDataAnalysisSection.swift; sourceTree = "<group>"; };
+		0FA41165B996BEE1CFBDD1EC /* WorkoutDeletionViewRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDeletionViewRegressionTests.swift; sourceTree = "<group>"; };
 		13128EC936BE4F23254B44BB /* AIAnalysisPrompts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAnalysisPrompts.swift; sourceTree = "<group>"; };
 		1603D0F5C77012505D046A7D /* MetricCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCardView.swift; sourceTree = "<group>"; };
 		193733B006ED472D5112547F /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
@@ -382,6 +385,7 @@
 		ADF0FD53B5A37E442F6ED623 /* WorkoutListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutListView.swift; sourceTree = "<group>"; };
 		AE09961F4651DB3AC057BA0E /* HealthSampleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSampleTests.swift; sourceTree = "<group>"; };
 		AE94FDEEC4102CF17E7E3DD3 /* BodyWeightSectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyWeightSectionTests.swift; sourceTree = "<group>"; };
+		AEE2FA1A8E1E27B63AD30F9B /* WorkoutDeletionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDeletionController.swift; sourceTree = "<group>"; };
 		AF086042D6EB5A13265C3488 /* VitalStrideWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideWidgetsBundle.swift; sourceTree = "<group>"; };
 		B49701A5271080F16964F20B /* HealthSummaryCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSummaryCards.swift; sourceTree = "<group>"; };
 		B50CB5BB1779B8A7CF53E598 /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
@@ -549,6 +553,7 @@
 				51BDA8D726E586BDBB1F6F2F /* WorkoutCopyTests.swift */,
 				C631CA96B865182A29C34AE0 /* WorkoutCopyToNextTests.swift */,
 				46D0B1B4E9C7FD1C63B5C56C /* WorkoutDeletionTests.swift */,
+				0FA41165B996BEE1CFBDD1EC /* WorkoutDeletionViewRegressionTests.swift */,
 				F12CB325C0F7206286AE8D7F /* WorkoutDetailCalculationTests.swift */,
 				C3782E8E2A0520DF4B50D9E5 /* WorkoutDetailDeletionRegressionTests.swift */,
 				9B383C57711C627D92F4DAD0 /* WorkoutHeartRateStatsTests.swift */,
@@ -715,6 +720,7 @@
 				3274184F69678B14ACB647F8 /* WorkoutAggregator.swift */,
 				815CE0258AB09DB05826E41B /* WorkoutCopier.swift */,
 				ABE2ADAE9D60B7BC9114A675 /* WorkoutDeleter.swift */,
+				AEE2FA1A8E1E27B63AD30F9B /* WorkoutDeletionController.swift */,
 				4C5574C1FC8DDE5C487EE9D9 /* WorkoutDetailView.swift */,
 				6BBAC7DE5F687BA6EA90C5B7 /* WorkoutHeartRateStats.swift */,
 				C475E0D51502E60636C6AE22 /* WorkoutListMerger.swift */,
@@ -1207,6 +1213,7 @@
 				F6DEBB93AB30796DDB87B899 /* WorkoutAggregator.swift in Sources */,
 				4FC47B4C3D8C4D19D2AA7BB0 /* WorkoutCopier.swift in Sources */,
 				D9D93DA3B0185334210E9E8A /* WorkoutDeleter.swift in Sources */,
+				ACA2D61324C98F8AFA260AF4 /* WorkoutDeletionController.swift in Sources */,
 				221FE0EF38B52019483DA001 /* WorkoutDetailView.swift in Sources */,
 				5B33ADF7BE57FFE1B6D2E736 /* WorkoutHeartRateStats.swift in Sources */,
 				55C6BC112D82BBB4DEB7EB6F /* WorkoutHistoryView.swift in Sources */,
@@ -1275,6 +1282,7 @@
 				001532DB645B827B74A20B29 /* WorkoutCopyTests.swift in Sources */,
 				BC8A20B0D2B649FFA8B38BAE /* WorkoutCopyToNextTests.swift in Sources */,
 				FD1420D480D8737320D0F580 /* WorkoutDeletionTests.swift in Sources */,
+				AC56A5C455E118D1C33D1315 /* WorkoutDeletionViewRegressionTests.swift in Sources */,
 				8ADFF3B69575A27255C6AF0C /* WorkoutDetailCalculationTests.swift in Sources */,
 				C2D215940769A32199196721 /* WorkoutDetailDeletionRegressionTests.swift in Sources */,
 				749B81503D0682D19497EF60 /* WorkoutHeartRateStatsTests.swift in Sources */,

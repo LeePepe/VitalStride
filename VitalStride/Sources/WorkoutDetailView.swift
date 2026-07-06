@@ -14,8 +14,10 @@ struct WorkoutDetailView: View {
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     @State private var showingDeleteAlert = false
     @State private var showingDeleteError = false
-    @State private var isDeleting = false
+    @State private var deletionController = WorkoutDeletionController()
     @State private var heartRateStats: WorkoutHeartRateStats?
+
+    private var isDeleting: Bool { deletionController.isDeleting }
 
     private var sortedExercises: [WorkoutExercise] {
         (workout.exercises ?? []).sorted { $0.order < $1.order }
@@ -248,31 +250,16 @@ struct WorkoutDetailView: View {
 
     private func beginDelete() {
         guard !isDeleting else { return }
-        // Capture everything we need as a value BEFORE flipping isDeleting.
-        // After this point the view will not read any property on `workout`.
-        let snapshot = WorkoutDeleter.snapshot(of: workout)
-        logger.info("Deleting workout from detail source=\(snapshot.source.rawValue, privacy: .private)")
-
-        isDeleting = true
-        let context = modelContext
         let hkService = healthKitService
-
-        Task { @MainActor in
-            do {
-                _ = try await WorkoutDeleter.delete(
-                    snapshot: snapshot,
-                    in: context,
-                    healthKitDelete: { uuid in
-                        try await hkService.deleteWorkout(healthKitUUID: uuid)
-                    }
-                )
-                dismiss()
-            } catch {
-                logger.error("Failed to save after deleting workout: \(error.localizedDescription, privacy: .private)")
-                isDeleting = false
-                showingDeleteError = true
-            }
-        }
+        deletionController.beginDelete(
+            workout: workout,
+            in: modelContext,
+            healthKitDelete: { uuid in
+                try await hkService.deleteWorkout(healthKitUUID: uuid)
+            },
+            onFinished: { dismiss() },
+            onError: { _ in showingDeleteError = true }
+        )
     }
 }
 
