@@ -2960,6 +2960,24 @@
     "管理 HealthKit 权限" : {
 
     },
+    "约 %lld 分钟" : {
+      "extractionState" : "manual",
+      "comment" : "Approximate estimated workout duration in minutes; shown on template rows",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~%lld min"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "约 %lld 分钟"
+          }
+        }
+      }
+    },
     "组" : {
       "comment" : "Sets unit a11y"
     },
