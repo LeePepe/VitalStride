@@ -1,3 +1,4 @@
+import AIService
 import HealthKitService
 import os
 import SwiftData
@@ -20,6 +21,9 @@ struct ActiveWorkoutView: View {
     @State private var showingFinishAlert = false
     @State private var showingDiscardAlert = false
     @State private var exerciseToReplace: WorkoutExercise?
+    @State private var exerciseToSubstitute: WorkoutExercise?
+    @State private var substituteSheetState: ExerciseSubstituteSheet.ViewState = .loading
+    @State private var substituteLoadTask: Task<Void, Never>?
     @State private var restTimer = RestTimerController()
     @State private var currentHeartRate: Double?
     @State private var heartRateReceivedAt: Date?
@@ -124,6 +128,20 @@ struct ActiveWorkoutView: View {
                 ExercisePickerView { newExercise in
                     workoutExercise.exercise = newExercise
                 }
+            }
+            .sheet(item: $exerciseToSubstitute) { _ in
+                ExerciseSubstituteSheet(
+                    state: substituteSheetState,
+                    onSelect: { _ in
+                        // T014 will implement selection writeback + haptic.
+                        exerciseToSubstitute = nil
+                    },
+                    onManualSelect: {
+                        // T015 will route to ExercisePickerView with the current
+                        // muscle group preselected. This child only presents.
+                        exerciseToSubstitute = nil
+                    }
+                )
             }
             .alert(
                 String(localized: "完成训练？", comment: "Finish workout alert title"),
@@ -509,6 +527,151 @@ struct ActiveWorkoutView: View {
         TelemetryService.shared.trackNonisolated(
             .exerciseAdded(name: TelemetryHelpers.exerciseIdentifier(exercise))
         )
+    }
+
+    // MARK: - Substitute flow (T013)
+
+    private func beginSubstituteFlow(for workoutExercise: WorkoutExercise) {
+        substituteLoadTask?.cancel()
+        guard let exercise = workoutExercise.exercise else {
+            substituteSheetState = .error(
+                message: String(
+                    localized: "active_workout.substitute.error_no_candidates",
+                    defaultValue: "No matching alternatives found.",
+                    comment: "Substitute sheet: no usable AI candidates fallback message"
+                )
+            )
+            exerciseToSubstitute = workoutExercise
+            return
+        }
+
+        let request = SubstituteRequest(
+            name: exercise.localizedName,
+            muscleGroup: exercise.muscleGroup,
+            equipment: exercise.equipment
+        )
+        let currentPresetId = exercise.presetId
+        let muscleGroupDisplay = exercise.muscleGroup.localizedName
+
+        substituteSheetState = .loading
+        exerciseToSubstitute = workoutExercise
+
+        let container = modelContext.container
+        substituteLoadTask = Task {
+            let outcome = await loadSubstitutes(
+                request: request,
+                excludingPresetId: currentPresetId,
+                muscleGroupDisplay: muscleGroupDisplay,
+                container: container
+            )
+            guard !Task.isCancelled else { return }
+            substituteSheetState = outcome
+        }
+    }
+
+    private func loadSubstitutes(
+        request: SubstituteRequest,
+        excludingPresetId: String?,
+        muscleGroupDisplay: String,
+        container: ModelContainer
+    ) async -> ExerciseSubstituteSheet.ViewState {
+        let messages = SubstitutePromptBuilder.build(for: request)
+        let apiKey = try? KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
+        let provider = AIProviderChain.makeDefault(zhipuAPIKey: apiKey)
+
+        let response: ChatResponse
+        do {
+            let selectedModel = UserDefaults.standard.string(forKey: "aiModel")
+            response = try await provider.chat(messages: messages, model: selectedModel)
+        } catch {
+            logger.info("substitute AI request failed: category=\(Self.errorCategory(error))")
+            return .error(
+                message: String(
+                    localized: "active_workout.substitute.error_generic",
+                    defaultValue: "Couldn't get smart suggestions right now.",
+                    comment: "Substitute sheet: generic AI/network error fallback message"
+                )
+            )
+        }
+
+        let suggestions: [SubstituteSuggestion]
+        do {
+            suggestions = try SubstituteSuggestion.parse(
+                from: response.content,
+                excluding: excludingPresetId
+            )
+        } catch {
+            logger.info("substitute parse failed: category=invalidJSON")
+            return .error(
+                message: String(
+                    localized: "active_workout.substitute.error_generic",
+                    defaultValue: "Couldn't get smart suggestions right now.",
+                    comment: "Substitute sheet: generic AI/network error fallback message"
+                )
+            )
+        }
+
+        let recommendations = await resolveRecommendations(
+            suggestions: suggestions,
+            muscleGroupDisplay: muscleGroupDisplay,
+            container: container
+        )
+        logger.info("substitute resolved: candidates=\(recommendations.count)")
+
+        guard !recommendations.isEmpty else {
+            return .error(
+                message: String(
+                    localized: "active_workout.substitute.error_no_candidates",
+                    defaultValue: "No matching alternatives found.",
+                    comment: "Substitute sheet: no usable AI candidates fallback message"
+                )
+            )
+        }
+        return .results(recommendations)
+    }
+
+    private func resolveRecommendations(
+        suggestions: [SubstituteSuggestion],
+        muscleGroupDisplay: String,
+        container: ModelContainer
+    ) async -> [ExerciseSubstituteSheet.Recommendation] {
+        await Task.detached { @Sendable in
+            let context = ModelContext(container)
+            var results: [ExerciseSubstituteSheet.Recommendation] = []
+            var seenIds: Set<String> = []
+            for suggestion in suggestions {
+                guard !seenIds.contains(suggestion.exerciseId) else { continue }
+                guard let exercise = ExerciseSeeder.findByPresetId(
+                    suggestion.exerciseId,
+                    context: context
+                ) else { continue }
+                seenIds.insert(suggestion.exerciseId)
+                results.append(
+                    ExerciseSubstituteSheet.Recommendation(
+                        id: suggestion.exerciseId,
+                        name: exercise.localizedName,
+                        muscleGroup: muscleGroupDisplay,
+                        reason: suggestion.reason
+                    )
+                )
+            }
+            return results
+        }.value
+    }
+
+    private static func errorCategory(_ error: Error) -> String {
+        if let aiError = error as? AIServiceError {
+            switch aiError {
+            case .noProviderAvailable: return "noProviderAvailable"
+            case .networkError: return "networkError"
+            case .httpError(let statusCode): return "httpError(\(statusCode))"
+            case .missingAPIKey: return "missingAPIKey"
+            case .responseParsingFailed: return "responseParsingFailed"
+            case .streamingInterrupted: return "streamingInterrupted"
+            }
+        }
+        if error is SubstituteParseError { return "invalidJSON" }
+        return "unknown"
     }
 
     private func moveExercises(from source: IndexSet, to destination: Int) {
