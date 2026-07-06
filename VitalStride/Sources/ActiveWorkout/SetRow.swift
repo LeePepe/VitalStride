@@ -582,11 +582,29 @@ private struct SetRowPreviewWrapper: View {
     /// substitutes the `.largeCompact` variant. `nil` lets the row expand
     /// to the preview canvas width (used by the "wide" previews below).
     let constrainedWidth: CGFloat?
+    /// MY-1176 (spec 004-previous-set-hint T008): drives the previous-set
+    /// caption previews. `.none` renders the row exactly as before (no
+    /// caption, no reserved space — FR-003). `.bilateral` and `.unilateral`
+    /// synthesize a same-index prior main set so the row exercises the
+    /// caption path added in T005 (FR-001, FR-004).
+    let previousSetKind: PreviousSetKind
 
-    init(unilateral: Bool, largeMode: Bool, constrainedWidth: CGFloat? = nil) {
+    enum PreviousSetKind {
+        case none
+        case bilateral
+        case unilateral
+    }
+
+    init(
+        unilateral: Bool,
+        largeMode: Bool,
+        constrainedWidth: CGFloat? = nil,
+        previousSetKind: PreviousSetKind = .none
+    ) {
         self.unilateral = unilateral
         self.largeMode = largeMode
         self.constrainedWidth = constrainedWidth
+        self.previousSetKind = previousSetKind
         UserDefaults.standard.set(largeMode, forKey: "activeWorkoutLargeMode")
     }
 
@@ -607,6 +625,28 @@ private struct SetRowPreviewWrapper: View {
             isUnilateral: unilateral,
             weightRight: unilateral ? 100 : nil
         )
+        let previousSet: ExerciseSet? = {
+            switch previousSetKind {
+            case .none:
+                return nil
+            case .bilateral:
+                return ExerciseSet(
+                    order: 0,
+                    weight: 100,
+                    reps: 10,
+                    setType: .working
+                )
+            case .unilateral:
+                return ExerciseSet(
+                    order: 0,
+                    weight: 60,
+                    reps: 8,
+                    setType: .working,
+                    isUnilateral: true,
+                    weightRight: 58
+                )
+            }
+        }()
         let list = List {
             Section {
                 SetRow(
@@ -616,6 +656,7 @@ private struct SetRowPreviewWrapper: View {
                     canDelete: true,
                     exercise: exercise,
                     recentWeightKg: 100,
+                    previousSet: previousSet,
                     onToggleCompleted: { _ in },
                     onDelete: {},
                     onAddSubSet: { _ in },
@@ -660,4 +701,37 @@ private struct SetRowPreviewWrapper: View {
 
 #Preview("Row - Wide Large Unilateral") {
     SetRowPreviewWrapper(unilateral: true, largeMode: true)
+}
+
+// MY-1176 (spec 004-previous-set-hint T008): previous-set caption previews.
+// FR-003 requires that a nil `previousSet` renders no placeholder and reserves
+// no extra vertical space, while a non-nil `previousSet` renders the tertiary
+// "上次 …" caption directly under the row inputs (FR-001, FR-004). The pair
+// below sits side-by-side in Xcode's preview navigator so the presence /
+// absence of the caption line is directly comparable.
+#Preview("Row - Previous Set (bilateral)") {
+    SetRowPreviewWrapper(
+        unilateral: false,
+        largeMode: false,
+        constrainedWidth: 375,
+        previousSetKind: .bilateral
+    )
+}
+
+#Preview("Row - Previous Set nil (no placeholder)") {
+    SetRowPreviewWrapper(
+        unilateral: false,
+        largeMode: false,
+        constrainedWidth: 375,
+        previousSetKind: .none
+    )
+}
+
+#Preview("Row - Previous Set (unilateral L/R)") {
+    SetRowPreviewWrapper(
+        unilateral: true,
+        largeMode: false,
+        constrainedWidth: 375,
+        previousSetKind: .unilateral
+    )
 }
