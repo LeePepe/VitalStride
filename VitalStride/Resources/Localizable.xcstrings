@@ -53,6 +53,150 @@
         }
       }
     },
+    "active_workout.substitute.menu_title" : {
+      "extractionState" : "manual",
+      "comment" : "Menu / context-menu entry that opens the AI-powered substitute-exercise sheet (T011). Sits above the existing \"Replace Exercise\" full-picker entry.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smart Substitute"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "智能替代"
+          }
+        }
+      }
+    },
+    "active_workout.substitute.sheet_title" : {
+      "extractionState" : "manual",
+      "comment" : "Navigation title of the AI substitute-exercise sheet (T012).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smart Substitute"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "智能替代"
+          }
+        }
+      }
+    },
+    "active_workout.substitute.loading" : {
+      "extractionState" : "manual",
+      "comment" : "Loading state text shown in the substitute-exercise sheet while the AI request is in flight (T012).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finding alternatives…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在寻找替代动作…"
+          }
+        }
+      }
+    },
+    "active_workout.substitute.error_generic" : {
+      "extractionState" : "manual",
+      "comment" : "Inline error shown when the AI substitute request fails (network, provider, or parse error). Precedes the \"Choose Manually\" fallback button (T012, T015). Must not contain health values or provider-internal detail (FR-007 / Bar B).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't get smart suggestions right now."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂时无法获取智能推荐。"
+          }
+        }
+      }
+    },
+    "active_workout.substitute.error_no_candidates" : {
+      "extractionState" : "manual",
+      "comment" : "Inline error shown when the AI returned no usable candidates (empty after filtering self-reference / unknown presetIds). Precedes the \"Choose Manually\" fallback button (T012, T015, Edge Cases).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No matching alternatives found."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未找到匹配的替代动作。"
+          }
+        }
+      }
+    },
+    "active_workout.substitute.manual_select" : {
+      "extractionState" : "manual",
+      "comment" : "Fallback button in the substitute-exercise sheet error state; opens the full manual ExercisePickerView pre-selected to the current muscle group (T012, T015, FR-004).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Manually"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手动选择"
+          }
+        }
+      }
+    },
+    "active_workout.substitute.reason_label" : {
+      "extractionState" : "manual",
+      "comment" : "Label prefix shown above the AI-provided reason on each substitute card (T012). The reason value itself comes from the AI response and is not localized here.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Why"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推荐理由"
+          }
+        }
+      }
+    },
+    "active_workout.substitute.card_a11y_hint" : {
+      "extractionState" : "manual",
+      "comment" : "Accessibility hint for each substitute suggestion card; tapping replaces the current exercise (T012, T014).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double-tap to replace the current exercise with this suggestion."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点两下用此推荐替换当前动作。"
+          }
+        }
+      }
+    },
     "workout_detail_estimated_1rm" : {
       "extractionState" : "manual",
       "comment" : "Per-exercise estimated one-rep max label + a11y",
