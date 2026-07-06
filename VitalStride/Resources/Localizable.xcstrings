@@ -53,6 +53,204 @@
         }
       }
     },
+    "workout_detail_view_1rm_trend" : {
+      "extractionState" : "manual",
+      "comment" : "Navigation link from workout detail exercise section to the per-exercise 1RM trend view",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View 1RM Trend"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看 1RM 趋势"
+          }
+        }
+      }
+    },
+    "workout_detail_view_1rm_trend_a11y" : {
+      "extractionState" : "manual",
+      "comment" : "A11y label for View 1RM Trend link",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View one rep max trend for this exercise"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看该动作的 1RM 趋势"
+          }
+        }
+      }
+    },
+    "one_rep_max_trend_title" : {
+      "extractionState" : "manual",
+      "comment" : "Title on per-exercise 1RM trend chart",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated 1RM Trend"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预估 1RM 趋势"
+          }
+        }
+      }
+    },
+    "one_rep_max_trend_empty" : {
+      "extractionState" : "manual",
+      "comment" : "Empty-state text on per-exercise 1RM trend view",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No 1RM history yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无 1RM 记录"
+          }
+        }
+      }
+    },
+    "one_rep_max_trend_empty_hint" : {
+      "extractionState" : "manual",
+      "comment" : "Empty-state hint on per-exercise 1RM trend view",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log working sets (1–12 reps) to see this exercise's estimated 1RM trend."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记录正式组（1–12 次）后，可查看该动作的预估 1RM 趋势。"
+          }
+        }
+      }
+    },
+    "one_rep_max_trend_caveat" : {
+      "extractionState" : "manual",
+      "comment" : "Caveat about Epley 1RM estimation accuracy (3-10 reps most accurate, >15 reps deviates)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimates are most accurate for 3–10 reps; sets with >15 reps can deviate significantly (Epley formula)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3–10 次 时估算最准确；>15 次 的组偏差较大（Epley 公式）。"
+          }
+        }
+      }
+    },
+    "one_rep_max_trend_single_point_hint" : {
+      "extractionState" : "manual",
+      "comment" : "Hint shown when only a single 1RM data point exists",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only one session available — log more to see a trend line."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只有一次记录 — 多记录几次可看到趋势线。"
+          }
+        }
+      }
+    },
+    "one_rep_max_trend_point_count %lld" : {
+      "extractionState" : "manual",
+      "comment" : "Number of sessions on trend chart, e.g. \"7 sessions\"",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld sessions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 次"
+          }
+        }
+      }
+    },
+    "one_rep_max_trend_a11y %lld %@ %@ %@" : {
+      "extractionState" : "manual",
+      "comment" : "1RM trend chart a11y label: sessions count, first value, last value, unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated 1RM trend with %1$lld sessions, from %2$@ to %3$@ %4$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预估 1RM 趋势，%1$lld 次记录，从 %2$@ 到 %3$@ %4$@"
+          }
+        }
+      }
+    },
+    "date" : {
+      "extractionState" : "manual",
+      "comment" : "Chart x-axis: date",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日期"
+          }
+        }
+      }
+    },
+    "one_rep_max_axis" : {
+      "extractionState" : "manual",
+      "comment" : "Chart y-axis: 1RM",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1RM"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1RM"
+          }
+        }
+      }
+    },
     "--" : {
 
     },

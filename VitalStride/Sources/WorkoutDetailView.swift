@@ -156,16 +156,7 @@ struct WorkoutDetailView: View {
                                         .font(.footnote.bold())
                                 }
                             }
-                            if let oneRepMax = workoutExercise.bestEstimatedOneRepMax {
-                                HStack {
-                                    Text(String(localized: "workout_detail_estimated_1rm", defaultValue: "Estimated 1RM", comment: "Per-exercise estimated one-rep max label"))
-                                        .font(.footnote)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text("\(displayWeight(oneRepMax), specifier: "%.1f") \(weightUnit.rawValue)")
-                                        .font(.footnote.bold())
-                                }
-                            }
+                            oneRepMaxSection(for: workoutExercise)
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(exerciseSubtotalA11yLabel(workoutExercise))
@@ -208,6 +199,37 @@ struct WorkoutDetailView: View {
         }
         .task {
             await loadHeartRateStats()
+        }
+    }
+
+    @ViewBuilder
+    private func oneRepMaxSection(for workoutExercise: WorkoutExercise) -> some View {
+        if let oneRepMax = workoutExercise.bestEstimatedOneRepMax {
+            HStack {
+                Text(String(localized: "workout_detail_estimated_1rm", defaultValue: "Estimated 1RM", comment: "Per-exercise estimated one-rep max label"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(displayWeight(oneRepMax), specifier: "%.1f") \(weightUnit.rawValue)")
+                    .font(.footnote.bold())
+            }
+            if let exerciseModel = workoutExercise.exercise {
+                NavigationLink {
+                    OneRepMaxTrendView(exercise: exerciseModel)
+                } label: {
+                    Text(String(
+                        localized: "workout_detail_view_1rm_trend",
+                        defaultValue: "View 1RM Trend",
+                        comment: "Navigation link from workout detail exercise section to the per-exercise 1RM trend view"
+                    ))
+                    .font(.footnote)
+                }
+                .accessibilityLabel(String(
+                    localized: "workout_detail_view_1rm_trend_a11y",
+                    defaultValue: "View one rep max trend for this exercise",
+                    comment: "A11y label for View 1RM Trend link"
+                ))
+            }
         }
     }
 
