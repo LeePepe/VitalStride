@@ -171,6 +171,36 @@ struct SetRow: View {
                 } label: {
                     Text(String(localized: "组类型", comment: "Set type picker label in menu"))
                 }
+
+                // MY-1154 (T006/T007): RPE picker — hidden for warmup sets
+                // (per spec Edge Case, warmup is typically RPE < 6). Options
+                // expose the standard 6–10 range plus a "not set" that maps
+                // to `nil`. String keys are semantic (English) and their
+                // catalog entries land in T008; the value tag stays `Int?`
+                // so the picker binding round-trips through
+                // `ExerciseSet.rpe` without a sentinel.
+                if exerciseSet.setType != .warmup {
+                    Picker(selection: Binding(
+                        get: { exerciseSet.rpe },
+                        set: { exerciseSet.rpe = $0 }
+                    )) {
+                        Text(String(
+                            localized: "set_row_rpe_not_set",
+                            defaultValue: "Not set",
+                            comment: "RPE picker option: no RPE recorded (maps to nil)"
+                        ))
+                        .tag(Int?.none)
+                        ForEach([6, 7, 8, 9, 10], id: \.self) { value in
+                            Text(verbatim: "\(value)").tag(Int?.some(value))
+                        }
+                    } label: {
+                        Text(String(
+                            localized: "set_row_rpe_label",
+                            defaultValue: "RPE",
+                            comment: "RPE (Rate of Perceived Exertion) picker label in set menu"
+                        ))
+                    }
+                }
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.body)
