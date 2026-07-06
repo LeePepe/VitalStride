@@ -15,6 +15,18 @@ import VitalUI
 import UIKit
 #endif
 
+/// MY-1013: shared 44pt hit-target size for compact SetRow / SubSetRow
+/// controls. Kept as a single source of truth so the SetRow completion
+/// button, SetRow ellipsis Menu trigger, and SubSetRow completion button
+/// cannot drift below Constitution P1-H (>=44pt tappable + accessibility
+/// target) independently. Held here (SetRow.swift) rather than in a new
+/// file so the fix stays inside the two files authorized for MY-1013.
+enum ActiveWorkoutHitTarget {
+    /// Rendered hit-region side length (pt). Constitution P1-H requires
+    /// >= 44pt on iOS; VoiceOver rotor also uses rendered geometry.
+    static let side: CGFloat = 44
+}
+
 struct SetRow: View {
     let index: Int
     let exerciseSet: ExerciseSet
@@ -162,10 +174,9 @@ struct SetRow: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.body)
-                    .frame(width: 44, height: 44)
+                    .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
                     .contentShape(Rectangle())
             }
-            .padding(.vertical, -4)
             .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration menu a11y label"))
             .accessibilityValue(
                 exerciseSet.isUnilateral
@@ -307,13 +318,15 @@ struct SetRow: View {
                 .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
         }
         .buttonStyle(.borderless)
-        // MY-877: rendered hit area stays 44pt (Constitution P1-H), but the
-        // negative layout padding lets the button bleed into the row's
-        // separator zone so the visible row height can target ~36pt.
-        // SwiftUI hit-tests against rendered geometry, not layout claim.
-        .frame(width: 44, height: 44)
+        // MY-1013: unambiguous 44pt hit target (Constitution P1-H). The prior
+        // negative vertical padding shrank the layout claim below 44pt so the
+        // rendered button bled into the neighboring row — hit-testing on that
+        // overhang was ambiguous under compact List row layout. Compact
+        // density is preserved by List-level insets and defaultMinListRowHeight
+        // in ActiveWorkoutView / ActiveExerciseSection, not by clipping this
+        // button's layout claim.
+        .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
         .contentShape(Rectangle())
-        .padding(.vertical, -4)
         .accessibilityLabel("第 \(index + 1) 组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
         .accessibilityHint("双击切换完成状态")
     }
