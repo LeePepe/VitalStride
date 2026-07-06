@@ -113,13 +113,14 @@ struct SubSetRow: View {
                     .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
             }
             .buttonStyle(.borderless)
-            // MY-877: same hit-target/visual-row tension as main SetRow.
-            // 44pt rendered frame for P1-H hit target; negative vertical
-            // padding lets the button bleed into the row separator so
-            // SubSet rows can visually target ~28pt.
-            .frame(width: 44, height: 44)
+            // MY-1013: unambiguous 44pt hit target (Constitution P1-H). The
+            // prior `.padding(.vertical, -8)` on top of a 44pt frame let the
+            // rendered button overhang two rows above and below, so hit-test
+            // and VoiceOver focus geometry were ambiguous. Row-level insets
+            // in ActiveExerciseSection keep the SubSet row visually compact
+            // without compressing the button's layout claim.
+            .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
             .contentShape(Rectangle())
-            .padding(.vertical, -8)
             // swiftlint:disable:next line_length
             .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
             .accessibilityHint("双击切换完成状态")
