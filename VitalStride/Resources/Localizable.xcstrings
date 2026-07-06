@@ -846,6 +846,42 @@
         }
       }
     },
+    "common_cancel" : {
+      "comment" : "Cancel button on the save-as-template alert",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
+    "common_ok" : {
+      "comment" : "OK button on generic confirmation alerts (e.g. save-as-template success/failure)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "好"
+          }
+        }
+      }
+    },
     "Couldn't Save Workout" : {
       "comment" : "Crash recovery save-failure alert title",
       "extractionState" : "manual",
