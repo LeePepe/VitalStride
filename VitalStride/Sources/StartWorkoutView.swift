@@ -126,7 +126,7 @@ private struct TemplateRow: View {
             return Text(verbatim: "—")
         }
         let minutes = Int((seconds / 60).rounded())
-        return Text("约 \(minutes) 分钟")
+        return Text(String(localized: "约 \(minutes) 分钟"))
     }
 }
 
