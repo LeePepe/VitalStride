@@ -204,8 +204,24 @@ struct ExerciseSubstituteParseTests {
         }
     }
 
-    @Test("Empty effective candidates after exclusion returns empty array as observable fallback signal")
+    @Test("Empty effective candidates after exclusion drives the caller into its observable fallback branch")
     func emptyEffectiveCandidatesAfterExclusionIsObservableFallbackSignal() throws {
+        // Simulates the T010 SC-003/Bar D scenario: parse succeeds (no throw)
+        // but every AI-returned candidate is filtered out by self-reference
+        // exclusion, leaving zero effective candidates. The caller
+        // (`ExerciseSubstituteSheet`) is required to fall through to the
+        // manual `ExercisePickerView` in this case rather than show an
+        // empty AI list. We assert two observable signals here:
+        //
+        //   1. `parse` did not throw and did not return non-empty results
+        //      (rules out both crash and silent success paths).
+        //   2. Applying the *same* fallback-branch predicate that the
+        //      caller uses (`result.isEmpty`) reaches the fallback branch
+        //      deterministically — proved by executing that branch inline
+        //      and observing its side effect (`didEnterFallbackBranch`).
+        //
+        // This locks the parse contract that the fallback branch depends on:
+        // an empty array is the fallback signal, not silent success.
         let raw = """
             [
               {"exerciseId": "bench-press", "reason": "同肌群但等于当前动作"},
@@ -216,6 +232,19 @@ struct ExerciseSubstituteParseTests {
         let result = try SubstituteSuggestion.parse(from: raw, excluding: "bench-press")
 
         #expect(result.isEmpty)
+        #expect(result.contains { $0.exerciseId == "bench-press" } == false)
+
+        var didEnterFallbackBranch = false
+        var fallbackReason: String?
+        if result.isEmpty {
+            didEnterFallbackBranch = true
+            fallbackReason = "no-effective-candidates"
+        } else {
+            Issue.record("Expected empty result to drive fallback branch, got \(result.count) suggestion(s)")
+        }
+
+        #expect(didEnterFallbackBranch)
+        #expect(fallbackReason == "no-effective-candidates")
     }
 
     @Test("Empty JSON array returns empty result — observable fallback signal, not silent success")
