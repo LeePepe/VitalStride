@@ -28,6 +28,13 @@ struct AIPromptContext: Sendable {
         let reps: Int
         let setType: String
         let rpe: Int?
+
+        init(weight: Double, reps: Int, setType: String, rpe: Int? = nil) {
+            self.weight = weight
+            self.reps = reps
+            self.setType = setType
+            self.rpe = rpe
+        }
     }
 
     struct HealthSnapshot: Sendable {
