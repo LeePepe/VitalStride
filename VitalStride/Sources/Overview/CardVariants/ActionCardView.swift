@@ -7,7 +7,7 @@ struct ActionSmallCardView: View {
     let insight: OverviewInsight
     let onTap: (@Sendable () -> Void)?
 
-    init(insight: OverviewInsight, onTap: (@Sendable () -> Void)? = nil) {
+    nonisolated init(insight: OverviewInsight, onTap: (@Sendable () -> Void)? = nil) {
         self.insight = insight
         self.onTap = onTap
     }
@@ -52,7 +52,7 @@ struct ActionWideCardView: View {
     let insight: OverviewInsight
     let onTap: (@Sendable () -> Void)?
 
-    init(insight: OverviewInsight, onTap: (@Sendable () -> Void)? = nil) {
+    nonisolated init(insight: OverviewInsight, onTap: (@Sendable () -> Void)? = nil) {
         self.insight = insight
         self.onTap = onTap
     }
