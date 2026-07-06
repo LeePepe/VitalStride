@@ -36,12 +36,47 @@ struct SetRow: View {
     let exercise: Exercise?
     /// Most recent same-exercise weight (kg) for the preset fallback chain.
     let recentWeightKg: Double?
+    /// MY-1161 (spec 004-previous-set-hint T005 / FR-001, FR-003, FR-004) —
+    /// same-index main set from the most recent prior completed workout for
+    /// this exercise, or `nil` when unavailable. When non-nil the row renders
+    /// a tertiary caption "上次 {weight}{unit} × {reps}" under the inputs.
+    /// Weight comes in as canonical kg from `PreviousSetLookup`; the row
+    /// formats it against the current `weightUnit` preference. Defaults to
+    /// `nil` so existing call sites (ActiveExerciseSection, previews) remain
+    /// source-compatible until T006 wires the lookup through.
+    let previousSet: ExerciseSet?
     let onToggleCompleted: (_ wasCompleted: Bool) -> Void
     let onDelete: () -> Void
     let onAddSubSet: (_ type: SetType) -> Void
     /// MY-1073 — invoked when the keyboard's Copy key fires. The parent
     /// section covers/appends the next set as documented in the issue.
     let onCopyToNext: () -> Void
+
+    init(
+        index: Int,
+        exerciseSet: ExerciseSet,
+        weightUnit: WeightUnit,
+        canDelete: Bool,
+        exercise: Exercise?,
+        recentWeightKg: Double?,
+        previousSet: ExerciseSet? = nil,
+        onToggleCompleted: @escaping (_ wasCompleted: Bool) -> Void,
+        onDelete: @escaping () -> Void,
+        onAddSubSet: @escaping (_ type: SetType) -> Void,
+        onCopyToNext: @escaping () -> Void
+    ) {
+        self.index = index
+        self.exerciseSet = exerciseSet
+        self.weightUnit = weightUnit
+        self.canDelete = canDelete
+        self.exercise = exercise
+        self.recentWeightKg = recentWeightKg
+        self.previousSet = previousSet
+        self.onToggleCompleted = onToggleCompleted
+        self.onDelete = onDelete
+        self.onAddSubSet = onAddSubSet
+        self.onCopyToNext = onCopyToNext
+    }
 
     @State private var weightText: String = ""
     @State private var weightRightText: String = ""
@@ -58,14 +93,23 @@ struct SetRow: View {
         // compact 88/64/68 tokens render on iPhone SE / Mini (375pt content
         // width after 16pt list insets = 343pt). Normal mode has always fit
         // compact widths, so it skips the ViewThatFits wrapper entirely.
-        Group {
-            if largeMode {
-                ViewThatFits(in: .horizontal) {
-                    rowContent(variant: .large)
-                    rowContent(variant: .largeCompact)
+        //
+        // MY-1161 (spec 004 T005): when `previousSet` is non-nil, render a
+        // tertiary "上次 …" caption directly under the row inputs. When nil,
+        // nothing is rendered and no vertical space is reserved (FR-003).
+        VStack(alignment: .leading, spacing: 2) {
+            Group {
+                if largeMode {
+                    ViewThatFits(in: .horizontal) {
+                        rowContent(variant: .large)
+                        rowContent(variant: .largeCompact)
+                    }
+                } else {
+                    rowContent(variant: .normal)
                 }
-            } else {
-                rowContent(variant: .normal)
+            }
+            if let previousSet {
+                previousSetCaption(previousSet)
             }
         }
         .onAppear {
@@ -329,6 +373,62 @@ struct SetRow: View {
         .contentShape(Rectangle())
         .accessibilityLabel("第 \(index + 1) 组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
         .accessibilityHint("双击切换完成状态")
+    }
+
+    // MARK: - Previous-set caption (MY-1161 / spec 004-previous-set-hint T005)
+
+    /// Renders the tertiary "上次 {重量}{单位} × {次数}" caption below the row
+    /// inputs when a prior main set is available for this exercise + index
+    /// (FR-001). Weight is converted from canonical kg to the user's current
+    /// `WeightUnit` preference (FR-004). Unilateral prior sets show both
+    /// sides as "L/R" while keeping reps at the tail (spec edge case).
+    ///
+    /// The format string is `active_workout.previous_set_hint_format`, added
+    /// to `Localizable.xcstrings` by T007 (FR-006). The row substitutes the
+    /// fully-formatted weight+reps segment into a single `%@` placeholder so
+    /// translations can reorder or re-punctuate the sentence without leaking
+    /// unit / L/R glyphs into the caller.
+    @ViewBuilder
+    private func previousSetCaption(_ previous: ExerciseSet) -> some View {
+        Text(
+            String(
+                format: String(
+                    localized: "active_workout.previous_set_hint_format",
+                    defaultValue: "上次 %@",
+                    comment: "SetRow previous-set hint. %@ is e.g. \"60kg × 10\" or \"60/58kg × 10\""
+                ),
+                previousSetSummary(previous)
+            )
+        )
+        .font(.caption)
+        .foregroundStyle(.tertiary)
+    }
+
+    /// Builds the "{weight}{unit} × {reps}" (or "{L}/{R}{unit} × {reps}"
+    /// unilateral) segment for the caption. Weight values are converted from
+    /// canonical kg storage to the current `weightUnit` (FR-004).
+    private func previousSetSummary(_ previous: ExerciseSet) -> String {
+        let unitSuffix = weightUnit.rawValue
+        let repsSegment = "× \(previous.reps)"
+        if previous.isUnilateral, let rightKg = previous.weightRight {
+            let leftDisplay = weightUnit == .lb ? previous.weight * 2.20462 : previous.weight
+            let rightDisplay = weightUnit == .lb ? rightKg * 2.20462 : rightKg
+            return "\(formatCaptionWeight(leftDisplay))/\(formatCaptionWeight(rightDisplay))\(unitSuffix) \(repsSegment)"
+        }
+        let display = weightUnit == .lb ? previous.weight * 2.20462 : previous.weight
+        return "\(formatCaptionWeight(display))\(unitSuffix) \(repsSegment)"
+    }
+
+    /// Caption-side weight formatter. Mirrors `formatWeight(_:)` for the
+    /// editable input (integer-valued weights strip the decimal, others show
+    /// one fraction digit) but keeps a leading "0" when the value is exactly
+    /// zero so a legitimately-logged 0kg warmup still reads as "0" in the
+    /// caption rather than the empty-input placeholder used by the input.
+    private func formatCaptionWeight(_ value: Double) -> String {
+        if value.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(Int(value))
+        }
+        return String(format: "%.1f", value)
     }
 
     // MARK: - Keyboard callbacks
