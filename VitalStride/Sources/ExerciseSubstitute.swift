@@ -1,3 +1,4 @@
+import AIService
 import Foundation
 import VitalModels
 
@@ -5,6 +6,43 @@ struct SubstituteRequest: Sendable, Equatable {
     let name: String
     let muscleGroup: MuscleGroup
     let equipment: Equipment
+}
+
+enum SubstitutePromptBuilder {
+    static let requestedCount = 3
+
+    static func build(for request: SubstituteRequest) -> [ChatMessage] {
+        let muscle = request.muscleGroup.rawValue
+        let equipment = request.equipment.rawValue
+
+        let systemContent = """
+            You are a strength-training assistant recommending substitute exercises.
+            Constraints:
+            - Recommend exactly \(requestedCount) substitutes for the given exercise.
+            - Every substitute MUST target the same primary muscle group as the current exercise.
+            - Never recommend the current exercise itself.
+            - Prefer substitutes usable with the listed equipment when reasonable, but same primary muscle is required.
+            - Respond with a single JSON array only, no prose, no markdown fences.
+            - Each array element MUST have exactly two string fields: "exerciseId" and "reason".
+            - "exerciseId" is a short stable identifier for the substitute exercise (kebab-case, ASCII).
+            - "reason" is a concise Chinese explanation of why it substitutes (<= 40 characters), no health metrics.
+            """
+
+        let userContent = """
+            当前动作:
+            - 名称: \(request.name)
+            - 主肌群: \(muscle)
+            - 器械: \(equipment)
+
+            请返回 \(requestedCount) 个同主肌群 (\(muscle)) 的替代动作，排除当前动作本身。
+            仅输出 JSON 数组，形如: [{"exerciseId":"...","reason":"..."}]
+            """
+
+        return [
+            ChatMessage(role: "system", content: systemContent),
+            ChatMessage(role: "user", content: userContent),
+        ]
+    }
 }
 
 struct SubstituteSuggestion: Sendable, Codable, Equatable {
