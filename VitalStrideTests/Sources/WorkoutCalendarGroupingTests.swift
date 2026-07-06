@@ -51,10 +51,13 @@ struct WorkoutCalendarGroupingTests {
 
     @Test("Multiple workouts on the same day group into one bucket preserving input order")
     func multipleWorkoutsSameDay() throws {
-        // 10:00 UTC and 15:00 UTC on the same calendar day
-        let morning = Date(timeIntervalSince1970: 1_700_000_000)
-        let afternoon = morning.addingTimeInterval(5 * 3600)
-        let evening = morning.addingTimeInterval(10 * 3600)
+        // Anchor fixtures at the start of a real local day so intra-day offsets
+        // stay inside that same Calendar.current day in any timezone.
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_700_000_000))
+        let morning = dayStart.addingTimeInterval(8 * 3600)   // 08:00 local
+        let afternoon = dayStart.addingTimeInterval(13 * 3600) // 13:00 local
+        let evening = dayStart.addingTimeInterval(20 * 3600)  // 20:00 local
 
         // Merger emits newest-first; the helper must preserve that input order.
         let newest = makeHealthKitWorkout(activityType: .running, startDate: evening)
@@ -63,9 +66,8 @@ struct WorkoutCalendarGroupingTests {
 
         let result = WorkoutCalendarGrouping.groupByDay([newest, middle, oldest])
 
-        let expectedKey = Calendar.current.startOfDay(for: morning)
         #expect(result.count == 1)
-        let bucket = try #require(result[expectedKey])
+        let bucket = try #require(result[dayStart])
         #expect(bucket.count == 3)
         #expect(bucket.map(\.id) == [newest.id, middle.id, oldest.id])
     }
