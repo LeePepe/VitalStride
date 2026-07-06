@@ -410,7 +410,7 @@ struct HeartRateZoneStackedBar: View {
     }
 }
 
-#Preview {
+#Preview("WorkoutDetail — empty stats") {
     NavigationStack {
         WorkoutDetailView(
             workout: {
@@ -424,4 +424,108 @@ struct HeartRateZoneStackedBar: View {
         )
     }
     .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
+}
+
+private struct _HeartRateSummaryPreviewFixture {
+    static let fullZones: [HeartRateZone] = [
+        HeartRateZone(id: 1, localizedName: "Zone 1", range: 0...99, percentage: 0.10),
+        HeartRateZone(id: 2, localizedName: "Zone 2", range: 100...119, percentage: 0.25),
+        HeartRateZone(id: 3, localizedName: "Zone 3", range: 120...139, percentage: 0.35),
+        HeartRateZone(id: 4, localizedName: "Zone 4", range: 140...159, percentage: 0.20),
+        HeartRateZone(id: 5, localizedName: "Zone 5", range: 160...300, percentage: 0.10),
+    ]
+
+    static let singleZone: [HeartRateZone] = [
+        HeartRateZone(id: 3, localizedName: "Zone 3", range: 120...139, percentage: 1.0),
+    ]
+}
+
+/// Preview-only view mirroring the heart-rate/zone/HRR rows rendered inside
+/// `WorkoutDetailView`. Because the production view loads stats from HealthKit
+/// via `.task`, previews cannot exercise those UI states directly; this fixture
+/// renders equivalent SwiftUI to visualize each `zoneDistribution` / HRR
+/// combination without altering `WorkoutDetailView`'s runtime behavior.
+private struct _HeartRateSummaryPreviewHost: View {
+    let stats: WorkoutHeartRateStats
+
+    var body: some View {
+        List {
+            Section("Summary") {
+                LabeledContent("Average HR") {
+                    Text("\(stats.averageHeartRate) bpm")
+                }
+                LabeledContent("Max HR") {
+                    Text("\(stats.maxHeartRate) bpm")
+                }
+                if let hrr = stats.heartRateRecovery1Min {
+                    LabeledContent("1-min HRR") {
+                        Text("\(hrr) bpm")
+                    }
+                }
+                if let zones = stats.zoneDistribution, !zones.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HeartRateZoneStackedBar(zones: zones)
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(zones) { zone in
+                                HStack(spacing: 8) {
+                                    Circle()
+                                        .fill(HeartRateZoneStackedBar.color(forZoneId: zone.id))
+                                        .frame(width: 8, height: 8)
+                                    Text(zone.localizedName)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("\(Int(zone.percentage * 100))%")
+                                        .font(.footnote.bold())
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#Preview("HR summary — full zones + HRR") {
+    _HeartRateSummaryPreviewHost(
+        stats: WorkoutHeartRateStats(
+            averageHeartRate: 138,
+            maxHeartRate: 172,
+            zoneDistribution: _HeartRateSummaryPreviewFixture.fullZones,
+            heartRateRecovery1Min: 24
+        )
+    )
+}
+
+#Preview("HR summary — single zone, nil HRR") {
+    _HeartRateSummaryPreviewHost(
+        stats: WorkoutHeartRateStats(
+            averageHeartRate: 128,
+            maxHeartRate: 134,
+            zoneDistribution: _HeartRateSummaryPreviewFixture.singleZone,
+            heartRateRecovery1Min: nil
+        )
+    )
+}
+
+#Preview("HR summary — nil zones + HRR") {
+    _HeartRateSummaryPreviewHost(
+        stats: WorkoutHeartRateStats(
+            averageHeartRate: 142,
+            maxHeartRate: 165,
+            zoneDistribution: nil,
+            heartRateRecovery1Min: 31
+        )
+    )
+}
+
+#Preview("Zone bar — full spread") {
+    HeartRateZoneStackedBar(zones: _HeartRateSummaryPreviewFixture.fullZones)
+        .padding()
+}
+
+#Preview("Zone bar — single zone") {
+    HeartRateZoneStackedBar(zones: _HeartRateSummaryPreviewFixture.singleZone)
+        .padding()
 }
