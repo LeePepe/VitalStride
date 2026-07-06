@@ -1,3039 +1,3233 @@
 {
-  "sourceLanguage": "en",
-  "strings": {
-    "active_workout_toggle_large_text_size": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switch to large text size"
+  "sourceLanguage" : "en",
+  "strings" : {
+    "active_workout_toggle_large_text_size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch to large text size"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "切换大字号"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换大字号"
           }
         }
       }
     },
-    "active_workout_toggle_normal_text_size": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switch to normal text size"
+    "active_workout_toggle_normal_text_size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch to normal text size"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "切换普通字号"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换普通字号"
           }
         }
       }
     },
-    "workout_detail_estimated_1rm": {
-      "extractionState": "manual",
-      "comment": "Per-exercise estimated one-rep max label + a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estimated 1RM"
+    "workout_detail_estimated_1rm" : {
+      "extractionState" : "manual",
+      "comment" : "Per-exercise estimated one-rep max label + a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated 1RM"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "预估 1RM"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预估 1RM"
           }
         }
       }
     },
-    "--": {},
-    "-10s": {},
-    ", Suggestion: %@": {
-      "comment": "Insight card suggestion accessibility"
+    "--" : {
+
     },
-    "/": {},
-    "%": {},
-    "%.0f %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$.0f %2$@"
+    "-10s" : {
+
+    },
+    ", Suggestion: %@" : {
+      "comment" : "Insight card suggestion accessibility"
+    },
+    "/" : {
+
+    },
+    "%" : {
+
+    },
+    "%.0f %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$.0f %2$@"
           }
         }
       }
     },
-    "%.1f %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$.1f %2$@"
+    "%.1f %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$.1f %2$@"
           }
         }
       }
     },
-    "%@ %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ %2$@"
+    "%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
           }
         }
       }
     },
-    "%@ %@ %@": {
-      "comment": "Detail selected day a11y value\nSelected day a11y value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ %2$@ %3$@"
+    "%@ %@ %@" : {
+      "comment" : "Detail selected day a11y value\nSelected day a11y value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@ %3$@"
           }
         }
       }
     },
-    "%@ %@ 步": {
-      "comment": "Selected day a11y value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ %2$@ 步"
+    "%@ %@ 步" : {
+      "comment" : "Selected day a11y value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@ 步"
           }
         }
       }
     },
-    "%@ km": {
-      "comment": "Workout distance\nWorkout distance display"
+    "%@ km" : {
+      "comment" : "Workout distance\nWorkout distance display"
     },
-    "%@ 公里": {
-      "comment": "Workout distance a11y"
+    "%@ 公里" : {
+      "comment" : "Workout distance a11y"
     },
-    "%@ 等": {
-      "comment": "Workout title with more exercises"
+    "%@ 等" : {
+      "comment" : "Workout title with more exercises"
     },
-    "%@, %@": {
-      "comment": "Metric card accessibility: title and value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@, %2$@"
+    "%@, %@" : {
+      "comment" : "Metric card accessibility: title and value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
           }
         }
       }
     },
-    "%@, action": {
-      "comment": "Action card accessibility"
+    "%@, action" : {
+      "comment" : "Action card accessibility"
     },
-    "%@, interactive trend chart": {
-      "comment": "Large trend card accessibility label"
+    "%@, interactive trend chart" : {
+      "comment" : "Large trend card accessibility label"
     },
-    "%@, tap to start": {
-      "comment": "Action button accessibility"
+    "%@, tap to start" : {
+      "comment" : "Action button accessibility"
     },
-    "%@, trend chart": {
-      "comment": "Trend card accessibility label"
+    "%@, trend chart" : {
+      "comment" : "Trend card accessibility label"
     },
-    "%@，%@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@，%2$@"
+    "%@，%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@，%2$@"
           }
         }
       }
     },
-    "%@，%@，%@": {
-      "comment": "AI summary row a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@，%2$@，%3$@"
+    "%@，%@，%@" : {
+      "comment" : "AI summary row a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@，%2$@，%3$@"
           }
         }
       }
     },
-    "%@，%@趋势图": {
-      "comment": "Chart a11y label",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@，%2$@趋势图"
+    "%@，%@趋势图" : {
+      "comment" : "Chart a11y label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@，%2$@趋势图"
           }
         }
       }
     },
-    "%@，心率 %lld BPM": {
-      "comment": "Sample row a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@，心率 %2$lld BPM"
+    "%@，心率 %lld BPM" : {
+      "comment" : "Sample row a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@，心率 %2$lld BPM"
           }
         }
       }
     },
-    "%@，总睡眠 %@，深睡 %@，浅睡 %@，REM %@": {
-      "comment": "Night row a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@，总睡眠 %2$@，深睡 %3$@，浅睡 %4$@，REM %5$@"
+    "%@，总睡眠 %@，深睡 %@，浅睡 %@，REM %@" : {
+      "comment" : "Night row a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@，总睡眠 %2$@，深睡 %3$@，浅睡 %4$@，REM %5$@"
           }
         }
       }
     },
-    "%@分类下暂无动作": {
-      "comment": "No exercises in muscle group description"
+    "%@分类下暂无动作" : {
+      "comment" : "No exercises in muscle group description"
     },
-    "%@平均心率 %lld BPM": {
-      "comment": "Chart a11y value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@平均心率 %2$lld BPM"
+    "%@平均心率 %lld BPM" : {
+      "comment" : "Chart a11y value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@平均心率 %2$lld BPM"
           }
         }
       }
     },
-    "%@平均睡眠 %@": {
-      "comment": "Sleep chart a11y value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@平均睡眠 %2$@"
+    "%@平均睡眠 %@" : {
+      "comment" : "Sleep chart a11y value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@平均睡眠 %2$@"
           }
         }
       }
+    },
+    "%lld" : {
+
+    },
+    "%lld bpm" : {
+      "comment" : "Heart rate value with unit, e.g. 142 bpm\nHeart rate value with unit, e.g. 155 bpm"
     },
-    "%lld": {},
-    "%lld bpm": {
-      "comment": "Heart rate value with unit, e.g. 142 bpm\nHeart rate value with unit, e.g. 155 bpm"
+    "%lld kcal" : {
+      "comment" : "Workout energy\nWorkout energy burned display"
     },
-    "%lld kcal": {
-      "comment": "Workout energy\nWorkout energy burned display"
+    "%lld 个动作" : {
+
     },
-    "%lld 个动作": {},
-    "%lld 分钟": {
-      "comment": "Duration minutes\nDuration minutes only"
+    "%lld 分钟" : {
+      "comment" : "Duration minutes\nDuration minutes only"
     },
-    "%lld 千卡": {
-      "comment": "Workout energy a11y"
+    "%lld 千卡" : {
+      "comment" : "Workout energy a11y"
     },
-    "%lld 小时 %lld 分钟": {
-      "comment": "Duration hours and minutes\nDuration hours minutes",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$lld 小时 %2$lld 分钟"
+    "%lld 小时 %lld 分钟" : {
+      "comment" : "Duration hours and minutes\nDuration hours minutes",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld 小时 %2$lld 分钟"
           }
         }
       }
     },
-    "%lld 次": {},
-    "%lld 次每分钟": {
-      "comment": "Heart rate a11y value with full unit"
+    "%lld 次" : {
+
     },
-    "%lld%%": {},
-    "%lldh": {
-      "comment": "Hour axis label"
+    "%lld 次每分钟" : {
+      "comment" : "Heart rate a11y value with full unit"
     },
-    "%lldh %lldm": {
-      "comment": "Duration format hours minutes",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$lldh %2$lldm"
+    "%lld%%" : {
+
+    },
+    "%lldh" : {
+      "comment" : "Hour axis label"
+    },
+    "%lldh %lldm" : {
+      "comment" : "Duration format hours minutes",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lldh %2$lldm"
           }
         }
       }
+    },
+    "%lldm" : {
+      "comment" : "Duration format minutes only"
     },
-    "%lldm": {
-      "comment": "Duration format minutes only"
+    "••••••••" : {
+
     },
-    "••••••••": {},
-    "+%lld %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "+%1$lld %2$@"
+    "+%lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "+%1$lld %2$@"
           }
         }
       }
+    },
+    "+10s" : {
+
+    },
+    "×" : {
+
+    },
+    "×2" : {
+
     },
-    "+10s": {},
-    "×": {},
-    "×2": {},
-    "└─": {},
-    "├─": {},
-    "action_go": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Go"
+    "└─" : {
+
+    },
+    "├─" : {
+
+    },
+    "action_go" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Go"
           }
         }
       }
+    },
+    "AI" : {
+      "comment" : "AI sender a11y"
     },
-    "AI": {
-      "comment": "AI sender a11y"
+    "AI — Coming Soon" : {
+
     },
-    "AI — Coming Soon": {},
-    "AI API Key 输入框": {
-      "comment": "API key input a11y"
+    "AI API Key 输入框" : {
+      "comment" : "API key input a11y"
     },
-    "AI Insight: %@, %@": {
-      "comment": "Insight card accessibility label",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "AI Insight: %1$@, %2$@"
+    "AI Insight: %@, %@" : {
+      "comment" : "Insight card accessibility label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AI Insight: %1$@, %2$@"
           }
         }
       }
     },
-    "AI 健康速览": {
-      "comment": "AI summary card title"
+    "AI 健康速览" : {
+      "comment" : "AI summary card title"
     },
-    "AI 分析": {
-      "comment": "AI analysis section header"
+    "AI 分析" : {
+      "comment" : "AI analysis section header"
     },
-    "AI 分析会将你的训练数据（训练记录、组数、重量）和健康数据（心率、睡眠、步数）发送到第三方服务器进行分析。": {
-      "comment": "Privacy data sent description"
+    "AI 分析会将你的训练数据（训练记录、组数、重量）和健康数据（心率、睡眠、步数）发送到第三方服务器进行分析。" : {
+      "comment" : "Privacy data sent description"
     },
-    "AI 分析功能需要智谱 AI 的 API Key。请在设置中配置后再使用。": {
-      "comment": "API key required description"
+    "AI 分析功能需要智谱 AI 的 API Key。请在设置中配置后再使用。" : {
+      "comment" : "API key required description"
     },
-    "AI 助手": {},
-    "AI 回复完成": {
-      "comment": "AI reply a11y announcement"
+    "AI 助手" : {
+
     },
-    "AI 服务": {
-      "comment": "AI settings section header"
+    "AI 回复完成" : {
+      "comment" : "AI reply a11y announcement"
     },
-    "AI 模型选择": {
-      "comment": "AI model picker a11y"
+    "AI 服务" : {
+      "comment" : "AI settings section header"
     },
-    "AI 正在回复": {
-      "comment": "AI typing a11y\nTyping indicator a11y"
+    "AI 模型选择" : {
+      "comment" : "AI model picker a11y"
     },
-    "ai_analyzing": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "AI Analyzing..."
+    "AI 正在回复" : {
+      "comment" : "AI typing a11y\nTyping indicator a11y"
+    },
+    "ai_analyzing" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AI Analyzing..."
           }
         }
       }
+    },
+    "API Key" : {
+
+    },
+    "Apple Frameworks" : {
+
     },
-    "API Key": {},
-    "Apple Frameworks": {},
-    "Apple 健康训练": {
-      "comment": "Workout list section header for workouts from Apple HealthKit",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple Health Workouts"
+    "Apple 健康训练" : {
+      "comment" : "Workout list section header for workouts from Apple HealthKit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Health Workouts"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple 健康训练"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 健康训练"
           }
         }
       }
     },
-    "Average": {
-      "comment": "Chart average line"
+    "Average" : {
+      "comment" : "Chart average line"
     },
-    "BMI": {
-      "comment": "Body mass index",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BMI"
+    "BMI" : {
+      "comment" : "Body mass index",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BMI"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BMI"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BMI"
           }
         }
       }
     },
-    "BPM": {
-      "comment": "Beats per minute",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BPM"
+    "BPM" : {
+      "comment" : "Beats per minute",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BPM"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BPM"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BPM"
           }
         }
       }
     },
-    "Cancel": {
-      "comment": "Crash recovery cancel failed save button",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cancel"
+    "Cancel" : {
+      "comment" : "Crash recovery cancel failed save button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "取消"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
           }
         }
       }
     },
-    "card_size_large": {
-      "comment": "Card size: full-width, tall height (complete charts/detailed content)",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Large"
+    "card_size_large" : {
+      "comment" : "Card size: full-width, tall height (complete charts/detailed content)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Large"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "大"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大"
           }
         }
       }
     },
-    "card_size_medium": {
-      "comment": "Card size: 2-col grid 1 cell, taller height (mini charts)",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Medium"
+    "card_size_medium" : {
+      "comment" : "Card size: 2-col grid 1 cell, taller height (mini charts)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中"
           }
         }
       }
     },
-    "card_size_small": {
-      "comment": "Card size: 2-col grid 1 cell, standard height",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Small"
+    "card_size_small" : {
+      "comment" : "Card size: 2-col grid 1 cell, standard height",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Small"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "小"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "小"
           }
         }
       }
     },
-    "card_size_wide": {
-      "comment": "Card size: full-width, standard height",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wide"
+    "card_size_wide" : {
+      "comment" : "Card size: full-width, standard height",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wide"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "宽"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宽"
           }
         }
       }
     },
-    "card_type_action": {
-      "comment": "Card type: recommended action with CTA button",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Action"
+    "card_type_action" : {
+      "comment" : "Card type: recommended action with CTA button",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Action"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "动作"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "动作"
           }
         }
       }
     },
-    "card_type_insight": {
-      "comment": "Card type: AI icon + text description + suggestion",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Insight"
+    "card_type_insight" : {
+      "comment" : "Card type: AI icon + text description + suggestion",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insight"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "洞察"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "洞察"
           }
         }
       }
     },
-    "card_type_list": {
-      "comment": "Card type: title + multi-row items",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "List"
+    "card_type_list" : {
+      "comment" : "Card type: title + multi-row items",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "List"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "列表"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "列表"
           }
         }
       }
     },
-    "card_type_metric": {
-      "comment": "Card type: icon + number + unit + change arrow",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Metric"
+    "card_type_metric" : {
+      "comment" : "Card type: icon + number + unit + change arrow",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Metric"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "指标"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指标"
           }
         }
       }
     },
-    "card_type_summary": {
-      "comment": "Card type: multiple metrics aggregate display",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Summary"
+    "card_type_summary" : {
+      "comment" : "Card type: multiple metrics aggregate display",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summary"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "摘要"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要"
           }
         }
       }
     },
-    "card_type_trend": {
-      "comment": "Card type: title + mini line/bar chart",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Trend"
+    "card_type_trend" : {
+      "comment" : "Card type: title + mini line/bar chart",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trend"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "趋势"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "趋势"
           }
         }
       }
     },
-    "cm": {
-      "comment": "Centimeters unit",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "cm"
+    "cm" : {
+      "comment" : "Centimeters unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "cm"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "cm"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "cm"
           }
         }
       }
     },
-    "Couldn't Save Workout": {
-      "comment": "Crash recovery save-failure alert title",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Couldn't Save Workout"
+    "Couldn't Save Workout" : {
+      "comment" : "Crash recovery save-failure alert title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Save Workout"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法保存训练"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存训练"
           }
         }
       }
     },
-    "Date": {
-      "comment": "Chart axis"
+    "Date" : {
+      "comment" : "Chart axis"
     },
-    "Discard": {
-      "comment": "Crash recovery discard button",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discard"
+    "Discard" : {
+      "comment" : "Crash recovery discard button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "丢弃"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "丢弃"
           }
         }
       }
     },
-    "g": {
-      "comment": "Grams unit",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "g"
+    "g" : {
+      "comment" : "Grams unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "g"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "g"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "g"
           }
         }
       }
     },
-    "headline_bar_a11y_hint": {
-      "comment": "VoiceOver hint appended to headline bar text",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap to view update"
+    "headline_bar_a11y_hint" : {
+      "comment" : "VoiceOver hint appended to headline bar text",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to view update"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "点击查看更新"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点击查看更新"
           }
         }
       }
     },
-    "HealthKit": {
-      "comment": "Default HK source name\nDefault source name for HealthKit workouts"
+    "HealthKit" : {
+      "comment" : "Default HK source name\nDefault source name for HealthKit workouts"
     },
-    "HealthKit 权限": {},
-    "HIIT": {
-      "comment": "HIIT",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "HIIT"
+    "HealthKit 权限" : {
+
+    },
+    "HIIT" : {
+      "comment" : "HIIT",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HIIT"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "HIIT"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HIIT"
           }
         }
       }
     },
-    "kcal": {
-      "comment": "Kilocalories unit",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "kcal"
+    "kcal" : {
+      "comment" : "Kilocalories unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kcal"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "kcal"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kcal"
           }
         }
       }
     },
-    "kg": {
-      "comment": "Kilogram\nKilograms unit",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "kg"
+    "kg" : {
+      "comment" : "Kilogram\nKilograms unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kg"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "kg"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kg"
           }
         }
       }
     },
-    "km": {
-      "comment": "Kilometers unit",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "km"
+    "km" : {
+      "comment" : "Kilometers unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "km"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "km"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "km"
           }
         }
       }
     },
-    "list_more": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "more"
+    "list_more" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "more"
           }
         }
       }
     },
-    "mL": {
-      "comment": "Milliliters unit",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "mL"
+    "mL" : {
+      "comment" : "Milliliters unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mL"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "mL"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mL"
           }
         }
       }
     },
-    "mL/kg/min": {
-      "comment": "VO2 Max unit",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "mL/kg/min"
+    "mL/kg/min" : {
+      "comment" : "VO2 Max unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mL/kg/min"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "mL/kg/min"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mL/kg/min"
           }
         }
       }
     },
-    "ms": {
-      "comment": "Milliseconds",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ms"
+    "ms" : {
+      "comment" : "Milliseconds",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ms"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ms"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ms"
           }
         }
       }
     },
-    "no_data": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "No data"
+    "no_data" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "No data"
           }
         }
       }
     },
-    "overview_last_updated": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "上次更新于 %@"
+    "overview_last_updated" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "上次更新于 %@"
           }
         }
       }
     },
-    "overview_missing_api_key": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "请在设置中添加 API Key 以启用 AI 分析"
+    "overview_missing_api_key" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "请在设置中添加 API Key 以启用 AI 分析"
           }
         }
       }
     },
-    "overview_muscle_group_chip_a11y": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@: %2$lld times"
+    "overview_muscle_group_chip_a11y" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$lld times"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@：%2$lld 次"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@：%2$lld 次"
           }
         }
       }
     },
-    "overview_muscle_group_frequency_title": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Muscle group frequency (last 7 days)"
+    "overview_muscle_group_frequency_title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muscle group frequency (last 7 days)"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "过去 7 天肌群分布"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "过去 7 天肌群分布"
           }
         }
       }
     },
-    "overview_refresh_failed": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "刷新失败，请稍后重试"
+    "overview_refresh_failed" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "刷新失败，请稍后重试"
           }
         }
       }
     },
-    "overview_title": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "概览"
+    "overview_title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "概览"
           }
         }
       }
     },
-    "REM": {
-      "comment": "REM\nREM sleep"
+    "REM" : {
+      "comment" : "REM\nREM sleep"
     },
-    "rest_live_activity_a11y_label": {
-      "comment": "DI expanded a11y label\nLive Activity a11y: Resting",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rest timer"
+    "rest_live_activity_a11y_label" : {
+      "comment" : "DI expanded a11y label\nLive Activity a11y: Resting",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rest timer"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "休息计时器"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "休息计时器"
           }
         }
       }
     },
-    "rest_live_activity_compact_a11y": {
-      "comment": "DI compact remaining a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Remaining rest time"
+    "rest_live_activity_compact_a11y" : {
+      "comment" : "DI compact remaining a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remaining rest time"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "剩余休息时间"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剩余休息时间"
           }
         }
       }
     },
-    "rest_live_activity_completed": {
-      "comment": "Live Activity DI completed\nLive Activity completed text",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rest Complete"
+    "rest_live_activity_completed" : {
+      "comment" : "Live Activity DI completed\nLive Activity completed text",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rest Complete"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "休息结束"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "休息结束"
           }
         }
       }
     },
-    "rest_live_activity_completed_a11y": {
-      "comment": "DI compact completed a11y\nLive Activity completed a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rest complete"
+    "rest_live_activity_completed_a11y" : {
+      "comment" : "DI compact completed a11y\nLive Activity completed a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rest complete"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "休息结束"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "休息结束"
           }
         }
       }
     },
-    "rest_live_activity_title": {
-      "comment": "Live Activity DI expanded title\nLive Activity lock screen title",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resting"
+    "rest_live_activity_title" : {
+      "comment" : "Live Activity DI expanded title\nLive Activity lock screen title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resting"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "休息中"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "休息中"
           }
         }
       }
     },
-    "rest_notification_body": {
-      "comment": "Rest complete notification body",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Time for your next set"
+    "rest_notification_body" : {
+      "comment" : "Rest complete notification body",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time for your next set"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开始下一组"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始下一组"
           }
         }
       }
     },
-    "rest_notification_title": {
-      "comment": "Rest complete notification title",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rest Complete"
+    "rest_notification_title" : {
+      "comment" : "Rest complete notification title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rest Complete"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "休息结束"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "休息结束"
           }
         }
       }
     },
-    "Resume": {
-      "comment": "Crash recovery resume button",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resume"
+    "Resume" : {
+      "comment" : "Crash recovery resume button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "恢复训练"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复训练"
           }
         }
       }
     },
-    "Retry": {
-      "comment": "Crash recovery retry failed save button",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Retry"
+    "Retry" : {
+      "comment" : "Crash recovery retry failed save button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重试"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试"
           }
         }
       }
     },
-    "Save & End": {
-      "comment": "Crash recovery save-and-end button",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save & End"
+    "Save & End" : {
+      "comment" : "Crash recovery save-and-end button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save & End"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存并结束"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存并结束"
           }
         }
       }
     },
-    "Saving failed. You can retry, or cancel and try a different option.": {
-      "comment": "Crash recovery save-failure alert body",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saving failed. You can retry, or cancel and try a different option."
+    "Saving failed. You can retry, or cancel and try a different option." : {
+      "comment" : "Crash recovery save-failure alert body",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving failed. You can retry, or cancel and try a different option."
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存失败。你可以重试，或取消并尝试其他选项。"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存失败。你可以重试，或取消并尝试其他选项。"
           }
         }
       }
     },
-    "Selected": {},
-    "Started at %@. Empty workout (no exercises) — recommend discarding.": {
-      "comment": "Crash recovery message for empty workout",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Started at %@. Empty workout (no exercises) — recommend discarding."
+    "Selected" : {
+
+    },
+    "Started at %@. Empty workout (no exercises) — recommend discarding." : {
+      "comment" : "Crash recovery message for empty workout",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started at %@. Empty workout (no exercises) — recommend discarding."
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "训练开始于 %@。空训练（未添加动作），建议丢弃。"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "训练开始于 %@。空训练（未添加动作），建议丢弃。"
           }
         }
       }
     },
-    "Started at %@. Recorded %lld exercises across %lld sets.": {
-      "comment": "Crash recovery message including exercise and set counts",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Started at %@. Recorded %lld exercises across %lld sets."
+    "Started at %@. Recorded %lld exercises across %lld sets." : {
+      "comment" : "Crash recovery message including exercise and set counts",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started at %@. Recorded %lld exercises across %lld sets."
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "训练开始于 %1$@，已记录 %2$lld 个动作、%3$lld 组数据。"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "训练开始于 %1$@，已记录 %2$lld 个动作、%3$lld 组数据。"
           }
         }
       }
     },
-    "Unfinished Workout Detected": {
-      "comment": "Crash recovery alert title",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unfinished Workout Detected"
+    "Unfinished Workout Detected" : {
+      "comment" : "Crash recovery alert title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unfinished Workout Detected"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "检测到未完成的训练"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检测到未完成的训练"
           }
         }
       }
+    },
+    "Value" : {
+      "comment" : "Chart axis"
     },
-    "Value": {
-      "comment": "Chart axis"
+    "VitalStride" : {
+
     },
-    "VitalStride": {},
-    "VitalStride 使用了以下开源技术和框架：": {},
-    "VitalStride 训练": {
-      "comment": "Workout list section header for workouts recorded in this app",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "VitalStride Workouts"
+    "VitalStride 使用了以下开源技术和框架：" : {
+
+    },
+    "VitalStride 训练" : {
+      "comment" : "Workout list section header for workouts recorded in this app",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VitalStride Workouts"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "VitalStride 训练"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VitalStride 训练"
           }
         }
       }
+    },
+    "VitalStride 需要访问你的健康数据来展示心率、步数等信息，并将训练记录写入 HealthKit。" : {
+
+    },
+    "上升趋势" : {
+      "comment" : "Rising trend a11y"
     },
-    "VitalStride 需要访问你的健康数据来展示心率、步数等信息，并将训练记录写入 HealthKit。": {},
-    "上升趋势": {
-      "comment": "Rising trend a11y"
+    "上次更新 %@" : {
+      "comment" : "Last updated timestamp\nLast updated timestamp a11y"
     },
-    "上次更新 %@": {
-      "comment": "Last updated timestamp\nLast updated timestamp a11y"
+    "下降趋势" : {
+      "comment" : "Falling trend a11y"
     },
-    "下降趋势": {
-      "comment": "Falling trend a11y"
+    "个人记录" : {
+      "comment" : "Personal record card title"
     },
-    "个人记录": {
-      "comment": "Personal record card title"
+    "个人记录，点击检测历史最佳" : {
+      "comment" : "PR detection a11y label"
     },
-    "个人记录，点击检测历史最佳": {
-      "comment": "PR detection a11y label"
+    "今日活动" : {
+
     },
-    "今日活动": {},
-    "今日活动进度": {},
-    "今日训练建议": {
-      "comment": "Training advice card title"
+    "今日活动进度" : {
+
     },
-    "从历史复制": {},
-    "从模板开始": {},
-    "从零开始，逐个添加动作": {},
-    "付费": {
-      "comment": "Paid tier label"
+    "今日训练建议" : {
+      "comment" : "Training advice card title"
     },
-    "休息中 %llds / %llds": {
-      "comment": "Rest timer progress a11y label",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "休息中 %1$llds / %2$llds"
+    "从历史复制" : {
+
+    },
+    "从模板开始" : {
+
+    },
+    "从零开始，逐个添加动作" : {
+
+    },
+    "付费" : {
+      "comment" : "Paid tier label"
+    },
+    "休息中 %llds / %llds" : {
+      "comment" : "Rest timer progress a11y label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "休息中 %1$llds / %2$llds"
           }
         }
       }
     },
-    "休息结束": {
-      "comment": "Rest completed a11y label\nRest completed banner text",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rest Complete"
+    "休息结束" : {
+      "comment" : "Rest completed a11y label\nRest completed banner text",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rest Complete"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "休息结束"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "休息结束"
           }
         }
       }
     },
-    "体脂率": {
-      "comment": "Body fat percentage",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Body Fat Percentage"
+    "体脂率" : {
+      "comment" : "Body fat percentage",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Body Fat Percentage"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "体脂率"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体脂率"
           }
         }
       }
     },
-    "体重": {
-      "comment": "Body weight\nBody weight detail title\nBody weight section\nWeight axis",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Body Weight"
+    "体重" : {
+      "comment" : "Body weight\nBody weight detail title\nBody weight section\nWeight axis",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Body Weight"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "体重"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体重"
           }
         }
       }
     },
-    "体重 %@ %@，%@": {
-      "comment": "Selected weight a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "体重 %1$@ %2$@，%3$@"
+    "体重 %@ %@，%@" : {
+      "comment" : "Selected weight a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "体重 %1$@ %2$@，%3$@"
           }
         }
       }
+    },
+    "体重变化趋势图" : {
+      "comment" : "Weight chart a11y"
+    },
+    "体重记录" : {
+      "comment" : "Weight records header"
     },
-    "体重变化趋势图": {
-      "comment": "Weight chart a11y"
+    "你" : {
+      "comment" : "User sender a11y"
     },
-    "体重记录": {
-      "comment": "Weight records header"
+    "你的健康数据 + AI 分析助手" : {
+
     },
-    "你": {
-      "comment": "User sender a11y"
+    "健康数据" : {
+
     },
-    "你的健康数据 + AI 分析助手": {},
-    "健康数据": {},
-    "免费": {
-      "comment": "Free tier label"
+    "免费" : {
+      "comment" : "Free tier label"
     },
-    "全身": {
-      "comment": "Full body muscle group"
+    "全身" : {
+      "comment" : "Full body muscle group"
     },
-    "全部": {
-      "comment": "All muscle groups sidebar label"
+    "全部" : {
+      "comment" : "All muscle groups sidebar label"
     },
-    "公斤": {
-      "comment": "Kilogram a11y name"
+    "公斤" : {
+      "comment" : "Kilogram a11y name"
     },
-    "公里": {
-      "comment": "Kilometer a11y name"
+    "公里" : {
+      "comment" : "Kilometer a11y name"
     },
-    "关于": {},
-    "其他运动": {
-      "comment": "Other workout",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Other"
+    "关于" : {
+
+    },
+    "其他运动" : {
+      "comment" : "Other workout",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "其他运动"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他运动"
           }
         }
       }
     },
-    "最低": {
-      "comment": "Minimum\nMinimum heart rate",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Minimum"
+    "最低" : {
+      "comment" : "Minimum\nMinimum heart rate",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimum"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最低"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最低"
           }
         }
       }
     },
-    "最低心率 %lld BPM": {
-      "comment": "Min HR a11y"
+    "最低心率 %lld BPM" : {
+      "comment" : "Min HR a11y"
     },
-    "最大摄氧量": {
-      "comment": "VO2 Max",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "VO2 Max"
+    "最大摄氧量" : {
+      "comment" : "VO2 Max",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VO2 Max"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最大摄氧量"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最大摄氧量"
           }
         }
       }
     },
-    "最新": {
-      "comment": "Latest\nLatest weight"
+    "最新" : {
+      "comment" : "Latest\nLatest weight"
     },
-    "最新体重 %@ %@": {
-      "comment": "Chart weight a11y\nLatest weight a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "最新体重 %1$@ %2$@"
+    "最新体重 %@ %@" : {
+      "comment" : "Chart weight a11y\nLatest weight a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "最新体重 %1$@ %2$@"
           }
         }
       }
     },
-    "最近训练": {},
-    "最高": {
-      "comment": "Maximum\nMaximum heart rate\nMaximum single day\nMaximum weight",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Maximum"
+    "最近训练" : {
+
+    },
+    "最高" : {
+      "comment" : "Maximum\nMaximum heart rate\nMaximum single day\nMaximum weight",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maximum"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最高"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最高"
           }
         }
       }
     },
-    "最高 %@ %@": {
-      "comment": "Max weight a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "最高 %1$@ %2$@"
+    "最高 %@ %@" : {
+      "comment" : "Max weight a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "最高 %1$@ %2$@"
           }
         }
       }
     },
-    "最高心率": {
-      "comment": "Max heart rate in workout summary"
+    "最高心率" : {
+      "comment" : "Max heart rate in workout summary"
     },
-    "最高心率 %lld BPM": {
-      "comment": "Max HR a11y"
+    "最高心率 %lld BPM" : {
+      "comment" : "Max HR a11y"
     },
-    "最高心率 %lld 次每分钟": {
-      "comment": "Max heart rate a11y"
+    "最高心率 %lld 次每分钟" : {
+      "comment" : "Max heart rate a11y"
     },
-    "分析本周训练量与频率": {
-      "comment": "Weekly summary card subtitle"
+    "分析本周训练量与频率" : {
+      "comment" : "Weekly summary card subtitle"
     },
-    "分钟": {
-      "comment": "Minutes unit",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "min"
+    "分钟" : {
+      "comment" : "Minutes unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "min"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "分钟"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分钟"
           }
         }
       }
+    },
+    "切换到训练页面以开始训练" : {
+
     },
-    "切换到训练页面以开始训练": {},
-    "切换到设置页面以授权 HealthKit": {},
-    "切换到设置页面配置 API Key": {
-      "comment": "API key settings a11y hint"
+    "切换到设置页面以授权 HealthKit" : {
+
     },
-    "切换大字号": {
-      "comment": "Active workout toggle: switch to large text size",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switch to large text"
+    "切换到设置页面配置 API Key" : {
+      "comment" : "API key settings a11y hint"
+    },
+    "切换大字号" : {
+      "comment" : "Active workout toggle: switch to large text size",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch to large text"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "切换大字号"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换大字号"
           }
         }
       }
     },
-    "切换普通字号": {
-      "comment": "Active workout toggle: switch back to normal text size",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switch to normal text"
+    "切换普通字号" : {
+      "comment" : "Active workout toggle: switch back to normal text size",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch to normal text"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "切换普通字号"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换普通字号"
           }
         }
       }
     },
-    "划船": {
-      "comment": "Rowing",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rowing"
+    "划船" : {
+      "comment" : "Rowing",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rowing"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "划船"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "划船"
           }
         }
       }
+    },
+    "删除" : {
+      "comment" : "Delete confirm button\nDelete confirmation button\nDelete set menu item\nDelete swipe action"
+    },
+    "删除动作" : {
+      "comment" : "Delete exercise context menu item\nDelete exercise menu item"
     },
-    "删除": {
-      "comment": "Delete confirm button\nDelete confirmation button\nDelete set menu item\nDelete swipe action"
+    "删除动作？" : {
+      "comment" : "Delete exercise confirmation title"
     },
-    "删除动作": {
-      "comment": "Delete exercise context menu item\nDelete exercise menu item"
+    "删除失败" : {
+      "comment" : "Delete failure alert title"
     },
-    "删除动作？": {
-      "comment": "Delete exercise confirmation title"
+    "删除训练" : {
+      "comment" : "Delete workout a11y\nDelete workout toolbar button"
     },
-    "删除失败": {
-      "comment": "Delete failure alert title"
+    "刷新" : {
+      "comment" : "Refresh advice button\nRefresh button"
     },
-    "删除训练": {
-      "comment": "Delete workout a11y\nDelete workout toolbar button"
+    "刷新 AI 分析" : {
+      "comment" : "Refresh AI analysis a11y"
     },
-    "刷新": {
-      "comment": "Refresh advice button\nRefresh button"
+    "刷新训练建议" : {
+      "comment" : "Refresh advice a11y label"
     },
-    "刷新 AI 分析": {
-      "comment": "Refresh AI analysis a11y"
+    "前往 [open.bigmodel.cn](https://open.bigmodel.cn) 获取 API Key" : {
+      "comment" : "AI settings section footer"
     },
-    "刷新训练建议": {
-      "comment": "Refresh advice a11y label"
+    "前往「训练」开始第一次训练" : {
+
     },
-    "前往 [open.bigmodel.cn](https://open.bigmodel.cn) 获取 API Key": {
-      "comment": "AI settings section footer"
+    "前往「设置」授权 HealthKit" : {
+
     },
-    "前往「训练」开始第一次训练": {},
-    "前往「设置」授权 HealthKit": {},
-    "前往「设置」配置 API Key": {
-      "comment": "Navigate to settings for API key"
+    "前往「设置」配置 API Key" : {
+      "comment" : "Navigate to settings for API key"
     },
-    "力量训练": {
-      "comment": "Strength training\nStrength training default title",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Strength Training"
+    "力量训练" : {
+      "comment" : "Strength training\nStrength training default title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Strength Training"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "力量训练"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "力量训练"
           }
         }
       }
     },
-    "功能性力量训练": {
-      "comment": "Functional strength",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Functional Strength Training"
+    "功能性力量训练" : {
+      "comment" : "Functional strength",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Functional Strength Training"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "功能性力量训练"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "功能性力量训练"
           }
         }
       }
     },
-    "动作库为空": {
-      "comment": "Empty exercise library title"
+    "动作库为空" : {
+      "comment" : "Empty exercise library title"
     },
-    "动作操作菜单": {
-      "comment": "Exercise action menu a11y label"
+    "动作操作菜单" : {
+      "comment" : "Exercise action menu a11y label"
     },
-    "动作数": {},
-    "千卡": {
-      "comment": "Kilocalorie a11y name"
+    "动作数" : {
+
     },
-    "千焦": {
-      "comment": "Kilojoule a11y name"
+    "千卡" : {
+      "comment" : "Kilocalorie a11y name"
     },
-    "单位偏好": {},
-    "单侧重量": {
-      "comment": "Unilateral weight a11y label for ×2 badge in detail view\nUnilateral weight a11y value\nUnilateral weight toggle in set menu"
+    "千焦" : {
+      "comment" : "Kilojoule a11y name"
     },
-    "去脂体重": {
-      "comment": "Lean body mass",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lean Body Mass"
+    "单位偏好" : {
+
+    },
+    "单侧重量" : {
+      "comment" : "Unilateral weight a11y label for ×2 badge in detail view\nUnilateral weight a11y value\nUnilateral weight toggle in set menu"
+    },
+    "去脂体重" : {
+      "comment" : "Lean body mass",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lean Body Mass"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "去脂体重"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "去脂体重"
           }
         }
       }
+    },
+    "双击切换完成状态" : {
+
     },
-    "双击切换完成状态": {},
-    "发送消息": {
-      "comment": "Send button a11y"
+    "发送消息" : {
+      "comment" : "Send button a11y"
     },
-    "取消": {
-      "comment": "Cancel button\nCancel confirmation button"
+    "取消" : {
+      "comment" : "Cancel button\nCancel confirmation button"
     },
-    "变化": {
-      "comment": "Change\nWeight change"
+    "变化" : {
+      "comment" : "Change\nWeight change"
     },
-    "变化 %@%@ %@": {
-      "comment": "Weight change a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "变化 %1$@%2$@ %3$@"
+    "变化 %@%@ %@" : {
+      "comment" : "Weight change a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "变化 %1$@%2$@ %3$@"
           }
         }
       }
+    },
+    "向 AI 助手提问关于训练和健康的问题" : {
+      "comment" : "Chat empty state prompt"
+    },
+    "向 AI 提问" : {
+      "comment" : "Chat input a11y label"
+    },
+    "在列表末尾插入新的一组" : {
+
     },
-    "向 AI 助手提问关于训练和健康的问题": {
-      "comment": "Chat empty state prompt"
+    "均值" : {
+
     },
-    "向 AI 提问": {
-      "comment": "Chat input a11y label"
+    "均值 %lldm" : {
+
     },
-    "在列表末尾插入新的一组": {},
-    "均值": {},
-    "均值 %lldm": {},
-    "基础代谢能量": {
-      "comment": "Basal energy\nBasal energy burned",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Basal Energy Burned"
+    "基础代谢能量" : {
+      "comment" : "Basal energy\nBasal energy burned",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basal Energy Burned"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "基础代谢能量"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "基础代谢能量"
           }
         }
       }
+    },
+    "好" : {
+      "comment" : "OK button"
+    },
+    "完成" : {
+
+    },
+    "完成训练？" : {
+
+    },
+    "导入 GPX/FIT 文件" : {
+
+    },
+    "导入历史 (%lld)" : {
+
+    },
+    "导出失败" : {
+
     },
-    "好": {
-      "comment": "OK button"
+    "导出范围" : {
+
     },
-    "完成": {},
-    "完成训练？": {},
-    "导入 GPX/FIT 文件": {},
-    "导入历史 (%lld)": {},
-    "导出失败": {},
-    "导出范围": {},
-    "导出训练数据 (JSON)": {},
-    "小时": {
-      "comment": "Hours unit",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "hr"
+    "导出训练数据 (JSON)" : {
+
+    },
+    "小时" : {
+      "comment" : "Hours unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "hr"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "小时"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "小时"
           }
         }
       }
     },
-    "层": {
-      "comment": "Flights unit",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "flights"
+    "层" : {
+      "comment" : "Flights unit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "flights"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "层"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "层"
           }
         }
       }
     },
-    "左滑继续": {},
-    "已爬楼层": {
-      "comment": "Flights climbed",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Flights Climbed"
+    "左滑继续" : {
+
+    },
+    "已爬楼层" : {
+      "comment" : "Flights climbed",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flights Climbed"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已爬楼层"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已爬楼层"
           }
         }
       }
     },
-    "平均": {
-      "comment": "Average\nAverage heart rate",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Average"
+    "平均" : {
+      "comment" : "Average\nAverage heart rate",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "平均"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平均"
           }
         }
       }
+    },
+    "平均REM" : {
+      "comment" : "Average REM"
     },
-    "平均REM": {
-      "comment": "Average REM"
+    "平均REM %@" : {
+      "comment" : "Avg REM a11y"
     },
-    "平均REM %@": {
-      "comment": "Avg REM a11y"
+    "平均心率" : {
+      "comment" : "Average heart rate in workout summary"
     },
-    "平均心率": {
-      "comment": "Average heart rate in workout summary"
+    "平均心率 %lld BPM" : {
+      "comment" : "Average HR a11y"
     },
-    "平均心率 %lld BPM": {
-      "comment": "Average HR a11y"
+    "平均心率 %lld 次每分钟" : {
+      "comment" : "Average heart rate a11y"
     },
-    "平均心率 %lld 次每分钟": {
-      "comment": "Average heart rate a11y"
+    "平均深睡" : {
+      "comment" : "Average deep\nAverage deep sleep"
     },
-    "平均深睡": {
-      "comment": "Average deep\nAverage deep sleep"
+    "平均深睡 %@" : {
+      "comment" : "Avg deep a11y"
     },
-    "平均深睡 %@": {
-      "comment": "Avg deep a11y"
+    "平均睡眠" : {
+      "comment" : "Average sleep"
     },
-    "平均睡眠": {
-      "comment": "Average sleep"
+    "平均睡眠 %@" : {
+      "comment" : "Avg sleep a11y"
     },
-    "平均睡眠 %@": {
-      "comment": "Avg sleep a11y"
+    "延长十秒" : {
+      "comment" : "Add 10 seconds a11y label"
     },
-    "延长十秒": {
-      "comment": "Add 10 seconds a11y label"
+    "建议" : {
+      "comment" : "AI suggestion label\nSuggestion prefix"
     },
-    "建议": {
-      "comment": "AI suggestion label\nSuggestion prefix"
+    "建议生成失败" : {
+      "comment" : "Error advice summary"
     },
-    "建议生成失败": {
-      "comment": "Error advice summary"
+    "开始你的健康旅程" : {
+
     },
-    "开始你的健康旅程": {},
-    "开始分析": {
-      "comment": "Start analysis button"
+    "开始分析" : {
+      "comment" : "Start analysis button"
     },
-    "开始训练": {
-      "comment": "Start workout toolbar button"
+    "开始训练" : {
+      "comment" : "Start workout toolbar button"
     },
-    "开源协议与致谢": {},
-    "徒步": {
-      "comment": "Hiking",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hiking"
+    "开源协议与致谢" : {
+
+    },
+    "徒步" : {
+      "comment" : "Hiking",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiking"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "徒步"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "徒步"
           }
         }
       }
     },
-    "心率": {
-      "comment": "Chart y-axis heart rate\nHeart rate\nHeart rate a11y label\nHeart rate detail title\nHeart rate section",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Heart Rate"
+    "心率" : {
+      "comment" : "Chart y-axis heart rate\nHeart rate\nHeart rate a11y label\nHeart rate detail title\nHeart rate section",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heart Rate"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "心率"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "心率"
           }
         }
       }
     },
-    "心率 %lld BPM，%@": {
-      "comment": "Selected HR a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "心率 %1$lld BPM，%2$@"
+    "心率 %lld BPM，%@" : {
+      "comment" : "Selected HR a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "心率 %1$lld BPM，%2$@"
           }
         }
       }
     },
-    "心率区间：%@": {
-      "comment": "Heart rate zone distribution a11y"
+    "心率区间：%@" : {
+      "comment" : "Heart rate zone distribution a11y"
     },
-    "心率变异性": {
-      "comment": "Heart rate variability",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Heart Rate Variability"
+    "心率变异性" : {
+      "comment" : "Heart rate variability",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heart Rate Variability"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "心率变异性"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "心率变异性"
           }
         }
       }
+    },
+    "心率记录" : {
+      "comment" : "Heart rate samples list header"
+    },
+    "心率趋势图" : {
+      "comment" : "Heart rate chart a11y"
     },
-    "心率记录": {
-      "comment": "Heart rate samples list header"
+    "心脏" : {
+      "comment" : "Heart section header"
     },
-    "心率趋势图": {
-      "comment": "Heart rate chart a11y"
+    "快捷分析" : {
+      "comment" : "Quick analysis section title"
     },
-    "心脏": {
-      "comment": "Heart section header"
+    "总次数" : {
+      "comment" : "Per-exercise total reps\nPer-exercise total reps a11y"
     },
-    "快捷分析": {
-      "comment": "Quick analysis section title"
+    "总组数" : {
+      "comment" : "Per-exercise total sets\nPer-exercise total sets a11y"
     },
-    "总次数": {
-      "comment": "Per-exercise total reps\nPer-exercise total reps a11y"
+    "总计" : {
+      "comment" : "Total energy\nTotal steps"
     },
-    "总组数": {
-      "comment": "Per-exercise total sets\nPer-exercise total sets a11y"
+    "总训练量" : {
+      "comment" : "Per-exercise total volume\nPer-exercise total volume a11y\nTotal training volume in workout summary\nTotal volume a11y"
     },
-    "总计": {
-      "comment": "Total energy\nTotal steps"
+    "总重量" : {
+      "comment" : "Total weight a11y value"
     },
-    "总训练量": {
-      "comment": "Per-exercise total volume\nPer-exercise total volume a11y\nTotal training volume in workout summary\nTotal volume a11y"
+    "恢复建议" : {
+      "comment" : "Recovery advice card title"
     },
-    "总重量": {
-      "comment": "Total weight a11y value"
+    "恢复建议，点击生成 AI 分析" : {
+      "comment" : "Recovery a11y label"
     },
-    "恢复建议": {
-      "comment": "Recovery advice card title"
+    "我已了解，开始使用" : {
+      "comment" : "Accept privacy consent button"
     },
-    "恢复建议，点击生成 AI 分析": {
-      "comment": "Recovery a11y label"
+    "按夜明细" : {
+      "comment" : "Nightly breakdown header"
     },
-    "我已了解，开始使用": {
-      "comment": "Accept privacy consent button"
+    "按日明细" : {
+      "comment" : "Daily breakdown section header"
     },
-    "按夜明细": {
-      "comment": "Nightly breakdown header"
+    "授权 HealthKit" : {
+
     },
-    "按日明细": {
-      "comment": "Daily breakdown section header"
+    "授权 HealthKit 查看健康数据快照，或开始你的第一次训练。" : {
+
     },
-    "授权 HealthKit": {},
-    "授权 HealthKit 查看健康数据快照，或开始你的第一次训练。": {},
-    "授权状态": {},
-    "推荐动作": {
-      "comment": "Recommended exercises label"
+    "授权状态" : {
+
     },
-    "推荐动作：%@": {
-      "comment": "Exercises a11y label"
+    "推荐动作" : {
+      "comment" : "Recommended exercises label"
     },
-    "推荐理由": {
-      "comment": "Reasoning label"
+    "推荐动作：%@" : {
+      "comment" : "Exercises a11y label"
     },
-    "推荐理由：%@": {
-      "comment": "Reasoning a11y label"
+    "推荐理由" : {
+      "comment" : "Reasoning label"
     },
-    "推荐肌群": {
-      "comment": "Recommended muscle groups label"
+    "推荐理由：%@" : {
+      "comment" : "Reasoning a11y label"
     },
-    "推荐肌群：%@": {
-      "comment": "Muscle groups a11y label"
+    "推荐肌群" : {
+      "comment" : "Recommended muscle groups label"
     },
-    "搜索动作": {
-      "comment": "Exercise search prompt"
+    "推荐肌群：%@" : {
+      "comment" : "Muscle groups a11y label"
     },
-    "撤回": {
-      "comment": "Revoke button"
+    "搜索动作" : {
+      "comment" : "Exercise search prompt"
     },
-    "撤回 AI 数据使用许可": {
-      "comment": "Revoke consent a11y"
+    "撤回" : {
+      "comment" : "Revoke button"
     },
-    "撤回后需重新确认隐私告知才能使用 AI 分析功能。": {
-      "comment": "Revoke consent message"
+    "撤回 AI 数据使用许可" : {
+      "comment" : "Revoke consent a11y"
     },
-    "撤回数据使用许可": {
-      "comment": "Revoke consent title\nRevoke privacy consent label"
+    "撤回后需重新确认隐私告知才能使用 AI 分析功能。" : {
+      "comment" : "Revoke consent message"
     },
-    "放弃": {},
-    "放弃训练？": {},
-    "数据": {
-      "comment": "Data tab title",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Data"
+    "撤回数据使用许可" : {
+      "comment" : "Revoke consent title\nRevoke privacy consent label"
+    },
+    "放弃" : {
+
+    },
+    "放弃训练？" : {
+
+    },
+    "数据" : {
+      "comment" : "Data tab title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "数据"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数据"
           }
         }
       }
+    },
+    "数据 — Coming Soon" : {
+
+    },
+    "数据不足" : {
+      "comment" : "Insufficient trend a11y"
+    },
+    "数据仅用于生成分析结果，具体数据处理方式以智谱 AI 服务条款为准。" : {
+      "comment" : "Privacy purpose description"
     },
-    "数据 — Coming Soon": {},
-    "数据不足": {
-      "comment": "Insufficient trend a11y"
+    "数据导入" : {
+
     },
-    "数据仅用于生成分析结果，具体数据处理方式以智谱 AI 服务条款为准。": {
-      "comment": "Privacy purpose description"
+    "数据导出" : {
+
     },
-    "数据导入": {},
-    "数据导出": {},
-    "数据将发送至智谱 AI（BigModel）服务器。": {
-      "comment": "Privacy provider description"
+    "数据将发送至智谱 AI（BigModel）服务器。" : {
+      "comment" : "Privacy provider description"
     },
-    "无数据": {
-      "comment": "No chart data a11y\nNo data a11y\nNo data a11y value"
+    "无数据" : {
+      "comment" : "No chart data a11y\nNo data a11y\nNo data a11y value"
     },
-    "无氧": {
-      "comment": "Heart rate zone 4 name — Anaerobic"
+    "无氧" : {
+      "comment" : "Heart rate zone 4 name — Anaerobic"
     },
-    "无法删除训练记录，请稍后重试。": {
-      "comment": "Delete failure message"
+    "无法删除训练记录，请稍后重试。" : {
+      "comment" : "Delete failure message"
     },
-    "无法加载%@数据": {
-      "comment": "Generic data load error"
+    "无法加载%@数据" : {
+      "comment" : "Generic data load error"
     },
-    "无法加载体重数据": {
-      "comment": "Body weight load error"
+    "无法加载体重数据" : {
+      "comment" : "Body weight load error"
     },
-    "无法加载外部训练数据": {
-      "comment": "HealthKit workout load error"
+    "无法加载外部训练数据" : {
+      "comment" : "HealthKit workout load error"
     },
-    "无法加载心率数据": {
-      "comment": "Heart rate load error"
+    "无法加载心率数据" : {
+      "comment" : "Heart rate load error"
     },
-    "无法加载步数数据": {
-      "comment": "Steps load error"
+    "无法加载步数数据" : {
+      "comment" : "Steps load error"
     },
-    "无法加载活动能量数据": {
-      "comment": "Energy load error"
+    "无法加载活动能量数据" : {
+      "comment" : "Energy load error"
     },
-    "无法加载睡眠数据": {
-      "comment": "Sleep load error"
+    "无法加载睡眠数据" : {
+      "comment" : "Sleep load error"
     },
-    "无法加载运动记录": {
-      "comment": "Workout load error",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unable to Load Workouts"
+    "无法加载运动记录" : {
+      "comment" : "Workout load error",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to Load Workouts"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法加载运动记录"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法加载运动记录"
           }
         }
       }
     },
-    "无记录": {},
-    "日均": {
-      "comment": "Daily average"
+    "无记录" : {
+
     },
-    "日均 %@ %@，最高 %@ %@，总计 %@ %@": {
-      "comment": "Detail energy stats a11y summary\nEnergy stats a11y summary",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "日均 %1$@ %2$@，最高 %3$@ %4$@，总计 %5$@ %6$@"
+    "日均" : {
+      "comment" : "Daily average"
+    },
+    "日均 %@ %@，最高 %@ %@，总计 %@ %@" : {
+      "comment" : "Detail energy stats a11y summary\nEnergy stats a11y summary",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "日均 %1$@ %2$@，最高 %3$@ %4$@，总计 %5$@ %6$@"
           }
         }
       }
     },
-    "日均 %@ 步，最高 %@ 步": {
-      "comment": "Steps detail chart a11y summary",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "日均 %1$@ 步，最高 %2$@ 步"
+    "日均 %@ 步，最高 %@ 步" : {
+      "comment" : "Steps detail chart a11y summary",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "日均 %1$@ 步，最高 %2$@ 步"
           }
         }
       }
     },
-    "日均 %@ 步，最高 %@ 步，总计 %@ 步": {
-      "comment": "Steps stats a11y summary",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "日均 %1$@ 步，最高 %2$@ 步，总计 %3$@ 步"
+    "日均 %@ 步，最高 %@ 步，总计 %@ 步" : {
+      "comment" : "Steps stats a11y summary",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "日均 %1$@ 步，最高 %2$@ 步，总计 %3$@ 步"
           }
         }
       }
     },
-    "日期": {
-      "comment": "Date axis",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Date"
+    "日期" : {
+      "comment" : "Date axis",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日期"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日期"
           }
         }
       }
     },
-    "时长": {
-      "comment": "Workout duration label"
+    "时长" : {
+      "comment" : "Workout duration label"
     },
-    "时间": {
-      "comment": "Chart x-axis time\nWorkout time label"
+    "时间" : {
+      "comment" : "Chart x-axis time\nWorkout time label"
     },
-    "时间范围": {
-      "comment": "Time range picker label"
+    "时间范围" : {
+      "comment" : "Time range picker label"
     },
-    "显示最近 %lld 条记录（共 %lld 条）": {
-      "comment": "Heart rate row cap note",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "显示最近 %1$lld 条记录（共 %2$lld 条）"
+    "显示最近 %lld 条记录（共 %lld 条）" : {
+      "comment" : "Heart rate row cap note",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "显示最近 %1$lld 条记录（共 %2$lld 条）"
           }
         }
       }
     },
-    "智谱 AI": {},
-    "暂无体重数据": {
-      "comment": "No body weight data"
+    "智谱 AI" : {
+
     },
-    "暂无可用动作": {
-      "comment": "No exercises available description"
+    "暂无体重数据" : {
+      "comment" : "No body weight data"
     },
-    "暂无心率数据": {
-      "comment": "No heart rate data"
+    "暂无可用动作" : {
+      "comment" : "No exercises available description"
     },
-    "暂无数据": {
-      "comment": "No data available",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No Data Available"
+    "暂无心率数据" : {
+      "comment" : "No heart rate data"
+    },
+    "暂无数据" : {
+      "comment" : "No data available",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Data Available"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暂无数据"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无数据"
           }
         }
       }
     },
-    "暂无睡眠数据": {
-      "comment": "No sleep data"
+    "暂无睡眠数据" : {
+      "comment" : "No sleep data"
     },
-    "暂无训练记录": {
-      "comment": "No workouts empty state title"
+    "暂无训练记录" : {
+      "comment" : "No workouts empty state title"
     },
-    "暂无运动记录": {
-      "comment": "No workout records",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No Workout Records"
+    "暂无运动记录" : {
+      "comment" : "No workout records",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Workout Records"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暂无运动记录"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无运动记录"
           }
         }
       }
+    },
+    "暂时无法生成训练建议，请稍后重试。" : {
+      "comment" : "Advice error message"
     },
-    "暂时无法生成训练建议，请稍后重试。": {
-      "comment": "Advice error message"
+    "更新于 %@" : {
+      "comment" : "Cache update time"
     },
-    "更新于 %@": {
-      "comment": "Cache update time"
+    "替换动作" : {
+      "comment" : "Replace exercise context menu item\nReplace exercise menu item"
     },
-    "替换动作": {
-      "comment": "Replace exercise context menu item\nReplace exercise menu item"
+    "有氧" : {
+      "comment" : "Heart rate zone 3 name — Cardio"
     },
-    "有氧": {
-      "comment": "Heart rate zone 3 name — Cardio"
+    "服务商" : {
+      "comment" : "AI provider label"
     },
-    "服务商": {
-      "comment": "AI provider label"
+    "本周训练总结" : {
+      "comment" : "Weekly workout summary card title"
     },
-    "本周训练总结": {
-      "comment": "Weekly workout summary card title"
+    "本周训练总结，点击生成 AI 分析" : {
+      "comment" : "Weekly summary a11y label"
     },
-    "本周训练总结，点击生成 AI 分析": {
-      "comment": "Weekly summary a11y label"
+    "本应用" : {
+      "comment" : "Workout source label for workouts recorded in this app"
     },
-    "本应用": {
-      "comment": "Workout source label for workouts recorded in this app"
+    "来源" : {
+      "comment" : "Workout source label"
     },
-    "来源": {
-      "comment": "Workout source label"
+    "极限" : {
+      "comment" : "Heart rate zone 5 name — Maximum"
     },
-    "极限": {
-      "comment": "Heart rate zone 5 name — Maximum"
+    "核心" : {
+      "comment" : "Core muscle group"
     },
-    "核心": {
-      "comment": "Core muscle group"
+    "核心功能" : {
+
     },
-    "核心功能": {},
-    "检查 HealthKit 授权状态": {
-      "comment": "Auth check a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check HealthKit Authorization Status"
+    "检查 HealthKit 授权状态" : {
+      "comment" : "Auth check a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check HealthKit Authorization Status"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "检查 HealthKit 授权状态"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检查 HealthKit 授权状态"
           }
         }
       }
     },
-    "检测历史最佳成绩": {
-      "comment": "PR detection card subtitle"
+    "检测历史最佳成绩" : {
+      "comment" : "PR detection card subtitle"
     },
-    "椭圆机": {
-      "comment": "Elliptical",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Elliptical"
+    "椭圆机" : {
+      "comment" : "Elliptical",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elliptical"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "椭圆机"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "椭圆机"
           }
         }
       }
     },
-    "概要": {
-      "comment": "Summary section header in HK workout detail"
+    "概要" : {
+      "comment" : "Summary section header in HK workout detail"
     },
-    "概览": {},
-    "概览 — Coming Soon": {},
-    "模型": {
-      "comment": "AI model label"
+    "概览" : {
+
     },
-    "次": {
-      "comment": "Reps unit a11y"
+    "概览 — Coming Soon" : {
+
     },
-    "次/分": {
-      "comment": "Heart rate unit bpm"
+    "模型" : {
+      "comment" : "AI model label"
     },
-    "正在分析": {
-      "comment": "Loading a11y label"
+    "次" : {
+      "comment" : "Reps unit a11y"
     },
-    "正在分析…": {
-      "comment": "AI summary loading text"
+    "次/分" : {
+      "comment" : "Heart rate unit bpm"
     },
-    "正在分析数据": {
-      "comment": "AI analysis loading\nAI analysis loading a11y"
+    "正在分析" : {
+      "comment" : "Loading a11y label"
     },
-    "正在分析训练历史…": {
-      "comment": "Loading advice summary"
+    "正在分析…" : {
+      "comment" : "AI summary loading text"
     },
-    "正在加载更多训练数据": {
-      "comment": "Loading HK workouts a11y"
+    "正在分析数据" : {
+      "comment" : "AI analysis loading\nAI analysis loading a11y"
     },
-    "正在根据你的训练历史生成个性化建议…": {
-      "comment": "Loading advice detail"
+    "正在分析训练历史…" : {
+      "comment" : "Loading advice summary"
     },
-    "正在检测可用数据…": {
-      "comment": "Loading available data types",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detecting available data…"
+    "正在加载更多训练数据" : {
+      "comment" : "Loading HK workouts a11y"
+    },
+    "正在根据你的训练历史生成个性化建议…" : {
+      "comment" : "Loading advice detail"
+    },
+    "正在检测可用数据…" : {
+      "comment" : "Loading available data types",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detecting available data…"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在检测可用数据…"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在检测可用数据…"
           }
         }
       }
     },
-    "正在检测可用数据类型": {
-      "comment": "Loading available data types a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detecting available data types"
+    "正在检测可用数据类型" : {
+      "comment" : "Loading available data types a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detecting available data types"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在检测可用数据类型"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在检测可用数据类型"
           }
         }
       }
     },
-    "正在生成 AI 健康汇总": {
-      "comment": "AI summary loading a11y"
+    "正在生成 AI 健康汇总" : {
+      "comment" : "AI summary loading a11y"
     },
-    "正在生成建议": {
-      "comment": "Loading advice a11y label\nLoading advice a11y value"
+    "正在生成建议" : {
+      "comment" : "Loading advice a11y label\nLoading advice a11y value"
     },
-    "正在组装数据并分析…": {
-      "comment": "Loading analysis text"
+    "正在组装数据并分析…" : {
+      "comment" : "Loading analysis text"
     },
-    "步": {
-      "comment": "Steps unit\nSteps unit suffix",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "steps"
+    "步" : {
+      "comment" : "Steps unit\nSteps unit suffix",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "steps"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "步"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "步"
           }
         }
       }
     },
-    "步数": {
-      "comment": "Steps\nSteps axis\nSteps detail title\nSteps section",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Steps"
+    "步数" : {
+      "comment" : "Steps\nSteps axis\nSteps detail title\nSteps section",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steps"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "步数"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "步数"
           }
         }
       }
     },
-    "步行": {
-      "comment": "Walking",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Walking"
+    "步行" : {
+      "comment" : "Walking",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Walking"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "步行"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "步行"
           }
         }
       }
     },
-    "步行+跑步距离": {
-      "comment": "Walking + running distance\nWalking running distance",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Walking + Running Distance"
+    "步行+跑步距离" : {
+      "comment" : "Walking + running distance\nWalking running distance",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Walking + Running Distance"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "步行+跑步距离"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "步行+跑步距离"
           }
         }
       }
     },
-    "每日步数图": {
-      "comment": "Steps chart a11y\nSteps chart a11y label"
+    "每日步数图" : {
+      "comment" : "Steps chart a11y\nSteps chart a11y label"
     },
-    "每日活动能量图": {
-      "comment": "Energy chart a11y\nEnergy chart a11y label"
+    "每日活动能量图" : {
+      "comment" : "Energy chart a11y\nEnergy chart a11y label"
     },
-    "没有动作": {
-      "comment": "No exercises found title"
+    "没有动作" : {
+      "comment" : "No exercises found title"
     },
-    "活动": {
-      "comment": "Activity section header"
+    "活动" : {
+      "comment" : "Activity section header"
     },
-    "活动能量": {
-      "comment": "Active energy\nActive energy burned\nActive energy detail title\nActive energy section",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Active Energy"
+    "活动能量" : {
+      "comment" : "Active energy\nActive energy burned\nActive energy detail title\nActive energy section",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active Energy"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "活动能量"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "活动能量"
           }
         }
       }
+    },
+    "浅睡" : {
+      "comment" : "Core\nCore/light sleep"
     },
-    "浅睡": {
-      "comment": "Core\nCore/light sleep"
+    "消耗热量" : {
+      "comment" : "Calories burned label"
     },
-    "消耗热量": {
-      "comment": "Calories burned label"
+    "消耗热量 %@" : {
+      "comment" : "Calories a11y label"
     },
-    "消耗热量 %@": {
-      "comment": "Calories a11y label"
+    "深睡" : {
+      "comment" : "Deep\nDeep sleep"
     },
-    "深睡": {
-      "comment": "Deep\nDeep sleep"
+    "添加 (%lld)" : {
+      "comment" : "Confirm multi-select button with count"
     },
-    "添加 (%lld)": {
-      "comment": "Confirm multi-select button with count"
+    "添加 %lld 个动作" : {
+      "comment" : "Confirm multi-select a11y label"
     },
-    "添加 %lld 个动作": {
-      "comment": "Confirm multi-select a11y label"
+    "添加一组" : {
+
     },
-    "添加一组": {},
-    "添加动作": {},
-    "添加第一个动作": {},
-    "添加递减组": {
-      "comment": "Add drop set subset menu item"
+    "添加动作" : {
+
     },
-    "添加递增组": {
-      "comment": "Add pyramid subset menu item"
+    "添加第一个动作" : {
+
     },
-    "清空对话": {
-      "comment": "Clear conversation a11y"
+    "添加递减组" : {
+      "comment" : "Add drop set subset menu item"
     },
-    "清醒": {
-      "comment": "Awake"
+    "添加递增组" : {
+      "comment" : "Add pyramid subset menu item"
     },
-    "清除": {
-      "comment": "Clear button"
+    "清空对话" : {
+      "comment" : "Clear conversation a11y"
     },
-    "清除 API Key": {
-      "comment": "Clear API key button a11y"
+    "清醒" : {
+      "comment" : "Awake"
     },
-    "游泳": {
-      "comment": "Swimming",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Swimming"
+    "清除" : {
+      "comment" : "Clear button"
+    },
+    "清除 API Key" : {
+      "comment" : "Clear API key button a11y"
+    },
+    "游泳" : {
+      "comment" : "Swimming",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swimming"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "游泳"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "游泳"
           }
         }
       }
+    },
+    "点击 + 开始第一次训练" : {
+      "comment" : "No workouts empty state description"
     },
-    "点击 + 开始第一次训练": {
-      "comment": "No workouts empty state description"
+    "点击下方按钮选择训练动作" : {
+
     },
-    "点击下方按钮选择训练动作": {},
-    "点击关闭": {
-      "comment": "Dismiss rest completed banner a11y hint",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap to dismiss"
+    "点击关闭" : {
+      "comment" : "Dismiss rest completed banner a11y hint",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to dismiss"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "点击关闭"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点击关闭"
           }
         }
       }
     },
-    "点击展开查看 AI 训练建议": {
-      "comment": "Idle advice summary"
+    "点击展开查看 AI 训练建议" : {
+      "comment" : "Idle advice summary"
     },
-    "点击开始 AI 分析": {
-      "comment": "Start analysis a11y hint"
+    "点击开始 AI 分析" : {
+      "comment" : "Start analysis a11y hint"
     },
-    "热身": {
-      "comment": "Heart rate zone 1 name — Warm Up"
+    "热身" : {
+      "comment" : "Heart rate zone 1 name — Warm Up"
     },
-    "燃脂": {
-      "comment": "Heart rate zone 2 name — Fat Burn"
+    "燃脂" : {
+      "comment" : "Heart rate zone 2 name — Fat Burn"
     },
-    "版本": {},
-    "瑜伽": {
-      "comment": "Yoga",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Yoga"
+    "版本" : {
+
+    },
+    "瑜伽" : {
+      "comment" : "Yoga",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yoga"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "瑜伽"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "瑜伽"
           }
         }
       }
     },
-    "睡眠": {
-      "comment": "Sleep\nSleep analysis\nSleep detail title\nSleep section\nSleep section header",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sleep"
+    "睡眠" : {
+      "comment" : "Sleep\nSleep analysis\nSleep detail title\nSleep section\nSleep section header",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "睡眠"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "睡眠"
           }
         }
       }
     },
-    "睡眠分析图": {
-      "comment": "Sleep chart a11y"
+    "睡眠分析图" : {
+      "comment" : "Sleep chart a11y"
     },
-    "确定": {},
-    "确定删除这次训练？": {
-      "comment": "Delete confirmation message"
+    "确定" : {
+
     },
-    "确定要清除已保存的 API Key 吗？": {
-      "comment": "Clear API key confirmation message"
+    "确定删除这次训练？" : {
+      "comment" : "Delete confirmation message"
     },
-    "确认删除": {
-      "comment": "Delete confirmation alert title"
+    "确定要清除已保存的 API Key 吗？" : {
+      "comment" : "Clear API key confirmation message"
     },
-    "确认清除": {
-      "comment": "Clear API key confirmation title"
+    "确认删除" : {
+      "comment" : "Delete confirmation alert title"
     },
-    "确认隐私告知并开始使用 AI 功能": {
-      "comment": "Accept privacy a11y hint"
+    "确认清除" : {
+      "comment" : "Clear API key confirmation title"
     },
-    "碳水化合物": {
-      "comment": "Carbohydrates\nDietary carbohydrates",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Carbohydrates"
+    "确认隐私告知并开始使用 AI 功能" : {
+      "comment" : "Accept privacy a11y hint"
+    },
+    "碳水化合物" : {
+      "comment" : "Carbohydrates\nDietary carbohydrates",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carbohydrates"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "碳水化合物"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "碳水化合物"
           }
         }
       }
+    },
+    "磅" : {
+      "comment" : "Pound a11y name"
     },
-    "磅": {
-      "comment": "Pound a11y name"
+    "稍后再说" : {
+
     },
-    "稍后再说": {},
-    "稳定": {
-      "comment": "Stable trend a11y"
+    "稳定" : {
+      "comment" : "Stable trend a11y"
     },
-    "空白训练": {},
-    "站立时间": {
-      "comment": "Stand time",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stand Time"
+    "空白训练" : {
+
+    },
+    "站立时间" : {
+      "comment" : "Stand time",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stand Time"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "站立时间"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "站立时间"
           }
         }
       }
     },
-    "第 %lld 组": {},
-    "第 %lld 组，%@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "第 %1$lld 组，%2$@"
+    "第 %lld 组" : {
+
+    },
+    "第 %lld 组，%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "第 %1$lld 组，%2$@"
           }
         }
       }
     },
-    "第 %lld 组%@子组，%@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "第 %1$lld 组%2$@子组，%3$@"
+    "第 %lld 组%@子组，%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "第 %1$lld 组%2$@子组，%3$@"
           }
         }
       }
     },
-    "第 %lld 组%@子组右侧重量": {
-      "comment": "SubSet right weight a11y label",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "第 %1$lld 组%2$@子组右侧重量"
+    "第 %lld 组%@子组右侧重量" : {
+      "comment" : "SubSet right weight a11y label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "第 %1$lld 组%2$@子组右侧重量"
           }
         }
       }
     },
-    "第 %lld 组%@子组左侧重量": {
-      "comment": "SubSet left weight a11y label",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "第 %1$lld 组%2$@子组左侧重量"
+    "第 %lld 组%@子组左侧重量" : {
+      "comment" : "SubSet left weight a11y label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "第 %1$lld 组%2$@子组左侧重量"
           }
         }
       }
     },
-    "第 %lld 组%@子组次数": {
-      "comment": "SubSet reps a11y label",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "第 %1$lld 组%2$@子组次数"
+    "第 %lld 组%@子组次数" : {
+      "comment" : "SubSet reps a11y label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "第 %1$lld 组%2$@子组次数"
           }
         }
       }
     },
-    "第 %lld 组%@子组重量": {
-      "comment": "SubSet weight a11y label",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "第 %1$lld 组%2$@子组重量"
+    "第 %lld 组%@子组重量" : {
+      "comment" : "SubSet weight a11y label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "第 %1$lld 组%2$@子组重量"
           }
         }
       }
+    },
+    "第 %lld 组右侧重量" : {
+      "comment" : "Right weight input a11y label"
+    },
+    "第 %lld 组左侧重量" : {
+      "comment" : "Left weight input a11y label"
+    },
+    "第 %lld 组次数" : {
+
+    },
+    "第 %lld 组设置" : {
+      "comment" : "Set configuration menu a11y label"
     },
-    "第 %lld 组右侧重量": {
-      "comment": "Right weight input a11y label"
+    "第 %lld 组重量" : {
+
     },
-    "第 %lld 组左侧重量": {
-      "comment": "Left weight input a11y label"
+    "管理 HealthKit 权限" : {
+
     },
-    "第 %lld 组次数": {},
-    "第 %lld 组设置": {
-      "comment": "Set configuration menu a11y label"
+    "组" : {
+      "comment" : "Sets unit a11y"
     },
-    "第 %lld 组重量": {},
-    "管理 HealthKit 权限": {},
-    "组": {
-      "comment": "Sets unit a11y"
+    "组类型" : {
+      "comment" : "Set type picker label in menu"
     },
-    "组类型": {
-      "comment": "Set type picker label in menu"
+    "结束训练" : {
+
     },
-    "结束训练": {},
-    "继续训练": {},
-    "缩短十秒": {
-      "comment": "Subtract 10 seconds a11y label"
+    "继续训练" : {
+
     },
-    "肩": {
-      "comment": "Shoulders muscle group"
+    "缩短十秒" : {
+      "comment" : "Subtract 10 seconds a11y label"
     },
-    "背": {
-      "comment": "Back muscle group"
+    "肩" : {
+      "comment" : "Shoulders muscle group"
     },
-    "胸": {
-      "comment": "Chest muscle group"
+    "背" : {
+      "comment" : "Back muscle group"
     },
-    "能量": {
-      "comment": "Energy axis"
+    "胸" : {
+      "comment" : "Chest muscle group"
     },
-    "脂肪": {
-      "comment": "Dietary fat total\nFat",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fat"
+    "能量" : {
+      "comment" : "Energy axis"
+    },
+    "脂肪" : {
+      "comment" : "Dietary fat total\nFat",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fat"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "脂肪"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "脂肪"
           }
         }
       }
     },
-    "腿": {
-      "comment": "Legs muscle group"
+    "腿" : {
+      "comment" : "Legs muscle group"
     },
-    "膳食能量摄入": {
-      "comment": "Dietary energy\nDietary energy consumed",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dietary Energy"
+    "膳食能量摄入" : {
+      "comment" : "Dietary energy\nDietary energy consumed",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dietary Energy"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "膳食能量摄入"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "膳食能量摄入"
           }
         }
       }
     },
-    "臂": {
-      "comment": "Arms muscle group"
+    "臂" : {
+      "comment" : "Arms muscle group"
     },
-    "致谢": {},
-    "舞蹈": {
-      "comment": "Dance",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dance"
+    "致谢" : {
+
+    },
+    "舞蹈" : {
+      "comment" : "Dance",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dance"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "舞蹈"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "舞蹈"
           }
         }
       }
     },
-    "英里": {
-      "comment": "Mile a11y name"
+    "英里" : {
+      "comment" : "Mile a11y name"
     },
-    "营养": {
-      "comment": "Nutrition section header"
+    "营养" : {
+      "comment" : "Nutrition section header"
     },
-    "蛋白质": {
-      "comment": "Dietary protein\nProtein",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Protein"
+    "蛋白质" : {
+      "comment" : "Dietary protein\nProtein",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Protein"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "蛋白质"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "蛋白质"
           }
         }
       }
+    },
+    "训练" : {
+      "comment" : "Workout tab title"
+    },
+    "训练 — Coming Soon" : {
+
+    },
+    "训练中" : {
+
+    },
+    "训练将被保存到历史记录" : {
+
     },
-    "训练": {
-      "comment": "Workout tab title"
+    "训练数据将不会保存" : {
+
     },
-    "训练 — Coming Soon": {},
-    "训练中": {},
-    "训练将被保存到历史记录": {},
-    "训练数据将不会保存": {},
-    "训练时长": {},
-    "训练详情": {},
-    "训练趋势": {},
-    "设置": {},
-    "设置 — Coming Soon": {},
-    "评估恢复状态与建议": {
-      "comment": "Recovery card subtitle"
+    "训练时长" : {
+
     },
-    "该动作及所有已录入的组数据将被删除": {
-      "comment": "Delete exercise confirmation message"
+    "训练详情" : {
+
     },
-    "请先导入预置动作库": {
-      "comment": "Empty exercise library description"
+    "训练趋势" : {
+
     },
-    "请前往设置页面授权访问健康数据，授权后即可查看心率、步数等数据。": {},
-    "请求授权": {},
-    "请求的数据类型": {},
-    "趋势": {
-      "comment": "Trend axis"
+    "设置" : {
+
     },
-    "趋势分析": {
-      "comment": "Trend analysis label"
+    "设置 — Coming Soon" : {
+
     },
-    "跑步": {
-      "comment": "Running",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Running"
+    "评估恢复状态与建议" : {
+      "comment" : "Recovery card subtitle"
+    },
+    "该动作及所有已录入的组数据将被删除" : {
+      "comment" : "Delete exercise confirmation message"
+    },
+    "请先导入预置动作库" : {
+      "comment" : "Empty exercise library description"
+    },
+    "请前往设置页面授权访问健康数据，授权后即可查看心率、步数等数据。" : {
+
+    },
+    "请求授权" : {
+
+    },
+    "请求的数据类型" : {
+
+    },
+    "趋势" : {
+      "comment" : "Trend axis"
+    },
+    "趋势分析" : {
+      "comment" : "Trend analysis label"
+    },
+    "跑步" : {
+      "comment" : "Running",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Running"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "跑步"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跑步"
           }
         }
       }
     },
-    "距离": {
-      "comment": "Distance label"
+    "距离" : {
+      "comment" : "Distance label"
     },
-    "距离 %@": {
-      "comment": "Distance a11y label"
+    "距离 %@" : {
+      "comment" : "Distance a11y label"
     },
-    "跳过": {
-      "comment": "Skip rest button label"
+    "跳过" : {
+      "comment" : "Skip rest button label"
     },
-    "跳过休息": {
-      "comment": "Skip rest a11y label"
+    "跳过休息" : {
+      "comment" : "Skip rest a11y label"
     },
-    "身体测量": {
-      "comment": "Body measurements section header"
+    "身体测量" : {
+      "comment" : "Body measurements section header"
     },
-    "身高": {
-      "comment": "Height",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Height"
+    "身高" : {
+      "comment" : "Height",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Height"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "身高"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "身高"
           }
         }
       }
     },
-    "轻点两下以展开": {
-      "comment": "Expand advice a11y hint"
+    "轻点两下以展开" : {
+      "comment" : "Expand advice a11y hint"
     },
-    "轻点两下以折叠": {
-      "comment": "Collapse advice a11y hint"
+    "轻点两下以折叠" : {
+      "comment" : "Collapse advice a11y hint"
     },
-    "轻点查看详情": {
-      "comment": "Card navigation a11y hint",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap to view details"
+    "轻点查看详情" : {
+      "comment" : "Card navigation a11y hint",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to view details"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "轻点查看详情"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点查看详情"
           }
         }
       }
+    },
+    "输入 API Key" : {
+      "comment" : "API key placeholder"
     },
-    "输入 API Key": {
-      "comment": "API key placeholder"
+    "输入你的问题..." : {
+      "comment" : "Chat input placeholder"
     },
-    "输入你的问题...": {
-      "comment": "Chat input placeholder"
+    "输入右侧重量数值" : {
+      "comment" : "Right weight input a11y hint"
     },
-    "输入右侧重量数值": {
-      "comment": "Right weight input a11y hint"
+    "输入左侧重量数值" : {
+      "comment" : "Left weight input a11y hint"
     },
-    "输入左侧重量数值": {
-      "comment": "Left weight input a11y hint"
+    "输入次数" : {
+
     },
-    "输入次数": {},
-    "输入重量数值": {},
-    "运动": {
-      "comment": "Workout section header"
+    "输入重量数值" : {
+
     },
-    "运动记录": {
-      "comment": "Workout history\nWorkout history title",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Workout History"
+    "运动" : {
+      "comment" : "Workout section header"
+    },
+    "运动记录" : {
+      "comment" : "Workout history\nWorkout history title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workout History"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "运动记录"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运动记录"
           }
         }
       }
+    },
+    "连接健康数据" : {
+
     },
-    "连接健康数据": {},
-    "选中%@，总睡眠%@，深睡%@，浅睡%@，REM %@，清醒%@": {
-      "comment": "Selected night sleep a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "选中%1$@，总睡眠%2$@，深睡%3$@，浅睡%4$@，REM %5$@，清醒%6$@"
+    "选中%@，总睡眠%@，深睡%@，浅睡%@，REM %@，清醒%@" : {
+      "comment" : "Selected night sleep a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "选中%1$@，总睡眠%2$@，深睡%3$@，浅睡%4$@，REM %5$@，清醒%6$@"
           }
         }
       }
     },
-    "选中体重 %@ %@，%@": {
-      "comment": "Selected weight chart a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "选中体重 %1$@ %2$@，%3$@"
+    "选中体重 %@ %@，%@" : {
+      "comment" : "Selected weight chart a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "选中体重 %1$@ %2$@，%3$@"
           }
         }
       }
     },
-    "选中心率 %lld BPM，%@": {
-      "comment": "Selected chart point a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "选中心率 %1$lld BPM，%2$@"
+    "选中心率 %lld BPM，%@" : {
+      "comment" : "Selected chart point a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "选中心率 %1$lld BPM，%2$@"
           }
         }
       }
     },
-    "选择动作": {
-      "comment": "Exercise picker navigation title"
+    "选择动作" : {
+      "comment" : "Exercise picker navigation title"
     },
-    "选择时间范围": {
-      "comment": "Time range picker a11y",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select Time Range"
+    "选择时间范围" : {
+      "comment" : "Time range picker a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select Time Range"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择时间范围"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择时间范围"
           }
         }
       }
     },
-    "重新分析": {
-      "comment": "Re-analyze button"
+    "重新分析" : {
+      "comment" : "Re-analyze button"
     },
-    "重试": {
-      "comment": "Retry button"
+    "重试" : {
+      "comment" : "Retry button"
     },
-    "重试 AI 分析": {
-      "comment": "Retry a11y label"
+    "重试 AI 分析" : {
+      "comment" : "Retry a11y label"
     },
-    "重试发送消息": {
-      "comment": "Retry a11y label"
+    "重试发送消息" : {
+      "comment" : "Retry a11y label"
     },
-    "重试生成训练建议": {
-      "comment": "Retry advice a11y label"
+    "重试生成训练建议" : {
+      "comment" : "Retry advice a11y label"
     },
-    "重量": {},
-    "锻炼时间": {
-      "comment": "Exercise time",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exercise Time"
+    "重量" : {
+
+    },
+    "锻炼时间" : {
+      "comment" : "Exercise time",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exercise Time"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "锻炼时间"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "锻炼时间"
           }
         }
       }
+    },
+    "长按可替换或删除动作" : {
+      "comment" : "Exercise section header context menu a11y hint"
     },
-    "长按可替换或删除动作": {
-      "comment": "Exercise section header context menu a11y hint"
+    "阶段" : {
+      "comment" : "Sleep stage"
     },
-    "阶段": {
-      "comment": "Sleep stage"
+    "隐私告知" : {
+      "comment" : "Privacy notice title"
     },
-    "隐私告知": {
-      "comment": "Privacy notice title"
+    "需要 HealthKit 授权" : {
+
     },
-    "需要 HealthKit 授权": {},
-    "需要配置 API Key": {
-      "comment": "API key required title"
+    "需要配置 API Key" : {
+      "comment" : "API key required title"
     },
-    "静息心率": {
-      "comment": "Resting heart rate",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resting Heart Rate"
+    "静息心率" : {
+      "comment" : "Resting heart rate",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resting Heart Rate"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "静息心率"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "静息心率"
           }
         }
       }
     },
-    "饮水量": {
-      "comment": "Dietary water\nWater",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Water"
+    "饮水量" : {
+      "comment" : "Dietary water\nWater",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Water"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "饮水量"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "饮水量"
           }
         }
       }
     },
-    "骑行": {
-      "comment": "Cycling",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cycling"
+    "骑行" : {
+      "comment" : "Cycling",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cycling"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "骑行"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "骑行"
           }
         }
       }
     },
-    "骑行距离": {
-      "comment": "Cycling distance",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cycling Distance"
+    "骑行距离" : {
+      "comment" : "Cycling distance",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cycling Distance"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "骑行距离"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "骑行距离"
           }
         }
       }
     },
-    "onboarding_next_button": {
-      "extractionState": "manual",
-      "comment": "Onboarding next-page primary CTA",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next"
+    "onboarding_next_button" : {
+      "comment" : "Onboarding next-page primary CTA",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
           }
         },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "下一步"
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下一步"
           }
         }
       }
     }
   },
-  "version": "1.0"
+  "version" : "1.0"
 }
