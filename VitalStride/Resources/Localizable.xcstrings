@@ -35,6 +35,24 @@
         }
       }
     },
+    "active_workout.previous_set_hint_format" : {
+      "extractionState" : "manual",
+      "comment" : "Previous-set hint shown on each SetRow during an active workout. %1$@ is a preformatted weight string that already includes the unit (e.g. \"60 kg\"); %2$lld is the reps count.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous %1$@ x %2$lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次 %1$@ × %2$lld"
+          }
+        }
+      }
+    },
     "workout_detail_estimated_1rm" : {
       "extractionState" : "manual",
       "comment" : "Per-exercise estimated one-rep max label + a11y",
