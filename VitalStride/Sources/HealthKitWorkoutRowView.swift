@@ -73,7 +73,7 @@ struct HealthKitWorkoutRowView: View {
         return parts.joined(separator: "，")
     }
 
-    static func formattedDuration(_ duration: TimeInterval) -> String {
+    nonisolated static func formattedDuration(_ duration: TimeInterval) -> String {
         let totalMinutes = Int(duration) / 60
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
@@ -89,7 +89,7 @@ struct HealthKitWorkoutRowView: View {
         )
     }
 
-    static func formattedDistance(_ meters: Double) -> String {
+    nonisolated static func formattedDistance(_ meters: Double) -> String {
         let km = meters / 1000.0
         return km.formatted(.number.precision(.fractionLength(1)))
     }
