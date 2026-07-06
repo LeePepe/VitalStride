@@ -86,6 +86,34 @@ struct WorkoutHeartRateStats: Sendable, Equatable {
     static let postWorkoutHRRWindowUpperSeconds: TimeInterval = 90
     static let postWorkoutHRRTargetOffsetSeconds: TimeInterval = 60
 
+    /// Post-workout fetch orchestration for HRR.
+    /// Constructs the `[endDate, endDate + postWorkoutHRRWindowUpperSeconds]` interval, invokes the
+    /// injected fetch closure, and delegates to the pure `computeHeartRateRecovery1Min`.
+    /// Returns `nil` on fetch failure or insufficient samples so HRR unavailability never breaks
+    /// average / max / zone stats. Only fetch metadata is exposed via the return type; sample
+    /// values never enter logs (Constitution I / Bar B).
+    static func loadHeartRateRecovery1Min(
+        workoutSamples: [HealthDataPoint],
+        workoutEndDate: Date,
+        fetchPostWorkoutHeartRate: @Sendable (DateInterval) async throws -> [HealthDataPoint]
+    ) async -> Int? {
+        let postWindow = DateInterval(
+            start: workoutEndDate,
+            end: workoutEndDate.addingTimeInterval(postWorkoutHRRWindowUpperSeconds)
+        )
+        let postSamples: [HealthDataPoint]
+        do {
+            postSamples = try await fetchPostWorkoutHeartRate(postWindow)
+        } catch {
+            return nil
+        }
+        return computeHeartRateRecovery1Min(
+            workoutSamples: workoutSamples,
+            postWorkoutSamples: postSamples,
+            workoutEndDate: workoutEndDate
+        )
+    }
+
     static func computeHeartRateRecovery1Min(
         workoutSamples: [HealthDataPoint],
         postWorkoutSamples: [HealthDataPoint],
