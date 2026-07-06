@@ -11,6 +11,7 @@ public final class ExerciseSet {
     public var isCompleted: Bool = false
     public var isUnilateral: Bool = false
     public var weightRight: Double?
+    public var rpe: Int?
     public var workoutExercise: WorkoutExercise?
 
     public init(
@@ -21,7 +22,8 @@ public final class ExerciseSet {
         restDuration: TimeInterval? = nil,
         isCompleted: Bool = false,
         isUnilateral: Bool = false,
-        weightRight: Double? = nil
+        weightRight: Double? = nil,
+        rpe: Int? = nil
     ) {
         self.order = order
         self.weight = weight
@@ -31,6 +33,7 @@ public final class ExerciseSet {
         self.isCompleted = isCompleted
         self.isUnilateral = isUnilateral
         self.weightRight = weightRight
+        self.rpe = rpe
     }
 }
 
