@@ -51,7 +51,6 @@
 		380C9F487820F8FB0C294EF7 /* VitalStrideWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2F9C6A27CB551B32C0DDFEA0 /* VitalStrideWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		39BD39A86AF1322900C55331 /* ActiveExerciseSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 951759CA7A2CB18B447F2E1D /* ActiveExerciseSection.swift */; };
 		3BA22FFF6617F7786D6760B1 /* NumericKeypadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D129D6EEECF077DE19A4B48 /* NumericKeypadTests.swift */; };
-		3CE77AE987A55D39480A124A /* ExerciseSubstitute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7F24AA2484C5E6E8DB7834 /* ExerciseSubstitute.swift */; };
 		3D07432F10B06634ED7F97AE /* HealthKitService in Frameworks */ = {isa = PBXBuildFile; productRef = 99ADAEC92E79BE41C312863A /* HealthKitService */; };
 		3F0C6508C9F4642DA09FD4A5 /* AIDataAnalysisSectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA048B70EC28CB874B0BDF95 /* AIDataAnalysisSectionTests.swift */; };
 		3F1F9EF475C8751614EEF38F /* OverviewDynamicState.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEBAEB2529E34AFEFB87D518 /* OverviewDynamicState.swift */; };
@@ -286,7 +285,6 @@
 		25A4CD9CFE450104FA8D4F51 /* CardVariantTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardVariantTests.swift; sourceTree = "<group>"; };
 		2682FD70AE06FB9FCF624E81 /* HealthDataCacheEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDataCacheEnvironment.swift; sourceTree = "<group>"; };
 		28F9B1C238C968D436D8F621 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		2C7F24AA2484C5E6E8DB7834 /* ExerciseSubstitute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSubstitute.swift; sourceTree = "<group>"; };
 		2D00D01197F33FD53369E14E /* LargeWorkoutMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeWorkoutMode.swift; sourceTree = "<group>"; };
 		2F9C6A27CB551B32C0DDFEA0 /* VitalStrideWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = VitalStrideWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		2FBCE469246751CEFAB1343D /* SubSetReadOnlyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubSetReadOnlyTests.swift; sourceTree = "<group>"; };
@@ -690,7 +688,6 @@
 				4E4C9428C75CCA9843D6864F /* DataView.swift */,
 				D3AD223B725AFEBB33444035 /* ExercisePickerView.swift */,
 				8CC41CBBB0306141FF6935C5 /* ExerciseSeeder.swift */,
-				2C7F24AA2484C5E6E8DB7834 /* ExerciseSubstitute.swift */,
 				2682FD70AE06FB9FCF624E81 /* HealthDataCacheEnvironment.swift */,
 				B811CCD2FF09F1E5FE6AA77A /* HealthKitPermissionSection.swift */,
 				C19B94AE81109C92D93089B8 /* HealthKitWorkoutDetailView.swift */,
@@ -1161,7 +1158,6 @@
 				145760BA7F168C61A4075533 /* ExerciseDefaults.swift in Sources */,
 				E7F29FF627D681740AAD90DF /* ExercisePickerView.swift in Sources */,
 				F7AD09CAEFC12214943F80C8 /* ExerciseSeeder.swift in Sources */,
-				3CE77AE987A55D39480A124A /* ExerciseSubstitute.swift in Sources */,
 				FA26E41E4423C80B3C49CF6F /* GenericHealthDetailView.swift in Sources */,
 				18A9869ABB4D870AFA3BFBE1 /* HealthDataCacheEnvironment.swift in Sources */,
 				B415F7502D1DFA64E79842BA /* HealthKitPermissionSection.swift in Sources */,

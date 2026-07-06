@@ -41,9 +41,12 @@ enum PreviousSetLookup {
         guard mainSetIndex >= 0, let exercise else { return nil }
 
         let currentID = currentWorkout.persistentModelID
+        let currentStart = currentWorkout.startDate
         var descriptor = FetchDescriptor<Workout>(
             predicate: #Predicate<Workout> { workout in
-                workout.endDate != nil && workout.persistentModelID != currentID
+                workout.endDate != nil
+                    && workout.persistentModelID != currentID
+                    && workout.startDate < currentStart
             },
             sortBy: [SortDescriptor(\.startDate, order: .reverse)]
         )
