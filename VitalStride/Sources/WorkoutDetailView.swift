@@ -69,15 +69,21 @@ struct WorkoutDetailView: View {
                         Text(String(localized: "最高心率 \(stats.maxHeartRate) 次每分钟", comment: "Max heart rate a11y"))
                     )
                     if let zones = stats.zoneDistribution {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(zones) { zone in
-                                HStack {
-                                    Text(zone.localizedName)
-                                        .font(.footnote)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text("\(Int(zone.percentage * 100))%")
-                                        .font(.footnote.bold())
+                        VStack(alignment: .leading, spacing: 8) {
+                            HeartRateZoneStackedBar(zones: zones)
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(zones) { zone in
+                                    HStack(spacing: 8) {
+                                        Circle()
+                                            .fill(HeartRateZoneStackedBar.color(forZoneId: zone.id))
+                                            .frame(width: 8, height: 8)
+                                        Text(zone.localizedName)
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
+                                        Text("\(Int(zone.percentage * 100))%")
+                                            .font(.footnote.bold())
+                                    }
                                 }
                             }
                         }
@@ -261,6 +267,35 @@ struct WorkoutDetailView: View {
                 modelContext.rollback()
                 showingDeleteError = true
             }
+        }
+    }
+}
+
+struct HeartRateZoneStackedBar: View {
+    let zones: [HeartRateZone]
+
+    var body: some View {
+        GeometryReader { geo in
+            HStack(spacing: 0) {
+                ForEach(zones) { zone in
+                    Rectangle()
+                        .fill(Self.color(forZoneId: zone.id))
+                        .frame(width: max(0, geo.size.width * zone.percentage))
+                }
+            }
+            .clipShape(Capsule())
+        }
+        .frame(height: 10)
+    }
+
+    static func color(forZoneId id: Int) -> Color {
+        switch id {
+        case 1: .gray
+        case 2: .blue
+        case 3: .green
+        case 4: .orange
+        case 5: .red
+        default: .secondary
         }
     }
 }
