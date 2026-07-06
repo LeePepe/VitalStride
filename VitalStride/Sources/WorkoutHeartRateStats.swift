@@ -12,6 +12,30 @@ struct WorkoutHeartRateStats: Sendable, Equatable {
     let averageHeartRate: Int
     let maxHeartRate: Int
     let zoneDistribution: [HeartRateZone]?
+    let heartRateRecovery1Min: Int?
+
+    init(
+        averageHeartRate: Int,
+        maxHeartRate: Int,
+        zoneDistribution: [HeartRateZone]?,
+        heartRateRecovery1Min: Int? = nil
+    ) {
+        self.averageHeartRate = averageHeartRate
+        self.maxHeartRate = maxHeartRate
+        self.zoneDistribution = zoneDistribution
+        self.heartRateRecovery1Min = heartRateRecovery1Min
+    }
+
+    /// Returns a copy of these stats with `heartRateRecovery1Min` replaced.
+    /// Immutable — the receiver is not modified.
+    func withHeartRateRecovery1Min(_ value: Int?) -> WorkoutHeartRateStats {
+        WorkoutHeartRateStats(
+            averageHeartRate: averageHeartRate,
+            maxHeartRate: maxHeartRate,
+            zoneDistribution: zoneDistribution,
+            heartRateRecovery1Min: value
+        )
+    }
 
     static func from(dataPoints: [HealthDataPoint]) -> WorkoutHeartRateStats? {
         guard !dataPoints.isEmpty else { return nil }
@@ -46,6 +70,34 @@ struct WorkoutHeartRateStats: Sendable, Equatable {
         } catch {
             return nil
         }
+    }
+
+    /// Loads workout heart-rate stats and additionally orchestrates the post-workout HRR fetch,
+    /// returning stats with `heartRateRecovery1Min` populated when a valid recovery sample is
+    /// available. HRR unavailability (fetch failure, insufficient post-workout samples, nil
+    /// endDate) yields `heartRateRecovery1Min == nil` without breaking average / max / zone
+    /// stats. Sample values never enter logs (Constitution I / Bar B).
+    static func load(
+        startDate: Date,
+        endDate: Date?,
+        fetchHeartRate: @Sendable (DateInterval) async throws -> [HealthDataPoint],
+        fetchPostWorkoutHeartRate: @Sendable (DateInterval) async throws -> [HealthDataPoint]
+    ) async -> WorkoutHeartRateStats? {
+        guard let endDate else { return nil }
+        let dateRange = DateInterval(start: startDate, end: endDate)
+        let workoutSamples: [HealthDataPoint]
+        do {
+            workoutSamples = try await fetchHeartRate(dateRange)
+        } catch {
+            return nil
+        }
+        guard let baseStats = from(dataPoints: workoutSamples) else { return nil }
+        let hrr = await loadHeartRateRecovery1Min(
+            workoutSamples: workoutSamples,
+            workoutEndDate: endDate,
+            fetchPostWorkoutHeartRate: fetchPostWorkoutHeartRate
+        )
+        return baseStats.withHeartRateRecovery1Min(hrr)
     }
 
     private static func zoneName(for id: Int) -> String {
