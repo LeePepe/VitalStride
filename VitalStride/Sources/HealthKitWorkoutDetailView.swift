@@ -92,7 +92,7 @@ struct HealthKitWorkoutDetailView: View {
         return "\(startTime) - \(endTime)"
     }
 
-    static func formattedDuration(_ duration: TimeInterval) -> String {
+    nonisolated static func formattedDuration(_ duration: TimeInterval) -> String {
         let formatter = DateComponentsFormatter()
         formatter.unitsStyle = .full
         formatter.allowedUnits = [.hour, .minute]
@@ -106,7 +106,7 @@ struct HealthKitWorkoutDetailView: View {
         return "\(converted) \(unit.abbreviation)"
     }
 
-    static func formattedDistance(_ meters: Double, unit: DistanceUnit) -> String {
+    nonisolated static func formattedDistance(_ meters: Double, unit: DistanceUnit) -> String {
         let converted = unit.convert(fromMeters: meters)
         let formatted = converted.formatted(.number.precision(.fractionLength(1)))
         return "\(formatted) \(unit.abbreviation)"
