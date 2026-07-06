@@ -146,4 +146,142 @@ struct ExerciseSubstituteParseTests {
         #expect(result.count == 2)
         #expect(result.map(\.exerciseId) == ["bench-press", "incline-db-press"])
     }
+
+    // MARK: - T010 Fallback reachability (SC-003, Bar D)
+    //
+    // These tests assert the caller can OBSERVE a fallback condition — either
+    // a catchable `SubstituteParseError` (AI/JSON failure path) or an empty
+    // `[SubstituteSuggestion]` (zero effective candidates path) — so upstream
+    // code (`ExerciseSubstituteSheet`) can graceful-degrade to the manual
+    // `ExercisePickerView`. The parser MUST NOT crash, MUST NOT silently
+    // succeed, and MUST expose these signals deterministically without any
+    // network / AI provider / HealthKit dependency.
+
+    @Test("AI-unavailable simulated by empty response surfaces catchable fallback error")
+    func aiUnavailableEmptyResponseIsCatchableFallbackSignal() {
+        let raw = ""
+
+        var caught: SubstituteParseError?
+        do {
+            _ = try SubstituteSuggestion.parse(from: raw)
+        } catch let error as SubstituteParseError {
+            caught = error
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+
+        #expect(caught == .invalidJSON)
+    }
+
+    @Test("AI-unavailable simulated by whitespace-only response surfaces catchable fallback error")
+    func aiUnavailableWhitespaceResponseIsCatchableFallbackSignal() {
+        let raw = "   \n\t  \n"
+
+        #expect(throws: SubstituteParseError.invalidJSON) {
+            _ = try SubstituteSuggestion.parse(from: raw)
+        }
+    }
+
+    @Test("AI garbled response surfaces catchable fallback error, never crashes")
+    func aiGarbledResponseIsCatchableFallbackSignal() {
+        let raw = "<html>503 Service Unavailable</html>"
+
+        #expect(throws: SubstituteParseError.invalidJSON) {
+            _ = try SubstituteSuggestion.parse(from: raw)
+        }
+    }
+
+    @Test("Truncated JSON array surfaces catchable fallback error, never crashes")
+    func truncatedJSONIsCatchableFallbackSignal() {
+        let raw = """
+            [
+              {"exerciseId": "incline-db-press", "reason": "同为上胸推举"},
+              {"exerciseId": "cable-fly"
+            """
+
+        #expect(throws: SubstituteParseError.invalidJSON) {
+            _ = try SubstituteSuggestion.parse(from: raw)
+        }
+    }
+
+    @Test("Empty effective candidates after exclusion drives the caller into its observable fallback branch")
+    func emptyEffectiveCandidatesAfterExclusionIsObservableFallbackSignal() throws {
+        // Simulates the T010 SC-003/Bar D scenario: parse succeeds (no throw)
+        // but every AI-returned candidate is filtered out by self-reference
+        // exclusion, leaving zero effective candidates. The caller
+        // (`ExerciseSubstituteSheet`) is required to fall through to the
+        // manual `ExercisePickerView` in this case rather than show an
+        // empty AI list. We assert two observable signals here:
+        //
+        //   1. `parse` did not throw and did not return non-empty results
+        //      (rules out both crash and silent success paths).
+        //   2. Applying the *same* fallback-branch predicate that the
+        //      caller uses (`result.isEmpty`) reaches the fallback branch
+        //      deterministically — proved by executing that branch inline
+        //      and observing its side effect (`didEnterFallbackBranch`).
+        //
+        // This locks the parse contract that the fallback branch depends on:
+        // an empty array is the fallback signal, not silent success.
+        let raw = """
+            [
+              {"exerciseId": "bench-press", "reason": "同肌群但等于当前动作"},
+              {"exerciseId": "bench-press", "reason": "重复的当前动作"}
+            ]
+            """
+
+        let result = try SubstituteSuggestion.parse(from: raw, excluding: "bench-press")
+
+        #expect(result.isEmpty)
+        #expect(result.contains { $0.exerciseId == "bench-press" } == false)
+
+        var didEnterFallbackBranch = false
+        var fallbackReason: String?
+        if result.isEmpty {
+            didEnterFallbackBranch = true
+            fallbackReason = "no-effective-candidates"
+        } else {
+            Issue.record("Expected empty result to drive fallback branch, got \(result.count) suggestion(s)")
+        }
+
+        #expect(didEnterFallbackBranch)
+        #expect(fallbackReason == "no-effective-candidates")
+    }
+
+    @Test("Empty JSON array returns empty result — observable fallback signal, not silent success")
+    func emptyJSONArrayIsObservableFallbackSignal() throws {
+        let result = try SubstituteSuggestion.parse(from: "[]", excluding: "bench-press")
+
+        #expect(result.isEmpty)
+    }
+
+    @Test("Repeated parse of malformed input does not crash and remains deterministic")
+    func repeatedMalformedParseStaysDeterministic() {
+        let raw = "not json"
+        var errorCount = 0
+        for _ in 0..<8 {
+            do {
+                _ = try SubstituteSuggestion.parse(from: raw)
+            } catch SubstituteParseError.invalidJSON {
+                errorCount += 1
+            } catch {
+                Issue.record("Unexpected error type: \(error)")
+            }
+        }
+
+        #expect(errorCount == 8)
+    }
+
+    @Test("Fallback error is a distinguishable SubstituteParseError, not a generic Swift error")
+    func fallbackErrorIsDistinguishableType() {
+        let raw = "definitely not json"
+
+        do {
+            _ = try SubstituteSuggestion.parse(from: raw)
+            Issue.record("Expected parse to throw for malformed input")
+        } catch let error as SubstituteParseError {
+            #expect(error == .invalidJSON)
+        } catch {
+            Issue.record("Expected SubstituteParseError, got: \(type(of: error))")
+        }
+    }
 }

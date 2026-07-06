@@ -47,6 +47,7 @@
 		32B35753CA49878D00699140 /* SetTypeColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF0A92FF1A86943026723A0 /* SetTypeColor.swift */; };
 		32C5AC0265AFA7662A7175F7 /* HeartRateSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4340E51820609A5B245C166D /* HeartRateSection.swift */; };
 		335DBBDC8A3BD67D9782C953 /* AIChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C8F2FA78A3BA5986CF1486C /* AIChatView.swift */; };
+		36549AF279412FDE4043F44A /* ExerciseSubstituteParseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D433934EDCED39DA4E97B1A /* ExerciseSubstituteParseTests.swift */; };
 		336BCEEC994E6B84411D077E /* WorkoutListMerger.swift in Sources */ = {isa = PBXBuildFile; fileRef = C475E0D51502E60636C6AE22 /* WorkoutListMerger.swift */; };
 		33F32CC3B767F8D4AB763238 /* MacContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0033F83E9F4931C560DBD87C /* MacContentView.swift */; };
 		380C9F487820F8FB0C294EF7 /* VitalStrideWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2F9C6A27CB551B32C0DDFEA0 /* VitalStrideWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -380,6 +381,7 @@
 		9B96A64C4A8D7C20014602DF /* VitalModels */ = {isa = PBXFileReference; lastKnownFileType = folder; name = VitalModels; path = Packages/VitalModels; sourceTree = SOURCE_ROOT; };
 		9BB4C9A242BEAD1E0445C937 /* VitalStrideApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideApp.swift; sourceTree = "<group>"; };
 		9D2F46A6B7B993E95FDAA5C5 /* VitalStride.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VitalStride.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9D433934EDCED39DA4E97B1A /* ExerciseSubstituteParseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSubstituteParseTests.swift; sourceTree = "<group>"; };
 		9F238CEA056638EA6F2BD5FC /* ActiveWorkoutRowLargeModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutRowLargeModeTests.swift; sourceTree = "<group>"; };
 		9F3929A3233515A8A71A3C14 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		9F62ACF20BEED2B4F4AE3DD9 /* WorkoutResumeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutResumeTests.swift; sourceTree = "<group>"; };
@@ -535,6 +537,7 @@
 				572B0D6CBD4C809E1C0384C9 /* ExerciseDefaultsTests.swift */,
 				DB29B418799CA76CB6EEF87B /* ExerciseManagementTests.swift */,
 				0157658A314DA1AC81783B49 /* ExerciseSeederTests.swift */,
+				9D433934EDCED39DA4E97B1A /* ExerciseSubstituteParseTests.swift */,
 				F052E6A365C4391D3E607AE4 /* ExercisesJSONTests.swift */,
 				738B030EACEFB69B50A7D9C3 /* GenericHealthDetailTests.swift */,
 				A97AABE49D975C1A283CCD79 /* HealthKitServiceTests.swift */,
@@ -1274,6 +1277,7 @@
 				9C971EDC504956577317AAA3 /* ExerciseDefaultsTests.swift in Sources */,
 				B5FB14AAC91C7837E47F8162 /* ExerciseManagementTests.swift in Sources */,
 				613159B4B0795DCD4501138F /* ExerciseSeederTests.swift in Sources */,
+				36549AF279412FDE4043F44A /* ExerciseSubstituteParseTests.swift in Sources */,
 				D3A685EB9782EDB77B9EE544 /* ExercisesJSONTests.swift in Sources */,
 				A1BA6B0B4E7D5AC09286E2DC /* GenericHealthDetailTests.swift in Sources */,
 				52C71AA40F31A5574D3CBFEC /* HealthKitServiceTests.swift in Sources */,
