@@ -68,7 +68,7 @@ struct WorkoutDetailView: View {
                     .accessibilityLabel(
                         Text(String(localized: "最高心率 \(stats.maxHeartRate) 次每分钟", comment: "Max heart rate a11y"))
                     )
-                    if let zones = stats.zoneDistribution {
+                    if let zones = stats.zoneDistribution, !zones.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             HeartRateZoneStackedBar(zones: zones)
                             VStack(alignment: .leading, spacing: 4) {
