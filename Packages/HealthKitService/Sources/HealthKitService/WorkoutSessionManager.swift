@@ -20,9 +20,9 @@ public struct NoopWorkoutSessionManager: WorkoutSessionManaging {
 
 // MARK: - WorkoutSessionManager
 
-#if !os(macOS)
+#if os(watchOS)
 
-@available(iOS 26.0, watchOS 5.0, *)
+@available(watchOS 5.0, *)
 public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unchecked Sendable {
     private let healthStore: HKHealthStore
     private let logger: Logger
@@ -121,7 +121,7 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
 
 // MARK: - HKWorkoutSessionDelegate
 
-@available(iOS 26.0, watchOS 5.0, *)
+@available(watchOS 5.0, *)
 extension WorkoutSessionManager: HKWorkoutSessionDelegate {
     public func workoutSession(
         _ workoutSession: HKWorkoutSession,
@@ -148,4 +148,4 @@ extension WorkoutSessionManager: HKWorkoutSessionDelegate {
     }
 }
 
-#endif // !os(macOS)
+#endif // os(watchOS)
