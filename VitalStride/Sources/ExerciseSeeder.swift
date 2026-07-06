@@ -141,6 +141,22 @@ enum ExerciseSeeder {
         return insertedCount
     }
 
+    /// Look up a preset `Exercise` by its exact `presetId`. Returns `nil` when
+    /// no match exists or when the SwiftData fetch fails, so callers can
+    /// gracefully fall back to manual selection without crashing.
+    static func findByPresetId(_ presetId: String, context: ModelContext) -> Exercise? {
+        var descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.presetId == presetId }
+        )
+        descriptor.fetchLimit = 1
+        do {
+            return try context.fetch(descriptor).first
+        } catch {
+            logger.error("findByPresetId fetch failed: \(type(of: error))")
+            return nil
+        }
+    }
+
     /// Backfill defaultWeight* on existing preset Exercises when advancing to
     /// catalog version 2. Only writes fields that are currently nil — never
     /// overwrites user-modified values (isCustom exercises are excluded via
