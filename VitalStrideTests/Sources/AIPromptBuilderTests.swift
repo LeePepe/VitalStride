@@ -35,9 +35,10 @@ struct AIPromptBuilderTests {
     private func makeSetSnapshot(
         weight: Double = 60.0,
         reps: Int = 10,
-        setType: String = "working"
+        setType: String = "working",
+        rpe: Int? = nil
     ) -> AIPromptContext.SetSnapshot {
-        AIPromptContext.SetSnapshot(weight: weight, reps: reps, setType: setType)
+        AIPromptContext.SetSnapshot(weight: weight, reps: reps, setType: setType, rpe: rpe)
     }
 
     private func makeHealthSnapshot(
@@ -310,5 +311,82 @@ struct AIPromptBuilderTests {
             #expect(!messages[0].content.isEmpty)
             #expect(!messages[1].content.isEmpty)
         }
+    }
+
+    // MARK: - RPE Prompt Assertions (T011)
+
+    @Test("Weekly summary set description includes RPE when set has rpe")
+    func weeklySummaryIncludesRPEWhenPresent() {
+        let sets = [
+            makeSetSnapshot(weight: 80.0, reps: 5, setType: "working", rpe: 8)
+        ]
+        let exercise = makeExerciseSnapshot(name: "深蹲", muscleGroup: "legs", sets: sets)
+        let workout = makeWorkoutSnapshot(daysAgo: 1, exercises: [exercise])
+
+        let context = AIPromptContext(
+            workouts: [workout],
+            healthData: makeHealthSnapshot()
+        )
+
+        let messages = AIPromptBuilder.buildWeeklySummaryPrompt(context: context)
+        let userContent = messages[1].content
+        #expect(userContent.contains("@ RPE8"))
+        #expect(userContent.contains("80.0kg×5"))
+    }
+
+    @Test("Weekly summary set description omits RPE when rpe is nil")
+    func weeklySummaryOmitsRPEWhenNil() {
+        let sets = [
+            makeSetSnapshot(weight: 80.0, reps: 5, setType: "working", rpe: nil)
+        ]
+        let exercise = makeExerciseSnapshot(name: "深蹲", muscleGroup: "legs", sets: sets)
+        let workout = makeWorkoutSnapshot(daysAgo: 1, exercises: [exercise])
+
+        let context = AIPromptContext(
+            workouts: [workout],
+            healthData: makeHealthSnapshot()
+        )
+
+        let messages = AIPromptBuilder.buildWeeklySummaryPrompt(context: context)
+        let userContent = messages[1].content
+        #expect(!userContent.contains("@ RPE"))
+        #expect(userContent.contains("80.0kg×5"))
+    }
+
+    @Test("Weekly summary emits RPE per set when multiple sets carry different values")
+    func weeklySummaryMultipleRPEValues() {
+        let sets = [
+            makeSetSnapshot(weight: 80.0, reps: 8, setType: "working", rpe: 7),
+            makeSetSnapshot(weight: 80.0, reps: 6, setType: "working", rpe: 9),
+            makeSetSnapshot(weight: 75.0, reps: 8, setType: "working", rpe: nil),
+        ]
+        let exercise = makeExerciseSnapshot(name: "卧推", muscleGroup: "chest", sets: sets)
+        let workout = makeWorkoutSnapshot(daysAgo: 0, exercises: [exercise])
+
+        let context = AIPromptContext(
+            workouts: [workout],
+            healthData: makeHealthSnapshot()
+        )
+
+        let messages = AIPromptBuilder.buildWeeklySummaryPrompt(context: context)
+        let userContent = messages[1].content
+        #expect(userContent.contains("@ RPE7"))
+        #expect(userContent.contains("@ RPE9"))
+        // The third (rpe=nil) set should render without an @ RPE suffix.
+        #expect(userContent.contains("75.0kg×8"))
+    }
+
+    @Test("SetSnapshot default init leaves rpe nil")
+    func setSnapshotDefaultRPEIsNil() {
+        let snapshot = AIPromptContext.SetSnapshot(weight: 60.0, reps: 10, setType: "working")
+        #expect(snapshot.rpe == nil)
+    }
+
+    @Test("SetSnapshot preserves explicit rpe value")
+    func setSnapshotPreservesExplicitRPE() {
+        let snapshot = AIPromptContext.SetSnapshot(
+            weight: 100.0, reps: 5, setType: "working", rpe: 9
+        )
+        #expect(snapshot.rpe == 9)
     }
 }
