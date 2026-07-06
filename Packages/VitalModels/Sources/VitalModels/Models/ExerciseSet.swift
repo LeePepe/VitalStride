@@ -39,7 +39,7 @@ public final class ExerciseSet {
 
 extension ExerciseSet: Codable {
     enum CodingKeys: String, CodingKey {
-        case order, weight, reps, setType, restDuration, isCompleted, isUnilateral, weightRight
+        case order, weight, reps, setType, restDuration, isCompleted, isUnilateral, weightRight, rpe
     }
 
     public convenience init(from decoder: Decoder) throws {
@@ -52,6 +52,7 @@ extension ExerciseSet: Codable {
         let isCompleted = try container.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
         let isUnilateral = try container.decodeIfPresent(Bool.self, forKey: .isUnilateral) ?? false
         let weightRight = try container.decodeIfPresent(Double.self, forKey: .weightRight)
+        let rpe = try container.decodeIfPresent(Int.self, forKey: .rpe)
         self.init(
             order: order,
             weight: weight,
@@ -60,7 +61,8 @@ extension ExerciseSet: Codable {
             restDuration: restDuration,
             isCompleted: isCompleted,
             isUnilateral: isUnilateral,
-            weightRight: weightRight
+            weightRight: weightRight,
+            rpe: rpe
         )
     }
 
@@ -74,5 +76,6 @@ extension ExerciseSet: Codable {
         try container.encode(isCompleted, forKey: .isCompleted)
         try container.encode(isUnilateral, forKey: .isUnilateral)
         try container.encodeIfPresent(weightRight, forKey: .weightRight)
+        try container.encodeIfPresent(rpe, forKey: .rpe)
     }
 }
