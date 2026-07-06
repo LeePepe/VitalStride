@@ -141,6 +141,18 @@ enum ExerciseSeeder {
         return insertedCount
     }
 
+    static func findByPresetId(_ presetId: String, context: ModelContext) -> Exercise? {
+        let descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.presetId == presetId }
+        )
+        do {
+            return try context.fetch(descriptor).first
+        } catch {
+            logger.error("findByPresetId fetch failed: \(type(of: error))")
+            return nil
+        }
+    }
+
     /// Backfill defaultWeight* on existing preset Exercises when advancing to
     /// catalog version 2. Only writes fields that are currently nil — never
     /// overwrites user-modified values (isCustom exercises are excluded via
