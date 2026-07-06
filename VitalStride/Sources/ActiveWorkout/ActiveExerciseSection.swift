@@ -14,6 +14,11 @@ struct ActiveExerciseSection: View {
     let onSetCompleted: () -> Void
     let onSetDeleted: () -> Void
     let onReplace: () -> Void
+    /// Smart-substitute entry point (spec 003 T011). Defaulted to a no-op so the
+    /// existing `ActiveWorkoutView` initializer keeps compiling until T013 wires
+    /// the real callback; the T011 authorization boundary forbids editing the
+    /// caller in this child issue.
+    let onSubstitute: () -> Void = {}
     let onDelete: () -> Void
     @Environment(\.modelContext) private var modelContext
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
@@ -81,6 +86,12 @@ struct ActiveExerciseSection: View {
                     .font(LargeWorkoutFonts.exerciseName(large: largeMode))
                     .contextMenu {
                         Button {
+                            onSubstitute()
+                        } label: {
+                            // swiftlint:disable:next line_length
+                            Label(String(localized: "智能替代", comment: "Smart substitute context menu item"), systemImage: "sparkles")
+                        }
+                        Button {
                             onReplace()
                         } label: {
                             // swiftlint:disable:next line_length
@@ -97,6 +108,12 @@ struct ActiveExerciseSection: View {
                     .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
                 Spacer()
                 Menu {
+                    Button {
+                        onSubstitute()
+                    } label: {
+                        // swiftlint:disable:next line_length
+                        Label(String(localized: "智能替代", comment: "Smart substitute menu item"), systemImage: "sparkles")
+                    }
                     Button {
                         onReplace()
                     } label: {
