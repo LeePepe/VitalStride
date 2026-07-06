@@ -106,11 +106,27 @@ private struct TemplateRow: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(template.name)
                 .font(.body)
-            let count = template.exercises?.count ?? 0
-            Text("\(count) 个动作")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                Text("\(exerciseCount) 个动作")
+                Text(verbatim: "·")
+                durationText
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
+    }
+
+    private var exerciseCount: Int {
+        template.exercises?.count ?? 0
+    }
+
+    private var durationText: Text {
+        let seconds = template.estimatedDuration(historicalAverage: nil)
+        guard seconds > 0 else {
+            return Text(verbatim: "—")
+        }
+        let minutes = Int((seconds / 60).rounded())
+        return Text("约 \(minutes) 分钟")
     }
 }
 
