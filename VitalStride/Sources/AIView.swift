@@ -18,6 +18,7 @@ struct AIView: View {
     #endif
     @State private var viewModel = AIViewState()
     @State private var chatViewModel = AIChatViewModel()
+    @State private var quickAnalysisCollapsed = false
     @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
 
     var body: some View {
@@ -155,8 +156,9 @@ struct AIView: View {
     // MARK: - Analysis Content
 
     private var analysisContent: some View {
-        AIChatView(viewModel: chatViewModel) {
-            quickAnalysisSection
+        VStack(spacing: 0) {
+            quickAnalysisHeader
+            AIChatView(viewModel: chatViewModel)
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -172,32 +174,66 @@ struct AIView: View {
         }
     }
 
-    private var quickAnalysisSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "快捷分析", comment: "Quick analysis section title"))
-                .font(.headline)
+    private var quickAnalysisHeader: some View {
+        // Collapse control only meaningful once a conversation exists.
+        let hasMessages = !chatViewModel.messages.isEmpty
+        let effectivelyCollapsed = hasMessages && quickAnalysisCollapsed
 
-            ForEach(QuickAnalysisType.allCases) { type in
-                AIQuickAnalysisCard(
-                    analysisType: type,
-                    state: viewModel.cardStates[type, default: .idle],
-                    onTap: {
-                        Task {
-                            await viewModel.runAnalysis(
-                                type: type,
-                                modelContext: modelContext
-                            )
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(String(localized: "ai_quick_analysis_section_title", comment: "Quick analysis section title above the chat"))
+                    .font(.headline)
+                Spacer()
+                if hasMessages {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            quickAnalysisCollapsed.toggle()
                         }
-                    },
-                    onRetry: {
-                        Task {
-                            await viewModel.runAnalysis(
-                                type: type,
-                                modelContext: modelContext
+                    } label: {
+                        Image(systemName: quickAnalysisCollapsed ? "chevron.down" : "chevron.up")
+                            .foregroundStyle(.secondary)
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .accessibilityLabel(quickAnalysisCollapsed
+                        ? String(localized: "ai_quick_analysis_expand", comment: "Expand quick analysis header a11y")
+                        : String(localized: "ai_quick_analysis_collapse", comment: "Collapse quick analysis header a11y"))
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .padding(.bottom, effectivelyCollapsed ? 8 : 12)
+
+            if !effectivelyCollapsed {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(QuickAnalysisType.allCases) { type in
+                            AIQuickAnalysisCard(
+                                analysisType: type,
+                                state: viewModel.cardStates[type, default: .idle],
+                                onTap: {
+                                    Task {
+                                        await viewModel.runAnalysis(
+                                            type: type,
+                                            modelContext: modelContext
+                                        )
+                                    }
+                                },
+                                onRetry: {
+                                    Task {
+                                        await viewModel.runAnalysis(
+                                            type: type,
+                                            modelContext: modelContext
+                                        )
+                                    }
+                                }
                             )
+                            .frame(width: 280)
                         }
                     }
-                )
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
+                }
+                Divider()
             }
         }
     }

@@ -581,6 +581,60 @@
         }
       }
     },
+    "ai_quick_analysis_collapse" : {
+      "extractionState" : "manual",
+      "comment" : "Collapse quick analysis header a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse quick analysis"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收起快捷分析"
+          }
+        }
+      }
+    },
+    "ai_quick_analysis_expand" : {
+      "extractionState" : "manual",
+      "comment" : "Expand quick analysis header a11y",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expand quick analysis"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展开快捷分析"
+          }
+        }
+      }
+    },
+    "ai_quick_analysis_section_title" : {
+      "extractionState" : "manual",
+      "comment" : "Quick analysis section title above the chat",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick analysis"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷分析"
+          }
+        }
+      }
+    },
     "API Key" : {
 
     },
