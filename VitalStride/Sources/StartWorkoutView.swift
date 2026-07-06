@@ -188,3 +188,86 @@ private struct TemplateRow: View {
     StartWorkoutView { _ in }
         .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
 }
+
+@MainActor
+private enum TemplateRowPreviewFixture {
+    static func container(withExercises: Bool) -> ModelContainer {
+        do {
+            let container = try ModelContainerConfiguration.makeTestContainer()
+            populate(container, withExercises: withExercises)
+            return container
+        } catch {
+            fatalError("Preview container unavailable: \(error)")
+        }
+    }
+
+    static func templates(in container: ModelContainer) -> [WorkoutTemplate] {
+        do {
+            return try container.mainContext.fetch(FetchDescriptor<WorkoutTemplate>())
+        } catch {
+            return []
+        }
+    }
+
+    private static func populate(_ container: ModelContainer, withExercises: Bool) {
+        let context = container.mainContext
+        let template = WorkoutTemplate(name: withExercises ? "Push Day" : "Empty Template")
+        context.insert(template)
+
+        if withExercises {
+            let bench = Exercise(
+                nameEn: "Bench Press",
+                nameZh: "Bench Press",
+                muscleGroup: .chest,
+                equipment: .barbell
+            )
+            let incline = Exercise(
+                nameEn: "Incline Dumbbell Press",
+                nameZh: "Incline Dumbbell Press",
+                muscleGroup: .chest,
+                equipment: .dumbbell
+            )
+            let fly = Exercise(
+                nameEn: "Cable Fly",
+                nameZh: "Cable Fly",
+                muscleGroup: .chest,
+                equipment: .cable
+            )
+            for exercise in [bench, incline, fly] { context.insert(exercise) }
+
+            let templateExercises = [
+                TemplateExercise(exercise: bench, targetSets: 4, order: 0),
+                TemplateExercise(exercise: incline, targetSets: 4, order: 1),
+                TemplateExercise(exercise: fly, targetSets: 4, order: 2),
+            ]
+            for te in templateExercises { context.insert(te) }
+            template.exercises = templateExercises
+        }
+
+        do {
+            try context.save()
+        } catch {
+            assertionFailure("Preview fixture save failed: \(error)")
+        }
+    }
+}
+
+#Preview("TemplateRow - empty template") {
+    let container = TemplateRowPreviewFixture.container(withExercises: false)
+    return List {
+        ForEach(TemplateRowPreviewFixture.templates(in: container)) { template in
+            TemplateRow(template: template)
+        }
+    }
+    .modelContainer(container)
+}
+
+#Preview("TemplateRow - multi exercise") {
+    let container = TemplateRowPreviewFixture.container(withExercises: true)
+    return List {
+        ForEach(TemplateRowPreviewFixture.templates(in: container)) { template in
+            TemplateRow(template: template)
+        }
+    }
+    .modelContainer(container)
+}
