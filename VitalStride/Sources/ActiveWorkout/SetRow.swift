@@ -34,46 +34,105 @@ struct SetRow: View {
     @State private var weightText: String = ""
     @State private var weightRightText: String = ""
     @State private var repsText: String = ""
+    // MY-1091: row-level Large Mode is driven off the same persisted flag the
+    // toolbar toggle writes in MY-1088. @AppStorage observes the key so the
+    // row re-renders when the toolbar toggles without any explicit
+    // environment plumbing from ActiveWorkoutView.
+    @AppStorage("activeWorkoutLargeMode") private var largeMode = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        // MY-1091 P0 fix: wrap Large Mode's row in `ViewThatFits(in: .horizontal)`
+        // so the wide 110/88/88 tokens render on Pro Max / landscape and the
+        // compact 88/64/68 tokens render on iPhone SE / Mini (375pt content
+        // width after 16pt list insets = 343pt). Normal mode has always fit
+        // compact widths, so it skips the ViewThatFits wrapper entirely.
+        Group {
+            if largeMode {
+                ViewThatFits(in: .horizontal) {
+                    rowContent(variant: .large)
+                    rowContent(variant: .largeCompact)
+                }
+            } else {
+                rowContent(variant: .normal)
+            }
+        }
+        .onAppear {
+            let displayW = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
+            weightText = formatWeight(displayW)
+            if let rightWeight = exerciseSet.weightRight {
+                let displayWR = weightUnit == .lb ? rightWeight * 2.20462 : rightWeight
+                weightRightText = formatWeight(displayWR)
+            }
+            repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
+        }
+    }
+
+    /// Row layout parameterized by a Large Mode `Variant`. `ViewThatFits`
+    /// picks between `.large` and `.largeCompact` based on the offered
+    /// horizontal space, so the trailing menu / completion button never
+    /// clip off-screen on compact phones.
+    @ViewBuilder
+    private func rowContent(variant: LargeWorkoutFieldWidth.Variant) -> some View {
+        // Map the Large Mode variant back to the `large: Bool` axis used by
+        // font/min-height tokens — both `.large` and `.largeCompact` still
+        // want the larger fonts and 60pt min-height; only widths shrink.
+        let isLarge = variant != .normal
+        HStack(spacing: LargeWorkoutFieldWidth.rowSpacing(variant)) {
             Text("\(index + 1)")
-                .font(.subheadline.monospacedDigit())
+                .font(LargeWorkoutFonts.setIndex(large: isLarge))
                 .foregroundStyle(.secondary)
-                .frame(width: 24, alignment: .leading)
+                .frame(width: LargeWorkoutFieldWidth.setIndexWidth(variant), alignment: .leading)
 
             if exerciseSet.isUnilateral {
                 // MY-876: unilateral order matches bilateral "weight × reps":
                 // left-weight / right-weight × reps. Reps stays at the tail so
                 // the visual/accessibility sequence is consistent across modes.
-                weightField(binding: $weightText, field: .weight, width: 56, a11yLabel: String(
-                    localized: "第 \(index + 1) 组左侧重量",
-                    comment: "Left weight input a11y label"
-                ), a11yHint: String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint"))
+                weightField(
+                    binding: $weightText,
+                    field: .weight,
+                    width: LargeWorkoutFieldWidth.unilateralWeight(variant),
+                    a11yLabel: String(
+                        localized: "第 \(index + 1) 组左侧重量",
+                        comment: "Left weight input a11y label"
+                    ),
+                    a11yHint: String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint")
+                )
 
                 Text("/")
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
 
-                weightField(binding: $weightRightText, field: .weightRight, width: 56, a11yLabel: String(
-                    localized: "第 \(index + 1) 组右侧重量",
-                    comment: "Right weight input a11y label"
-                ), a11yHint: String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint"))
+                weightField(
+                    binding: $weightRightText,
+                    field: .weightRight,
+                    width: LargeWorkoutFieldWidth.unilateralWeight(variant),
+                    a11yLabel: String(
+                        localized: "第 \(index + 1) 组右侧重量",
+                        comment: "Right weight input a11y label"
+                    ),
+                    a11yHint: String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint")
+                )
 
                 Text("×")
                     .foregroundStyle(.secondary)
 
-                repsField(width: 60)
+                repsField(width: LargeWorkoutFieldWidth.reps(variant))
             } else {
-                weightField(binding: $weightText, field: .weight, width: 70, a11yLabel: String(
-                    localized: "第 \(index + 1) 组重量",
-                    comment: "Total weight input a11y label"
-                ), a11yHint: String(localized: "输入重量数值", comment: "Total weight input a11y hint"))
+                weightField(
+                    binding: $weightText,
+                    field: .weight,
+                    width: LargeWorkoutFieldWidth.bilateralWeight(variant),
+                    a11yLabel: String(
+                        localized: "第 \(index + 1) 组重量",
+                        comment: "Total weight input a11y label"
+                    ),
+                    a11yHint: String(localized: "输入重量数值", comment: "Total weight input a11y hint")
+                )
 
                 Text("×")
                     .foregroundStyle(.secondary)
 
-                repsField(width: 60)
+                repsField(width: LargeWorkoutFieldWidth.reps(variant))
             }
 
             Menu {
@@ -120,18 +179,19 @@ struct SetRow: View {
 
             completionButton
         }
-        .onAppear {
-            let displayW = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
-            weightText = formatWeight(displayW)
-            if let rightWeight = exerciseSet.weightRight {
-                let displayWR = weightUnit == .lb ? rightWeight * 2.20462 : rightWeight
-                weightRightText = formatWeight(displayWR)
-            }
-            repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
-        }
     }
 
     // MARK: - Field builders (routes through the custom keyboard on iOS)
+
+    /// MY-1091: Large Mode weight/reps input font. Text-style-driven so it
+    /// stacks with Dynamic Type (see LargeWorkoutMode.swift). Falls back to
+    /// `.body` — the SelectAllTextField default — outside Large Mode so the
+    /// row keeps its pre-MY-1091 visual density.
+    #if canImport(UIKit) && !os(macOS)
+    private var inputUIFont: UIFont {
+        LargeWorkoutInputFont.weightReps(large: largeMode)
+    }
+    #endif
 
     @ViewBuilder
     private func weightField(
@@ -146,6 +206,7 @@ struct SetRow: View {
             placeholder: weightUnit.rawValue,
             text: binding,
             keyboardType: .decimalPad,
+            font: inputUIFont,
             useCustomKeyboard: true,
             field: field,
             exercise: exercise,
@@ -155,6 +216,7 @@ struct SetRow: View {
             onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
         )
         .frame(width: width)
+        .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
@@ -173,6 +235,7 @@ struct SetRow: View {
             keyboardType: .decimalPad
         )
         .frame(width: width)
+        .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
@@ -194,6 +257,7 @@ struct SetRow: View {
             placeholder: "次数",
             text: $repsText,
             keyboardType: .numberPad,
+            font: inputUIFont,
             useCustomKeyboard: true,
             field: .reps,
             exercise: exercise,
@@ -203,6 +267,7 @@ struct SetRow: View {
             onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
         )
         .frame(width: width)
+        .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .accessibilityLabel("第 \(index + 1) 组次数")
         .accessibilityHint("输入次数")
         .onChange(of: repsText) { _, newValue in
@@ -217,6 +282,7 @@ struct SetRow: View {
             keyboardType: .numberPad
         )
         .frame(width: width)
+        .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .accessibilityLabel("第 \(index + 1) 组次数")
         .accessibilityHint("输入次数")
         .onChange(of: repsText) { _, newValue in
@@ -349,4 +415,104 @@ struct SetRow: View {
             ? (value == 0 ? "" : String(Int(value)))
             : String(format: "%.1f", value)
     }
+}
+
+// MARK: - Previews (MY-1091 row visual verification)
+//
+// Reviewer P0 for MY-1091 requires visual verification of normal vs. large
+// row layout at COMPACT phone width (iPhone SE / Mini, 375pt), plus the
+// unilateral overflow risk the AC calls out. These previews render `SetRow`
+// through the real production code path — wrapping it in a `List` reproduces
+// the row insets + section container, and seeding `activeWorkoutLargeMode`
+// via `@AppStorage` before the wrapper initializes drives the same
+// `ViewThatFits(in: .horizontal)` substitution production uses. The compact
+// previews constrain the outer frame to 375pt so the ViewThatFits fallback
+// path (`.largeCompact` widths) is exercised rather than the wide 110/88/88
+// tokens that only fit landscape / Pro Max.
+
+private struct SetRowPreviewWrapper: View {
+    let unilateral: Bool
+    let largeMode: Bool
+    /// When non-nil, constrains the outer frame width so ViewThatFits
+    /// substitutes the `.largeCompact` variant. `nil` lets the row expand
+    /// to the preview canvas width (used by the "wide" previews below).
+    let constrainedWidth: CGFloat?
+
+    init(unilateral: Bool, largeMode: Bool, constrainedWidth: CGFloat? = nil) {
+        self.unilateral = unilateral
+        self.largeMode = largeMode
+        self.constrainedWidth = constrainedWidth
+        UserDefaults.standard.set(largeMode, forKey: "activeWorkoutLargeMode")
+    }
+
+    var body: some View {
+        let exercise = Exercise(
+            nameEn: "Bench Press",
+            nameZh: "卧推",
+            muscleGroup: .chest,
+            equipment: .barbell
+        )
+        // Three-digit weight + a two-digit reps value stress the input widths
+        // enough to expose overflow (unilateral) and truncation (bilateral).
+        let sampleSet = ExerciseSet(
+            order: 0,
+            weight: 102.5,
+            reps: 12,
+            setType: .working,
+            isUnilateral: unilateral,
+            weightRight: unilateral ? 100 : nil
+        )
+        let list = List {
+            Section {
+                SetRow(
+                    index: 0,
+                    exerciseSet: sampleSet,
+                    weightUnit: .kg,
+                    canDelete: true,
+                    exercise: exercise,
+                    recentWeightKg: 100,
+                    onToggleCompleted: { _ in },
+                    onDelete: {},
+                    onAddSubSet: { _ in },
+                    onCopyToNext: {}
+                )
+                .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
+            } header: {
+                Text(exercise.localizedName)
+                    .font(LargeWorkoutFonts.exerciseName(large: largeMode))
+            }
+        }
+        .listStyle(.plain)
+        .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+
+        return Group {
+            if let constrainedWidth {
+                list.frame(width: constrainedWidth)
+            } else {
+                list
+            }
+        }
+    }
+}
+
+// Compact (iPhone SE / Mini, 375pt) — exercises the ViewThatFits fallback.
+#Preview("Row - Compact Normal") {
+    SetRowPreviewWrapper(unilateral: false, largeMode: false, constrainedWidth: 375)
+}
+
+#Preview("Row - Compact Large Bilateral") {
+    SetRowPreviewWrapper(unilateral: false, largeMode: true, constrainedWidth: 375)
+}
+
+#Preview("Row - Compact Large Unilateral (overflow guard)") {
+    SetRowPreviewWrapper(unilateral: true, largeMode: true, constrainedWidth: 375)
+}
+
+// Wide (Pro Max / landscape) — exercises the primary wide ViewThatFits path.
+#Preview("Row - Wide Large Bilateral") {
+    SetRowPreviewWrapper(unilateral: false, largeMode: true)
+}
+
+#Preview("Row - Wide Large Unilateral") {
+    SetRowPreviewWrapper(unilateral: true, largeMode: true)
 }
