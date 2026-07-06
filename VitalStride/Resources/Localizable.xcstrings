@@ -3407,6 +3407,24 @@
           }
         }
       }
+    },
+    "onboarding_next_button" : {
+      "comment" : "Onboarding next-page primary CTA",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下一步"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

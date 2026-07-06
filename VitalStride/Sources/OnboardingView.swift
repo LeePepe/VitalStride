@@ -66,6 +66,7 @@ struct OnboardingView: View {
 
             Spacer()
 
+            nextPageButton
             swipeHint
         }
         .padding(.horizontal, 32)
@@ -99,6 +100,7 @@ struct OnboardingView: View {
 
             Spacer()
 
+            nextPageButton
             swipeHint
         }
         .padding(.horizontal, 32)
@@ -165,6 +167,18 @@ struct OnboardingView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var nextPageButton: some View {
+        Button {
+            withAnimation { currentPage += 1 }
+        } label: {
+            Text(String(localized: "onboarding_next_button"))
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+        }
+        .buttonStyle(.borderedProminent)
     }
 
     private var swipeHint: some View {
