@@ -252,3 +252,39 @@ private struct RecommendationCard: View {
         onManualSelect: {}
     )
 }
+
+#Preview("Empty Results") {
+    ExerciseSubstituteSheet(
+        state: .results([]),
+        onSelect: { _ in },
+        onManualSelect: {}
+    )
+}
+
+#Preview("Results — Dark") {
+    ExerciseSubstituteSheet(
+        state: .results([
+            ExerciseSubstituteSheet.Recommendation(
+                id: "seated-cable-row",
+                name: "坐姿绳索划船",
+                muscleGroup: "背",
+                reason: "同为背阔肌水平拉主导，轨迹稳定。"
+            ),
+            ExerciseSubstituteSheet.Recommendation(
+                id: "one-arm-dumbbell-row",
+                name: "单臂哑铃划船",
+                muscleGroup: "背",
+                reason: "单侧发力，纠正左右不平衡。"
+            ),
+            ExerciseSubstituteSheet.Recommendation(
+                id: "chest-supported-row",
+                name: "俯身支撑划船",
+                muscleGroup: "背",
+                reason: "去除腰椎代偿，可加大离心。"
+            ),
+        ]),
+        onSelect: { _ in },
+        onManualSelect: {}
+    )
+    .preferredColorScheme(.dark)
+}
