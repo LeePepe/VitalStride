@@ -152,6 +152,14 @@ struct WorkoutDetailView: View {
                     .accessibilityLabel(
                         Text(String(localized: "最高心率 \(stats.maxHeartRate) 次每分钟", comment: "Max heart rate a11y"))
                     )
+                    if let hrr = stats.heartRateRecovery1Min {
+                        LabeledContent(String(localized: "workout_detail_hrr_1min", defaultValue: "1-min HRR", comment: "1-minute heart rate recovery (HRR) label in workout summary")) {
+                            Text(String(localized: "\(hrr) bpm", comment: "Heart rate value with unit, e.g. 24 bpm"))
+                        }
+                        .accessibilityLabel(
+                            Text(String(localized: "workout_detail_hrr_1min_a11y", defaultValue: "1-minute heart rate recovery \(hrr) beats per minute", comment: "1-minute heart rate recovery a11y"))
+                        )
+                    }
                     if let zones = stats.zoneDistribution, !zones.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             HeartRateZoneStackedBar(zones: zones)
