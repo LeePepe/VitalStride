@@ -156,6 +156,16 @@ struct WorkoutDetailView: View {
                                         .font(.footnote.bold())
                                 }
                             }
+                            if let oneRepMax = workoutExercise.bestEstimatedOneRepMax {
+                                HStack {
+                                    Text(String(localized: "workout_detail_estimated_1rm", defaultValue: "Estimated 1RM", comment: "Per-exercise estimated one-rep max label"))
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("\(displayWeight(oneRepMax), specifier: "%.1f") \(weightUnit.rawValue)")
+                                        .font(.footnote.bold())
+                                }
+                            }
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(exerciseSubtotalA11yLabel(workoutExercise))
@@ -207,6 +217,10 @@ struct WorkoutDetailView: View {
         parts.append(String(localized: "总次数", comment: "Per-exercise total reps a11y") + " \(exercise.totalRepsCount) " + String(localized: "次", comment: "Reps unit a11y"))
         if exercise.workingVolume > 0 {
             parts.append(String(localized: "总训练量", comment: "Per-exercise total volume a11y") + " \(Int(displayWeight(exercise.workingVolume))) \(weightUnit.a11yName)")
+        }
+        if let oneRepMax = exercise.bestEstimatedOneRepMax {
+            let value = String(format: "%.1f", displayWeight(oneRepMax))
+            parts.append(String(localized: "workout_detail_estimated_1rm", defaultValue: "Estimated 1RM", comment: "Per-exercise estimated one-rep max a11y") + " \(value) \(weightUnit.a11yName)")
         }
         return parts.joined(separator: "，")
     }
