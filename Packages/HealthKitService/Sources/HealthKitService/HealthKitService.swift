@@ -738,15 +738,15 @@ public final class HealthKitService: Sendable {
     // MARK: - Workout Session
 
     public func makeWorkoutSessionManager() -> any WorkoutSessionManaging {
-        #if os(macOS)
-        return NoopWorkoutSessionManager()
-        #else
+        #if os(watchOS)
         guard let realStore = healthStore as? HKHealthStore else {
             return NoopWorkoutSessionManager()
         }
-        if #available(iOS 26.0, watchOS 5.0, *) {
+        if #available(watchOS 5.0, *) {
             return WorkoutSessionManager(healthStore: realStore)
         }
+        return NoopWorkoutSessionManager()
+        #else
         return NoopWorkoutSessionManager()
         #endif
     }
