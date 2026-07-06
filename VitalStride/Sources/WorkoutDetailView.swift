@@ -15,6 +15,10 @@ struct WorkoutDetailView: View {
     @State private var showingDeleteAlert = false
     @State private var showingDeleteError = false
     @State private var deletionController = WorkoutDeletionController()
+    @State private var showingSaveTemplateAlert = false
+    @State private var templateNameInput = ""
+    @State private var showingSaveTemplateError = false
+    @State private var showingSaveTemplateSuccess = false
     @State private var heartRateStats: WorkoutHeartRateStats?
 
     private var isDeleting: Bool { deletionController.isDeleting }
@@ -26,7 +30,10 @@ struct WorkoutDetailView: View {
     var body: some View {
         content
             .navigationTitle("训练详情")
-            .toolbar { deleteToolbarItem }
+            .toolbar {
+                saveTemplateToolbarItem
+                deleteToolbarItem
+            }
             .alert(
                 String(localized: "确认删除", comment: "Delete confirmation alert title"),
                 isPresented: $showingDeleteAlert
@@ -45,6 +52,38 @@ struct WorkoutDetailView: View {
                 Button(String(localized: "好", comment: "OK button")) {}
             } message: {
                 Text(String(localized: "无法删除训练记录，请稍后重试。", comment: "Delete failure message"))
+            }
+            .alert(
+                String(localized: "workout_template_name_prompt", defaultValue: "Template Name", comment: "Prompt title asking for the template name when saving a workout as a template"),
+                isPresented: $showingSaveTemplateAlert
+            ) {
+                TextField(
+                    String(localized: "workout_template_name_placeholder", defaultValue: "Template name", comment: "Placeholder text in the template name text field"),
+                    text: $templateNameInput
+                )
+                Button(String(localized: "common_cancel", defaultValue: "Cancel", comment: "Cancel button on the save-as-template alert"), role: .cancel) {}
+                Button(String(localized: "workout_template_save_confirm", defaultValue: "Save", comment: "Confirm button on the save-as-template alert")) {
+                    saveAsTemplate()
+                }
+                .disabled(templateNameInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } message: {
+                Text(String(localized: "workout_template_name_message", defaultValue: "Give this template a name so you can reuse it later.", comment: "Body message on the save-as-template alert"))
+            }
+            .alert(
+                String(localized: "workout_template_save_failed_title", defaultValue: "Save Failed", comment: "Alert title when saving a workout as a template fails"),
+                isPresented: $showingSaveTemplateError
+            ) {
+                Button(String(localized: "common_ok", defaultValue: "OK", comment: "OK button on the save-as-template failure alert")) {}
+            } message: {
+                Text(String(localized: "workout_template_save_failed_message", defaultValue: "Unable to save this workout as a template. Please try again.", comment: "Body of the alert shown when saving a template fails"))
+            }
+            .alert(
+                String(localized: "workout_template_saved_title", defaultValue: "Template Saved", comment: "Alert title after a workout was successfully saved as a template"),
+                isPresented: $showingSaveTemplateSuccess
+            ) {
+                Button(String(localized: "common_ok", defaultValue: "OK", comment: "OK button on the save-as-template success alert")) {}
+            } message: {
+                Text(String(localized: "workout_template_saved_message", defaultValue: "You can start a new workout from this template on the Start Workout screen.", comment: "Body of the alert shown after saving a template"))
             }
             .task {
                 await loadHeartRateStats()
@@ -232,6 +271,22 @@ struct WorkoutDetailView: View {
         }
     }
 
+    private var saveTemplateToolbarItem: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                templateNameInput = WorkoutTemplateBuilder.defaultTemplateName(from: workout)
+                showingSaveTemplateAlert = true
+            } label: {
+                Label(
+                    String(localized: "workout_save_as_template", defaultValue: "Save as Template", comment: "Workout detail toolbar button that saves the current workout as a reusable template"),
+                    systemImage: "square.and.arrow.down.on.square"
+                )
+            }
+            .disabled(isDeleting)
+            .accessibilityLabel(String(localized: "workout_save_as_template", defaultValue: "Save as Template", comment: "Workout detail toolbar button a11y for saving current workout as a template"))
+        }
+    }
+
     @ViewBuilder
     private func oneRepMaxSection(for workoutExercise: WorkoutExercise) -> some View {
         if let oneRepMax = workoutExercise.bestEstimatedOneRepMax {
@@ -302,6 +357,19 @@ struct WorkoutDetailView: View {
             onFinished: { dismiss() },
             onError: { _ in showingDeleteError = true }
         )
+    }
+
+    private func saveAsTemplate() {
+        let name = templateNameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        do {
+            _ = try WorkoutTemplateBuilder.saveAsTemplate(from: workout, name: name, context: modelContext)
+            showingSaveTemplateSuccess = true
+        } catch {
+            logger.error("Failed to save workout as template: \(error.localizedDescription, privacy: .private)")
+            modelContext.rollback()
+            showingSaveTemplateError = true
+        }
     }
 }
 
