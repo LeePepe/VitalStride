@@ -48,6 +48,7 @@ struct ActiveExerciseSection: View {
                         canDelete: sortedSets.count > 1,
                         exercise: workoutExercise.exercise,
                         recentWeightKg: recentWeightKg(before: index),
+                        previousSet: previousMainSet(forMainIndex: mainSetNumber(upTo: index)),
                         onToggleCompleted: { wasCompleted in
                             if !wasCompleted { onSetCompleted() }
                         },
@@ -149,6 +150,19 @@ struct ActiveExerciseSection: View {
             if !sets[i].setType.isSubSet { lastMainNumber += 1 }
         }
         return lastMainNumber
+    }
+
+    /// MY-1169 (spec 004 T006): resolves the same-index main set from the most
+    /// recent completed workout so `SetRow` can render the "上次 …" hint. Returns
+    /// nil when the workout link, the exercise, or the prior history is missing.
+    private func previousMainSet(forMainIndex mainSetIndex: Int) -> ExerciseSet? {
+        guard let workout = workoutExercise.workout else { return nil }
+        return PreviousSetLookup.previousMainSet(
+            currentWorkout: workout,
+            exercise: workoutExercise.exercise,
+            mainSetIndex: mainSetIndex,
+            in: modelContext
+        )
     }
 
     private func isLastSubSet(at index: Int) -> Bool {
