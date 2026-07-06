@@ -1,6 +1,4 @@
 import Foundation
-import HealthKit
-import HealthKitService
 import SwiftData
 import SwiftUI
 import Testing
@@ -338,7 +336,7 @@ struct WorkoutDeletionViewRegressionTests {
                 workoutToDelete: state.workoutToDeleteBinding,
                 showingDeleteError: state.showingDeleteErrorBinding,
                 in: context,
-                healthKitService: makePreviewHealthKitService(),
+                healthKitDelete: noopHealthKitDelete,
                 controller: controller
             )
 
@@ -381,7 +379,7 @@ struct WorkoutDeletionViewRegressionTests {
                 workoutToDelete: state.workoutToDeleteBinding,
                 showingDeleteError: state.showingDeleteErrorBinding,
                 in: context,
-                healthKitService: makePreviewHealthKitService(),
+                healthKitDelete: noopHealthKitDelete,
                 controller: controller
             )
             await task.value
@@ -403,14 +401,13 @@ struct WorkoutDeletionViewRegressionTests {
 
             let controller = WorkoutDeletionController()
             let state = SwipeState(workoutToDelete: first)
-            let hkService = makePreviewHealthKitService()
 
             let taskA = WorkoutListView.performSwipeDelete(
                 workout: first,
                 workoutToDelete: state.workoutToDeleteBinding,
                 showingDeleteError: state.showingDeleteErrorBinding,
                 in: context,
-                healthKitService: hkService,
+                healthKitDelete: noopHealthKitDelete,
                 controller: controller
             )
             await taskA.value
@@ -424,7 +421,7 @@ struct WorkoutDeletionViewRegressionTests {
                 workoutToDelete: state.workoutToDeleteBinding,
                 showingDeleteError: state.showingDeleteErrorBinding,
                 in: context,
-                healthKitService: hkService,
+                healthKitDelete: noopHealthKitDelete,
                 controller: controller
             )
             await taskB.value
@@ -470,38 +467,13 @@ private enum SimulatedDeleteError: Error {
     case saveFailed
 }
 
-/// Minimal stub for tests. `deleteWorkout` throws so if a test accidentally
-/// exercises the HealthKit branch (which would require a live simulator with
-/// entitlements) it fails loudly instead of silently succeeding.
-/// Test workouts here all have `healthKitUUID == nil`, so this is never
-/// invoked on the happy paths.
-private final class _TestHealthStore: HealthStoreProviding, @unchecked Sendable {
-    static let isHealthDataAvailable = false
-
-    func requestAuthorization(toShare: Set<HKSampleType>, read: Set<HKObjectType>) async throws {
-        throw HealthKitServiceError.healthDataNotAvailable
-    }
-    func statusForAuthorizationRequest(toShare: Set<HKSampleType>, read: Set<HKObjectType>) async throws -> HKAuthorizationRequestStatus {
-        throw HealthKitServiceError.healthDataNotAvailable
-    }
-    func executeAnchoredQuery(type: HKSampleType, predicate: NSPredicate?, anchor: HKQueryAnchor?, limit: Int) async throws -> AnchoredQueryResult {
-        throw HealthKitServiceError.healthDataNotAvailable
-    }
-    func executeObserverAnchoredQuery(type: HKSampleType, predicate: NSPredicate?, anchor: HKQueryAnchor?, limit: Int) -> AsyncStream<AnchoredQueryResult> {
-        AsyncStream { $0.finish() }
-    }
-    func stopQuery(_ query: HKQuery) {}
-    func executeSampleQuery(type: HKSampleType, predicate: NSPredicate?, limit: Int) async throws -> [HKSample] {
-        throw HealthKitServiceError.healthDataNotAvailable
-    }
-    func delete(_ objects: [HKObject]) async throws {
-        throw HealthKitServiceError.healthDataNotAvailable
-    }
-}
-
-@MainActor
-private func makePreviewHealthKitService() -> HealthKitService {
-    HealthKitService(healthStore: _TestHealthStore(), deviceIdentifier: "test")
+/// Test-only sink for the `healthKitDelete` closure the swipe helper takes.
+/// The test workouts here all have `healthKitUUID == nil`, so `WorkoutDeleter`
+/// never actually invokes this — it exists so we don't have to construct a
+/// live `HealthKitService`.
+@Sendable
+private func noopHealthKitDelete(_ uuid: String) async throws {
+    Issue.record("healthKitDelete unexpectedly invoked with uuid=\(uuid)")
 }
 
 private actor AsyncGate {

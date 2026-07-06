@@ -286,6 +286,7 @@ struct WorkoutListView: View {
     }
 
     private func deleteWorkout(_ workout: Workout) {
+        let hkService = healthKitService
         WorkoutListView.performSwipeDelete(
             workout: workout,
             workoutToDelete: Binding(
@@ -297,7 +298,9 @@ struct WorkoutListView: View {
                 set: { showingDeleteError = $0 }
             ),
             in: modelContext,
-            healthKitService: healthKitService,
+            healthKitDelete: { uuid in
+                try await hkService.deleteWorkout(healthKitUUID: uuid)
+            },
             controller: deletionController
         )
     }
@@ -312,6 +315,10 @@ struct WorkoutListView: View {
     ///   controller stays gated; the list view stays mounted so we `reset()`
     ///   it once the deleted row is gone. On error we set `showingDeleteError`.
     ///
+    /// `healthKitDelete` is passed as a `@Sendable` closure so tests can
+    /// exercise this helper without constructing a live `HealthKitService`
+    /// (the view binds it to `hkService.deleteWorkout(healthKitUUID:)`).
+    ///
     /// Returns the delete `Task` for tests to await; production callers ignore.
     @discardableResult
     static func performSwipeDelete(
@@ -319,7 +326,7 @@ struct WorkoutListView: View {
         workoutToDelete: Binding<Workout?>,
         showingDeleteError: Binding<Bool>,
         in modelContext: ModelContext,
-        healthKitService: HealthKitService,
+        healthKitDelete: @Sendable @escaping (String) async throws -> Void,
         controller: WorkoutDeletionController
     ) -> Task<Void, Never> {
         // Clear the deletion target immediately so the confirmation alert's
@@ -329,9 +336,7 @@ struct WorkoutListView: View {
         return controller.beginDelete(
             workout: workout,
             in: modelContext,
-            healthKitDelete: { uuid in
-                try await healthKitService.deleteWorkout(healthKitUUID: uuid)
-            },
+            healthKitDelete: healthKitDelete,
             onFinished: {
                 // List view stays mounted across deletes, so release the
                 // controller's terminal-success gate for the next swipe.
