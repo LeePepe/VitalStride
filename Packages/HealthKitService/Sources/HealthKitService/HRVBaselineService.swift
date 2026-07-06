@@ -135,7 +135,7 @@ public actor HRVBaselineService {
         if percentDeviation > -20.0 {
             return .mildLow
         }
-        if percentDeviation > -30.0 {
+        if percentDeviation >= -30.0 {
             return .significantLow
         }
         return .critical
