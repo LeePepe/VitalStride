@@ -18,7 +18,7 @@ struct OverviewTests {
     @Test("computeTodaySummary with today's workouts")
     func todaySummaryWithWorkouts() throws {
         let context = ModelContext(container)
-        let now = Date()
+        let now = todayAnchor()
         let w1 = Workout(
             type: .strength,
             startDate: now.addingTimeInterval(-3600),
@@ -44,7 +44,7 @@ struct OverviewTests {
     @Test("computeTodaySummary excludes workouts without endDate")
     func todaySummaryExcludesIncomplete() throws {
         let context = ModelContext(container)
-        let now = Date()
+        let now = todayAnchor()
         let complete = Workout(
             type: .strength,
             startDate: now.addingTimeInterval(-1800),
@@ -187,4 +187,13 @@ struct OverviewTests {
         #expect(data.totalMinutes == 45)
         #expect(data.id == date)
     }
+}
+
+/// Returns a stable "now" anchored inside today so subtracting a few hours
+/// stays within today's date window. Fixes flake when tests run shortly
+/// after midnight — see MY-1159.
+private func todayAnchor(calendar: Calendar = .current) -> Date {
+    let now = Date()
+    let noonToday = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: now) ?? now
+    return max(now, noonToday)
 }
