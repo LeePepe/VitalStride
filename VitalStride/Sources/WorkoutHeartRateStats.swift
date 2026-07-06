@@ -81,4 +81,33 @@ struct WorkoutHeartRateStats: Sendable, Equatable {
             )
         }
     }
+
+    static let postWorkoutHRRWindowLowerSeconds: TimeInterval = 45
+    static let postWorkoutHRRWindowUpperSeconds: TimeInterval = 90
+    static let postWorkoutHRRTargetOffsetSeconds: TimeInterval = 60
+
+    static func computeHeartRateRecovery1Min(
+        workoutSamples: [HealthDataPoint],
+        postWorkoutSamples: [HealthDataPoint],
+        workoutEndDate: Date
+    ) -> Int? {
+        guard let lastInWorkout = workoutSamples.max(by: { $0.startDate < $1.startDate }) else {
+            return nil
+        }
+
+        let windowStart = workoutEndDate.addingTimeInterval(postWorkoutHRRWindowLowerSeconds)
+        let windowEnd = workoutEndDate.addingTimeInterval(postWorkoutHRRWindowUpperSeconds)
+        let target = workoutEndDate.addingTimeInterval(postWorkoutHRRTargetOffsetSeconds)
+
+        let candidates = postWorkoutSamples.filter { sample in
+            sample.startDate >= windowStart && sample.startDate <= windowEnd
+        }
+        guard let closest = candidates.min(by: { lhs, rhs in
+            abs(lhs.startDate.timeIntervalSince(target)) < abs(rhs.startDate.timeIntervalSince(target))
+        }) else {
+            return nil
+        }
+
+        return Int((lastInWorkout.value - closest.value).rounded())
+    }
 }
