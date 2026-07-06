@@ -84,7 +84,7 @@ struct HealthSnapshotStateTests {
     func loadWithSteps() async {
         let mock = MockHealthStore()
         mock.authorizationRequestStatus = .unnecessary
-        let now = Date()
+        let now = todayAnchor()
         let sample = HKQuantitySample(
             type: HKQuantityType(.stepCount),
             quantity: HKQuantity(unit: .count(), doubleValue: 5000),
@@ -115,7 +115,7 @@ struct HealthSnapshotStateTests {
     func loadWithHeartRate() async {
         let mock = MockHealthStore()
         mock.authorizationRequestStatus = .unnecessary
-        let now = Date()
+        let now = todayAnchor()
         let sample = HKQuantitySample(
             type: HKQuantityType(.heartRate),
             quantity: HKQuantity(unit: HKUnit.count().unitDivided(by: .minute()), doubleValue: 72),
@@ -171,7 +171,7 @@ struct HealthSnapshotStateTests {
     func loadAllMetrics() async {
         let mock = MockHealthStore()
         mock.authorizationRequestStatus = .unnecessary
-        let now = Date()
+        let now = todayAnchor()
 
         let stepSample = HKQuantitySample(
             type: HKQuantityType(.stepCount),
@@ -239,7 +239,7 @@ struct HealthSnapshotStateTests {
     func forceRefreshBypassesCache() async {
         let mock = MockHealthStore()
         mock.authorizationRequestStatus = .unnecessary
-        let now = Date()
+        let now = todayAnchor()
 
         let staleSample = HKQuantitySample(
             type: HKQuantityType(.stepCount),
@@ -545,6 +545,17 @@ struct OverviewEmptyStateTests {
 }
 
 // MARK: - Test Helpers
+
+/// Returns a stable "now" anchored inside today so that subtracting a few hours
+/// stays within today's date window. Fixes flake when the test runs shortly
+/// after midnight — see MY-1159. Uses max(actual now, today noon) so tests
+/// still exercise realistic timelines during the day but never spill into
+/// yesterday when the wall clock is early.
+private func todayAnchor(calendar: Calendar = .current) -> Date {
+    let now = Date()
+    let noonToday = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: now) ?? now
+    return max(now, noonToday)
+}
 
 private func setupEmptyResults(for mock: MockHealthStore, except excludedType: HealthSampleType) {
     for sampleType in HealthSampleType.allCases where sampleType != excludedType {
