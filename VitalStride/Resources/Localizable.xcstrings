@@ -3443,6 +3443,186 @@
           }
         }
       }
+    },
+    "workout_save_as_template" : {
+      "comment" : "Workout detail toolbar button that saves the current workout as a reusable template + a11y",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save as Template"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存为模板"
+          }
+        }
+      }
+    },
+    "workout_template_default_name_suffix" : {
+      "comment" : "Suffix appended to the workout date to form the default template name, e.g. '2026-06-24 训练'",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workout"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "训练"
+          }
+        }
+      }
+    },
+    "workout_template_name_message" : {
+      "comment" : "Body message on the save-as-template alert",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Give this template a name so you can reuse it later."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为这个模板起个名字，下次训练可直接套用。"
+          }
+        }
+      }
+    },
+    "workout_template_name_placeholder" : {
+      "comment" : "Placeholder text in the template name text field",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Template name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模板名称"
+          }
+        }
+      }
+    },
+    "workout_template_name_prompt" : {
+      "comment" : "Prompt title asking for the template name when saving a workout as a template",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Template Name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模板名称"
+          }
+        }
+      }
+    },
+    "workout_template_save_confirm" : {
+      "comment" : "Confirm button on the save-as-template alert",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存"
+          }
+        }
+      }
+    },
+    "workout_template_save_failed_message" : {
+      "comment" : "Body of the alert shown when saving a template fails",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to save this workout as a template. Please try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存为模板，请稍后重试。"
+          }
+        }
+      }
+    },
+    "workout_template_save_failed_title" : {
+      "comment" : "Alert title when saving a workout as a template fails",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存失败"
+          }
+        }
+      }
+    },
+    "workout_template_saved_message" : {
+      "comment" : "Body of the alert shown after saving a template",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can start a new workout from this template on the Start Workout screen."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下次在“开始训练”页可直接从此模板开始。"
+          }
+        }
+      }
+    },
+    "workout_template_saved_title" : {
+      "comment" : "Alert title after a workout was successfully saved as a template",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Template Saved"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模板已保存"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
