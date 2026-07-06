@@ -27,6 +27,7 @@ struct AIPromptContext: Sendable {
         let weight: Double
         let reps: Int
         let setType: String
+        let rpe: Int?
     }
 
     struct HealthSnapshot: Sendable {
@@ -92,7 +93,13 @@ enum AIPromptBuilder {
                 for exercise in workout.exercises {
                     let workingSets = exercise.sets.filter { $0.setType == "working" }
                     guard !workingSets.isEmpty else { continue }
-                    let setDescriptions = workingSets.map { "\($0.weight)kg×\($0.reps)" }
+                    let setDescriptions = workingSets.map { set -> String in
+                        var description = "\(set.weight)kg×\(set.reps)"
+                        if let rpe = set.rpe {
+                            description += " @ RPE\(rpe)"
+                        }
+                        return description
+                    }
                     dataSummary += "  - \(exercise.name)（\(exercise.muscleGroup)）：\(setDescriptions.joined(separator: ", "))\n"
                 }
 
@@ -264,7 +271,8 @@ enum AIPromptBuilder {
                                 AIPromptContext.SetSnapshot(
                                     weight: set.weight,
                                     reps: set.reps,
-                                    setType: set.setType.rawValue
+                                    setType: set.setType.rawValue,
+                                    rpe: set.rpe
                                 )
                             }
                         )
