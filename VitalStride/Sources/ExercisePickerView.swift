@@ -26,8 +26,12 @@ struct ExercisePickerView: View {
         case multiple(onConfirm: ([Exercise]) -> Void)
     }
 
-    init(onSelect: @escaping (Exercise) -> Void) {
+    init(
+        initialMuscleGroup: MuscleGroup? = nil,
+        onSelect: @escaping (Exercise) -> Void
+    ) {
         self.selectionMode = .single(onSelect: onSelect)
+        self._selectedMuscleGroup = State(initialValue: initialMuscleGroup)
     }
 
     init(onConfirm: @escaping ([Exercise]) -> Void) {

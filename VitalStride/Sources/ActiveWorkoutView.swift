@@ -22,6 +22,7 @@ struct ActiveWorkoutView: View {
     @State private var showingDiscardAlert = false
     @State private var exerciseToReplace: WorkoutExercise?
     @State private var exerciseToSubstitute: WorkoutExercise?
+    @State private var substituteManualFallback: WorkoutExercise?
     @State private var substituteSheetState: ExerciseSubstituteSheet.ViewState = .loading
     @State private var substituteLoadTask: Task<Void, Never>?
     @State private var restTimer = RestTimerController()
@@ -136,11 +137,28 @@ struct ActiveWorkoutView: View {
                         applySubstitute(recommendation, to: workoutExercise)
                     },
                     onManualSelect: {
-                        // T015 will route to ExercisePickerView with the current
-                        // muscle group preselected. This child only presents.
+                        // T015: hand off from the AI substitute sheet to the
+                        // manual `ExercisePickerView` fallback with the current
+                        // exercise's muscle group preselected. Dismiss the
+                        // AI sheet first, then present the picker on the next
+                        // runloop tick so SwiftUI can finish the dismiss
+                        // transition before starting a new presentation.
+                        let target = workoutExercise
                         exerciseToSubstitute = nil
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(450))
+                            substituteManualFallback = target
+                        }
                     }
                 )
+            }
+            .sheet(item: $substituteManualFallback) { workoutExercise in
+                ExercisePickerView(
+                    initialMuscleGroup: workoutExercise.exercise?.muscleGroup
+                ) { newExercise in
+                    workoutExercise.exercise = newExercise
+                    HapticManager.trigger(.exerciseAdded)
+                }
             }
             .alert(
                 String(localized: "完成训练？", comment: "Finish workout alert title"),
