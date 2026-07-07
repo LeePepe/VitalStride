@@ -129,12 +129,11 @@ struct ActiveWorkoutView: View {
                     workoutExercise.exercise = newExercise
                 }
             }
-            .sheet(item: $exerciseToSubstitute) { _ in
+            .sheet(item: $exerciseToSubstitute) { workoutExercise in
                 ExerciseSubstituteSheet(
                     state: substituteSheetState,
-                    onSelect: { _ in
-                        // T014 will implement selection writeback + haptic.
-                        exerciseToSubstitute = nil
+                    onSelect: { recommendation in
+                        applySubstitute(recommendation, to: workoutExercise)
                     },
                     onManualSelect: {
                         // T015 will route to ExercisePickerView with the current
@@ -570,6 +569,25 @@ struct ActiveWorkoutView: View {
             guard !Task.isCancelled else { return }
             substituteSheetState = outcome
         }
+    }
+
+    private func applySubstitute(
+        _ recommendation: ExerciseSubstituteSheet.Recommendation,
+        to workoutExercise: WorkoutExercise
+    ) {
+        substituteLoadTask?.cancel()
+        substituteLoadTask = nil
+        guard let replacement = ExerciseSeeder.findByPresetId(
+            recommendation.id,
+            context: modelContext
+        ) else {
+            logger.info("substitute apply skipped: reason=missingLocalExercise")
+            exerciseToSubstitute = nil
+            return
+        }
+        workoutExercise.exercise = replacement
+        HapticManager.trigger(.exerciseAdded)
+        exerciseToSubstitute = nil
     }
 
     private func loadSubstitutes(
