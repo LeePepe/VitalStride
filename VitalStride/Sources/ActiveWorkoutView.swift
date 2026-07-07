@@ -417,6 +417,9 @@ struct ActiveWorkoutView: View {
                         onReplace: {
                             exerciseToReplace = workoutExercise
                         },
+                        onSubstitute: {
+                            beginSubstituteFlow(for: workoutExercise)
+                        },
                         onDelete: {
                             deleteExercise(workoutExercise)
                         }
