@@ -13,7 +13,12 @@ protocol RestNotificationScheduling {
 final class RestNotificationScheduler: RestNotificationScheduling {
     static let notificationIdentifier = "rest-timer-complete"
 
-    private let center = UNUserNotificationCenter.current()
+    // UNUserNotificationCenter.current() returns a process-wide singleton that Apple documents as
+    // thread-safe. Marking the stored reference `nonisolated(unsafe)` lets async methods like
+    // `add(_:)` and `requestAuthorization(options:)` receive it across the MainActor boundary
+    // without a spurious "Sending 'self.center' risks causing data races" Swift 6 diagnostic,
+    // without weakening isolation for the rest of the type.
+    nonisolated(unsafe) private let center = UNUserNotificationCenter.current()
     private var authorizationTask: Task<Bool, Never>?
 
     func scheduleRestComplete(afterSeconds seconds: TimeInterval) async {
