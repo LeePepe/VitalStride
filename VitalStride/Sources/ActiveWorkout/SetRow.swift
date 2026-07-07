@@ -7,6 +7,7 @@
 // the previous Menu function items (pyramid / drop-set / unilateral toggle)
 // into the keyboard's left column.
 
+import SwiftData
 import SwiftUI
 import VitalModels
 import VitalUI
@@ -86,6 +87,14 @@ struct SetRow: View {
     // row re-renders when the toolbar toggles without any explicit
     // environment plumbing from ActiveWorkoutView.
     @AppStorage("activeWorkoutLargeMode") private var largeMode = false
+    // MY-1202 (spec 006-smart-progression T005): the advisor consumes the
+    // caller-collected `[ExerciseSet]` main-set sequence from the user's most
+    // recent session for the current exercise. History collection walks
+    // `PreviousSetLookup.previousMainSet(...)` (spec 004) by `mainSetIndex`
+    // until it returns nil, so the row needs a SwiftData context. Env-driven
+    // to keep the caller signature (ActiveExerciseSection) untouched — T005
+    // scope forbids editing that file.
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         // MY-1091 P0 fix: wrap Large Mode's row in `ViewThatFits(in: .horizontal)`
@@ -110,6 +119,9 @@ struct SetRow: View {
             }
             if let previousSet {
                 previousSetCaption(previousSet)
+            }
+            if let advice = smartProgressionAdvice() {
+                smartProgressionChip(advice)
             }
         }
         .onAppear {
@@ -461,6 +473,121 @@ struct SetRow: View {
             return String(Int(value))
         }
         return String(format: "%.1f", value)
+    }
+
+    // MARK: - Smart progression chip (MY-1202 / spec 006-smart-progression T005)
+
+    /// Default target rep range used to drive `SmartProgressionAdvisor` while
+    /// no user-facing preference is plumbed. `8...12` is the classic
+    /// hypertrophy window and matches the spec's illustrative example
+    /// ("上次 12/12/12/12 全达标 → 建议加重"). Plumbing a real user preference
+    /// is out of T005 scope; a future task can inject it via an @AppStorage
+    /// key without touching the advisor contract.
+    private static let defaultRepRange: ClosedRange<Int> = 8...12
+
+    /// Collects the same-exercise main-set sequence from the user's most
+    /// recent completed workout by walking 004's `PreviousSetLookup` by
+    /// `mainSetIndex` (0, 1, 2, …) until it returns nil, then hands the
+    /// sequence to `SmartProgressionAdvisor.suggest(...)`.
+    ///
+    /// Returns nil when the workout link is missing, the current row lacks a
+    /// bound exercise, or the collected sequence is empty (first workout /
+    /// no history) — matching the FR-004 edge case that the chip must not
+    /// render in that situation. Sub-sets (drop-set / pyramid) are already
+    /// filtered out by `PreviousSetLookup.previousMainSet`, so the collected
+    /// sequence is main-set only by construction.
+    private func smartProgressionAdvice() -> ProgressionAdvice? {
+        guard let workout = exerciseSet.workoutExercise?.workout else { return nil }
+        guard let boundExercise = exercise else { return nil }
+
+        var previousMainSets: [ExerciseSet] = []
+        var mainSetIndex = 0
+        while let priorSet = PreviousSetLookup.previousMainSet(
+            currentWorkout: workout,
+            exercise: boundExercise,
+            mainSetIndex: mainSetIndex,
+            in: modelContext
+        ) {
+            previousMainSets.append(priorSet)
+            mainSetIndex += 1
+        }
+
+        guard !previousMainSets.isEmpty else { return nil }
+
+        return SmartProgressionAdvisor.suggest(
+            previousMainSets: previousMainSets,
+            userPreferredRepRange: Self.defaultRepRange,
+            muscleGroup: boundExercise.muscleGroup
+        )
+    }
+
+    /// Renders the compact "建议 {重量}{单位} × {次数}" chip plus the advice
+    /// reason directly under the row inputs (and, when present, the
+    /// spec-004 "上次 …" caption).
+    ///
+    /// Tap-to-fill wiring lives in T006; telemetry lives in T008 — both are
+    /// deliberately out of scope for T005 per the assignment authorization
+    /// boundary. The chip is a read-only visual affordance here.
+    ///
+    /// The chip is styled as a rounded capsule with an
+    /// `arrow.up.right.circle` accessory to distinguish it from the tertiary
+    /// "上次" caption above it.
+    @ViewBuilder
+    private func smartProgressionChip(_ advice: ProgressionAdvice) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "sparkles")
+                .font(.caption2)
+                .foregroundStyle(.tint)
+                .accessibilityHidden(true)
+            Text(
+                String(
+                    format: String(
+                        localized: "smart_progression.chip.format",
+                        defaultValue: "Suggested %1$@ × %2$lld",
+                        comment: "SetRow smart-progression chip label. %1$@ is the formatted weight+unit (e.g. \"60kg\"), %2$lld is the reps count. Cataloged in Localizable.xcstrings by 006 T007."
+                    ),
+                    smartProgressionWeightSegment(advice.suggestedWeight),
+                    Int64(advice.suggestedReps)
+                )
+            )
+            .font(.caption)
+            .foregroundStyle(.primary)
+            Text(verbatim: "·")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text(advice.reason)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule().fill(Color.accentColor.opacity(0.12))
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            String(
+                format: String(
+                    localized: "smart_progression.chip.a11y_label",
+                    defaultValue: "Suggested %1$@ times %2$lld reps. %3$@",
+                    comment: "SetRow smart-progression chip a11y label. %1$@ formatted weight+unit, %2$lld reps, %3$@ advice reason. Cataloged in Localizable.xcstrings by 006 T007."
+                ),
+                smartProgressionWeightSegment(advice.suggestedWeight),
+                Int64(advice.suggestedReps),
+                advice.reason
+            )
+        )
+    }
+
+    /// Formats an advisor-suggested weight (canonical kg) for display in the
+    /// chip, converting to the user's `WeightUnit` preference (mirrors the
+    /// spec-004 caption path — FR-004) and re-using the caption-side
+    /// integer / one-decimal formatter for visual consistency.
+    private func smartProgressionWeightSegment(_ weightKg: Double) -> String {
+        let display = weightUnit == .lb ? weightKg * 2.20462 : weightKg
+        return "\(formatCaptionWeight(display))\(weightUnit.rawValue)"
     }
 
     // MARK: - Keyboard callbacks
