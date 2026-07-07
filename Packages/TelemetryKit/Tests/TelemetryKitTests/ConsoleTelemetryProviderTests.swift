@@ -129,6 +129,8 @@ struct TelemetryEventFormattingTests {
         #expect(TelemetryEvent.overviewCacheHit.eventName == "overview_cache_hit")
         #expect(TelemetryEvent.overviewCacheMiss.eventName == "overview_cache_miss")
         #expect(TelemetryEvent.overviewFallbackTriggered(reason: "network").eventName == "overview_fallback_triggered")
+        #expect(TelemetryEvent.suggestionAccepted(advice: "increase_weight").eventName == "suggestion_accepted")
+        #expect(TelemetryEvent.suggestionOverridden(advice: "maintain").eventName == "suggestion_overridden")
     }
 
     @Test("formatted string for parameterless events")
@@ -169,6 +171,14 @@ struct TelemetryEventFormattingTests {
         #expect(
             TelemetryEvent.aiCacheFailure(operation: "read", errorType: "decode_error").formattedString
                 == "ai_cache_failure operation=read error_type=decode_error"
+        )
+        #expect(
+            TelemetryEvent.suggestionAccepted(advice: "increase_weight").formattedString
+                == "suggestion_accepted advice=increase_weight"
+        )
+        #expect(
+            TelemetryEvent.suggestionOverridden(advice: "maintain").formattedString
+                == "suggestion_overridden advice=maintain"
         )
     }
 
@@ -266,5 +276,73 @@ struct TelemetryEventFormattingTests {
     func identifierRejectsLocalizedSampleTypes() {
         #expect(TelemetryIdentifier(validating: "心率heartRate") == nil)
         #expect(TelemetryIdentifier(validating: "heartRate") != nil)
+    }
+
+    // MARK: - Smart Progression suggestion events (spec 006 FR-006)
+    //
+    // suggestionAccepted / suggestionOverridden must expose only the `advice`
+    // metadata category — never actual weight, reps, HealthKit values, or
+    // free-form reason text (Constitution I / Quality Bar B).
+
+    @Test("suggestionAccepted parameters expose only advice key")
+    func suggestionAcceptedParametersOnlyAdvice() {
+        let params = TelemetryEvent.suggestionAccepted(advice: "increase_weight").parameters
+        #expect(params.count == 1)
+        #expect(params[0].key == "advice")
+        #expect(params[0].value == "increase_weight")
+    }
+
+    @Test("suggestionOverridden parameters expose only advice key")
+    func suggestionOverriddenParametersOnlyAdvice() {
+        let params = TelemetryEvent.suggestionOverridden(advice: "maintain").parameters
+        #expect(params.count == 1)
+        #expect(params[0].key == "advice")
+        #expect(params[0].value == "maintain")
+    }
+
+    @Test("suggestionAccepted supports canonical advice categories")
+    func suggestionAcceptedCanonicalCategories() {
+        let categories: [TelemetryIdentifier] = [
+            "increase_weight",
+            "maintain",
+            "decrease_weight",
+            "increase_reps",
+        ]
+        for advice in categories {
+            let params = TelemetryEvent.suggestionAccepted(advice: advice).parameters
+            #expect(params.count == 1)
+            #expect(params[0].key == "advice")
+            #expect(params[0].value == advice.rawValue)
+            #expect(
+                TelemetryEvent.suggestionAccepted(advice: advice).formattedString
+                    == "suggestion_accepted advice=\(advice.rawValue)"
+            )
+        }
+    }
+
+    @Test("suggestionOverridden supports canonical advice categories")
+    func suggestionOverriddenCanonicalCategories() {
+        let categories: [TelemetryIdentifier] = [
+            "increase_weight",
+            "maintain",
+            "decrease_weight",
+            "increase_reps",
+        ]
+        for advice in categories {
+            let params = TelemetryEvent.suggestionOverridden(advice: advice).parameters
+            #expect(params.count == 1)
+            #expect(params[0].key == "advice")
+            #expect(params[0].value == advice.rawValue)
+            #expect(
+                TelemetryEvent.suggestionOverridden(advice: advice).formattedString
+                    == "suggestion_overridden advice=\(advice.rawValue)"
+            )
+        }
+    }
+
+    @Test("suggestion events reject free-form reason text via validating init")
+    func suggestionRejectsFreeFormReason() {
+        #expect(TelemetryIdentifier(validating: "Add 2.5 kg next set") == nil)
+        #expect(TelemetryIdentifier(validating: "增加重量") == nil)
     }
 }
