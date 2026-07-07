@@ -82,6 +82,28 @@ struct SetRow: View {
     @State private var weightText: String = ""
     @State private var weightRightText: String = ""
     @State private var repsText: String = ""
+    // MY-1203 (spec 006-smart-progression T006): tap-to-fill + override
+    // tracking. `pendingSuggestionSnapshot` holds the exact text values the
+    // suggestion chip most recently filled in — when the row's weightText /
+    // repsText later drift away from that snapshot, we know the user manually
+    // edited the fields *after* tapping the chip. That transition flips
+    // `suggestionOverridden` so T008 telemetry can distinguish
+    // `suggestionAccepted` (tap-filled and left alone) from
+    // `suggestionOverridden` (tap-filled and then re-edited). Held as private
+    // @State so T008 can hook without changing the callsite signature. The
+    // snapshot is cleared once override is detected so subsequent edits do
+    // not re-report; tapping the chip again resets both fields to the fresh
+    // suggestion state. Values here are the display-side text (post-unit
+    // conversion), NOT the canonical kg / raw reps — no additional value
+    // logging or persistence beyond what the existing sync path already does.
+    @State private var pendingSuggestionSnapshot: SuggestionFillSnapshot?
+    @State private var suggestionOverridden: Bool = false
+
+    private struct SuggestionFillSnapshot: Equatable {
+        let weightText: String
+        let weightRightText: String
+        let repsText: String
+    }
     // MY-1091: row-level Large Mode is driven off the same persisted flag the
     // toolbar toggle writes in MY-1088. @AppStorage observes the key so the
     // row re-renders when the toolbar toggles without any explicit
@@ -324,6 +346,7 @@ struct SetRow: View {
             } else {
                 syncWeightRightToModel()
             }
+            noteSuggestionFieldEdit()
         }
         #else
         SelectAllTextField(
@@ -343,6 +366,7 @@ struct SetRow: View {
             } else {
                 syncWeightRightToModel()
             }
+            noteSuggestionFieldEdit()
         }
         #endif
     }
@@ -371,6 +395,7 @@ struct SetRow: View {
             let filtered = newValue.filter { $0.isNumber }
             if filtered != newValue { repsText = filtered }
             syncRepsToModel()
+            noteSuggestionFieldEdit()
         }
         #else
         SelectAllTextField(
@@ -386,6 +411,7 @@ struct SetRow: View {
             let filtered = newValue.filter { $0.isNumber }
             if filtered != newValue { repsText = filtered }
             syncRepsToModel()
+            noteSuggestionFieldEdit()
         }
         #endif
     }
@@ -525,15 +551,35 @@ struct SetRow: View {
     /// reason directly under the row inputs (and, when present, the
     /// spec-004 "上次 …" caption).
     ///
-    /// Tap-to-fill wiring lives in T006; telemetry lives in T008 — both are
-    /// deliberately out of scope for T005 per the assignment authorization
-    /// boundary. The chip is a read-only visual affordance here.
+    /// MY-1203 (spec 006-smart-progression T006): the chip is a Button that
+    /// fills the row's weight/reps inputs from `advice`. A follow-up manual
+    /// edit to either field flips `suggestionOverridden` (see
+    /// `pendingSuggestionSnapshot` on the row) so T008 can distinguish
+    /// accepted vs overridden suggestions from telemetry. Telemetry event
+    /// wiring itself is T008 scope and intentionally not emitted here.
     ///
-    /// The chip is styled as a rounded capsule with an
-    /// `arrow.up.right.circle` accessory to distinguish it from the tertiary
-    /// "上次" caption above it.
+    /// The chip is styled as a rounded capsule with a `sparkles` accessory
+    /// to distinguish it from the tertiary "上次" caption above it.
     @ViewBuilder
     private func smartProgressionChip(_ advice: ProgressionAdvice) -> some View {
+        Button {
+            fillFromSuggestion(advice)
+        } label: {
+            smartProgressionChipLabel(advice)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(
+            String(
+                localized: "active_workout.smart_progression.chip_a11y_hint",
+                defaultValue: "Double-tap to fill weight and reps with the suggestion.",
+                comment: "SetRow smart-progression chip VoiceOver hint. Communicates the tap-to-fill affordance (T006) so screen-reader users know activating the chip populates weight and reps. The primary spoken label — suggested weight, reps, and reason — is composed automatically by .accessibilityElement(children: .combine) from the visible Text children. Cataloged in Localizable.xcstrings by 006 T007."
+            )
+        )
+    }
+
+    @ViewBuilder
+    private func smartProgressionChipLabel(_ advice: ProgressionAdvice) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "sparkles")
                 .font(.caption2)
@@ -566,14 +612,59 @@ struct SetRow: View {
         .background(
             Capsule().fill(Color.accentColor.opacity(0.12))
         )
-        .accessibilityElement(children: .combine)
-        .accessibilityHint(
-            String(
-                localized: "active_workout.smart_progression.chip_a11y_hint",
-                defaultValue: "Double-tap to fill weight and reps with the suggestion.",
-                comment: "SetRow smart-progression chip VoiceOver hint. Communicates the tap-to-fill affordance (T006) so screen-reader users know activating the chip populates weight and reps. The primary spoken label — suggested weight, reps, and reason — is composed automatically by .accessibilityElement(children: .combine) from the visible Text children. Cataloged in Localizable.xcstrings by 006 T007."
-            )
+        .contentShape(Capsule())
+    }
+
+    /// MY-1203 (T006): populates the row's editable weight/reps inputs from
+    /// `advice`, then records a snapshot of the just-filled text so later
+    /// text-field edits can flip `suggestionOverridden`. Any pending override
+    /// state is reset — re-tapping the chip means the user is re-accepting
+    /// the suggestion. Weight is converted from canonical kg (advisor output)
+    /// to the row's current `weightUnit` so the shown value matches the chip.
+    /// For unilateral rows the same suggested load is mirrored to both sides
+    /// (the advisor works on the row-level "load" concept and does not split
+    /// L/R); a follow-up manual per-side edit still counts as an override.
+    private func fillFromSuggestion(_ advice: ProgressionAdvice) {
+        let displayWeight = weightUnit == .lb
+            ? advice.suggestedWeight * 2.20462
+            : advice.suggestedWeight
+        let filledWeightText = formatWeight(displayWeight)
+        let filledRepsText = advice.suggestedReps == 0 ? "" : "\(advice.suggestedReps)"
+
+        suggestionOverridden = false
+        weightText = filledWeightText
+        repsText = filledRepsText
+        if exerciseSet.isUnilateral {
+            weightRightText = filledWeightText
+            syncWeightRightToModel()
+        }
+        syncWeightToModel()
+        syncRepsToModel()
+
+        pendingSuggestionSnapshot = SuggestionFillSnapshot(
+            weightText: filledWeightText,
+            weightRightText: exerciseSet.isUnilateral ? filledWeightText : "",
+            repsText: filledRepsText
         )
+    }
+
+    /// MY-1203 (T006): called from the weight / reps `onChange` handlers
+    /// after the value has been normalized (decimal-filtered / digit-only)
+    /// and synced to the model. When there's a pending suggestion snapshot
+    /// and the current text no longer matches it, the user has manually
+    /// edited a field after tapping the chip — flip the override flag and
+    /// drop the snapshot so subsequent edits don't re-report.
+    private func noteSuggestionFieldEdit() {
+        guard let snapshot = pendingSuggestionSnapshot else { return }
+        let current = SuggestionFillSnapshot(
+            weightText: weightText,
+            weightRightText: weightRightText,
+            repsText: repsText
+        )
+        if current != snapshot {
+            suggestionOverridden = true
+            pendingSuggestionSnapshot = nil
+        }
     }
 
     /// Formats an advisor-suggested weight (canonical kg) for display in the
