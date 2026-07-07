@@ -542,7 +542,7 @@ struct SetRow: View {
             Text(
                 String(
                     format: String(
-                        localized: "smart_progression.chip.format",
+                        localized: "active_workout.smart_progression.chip_format",
                         defaultValue: "Suggested %1$@ × %2$lld",
                         comment: "SetRow smart-progression chip label. %1$@ is the formatted weight+unit (e.g. \"60kg\"), %2$lld is the reps count. Cataloged in Localizable.xcstrings by 006 T007."
                     ),
@@ -567,16 +567,11 @@ struct SetRow: View {
             Capsule().fill(Color.accentColor.opacity(0.12))
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(
+        .accessibilityHint(
             String(
-                format: String(
-                    localized: "smart_progression.chip.a11y_label",
-                    defaultValue: "Suggested %1$@ times %2$lld reps. %3$@",
-                    comment: "SetRow smart-progression chip a11y label. %1$@ formatted weight+unit, %2$lld reps, %3$@ advice reason. Cataloged in Localizable.xcstrings by 006 T007."
-                ),
-                smartProgressionWeightSegment(advice.suggestedWeight),
-                Int64(advice.suggestedReps),
-                advice.reason
+                localized: "active_workout.smart_progression.chip_a11y_hint",
+                defaultValue: "Double-tap to fill weight and reps with the suggestion.",
+                comment: "SetRow smart-progression chip VoiceOver hint. Communicates the tap-to-fill affordance (T006) so screen-reader users know activating the chip populates weight and reps. The primary spoken label — suggested weight, reps, and reason — is composed automatically by .accessibilityElement(children: .combine) from the visible Text children. Cataloged in Localizable.xcstrings by 006 T007."
             )
         )
     }
