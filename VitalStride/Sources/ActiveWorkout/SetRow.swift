@@ -1020,3 +1020,140 @@ private struct SetRowPreviewWrapper: View {
         previousSetKind: .unilateral
     )
 }
+
+// MARK: - Smart Progression suggestion-state previews (MY-1210 / spec 006 T009)
+//
+// Renders SetRow with the Smart Progression chip in two of its shipped
+// states so the T007 UI copy, T006 tap-to-fill affordance, and the
+// no-history FR-004 edge case can be visually spot-checked from Xcode's
+// preview canvas without running the app.
+//
+// - `.increaseWeightSuggestion` seeds a completed prior workout whose
+//   three main sets all hit the upper bound of the default 8...12 rep
+//   range at 60 kg. `SmartProgressionAdvisor.suggest(...)` therefore
+//   returns `.increaseWeight` and the chip renders as "Suggested 65kg × 8"
+//   (chest exercise → +5 kg archetype). The current in-progress workout
+//   is inserted into the same in-memory container and its ExerciseSet is
+//   wired through `workoutExercise -> workout` so `smartProgressionAdvice()`
+//   reaches the seeded history.
+// - `.noHistoryNoChip` inserts the current in-progress workout but no
+//   prior workouts, so `PreviousSetLookup.previousMainSet(...)` returns
+//   nil, the advisor returns nil, and the chip omits itself — matching
+//   the FR-004 no-history behavior.
+//
+// The previews are pure UI: no telemetry is emitted (the tap-fill
+// telemetry path is only reached when a user activates the chip), no
+// HealthKit is queried, and the seeded reps / weight values are
+// preview fixtures — not real training values from any user.
+private struct SmartProgressionPreviewWrapper: View {
+    enum ProgressionState {
+        case increaseWeightSuggestion
+        case noHistoryNoChip
+    }
+
+    let state: ProgressionState
+
+    var body: some View {
+        // swiftlint:disable:next force_try
+        let container = try! ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+
+        let exercise = Exercise(
+            nameEn: "Bench Press",
+            nameZh: "卧推",
+            muscleGroup: .chest,
+            equipment: .barbell
+        )
+        context.insert(exercise)
+
+        let now = Date()
+        let currentWorkout = Workout(
+            type: .strength,
+            startDate: now,
+            endDate: nil
+        )
+        context.insert(currentWorkout)
+
+        let currentExercise = WorkoutExercise(order: 0)
+        currentExercise.workout = currentWorkout
+        currentExercise.exercise = exercise
+        context.insert(currentExercise)
+
+        let currentSet = ExerciseSet(
+            order: 0,
+            weight: 60,
+            reps: 0,
+            setType: .working
+        )
+        currentSet.workoutExercise = currentExercise
+        context.insert(currentSet)
+
+        if state == .increaseWeightSuggestion {
+            let priorStart = now.addingTimeInterval(-86_400)
+            let priorEnd = priorStart.addingTimeInterval(3_600)
+            let priorWorkout = Workout(
+                type: .strength,
+                startDate: priorStart,
+                endDate: priorEnd
+            )
+            context.insert(priorWorkout)
+
+            let priorExercise = WorkoutExercise(order: 0)
+            priorExercise.workout = priorWorkout
+            priorExercise.exercise = exercise
+            context.insert(priorExercise)
+
+            for index in 0..<3 {
+                let priorSet = ExerciseSet(
+                    order: index,
+                    weight: 60,
+                    reps: 12,
+                    setType: .working,
+                    isCompleted: true
+                )
+                priorSet.workoutExercise = priorExercise
+                context.insert(priorSet)
+            }
+        }
+
+        do {
+            try context.save()
+        } catch {
+            // Preview-only in-memory container; surfacing the error keeps the
+            // preview visible even if a schema seed goes wrong in development.
+            assertionFailure("Preview seed save failed: \(error)")
+        }
+
+        return List {
+            Section {
+                SetRow(
+                    index: 0,
+                    exerciseSet: currentSet,
+                    weightUnit: .kg,
+                    canDelete: true,
+                    exercise: exercise,
+                    recentWeightKg: 60,
+                    onToggleCompleted: { _ in },
+                    onDelete: {},
+                    onAddSubSet: { _ in },
+                    onCopyToNext: {}
+                )
+                .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
+            } header: {
+                Text(exercise.localizedName)
+                    .font(LargeWorkoutFonts.exerciseName(large: false))
+            }
+        }
+        .listStyle(.plain)
+        .frame(width: 375)
+        .modelContainer(container)
+    }
+}
+
+#Preview("Row - Smart Progression (increase weight)") {
+    SmartProgressionPreviewWrapper(state: .increaseWeightSuggestion)
+}
+
+#Preview("Row - Smart Progression (no history, no chip)") {
+    SmartProgressionPreviewWrapper(state: .noHistoryNoChip)
+}
