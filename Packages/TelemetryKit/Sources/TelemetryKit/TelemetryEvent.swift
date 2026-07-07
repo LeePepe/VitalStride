@@ -95,6 +95,25 @@ public enum TelemetryEvent: Sendable, Equatable {
     case overviewCacheHit
     case overviewCacheMiss
     case overviewFallbackTriggered(reason: TelemetryIdentifier)
+
+    // MARK: - Smart progression (spec 006-smart-progression FR-006)
+
+    /// The user tap-filled a Smart Progression suggestion and left the row
+    /// unedited through the relevant save/commit point.
+    ///
+    /// `advice` is the advice-kind category (e.g. `increase_weight`,
+    /// `maintain`, `decrease_weight`, `increase_reps`) — Constitution I /
+    /// Quality Bar B forbid embedding actual weight / reps / HealthKit values
+    /// or free-form reason text here. Callers MUST pass a canonical ASCII
+    /// identifier, never the localized reason string.
+    case suggestionAccepted(advice: TelemetryIdentifier)
+
+    /// The user tap-filled a Smart Progression suggestion but then manually
+    /// edited weight or reps before the save/commit point.
+    ///
+    /// See ``suggestionAccepted(advice:)`` for the same privacy constraint on
+    /// the `advice` parameter.
+    case suggestionOverridden(advice: TelemetryIdentifier)
 }
 
 // MARK: - Console formatting
@@ -127,6 +146,8 @@ extension TelemetryEvent {
         case .overviewCacheHit: "overview_cache_hit"
         case .overviewCacheMiss: "overview_cache_miss"
         case .overviewFallbackTriggered: "overview_fallback_triggered"
+        case .suggestionAccepted: "suggestion_accepted"
+        case .suggestionOverridden: "suggestion_overridden"
         }
     }
 
@@ -162,6 +183,10 @@ extension TelemetryEvent {
             [("duration_s", "\(duration)")]
         case .overviewFallbackTriggered(let reason):
             [("reason", reason.rawValue)]
+        case .suggestionAccepted(let advice):
+            [("advice", advice.rawValue)]
+        case .suggestionOverridden(let advice):
+            [("advice", advice.rawValue)]
         default:
             []
         }
