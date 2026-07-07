@@ -1,17 +1,25 @@
-// Smart Progression Advisor — MY-1197 / T002.
+// Smart Progression Advisor — MY-1197 (T002 type) + MY-1198 (T003 engine).
 //
-// This file introduces the `ProgressionAdvice` enum, the pure-value contract
-// returned by the (yet-to-be-implemented) `SmartProgressionAdvisor.suggest`
-// engine.  Spec: `specs/006-smart-progression/spec.md` (FR-002, FR-005) and
-// plan: `specs/006-smart-progression/plan.md` (Structure Decision).
+// This file houses the pure `SmartProgressionAdvisor` engine and the
+// `ProgressionAdvice` value it returns.  Spec:
+// `specs/006-smart-progression/spec.md` (FR-002, FR-003, FR-005) and plan:
+// `specs/006-smart-progression/plan.md` (Structure Decision — advisor lives at
+// the app-target layer alongside the 004 `PreviousSetLookup` that supplies its
+// history input).
 //
-// Scope of this task (T002) is intentionally narrow: define the type only.
-// The advisor's `suggest(...)` function lands in a follow-up task (T003) and
-// its rule-branch tests in T004.  Keeping the enum and the future engine in
-// the same file matches the plan's Structure Decision (advisor stays at the
-// app-target layer alongside the 004 `PreviousSetLookup` it consumes).
+// Scope split:
+//  * T002 (MY-1197) — introduced the `ProgressionAdvice` enum below.
+//  * T003 (MY-1198, this task) — implements the pure `suggest(...)` engine.
+//  * T004 (follow-up)          — adds branch-covering unit tests.
+//
+// The engine is deliberately pure: no SwiftData fetches, no telemetry, no
+// logging, no UI — history is collected upstream by repeatedly calling 004's
+// `PreviousSetLookup.previousMainSet(...)`.  Callers pass the resulting
+// `[ExerciseSet]` in; the advisor returns a `ProgressionAdvice?` and nothing
+// else.
 
 import Foundation
+import VitalModels
 
 /// Progression recommendation returned by `SmartProgressionAdvisor` for a
 /// single upcoming main set.
@@ -123,5 +131,149 @@ extension ProgressionAdvice {
              let .decreaseWeight(_, _, reason):
             return reason
         }
+    }
+}
+
+// MARK: - SmartProgressionAdvisor engine (T003)
+
+/// Pure rule engine that turns "the same-exercise main-set sequence from the
+/// user's last session" into a `ProgressionAdvice` for the next set.
+///
+/// The engine follows the FR-002 / FR-005 contract exactly:
+///
+/// 1. **Empty history** (`previousMainSets.isEmpty`) → `nil` — SetRow renders
+///    no chip (matches the 004 no-history behavior, FR-004 边界).
+/// 2. **All sets hit the upper rep bound** → `.increaseWeight` — bump the
+///    load using the muscle-group archetype increment (small +2.5 kg / large
+///    +5 kg, FR-003), keep reps at the lower bound of the target range.
+/// 3. **Last set fell below the lower bound** (but earlier sets held) →
+///    `.maintain` — the drop-off is isolated; give the load another session.
+/// 4. **Every set fell below the lower bound** → `.decreaseWeight` — back off
+///    the load by the same archetype increment.
+/// 5. **Otherwise** (mid-range, or any combination not covered above) →
+///    `.maintain` at the last set's weight.
+///
+/// Notes:
+///
+/// * Increase / decrease branches key off the **first set's** weight.  It is
+///   the anchor working weight; back-off drops later in the session don't
+///   move the target load if the algorithm has already decided to progress.
+/// * Suggested reps after a load bump default to the range's lower bound and
+///   suggested reps after backing off default to the upper bound — both are
+///   the classic Fitbod progression heuristic (`plan.md` Summary).
+/// * The engine is pure and `Sendable`: it does not read SwiftData, does not
+///   log, does not emit telemetry, does not touch UI.  T004 will exercise
+///   every branch via `XCTest` without a container.
+enum SmartProgressionAdvisor {
+    /// Small-muscle-group load increment (kg) — FR-003.
+    static let smallMuscleIncrementKg: Double = 2.5
+
+    /// Large-muscle-group load increment (kg) — FR-003.
+    static let largeMuscleIncrementKg: Double = 5.0
+
+    /// Muscle groups that get the larger load bump.  The spec calls out
+    /// "小肌群 +2.5 / 大肌群 +5"; legs / back / chest / fullBody are the
+    /// conventional large groups, shoulders / arms / core the small ones.
+    /// Kept private so the archetype table is one source of truth.
+    private static let largeMuscleGroups: Set<MuscleGroup> = [
+        .legs, .back, .chest, .fullBody,
+    ]
+
+    /// Load increment (kg) applied by `.increaseWeight` / `.decreaseWeight`
+    /// for the given muscle group.  A `nil` muscle group (e.g. exercise not
+    /// yet classified) falls back to the conservative small-group increment.
+    static func loadIncrementKg(for muscleGroup: MuscleGroup?) -> Double {
+        guard let muscleGroup else { return smallMuscleIncrementKg }
+        return largeMuscleGroups.contains(muscleGroup)
+            ? largeMuscleIncrementKg
+            : smallMuscleIncrementKg
+    }
+
+    /// Suggest the next-set progression based on the same exercise's last
+    /// main-set sequence and the user's preferred rep range.
+    ///
+    /// - Parameters:
+    ///   - previousMainSets: The sets from the user's most recent session for
+    ///     this exercise, ordered as performed (`order` ascending).  Sub-sets
+    ///     (drop-set / pyramid) are expected to be filtered out upstream —
+    ///     004's `PreviousSetLookup.previousMainSet` already does this; if
+    ///     the caller passes them anyway they are treated as main sets, which
+    ///     is safe (still `ExerciseSet` weight/reps) but not spec-preferred.
+    ///   - userPreferredRepRange: Closed rep range (e.g. `8...12`) driving
+    ///     the "hit the upper bound" and "fell below the lower bound"
+    ///     comparisons.  Passing a degenerate range like `10...10` is legal
+    ///     and treated as "target reps = 10".
+    ///   - muscleGroup: The exercise's primary muscle group.  Selects the
+    ///     archetype load increment via ``loadIncrementKg(for:)``.  Pass
+    ///     `nil` when unknown; the conservative small-group increment is
+    ///     applied.
+    /// - Returns: A `ProgressionAdvice` describing the recommended next set,
+    ///   or `nil` when `previousMainSets` is empty (no history → no chip).
+    static func suggest(
+        previousMainSets: [ExerciseSet],
+        userPreferredRepRange: ClosedRange<Int>,
+        muscleGroup: MuscleGroup? = nil
+    ) -> ProgressionAdvice? {
+        guard let firstSet = previousMainSets.first,
+              let lastSet = previousMainSets.last
+        else {
+            return nil
+        }
+
+        let lowerBound = userPreferredRepRange.lowerBound
+        let upperBound = userPreferredRepRange.upperBound
+        let increment = loadIncrementKg(for: muscleGroup)
+
+        let allHitUpperBound = previousMainSets.allSatisfy { $0.reps >= upperBound }
+        let allBelowLowerBound = previousMainSets.allSatisfy { $0.reps < lowerBound }
+        let lastBelowLowerBound = lastSet.reps < lowerBound
+
+        if allHitUpperBound {
+            let suggestedWeight = max(0, firstSet.weight + increment)
+            return .increaseWeight(
+                weight: suggestedWeight,
+                reps: lowerBound,
+                reason: String(
+                    localized: "smart_progression.reason.increase_weight",
+                    defaultValue: "All sets hit target — increase weight",
+                    comment: "SetRow chip reason when every prior main set hit the upper rep bound (translated to zh in xcstrings by T007)"
+                )
+            )
+        }
+
+        if allBelowLowerBound {
+            let suggestedWeight = max(0, firstSet.weight - increment)
+            return .decreaseWeight(
+                weight: suggestedWeight,
+                reps: upperBound,
+                reason: String(
+                    localized: "smart_progression.reason.decrease_weight",
+                    defaultValue: "Below lower bound — decrease weight",
+                    comment: "SetRow chip reason when every prior main set fell below the lower rep bound (translated to zh in xcstrings by T007)"
+                )
+            )
+        }
+
+        if lastBelowLowerBound {
+            return .maintain(
+                weight: lastSet.weight,
+                reps: lastSet.reps,
+                reason: String(
+                    localized: "smart_progression.reason.maintain_dropoff",
+                    defaultValue: "Last set dropped — maintain",
+                    comment: "SetRow chip reason when only the final prior main set fell below the lower rep bound (translated to zh in xcstrings by T007)"
+                )
+            )
+        }
+
+        return .maintain(
+            weight: lastSet.weight,
+            reps: lastSet.reps,
+            reason: String(
+                localized: "smart_progression.reason.maintain_inrange",
+                defaultValue: "Within range — maintain",
+                comment: "SetRow chip reason when the prior main sets sat within the target rep range (translated to zh in xcstrings by T007)"
+            )
+        )
     }
 }
