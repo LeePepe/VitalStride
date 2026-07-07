@@ -4037,6 +4037,132 @@
           }
         }
       }
+    },
+    "active_workout.smart_progression.chip_format" : {
+      "extractionState" : "manual",
+      "comment" : "Smart Progression suggestion chip label shown on each SetRow (spec 006-smart-progression FR-004, T005/T007). %1$@ is a preformatted weight string that already includes the unit (e.g. \"60 kg\"); %2$lld is the suggested reps count. Tapping the chip fills the weight/reps inputs (tap-to-fill).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggested %1$@ × %2$lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建议 %1$@ × %2$lld"
+          }
+        }
+      }
+    },
+    "active_workout.smart_progression.chip_a11y_hint" : {
+      "extractionState" : "manual",
+      "comment" : "VoiceOver accessibility hint for the Smart Progression suggestion chip (T005/T006). Communicates the tap-to-fill affordance so screen-reader users know activating the chip populates weight and reps.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double-tap to fill weight and reps with the suggestion."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "双击将建议的重量与次数填入输入框。"
+          }
+        }
+      }
+    },
+    "smart_progression.reason.increase_weight" : {
+      "extractionState" : "manual",
+      "comment" : "SetRow suggestion-chip reason (spec 006-smart-progression FR-002 / FR-007, engine SmartProgressionAdvisor). Displayed when every prior main set hit the upper rep bound — recommend increasing the load next session.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All sets hit target — increase weight"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次所有组都达标——建议加重"
+          }
+        }
+      }
+    },
+    "smart_progression.reason.decrease_weight" : {
+      "extractionState" : "manual",
+      "comment" : "SetRow suggestion-chip reason (spec 006-smart-progression FR-002 / FR-007). Displayed when every prior main set fell below the lower rep bound — recommend decreasing the load next session.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Below lower bound — decrease weight"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次均未达下限——建议减重"
+          }
+        }
+      }
+    },
+    "smart_progression.reason.maintain_dropoff" : {
+      "extractionState" : "manual",
+      "comment" : "SetRow suggestion-chip reason (spec 006-smart-progression FR-002 / FR-007). Displayed when only the last prior main set dropped below the lower rep bound while earlier sets held — recommend maintaining the current load.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last set dropped — maintain"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最后一组掉次数——建议保持"
+          }
+        }
+      }
+    },
+    "smart_progression.reason.maintain_inrange" : {
+      "extractionState" : "manual",
+      "comment" : "SetRow suggestion-chip reason (spec 006-smart-progression FR-002 / FR-007). Displayed when the prior main sets sat within the user's target rep range — recommend maintaining the current load.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Within range — maintain"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "落在目标区间——建议保持"
+          }
+        }
+      }
+    },
+    "smart_progression.reason.increase_reps" : {
+      "extractionState" : "manual",
+      "comment" : "SetRow suggestion-chip reason (spec 006-smart-progression FR-002 / FR-007). Reserved for the ProgressionAdvice.increaseReps branch — keep the load, target more reps within the range. Included ahead of use so the enum is fully catalog-covered for future rule variants and downstream switch exhaustiveness (Constitution VI / Bar G).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Within range — push reps"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "落在目标区间——建议加次数"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
