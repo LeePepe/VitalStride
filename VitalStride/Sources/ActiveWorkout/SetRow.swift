@@ -9,6 +9,7 @@
 
 import SwiftData
 import SwiftUI
+import TelemetryKit
 import VitalModels
 import VitalUI
 
@@ -89,9 +90,12 @@ struct SetRow: View {
     // edited the fields *after* tapping the chip. That transition flips
     // `suggestionOverridden` so T008 telemetry can distinguish
     // `suggestionAccepted` (tap-filled and left alone) from
-    // `suggestionOverridden` (tap-filled and then re-edited). Held as private
-    // @State so T008 can hook without changing the callsite signature. The
-    // snapshot is cleared once override is detected so subsequent edits do
+    // `suggestionOverridden` (tap-filled and then re-edited). MY-1205 (T008)
+    // extends the snapshot with the tap-filled advice's canonical ASCII
+    // category so the metadata-only telemetry payload can carry it without
+    // ever encoding weight / reps / localized reason text (Constitution I /
+    // Quality Bar B). The snapshot is cleared once override is detected or
+    // once `suggestionAccepted` fires on completion so subsequent edits do
     // not re-report; tapping the chip again resets both fields to the fresh
     // suggestion state. Values here are the display-side text (post-unit
     // conversion), NOT the canonical kg / raw reps — no additional value
@@ -103,6 +107,20 @@ struct SetRow: View {
         let weightText: String
         let weightRightText: String
         let repsText: String
+        /// MY-1205 (spec 006-smart-progression T008): canonical ASCII category
+        /// of the advice the user tap-filled — used as the `advice` telemetry
+        /// parameter on `suggestionAccepted` / `suggestionOverridden`. This is
+        /// *not* the advice's reason string (which is localized and would
+        /// fragment metrics across locales, and is forbidden by Constitution I
+        /// / Quality Bar B from carrying free-form text). Excluded from
+        /// Equatable so drift detection stays scoped to the visible text.
+        let adviceCategory: TelemetryIdentifier
+
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.weightText == rhs.weightText
+                && lhs.weightRightText == rhs.weightRightText
+                && lhs.repsText == rhs.repsText
+        }
     }
     // MY-1091: row-level Large Mode is driven off the same persisted flag the
     // toolbar toggle writes in MY-1088. @AppStorage observes the key so the
@@ -422,6 +440,19 @@ struct SetRow: View {
             exerciseSet.isCompleted = !wasCompleted
             if !wasCompleted {
                 HapticManager.trigger(.setCompleted)
+                // MY-1205 (spec 006-smart-progression T008 / FR-006):
+                // completion is the save/commit point for the tap-fill →
+                // "accepted" transition. If the user tap-filled the chip and
+                // has not edited the fields since (snapshot still present,
+                // override flag clear), record `suggestionAccepted` with the
+                // recorded advice category and clear the snapshot so an
+                // uncomplete/re-complete toggle can't double-report.
+                if !suggestionOverridden, let snapshot = pendingSuggestionSnapshot {
+                    TelemetryService.shared.trackNonisolated(
+                        .suggestionAccepted(advice: snapshot.adviceCategory)
+                    )
+                    pendingSuggestionSnapshot = nil
+                }
             }
             onToggleCompleted(wasCompleted)
         } label: {
@@ -644,26 +675,45 @@ struct SetRow: View {
         pendingSuggestionSnapshot = SuggestionFillSnapshot(
             weightText: filledWeightText,
             weightRightText: exerciseSet.isUnilateral ? filledWeightText : "",
-            repsText: filledRepsText
+            repsText: filledRepsText,
+            adviceCategory: Self.telemetryCategory(for: advice)
         )
     }
 
-    /// MY-1203 (T006): called from the weight / reps `onChange` handlers
-    /// after the value has been normalized (decimal-filtered / digit-only)
-    /// and synced to the model. When there's a pending suggestion snapshot
-    /// and the current text no longer matches it, the user has manually
-    /// edited a field after tapping the chip — flip the override flag and
-    /// drop the snapshot so subsequent edits don't re-report.
+    /// MY-1205 (spec 006-smart-progression T008): called from the weight / reps
+    /// `onChange` handlers after the value has been normalized (decimal-
+    /// filtered / digit-only) and synced to the model. When there's a pending
+    /// suggestion snapshot and the current text no longer matches it, the user
+    /// has manually edited a field after tapping the chip — flip the override
+    /// flag, emit the `suggestionOverridden` telemetry with the recorded
+    /// advice category, and drop the snapshot so subsequent edits don't
+    /// re-report.
     private func noteSuggestionFieldEdit() {
         guard let snapshot = pendingSuggestionSnapshot else { return }
-        let current = SuggestionFillSnapshot(
-            weightText: weightText,
-            weightRightText: weightRightText,
-            repsText: repsText
-        )
-        if current != snapshot {
+        let textChanged = weightText != snapshot.weightText
+            || weightRightText != snapshot.weightRightText
+            || repsText != snapshot.repsText
+        if textChanged {
             suggestionOverridden = true
             pendingSuggestionSnapshot = nil
+            TelemetryService.shared.trackNonisolated(
+                .suggestionOverridden(advice: snapshot.adviceCategory)
+            )
+        }
+    }
+
+    /// MY-1205 (spec 006-smart-progression T008): maps a `ProgressionAdvice`
+    /// case to the canonical ASCII category identifier carried by the
+    /// `suggestion_accepted` / `suggestion_overridden` telemetry events.
+    /// The localized `reason` string is deliberately NOT used — Constitution I
+    /// / Quality Bar B forbid free-form or locale-dependent text on the wire,
+    /// and remote analytics fragment by parameter value.
+    private static func telemetryCategory(for advice: ProgressionAdvice) -> TelemetryIdentifier {
+        switch advice {
+        case .maintain: "maintain"
+        case .increaseWeight: "increase_weight"
+        case .increaseReps: "increase_reps"
+        case .decreaseWeight: "decrease_weight"
         }
     }
 
