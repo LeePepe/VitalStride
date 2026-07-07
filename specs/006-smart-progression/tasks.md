@@ -10,7 +10,7 @@ description: "Task list for 006-smart-progression (US1 P1)"
 
 **Tests**: 含测试任务——spec SC-003 显式要求 `SmartProgressionAdvisor` 单测覆盖全部规则分支。
 
-**Organization**: 仅 User Story 1（P1）。004 的 `PreviousSetLookup` / `PreviousSetResult` 作为输入前置存在。
+**Organization**: 仅 User Story 1（P1）。004 已交付的 `PreviousSetLookup.previousMainSet(currentWorkout:exercise:mainSetIndex:in:) -> ExerciseSet?`（单组、按主组 index 查询）作为输入前置存在——advisor 消费的是调用方逐 index 收集得到的 `[ExerciseSet]`（上次该动作的主组序列），**004 未定义 `PreviousSetResult` 聚合类型**，不依赖它。
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -24,8 +24,9 @@ description: "Task list for 006-smart-progression (US1 P1)"
 
 **Purpose**: 确认依赖就位
 
-- [ ] T001 [US1] **⚠️ 阻塞确认**：核对 `specs/004-previous-set-hint` 已交付，且 `PreviousSetLookup` /
-  `PreviousSetResult` 已存在于 app target（004 spec Key Entities / FR-007），作为本 feature 的**唯一历史输入**。
+- [ ] T001 [US1] **⚠️ 阻塞确认**：核对 `specs/004-previous-set-hint` 已交付，且 `PreviousSetLookup.previousMainSet(currentWorkout:exercise:mainSetIndex:in:) -> ExerciseSet?`
+  已存在于 app target（`VitalStride/Sources/PreviousSetLookup.swift`），作为本 feature 的**唯一历史输入**。
+  **注意：004 交付的是按 index 查单组的 `previousMainSet`，不含 `PreviousSetResult` 聚合类型**——本 feature 由调用方逐 `mainSetIndex`（0,1,2… 直到返回 `nil`）收集出上次该动作的主组序列 `[ExerciseSet]` 喂给 advisor。
   004 未落地前，Phase 2 / Phase 3 全部 blocked（见 Dependencies 段）。确认 `ExerciseSet` weight/reps/setType
   与 `MuscleGroup` 可读：`Packages/VitalModels/Sources/VitalModels/Models/ExerciseSet.swift`、
   `Packages/VitalModels/Sources/VitalModels/Enums/MuscleGroup.swift`。
@@ -43,12 +44,12 @@ description: "Task list for 006-smart-progression (US1 P1)"
 - [ ] T002 [US1] 定义 `ProgressionAdvice` 枚举（`maintain` / `increaseWeight` / `increaseReps` /
   `decreaseWeight`，各携带 `reason`；`Equatable`）于
   `VitalStride/Sources/ActiveWorkout/SmartProgressionAdvisor.swift`。FR-002。
-- [ ] T003 [US1] 实现纯引擎 `SmartProgressionAdvisor.suggest(previous:userPreferredRepRange:)`
-  于 `VitalStride/Sources/ActiveWorkout/SmartProgressionAdvisor.swift`——输入 004 的 `PreviousSetResult`
+- [ ] T003 [US1] 实现纯引擎 `SmartProgressionAdvisor.suggest(previousMainSets:userPreferredRepRange:)`
+  于 `VitalStride/Sources/ActiveWorkout/SmartProgressionAdvisor.swift`——输入上次该动作的主组序列 `[ExerciseSet]`（由调用方逐 index 调 004 `previousMainSet` 收集）
   + 用户目标次数区间，输出 `ProgressionAdvice`。规则（FR-002 / FR-005）：所有组达次数上限 → `increaseWeight`；
-  最后一组低于下限 → `maintain`；全部组低于下限 → `decreaseWeight`；其余 → `maintain`。加重增量按
+  最后一组低于下限 → `maintain`；全部组低于下限 → `decreaseWeight`；其余 → `maintain`；空序列（无历史）→ 优雅缺省不建议。加重增量按
   `MuscleGroup` 区分（小肌群 +2.5kg / 大肌群 +5kg，FR-003）。**不做任何查询**——历史一律复用 004
-  `PreviousSetLookup`（FR-001）。纯函数、无副作用、`Sendable`。
+  `PreviousSetLookup.previousMainSet`（FR-001）。纯函数、无副作用、`Sendable`。
 
 **Checkpoint**: advisor 可独立 `swift`-级单测 → US1 UI 可接入。
 
@@ -69,9 +70,10 @@ description: "Task list for 006-smart-progression (US1 P1)"
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] 在 `VitalStride/Sources/ActiveWorkout/SetRow.swift` 加建议 chip：当 004 提供
-  `PreviousSetResult` 时调用 `SmartProgressionAdvisor.suggest(...)` 渲染"建议 {重量} × {次数}"chip
-  + 理由；首次训练 / 无历史 → **不显示 chip**（复用 004 的缺省行为，FR 边界）。FR-004。
+- [ ] T005 [US1] 在 `VitalStride/Sources/ActiveWorkout/SetRow.swift` 加建议 chip：调用方逐 `mainSetIndex` 调 004
+  `PreviousSetLookup.previousMainSet(...)` 收集上次主组序列 `[ExerciseSet]`，非空时调
+  `SmartProgressionAdvisor.suggest(...)` 渲染"建议 {重量} × {次数}"chip
+  + 理由；首次训练 / 无历史（收集为空）→ **不显示 chip**（复用 004 的缺省行为，FR 边界）。FR-004。
 - [ ] T006 [US1] chip **tap-to-fill**：点击把建议 weight/reps 填入输入框；用户后续手动编辑该组 →
   判定为"覆盖建议"（override）。就地于 `VitalStride/Sources/ActiveWorkout/SetRow.swift`。FR-004、SC-002。
 - [ ] T007 [P] [US1] 新增建议 UI 文案（chip 文字、各 advice 理由）到
@@ -97,9 +99,9 @@ description: "Task list for 006-smart-progression (US1 P1)"
 
 ### Cross-Feature（关键）
 
-- **Blocked by `specs/004-previous-set-hint`（`PreviousSetLookup` / `PreviousSetResult`）**——
+- **Blocked by `specs/004-previous-set-hint`（`PreviousSetLookup.previousMainSet`）**——
   004 是本 feature 的历史查询与输入基础，**必须先交付（串行：先 004 后 006）**。004 未落地前
-  T002–T009 全部 blocked。本 feature **不重复实现任何历史查询**（FR-001）。
+  T002–T009 全部 blocked。本 feature **不重复实现任何历史查询**（FR-001）；多组序列由调用方逐 index 复用 004 的单组查询收集。
 
 ### Phase Dependencies
 

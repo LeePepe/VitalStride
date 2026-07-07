@@ -14,8 +14,8 @@
 根据上次该动作的完成情况，通过一个纯函数引擎 `SmartProgressionAdvisor` 算出下次该用的重量/次数
 （如上次全达标 → 建议加重），以 tap-to-fill chip 呈现，点击一键填入输入框。
 
-技术取向：advisor 是**纯函数**，输入 004 已实现的 `PreviousSetResult` + 用户目标次数区间，输出
-`ProgressionAdvice` 枚举——不做任何数据查询（查询完全复用 004 的 `PreviousSetLookup`），因此可全分支单测。
+技术取向：advisor 是**纯函数**，输入上次该动作的主组序列 `[ExerciseSet]`（由调用方逐 index 复用 004 的单组查询收集）+ 用户目标次数区间，输出
+`ProgressionAdvice` 枚举——不做任何数据查询（查询完全复用 004 的 `PreviousSetLookup.previousMainSet`），因此可全分支单测。
 UI 只负责渲染 chip、tap-to-fill、把手动编辑判定为"覆盖建议"，并按 FR-006 记录仅含元数据的接受率 telemetry。
 
 ## Technical Context
@@ -25,7 +25,7 @@ UI 只负责渲染 chip、tap-to-fill、把手动编辑判定为"覆盖建议"�
 **Primary Dependencies**: SwiftUI（SetRow chip）+ VitalModels（`ExerciseSet` / `MuscleGroup` 读取）
 + TelemetryKit（FR-006 接受率，仅元数据）
 
-**Storage**: 无新增存储——历史读取完全经 004 的 `PreviousSetLookup`，本 feature 不落库、不新增 model
+**Storage**: 无新增存储——历史读取完全经 004 的 `PreviousSetLookup.previousMainSet`，本 feature 不落库、不新增 model
 
 **Testing**: XCTest。`SmartProgressionAdvisor` 是纯函数 → 全规则分支单测（all-hit / drop-off /
 all-below / mid / 越界 / 无历史），符合 Quality Bar I
@@ -35,7 +35,7 @@ all-below / mid / 越界 / 无历史），符合 Quality Bar I
 **Project Type**: Mobile app（XcodeGen 单 workspace + 6 SPM packages）
 
 **Dependency（关键约束）**: **`specs/004-previous-set-hint` 必须先落地**——本 feature 在其
-`PreviousSetLookup` / `PreviousSetResult` 之上加建议层，**串行实现（先 004 后 006）**。004 未交付前
+`PreviousSetLookup.previousMainSet`（单组按 index 查询，无 `PreviousSetResult` 聚合类型）之上加建议层，**串行实现（先 004 后 006）**。004 未交付前
 006 的 Foundational / US1 任务全部 blocked。
 
 **Performance / Scale**: 建议计算是内存纯函数，成本可忽略；查询性能约束继承 004（fetchLimit / 索引）。
@@ -87,16 +87,16 @@ Packages/TelemetryKit/Sources/TelemetryKit/
 VitalStride/Resources/Localizable.xcstrings   # FR-007 新增建议文案
 
 # 依赖（不在本 feature 交付，必须先存在）
-VitalStride/Sources/…                # 004 的 PreviousSetLookup / PreviousSetResult
+VitalStride/Sources/…                # 004 的 PreviousSetLookup.previousMainSet（单组按 index，无 PreviousSetResult 聚合类型）
 ```
 
 **Structure Decision**：`SmartProgressionAdvisor` 逻辑本身是纯函数，理论上可住进 `Packages/VitalModels`
-（无平台耦合、便于 `swift test` 秒级验证）。但它的**输入类型 `PreviousSetResult` 由 004 定义、且 004 将其
-放在 app target**（004 spec Key Entities：`PreviousSetLookup` 为查询 helper，`SetRow` 新增
-`previousSet` 输入，均随 SetRow 在 app target）。为与 004 的放置决策保持一致、避免把 004 的 app-target 类型
+（无平台耦合、便于 `swift test` 秒级验证）。但它的**输入 `[ExerciseSet]` 由调用方逐 index 复用 004 的
+`PreviousSetLookup.previousMainSet` 收集，而 004 将查询 helper 放在 app target**（004 spec Key Entities：`PreviousSetLookup` 为查询 helper，`SetRow` 新增
+`previousSet` 输入，均随 SetRow 在 app target）。为与 004 的放置决策保持一致、避免把 004 的 app-target 依赖
 反向拉进 package 造成耦合倒置，**advisor 与 004 保持同层——落在 app target
-`VitalStride/Sources/ActiveWorkout/SmartProgressionAdvisor.swift`**，与它消费的 `PreviousSetResult` 同侧。
-若后续 004 把 `PreviousSetResult` 下沉到 VitalModels，则 advisor 可一并下沉（届时 advisor 纯函数天然适配
+`VitalStride/Sources/ActiveWorkout/SmartProgressionAdvisor.swift`**，与调用它、消费 004 查询结果的 SetRow 同侧。
+`ExerciseSet` 本身在 VitalModels，advisor 若后续需下沉可平滑迁移（届时纯函数天然适配
 `swift test`）——此耦合已在 Complexity Tracking 记录。SetRow 的 chip / tap-to-fill 修改就地在
 `ActiveWorkout/SetRow.swift`，不新建 View 文件层级。
 
@@ -106,4 +106,4 @@ VitalStride/Sources/…                # 004 的 PreviousSetLookup / PreviousSet
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| advisor 放 app target 而非 VitalModels package | 输入 `PreviousSetResult` 是 004 的 app-target 类型；跟随 004 放置决策，避免把 app-target 类型拉进 package 造成依赖倒置 | 直接放 VitalModels 会强制 004 先把 `PreviousSetResult` 下沉；本期串行交付不引入该跨-feature 重构，保持与 004 同层最简。004 若后续下沉该类型，advisor 一并下沉 |
+| advisor 放 app target 而非 VitalModels package | advisor 的历史输入经 004 的 app-target helper `PreviousSetLookup.previousMainSet` 收集；跟随 004 放置决策，避免把 app-target 依赖拉进 package 造成依赖倒置 | 直接放 VitalModels 会强制把 004 的查询 helper 先下沉；本期串行交付不引入该跨-feature 重构，保持与 004 同层最简。004 若后续下沉查询层，advisor 一并下沉 |

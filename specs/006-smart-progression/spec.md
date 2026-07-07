@@ -41,8 +41,8 @@
 
 ### Functional Requirements
 
-- **FR-001**: MUST 复用 MY-864 的 `PreviousSetLookup`（specs/004）查历史，不重复实现查询。
-- **FR-002**: MUST 提供 `SmartProgressionAdvisor.suggest(previous:userPreferredRepRange:)` 返回 `ProgressionAdvice`（maintain / increaseWeight / increaseReps / decreaseWeight，各带 reason）。
+- **FR-001**: MUST 复用 MY-864 的 `PreviousSetLookup.previousMainSet`（specs/004）查历史，不重复实现查询；多组序列由调用方逐 index 收集。
+- **FR-002**: MUST 提供 `SmartProgressionAdvisor.suggest(previousMainSets:userPreferredRepRange:)` 返回 `ProgressionAdvice`（maintain / increaseWeight / increaseReps / decreaseWeight，各带 reason）。
 - **FR-003**: 加重量增量 MUST 按 muscleGroup 区分（小肌群 +2.5kg / 大肌群 +5kg，草案可调）。
 - **FR-004**: SetRow MUST 显示建议 chip，支持 **tap-to-fill**（点击填入输入框），编辑后视为覆盖建议。
 - **FR-005**: 建议规则 MUST 是纯函数、可单测（输入历史完成情况 → 输出 advice）。
@@ -53,7 +53,7 @@
 
 - **ProgressionAdvice**（enum，Equatable）：maintain/increaseWeight/increaseReps/decreaseWeight + reason。
 - **SmartProgressionAdvisor**：纯函数建议引擎（可测）。
-- 复用 MY-864 的 `PreviousSetLookup` / `PreviousSetResult`。
+- 复用 MY-864 的 `PreviousSetLookup.previousMainSet`（单组按 index 查询；无 `PreviousSetResult` 聚合类型，多组序列由调用方收集）。
 
 ## Success Criteria *(mandatory)*
 
