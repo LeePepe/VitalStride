@@ -571,6 +571,7 @@ struct ActiveWorkoutView: View {
             equipment: exercise.equipment
         )
         let currentPresetId = exercise.presetId
+        let expectedMuscleGroup = exercise.muscleGroup
         let muscleGroupDisplay = exercise.muscleGroup.localizedName
 
         substituteSheetState = .loading
@@ -581,6 +582,7 @@ struct ActiveWorkoutView: View {
             let outcome = await loadSubstitutes(
                 request: request,
                 excludingPresetId: currentPresetId,
+                expectedMuscleGroup: expectedMuscleGroup,
                 muscleGroupDisplay: muscleGroupDisplay,
                 container: container
             )
@@ -611,6 +613,7 @@ struct ActiveWorkoutView: View {
     private func loadSubstitutes(
         request: SubstituteRequest,
         excludingPresetId: String?,
+        expectedMuscleGroup: MuscleGroup,
         muscleGroupDisplay: String,
         container: ModelContainer
     ) async -> ExerciseSubstituteSheet.ViewState {
@@ -652,6 +655,7 @@ struct ActiveWorkoutView: View {
 
         let recommendations = await resolveRecommendations(
             suggestions: suggestions,
+            expectedMuscleGroup: expectedMuscleGroup,
             muscleGroupDisplay: muscleGroupDisplay,
             container: container
         )
@@ -671,6 +675,7 @@ struct ActiveWorkoutView: View {
 
     private func resolveRecommendations(
         suggestions: [SubstituteSuggestion],
+        expectedMuscleGroup: MuscleGroup,
         muscleGroupDisplay: String,
         container: ModelContainer
     ) async -> [ExerciseSubstituteSheet.Recommendation] {
@@ -684,6 +689,15 @@ struct ActiveWorkoutView: View {
                     suggestion.exerciseId,
                     context: context
                 ) else { continue }
+                guard SubstituteRecommendationFilter.acceptsSameMuscleGroup(
+                    exerciseMuscleGroup: exercise.muscleGroup,
+                    expected: expectedMuscleGroup
+                ) else {
+                    logger.info(
+                        "substitute rejected: reason=muscleGroupMismatch presetId=\(suggestion.exerciseId, privacy: .public)"
+                    )
+                    continue
+                }
                 seenIds.insert(suggestion.exerciseId)
                 results.append(
                     ExerciseSubstituteSheet.Recommendation(

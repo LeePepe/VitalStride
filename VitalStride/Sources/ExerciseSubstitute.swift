@@ -54,6 +54,25 @@ enum SubstituteParseError: Error, Equatable {
     case invalidJSON
 }
 
+/// Deterministic post-resolution validator for substitute candidates.
+///
+/// SC-002 requires every substitute to target the same primary muscle group
+/// as the current exercise. The AI prompt asks for this, but prompt-only
+/// enforcement is unreliable — a valid preset id from another muscle group
+/// would otherwise be displayed as if it matched. This filter is the
+/// deterministic guard the resolve path runs after each suggestion is
+/// resolved to a local `Exercise`.
+enum SubstituteRecommendationFilter {
+    /// Returns true iff the resolved exercise's muscle group equals `expected`.
+    /// Callers drop suggestions whose resolved exercise fails this check.
+    static func acceptsSameMuscleGroup(
+        exerciseMuscleGroup: MuscleGroup,
+        expected: MuscleGroup
+    ) -> Bool {
+        exerciseMuscleGroup == expected
+    }
+}
+
 extension SubstituteSuggestion {
     /// Parses an AI substitute-suggestion response formatted as `[{"exerciseId": ..., "reason": ...}]`.
     ///
