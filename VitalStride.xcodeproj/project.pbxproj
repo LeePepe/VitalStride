@@ -135,6 +135,7 @@
 		815258714EA0D8B7FCB7D992 /* WorkoutListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADF0FD53B5A37E442F6ED623 /* WorkoutListView.swift */; };
 		821982CDD01D5ED20EA41300 /* VitalUI in Frameworks */ = {isa = PBXBuildFile; productRef = 6F987A4D67E18D6C3093080D /* VitalUI */; };
 		85095CDDB006A04A5B1D8AC6 /* ExerciseSeederFindTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6237846EBCF154AE6E40E203 /* ExerciseSeederFindTests.swift */; };
+		85A01FB635940342ECA3EEB8 /* SmartProgressionAdvisorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31CB92CB606B373292D017DE /* SmartProgressionAdvisorTests.swift */; };
 		85E6ACC9CD22CBBE44CE7ECE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F3929A3233515A8A71A3C14 /* SettingsView.swift */; };
 		883430F88AF4926AB8B25A3C /* InsightCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1DB2422258F7FC0AE3967EE /* InsightCardView.swift */; };
 		8878FD836C5B40FD1BBEB296 /* AIDataAnalysisSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D88D0FEEBECFC2EF4C1887F /* AIDataAnalysisSection.swift */; };
@@ -316,6 +317,7 @@
 		2F9C6A27CB551B32C0DDFEA0 /* VitalStrideWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = VitalStrideWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		2FBCE469246751CEFAB1343D /* SubSetReadOnlyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubSetReadOnlyTests.swift; sourceTree = "<group>"; };
 		30B221AD8C11DB7333234B26 /* CardTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardTelemetry.swift; sourceTree = "<group>"; };
+		31CB92CB606B373292D017DE /* SmartProgressionAdvisorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartProgressionAdvisorTests.swift; sourceTree = "<group>"; };
 		3274184F69678B14ACB647F8 /* WorkoutAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutAggregator.swift; sourceTree = "<group>"; };
 		3293E75003657AF1D6EB163A /* NumericKeypad.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumericKeypad.swift; sourceTree = "<group>"; };
 		33CC0E70D705A66E61C98F69 /* DataImportExportSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataImportExportSection.swift; sourceTree = "<group>"; };
@@ -580,6 +582,7 @@
 				82FB31C7A8CD534A47CCDFF7 /* RestTimerNotificationTests.swift */,
 				0A4427407B3663FA11877FE1 /* SettingsViewTests.swift */,
 				4A5BC15730DE3D0DBEC8FF7E /* SleepSectionTests.swift */,
+				31CB92CB606B373292D017DE /* SmartProgressionAdvisorTests.swift */,
 				65BD2FB8C57EBDB10A5B369E /* StepsSectionTests.swift */,
 				2FBCE469246751CEFAB1343D /* SubSetReadOnlyTests.swift */,
 				070FAE30219D9F124AC3E893 /* SubstituteRecommendationFilterTests.swift */,
@@ -1332,6 +1335,7 @@
 				A39C53D57D11C74A095538F5 /* RestTimerNotificationTests.swift in Sources */,
 				0606B368999C1F3928A77908 /* SettingsViewTests.swift in Sources */,
 				129EBA4FD6F749E5CCE90FD3 /* SleepSectionTests.swift in Sources */,
+				85A01FB635940342ECA3EEB8 /* SmartProgressionAdvisorTests.swift in Sources */,
 				7E9A1E8DD82A8B8644AFEA02 /* StepsSectionTests.swift in Sources */,
 				B733AD6073C639414D7F6248 /* SubSetReadOnlyTests.swift in Sources */,
 				036D3442C241898DCF47F67F /* SubstituteRecommendationFilterTests.swift in Sources */,
