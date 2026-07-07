@@ -14,11 +14,9 @@ struct ActiveExerciseSection: View {
     let onSetCompleted: () -> Void
     let onSetDeleted: () -> Void
     let onReplace: () -> Void
-    /// Smart-substitute entry point (spec 003 T011). Defaulted to a no-op so the
-    /// existing `ActiveWorkoutView` initializer keeps compiling until T013 wires
-    /// the real callback; the T011 authorization boundary forbids editing the
-    /// caller in this child issue.
-    let onSubstitute: () -> Void = {}
+    /// Smart-substitute entry point (spec 003 T013a). Wired by `ActiveWorkoutView`
+    /// to open `ExerciseSubstituteSheet` for the selected workout exercise.
+    let onSubstitute: () -> Void
     let onDelete: () -> Void
     @Environment(\.modelContext) private var modelContext
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
