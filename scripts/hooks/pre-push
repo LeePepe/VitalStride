@@ -3,15 +3,16 @@
 #
 # This hook runs on EVERY push and enforces:
 #
-#   1. xcodebuild test (combined build+test) for app-target changes
+#   1. App-target changes: DEFERRED to GitHub CI (local xcodebuild removed —
+#      it exceeded agent time limits and stalled pushes; see MY-1150).
 #   2. swift build + swift test for Packages/* only changes
 #   3. Skip build for pure docs/hooks/scripts changes
 #   4. SwiftLint on changed Swift files
 #
 # Performance:
-#   - Shared DerivedData at <git-common-dir>/derived-data
-#   - flock (or mkdir fallback) at <git-common-dir>/build.lock
-#     so parallel agent worktrees serialize xcodebuild but share cache.
+#   - App-target xcodebuild no longer runs locally (deferred to CI), so no
+#     shared DerivedData / build lock is needed here anymore. SPM package
+#     builds run directly per touched package.
 
 set -uo pipefail
 
@@ -23,18 +24,11 @@ PROJECT_DIR="$(git rev-parse --show-toplevel)"
 cd "$PROJECT_DIR"
 
 GIT_COMMON_DIR="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
-LOCK_FILE="$GIT_COMMON_DIR/build.lock"
-LOCK_DIR="$GIT_COMMON_DIR/build.lock.d"
-DERIVED_DATA="$GIT_COMMON_DIR/derived-data"
 
 TMPDIR=$(mktemp -d)
-USING_MKDIR_LOCK=false
 
 cleanup() {
   rm -rf "$TMPDIR"
-  if [ "$USING_MKDIR_LOCK" = true ]; then
-    rmdir "$LOCK_DIR" 2>/dev/null || true
-  fi
 }
 trap cleanup EXIT INT TERM
 
@@ -123,7 +117,7 @@ PACKAGES_TOUCHED=$(echo "$CHANGED" \
   | sed -E 's|^Packages/([^/]+)/.*|\1|' \
   | sort -u || true)
 
-# Anything outside Packages/ that isn't a doc — forces full xcodebuild
+# Anything outside Packages/ that isn't a doc — app-target change (CI-verified)
 NON_PACKAGE=$(echo "$NON_DOC" | grep -vE '^Packages/' || true)
 
 # ---- 4. Build / test ---------------------------------------------------------
@@ -169,70 +163,19 @@ if [ -z "$NON_PACKAGE" ] && [ -n "$PACKAGES_TOUCHED" ]; then
   echo "✅ Package builds + tests passed."
 
 else
-  # App-target path: full xcodebuild test (combined build+test)
-  mkdir -p "$DERIVED_DATA"
-  echo "🔨 Pre-push: xcodebuild test"
-  echo "   DerivedData: $DERIVED_DATA"
-  echo "   Lock:        $LOCK_FILE"
-  echo ""
-
-  TEST_LOG=$(mktemp)
-
-  run_xcodebuild_test() {
-    set -o pipefail
-    xcodebuild test \
-      -project VitalStride.xcodeproj \
-      -scheme VitalStride \
-      -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
-      -configuration Debug \
-      -derivedDataPath "$DERIVED_DATA" \
-      -skipPackagePluginValidation \
-      2>&1 | tee "$TEST_LOG" | tail -10
-  }
-
-  if command -v flock >/dev/null 2>&1; then
-    ( flock -w 1800 9 || { echo "❌ build lock timeout (30min)"; exit 1; }
-      run_xcodebuild_test
-    ) 9>"$LOCK_FILE"
-    build_exit=$?
-  else
-    # mkdir-based fallback (macOS doesn't ship flock)
-    # Stale-lock cleanup: remove dirs older than 1h
-    if [ -d "$LOCK_DIR" ]; then
-      lock_age=$(( $(date +%s) - $(stat -f %m "$LOCK_DIR" 2>/dev/null || echo 0) ))
-      if [ "$lock_age" -gt 3600 ]; then
-        echo "⚠️  Removing stale lock dir (>1h old)"
-        rmdir "$LOCK_DIR" 2>/dev/null || true
-      fi
-    fi
-    USING_MKDIR_LOCK=true
-    RETRIES=180
-    while ! mkdir "$LOCK_DIR" 2>/dev/null; do
-      RETRIES=$((RETRIES - 1))
-      if [ $RETRIES -le 0 ]; then
-        echo "❌ build lock timeout (30min)"
-        rm -f "$TEST_LOG"
-        exit 1
-      fi
-      sleep 10
-    done
-    run_xcodebuild_test
-    build_exit=$?
-    rmdir "$LOCK_DIR" 2>/dev/null || true
-    USING_MKDIR_LOCK=false
-  fi
-
-  if [ "$build_exit" -ne 0 ]; then
-    echo ""
-    echo "❌ xcodebuild test failed (exit $build_exit). Push aborted."
-    echo "Last 30 lines of build log:"
-    tail -30 "$TEST_LOG"
-    rm -f "$TEST_LOG"
-    exit "$build_exit"
-  fi
-
-  rm -f "$TEST_LOG"
-  echo "✅ xcodebuild test passed."
+  # App-target path: DEFERRED TO CI (MY-1150 fix).
+  #
+  # Local pre-push previously ran a full `xcodebuild test` here (20-45min).
+  # That routinely exceeded the agent task time limit: the foreground push was
+  # killed mid-hook, the push never landed, no branch/PR was created, and the
+  # issue stalled at PR handoff (e.g. MY-1150). The app-target build+test is
+  # already covered by the required GitHub CI job ("App target" in ci.yml), so
+  # running it a second time locally is redundant and the sole cause of the
+  # timeout. SPM packages still get the fast local swift build/test above; app
+  # target correctness is enforced by CI, which is the authoritative gate.
+  echo "🏗️  App-target changes detected — skipping local xcodebuild."
+  echo "   App-target build+test is enforced by GitHub CI (\"App target\" job)."
+  echo "   (Local xcodebuild removed: it exceeded agent time limits and stalled pushes — MY-1150.)"
 fi
 
 # ---- 5. SwiftLint changed Swift files ---------------------------------------
