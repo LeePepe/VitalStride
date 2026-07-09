@@ -26,23 +26,31 @@ enum WorkoutCalendarGrouping {
     }
 }
 
-/// Renders the current calendar month as a 7-column `LazyVGrid` with a
-/// weekday header row plus day cells; dates that have workouts are visually
-/// highlighted using the T004 `WorkoutCalendarGrouping.groupByDay` result
+/// Renders a calendar month as a 7-column `LazyVGrid` with a weekday header
+/// row plus day cells; dates that have workouts are visually highlighted
+/// using the T004 `WorkoutCalendarGrouping.groupByDay` result
 /// (spec 011-workout-calendar FR-002 / SC-001).
 ///
-/// T009 scope: current-month rendering + highlight only. Month navigation
-/// (T010), day-tap selection and detail navigation (T011), previews (T013),
-/// and the accessibility audit pass (T014) land in later tasks.
+/// T010 scope: adds previous/next month navigation controls and a month
+/// title that updates as the visible month changes. Day-tap selection and
+/// detail navigation (T011), previews (T013), and the accessibility audit
+/// pass (T014) land in later tasks.
 struct WorkoutCalendarView: View {
     let workouts: [UnifiedWorkout]
 
     private var calendar: Calendar { Calendar.current }
 
-    /// Anchor date used to derive the visible month. T010 will replace this
-    /// with mutable navigation state; for T009 we always render the month
-    /// containing "now".
-    private var monthAnchor: Date { Date() }
+    /// Anchor date used to derive the visible month. Initialized to the
+    /// month containing "now" (preserving T009 initial behavior) and
+    /// mutated by the previous/next month navigation controls (T010).
+    /// Normalized to the first day of its month so equality/reset stays
+    /// stable across arbitrary intra-month anchors.
+    @State private var monthAnchor: Date = {
+        let calendar = Calendar.current
+        let now = Date()
+        return calendar.dateInterval(of: .month, for: now)?.start
+            ?? calendar.startOfDay(for: now)
+    }()
 
     private var workoutsByDay: [Date: [UnifiedWorkout]] {
         WorkoutCalendarGrouping.groupByDay(workouts)
@@ -118,10 +126,43 @@ struct WorkoutCalendarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(monthTitle)
-                .font(.title3.weight(.semibold))
-                .padding(.horizontal)
-                .accessibilityAddTraits(.isHeader)
+            HStack(spacing: 12) {
+                Button {
+                    goToAdjacentMonth(by: -1)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.title3.weight(.semibold))
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(
+                    Text(
+                        "workout_calendar_previous_month",
+                        comment: "Previous-month button accessibility label."
+                    )
+                )
+
+                Text(monthTitle)
+                    .font(.title3.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .accessibilityAddTraits(.isHeader)
+
+                Button {
+                    goToAdjacentMonth(by: 1)
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.title3.weight(.semibold))
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(
+                    Text(
+                        "workout_calendar_next_month",
+                        comment: "Next-month button accessibility label."
+                    )
+                )
+            }
+            .padding(.horizontal)
 
             LazyVGrid(columns: gridColumns, spacing: 4) {
                 ForEach(orderedWeekdayLabels, id: \.self) { label in
@@ -162,5 +203,22 @@ struct WorkoutCalendarView: View {
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .accessibilityHidden(true)
         }
+    }
+
+    /// Shift the visible month by the given number of months. Falls back
+    /// to the current anchor if the calendar cannot resolve the offset
+    /// (should not happen in Gregorian but keeps the type total).
+    private func goToAdjacentMonth(by offset: Int) {
+        guard
+            let shifted = calendar.date(
+                byAdding: .month,
+                value: offset,
+                to: monthAnchor
+            ),
+            let normalized = calendar.dateInterval(of: .month, for: shifted)?.start
+        else {
+            return
+        }
+        monthAnchor = normalized
     }
 }
