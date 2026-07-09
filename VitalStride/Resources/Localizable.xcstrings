@@ -4382,18 +4382,56 @@
     },
     "workout_calendar_date_a11y_format" : {
       "extractionState" : "manual",
-      "comment" : "WorkoutCalendarView date cell accessibility label when the day has workouts (spec 011-workout-calendar Bar H / FR-002). %1$@ is a preformatted localized date string (e.g. \"July 9\" / \"7 月 9 日\"); %2$lld is the workout count for that day.",
+      "comment" : "WorkoutCalendarView date cell accessibility label when the day has workouts (spec 011-workout-calendar Bar H / FR-002). %1$@ is a preformatted localized date string (e.g. \"July 9\" / \"7 月 9 日\"); %2$lld is the workout count for that day. Uses .xcstrings plural variations so English one/other forms differ (\"1 workout\" vs \"2 workouts\"); Chinese has no grammatical number so both forms share the same value.",
       "localizations" : {
         "en" : {
+          "substitutions" : {
+            "count" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg workout"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg workouts"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@, %2$lld workouts"
+            "value" : "%1$@, %#@count@"
           }
         },
         "zh-Hans" : {
+          "substitutions" : {
+            "count" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg 次训练"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@，%2$lld 次训练"
+            "value" : "%1$@，%#@count@"
           }
         }
       }
