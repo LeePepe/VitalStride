@@ -1,4 +1,5 @@
 import Foundation
+import HealthKitService
 import SwiftUI
 
 enum ViewMode: String, CaseIterable {
@@ -357,5 +358,84 @@ enum WorkoutCalendarDurationFormatter {
         formatter.allowedUnits = totalMinutes >= 60 ? [.hour, .minute] : [.minute]
         formatter.zeroFormattingBehavior = .dropAll
         return formatter.string(from: duration)
+    }
+}
+
+// MARK: - Previews (T013)
+//
+// Two previews cover Bar I's two required states:
+//   1. calendar populated with workout data (exercises month grid, month
+//      navigation, day selection + detail list beneath the grid);
+//   2. calendar with no workout data (exercises the empty-month rendering
+//      and confirms no day is selectable).
+//
+// Both previews build `UnifiedWorkout` values from `HealthWorkoutRecord`
+// so the preview is self-contained (no SwiftData context / no HealthKit
+// access required at preview time). The populated preview seeds several
+// workouts on distinct days of the current month plus two workouts on a
+// single day to exercise the multi-workout-per-day case (spec 011
+// Edge Case). Wrapped in `NavigationStack` so the row `NavigationLink`s
+// resolve correctly under preview.
+
+private enum WorkoutCalendarPreviewFixtures {
+    @MainActor
+    static func populatedWorkouts() -> [UnifiedWorkout] {
+        let calendar = Calendar.current
+        let now = Date()
+        let monthStart = calendar.dateInterval(of: .month, for: now)?.start
+            ?? calendar.startOfDay(for: now)
+
+        func date(dayOffset: Int, hour: Int) -> Date {
+            let base = calendar.date(byAdding: .day, value: dayOffset, to: monthStart) ?? monthStart
+            return calendar.date(bySettingHour: hour, minute: 0, second: 0, of: base) ?? base
+        }
+
+        func record(
+            dayOffset: Int,
+            hour: Int,
+            duration: TimeInterval,
+            activityRaw: UInt,
+            source: String
+        ) -> UnifiedWorkout {
+            let start = date(dayOffset: dayOffset, hour: hour)
+            let end = start.addingTimeInterval(duration)
+            return .healthKit(
+                HealthWorkoutRecord(
+                    id: UUID(),
+                    activityTypeRawValue: activityRaw,
+                    duration: duration,
+                    totalEnergyBurned: 320,
+                    totalDistance: 5_000,
+                    startDate: start,
+                    endDate: end,
+                    sourceName: source
+                )
+            )
+        }
+
+        // Newest-first ordering (matches merger output contract used by
+        // `WorkoutCalendarGrouping.groupByDay`).
+        var seeded: [UnifiedWorkout] = []
+        seeded.append(record(dayOffset: 22, hour: 18, duration: 45 * 60, activityRaw: 37, source: "Apple Watch"))
+        seeded.append(record(dayOffset: 22, hour: 8, duration: 30 * 60, activityRaw: 52, source: "Apple Watch"))
+        seeded.append(record(dayOffset: 18, hour: 7, duration: 60 * 60, activityRaw: 13, source: "Apple Watch"))
+        seeded.append(record(dayOffset: 12, hour: 19, duration: 40 * 60, activityRaw: 50, source: "iPhone"))
+        seeded.append(record(dayOffset: 5, hour: 6, duration: 55 * 60, activityRaw: 24, source: "Apple Watch"))
+        seeded.append(record(dayOffset: 1, hour: 20, duration: 25 * 60, activityRaw: 54, source: "iPhone"))
+        return seeded.sorted { $0.startDate > $1.startDate }
+    }
+}
+
+#Preview("With Workouts") {
+    NavigationStack {
+        WorkoutCalendarView(
+            workouts: WorkoutCalendarPreviewFixtures.populatedWorkouts()
+        )
+    }
+}
+
+#Preview("Empty State") {
+    NavigationStack {
+        WorkoutCalendarView(workouts: [])
     }
 }
