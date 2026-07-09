@@ -38,7 +38,7 @@ jobs:
         working-directory: Packages/${{ matrix.package }}
         run: swift test
 
-  # ---- Job B (REQUIRED): app target — xcodegen + xcodebuild test on iPhone 16 ----
+  # ---- Job B (REQUIRED): app target — xcodegen + xcodebuild test on iPhone 17 ----
   # This is the sole enforcement point for the app-target full xcodebuild test:
   # pre-push deliberately no longer runs it (that ~92s gate outlived agent-pipeline
   # runs and stalled PR handoff — cf. MY-1150), so merge protection lives here.
@@ -67,13 +67,15 @@ jobs:
           max=3
           until [ "$attempt" -gt "$max" ]; do
             echo "::group::xcodebuild test attempt $attempt/$max"
+            # Full output saved to a log so compile errors aren't lost to `tail`
+            # (a truncated tail hid the real actor-isolation errors during triage).
             if xcodebuild test \
                  -project VitalStride.xcodeproj \
                  -scheme VitalStride \
-                 -destination 'platform=iOS Simulator,name=iPhone 16' \
+                 -destination 'platform=iOS Simulator,name=iPhone 17' \
                  -skipPackagePluginValidation \
                  -skip-testing:"VitalStrideTests/$QUARANTINE" \
-                 | tail -40; then
+                 2>&1 | tee /tmp/xcb-attempt-$attempt.log | tail -60; then
               echo "::endgroup::"
               echo "xcodebuild test passed on attempt $attempt"
               exit 0
@@ -82,6 +84,9 @@ jobs:
             attempt=$((attempt + 1))
           done
           echo "xcodebuild test failed after $max attempts"
+          echo "::group::compile/test errors (grepped from full log)"
+          grep -E "error:|Testing failed|actor-isolated|BUILD FAILED|Unable to find" /tmp/xcb-attempt-*.log | sort -u | head -60 || true
+          echo "::endgroup::"
           exit 1
 
   # ---- Job C (REQUIRED): lint + policy gates (mirrors pre-push, server-side) ----
