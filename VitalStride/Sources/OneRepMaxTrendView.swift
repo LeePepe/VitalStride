@@ -48,6 +48,7 @@ struct OneRepMaxTrendView: View {
             Image(systemName: "chart.xyaxis.line")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Text(String(
                 localized: "one_rep_max_trend_empty",
                 defaultValue: "No 1RM history yet",
