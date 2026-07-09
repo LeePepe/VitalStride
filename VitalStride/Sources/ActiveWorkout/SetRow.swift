@@ -596,7 +596,17 @@ struct SetRow: View {
         Button {
             fillFromSuggestion(advice)
         } label: {
+            // MY-1208 (Constitution P1-H): the visible capsule (drawn by
+            // smartProgressionChipLabel) keeps its compact intrinsic size so
+            // the chip stays visually small. To satisfy the >=44pt hit-target
+            // floor, wrap the label in a fixed-height frame that centers the
+            // capsule vertically and mark the whole frame hit-testable via
+            // `contentShape(Rectangle())`. This extends the invisible tap
+            // region above and below the capsule without changing its
+            // rendered padding/background.
             smartProgressionChipLabel(advice)
+                .frame(minHeight: ActiveWorkoutHitTarget.side, alignment: .leading)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)

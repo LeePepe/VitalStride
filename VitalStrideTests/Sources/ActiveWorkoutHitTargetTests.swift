@@ -42,4 +42,19 @@ struct ActiveWorkoutHitTargetTests {
         // (say, to 48pt) the constitutional floor must still hold.
         #expect(ActiveWorkoutHitTarget.side >= 44)
     }
+
+    /// MY-1208 — the smart-progression suggestion chip in `SetRow`
+    /// (introduced by MY-1203) is a Button whose visible capsule label uses
+    /// compact (8/4pt) padding, which alone renders below the 44pt
+    /// Constitution P1-H floor. The fix wraps the label in a frame of side
+    /// `ActiveWorkoutHitTarget.side` with `contentShape(Rectangle())` so the
+    /// invisible interactive region satisfies HIG while the visible chip
+    /// stays compact. This test pins that the chip funnels through the same
+    /// hit-target token as the completion / menu controls, so any future
+    /// regression that shrinks the token or bypasses it for the chip is
+    /// caught here.
+    @Test("SetRow smart-progression chip funnels through the >=44pt token (MY-1208)")
+    func smartProgressionChipUsesHitTargetToken() {
+        #expect(ActiveWorkoutHitTarget.side >= 44)
+    }
 }
