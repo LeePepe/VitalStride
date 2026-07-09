@@ -28,6 +28,7 @@ struct WorkoutListView: View {
     @State private var healthKitRecords: [HealthWorkoutRecord] = []
     @State private var isLoadingHealthKit = false
     @State private var healthKitLoadFailed = false
+    @State private var viewMode: ViewMode = .list
 
     private var shouldShowAdviceCard: Bool {
         !unifiedWorkouts.isEmpty && privacyConsented
@@ -56,6 +57,119 @@ struct WorkoutListView: View {
         !workouts.isEmpty || !healthKitRecords.isEmpty
     }
 
+    @ViewBuilder
+    private var listContent: some View {
+        List {
+            if shouldShowAdviceCard {
+                Section {
+                    AITrainingAdviceCard(
+                        state: adviceViewModel.state,
+                        isExpanded: adviceViewModel.isExpanded,
+                        onToggleExpand: { adviceViewModel.toggleExpand() },
+                        onRefresh: { adviceViewModel.refresh(modelContext: modelContext) }
+                    )
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+
+            if isLoadingHealthKit && healthKitUnifiedWorkouts.isEmpty {
+                Section {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                            .accessibilityLabel(
+                                // swiftlint:disable:next no_hardcoded_chinese
+                                String(localized: "正在加载更多训练数据", comment: "Loading HK workouts a11y")
+                            )
+                        Spacer()
+                    }
+                }
+            }
+
+            if healthKitLoadFailed && healthKitUnifiedWorkouts.isEmpty {
+                Section {
+                    VStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                        Text(
+                            // swiftlint:disable:next no_hardcoded_chinese
+                            String(localized: "无法加载外部训练数据", comment: "HealthKit workout load error")
+                        )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+
+            if !appUnifiedWorkouts.isEmpty {
+                Section {
+                    ForEach(appUnifiedWorkouts) { item in
+                        if case .app(let workout) = item {
+                            NavigationLink {
+                                WorkoutDetailView(workout: workout)
+                            } label: {
+                                WorkoutRowView(workout: workout)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    workoutToDelete = workout
+                                } label: {
+                                    Label(
+                                        // swiftlint:disable:next no_hardcoded_chinese
+                                        String(localized: "删除", comment: "Delete swipe action"),
+                                        systemImage: "trash"
+                                    )
+                                }
+                                .accessibilityLabel(
+                                    // swiftlint:disable:next no_hardcoded_chinese
+                                    String(localized: "删除训练", comment: "Delete workout a11y")
+                                )
+                            }
+                        }
+                    }
+                } header: {
+                    Text(String(
+                        localized:
+                        // swiftlint:disable:next no_hardcoded_chinese
+                        "VitalStride 训练",
+                        comment: "Workout list section header for workouts recorded in this app"
+                    ))
+                    .accessibilityAddTraits(.isHeader)
+                }
+            }
+
+            if !healthKitUnifiedWorkouts.isEmpty {
+                Section {
+                    ForEach(healthKitUnifiedWorkouts) { item in
+                        if case .healthKit(let record) = item {
+                            NavigationLink {
+                                HealthKitWorkoutDetailView(record: record)
+                            } label: {
+                                HealthKitWorkoutRowView(record: record)
+                            }
+                        }
+                    }
+                } header: {
+                    Text(String(
+                        localized:
+                        // swiftlint:disable:next no_hardcoded_chinese
+                        "Apple 健康训练",
+                        comment: "Workout list section header for workouts from Apple HealthKit"
+                    ))
+                    .accessibilityAddTraits(.isHeader)
+                }
+            }
+        }
+        .task {
+            guard privacyConsented else { return }
+            adviceViewModel.loadAdviceIfNeeded(modelContext: modelContext)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -66,118 +180,50 @@ struct WorkoutListView: View {
                         description: Text(String(localized: "点击 + 开始第一次训练", comment: "No workouts empty state description"))
                     )
                 } else {
-                    List {
-                        if shouldShowAdviceCard {
-                            Section {
-                                AITrainingAdviceCard(
-                                    state: adviceViewModel.state,
-                                    isExpanded: adviceViewModel.isExpanded,
-                                    onToggleExpand: { adviceViewModel.toggleExpand() },
-                                    onRefresh: { adviceViewModel.refresh(modelContext: modelContext) }
-                                )
-                            }
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                        }
-
-                        if isLoadingHealthKit && healthKitUnifiedWorkouts.isEmpty {
-                            Section {
-                                HStack {
-                                    Spacer()
-                                    ProgressView()
-                                        .accessibilityLabel(
-                                            String(localized: "正在加载更多训练数据", comment: "Loading HK workouts a11y")
-                                        )
-                                    Spacer()
-                                }
-                            }
-                        }
-
-                        if healthKitLoadFailed && healthKitUnifiedWorkouts.isEmpty {
-                            Section {
-                                VStack(spacing: 4) {
-                                    Image(systemName: "exclamationmark.triangle")
-                                        .font(.title3)
-                                        .foregroundStyle(.secondary)
-                                        .accessibilityHidden(true)
-                                    Text(String(localized: "无法加载外部训练数据", comment: "HealthKit workout load error"))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .frame(maxWidth: .infinity)
-                            }
-                        }
-
-                        if !appUnifiedWorkouts.isEmpty {
-                            Section {
-                                ForEach(appUnifiedWorkouts) { item in
-                                    if case .app(let workout) = item {
-                                        NavigationLink {
-                                            WorkoutDetailView(workout: workout)
-                                        } label: {
-                                            WorkoutRowView(workout: workout)
-                                        }
-                                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                            Button(role: .destructive) {
-                                                workoutToDelete = workout
-                                            } label: {
-                                                Label(
-                                                    // swiftlint:disable:next no_hardcoded_chinese
-                                                    String(localized: "删除", comment: "Delete swipe action"),
-                                                    systemImage: "trash"
-                                                )
-                                            }
-                                            .accessibilityLabel(
-                                                // swiftlint:disable:next no_hardcoded_chinese
-                                                String(localized: "删除训练", comment: "Delete workout a11y")
-                                            )
-                                        }
-                                    }
-                                }
-                            } header: {
-                                Text(String(
-                                    localized:
-                                    // swiftlint:disable:next no_hardcoded_chinese
-                                    "VitalStride 训练",
-                                    comment: "Workout list section header for workouts recorded in this app"
-                                ))
-                                .accessibilityAddTraits(.isHeader)
-                            }
-                        }
-
-                        if !healthKitUnifiedWorkouts.isEmpty {
-                            Section {
-                                ForEach(healthKitUnifiedWorkouts) { item in
-                                    if case .healthKit(let record) = item {
-                                        NavigationLink {
-                                            HealthKitWorkoutDetailView(record: record)
-                                        } label: {
-                                            HealthKitWorkoutRowView(record: record)
-                                        }
-                                    }
-                                }
-                            } header: {
-                                Text(String(
-                                    localized:
-                                    // swiftlint:disable:next no_hardcoded_chinese
-                                    "Apple 健康训练",
-                                    comment: "Workout list section header for workouts from Apple HealthKit"
-                                ))
-                                .accessibilityAddTraits(.isHeader)
-                            }
-                        }
-                    }
-                    .task {
-                        guard privacyConsented else { return }
-                        adviceViewModel.loadAdviceIfNeeded(modelContext: modelContext)
+                    switch viewMode {
+                    case .list:
+                        listContent
+                    case .calendar:
+                        // Inline placeholder for T007 amended scope: the real
+                        // `WorkoutCalendarView` (LazyVGrid month grid) is
+                        // introduced in T009 per specs/011-workout-calendar/tasks.md.
+                        // Keeping the placeholder inline here avoids editing
+                        // `WorkoutCalendarView.swift` from T007.
+                        ContentUnavailableView(
+                            // swiftlint:disable:next no_hardcoded_chinese
+                            String(localized: "日历视图即将上线", comment: "Calendar view placeholder title"),
+                            systemImage: "calendar"
+                        )
                     }
                 }
             }
             .task {
                 await loadHealthKitWorkouts()
             }
-            .navigationTitle(String(localized: "训练", comment: "Workout tab title"))
+            .navigationTitle(
+                // swiftlint:disable:next no_hardcoded_chinese
+                String(localized: "训练", comment: "Workout tab title")
+            )
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Picker(
+                        // swiftlint:disable:next no_hardcoded_chinese
+                        String(localized: "训练视图模式", comment: "Workout view mode picker label"),
+                        selection: $viewMode
+                    ) {
+                        // swiftlint:disable:next no_hardcoded_chinese
+                        Text(String(localized: "列表", comment: "Workout list mode label"))
+                            .tag(ViewMode.list)
+                        // swiftlint:disable:next no_hardcoded_chinese
+                        Text(String(localized: "日历", comment: "Workout calendar mode label"))
+                            .tag(ViewMode.calendar)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel(
+                        // swiftlint:disable:next no_hardcoded_chinese
+                        String(localized: "训练视图模式", comment: "Workout view mode picker a11y label")
+                    )
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button(
                         String(localized: "开始训练", comment: "Start workout toolbar button"),
