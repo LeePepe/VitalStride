@@ -38,14 +38,16 @@ jobs:
         working-directory: Packages/${{ matrix.package }}
         run: swift test
 
-  # ---- Job B (ADVISORY): app target — xcodegen + xcodebuild test on iPhone 16 ----
+  # ---- Job B (REQUIRED): app target — xcodegen + xcodebuild test on iPhone 16 ----
+  # This is the sole enforcement point for the app-target full xcodebuild test:
+  # pre-push deliberately no longer runs it (that ~92s gate outlived agent-pipeline
+  # runs and stalled PR handoff — cf. MY-1150), so merge protection lives here.
   # Known-flaky OverviewHealthSnapshotTests.loadAllMetrics is quarantined via
-  # retry-until-green so green CI != flake masking. Drop continue-on-error +
-  # quarantine once G-09 is fixed, then move this to required.
+  # retry-until-green so green CI != flake masking. Drop the quarantine +
+  # -skip-testing once G-09 is fixed.
   app:
-    name: App target (advisory)
+    name: App target
     runs-on: macos-15
-    continue-on-error: true
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Select Xcode
