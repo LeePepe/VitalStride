@@ -52,6 +52,7 @@
 		336BCEEC994E6B84411D077E /* WorkoutListMerger.swift in Sources */ = {isa = PBXBuildFile; fileRef = C475E0D51502E60636C6AE22 /* WorkoutListMerger.swift */; };
 		33F32CC3B767F8D4AB763238 /* MacContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0033F83E9F4931C560DBD87C /* MacContentView.swift */; };
 		36549AF279412FDE4043F44A /* ExerciseSubstituteParseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D433934EDCED39DA4E97B1A /* ExerciseSubstituteParseTests.swift */; };
+		3656F589A784E33C97C44C17 /* WorkoutCalendarViewModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E12ACC17627744A782085CC /* WorkoutCalendarViewModeTests.swift */; };
 		380C9F487820F8FB0C294EF7 /* VitalStrideWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2F9C6A27CB551B32C0DDFEA0 /* VitalStrideWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		39BD39A86AF1322900C55331 /* ActiveExerciseSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 951759CA7A2CB18B447F2E1D /* ActiveExerciseSection.swift */; };
 		3A968377ED9C959EFBCEBBDA /* WorkoutTemplateBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2093CD48BCD1BDEEC94BEDC5 /* WorkoutTemplateBuilderTests.swift */; };
@@ -114,6 +115,7 @@
 		6B6017187A9312A84144795F /* WorkoutCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 427E893ECA1E1E6CBB759745 /* WorkoutCalendarView.swift */; };
 		6DC642F94DA823F4D74F469E /* ActiveEnergySectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584CFBB57DF2FA059790F81B /* ActiveEnergySectionTests.swift */; };
 		6DD9EA5894C16A881C94A162 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 193733B006ED472D5112547F /* HealthKit.framework */; };
+		6E10C94EC63770B97FFAD349 /* WorkoutCalendarDateA11yPluralTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4230128186A2D9141F683A55 /* WorkoutCalendarDateA11yPluralTests.swift */; };
 		6E429B825B6061272CB5B7C9 /* VitalModels in Frameworks */ = {isa = PBXBuildFile; productRef = 664522C2C3BB624FE1681CA9 /* VitalModels */; };
 		6F7D70DDEB1E80E8134A0BD9 /* AITrainingAdviceCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9D015549AC791C43A4CE4AC /* AITrainingAdviceCardTests.swift */; };
 		7072A3941A8351E4BD9A6EDF /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3FE8B00D1964DA58C3120CBD /* InfoPlist.strings */; };
@@ -331,6 +333,7 @@
 		3FD2ADEBFF5552DB57E72823 /* OverviewInsight+CardParsing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OverviewInsight+CardParsing.swift"; sourceTree = "<group>"; };
 		3FFE6FD111BCCB764102CEF5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		40F464F0C73BCCC0FFE329F9 /* RestNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestNotificationScheduler.swift; sourceTree = "<group>"; };
+		4230128186A2D9141F683A55 /* WorkoutCalendarDateA11yPluralTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCalendarDateA11yPluralTests.swift; sourceTree = "<group>"; };
 		427E893ECA1E1E6CBB759745 /* WorkoutCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCalendarView.swift; sourceTree = "<group>"; };
 		4340E51820609A5B245C166D /* HeartRateSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateSection.swift; sourceTree = "<group>"; };
 		43E379EF951B00DF2F648BBF /* UnifiedWorkout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedWorkout.swift; sourceTree = "<group>"; };
@@ -377,6 +380,7 @@
 		7A881C46913F6885CF69BA78 /* AIPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIPromptBuilder.swift; sourceTree = "<group>"; };
 		7C5500BA2B8CED72FFB4F0E4 /* PlaceholderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderViews.swift; sourceTree = "<group>"; };
 		7D06A0789305603E086A2383 /* VitalStrideWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideWatchApp.swift; sourceTree = "<group>"; };
+		7E12ACC17627744A782085CC /* WorkoutCalendarViewModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCalendarViewModeTests.swift; sourceTree = "<group>"; };
 		7F05DE8F5FD72DDE805405B9 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		815CE0258AB09DB05826E41B /* WorkoutCopier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCopier.swift; sourceTree = "<group>"; };
 		81EA85E25A4A8CF1692CB407 /* OverviewLayoutState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewLayoutState.swift; sourceTree = "<group>"; };
@@ -591,7 +595,9 @@
 				DA0F2C179353A73AE3F6E0E8 /* UnifiedWorkoutTests.swift */,
 				F122894AC7F78937EF246FCC /* UserInterestTrackerTests.swift */,
 				BBCA9E75DF0B8906EB2943E1 /* ViewCacheIntegrationTests.swift */,
+				4230128186A2D9141F683A55 /* WorkoutCalendarDateA11yPluralTests.swift */,
 				5C7FE7452DE4CB3FCB159950 /* WorkoutCalendarGroupingTests.swift */,
+				7E12ACC17627744A782085CC /* WorkoutCalendarViewModeTests.swift */,
 				51BDA8D726E586BDBB1F6F2F /* WorkoutCopyTests.swift */,
 				C631CA96B865182A29C34AE0 /* WorkoutCopyToNextTests.swift */,
 				46D0B1B4E9C7FD1C63B5C56C /* WorkoutDeletionTests.swift */,
@@ -1344,7 +1350,9 @@
 				C2D80D80EEBB56ED09746B83 /* UnifiedWorkoutTests.swift in Sources */,
 				E385F45BA62B1B2588944791 /* UserInterestTrackerTests.swift in Sources */,
 				250A211B6A4CE2539EAA3941 /* ViewCacheIntegrationTests.swift in Sources */,
+				6E10C94EC63770B97FFAD349 /* WorkoutCalendarDateA11yPluralTests.swift in Sources */,
 				FE6ED73DF23FB95DDEBFDD96 /* WorkoutCalendarGroupingTests.swift in Sources */,
+				3656F589A784E33C97C44C17 /* WorkoutCalendarViewModeTests.swift in Sources */,
 				001532DB645B827B74A20B29 /* WorkoutCopyTests.swift in Sources */,
 				BC8A20B0D2B649FFA8B38BAE /* WorkoutCopyToNextTests.swift in Sources */,
 				FD1420D480D8737320D0F580 /* WorkoutDeletionTests.swift in Sources */,
