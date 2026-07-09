@@ -28,7 +28,12 @@ struct WorkoutListView: View {
     @State private var healthKitRecords: [HealthWorkoutRecord] = []
     @State private var isLoadingHealthKit = false
     @State private var healthKitLoadFailed = false
-    @State private var viewMode: ViewMode = .list
+    // Persisted across scene restores so the user's chosen mode survives app
+    // backgrounding. `@SceneStorage` for a `RawRepresentable` where `RawValue`
+    // is `String` falls back to the default (`.list`) when no stored value
+    // exists or when the stored raw value fails to map to a `ViewMode` case,
+    // preserving the original T007 default.
+    @SceneStorage("workoutViewMode") private var viewMode: ViewMode = .list
 
     private var shouldShowAdviceCard: Bool {
         !unifiedWorkouts.isEmpty && privacyConsented
