@@ -22,7 +22,7 @@ jobs:
   # ---- Job A (REQUIRED): 5 SPM packages — swift build + test, seconds, no sim ----
   spm:
     name: SPM ${{ matrix.package }}
-    runs-on: macos-15
+    runs-on: macos-26
     strategy:
       fail-fast: false
       matrix:
@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+        run: sudo xcode-select -s /Applications/Xcode_26.5.app
       - name: swift build
         working-directory: Packages/${{ matrix.package }}
         run: swift build
@@ -38,18 +38,23 @@ jobs:
         working-directory: Packages/${{ matrix.package }}
         run: swift test
 
-  # ---- Job B (ADVISORY): app target — xcodegen + xcodebuild test on iPhone 16 ----
+  # ---- Job B (REQUIRED): app target — xcodegen + xcodebuild test on iPhone 17 ----
+  # This is the sole enforcement point for the app-target full xcodebuild test:
+  # pre-push deliberately no longer runs it (that ~92s gate outlived agent-pipeline
+  # runs and stalled PR handoff — cf. MY-1150), so merge protection lives here.
+  # Runs on macos-26 (Xcode 26.5) to match the local toolchain: the app-target
+  # tests hit Swift-6 actor-isolation compile errors under the older Xcode 16.4
+  # on macos-15, which is why this job could never go green / required before.
   # Known-flaky OverviewHealthSnapshotTests.loadAllMetrics is quarantined via
-  # retry-until-green so green CI != flake masking. Drop continue-on-error +
-  # quarantine once G-09 is fixed, then move this to required.
+  # retry-until-green so green CI != flake masking. Drop the quarantine +
+  # -skip-testing once G-09 is fixed.
   app:
-    name: App target (advisory)
-    runs-on: macos-15
-    continue-on-error: true
+    name: App target
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+        run: sudo xcode-select -s /Applications/Xcode_26.5.app
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate project
@@ -62,13 +67,15 @@ jobs:
           max=3
           until [ "$attempt" -gt "$max" ]; do
             echo "::group::xcodebuild test attempt $attempt/$max"
+            # Full output saved to a log so compile errors aren't lost to `tail`
+            # (a truncated tail hid the real actor-isolation errors during triage).
             if xcodebuild test \
                  -project VitalStride.xcodeproj \
                  -scheme VitalStride \
-                 -destination 'platform=iOS Simulator,name=iPhone 16' \
+                 -destination 'platform=iOS Simulator,name=iPhone 17' \
                  -skipPackagePluginValidation \
                  -skip-testing:"VitalStrideTests/$QUARANTINE" \
-                 | tail -40; then
+                 2>&1 | tee /tmp/xcb-attempt-$attempt.log | tail -60; then
               echo "::endgroup::"
               echo "xcodebuild test passed on attempt $attempt"
               exit 0
@@ -77,12 +84,15 @@ jobs:
             attempt=$((attempt + 1))
           done
           echo "xcodebuild test failed after $max attempts"
+          echo "::group::compile/test errors (grepped from full log)"
+          grep -E "error:|Testing failed|actor-isolated|BUILD FAILED|Unable to find" /tmp/xcb-attempt-*.log | sort -u | head -60 || true
+          echo "::endgroup::"
           exit 1
 
   # ---- Job C (REQUIRED): lint + policy gates (mirrors pre-push, server-side) ----
   policy:
     name: Lint & policy
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
