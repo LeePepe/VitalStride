@@ -31,10 +31,11 @@ enum WorkoutCalendarGrouping {
 /// using the T004 `WorkoutCalendarGrouping.groupByDay` result
 /// (spec 011-workout-calendar FR-002 / SC-001).
 ///
-/// T010 scope: adds previous/next month navigation controls and a month
-/// title that updates as the visible month changes. Day-tap selection and
-/// detail navigation (T011), previews (T013), and the accessibility audit
-/// pass (T014) land in later tasks.
+/// T011 scope: adds day selection + a below-grid section listing every
+/// workout on the selected day, each row wrapped in a `NavigationLink`
+/// to `WorkoutDetailView` / `HealthKitWorkoutDetailView` per the
+/// `UnifiedWorkout` case (FR-003 / SC-002). Previews (T013) and the
+/// accessibility audit pass (T014) land in later tasks.
 struct WorkoutCalendarView: View {
     let workouts: [UnifiedWorkout]
 
@@ -51,6 +52,12 @@ struct WorkoutCalendarView: View {
         return calendar.dateInterval(of: .month, for: now)?.start
             ?? calendar.startOfDay(for: now)
     }()
+
+    /// Currently selected day (normalized to `startOfDay`). `nil` means no
+    /// day is expanded. Only days with at least one workout are selectable
+    /// (empty days ignore taps). Cleared when the visible month changes so
+    /// stale selections from another month never render below the grid.
+    @State private var selectedDay: Date?
 
     private var workoutsByDay: [Date: [UnifiedWorkout]] {
         WorkoutCalendarGrouping.groupByDay(workouts)
@@ -179,6 +186,12 @@ struct WorkoutCalendarView: View {
             }
             .padding(.horizontal)
 
+            if let selectedDay,
+               let workoutsForDay = workoutsByDay[selectedDay],
+               !workoutsForDay.isEmpty {
+                selectedDaySection(day: selectedDay, workouts: workoutsForDay)
+            }
+
             Spacer(minLength: 0)
         }
         .padding(.vertical)
@@ -189,15 +202,23 @@ struct WorkoutCalendarView: View {
         if let day {
             let dayNumber = calendar.component(.day, from: day)
             let hasWorkout = workoutsByDay[day] != nil
-            Text("\(dayNumber)")
-                .font(.body)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .background(
-                    Circle()
-                        .fill(hasWorkout ? Color.accentColor.opacity(0.18) : Color.clear)
-                        .frame(width: 36, height: 36)
-                )
-                .foregroundStyle(hasWorkout ? Color.accentColor : .primary)
+            let isSelected = selectedDay == day
+            Button {
+                guard hasWorkout else { return }
+                selectedDay = (selectedDay == day) ? nil : day
+            } label: {
+                Text("\(dayNumber)")
+                    .font(.body)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(
+                        Circle()
+                            .fill(dayCellBackground(hasWorkout: hasWorkout, isSelected: isSelected))
+                            .frame(width: 36, height: 36)
+                    )
+                    .foregroundStyle(dayCellForeground(hasWorkout: hasWorkout, isSelected: isSelected))
+            }
+            .buttonStyle(.plain)
+            .disabled(!hasWorkout)
         } else {
             Color.clear
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -205,9 +226,62 @@ struct WorkoutCalendarView: View {
         }
     }
 
+    private func dayCellBackground(hasWorkout: Bool, isSelected: Bool) -> Color {
+        if isSelected {
+            return Color.accentColor
+        }
+        return hasWorkout ? Color.accentColor.opacity(0.18) : Color.clear
+    }
+
+    private func dayCellForeground(hasWorkout: Bool, isSelected: Bool) -> Color {
+        if isSelected {
+            return .white
+        }
+        return hasWorkout ? Color.accentColor : .primary
+    }
+
+    /// Section rendered below the month grid when a workout day is
+    /// selected. Lists every `UnifiedWorkout` for that day (preserves
+    /// input order — the merger yields startDate-descending, so the newest
+    /// workout of the day shows first). Each row is a `NavigationLink`
+    /// into the matching detail view for its `UnifiedWorkout` case
+    /// (FR-003 / SC-002; Edge Case: multiple workouts in one day).
+    @ViewBuilder
+    private func selectedDaySection(day: Date, workouts: [UnifiedWorkout]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(day, style: .date)
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.horizontal)
+
+            ForEach(workouts) { item in
+                switch item {
+                case .app(let workout):
+                    NavigationLink {
+                        WorkoutDetailView(workout: workout)
+                    } label: {
+                        SelectedDayWorkoutRow(item: item)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal)
+                case .healthKit(let record):
+                    NavigationLink {
+                        HealthKitWorkoutDetailView(record: record)
+                    } label: {
+                        SelectedDayWorkoutRow(item: item)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal)
+                }
+            }
+        }
+    }
+
     /// Shift the visible month by the given number of months. Falls back
     /// to the current anchor if the calendar cannot resolve the offset
     /// (should not happen in Gregorian but keeps the type total).
+    /// Clears any currently selected day so a stale selection from the
+    /// old month never renders under the new grid (T011).
     private func goToAdjacentMonth(by offset: Int) {
         guard
             let shifted = calendar.date(
@@ -220,5 +294,53 @@ struct WorkoutCalendarView: View {
             return
         }
         monthAnchor = normalized
+        selectedDay = nil
+    }
+}
+
+/// Compact row used inside the T011 selected-day section. Kept private
+/// to `WorkoutCalendarView`'s file so it doesn't leak into other
+/// screens — `WorkoutListView` continues to use its own `WorkoutRowView`
+/// / `HealthKitWorkoutRowView` cells for list mode.
+private struct SelectedDayWorkoutRow: View {
+    let item: UnifiedWorkout
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: item.displayIcon)
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .frame(width: 32)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.displayTitle)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    Text(item.startDate, style: .time)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let duration = item.duration {
+                        let totalSeconds = Int(duration)
+                        let minutes = totalSeconds / 60
+                        let hours = minutes / 60
+                        let remainingMinutes = minutes % 60
+                        Text(hours > 0 ? "\(hours)h \(remainingMinutes)m" : "\(minutes)m")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
     }
 }
