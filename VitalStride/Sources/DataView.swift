@@ -134,7 +134,10 @@ struct DataView: View {
                 Text("需要 HealthKit 授权")
                     .font(.headline)
                 #if os(iOS)
-                Text("授权后即可查看心率、步数等健康数据。轻点下方按钮前往「设置」完成授权。")
+                Text(String(
+                    localized: "授权后即可查看心率、步数等健康数据。轻点下方按钮前往「设置」完成授权。",
+                    comment: "iOS unauthorized HealthKit explanatory copy in DataView authorization CTA section"
+                ))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

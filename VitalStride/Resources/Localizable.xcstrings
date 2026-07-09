@@ -2512,6 +2512,23 @@
     "授权 HealthKit 查看健康数据快照，或开始你的第一次训练。" : {
 
     },
+    "授权后即可查看心率、步数等健康数据。轻点下方按钮前往「设置」完成授权。" : {
+      "comment" : "iOS unauthorized HealthKit explanatory copy in DataView authorization CTA section",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once authorized, you can view health data like heart rate and step count. Tap the button below to complete authorization in Settings."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "授权后即可查看心率、步数等健康数据。轻点下方按钮前往「设置」完成授权。"
+          }
+        }
+      }
+    },
     "授权状态" : {
 
     },
