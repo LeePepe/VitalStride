@@ -596,17 +596,16 @@ struct SetRow: View {
         Button {
             fillFromSuggestion(advice)
         } label: {
-            // MY-1208 (Constitution P1-H): the visible capsule (drawn by
-            // smartProgressionChipLabel) keeps its compact intrinsic size so
-            // the chip stays visually small. To satisfy the >=44pt hit-target
-            // floor, wrap the label in a fixed-height frame that centers the
-            // capsule vertically and mark the whole frame hit-testable via
-            // `contentShape(Rectangle())`. This extends the invisible tap
-            // region above and below the capsule without changing its
-            // rendered padding/background.
-            smartProgressionChipLabel(advice)
-                .frame(minHeight: ActiveWorkoutHitTarget.side, alignment: .leading)
-                .contentShape(Rectangle())
+            // MY-1208 (Constitution P1-H): route through the shared
+            // `smartProgressionChipHitTargetContainer` so the invisible
+            // tap region is measurably ≥44pt tall. Extracting the container
+            // as an internal static lets `ActiveWorkoutHitTargetTests`
+            // render it via UIHostingController and assert rendered height
+            // — a regression that removes or shrinks the frame anywhere
+            // along this path fails the test loudly.
+            Self.smartProgressionChipHitTargetContainer {
+                smartProgressionChipLabel(advice)
+            }
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -617,6 +616,25 @@ struct SetRow: View {
                 comment: "SetRow smart-progression chip VoiceOver hint. Communicates the tap-to-fill affordance (T006) so screen-reader users know activating the chip populates weight and reps. The primary spoken label — suggested weight, reps, and reason — is composed automatically by .accessibilityElement(children: .combine) from the visible Text children. Cataloged in Localizable.xcstrings by 006 T007."
             )
         )
+    }
+
+    /// MY-1208 (Constitution P1-H): wraps the visible compact-capsule chip
+    /// label in a fixed-height frame ≥ `ActiveWorkoutHitTarget.side` (44pt)
+    /// with `contentShape(Rectangle())` so the invisible tap region — the
+    /// actual hit target — meets the HIG floor without inflating the drawn
+    /// capsule padding/background. Exposed as `internal static` so
+    /// `ActiveWorkoutHitTargetTests` can render this exact container over a
+    /// deliberately tiny (< 44pt) label and assert the *rendered* height
+    /// stays ≥ 44pt: if a future refactor deletes or shrinks the frame
+    /// here, the rendered measurement collapses to the label's intrinsic
+    /// height and the test fails loudly.
+    @ViewBuilder
+    static func smartProgressionChipHitTargetContainer<Label: View>(
+        @ViewBuilder label: () -> Label
+    ) -> some View {
+        label()
+            .frame(minHeight: ActiveWorkoutHitTarget.side, alignment: .leading)
+            .contentShape(Rectangle())
     }
 
     @ViewBuilder

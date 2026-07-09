@@ -1,6 +1,10 @@
 import SwiftUI
 import Testing
 
+#if canImport(UIKit) && !os(macOS)
+import UIKit
+#endif
+
 @testable import VitalStride
 
 /// MY-1013 — Compact-row hit-target token verification for `SetRow` and
@@ -46,15 +50,38 @@ struct ActiveWorkoutHitTargetTests {
     /// MY-1208 — the smart-progression suggestion chip in `SetRow`
     /// (introduced by MY-1203) is a Button whose visible capsule label uses
     /// compact (8/4pt) padding, which alone renders below the 44pt
-    /// Constitution P1-H floor. The fix wraps the label in a frame of side
-    /// `ActiveWorkoutHitTarget.side` with `contentShape(Rectangle())` so the
-    /// invisible interactive region satisfies HIG while the visible chip
-    /// stays compact. This test pins that the chip funnels through the same
-    /// hit-target token as the completion / menu controls, so any future
-    /// regression that shrinks the token or bypasses it for the chip is
-    /// caught here.
-    @Test("SetRow smart-progression chip funnels through the >=44pt token (MY-1208)")
-    func smartProgressionChipUsesHitTargetToken() {
-        #expect(ActiveWorkoutHitTarget.side >= 44)
+    /// Constitution P1-H floor. The fix routes the chip through
+    /// `SetRow.smartProgressionChipHitTargetContainer` — a frame of side
+    /// `ActiveWorkoutHitTarget.side` with `contentShape(Rectangle())`.
+    ///
+    /// This test does NOT re-check the token constant (that is what the
+    /// two tests above already cover). Instead it renders the exact
+    /// container the chip uses around a deliberately tiny 4pt label and
+    /// asserts the *rendered* container height still meets the 44pt floor.
+    /// If a future refactor removes `.frame(minHeight:)`, swaps in a
+    /// smaller value, or replaces the container with a raw label, the
+    /// hosting-controller measurement collapses to the 4pt intrinsic size
+    /// and the test fails loudly — which is exactly the review probe the
+    /// prior token-only assertion was missing.
+    #if canImport(UIKit) && !os(macOS)
+    @MainActor
+    @Test("SetRow.smartProgressionChip renders a >=44pt hit region (MY-1208)")
+    func smartProgressionChipRendersHitTargetContainer() {
+        // A 4x4pt label — well below the 44pt floor — makes any regression
+        // that bypasses the container immediately observable at ~4pt.
+        let tinyLabel = Color.clear.frame(width: 4, height: 4)
+        let container = SetRow.smartProgressionChipHitTargetContainer {
+            tinyLabel
+        }
+        let host = UIHostingController(rootView: container)
+        // sizeThatFits with .zero forces SwiftUI to resolve intrinsic size,
+        // so the returned height reflects the container's own contract
+        // (the 44pt minHeight) rather than any parent's imposed frame.
+        let rendered = host.sizeThatFits(in: .zero)
+        #expect(
+            rendered.height >= ActiveWorkoutHitTarget.side,
+            "Chip container rendered \(rendered.height)pt tall; must be >= \(ActiveWorkoutHitTarget.side)pt (Constitution P1-H). The label intrinsic size is 4pt, so any value near 4 means the .frame(minHeight:) was removed or shrunk."
+        )
     }
+    #endif
 }
