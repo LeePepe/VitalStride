@@ -87,7 +87,7 @@ struct ActiveExerciseSection: View {
                             onSubstitute()
                         } label: {
                             // swiftlint:disable:next line_length
-                            Label(String(localized: "智能替代", comment: "Smart substitute context menu item"), systemImage: "sparkles")
+                            Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute context menu item"), systemImage: "sparkles")
                         }
                         Button {
                             onReplace()
@@ -110,7 +110,7 @@ struct ActiveExerciseSection: View {
                         onSubstitute()
                     } label: {
                         // swiftlint:disable:next line_length
-                        Label(String(localized: "智能替代", comment: "Smart substitute menu item"), systemImage: "sparkles")
+                        Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute menu item"), systemImage: "sparkles")
                     }
                     Button {
                         onReplace()
