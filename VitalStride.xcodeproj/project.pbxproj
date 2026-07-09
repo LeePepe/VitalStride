@@ -234,6 +234,7 @@
 		E76BC7F1D6870908C47C822E /* HealthKitWorkoutDetailViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0785BF9C403F3BD8CA5594B /* HealthKitWorkoutDetailViewTests.swift */; };
 		E7B43296AD10BE64FBDFC8A4 /* AIAnalysisContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC416D681FFBB8B76EC14256 /* AIAnalysisContext.swift */; };
 		E7F29FF627D681740AAD90DF /* ExercisePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AD223B725AFEBB33444035 /* ExercisePickerView.swift */; };
+		E93A0A8CC4F695CA1673B431 /* WorkoutCalendarDurationFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 065B1D91455E03984C496818 /* WorkoutCalendarDurationFormatterTests.swift */; };
 		EA2925A7C0F167DD4CBEC374 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 675947C2C88283D7D81E0FD0 /* Assets.xcassets */; };
 		EB47D5EDAD27C2DC300CE4A5 /* ActiveWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A82A8BC200FD8437E939A67D /* ActiveWorkoutView.swift */; };
 		EB898F83A4A5112429DD813F /* RestLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C97E601CF77AF12D843DDBA /* RestLiveActivityManager.swift */; };
@@ -289,6 +290,7 @@
 		0378B7BEA27F039A09AE83A8 /* AIChatViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIChatViewTests.swift; sourceTree = "<group>"; };
 		03CB8FB08656578C03059E58 /* SmartProgressionAdvisor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartProgressionAdvisor.swift; sourceTree = "<group>"; };
 		03F786B391EDD7A38969A516 /* AISettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsSection.swift; sourceTree = "<group>"; };
+		065B1D91455E03984C496818 /* WorkoutCalendarDurationFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCalendarDurationFormatterTests.swift; sourceTree = "<group>"; };
 		070FAE30219D9F124AC3E893 /* SubstituteRecommendationFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubstituteRecommendationFilterTests.swift; sourceTree = "<group>"; };
 		07789CFCADD52D03D14BE03E /* PreviousSetLookupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviousSetLookupTests.swift; sourceTree = "<group>"; };
 		0870A28F91338A971FA627A8 /* SummaryCardVariantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryCardVariantView.swift; sourceTree = "<group>"; };
@@ -596,6 +598,7 @@
 				F122894AC7F78937EF246FCC /* UserInterestTrackerTests.swift */,
 				BBCA9E75DF0B8906EB2943E1 /* ViewCacheIntegrationTests.swift */,
 				4230128186A2D9141F683A55 /* WorkoutCalendarDateA11yPluralTests.swift */,
+				065B1D91455E03984C496818 /* WorkoutCalendarDurationFormatterTests.swift */,
 				5C7FE7452DE4CB3FCB159950 /* WorkoutCalendarGroupingTests.swift */,
 				7E12ACC17627744A782085CC /* WorkoutCalendarViewModeTests.swift */,
 				51BDA8D726E586BDBB1F6F2F /* WorkoutCopyTests.swift */,
@@ -1351,6 +1354,7 @@
 				E385F45BA62B1B2588944791 /* UserInterestTrackerTests.swift in Sources */,
 				250A211B6A4CE2539EAA3941 /* ViewCacheIntegrationTests.swift in Sources */,
 				6E10C94EC63770B97FFAD349 /* WorkoutCalendarDateA11yPluralTests.swift in Sources */,
+				E93A0A8CC4F695CA1673B431 /* WorkoutCalendarDurationFormatterTests.swift in Sources */,
 				FE6ED73DF23FB95DDEBFDD96 /* WorkoutCalendarGroupingTests.swift in Sources */,
 				3656F589A784E33C97C44C17 /* WorkoutCalendarViewModeTests.swift in Sources */,
 				001532DB645B827B74A20B29 /* WorkoutCopyTests.swift in Sources */,
