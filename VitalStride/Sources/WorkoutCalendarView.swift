@@ -321,12 +321,9 @@ private struct SelectedDayWorkoutRow: View {
                     Text(item.startDate, style: .time)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    if let duration = item.duration {
-                        let totalSeconds = Int(duration)
-                        let minutes = totalSeconds / 60
-                        let hours = minutes / 60
-                        let remainingMinutes = minutes % 60
-                        Text(hours > 0 ? "\(hours)h \(remainingMinutes)m" : "\(minutes)m")
+                    if let duration = item.duration,
+                       let durationText = WorkoutCalendarDurationFormatter.string(from: duration) {
+                        Text(durationText)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -342,5 +339,23 @@ private struct SelectedDayWorkoutRow: View {
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())
+    }
+}
+
+/// Locale-aware duration formatter used by the T011 selected-day workout row.
+///
+/// MY-1221: replaces the previous "\(hours)h \(minutes)m" / "\(minutes)m"
+/// hardcoded English units in `SelectedDayWorkoutRow` so the label respects
+/// the user's locale (Cross-Cutting Quality Bar G / Principle VI). Returns
+/// `nil` when the formatter cannot produce a string, which lets the caller
+/// skip the label entirely instead of falling back to hardcoded English.
+enum WorkoutCalendarDurationFormatter {
+    static func string(from duration: TimeInterval) -> String? {
+        let formatter = DateComponentsFormatter()
+        formatter.unitsStyle = .abbreviated
+        let totalMinutes = Int(duration) / 60
+        formatter.allowedUnits = totalMinutes >= 60 ? [.hour, .minute] : [.minute]
+        formatter.zeroFormattingBehavior = .dropAll
+        return formatter.string(from: duration)
     }
 }
