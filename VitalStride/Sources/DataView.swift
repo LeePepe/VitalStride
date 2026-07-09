@@ -153,7 +153,10 @@ struct DataView: View {
                 .buttonStyle(.borderedProminent)
                 .accessibilityHint(String(localized: "切换到设置页面以授权 HealthKit", comment: "HealthKit settings a11y hint"))
                 #else
-                Text("请在侧边栏「设置」中授权访问健康数据，授权后即可查看心率、步数等数据。")
+                Text(String(
+                    localized: "请在侧边栏「设置」中授权访问健康数据，授权后即可查看心率、步数等数据。",
+                    comment: "macOS unauthorized HealthKit explanatory copy in DataView authorization CTA section"
+                ))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

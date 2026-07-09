@@ -3561,6 +3561,23 @@
     "请前往设置页面授权访问健康数据，授权后即可查看心率、步数等数据。" : {
 
     },
+    "请在侧边栏「设置」中授权访问健康数据，授权后即可查看心率、步数等数据。" : {
+      "comment" : "macOS unauthorized HealthKit explanatory copy in DataView authorization CTA section",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authorize access to health data in the Settings sidebar to view heart rate, step count, and more."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在侧边栏「设置」中授权访问健康数据，授权后即可查看心率、步数等数据。"
+          }
+        }
+      }
+    },
     "请求授权" : {
 
     },
