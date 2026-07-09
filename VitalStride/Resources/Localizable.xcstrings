@@ -4163,6 +4163,258 @@
           }
         }
       }
+    },
+    "workout_list_view_mode_list" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutListView toolbar segmented picker label for the list view mode (spec 011-workout-calendar FR-001 / parent MY-908 acceptance).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "List"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "列表"
+          }
+        }
+      }
+    },
+    "workout_list_view_mode_calendar" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutListView toolbar segmented picker label for the calendar view mode (spec 011-workout-calendar FR-001 / parent MY-908 acceptance).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calendar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日历"
+          }
+        }
+      }
+    },
+    "workout_calendar_previous_month" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutCalendarView previous-month navigation button label / accessibility label (spec 011-workout-calendar FR-002).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous month"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上个月"
+          }
+        }
+      }
+    },
+    "workout_calendar_next_month" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutCalendarView next-month navigation button label / accessibility label (spec 011-workout-calendar FR-002).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next month"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下个月"
+          }
+        }
+      }
+    },
+    "workout_calendar_month_title_format" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutCalendarView month header title (spec 011-workout-calendar FR-002). %@ is the already-localized month + year string produced by DateFormatter (e.g. \"July 2026\" / \"2026年7月\"). Wrapper key kept for future prefix/suffix flexibility while preserving Constitution VI single-source i18n.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        }
+      }
+    },
+    "workout_calendar_weekday_sun" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutCalendarView LazyVGrid weekday header — Sunday (spec 011-workout-calendar FR-002). Short single-letter/short label for the 7-column month grid.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sun"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日"
+          }
+        }
+      }
+    },
+    "workout_calendar_weekday_mon" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutCalendarView LazyVGrid weekday header — Monday (spec 011-workout-calendar FR-002).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mon"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一"
+          }
+        }
+      }
+    },
+    "workout_calendar_weekday_tue" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutCalendarView LazyVGrid weekday header — Tuesday (spec 011-workout-calendar FR-002).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tue"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "二"
+          }
+        }
+      }
+    },
+    "workout_calendar_weekday_wed" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutCalendarView LazyVGrid weekday header — Wednesday (spec 011-workout-calendar FR-002).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "三"
+          }
+        }
+      }
+    },
+    "workout_calendar_weekday_thu" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutCalendarView LazyVGrid weekday header — Thursday (spec 011-workout-calendar FR-002).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thu"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "四"
+          }
+        }
+      }
+    },
+    "workout_calendar_weekday_fri" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutCalendarView LazyVGrid weekday header — Friday (spec 011-workout-calendar FR-002).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fri"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "五"
+          }
+        }
+      }
+    },
+    "workout_calendar_weekday_sat" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutCalendarView LazyVGrid weekday header — Saturday (spec 011-workout-calendar FR-002).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "六"
+          }
+        }
+      }
+    },
+    "workout_calendar_date_a11y_format" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutCalendarView date cell accessibility label when the day has workouts (spec 011-workout-calendar Bar H / FR-002). %1$@ is a preformatted localized date string (e.g. \"July 9\" / \"7 月 9 日\"); %2$lld is the workout count for that day.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$lld workouts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@，%2$lld 次训练"
+          }
+        }
+      }
+    },
+    "workout_calendar_date_a11y_no_workout_format" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutCalendarView date cell accessibility label when the day has no workouts (spec 011-workout-calendar Bar H / FR-002). %@ is a preformatted localized date string.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, no workouts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@，无训练"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
