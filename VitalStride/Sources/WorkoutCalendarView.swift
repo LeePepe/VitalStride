@@ -202,7 +202,8 @@ struct WorkoutCalendarView: View {
     private func dayCell(for day: Date?) -> some View {
         if let day {
             let dayNumber = calendar.component(.day, from: day)
-            let hasWorkout = workoutsByDay[day] != nil
+            let workoutCount = workoutsByDay[day]?.count ?? 0
+            let hasWorkout = workoutCount > 0
             let isSelected = selectedDay == day
             Button {
                 guard hasWorkout else { return }
@@ -215,16 +216,47 @@ struct WorkoutCalendarView: View {
                         Circle()
                             .fill(dayCellBackground(hasWorkout: hasWorkout, isSelected: isSelected))
                             .frame(width: 36, height: 36)
+                            .accessibilityHidden(true)
                     )
                     .foregroundStyle(dayCellForeground(hasWorkout: hasWorkout, isSelected: isSelected))
             }
             .buttonStyle(.plain)
             .disabled(!hasWorkout)
+            .accessibilityLabel(Text(dayCellAccessibilityLabel(day: day, workoutCount: workoutCount)))
         } else {
             Color.clear
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .accessibilityHidden(true)
         }
+    }
+
+    /// Builds the VoiceOver label for a date cell using the shipped
+    /// `workout_calendar_date_a11y_format` (with-workout, plural-aware) or
+    /// `workout_calendar_date_a11y_no_workout_format` (no-workout) xcstrings
+    /// keys so both branches respect the user's locale (Constitution VI /
+    /// Bar H).
+    private func dayCellAccessibilityLabel(day: Date, workoutCount: Int) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.setLocalizedDateFormatFromTemplate("MMMMd")
+        let localizedDate = formatter.string(from: day)
+        if workoutCount > 0 {
+            return String(
+                format: NSLocalizedString(
+                    "workout_calendar_date_a11y_format",
+                    comment: "Date-cell accessibility label; %1$@ localized date, %2$lld workout count."
+                ),
+                localizedDate,
+                workoutCount
+            )
+        }
+        return String(
+            format: NSLocalizedString(
+                "workout_calendar_date_a11y_no_workout_format",
+                comment: "Date-cell accessibility label when the day has no workouts."
+            ),
+            localizedDate
+        )
     }
 
     private func dayCellBackground(hasWorkout: Bool, isSelected: Bool) -> Color {
