@@ -28,7 +28,7 @@ struct WorkoutListView: View {
     @State private var healthKitRecords: [HealthWorkoutRecord] = []
     @State private var isLoadingHealthKit = false
     @State private var healthKitLoadFailed = false
-    @State private var viewMode: ViewMode = .list
+    @SceneStorage("WorkoutListView.viewMode") private var viewMode: ViewMode = .list
 
     private var shouldShowAdviceCard: Bool {
         !unifiedWorkouts.isEmpty && privacyConsented
