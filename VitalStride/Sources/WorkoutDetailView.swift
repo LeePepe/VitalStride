@@ -529,3 +529,8 @@ private struct _HeartRateSummaryPreviewHost: View {
     HeartRateZoneStackedBar(zones: _HeartRateSummaryPreviewFixture.singleZone)
         .padding()
 }
+
+#Preview("Zone bar — no zones") {
+    HeartRateZoneStackedBar(zones: [])
+        .padding()
+}
