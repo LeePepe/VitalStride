@@ -189,16 +189,12 @@ struct WorkoutListView: View {
                     case .list:
                         listContent
                     case .calendar:
-                        // Inline placeholder for T007 amended scope: the real
-                        // `WorkoutCalendarView` (LazyVGrid month grid) is
-                        // introduced in T009 per specs/011-workout-calendar/tasks.md.
-                        // Keeping the placeholder inline here avoids editing
-                        // `WorkoutCalendarView.swift` from T007.
-                        ContentUnavailableView(
-                            // swiftlint:disable:next no_hardcoded_chinese
-                            String(localized: "日历视图即将上线", comment: "Calendar view placeholder title"),
-                            systemImage: "calendar"
-                        )
+                        // T009: render the current-month LazyVGrid calendar.
+                        // Month navigation (T010), day-tap detail navigation
+                        // (T011), previews (T013), and the a11y audit pass
+                        // (T014) land in later tasks per
+                        // specs/011-workout-calendar/tasks.md.
+                        WorkoutCalendarView(workouts: unifiedWorkouts)
                     }
                 }
             }
