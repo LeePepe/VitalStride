@@ -1,15 +1,19 @@
 #!/bin/bash
 # VitalStride pre-push hook
 #
-# This hook runs on EVERY push and enforces:
+# This hook runs on EVERY push and enforces (fast, agent-run-safe gates only):
 #
-#   1. xcodebuild test (combined build+test) for app-target changes
-#   2. swift build + swift test for Packages/* only changes
-#   3. Skip build for pure docs/hooks/scripts changes
-#   4. SwiftLint on changed Swift files
+#   1. swift build + swift test for Packages/* only changes (seconds)
+#   2. Skip build for pure docs/hooks/scripts changes
+#   3. SwiftLint on changed Swift files (touched lines, strict)
+#
+# App-target full `xcodebuild test` is NOT run here (measured ~92s, exceeds an
+# agent-run lifetime → push can't finish → stalls PR handoff, cf. MY-1150). It
+# is enforced server-side by the REQUIRED CI check (ci.yml Job B `app`).
+# Escape hatch for local full verification: RUN_XCODEBUILD=1 git push
 #
 # Performance:
-#   - Shared DerivedData at <git-common-dir>/derived-data
+#   - Shared DerivedData at <git-common-dir>/derived-data (RUN_XCODEBUILD path)
 #   - flock (or mkdir fallback) at <git-common-dir>/build.lock
 #     so parallel agent worktrees serialize xcodebuild but share cache.
 
@@ -169,70 +173,70 @@ if [ -z "$NON_PACKAGE" ] && [ -n "$PACKAGES_TOUCHED" ]; then
   echo "✅ Package builds + tests passed."
 
 else
-  # App-target path: full xcodebuild test (combined build+test)
-  mkdir -p "$DERIVED_DATA"
-  echo "🔨 Pre-push: xcodebuild test"
-  echo "   DerivedData: $DERIVED_DATA"
-  echo "   Lock:        $LOCK_FILE"
-  echo ""
-
-  TEST_LOG=$(mktemp)
-
-  run_xcodebuild_test() {
-    set -o pipefail
-    xcodebuild test \
-      -project VitalStride.xcodeproj \
-      -scheme VitalStride \
-      -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
-      -configuration Debug \
-      -derivedDataPath "$DERIVED_DATA" \
-      -skipPackagePluginValidation \
-      2>&1 | tee "$TEST_LOG" | tail -10
-  }
-
-  if command -v flock >/dev/null 2>&1; then
-    ( flock -w 1800 9 || { echo "❌ build lock timeout (30min)"; exit 1; }
-      run_xcodebuild_test
-    ) 9>"$LOCK_FILE"
-    build_exit=$?
-  else
-    # mkdir-based fallback (macOS doesn't ship flock)
-    # Stale-lock cleanup: remove dirs older than 1h
-    if [ -d "$LOCK_DIR" ]; then
-      lock_age=$(( $(date +%s) - $(stat -f %m "$LOCK_DIR" 2>/dev/null || echo 0) ))
-      if [ "$lock_age" -gt 3600 ]; then
-        echo "⚠️  Removing stale lock dir (>1h old)"
-        rmdir "$LOCK_DIR" 2>/dev/null || true
-      fi
-    fi
-    USING_MKDIR_LOCK=true
-    RETRIES=180
-    while ! mkdir "$LOCK_DIR" 2>/dev/null; do
-      RETRIES=$((RETRIES - 1))
-      if [ $RETRIES -le 0 ]; then
-        echo "❌ build lock timeout (30min)"
-        rm -f "$TEST_LOG"
-        exit 1
-      fi
-      sleep 10
-    done
-    run_xcodebuild_test
-    build_exit=$?
-    rmdir "$LOCK_DIR" 2>/dev/null || true
-    USING_MKDIR_LOCK=false
-  fi
-
-  if [ "$build_exit" -ne 0 ]; then
+  # App-target path: NO full xcodebuild here (by design).
+  #
+  # Why: `xcodebuild test` on the app target is a minutes-scale gate (measured
+  # ~92s hot-cache, longer cold / under lock contention). git hooks run inside
+  # agent-pipeline runs with a bounded lifetime; a gate that outlives the run
+  # means the push never completes and the downstream "open PR" step never runs
+  # — the exact stall that trapped MY-1150 for 2 days. So the full app-target
+  # test is enforced server-side by the REQUIRED CI check (ci.yml Job B `app`),
+  # not by blocking the local push.
+  #
+  # Escape hatch (default off): RUN_XCODEBUILD=1 git push  → run it locally.
+  if [ "${RUN_XCODEBUILD:-0}" = "1" ]; then
+    mkdir -p "$DERIVED_DATA"
+    echo "🔨 RUN_XCODEBUILD=1 — local full xcodebuild test (normally CI-only)"
+    echo "   DerivedData: $DERIVED_DATA"
+    echo "   Lock:        $LOCK_FILE"
     echo ""
-    echo "❌ xcodebuild test failed (exit $build_exit). Push aborted."
-    echo "Last 30 lines of build log:"
-    tail -30 "$TEST_LOG"
-    rm -f "$TEST_LOG"
-    exit "$build_exit"
-  fi
 
-  rm -f "$TEST_LOG"
-  echo "✅ xcodebuild test passed."
+    TEST_LOG=$(mktemp)
+
+    run_xcodebuild_test() {
+      set -o pipefail
+      xcodebuild test \
+        -project VitalStride.xcodeproj \
+        -scheme VitalStride \
+        -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
+        -configuration Debug \
+        -derivedDataPath "$DERIVED_DATA" \
+        -skipPackagePluginValidation \
+        2>&1 | tee "$TEST_LOG" | tail -10
+    }
+
+    if command -v flock >/dev/null 2>&1; then
+      ( flock -w 1800 9 || { echo "❌ build lock timeout (30min)"; exit 1; }
+        run_xcodebuild_test
+      ) 9>"$LOCK_FILE"
+      build_exit=$?
+    else
+      USING_MKDIR_LOCK=true
+      RETRIES=180
+      while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+        RETRIES=$((RETRIES - 1))
+        if [ $RETRIES -le 0 ]; then
+          echo "❌ build lock timeout (30min)"; rm -f "$TEST_LOG"; exit 1
+        fi
+        sleep 10
+      done
+      run_xcodebuild_test
+      build_exit=$?
+      rmdir "$LOCK_DIR" 2>/dev/null || true
+      USING_MKDIR_LOCK=false
+    fi
+
+    if [ "$build_exit" -ne 0 ]; then
+      echo ""
+      echo "❌ xcodebuild test failed (exit $build_exit). Push aborted."
+      tail -30 "$TEST_LOG"; rm -f "$TEST_LOG"; exit "$build_exit"
+    fi
+    rm -f "$TEST_LOG"
+    echo "✅ xcodebuild test passed."
+  else
+    echo "⏭️  App-target change — full xcodebuild test deferred to REQUIRED CI (ci.yml Job B)."
+    echo "    Local push stays fast; merge is gated server-side. Force local run: RUN_XCODEBUILD=1 git push"
+  fi
 fi
 
 # ---- 5. SwiftLint changed Swift files ---------------------------------------
