@@ -6,6 +6,21 @@ enum ViewMode: String, CaseIterable {
     case calendar
 }
 
+/// Minimal placeholder rendered when `WorkoutListView` is in `.calendar` mode.
+/// Real month-grid rendering (LazyVGrid + navigation + day selection) is added
+/// in the follow-up task T009 per specs/011-workout-calendar/tasks.md.
+struct WorkoutCalendarView: View {
+    let unifiedWorkouts: [UnifiedWorkout]
+
+    var body: some View {
+        ContentUnavailableView(
+            // swiftlint:disable:next no_hardcoded_chinese
+            String(localized: "日历视图即将上线", comment: "Calendar view placeholder title"),
+            systemImage: "calendar"
+        )
+    }
+}
+
 @MainActor
 enum WorkoutCalendarGrouping {
     /// Group a merged, newest-first `[UnifiedWorkout]` list into per-day buckets.
