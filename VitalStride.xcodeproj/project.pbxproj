@@ -93,6 +93,7 @@
 		55BAA92E23AEEE1ADB27ABCC /* AIChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C8F2FA78A3BA5986CF1486C /* AIChatView.swift */; };
 		55C6BC112D82BBB4DEB7EB6F /* WorkoutHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC23B44CAEE7B8B2FBEF401 /* WorkoutHistoryView.swift */; };
 		56C51E23EE54414EB853FC8D /* UnitPreferencesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19AC4D8E93A529FDA6AA3F7 /* UnitPreferencesSection.swift */; };
+		57928503F4A71C5AC3906C3A /* ActiveExerciseRowContextsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0149590C35C78C4B2347A085 /* ActiveExerciseRowContextsTests.swift */; };
 		58257F89152C47D06A35655F /* RestTimerAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52A132220BBE3C14313FCEC3 /* RestTimerAttributes.swift */; };
 		589DC3FF454C90A08678B731 /* DataAISummaryState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 845B542DEE56C019DF5B481E /* DataAISummaryState.swift */; };
 		5A8F9A179F81838ED043331F /* AISettingsSectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C160F65686ABBF190DF87E2F /* AISettingsSectionTests.swift */; };
@@ -285,6 +286,7 @@
 
 /* Begin PBXFileReference section */
 		0033F83E9F4931C560DBD87C /* MacContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacContentView.swift; sourceTree = "<group>"; };
+		0149590C35C78C4B2347A085 /* ActiveExerciseRowContextsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveExerciseRowContextsTests.swift; sourceTree = "<group>"; };
 		01517EF3D1E025ABF280B721 /* RelationshipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelationshipTests.swift; sourceTree = "<group>"; };
 		0157658A314DA1AC81783B49 /* ExerciseSeederTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSeederTests.swift; sourceTree = "<group>"; };
 		0378B7BEA27F039A09AE83A8 /* AIChatViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIChatViewTests.swift; sourceTree = "<group>"; };
@@ -542,6 +544,7 @@
 			isa = PBXGroup;
 			children = (
 				584CFBB57DF2FA059790F81B /* ActiveEnergySectionTests.swift */,
+				0149590C35C78C4B2347A085 /* ActiveExerciseRowContextsTests.swift */,
 				1974A9040E4E0E1EB46255EE /* ActiveWorkoutHitTargetTests.swift */,
 				7488427045E6A36AE93D99CC /* ActiveWorkoutLargeModeTests.swift */,
 				9F238CEA056638EA6F2BD5FC /* ActiveWorkoutRowLargeModeTests.swift */,
@@ -1304,6 +1307,7 @@
 				5A8F9A179F81838ED043331F /* AISettingsSectionTests.swift in Sources */,
 				6F7D70DDEB1E80E8134A0BD9 /* AITrainingAdviceCardTests.swift in Sources */,
 				6DC642F94DA823F4D74F469E /* ActiveEnergySectionTests.swift in Sources */,
+				57928503F4A71C5AC3906C3A /* ActiveExerciseRowContextsTests.swift in Sources */,
 				E18CF0D60DCFEF8E21CFA263 /* ActiveWorkoutHitTargetTests.swift in Sources */,
 				30003E4BDD7EDA582F9A8AF4 /* ActiveWorkoutLargeModeTests.swift in Sources */,
 				13B691D6A03732065E88745D /* ActiveWorkoutRowLargeModeTests.swift in Sources */,
