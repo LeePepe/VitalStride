@@ -7,42 +7,33 @@ import os
 private let logger = Logger(subsystem: "com.vitalstride", category: "WorkoutList")
 private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "WorkoutList")
 
-/// Initial number of completed VitalStride workouts fetched when the list
-/// first appears. Chosen to comfortably cover the visible viewport on all
-/// supported devices while keeping memory / SwiftData materialization
-/// bounded (MY-1077). Users can page in more via "Load more".
-private let initialWorkoutFetchLimit = 50
+/// Number of VitalStride workouts rendered in the list section on first
+/// appearance (MY-1077). The full completed history is still fetched — it is
+/// needed for HealthKit dedup and for the calendar view — but the list mode
+/// `ForEach` renders only this many rows, so the expensive
+/// `workout.exercises` fault (per `WorkoutRowView` / row) is bounded to the
+/// visible window. Users grow the window via "Load more".
+private let initialWorkoutDisplayLimit = 50
 
-/// How many additional completed workouts to fetch each time the user taps
-/// "Load more" (MY-1077).
-private let workoutLoadMoreIncrement = 50
-
-/// Bounded @Query container. Owning the SwiftData `@Query` in a dedicated
-/// child view lets us change the `fetchLimit` at runtime — SwiftUI re-inits
-/// this view when the `fetchLimit` argument changes, and SwiftData re-runs
-/// the fetch with the new descriptor. Keeping the query here means the
-/// parent `WorkoutListView` never observes an unbounded workout list.
-private struct BoundedWorkoutsContainer<Content: View>: View {
-    @Query private var workouts: [Workout]
-    let content: ([Workout]) -> Content
-
-    init(fetchLimit: Int, @ViewBuilder content: @escaping ([Workout]) -> Content) {
-        var descriptor = FetchDescriptor<Workout>(
-            predicate: #Predicate<Workout> { $0.endDate != nil },
-            sortBy: [SortDescriptor(\.startDate, order: .reverse)]
-        )
-        descriptor.fetchLimit = fetchLimit
-        _workouts = Query(descriptor)
-        self.content = content
-    }
-
-    var body: some View {
-        content(workouts)
-    }
-}
+/// How many additional rows to reveal in the list section each time the user
+/// taps "Load more" (MY-1077).
+private let workoutDisplayIncrement = 50
 
 struct WorkoutListView: View {
-    @State private var workoutFetchLimit = initialWorkoutFetchLimit
+    /// Unbounded, sort-stable fetch of every completed VitalStride workout.
+    /// We intentionally keep this unbounded: HealthKit dedup (see
+    /// `WorkoutListMerger.merge`) needs to see every locally-recorded
+    /// `healthKitUUID` so mirrored HealthKit records never re-appear in the
+    /// Apple Health section, and the calendar view needs the full history to
+    /// render every month. The heavy per-row cost (`workout.exercises`
+    /// faulting) is bounded separately by paging the list section's
+    /// `ForEach` — see `visibleAppUnifiedWorkouts` below.
+    @Query(
+        filter: #Predicate<Workout> { $0.endDate != nil },
+        sort: \Workout.startDate,
+        order: .reverse
+    ) private var workouts: [Workout]
+    @State private var listDisplayLimit = initialWorkoutDisplayLimit
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthKitService) private var healthKitService
     @Environment(\.healthDataCache) private var healthDataCache
@@ -65,13 +56,13 @@ struct WorkoutListView: View {
     // preserving the original T007 default.
     @SceneStorage("workoutViewMode") private var viewMode: ViewMode = .list
 
-    private func hasAnyWorkouts(workouts: [Workout]) -> Bool {
+    private var hasAnyWorkouts: Bool {
         !workouts.isEmpty || !healthKitRecords.isEmpty
     }
 
     @ViewBuilder
     private func listContent(
-        appUnifiedWorkouts: [UnifiedWorkout],
+        visibleAppUnifiedWorkouts: [UnifiedWorkout],
         healthKitUnifiedWorkouts: [UnifiedWorkout],
         shouldShowAdviceCard: Bool,
         canLoadMore: Bool
@@ -122,9 +113,9 @@ struct WorkoutListView: View {
                 }
             }
 
-            if !appUnifiedWorkouts.isEmpty {
+            if !visibleAppUnifiedWorkouts.isEmpty {
                 Section {
-                    ForEach(appUnifiedWorkouts) { item in
+                    ForEach(visibleAppUnifiedWorkouts) { item in
                         if case .app(let workout) = item {
                             NavigationLink {
                                 WorkoutDetailView(workout: workout)
@@ -150,14 +141,12 @@ struct WorkoutListView: View {
                     }
                     if canLoadMore {
                         Button {
-                            workoutFetchLimit += workoutLoadMoreIncrement
+                            listDisplayLimit += workoutDisplayIncrement
                         } label: {
                             HStack {
                                 Spacer()
                                 Text(String(
-                                    localized:
-                                    // swiftlint:disable:next no_hardcoded_chinese
-                                    "加载更多",
+                                    localized: "workout_list_load_more",
                                     comment: "Load more workouts button label"
                                 ))
                                 .font(.subheadline)
@@ -165,9 +154,7 @@ struct WorkoutListView: View {
                             }
                         }
                         .accessibilityLabel(String(
-                            localized:
-                            // swiftlint:disable:next no_hardcoded_chinese
-                            "加载更多训练",
+                            localized: "workout_list_load_more_a11y",
                             comment: "Load more workouts a11y label"
                         ))
                     }
@@ -211,134 +198,127 @@ struct WorkoutListView: View {
     }
 
     var body: some View {
-        BoundedWorkoutsContainer(fetchLimit: workoutFetchLimit) { workouts in
-            let unifiedWorkouts = WorkoutListMerger.merge(
-                appWorkouts: workouts,
-                healthKitRecords: healthKitRecords
-            ).unified
-            let partitioned = WorkoutListMerger.partitionBySource(unifiedWorkouts)
-            let shouldShowAdviceCard = !unifiedWorkouts.isEmpty && privacyConsented
-            // Assume there may be more if we filled the current page. A trailing
-            // "Load more" tap will be a no-op if the DB truly has no more rows.
-            let canLoadMore = workouts.count >= workoutFetchLimit
-            NavigationStack {
-                Group {
-                    if !hasAnyWorkouts(workouts: workouts) && !isLoadingHealthKit && !healthKitLoadFailed {
-                        ContentUnavailableView(
-                            // swiftlint:disable:next no_hardcoded_chinese
-                            String(localized: "暂无训练记录", comment: "No workouts empty state title"),
-                            systemImage: "dumbbell",
-                            // swiftlint:disable:next no_hardcoded_chinese
-                            description: Text(String(localized: "点击 + 开始第一次训练", comment: "No workouts empty state description"))
-                        )
-                    } else {
-                        switch viewMode {
-                        case .list:
-                            listContent(
-                                appUnifiedWorkouts: partitioned.app,
-                                healthKitUnifiedWorkouts: partitioned.healthKit,
-                                shouldShowAdviceCard: shouldShowAdviceCard,
-                                canLoadMore: canLoadMore
-                            )
-                        case .calendar:
-                            // T009: render the current-month LazyVGrid calendar.
-                            // Month navigation (T010), day-tap detail navigation
-                            // (T011), previews (T013), and the a11y audit pass
-                            // (T014) land in later tasks per
-                            // specs/011-workout-calendar/tasks.md.
-                            WorkoutCalendarView(workouts: unifiedWorkouts)
-                        }
-                    }
-                }
-                .task {
-                    await loadHealthKitWorkouts(workouts: workouts)
-                }
-                .navigationTitle(
-                    // swiftlint:disable:next no_hardcoded_chinese
-                    String(localized: "训练", comment: "Workout tab title")
-                )
-                .toolbar {
-                    ToolbarItem(placement: .principal) {
-                        Picker(
-                            // swiftlint:disable:next no_hardcoded_chinese
-                            String(localized: "训练视图模式", comment: "Workout view mode picker label"),
-                            selection: $viewMode
-                        ) {
-                            // swiftlint:disable:next no_hardcoded_chinese
-                            Text(String(localized: "列表", comment: "Workout list mode label"))
-                                .tag(ViewMode.list)
-                            // swiftlint:disable:next no_hardcoded_chinese
-                            Text(String(localized: "日历", comment: "Workout calendar mode label"))
-                                .tag(ViewMode.calendar)
-                        }
-                        .pickerStyle(.segmented)
-                        .accessibilityLabel(
-                            // swiftlint:disable:next no_hardcoded_chinese
-                            String(localized: "训练视图模式", comment: "Workout view mode picker a11y label")
-                        )
-                    }
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(
-                            // swiftlint:disable:next no_hardcoded_chinese
-                            String(localized: "开始训练", comment: "Start workout toolbar button"),
-                            systemImage: "plus"
-                        ) {
-                            showingStartOptions = true
-                        }
-                    }
-                }
-                .alert(
-                    // swiftlint:disable:next no_hardcoded_chinese
-                    String(localized: "确认删除", comment: "Delete confirmation alert title"),
-                    isPresented: Binding(
-                        get: { workoutToDelete != nil },
-                        set: { if !$0 { workoutToDelete = nil } }
+        // Merge the *full* completed-workout set with the HealthKit records —
+        // dedup (MY-1077 P0 regression fix) and calendar rendering both need
+        // to see every VitalStride `healthKitUUID`, not just the loaded page.
+        let unifiedWorkouts = WorkoutListMerger.merge(
+            appWorkouts: workouts,
+            healthKitRecords: healthKitRecords
+        ).unified
+        let partitioned = WorkoutListMerger.partitionBySource(unifiedWorkouts)
+        let shouldShowAdviceCard = !unifiedWorkouts.isEmpty && privacyConsented
+        // Bound only the rows the list mode actually renders — that's where
+        // the per-row `workout.exercises` fault is expensive (MY-1077). The
+        // calendar view continues to see the full history via `unifiedWorkouts`.
+        let visibleApp = Array(partitioned.app.prefix(listDisplayLimit))
+        let canLoadMore = partitioned.app.count > visibleApp.count
+        return NavigationStack {
+            Group {
+                if !hasAnyWorkouts && !isLoadingHealthKit && !healthKitLoadFailed {
+                    ContentUnavailableView(
+                        String(localized: "暂无训练记录", comment: "No workouts empty state title"),
+                        systemImage: "dumbbell",
+                        description: Text(String(localized: "点击 + 开始第一次训练", comment: "No workouts empty state description"))
                     )
-                ) {
-                    // swiftlint:disable:next no_hardcoded_chinese
-                    Button(String(localized: "取消", comment: "Cancel button"), role: .cancel) {
-                        workoutToDelete = nil
-                    }
-                    // swiftlint:disable:next no_hardcoded_chinese
-                    Button(String(localized: "删除", comment: "Delete confirm button"), role: .destructive) {
-                        if let workout = workoutToDelete {
-                            deleteWorkout(workout)
-                        }
-                    }
-                } message: {
-                    // swiftlint:disable:next no_hardcoded_chinese
-                    Text(String(localized: "确定删除这次训练？", comment: "Delete confirmation message"))
-                }
-                .alert(
-                    // swiftlint:disable:next no_hardcoded_chinese
-                    String(localized: "删除失败", comment: "Delete failure alert title"),
-                    isPresented: $showingDeleteError
-                ) {
-                    // swiftlint:disable:next no_hardcoded_chinese
-                    Button(String(localized: "好", comment: "OK button")) {}
-                } message: {
-                    // swiftlint:disable:next no_hardcoded_chinese
-                    Text(String(localized: "无法删除训练记录，请稍后重试。", comment: "Delete failure message"))
-                }
-                .sheet(isPresented: $showingStartOptions, onDismiss: {
-                    if pendingSource != nil {
-                        showingActiveWorkout = true
-                    }
-                }) {
-                    StartWorkoutView { source in
-                        pendingSource = source
-                        showingStartOptions = false
+                } else {
+                    switch viewMode {
+                    case .list:
+                        listContent(
+                            visibleAppUnifiedWorkouts: visibleApp,
+                            healthKitUnifiedWorkouts: partitioned.healthKit,
+                            shouldShowAdviceCard: shouldShowAdviceCard,
+                            canLoadMore: canLoadMore
+                        )
+                    case .calendar:
+                        // T009: render the current-month LazyVGrid calendar.
+                        // Month navigation (T010), day-tap detail navigation
+                        // (T011), previews (T013), and the a11y audit pass
+                        // (T014) land in later tasks per
+                        // specs/011-workout-calendar/tasks.md.
+                        WorkoutCalendarView(workouts: unifiedWorkouts)
                     }
                 }
-                .fullScreenCover(isPresented: $showingActiveWorkout, onDismiss: {
-                    pendingSource = nil
-                }) {
-                    ActiveWorkoutView(source: pendingSource ?? .blank)
+            }
+            .task {
+                await loadHealthKitWorkouts()
+            }
+            .navigationTitle(
+                // swiftlint:disable:next no_hardcoded_chinese
+                String(localized: "训练", comment: "Workout tab title")
+            )
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Picker(
+                        // swiftlint:disable:next no_hardcoded_chinese
+                        String(localized: "训练视图模式", comment: "Workout view mode picker label"),
+                        selection: $viewMode
+                    ) {
+                        // swiftlint:disable:next no_hardcoded_chinese
+                        Text(String(localized: "列表", comment: "Workout list mode label"))
+                            .tag(ViewMode.list)
+                        // swiftlint:disable:next no_hardcoded_chinese
+                        Text(String(localized: "日历", comment: "Workout calendar mode label"))
+                            .tag(ViewMode.calendar)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel(
+                        // swiftlint:disable:next no_hardcoded_chinese
+                        String(localized: "训练视图模式", comment: "Workout view mode picker a11y label")
+                    )
                 }
-                .onAppear { triggerResumeIfNeeded() }
-                .onChange(of: navigation.crashRecoveryResume?.persistentModelID) { _, _ in
-                    triggerResumeIfNeeded()
+                ToolbarItem(placement: .primaryAction) {
+                    Button(
+                        String(localized: "开始训练", comment: "Start workout toolbar button"),
+                        systemImage: "plus"
+                    ) {
+                        showingStartOptions = true
+                    }
                 }
+            }
+            .alert(
+                String(localized: "确认删除", comment: "Delete confirmation alert title"),
+                isPresented: Binding(
+                    get: { workoutToDelete != nil },
+                    set: { if !$0 { workoutToDelete = nil } }
+                )
+            ) {
+                Button(String(localized: "取消", comment: "Cancel button"), role: .cancel) {
+                    workoutToDelete = nil
+                }
+                Button(String(localized: "删除", comment: "Delete confirm button"), role: .destructive) {
+                    if let workout = workoutToDelete {
+                        deleteWorkout(workout)
+                    }
+                }
+            } message: {
+                Text(String(localized: "确定删除这次训练？", comment: "Delete confirmation message"))
+            }
+            .alert(
+                String(localized: "删除失败", comment: "Delete failure alert title"),
+                isPresented: $showingDeleteError
+            ) {
+                Button(String(localized: "好", comment: "OK button")) {}
+            } message: {
+                Text(String(localized: "无法删除训练记录，请稍后重试。", comment: "Delete failure message"))
+            }
+            .sheet(isPresented: $showingStartOptions, onDismiss: {
+                if pendingSource != nil {
+                    showingActiveWorkout = true
+                }
+            }) {
+                StartWorkoutView { source in
+                    pendingSource = source
+                    showingStartOptions = false
+                }
+            }
+            .fullScreenCover(isPresented: $showingActiveWorkout, onDismiss: {
+                pendingSource = nil
+            }) {
+                ActiveWorkoutView(source: pendingSource ?? .blank)
+            }
+            .onAppear { triggerResumeIfNeeded() }
+            .onChange(of: navigation.crashRecoveryResume?.persistentModelID) { _, _ in
+                triggerResumeIfNeeded()
             }
         }
     }
@@ -351,7 +331,7 @@ struct WorkoutListView: View {
         navigation.crashRecoveryResume = nil
     }
 
-    private func loadHealthKitWorkouts(workouts: [Workout]) async {
+    private func loadHealthKitWorkouts() async {
         isLoadingHealthKit = true
         healthKitLoadFailed = false
         let signpostID = signposter.makeSignpostID()
