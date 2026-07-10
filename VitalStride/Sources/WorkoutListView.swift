@@ -7,12 +7,33 @@ import os
 private let logger = Logger(subsystem: "com.vitalstride", category: "WorkoutList")
 private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "WorkoutList")
 
+/// Number of VitalStride workouts rendered in the list section on first
+/// appearance (MY-1077). The full completed history is still fetched — it is
+/// needed for HealthKit dedup and for the calendar view — but the list mode
+/// `ForEach` renders only this many rows, so the expensive
+/// `workout.exercises` fault (per `WorkoutRowView` / row) is bounded to the
+/// visible window. Users grow the window via "Load more".
+private let initialWorkoutDisplayLimit = 50
+
+/// How many additional rows to reveal in the list section each time the user
+/// taps "Load more" (MY-1077).
+private let workoutDisplayIncrement = 50
+
 struct WorkoutListView: View {
+    /// Unbounded, sort-stable fetch of every completed VitalStride workout.
+    /// We intentionally keep this unbounded: HealthKit dedup (see
+    /// `WorkoutListMerger.merge`) needs to see every locally-recorded
+    /// `healthKitUUID` so mirrored HealthKit records never re-appear in the
+    /// Apple Health section, and the calendar view needs the full history to
+    /// render every month. The heavy per-row cost (`workout.exercises`
+    /// faulting) is bounded separately by paging the list section's
+    /// `ForEach` — see `visibleAppUnifiedWorkouts` below.
     @Query(
         filter: #Predicate<Workout> { $0.endDate != nil },
         sort: \Workout.startDate,
         order: .reverse
     ) private var workouts: [Workout]
+    @State private var listDisplayLimit = initialWorkoutDisplayLimit
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthKitService) private var healthKitService
     @Environment(\.healthDataCache) private var healthDataCache
@@ -41,9 +62,10 @@ struct WorkoutListView: View {
 
     @ViewBuilder
     private func listContent(
-        appUnifiedWorkouts: [UnifiedWorkout],
+        visibleAppUnifiedWorkouts: [UnifiedWorkout],
         healthKitUnifiedWorkouts: [UnifiedWorkout],
-        shouldShowAdviceCard: Bool
+        shouldShowAdviceCard: Bool,
+        canLoadMore: Bool
     ) -> some View {
         List {
             if shouldShowAdviceCard {
@@ -91,9 +113,9 @@ struct WorkoutListView: View {
                 }
             }
 
-            if !appUnifiedWorkouts.isEmpty {
+            if !visibleAppUnifiedWorkouts.isEmpty {
                 Section {
-                    ForEach(appUnifiedWorkouts) { item in
+                    ForEach(visibleAppUnifiedWorkouts) { item in
                         if case .app(let workout) = item {
                             NavigationLink {
                                 WorkoutDetailView(workout: workout)
@@ -116,6 +138,25 @@ struct WorkoutListView: View {
                                 )
                             }
                         }
+                    }
+                    if canLoadMore {
+                        Button {
+                            listDisplayLimit += workoutDisplayIncrement
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text(String(
+                                    localized: "workout_list_load_more",
+                                    comment: "Load more workouts button label"
+                                ))
+                                .font(.subheadline)
+                                Spacer()
+                            }
+                        }
+                        .accessibilityLabel(String(
+                            localized: "workout_list_load_more_a11y",
+                            comment: "Load more workouts a11y label"
+                        ))
                     }
                 } header: {
                     Text(String(
@@ -157,12 +198,20 @@ struct WorkoutListView: View {
     }
 
     var body: some View {
+        // Merge the *full* completed-workout set with the HealthKit records —
+        // dedup (MY-1077 P0 regression fix) and calendar rendering both need
+        // to see every VitalStride `healthKitUUID`, not just the loaded page.
         let unifiedWorkouts = WorkoutListMerger.merge(
             appWorkouts: workouts,
             healthKitRecords: healthKitRecords
         ).unified
         let partitioned = WorkoutListMerger.partitionBySource(unifiedWorkouts)
         let shouldShowAdviceCard = !unifiedWorkouts.isEmpty && privacyConsented
+        // Bound only the rows the list mode actually renders — that's where
+        // the per-row `workout.exercises` fault is expensive (MY-1077). The
+        // calendar view continues to see the full history via `unifiedWorkouts`.
+        let visibleApp = Array(partitioned.app.prefix(listDisplayLimit))
+        let canLoadMore = partitioned.app.count > visibleApp.count
         return NavigationStack {
             Group {
                 if !hasAnyWorkouts && !isLoadingHealthKit && !healthKitLoadFailed {
@@ -175,9 +224,10 @@ struct WorkoutListView: View {
                     switch viewMode {
                     case .list:
                         listContent(
-                            appUnifiedWorkouts: partitioned.app,
+                            visibleAppUnifiedWorkouts: visibleApp,
                             healthKitUnifiedWorkouts: partitioned.healthKit,
-                            shouldShowAdviceCard: shouldShowAdviceCard
+                            shouldShowAdviceCard: shouldShowAdviceCard,
+                            canLoadMore: canLoadMore
                         )
                     case .calendar:
                         // T009: render the current-month LazyVGrid calendar.

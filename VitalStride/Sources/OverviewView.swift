@@ -400,14 +400,21 @@ private struct OverviewTodaySummary: View {
 }
 
 private struct OverviewRecentWorkouts: View {
-    @Query(
-        filter: #Predicate<Workout> { $0.endDate != nil },
-        sort: \Workout.startDate,
-        order: .reverse
-    ) private var recentWorkouts: [Workout]
+    static let displayLimit = 5
+
+    @Query private var recentWorkouts: [Workout]
+
+    init() {
+        var descriptor = FetchDescriptor<Workout>(
+            predicate: #Predicate<Workout> { $0.endDate != nil },
+            sortBy: [SortDescriptor(\.startDate, order: .reverse)]
+        )
+        descriptor.fetchLimit = Self.displayLimit
+        _recentWorkouts = Query(descriptor)
+    }
 
     var body: some View {
-        RecentWorkoutsSection(workouts: Array(recentWorkouts.prefix(5)))
+        RecentWorkoutsSection(workouts: recentWorkouts)
     }
 }
 
