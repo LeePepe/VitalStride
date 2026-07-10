@@ -14,12 +14,16 @@ struct ExercisePickerView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
     @State private var searchText = ""
+    @State private var debouncedSearchText = ""
     @State private var selectedMuscleGroup: MuscleGroup?
     @State private var selectedIDs: Set<PersistentIdentifier> = []
     @State private var selectedExercises: [Exercise] = []
     @State private var visibleEquipment: Equipment?
     @State private var draggedEquipment: Equipment?
+    @State private var equipmentGroups: [(Equipment, [Exercise])] = []
     let selectionMode: SelectionMode
+
+    private static let searchDebounceNanoseconds: UInt64 = 200_000_000
 
     enum SelectionMode {
         case single(onSelect: (Exercise) -> Void)
@@ -43,24 +47,28 @@ struct ExercisePickerView: View {
         return false
     }
 
-    private var filteredExercises: [Exercise] {
-        var result = exercises
-        if let group = selectedMuscleGroup {
-            result = result.filter { $0.muscleGroup == group }
-        }
-        if !searchText.isEmpty {
-            result = result.filter { exercise in
-                exercise.nameEn.localizedCaseInsensitiveContains(searchText) ||
-                exercise.nameZh.localizedCaseInsensitiveContains(searchText)
-            }
-        }
-        return result
-    }
+    private static func computeEquipmentGroups(
+        from exercises: [Exercise],
+        muscleGroup: MuscleGroup?,
+        searchText: String
+    ) -> [(Equipment, [Exercise])] {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasSearch = !trimmed.isEmpty
+        var buckets: [Equipment: [Exercise]] = [:]
+        buckets.reserveCapacity(Equipment.allCases.count)
 
-    private var equipmentGroups: [(Equipment, [Exercise])] {
-        let dict = Dictionary(grouping: filteredExercises) { $0.equipment }
+        for exercise in exercises {
+            if let group = muscleGroup, exercise.muscleGroup != group { continue }
+            if hasSearch {
+                let matches = exercise.nameEn.localizedCaseInsensitiveContains(trimmed) ||
+                    exercise.nameZh.localizedCaseInsensitiveContains(trimmed)
+                if !matches { continue }
+            }
+            buckets[exercise.equipment, default: []].append(exercise)
+        }
+
         return Equipment.allCases.compactMap { equipment in
-            guard let items = dict[equipment], !items.isEmpty else { return nil }
+            guard let items = buckets[equipment], !items.isEmpty else { return nil }
             return (equipment, items)
         }
     }
@@ -100,6 +108,43 @@ struct ExercisePickerView: View {
                         confirmButton
                     }
                 }
+            }
+            .onAppear {
+                if equipmentGroups.isEmpty {
+                    equipmentGroups = Self.computeEquipmentGroups(
+                        from: exercises,
+                        muscleGroup: selectedMuscleGroup,
+                        searchText: debouncedSearchText
+                    )
+                }
+            }
+            .onChange(of: exercises) { _, newExercises in
+                equipmentGroups = Self.computeEquipmentGroups(
+                    from: newExercises,
+                    muscleGroup: selectedMuscleGroup,
+                    searchText: debouncedSearchText
+                )
+            }
+            .onChange(of: selectedMuscleGroup) { _, newGroup in
+                equipmentGroups = Self.computeEquipmentGroups(
+                    from: exercises,
+                    muscleGroup: newGroup,
+                    searchText: debouncedSearchText
+                )
+            }
+            .onChange(of: debouncedSearchText) { _, newText in
+                equipmentGroups = Self.computeEquipmentGroups(
+                    from: exercises,
+                    muscleGroup: selectedMuscleGroup,
+                    searchText: newText
+                )
+            }
+            .task(id: searchText) {
+                let pending = searchText
+                if pending == debouncedSearchText { return }
+                try? await Task.sleep(nanoseconds: Self.searchDebounceNanoseconds)
+                if Task.isCancelled { return }
+                debouncedSearchText = pending
             }
         }
     }
