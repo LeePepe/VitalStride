@@ -79,6 +79,12 @@ public actor HealthDataCache {
     private let persistence: (any HealthCachePersisting)?
     private let cacheTTL: TimeInterval
     private var generation: UInt64 = 0
+    // Per-type explicit-refresh generation. Bumped on every refresh() and on
+    // invalidate/invalidateAll so any in-flight background refresh whose
+    // performFetch started under the old value must NOT commit its result to
+    // the cache (its result would race with — or worse, merge into — the
+    // explicit refresh's whole-entry replacement).
+    private var refreshGenerations: [HealthSampleType: UInt64] = [:]
 
     private var hitCounts: [HealthSampleType: Int] = [:]
     private var missCounts: [HealthSampleType: Int] = [:]
@@ -230,6 +236,18 @@ public actor HealthDataCache {
         in dateRange: DateInterval? = nil
     ) async throws -> [HealthDataPoint] {
         cancelInFlightFetches(for: sampleType)
+        // Cancel any already-scheduled background refresh for this type and
+        // bump the per-type refresh generation. An in-flight background
+        // refresh whose Task.cancel arrives too late — or whose performFetch
+        // has already awaited the provider — will see the bumped generation
+        // in performFetch's post-await guard and abandon its cache write.
+        // This is what makes explicit refresh deterministically win over any
+        // previously scheduled background refresh for the same sample type,
+        // even when the background refresh completes strictly after the
+        // explicit refresh has replaced the entry.
+        backgroundRefreshTasks[sampleType]?.cancel()
+        backgroundRefreshTasks[sampleType] = nil
+        refreshGenerations[sampleType, default: 0] &+= 1
 
         refreshCounts[sampleType, default: 0] += 1
         logger.info(
@@ -450,6 +468,13 @@ public actor HealthDataCache {
         let state = signposter.beginInterval("healthkit_fetch", id: signpostID)
         let start = ContinuousClock.now
         let fetchGeneration = generation
+        // Snapshot the per-type refresh generation at fetch dispatch. On
+        // resume after `try await task.value`, if the snapshot no longer
+        // matches, an explicit refresh() (or invalidation) landed while we
+        // were awaiting the provider. Our result must not be committed —
+        // otherwise a slow background merge could clobber or shrink the
+        // explicit refresh's whole-entry replacement.
+        let fetchRefreshGeneration = refreshGenerations[sampleType, default: 0]
 
         let key = FetchKey(sampleType, dateRange)
         let task = Task { [dataProvider] in
@@ -462,7 +487,10 @@ public actor HealthDataCache {
             inFlightFetches[key] = nil
 
             var resultPoints = points
-            if generation == fetchGeneration {
+            let refreshWinsOverBackground =
+                mergeWithExisting
+                && refreshGenerations[sampleType, default: 0] != fetchRefreshGeneration
+            if generation == fetchGeneration, !refreshWinsOverBackground {
                 let existing = cache[sampleType]
 
                 if mergeWithExisting, let existing {
@@ -505,6 +533,16 @@ public actor HealthDataCache {
                     persistInBackground(sampleType: sampleType, dataPoints: points, dateRange: dateRange, fetchGeneration: fetchGeneration)
                     resultPoints = points
                 }
+            } else if refreshWinsOverBackground {
+                // An explicit refresh landed while this background refresh was
+                // awaiting the provider. Return the freshly-fetched data to the
+                // caller (for symmetry with other paths that do so) but do NOT
+                // touch the cache — the explicit refresh's replacement is the
+                // canonical entry.
+                logger.info(
+                    "healthkit_cache_bg_refresh_superseded type=\(sampleType.rawValue)"
+                )
+                resultPoints = points
             }
 
             signposter.endInterval("healthkit_fetch", state)

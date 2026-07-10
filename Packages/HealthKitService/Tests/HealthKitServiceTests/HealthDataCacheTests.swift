@@ -1647,6 +1647,94 @@ struct HealthDataCacheRangeTramplingTests {
             "further accesses on a fresh bounded entry still do not re-fetch"
         )
     }
+
+    @Test("Explicit refresh deterministically wins over a late-completing background refresh")
+    func explicitRefreshWinsOverLateBackgroundRefresh() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let wideStart = baseDate.addingTimeInterval(-7 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+        let narrowRange = DateInterval(start: narrowStart, end: narrowEnd)
+
+        let originalPoints = (0..<7).map { i in
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400), value: Double(i))
+        }
+        // Stale-serve background refresh returns these fake "fresh wide" points
+        // that must NOT end up in the cache after explicit refresh has narrowed
+        // it. Sentinel value 999 makes the assertion crisp.
+        let bgRefreshPoints = originalPoints + [
+            makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(-3600), value: 999),
+        ]
+        let explicitRefreshPoint = makeDataPoint(.stepCount, date: baseDate, value: 42)
+
+        // Custom provider: slow (300 ms) for the background refresh call
+        // (dispatched first with `dateRange == wideRange`), fast (5 ms) for
+        // the explicit refresh call (dispatched second with narrow range).
+        // The ORDER of dispatch is what the SUT controls; the provider's
+        // response ordering is what the test controls. Explicit refresh
+        // completes first; background refresh completes strictly after.
+        let provider = LateBGRefreshProvider(
+            wideRange: wideRange,
+            narrowRange: narrowRange,
+            bgRefreshPoints: bgRefreshPoints,
+            explicitRefreshPoints: [explicitRefreshPoint]
+        )
+
+        // Seed L2 with a stale wide entry so first access schedules a
+        // background refresh over wideRange.
+        let persistence = MockHealthCachePersistence()
+        let staleDate = Date().addingTimeInterval(-7200)
+        persistence.seed(
+            sampleType: .stepCount,
+            dataPoints: originalPoints,
+            fetchedAt: staleDate,
+            coveredRangeStart: wideStart,
+            coveredRangeEnd: wideEnd
+        )
+        let cache = HealthDataCache(dataProvider: provider, persistence: persistence, cacheTTL: 3600)
+
+        // Access #1: L2 hit (stale) → schedules a background refresh over
+        // wideRange. The provider will take ~300 ms to return.
+        let firstHit = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(firstHit.count == 7)
+
+        // Let the background fetch actually enter its provider await.
+        try await Task.sleep(for: .milliseconds(30))
+
+        // Explicit refresh with a narrow range replaces the entry.
+        let refreshed = try await cache.refresh(.stepCount, in: narrowRange)
+        #expect(refreshed.count == 1)
+        #expect(refreshed.first?.value == 42)
+
+        // Wait long enough for the slow background refresh to finish. Under
+        // the fix, its result is discarded because the per-type refresh
+        // generation moved forward before its cache write.
+        try await Task.sleep(for: .milliseconds(400))
+
+        // The cache must still reflect the explicit refresh's whole-entry
+        // replacement — narrow range, exactly the one point, no merge with
+        // the background refresh's wider payload.
+        let after = try await cache.data(for: .stepCount, in: narrowRange)
+        #expect(after.count == 1, "explicit refresh entry survives late bg completion")
+        #expect(after.first?.value == 42, "explicit refresh's point remains")
+        #expect(
+            !after.contains { $0.value == 999 },
+            "background refresh's payload did NOT bleed into the explicit refresh entry"
+        )
+
+        // And a wider request now misses (covered range was narrowed by the
+        // explicit refresh, as designed) — proving the bg refresh did NOT
+        // secretly restore the wide range either.
+        let bgCountBefore = await provider.fetchCount
+        _ = try await cache.data(for: .stepCount, in: wideRange)
+        let bgCountAfter = await provider.fetchCount
+        #expect(
+            bgCountAfter > bgCountBefore,
+            "wide request must miss and fetch — explicit refresh's narrow range is authoritative"
+        )
+    }
 }
 
 private actor OrderedRangeProvider: HealthDataProviding {
@@ -1685,6 +1773,51 @@ private actor OrderedRangeProvider: HealthDataProviding {
             try await Task.sleep(for: .milliseconds(200))
             return HealthFetchResult(dataPoints: narrowPoints, deletedObjectIDs: [])
         }
+        return HealthFetchResult(dataPoints: [], deletedObjectIDs: [])
+    }
+}
+
+private actor LateBGRefreshProvider: HealthDataProviding {
+    let wideRange: DateInterval
+    let narrowRange: DateInterval
+    let bgRefreshPoints: [HealthDataPoint]
+    let explicitRefreshPoints: [HealthDataPoint]
+    private var _fetchCount = 0
+
+    init(
+        wideRange: DateInterval,
+        narrowRange: DateInterval,
+        bgRefreshPoints: [HealthDataPoint],
+        explicitRefreshPoints: [HealthDataPoint]
+    ) {
+        self.wideRange = wideRange
+        self.narrowRange = narrowRange
+        self.bgRefreshPoints = bgRefreshPoints
+        self.explicitRefreshPoints = explicitRefreshPoints
+    }
+
+    var fetchCount: Int { _fetchCount }
+
+    private func recordFetch() { _fetchCount += 1 }
+
+    nonisolated func fetchData(
+        for sampleType: HealthSampleType,
+        dateRange: DateInterval?
+    ) async throws -> HealthFetchResult {
+        await recordFetch()
+        if dateRange == wideRange {
+            // Background refresh — deliberately slow so it completes strictly
+            // after the explicit refresh has replaced the cache entry.
+            try await Task.sleep(for: .milliseconds(300))
+            return HealthFetchResult(dataPoints: bgRefreshPoints, deletedObjectIDs: [])
+        }
+        if dateRange == narrowRange {
+            // Explicit refresh — fast so it lands first.
+            try await Task.sleep(for: .milliseconds(5))
+            return HealthFetchResult(dataPoints: explicitRefreshPoints, deletedObjectIDs: [])
+        }
+        // Fallback for the post-narrow wide request in the assertion tail:
+        // return whatever payload matches the range, or empty.
         return HealthFetchResult(dataPoints: [], deletedObjectIDs: [])
     }
 }
