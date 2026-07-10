@@ -132,7 +132,8 @@ struct OverviewView: View {
         case .fallback:
             OverviewFallbackContent(
                 snapshotState: snapshotState,
-                hasWorkoutData: hasWorkoutData
+                hasWorkoutData: hasWorkoutData,
+                workouts: recentWorkouts
             )
             MuscleGroupFrequencyCard(counts: dynamicState.recentMuscleGroupCounts)
         }
@@ -339,6 +340,7 @@ final class HealthSnapshotState {
 private struct OverviewFallbackContent: View {
     let snapshotState: HealthSnapshotState
     let hasWorkoutData: Bool
+    let workouts: [Workout]
 
     var body: some View {
         if snapshotState.isAuthorized, snapshotState.hasAnyHealthData {
@@ -347,9 +349,11 @@ private struct OverviewFallbackContent: View {
         }
 
         if hasWorkoutData {
-            OverviewTodaySummary()
-            OverviewRecentWorkouts()
-            OverviewTrendSection()
+            ActivitySummaryCard(
+                summary: WorkoutAggregator.computeTodaySummary(from: workouts)
+            )
+            RecentWorkoutsSection(workouts: Array(workouts.prefix(5)))
+            WorkoutTrendChart(workouts: workouts)
         }
     }
 }
@@ -378,68 +382,6 @@ private struct OverviewHealthSnapshot: View {
 }
 
 // MARK: - Workout Sections
-
-private struct OverviewTodaySummary: View {
-    @Query private var todayWorkouts: [Workout]
-
-    init() {
-        let startOfDay = Calendar.current.startOfDay(for: Date())
-        _todayWorkouts = Query(
-            filter: #Predicate<Workout> { workout in
-                workout.startDate >= startOfDay && workout.endDate != nil
-            },
-            sort: \Workout.startDate
-        )
-    }
-
-    var body: some View {
-        ActivitySummaryCard(
-            summary: WorkoutAggregator.computeTodaySummary(from: todayWorkouts)
-        )
-    }
-}
-
-private struct OverviewRecentWorkouts: View {
-    static let displayLimit = 5
-
-    @Query private var recentWorkouts: [Workout]
-
-    init() {
-        var descriptor = FetchDescriptor<Workout>(
-            predicate: #Predicate<Workout> { $0.endDate != nil },
-            sortBy: [SortDescriptor(\.startDate, order: .reverse)]
-        )
-        descriptor.fetchLimit = Self.displayLimit
-        _recentWorkouts = Query(descriptor)
-    }
-
-    var body: some View {
-        RecentWorkoutsSection(workouts: recentWorkouts)
-    }
-}
-
-private struct OverviewTrendSection: View {
-    @Query private var trendWorkouts: [Workout]
-
-    init() {
-        let calendar = Calendar.current
-        let rangeStart = calendar.date(
-            byAdding: .day,
-            value: -30,
-            to: calendar.startOfDay(for: Date())
-        ) ?? Date()
-        _trendWorkouts = Query(
-            filter: #Predicate<Workout> { workout in
-                workout.startDate >= rangeStart && workout.endDate != nil
-            },
-            sort: \Workout.startDate
-        )
-    }
-
-    var body: some View {
-        WorkoutTrendChart(workouts: trendWorkouts)
-    }
-}
 
 // MARK: - Empty State
 
