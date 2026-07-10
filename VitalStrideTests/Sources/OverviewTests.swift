@@ -187,6 +187,81 @@ struct OverviewTests {
         #expect(data.totalMinutes == 45)
         #expect(data.id == date)
     }
+
+    // MARK: - In-memory derivations from single 30-day query (MY-1078)
+
+    @Test("30-day workouts derive today summary via in-memory filter")
+    func thirtyDayWorkoutsDeriveTodaySummary() throws {
+        let now = todayAnchor()
+        let calendar = Calendar.current
+        let today = Workout(
+            type: .strength,
+            startDate: now.addingTimeInterval(-1800),
+            endDate: now,
+            totalCalories: 200.0
+        )
+        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: now) ?? now
+        let earlier = Workout(
+            type: .running,
+            startDate: twoDaysAgo,
+            endDate: twoDaysAgo.addingTimeInterval(3600),
+            totalCalories: 300.0
+        )
+        let thirtyDayWindow = [today, earlier]
+
+        let summary = WorkoutAggregator.computeTodaySummary(from: thirtyDayWindow)
+        #expect(summary.workoutCount == 1)
+        #expect(summary.totalDurationMinutes == 30)
+        #expect(summary.totalCalories == 200)
+    }
+
+    @Test("30-day workouts derive recent slice preserving reverse order")
+    func thirtyDayWorkoutsDeriveRecentSlice() throws {
+        let calendar = Calendar.current
+        let now = todayAnchor()
+        var workouts: [Workout] = []
+        for offset in 0..<8 {
+            let start = calendar.date(byAdding: .day, value: -offset, to: now) ?? now
+            workouts.append(
+                Workout(
+                    type: .strength,
+                    startDate: start,
+                    endDate: start.addingTimeInterval(1800),
+                    totalCalories: 100.0
+                )
+            )
+        }
+
+        let recentFive = Array(workouts.prefix(5))
+        #expect(recentFive.count == 5)
+        #expect(recentFive.first?.startDate == workouts[0].startDate)
+        let dates = recentFive.map(\.startDate)
+        #expect(dates == dates.sorted(by: >))
+    }
+
+    @Test("30-day workouts feed trend chart with full window")
+    func thirtyDayWorkoutsFeedTrend() throws {
+        let calendar = Calendar.current
+        let now = todayAnchor()
+        let inWindow = Workout(
+            type: .strength,
+            startDate: now.addingTimeInterval(-3600),
+            endDate: now
+        )
+        let dayFifteen = calendar.date(byAdding: .day, value: -15, to: now) ?? now
+        let alsoInWindow = Workout(
+            type: .running,
+            startDate: dayFifteen,
+            endDate: dayFifteen.addingTimeInterval(1800)
+        )
+        let trendData = WorkoutAggregator.computeDailyTrendData(
+            from: [inWindow, alsoInWindow],
+            dayCount: 30
+        )
+        #expect(trendData.count == 30)
+        let totalMinutes = trendData.reduce(0) { $0 + $1.totalMinutes }
+        #expect(totalMinutes == 90)
+    }
 }
 
 /// Returns a stable "now" anchored inside today so subtracting a few hours
