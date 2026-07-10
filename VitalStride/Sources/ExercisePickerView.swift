@@ -20,7 +20,7 @@ struct ExercisePickerView: View {
     @State private var selectedExercises: [Exercise] = []
     @State private var visibleEquipment: Equipment?
     @State private var draggedEquipment: Equipment?
-    @State private var equipmentGroups: [(Equipment, [Exercise])] = []
+    @State private var cachedEquipmentGroups: [(Equipment, [Exercise])]?
     let selectionMode: SelectionMode
 
     private static let searchDebounceNanoseconds: UInt64 = 200_000_000
@@ -45,6 +45,14 @@ struct ExercisePickerView: View {
     private var isMultiSelect: Bool {
         if case .multiple = selectionMode { return true }
         return false
+    }
+
+    private var equipmentGroups: [(Equipment, [Exercise])] {
+        cachedEquipmentGroups ?? Self.computeEquipmentGroups(
+            from: exercises,
+            muscleGroup: selectedMuscleGroup,
+            searchText: debouncedSearchText
+        )
     }
 
     private static func computeEquipmentGroups(
@@ -110,8 +118,8 @@ struct ExercisePickerView: View {
                 }
             }
             .onAppear {
-                if equipmentGroups.isEmpty {
-                    equipmentGroups = Self.computeEquipmentGroups(
+                if cachedEquipmentGroups == nil {
+                    cachedEquipmentGroups = Self.computeEquipmentGroups(
                         from: exercises,
                         muscleGroup: selectedMuscleGroup,
                         searchText: debouncedSearchText
@@ -119,21 +127,21 @@ struct ExercisePickerView: View {
                 }
             }
             .onChange(of: exercises) { _, newExercises in
-                equipmentGroups = Self.computeEquipmentGroups(
+                cachedEquipmentGroups = Self.computeEquipmentGroups(
                     from: newExercises,
                     muscleGroup: selectedMuscleGroup,
                     searchText: debouncedSearchText
                 )
             }
             .onChange(of: selectedMuscleGroup) { _, newGroup in
-                equipmentGroups = Self.computeEquipmentGroups(
+                cachedEquipmentGroups = Self.computeEquipmentGroups(
                     from: exercises,
                     muscleGroup: newGroup,
                     searchText: debouncedSearchText
                 )
             }
             .onChange(of: debouncedSearchText) { _, newText in
-                equipmentGroups = Self.computeEquipmentGroups(
+                cachedEquipmentGroups = Self.computeEquipmentGroups(
                     from: exercises,
                     muscleGroup: selectedMuscleGroup,
                     searchText: newText
@@ -302,8 +310,8 @@ struct ExercisePickerView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        if !searchText.isEmpty {
-            ContentUnavailableView.search(text: searchText)
+        if !debouncedSearchText.isEmpty {
+            ContentUnavailableView.search(text: debouncedSearchText)
         } else if let group = selectedMuscleGroup {
             ContentUnavailableView(
                 String(localized: "没有动作", comment: "No exercises found title"),
