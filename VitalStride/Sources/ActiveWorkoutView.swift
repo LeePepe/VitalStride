@@ -220,8 +220,45 @@ struct ActiveWorkoutView: View {
 
     // MARK: - Subviews
 
+    // MY-1082: only elapsed-time formatting stays inside the 1 Hz periodic
+    // closure. Exercise/set counts and total volume are derived from
+    // observable workout/set data and re-render only when that data changes,
+    // not on every timer tick.
     @ViewBuilder
     private var workoutTimer: some View {
+        let summaryText = summaryLine
+        ViewThatFits(in: .horizontal) {
+            HStack {
+                timerLabel
+                elapsedTimeText
+                #if !os(macOS)
+                heartRateLabel
+                #endif
+                Spacer()
+                Text(summaryText)
+                    .font(summaryFont)
+                    .foregroundStyle(.secondary)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    timerLabel
+                    elapsedTimeText
+                    #if !os(macOS)
+                    heartRateLabel
+                    #endif
+                    Spacer()
+                }
+                Text(summaryText)
+                    .font(summaryFont)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, largeMode ? 16 : 8)
+        .background(.bar)
+    }
+
+    private var elapsedTimeText: some View {
         TimelineView(.periodic(from: startTime, by: 1)) { context in
             let elapsed = context.date.timeIntervalSince(startTime)
             let totalSeconds = Int(elapsed)
@@ -229,48 +266,22 @@ struct ActiveWorkoutView: View {
             let minutes = (totalSeconds % 3600) / 60
             let seconds = totalSeconds % 60
             let timeString = String(format: "%d:%02d:%02d", hours, minutes, seconds)
-            let exerciseCount = workout?.exercises?.count ?? 0
-            let setCount = workout?.exercises?
-                .reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
-            let volumeKg = totalVolumeKg
-            let displayVolume = weightUnit == .lb ? volumeKg * 2.20462 : volumeKg
-            let volumeText = Int(displayVolume).formatted()
-            let summaryText = String(
-                localized: "\(exerciseCount) 动作 · \(setCount) 组 · \(volumeText) \(weightUnit.rawValue)",
-                comment: "Workout summary: exercise count, set count, total volume"
-            )
-            ViewThatFits(in: .horizontal) {
-                HStack {
-                    timerLabel
-                    Text(timeString)
-                        .font(timerFont)
-                    #if !os(macOS)
-                    heartRateLabel
-                    #endif
-                    Spacer()
-                    Text(summaryText)
-                        .font(summaryFont)
-                        .foregroundStyle(.secondary)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        timerLabel
-                        Text(timeString)
-                            .font(timerFont)
-                        #if !os(macOS)
-                        heartRateLabel
-                        #endif
-                        Spacer()
-                    }
-                    Text(summaryText)
-                        .font(summaryFont)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.horizontal)
-            .padding(.vertical, largeMode ? 16 : 8)
-            .background(.bar)
+            Text(timeString)
+                .font(timerFont)
         }
+    }
+
+    private var summaryLine: String {
+        let exerciseCount = workout?.exercises?.count ?? 0
+        let setCount = workout?.exercises?
+            .reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
+        let volumeKg = totalVolumeKg
+        let displayVolume = weightUnit == .lb ? volumeKg * 2.20462 : volumeKg
+        let volumeText = Int(displayVolume).formatted()
+        return String(
+            localized: "\(exerciseCount) 动作 · \(setCount) 组 · \(volumeText) \(weightUnit.rawValue)",
+            comment: "Workout summary: exercise count, set count, total volume"
+        )
     }
 
     private var timerLabel: some View {
