@@ -29,15 +29,59 @@ struct ActiveExerciseSection: View {
         (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
     }
 
+    /// MY-1080 — Per-row context precomputed in a single O(n) pass over the
+    /// sorted sets. Replaces the previous O(n² log n) rendering path where each
+    /// row re-sorted the array and re-walked it to compute numbering. Fields
+    /// mirror what `SetRow` / `SubSetRow` need per row.
+    struct RowContext {
+        let exerciseSet: ExerciseSet
+        let mainSetNumber: Int
+        let isLastSubSet: Bool
+        let recentWeightKg: Double?
+    }
+
+    private var rowContexts: [RowContext] {
+        Self.rowContexts(from: sortedSets)
+    }
+
+    /// Nonisolated so tests can invoke it directly with a pre-sorted array of
+    /// `ExerciseSet` without instantiating the SwiftUI view. `sets` MUST already
+    /// be sorted by `order` (mirrors `sortedSets`).
+    nonisolated static func rowContexts(from sets: [ExerciseSet]) -> [RowContext] {
+        var contexts: [RowContext] = []
+        contexts.reserveCapacity(sets.count)
+        var mainsBefore = 0
+        var lastMainWeight: Double?
+        for i in 0..<sets.count {
+            let set = sets[i]
+            let isSub = set.setType.isSubSet
+            let isLastSub = isSub && (i + 1 >= sets.count || !sets[i + 1].setType.isSubSet)
+            contexts.append(RowContext(
+                exerciseSet: set,
+                mainSetNumber: mainsBefore,
+                isLastSubSet: isLastSub,
+                recentWeightKg: lastMainWeight
+            ))
+            if !isSub {
+                mainsBefore += 1
+                if set.weight > 0 { lastMainWeight = set.weight }
+            }
+        }
+        return contexts
+    }
+
     var body: some View {
-        Section {
-            ForEach(Array(sortedSets.enumerated()), id: \.element.persistentModelID) { index, exerciseSet in
+        let contexts = rowContexts
+        let canDelete = contexts.count > 1
+        return Section {
+            ForEach(contexts, id: \.exerciseSet.persistentModelID) { ctx in
+                let exerciseSet = ctx.exerciseSet
                 if exerciseSet.setType.isSubSet {
                     SubSetRow(
                         exerciseSet: exerciseSet,
                         weightUnit: weightUnit,
-                        isLast: isLastSubSet(at: index),
-                        parentSetNumber: parentSetNumber(for: index),
+                        isLast: ctx.isLastSubSet,
+                        parentSetNumber: ctx.mainSetNumber,
                         onToggleCompleted: { wasCompleted in
                             if !wasCompleted { onSetCompleted() }
                         }
@@ -45,13 +89,13 @@ struct ActiveExerciseSection: View {
                     .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                 } else {
                     SetRow(
-                        index: mainSetNumber(upTo: index),
+                        index: ctx.mainSetNumber,
                         exerciseSet: exerciseSet,
                         weightUnit: weightUnit,
-                        canDelete: sortedSets.count > 1,
+                        canDelete: canDelete,
                         exercise: workoutExercise.exercise,
-                        recentWeightKg: recentWeightKg(before: index),
-                        previousSet: previousMainSet(forMainIndex: mainSetNumber(upTo: index)),
+                        recentWeightKg: ctx.recentWeightKg,
+                        previousSet: previousMainSet(forMainIndex: ctx.mainSetNumber),
                         onToggleCompleted: { wasCompleted in
                             if !wasCompleted { onSetCompleted() }
                         },
@@ -67,7 +111,7 @@ struct ActiveExerciseSection: View {
                     )
                     .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if sortedSets.count > 1 {
+                        if canDelete {
                             Button(role: .destructive) {
                                 deleteSet(exerciseSet)
                             } label: {
@@ -145,28 +189,6 @@ struct ActiveExerciseSection: View {
         }
     }
 
-    private func mainSetNumber(upTo index: Int) -> Int {
-        let sets = sortedSets
-        var count = 0
-        // swiftlint:disable:next identifier_name
-        for i in 0..<index {
-            // swiftlint:disable:next for_where
-            if !sets[i].setType.isSubSet { count += 1 }
-        }
-        return count
-    }
-
-    private func parentSetNumber(for index: Int) -> Int {
-        let sets = sortedSets
-        var lastMainNumber = 0
-        // swiftlint:disable:next identifier_name
-        for i in 0..<index {
-            // swiftlint:disable:next for_where
-            if !sets[i].setType.isSubSet { lastMainNumber += 1 }
-        }
-        return lastMainNumber
-    }
-
     /// MY-1169 (spec 004 T006): resolves the same-index main set from the most
     /// recent completed workout so `SetRow` can render the "上次 …" hint. Returns
     /// nil when the workout link, the exercise, or the prior history is missing.
@@ -178,12 +200,6 @@ struct ActiveExerciseSection: View {
             mainSetIndex: mainSetIndex,
             in: modelContext
         )
-    }
-
-    private func isLastSubSet(at index: Int) -> Bool {
-        let sets = sortedSets
-        if index + 1 >= sets.count { return true }
-        return !sets[index + 1].setType.isSubSet
     }
 
     private var addSetButton: some View {
@@ -261,20 +277,6 @@ struct ActiveExerciseSection: View {
         let didDelete = WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
         guard didDelete else { return }
         onSetDeleted()
-    }
-
-    /// Most recent weight (kg) recorded for this exercise in the current
-    /// workout, walking backwards from `index` and skipping sub-sets. Used to
-    /// feed the keyboard's preset resolver when the exercise has no seeded
-    /// default weight for the tapped bucket.
-    private func recentWeightKg(before index: Int) -> Double? {
-        let sets = sortedSets
-        // swiftlint:disable:next identifier_name
-        for i in stride(from: index - 1, through: 0, by: -1) where !sets[i].setType.isSubSet {
-            let weight = sets[i].weight
-            if weight > 0 { return weight }
-        }
-        return nil
     }
 
     /// MY-1073 — Copy current set to next. If a next set exists (main or sub),
