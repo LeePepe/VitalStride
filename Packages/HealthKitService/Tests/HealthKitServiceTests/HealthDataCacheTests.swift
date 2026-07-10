@@ -1534,11 +1534,13 @@ struct HealthDataCacheRangeTramplingTests {
         let (narrowOut, wideOut) = try await (narrowTask, wideTask)
         #expect(wideOut.count == 31)
         #expect(narrowOut.count == 1)
-        #expect(provider.fetchCount == 2)
+        let fetchCountAfterBoth = await provider.fetchCount
+        #expect(fetchCountAfterBoth == 2)
 
         let wideAgain = try await cache.data(for: .stepCount, in: wideRange)
         #expect(wideAgain.count == 31)
-        #expect(provider.fetchCount == 2, "wide entry must survive out-of-order narrow completion")
+        let fetchCountAfterRepeat = await provider.fetchCount
+        #expect(fetchCountAfterRepeat == 2, "wide entry must survive out-of-order narrow completion")
     }
 
     @Test("Immutable whole-entry replacement: explicit refresh replaces the entry")
@@ -1575,16 +1577,84 @@ struct HealthDataCacheRangeTramplingTests {
         _ = try await cache.data(for: .stepCount, in: wideRange)
         #expect(mock.fetchCallCount[.stepCount] == 3, "wide re-fetch confirms explicit-refresh replacement")
     }
+
+    @Test("Bounded stale entry refreshes once, subsequent access does not re-fetch")
+    func boundedStaleRefreshesOnceAndPersists() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let boundedStart = baseDate.addingTimeInterval(-7 * 86400)
+        let boundedEnd = baseDate.addingTimeInterval(86400)
+        let boundedRange = DateInterval(start: boundedStart, end: boundedEnd)
+
+        let originalPoints = (0..<7).map { i in
+            makeDataPoint(.stepCount, date: boundedStart.addingTimeInterval(Double(i) * 86400), value: Double(i))
+        }
+        // Fresh payload = originals + one new point returned by the background
+        // refresh; must survive the merge instead of being discarded.
+        let freshPoints = originalPoints + [
+            makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(3600), value: 99),
+        ]
+
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = HealthFetchResult(dataPoints: freshPoints, deletedObjectIDs: [])
+
+        // Seed L2 with a stale bounded entry (fetchedAt 2 hours ago, TTL 1h).
+        // First access hydrates L1, sees the entry as stale, and schedules one
+        // background refresh. Post-refresh the entry's fetchedAt is Date() and
+        // is fresh under the 1h TTL, so subsequent access does not schedule
+        // another refresh.
+        let persistence = MockHealthCachePersistence()
+        let staleDate = Date().addingTimeInterval(-7200)
+        persistence.seed(
+            sampleType: .stepCount,
+            dataPoints: originalPoints,
+            fetchedAt: staleDate,
+            coveredRangeStart: boundedStart,
+            coveredRangeEnd: boundedEnd
+        )
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence, cacheTTL: 3600)
+
+        // Access #1: L1 miss → L2 hit (stale) → returns immediately and
+        // schedules a background refresh for the bounded range.
+        let firstHit = try await cache.data(for: .stepCount, in: boundedRange)
+        #expect(firstHit.count == 7, "L2 hit returns immediately with stale data")
+        #expect(mock.fetchCallCount[.stepCount, default: 0] == 0, "no synchronous fetch yet")
+
+        // Let the background refresh complete.
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(mock.fetchCallCount[.stepCount, default: 0] == 1, "background refresh fired once")
+
+        // Post-refresh: the bounded entry must contain the merged fresh points
+        // AND have an updated fetchedAt — proving the fresh data was NOT
+        // discarded (regression: previously the narrow-preservation branch
+        // dropped the refresh's payload).
+        let refreshedHit = try await cache.data(for: .stepCount, in: boundedRange)
+        #expect(refreshedHit.count == 8, "background refresh merged fresh point into bounded entry")
+        #expect(refreshedHit.contains { $0.value == 99 }, "fresh point is present")
+
+        // Subsequent access must NOT schedule another refresh — the entry is
+        // fresh under the 1h TTL because fetchedAt was updated.
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(
+            mock.fetchCallCount[.stepCount, default: 0] == 1,
+            "bounded entry stays fresh after one refresh — no repeated re-fetching"
+        )
+
+        // One more access for good measure.
+        _ = try await cache.data(for: .stepCount, in: boundedRange)
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(
+            mock.fetchCallCount[.stepCount, default: 0] == 1,
+            "further accesses on a fresh bounded entry still do not re-fetch"
+        )
+    }
 }
 
-private final class OrderedRangeProvider: HealthDataProviding, @unchecked Sendable {
+private actor OrderedRangeProvider: HealthDataProviding {
     let widePoints: [HealthDataPoint]
     let narrowPoints: [HealthDataPoint]
     let wideRange: DateInterval
     let narrowRange: DateInterval
-    let lock = NSLock()
     private var _fetchCount = 0
-    var fetchCount: Int { lock.withLock { _fetchCount } }
 
     init(
         widePoints: [HealthDataPoint],
@@ -1598,11 +1668,15 @@ private final class OrderedRangeProvider: HealthDataProviding, @unchecked Sendab
         self.narrowRange = narrowRange
     }
 
-    func fetchData(
+    var fetchCount: Int { _fetchCount }
+
+    private func recordFetch() { _fetchCount += 1 }
+
+    nonisolated func fetchData(
         for sampleType: HealthSampleType,
         dateRange: DateInterval?
     ) async throws -> HealthFetchResult {
-        lock.withLock { _fetchCount += 1 }
+        await recordFetch()
         if dateRange == wideRange {
             try await Task.sleep(for: .milliseconds(20))
             return HealthFetchResult(dataPoints: widePoints, deletedObjectIDs: [])

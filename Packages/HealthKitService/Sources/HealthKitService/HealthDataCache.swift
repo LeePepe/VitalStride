@@ -465,9 +465,12 @@ public actor HealthDataCache {
             if generation == fetchGeneration {
                 let existing = cache[sampleType]
 
-                if mergeWithExisting, dateRange == nil, let existing {
-                    // Background refresh path: merge fresh data into existing entry
-                    // and preserve the existing coveredRange (never widen or shrink).
+                if mergeWithExisting, let existing {
+                    // Background refresh path: merge fresh data into the existing
+                    // entry and PRESERVE the existing coveredRange (never widen or
+                    // shrink). Refreshing fetchedAt is required — otherwise the
+                    // entry stays stale under TTL and every subsequent access
+                    // re-schedules a redundant background refresh.
                     var pointsByID = Dictionary(
                         existing.dataPoints.map { ($0.id, $0) },
                         uniquingKeysWith: { _, new in new }
