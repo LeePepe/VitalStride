@@ -35,35 +35,16 @@ struct WorkoutListView: View {
     // preserving the original T007 default.
     @SceneStorage("workoutViewMode") private var viewMode: ViewMode = .list
 
-    private var shouldShowAdviceCard: Bool {
-        !unifiedWorkouts.isEmpty && privacyConsented
-    }
-
-    private var unifiedWorkouts: [UnifiedWorkout] {
-        WorkoutListMerger.merge(
-            appWorkouts: workouts,
-            healthKitRecords: healthKitRecords
-        ).unified
-    }
-
-    private var partitionedWorkouts: (app: [UnifiedWorkout], healthKit: [UnifiedWorkout]) {
-        WorkoutListMerger.partitionBySource(unifiedWorkouts)
-    }
-
-    private var appUnifiedWorkouts: [UnifiedWorkout] {
-        partitionedWorkouts.app
-    }
-
-    private var healthKitUnifiedWorkouts: [UnifiedWorkout] {
-        partitionedWorkouts.healthKit
-    }
-
     private var hasAnyWorkouts: Bool {
         !workouts.isEmpty || !healthKitRecords.isEmpty
     }
 
     @ViewBuilder
-    private var listContent: some View {
+    private func listContent(
+        appUnifiedWorkouts: [UnifiedWorkout],
+        healthKitUnifiedWorkouts: [UnifiedWorkout],
+        shouldShowAdviceCard: Bool
+    ) -> some View {
         List {
             if shouldShowAdviceCard {
                 Section {
@@ -176,7 +157,13 @@ struct WorkoutListView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        let unifiedWorkouts = WorkoutListMerger.merge(
+            appWorkouts: workouts,
+            healthKitRecords: healthKitRecords
+        ).unified
+        let partitioned = WorkoutListMerger.partitionBySource(unifiedWorkouts)
+        let shouldShowAdviceCard = !unifiedWorkouts.isEmpty && privacyConsented
+        return NavigationStack {
             Group {
                 if !hasAnyWorkouts && !isLoadingHealthKit && !healthKitLoadFailed {
                     ContentUnavailableView(
@@ -187,7 +174,11 @@ struct WorkoutListView: View {
                 } else {
                     switch viewMode {
                     case .list:
-                        listContent
+                        listContent(
+                            appUnifiedWorkouts: partitioned.app,
+                            healthKitUnifiedWorkouts: partitioned.healthKit,
+                            shouldShowAdviceCard: shouldShowAdviceCard
+                        )
                     case .calendar:
                         // T009: render the current-month LazyVGrid calendar.
                         // Month navigation (T010), day-tap detail navigation
