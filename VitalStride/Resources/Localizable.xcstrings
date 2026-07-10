@@ -4487,6 +4487,42 @@
           }
         }
       }
+    },
+    "workout_list_load_more" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutListView trailing button that reveals the next page of completed VitalStride workouts (MY-1077).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load more"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加载更多"
+          }
+        }
+      }
+    },
+    "workout_list_load_more_a11y" : {
+      "extractionState" : "manual",
+      "comment" : "WorkoutListView load-more button accessibility label (MY-1077).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load more workouts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加载更多训练"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
