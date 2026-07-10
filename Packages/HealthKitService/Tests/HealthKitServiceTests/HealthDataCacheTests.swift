@@ -150,7 +150,7 @@ final class MockHealthCachePersistence: HealthCachePersisting, @unchecked Sendab
         coveredRangeStart: Date? = nil,
         coveredRangeEnd: Date? = nil
     ) {
-        let data = try! JSONEncoder().encode(dataPoints)
+        let data = try! JSONEncoder().encode(dataPoints) // swiftlint:disable:this force_try
         lock.withLock {
             _store[sampleType.rawValue] = PersistedCacheEntry(
                 sampleType: sampleType.rawValue,
@@ -524,7 +524,7 @@ struct HealthDataCacheTests {
     @Test("handleAuthorizationRevoked clears cache and anchors")
     func authorizationRevokedClearsAll() async throws {
         let suiteName = "test-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
+        let defaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
         let mock = MockHealthDataProvider()
         mock.fetchResults[.stepCount] = makeResult(.stepCount)
@@ -557,7 +557,7 @@ struct HealthDataCacheTests {
         let cache = HealthDataCache(dataProvider: mock)
 
         let suiteName = "test-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
+        let defaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
 
         let fetchTask = Task {
@@ -727,7 +727,7 @@ struct HealthDataCacheL2Tests {
         #expect(persistence.upsertCallCount == 1)
         #expect(persistence.store[HealthSampleType.stepCount.rawValue] != nil)
 
-        let stored = persistence.store[HealthSampleType.stepCount.rawValue]!
+        let stored = persistence.store[HealthSampleType.stepCount.rawValue]! // swiftlint:disable:this force_unwrapping
         let decoded = try JSONDecoder().decode([HealthDataPoint].self, from: stored.dataPointsData)
         #expect(decoded.count == 3)
     }
@@ -748,7 +748,7 @@ struct HealthDataCacheL2Tests {
         try await Task.sleep(for: .milliseconds(50))
 
         #expect(persistence.upsertCallCount == 2)
-        let stored = persistence.store[HealthSampleType.bodyMass.rawValue]!
+        let stored = persistence.store[HealthSampleType.bodyMass.rawValue]! // swiftlint:disable:this force_unwrapping
         let decoded = try JSONDecoder().decode([HealthDataPoint].self, from: stored.dataPointsData)
         #expect(decoded.count == 5)
     }
@@ -939,7 +939,7 @@ struct HealthDataCacheL2Tests {
         #expect(!persistence.store.isEmpty)
 
         let suiteName = "test-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
+        let defaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
 
         await cache.handleAuthorizationRevoked(
@@ -967,7 +967,7 @@ struct HealthDataCacheL2Tests {
         persistence.shouldThrow = true
 
         let suiteName = "test-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
+        let defaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
 
         await cache.handleAuthorizationRevoked(
@@ -1245,7 +1245,7 @@ struct HealthDataCacheAvailableTypesTests {
 
         let saved = persistence.savedAvailableTypes
         #expect(saved != nil)
-        let savedTypes = saved!.typeRawValues
+        let savedTypes = saved!.typeRawValues // swiftlint:disable:this force_unwrapping
         #expect(savedTypes.count == 3)
         #expect(savedTypes.contains("stepCount"))
         #expect(savedTypes.contains("heartRate"))
@@ -1466,5 +1466,151 @@ struct HealthDataCacheAvailableTypesTests {
         let data = try await cache.data(for: .stepCount)
         #expect(data.count == 1)
         #expect(mock.fetchCallCount[.stepCount, default: 0] == 0)
+    }
+}
+
+// MARK: - Range Trampling Regression (MY-1076)
+
+@Suite("HealthDataCache — Range Trampling (MY-1076)")
+struct HealthDataCacheRangeTramplingTests {
+
+    @Test("Narrower cache-miss fetch does not replace an existing wider cached range")
+    func narrowFetchDoesNotShrinkWiderCachedRange() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let wideStart = baseDate.addingTimeInterval(-30 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+
+        let widePoints = (0..<31).map { i in
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400))
+        }
+
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = HealthFetchResult(dataPoints: widePoints, deletedObjectIDs: [])
+        let cache = HealthDataCache(dataProvider: mock)
+
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        let wideResult = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(wideResult.count == 31)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+
+        let narrowRange = DateInterval(start: narrowStart, end: narrowEnd)
+        let narrowFromCache = try await cache.data(for: .stepCount, in: narrowRange)
+        #expect(narrowFromCache.count == 1)
+        #expect(mock.fetchCallCount[.stepCount] == 1, "wide range must cover narrow request")
+
+        let wideAgain = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(wideAgain.count == 31)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+    }
+
+    @Test("Out-of-order wide/narrow fetch completion preserves wider covered range")
+    func outOfOrderWideNarrowCompletion() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let wideStart = baseDate.addingTimeInterval(-30 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+
+        let widePoints = (0..<31).map { i in
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400))
+        }
+        let narrowPoints = [makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(60))]
+
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        let narrowRange = DateInterval(start: narrowStart, end: narrowEnd)
+        let provider = OrderedRangeProvider(
+            widePoints: widePoints,
+            narrowPoints: narrowPoints,
+            wideRange: wideRange,
+            narrowRange: narrowRange
+        )
+        let cache = HealthDataCache(dataProvider: provider)
+
+        async let narrowTask = cache.data(for: .stepCount, in: narrowRange)
+        try await Task.sleep(for: .milliseconds(5))
+        async let wideTask = cache.data(for: .stepCount, in: wideRange)
+        let (narrowOut, wideOut) = try await (narrowTask, wideTask)
+        #expect(wideOut.count == 31)
+        #expect(narrowOut.count == 1)
+        #expect(provider.fetchCount == 2)
+
+        let wideAgain = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(wideAgain.count == 31)
+        #expect(provider.fetchCount == 2, "wide entry must survive out-of-order narrow completion")
+    }
+
+    @Test("Immutable whole-entry replacement: explicit refresh replaces the entry")
+    func explicitRefreshReplacesWholeEntry() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let wideStart = baseDate.addingTimeInterval(-7 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+
+        let originalPoints = (0..<8).map { i in
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400), value: Double(i))
+        }
+        let replacementPoints = (0..<3).map { i in
+            makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(Double(i) * 60), value: Double(1000 + i))
+        }
+
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = HealthFetchResult(dataPoints: originalPoints, deletedObjectIDs: [])
+        let cache = HealthDataCache(dataProvider: mock)
+
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        _ = try await cache.data(for: .stepCount, in: wideRange)
+
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+        mock.fetchResults[.stepCount] = HealthFetchResult(dataPoints: replacementPoints, deletedObjectIDs: [])
+
+        let refreshed = try await cache.refresh(
+            .stepCount,
+            in: DateInterval(start: narrowStart, end: narrowEnd)
+        )
+        #expect(refreshed.count == 3)
+
+        mock.fetchResults[.stepCount] = HealthFetchResult(dataPoints: originalPoints, deletedObjectIDs: [])
+        _ = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(mock.fetchCallCount[.stepCount] == 3, "wide re-fetch confirms explicit-refresh replacement")
+    }
+}
+
+private final class OrderedRangeProvider: HealthDataProviding, @unchecked Sendable {
+    let widePoints: [HealthDataPoint]
+    let narrowPoints: [HealthDataPoint]
+    let wideRange: DateInterval
+    let narrowRange: DateInterval
+    let lock = NSLock()
+    private var _fetchCount = 0
+    var fetchCount: Int { lock.withLock { _fetchCount } }
+
+    init(
+        widePoints: [HealthDataPoint],
+        narrowPoints: [HealthDataPoint],
+        wideRange: DateInterval,
+        narrowRange: DateInterval
+    ) {
+        self.widePoints = widePoints
+        self.narrowPoints = narrowPoints
+        self.wideRange = wideRange
+        self.narrowRange = narrowRange
+    }
+
+    func fetchData(
+        for sampleType: HealthSampleType,
+        dateRange: DateInterval?
+    ) async throws -> HealthFetchResult {
+        lock.withLock { _fetchCount += 1 }
+        if dateRange == wideRange {
+            try await Task.sleep(for: .milliseconds(20))
+            return HealthFetchResult(dataPoints: widePoints, deletedObjectIDs: [])
+        }
+        if dateRange == narrowRange {
+            try await Task.sleep(for: .milliseconds(200))
+            return HealthFetchResult(dataPoints: narrowPoints, deletedObjectIDs: [])
+        }
+        return HealthFetchResult(dataPoints: [], deletedObjectIDs: [])
     }
 }

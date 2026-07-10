@@ -236,7 +236,11 @@ public actor HealthDataCache {
             "healthkit_cache_refresh type=\(sampleType.rawValue) total=\(self.refreshCounts[sampleType, default: 0])"
         )
 
-        let points = try await performFetch(sampleType: sampleType, dateRange: dateRange)
+        let points = try await performFetch(
+            sampleType: sampleType,
+            dateRange: dateRange,
+            replaceExistingRange: true
+        )
         return Self.filtered(points, by: dateRange)
     }
 
@@ -439,7 +443,8 @@ public actor HealthDataCache {
     private func performFetch(
         sampleType: HealthSampleType,
         dateRange: DateInterval?,
-        mergeWithExisting: Bool = false
+        mergeWithExisting: Bool = false,
+        replaceExistingRange: Bool = false
     ) async throws -> [HealthDataPoint] {
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("healthkit_fetch", id: signpostID)
@@ -458,8 +463,11 @@ public actor HealthDataCache {
 
             var resultPoints = points
             if generation == fetchGeneration {
-                let finalPoints: [HealthDataPoint]
-                if mergeWithExisting, dateRange == nil, let existing = cache[sampleType] {
+                let existing = cache[sampleType]
+
+                if mergeWithExisting, dateRange == nil, let existing {
+                    // Background refresh path: merge fresh data into existing entry
+                    // and preserve the existing coveredRange (never widen or shrink).
                     var pointsByID = Dictionary(
                         existing.dataPoints.map { ($0.id, $0) },
                         uniquingKeysWith: { _, new in new }
@@ -467,17 +475,33 @@ public actor HealthDataCache {
                     for point in points {
                         pointsByID[point.id] = point
                     }
-                    finalPoints = Array(pointsByID.values).sorted { $0.startDate < $1.startDate }
+                    let merged = Array(pointsByID.values).sorted { $0.startDate < $1.startDate }
+                    cache[sampleType] = CacheEntry(
+                        dataPoints: merged,
+                        coveredRange: existing.coveredRange,
+                        fetchedAt: Date()
+                    )
+                    persistInBackground(sampleType: sampleType, dataPoints: merged, dateRange: existing.coveredRange, fetchGeneration: fetchGeneration)
+                    resultPoints = merged
+                } else if !replaceExistingRange,
+                          let existing,
+                          Self.coversRange(existing.coveredRange, requested: dateRange)
+                {
+                    // Cache-miss path (not an explicit refresh): the existing entry
+                    // already covers this fetch's range, so a narrower completed
+                    // fetch must not overwrite the wider cached range. Serve the
+                    // caller from the freshly-fetched narrow data and leave the
+                    // wider cache entry intact (immutable — no in-place mutation).
+                    resultPoints = points
                 } else {
-                    finalPoints = points
+                    cache[sampleType] = CacheEntry(
+                        dataPoints: points,
+                        coveredRange: dateRange,
+                        fetchedAt: Date()
+                    )
+                    persistInBackground(sampleType: sampleType, dataPoints: points, dateRange: dateRange, fetchGeneration: fetchGeneration)
+                    resultPoints = points
                 }
-                cache[sampleType] = CacheEntry(
-                    dataPoints: finalPoints,
-                    coveredRange: dateRange,
-                    fetchedAt: Date()
-                )
-                persistInBackground(sampleType: sampleType, dataPoints: finalPoints, dateRange: dateRange, fetchGeneration: fetchGeneration)
-                resultPoints = finalPoints
             }
 
             signposter.endInterval("healthkit_fetch", state)
