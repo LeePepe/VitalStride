@@ -150,7 +150,7 @@ final class MockHealthCachePersistence: HealthCachePersisting, @unchecked Sendab
         coveredRangeStart: Date? = nil,
         coveredRangeEnd: Date? = nil
     ) {
-        let data = try! JSONEncoder().encode(dataPoints)
+        let data = try! JSONEncoder().encode(dataPoints) // swiftlint:disable:this force_try
         lock.withLock {
             _store[sampleType.rawValue] = PersistedCacheEntry(
                 sampleType: sampleType.rawValue,
@@ -524,7 +524,7 @@ struct HealthDataCacheTests {
     @Test("handleAuthorizationRevoked clears cache and anchors")
     func authorizationRevokedClearsAll() async throws {
         let suiteName = "test-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
+        let defaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
         let mock = MockHealthDataProvider()
         mock.fetchResults[.stepCount] = makeResult(.stepCount)
@@ -557,7 +557,7 @@ struct HealthDataCacheTests {
         let cache = HealthDataCache(dataProvider: mock)
 
         let suiteName = "test-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
+        let defaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
 
         let fetchTask = Task {
@@ -727,7 +727,7 @@ struct HealthDataCacheL2Tests {
         #expect(persistence.upsertCallCount == 1)
         #expect(persistence.store[HealthSampleType.stepCount.rawValue] != nil)
 
-        let stored = persistence.store[HealthSampleType.stepCount.rawValue]!
+        let stored = persistence.store[HealthSampleType.stepCount.rawValue]! // swiftlint:disable:this force_unwrapping
         let decoded = try JSONDecoder().decode([HealthDataPoint].self, from: stored.dataPointsData)
         #expect(decoded.count == 3)
     }
@@ -748,7 +748,7 @@ struct HealthDataCacheL2Tests {
         try await Task.sleep(for: .milliseconds(50))
 
         #expect(persistence.upsertCallCount == 2)
-        let stored = persistence.store[HealthSampleType.bodyMass.rawValue]!
+        let stored = persistence.store[HealthSampleType.bodyMass.rawValue]! // swiftlint:disable:this force_unwrapping
         let decoded = try JSONDecoder().decode([HealthDataPoint].self, from: stored.dataPointsData)
         #expect(decoded.count == 5)
     }
@@ -939,7 +939,7 @@ struct HealthDataCacheL2Tests {
         #expect(!persistence.store.isEmpty)
 
         let suiteName = "test-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
+        let defaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
 
         await cache.handleAuthorizationRevoked(
@@ -967,7 +967,7 @@ struct HealthDataCacheL2Tests {
         persistence.shouldThrow = true
 
         let suiteName = "test-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
+        let defaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
 
         await cache.handleAuthorizationRevoked(
@@ -1245,7 +1245,7 @@ struct HealthDataCacheAvailableTypesTests {
 
         let saved = persistence.savedAvailableTypes
         #expect(saved != nil)
-        let savedTypes = saved!.typeRawValues
+        let savedTypes = saved!.typeRawValues // swiftlint:disable:this force_unwrapping
         #expect(savedTypes.count == 3)
         #expect(savedTypes.contains("stepCount"))
         #expect(savedTypes.contains("heartRate"))
@@ -1466,5 +1466,590 @@ struct HealthDataCacheAvailableTypesTests {
         let data = try await cache.data(for: .stepCount)
         #expect(data.count == 1)
         #expect(mock.fetchCallCount[.stepCount, default: 0] == 0)
+    }
+}
+
+// MARK: - Range Trampling Regression (MY-1076)
+
+@Suite("HealthDataCache — Range Trampling (MY-1076)")
+struct HealthDataCacheRangeTramplingTests {
+
+    @Test("Narrower cache-miss fetch does not replace an existing wider cached range")
+    func narrowFetchDoesNotShrinkWiderCachedRange() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let wideStart = baseDate.addingTimeInterval(-30 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+
+        let widePoints = (0..<31).map { i in
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400))
+        }
+
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = HealthFetchResult(dataPoints: widePoints, deletedObjectIDs: [])
+        let cache = HealthDataCache(dataProvider: mock)
+
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        let wideResult = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(wideResult.count == 31)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+
+        let narrowRange = DateInterval(start: narrowStart, end: narrowEnd)
+        let narrowFromCache = try await cache.data(for: .stepCount, in: narrowRange)
+        #expect(narrowFromCache.count == 1)
+        #expect(mock.fetchCallCount[.stepCount] == 1, "wide range must cover narrow request")
+
+        let wideAgain = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(wideAgain.count == 31)
+        #expect(mock.fetchCallCount[.stepCount] == 1)
+    }
+
+    @Test("Out-of-order wide/narrow fetch completion preserves wider covered range")
+    func outOfOrderWideNarrowCompletion() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let wideStart = baseDate.addingTimeInterval(-30 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+
+        let widePoints = (0..<31).map { i in
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400))
+        }
+        let narrowPoints = [makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(60))]
+
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        let narrowRange = DateInterval(start: narrowStart, end: narrowEnd)
+        let provider = OrderedRangeProvider(
+            widePoints: widePoints,
+            narrowPoints: narrowPoints,
+            wideRange: wideRange,
+            narrowRange: narrowRange
+        )
+        let cache = HealthDataCache(dataProvider: provider)
+
+        async let narrowTask = cache.data(for: .stepCount, in: narrowRange)
+        try await Task.sleep(for: .milliseconds(5))
+        async let wideTask = cache.data(for: .stepCount, in: wideRange)
+        let (narrowOut, wideOut) = try await (narrowTask, wideTask)
+        #expect(wideOut.count == 31)
+        #expect(narrowOut.count == 1)
+        let fetchCountAfterBoth = await provider.fetchCount
+        #expect(fetchCountAfterBoth == 2)
+
+        let wideAgain = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(wideAgain.count == 31)
+        let fetchCountAfterRepeat = await provider.fetchCount
+        #expect(fetchCountAfterRepeat == 2, "wide entry must survive out-of-order narrow completion")
+    }
+
+    @Test("Immutable whole-entry replacement: explicit refresh replaces the entry")
+    func explicitRefreshReplacesWholeEntry() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let wideStart = baseDate.addingTimeInterval(-7 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+
+        let originalPoints = (0..<8).map { i in
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400), value: Double(i))
+        }
+        let replacementPoints = (0..<3).map { i in
+            makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(Double(i) * 60), value: Double(1000 + i))
+        }
+
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = HealthFetchResult(dataPoints: originalPoints, deletedObjectIDs: [])
+        let cache = HealthDataCache(dataProvider: mock)
+
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        _ = try await cache.data(for: .stepCount, in: wideRange)
+
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+        mock.fetchResults[.stepCount] = HealthFetchResult(dataPoints: replacementPoints, deletedObjectIDs: [])
+
+        let refreshed = try await cache.refresh(
+            .stepCount,
+            in: DateInterval(start: narrowStart, end: narrowEnd)
+        )
+        #expect(refreshed.count == 3)
+
+        mock.fetchResults[.stepCount] = HealthFetchResult(dataPoints: originalPoints, deletedObjectIDs: [])
+        _ = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(mock.fetchCallCount[.stepCount] == 3, "wide re-fetch confirms explicit-refresh replacement")
+    }
+
+    @Test("Bounded stale entry refreshes once, subsequent access does not re-fetch")
+    func boundedStaleRefreshesOnceAndPersists() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let boundedStart = baseDate.addingTimeInterval(-7 * 86400)
+        let boundedEnd = baseDate.addingTimeInterval(86400)
+        let boundedRange = DateInterval(start: boundedStart, end: boundedEnd)
+
+        let originalPoints = (0..<7).map { i in
+            makeDataPoint(.stepCount, date: boundedStart.addingTimeInterval(Double(i) * 86400), value: Double(i))
+        }
+        // Fresh payload = originals + one new point returned by the background
+        // refresh; must survive the merge instead of being discarded.
+        let freshPoints = originalPoints + [
+            makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(3600), value: 99),
+        ]
+
+        let mock = MockHealthDataProvider()
+        mock.fetchResults[.stepCount] = HealthFetchResult(dataPoints: freshPoints, deletedObjectIDs: [])
+
+        // Seed L2 with a stale bounded entry (fetchedAt 2 hours ago, TTL 1h).
+        // First access hydrates L1, sees the entry as stale, and schedules one
+        // background refresh. Post-refresh the entry's fetchedAt is Date() and
+        // is fresh under the 1h TTL, so subsequent access does not schedule
+        // another refresh.
+        let persistence = MockHealthCachePersistence()
+        let staleDate = Date().addingTimeInterval(-7200)
+        persistence.seed(
+            sampleType: .stepCount,
+            dataPoints: originalPoints,
+            fetchedAt: staleDate,
+            coveredRangeStart: boundedStart,
+            coveredRangeEnd: boundedEnd
+        )
+        let cache = HealthDataCache(dataProvider: mock, persistence: persistence, cacheTTL: 3600)
+
+        // Access #1: L1 miss → L2 hit (stale) → returns immediately and
+        // schedules a background refresh for the bounded range.
+        let firstHit = try await cache.data(for: .stepCount, in: boundedRange)
+        #expect(firstHit.count == 7, "L2 hit returns immediately with stale data")
+        #expect(mock.fetchCallCount[.stepCount, default: 0] == 0, "no synchronous fetch yet")
+
+        // Let the background refresh complete.
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(mock.fetchCallCount[.stepCount, default: 0] == 1, "background refresh fired once")
+
+        // Post-refresh: the bounded entry must contain the merged fresh points
+        // AND have an updated fetchedAt — proving the fresh data was NOT
+        // discarded (regression: previously the narrow-preservation branch
+        // dropped the refresh's payload).
+        let refreshedHit = try await cache.data(for: .stepCount, in: boundedRange)
+        #expect(refreshedHit.count == 8, "background refresh merged fresh point into bounded entry")
+        #expect(refreshedHit.contains { $0.value == 99 }, "fresh point is present")
+
+        // Subsequent access must NOT schedule another refresh — the entry is
+        // fresh under the 1h TTL because fetchedAt was updated.
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(
+            mock.fetchCallCount[.stepCount, default: 0] == 1,
+            "bounded entry stays fresh after one refresh — no repeated re-fetching"
+        )
+
+        // One more access for good measure.
+        _ = try await cache.data(for: .stepCount, in: boundedRange)
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(
+            mock.fetchCallCount[.stepCount, default: 0] == 1,
+            "further accesses on a fresh bounded entry still do not re-fetch"
+        )
+    }
+
+    @Test("Explicit refresh deterministically wins over a late-completing background refresh")
+    func explicitRefreshWinsOverLateBackgroundRefresh() async throws {
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let wideStart = baseDate.addingTimeInterval(-7 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+        let narrowRange = DateInterval(start: narrowStart, end: narrowEnd)
+
+        let originalPoints = (0..<7).map { i in
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400), value: Double(i))
+        }
+        // Sentinel value 999 — must NOT end up in either L1 or L2 after
+        // explicit refresh has replaced the entry.
+        let bgRefreshPoints = originalPoints + [
+            makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(-3600), value: 999),
+        ]
+        let explicitRefreshPoint = makeDataPoint(.stepCount, date: baseDate, value: 42)
+
+        // Gated provider: the wide (background-refresh) call awaits a
+        // continuation until the test explicitly releases it. That gives
+        // deterministic control over the race:
+        //   1. Background refresh dispatched → provider enters await, signals
+        //      "started" via startedStream → then blocks on gate.
+        //   2. Test awaits startedStream → knows bg provider is parked.
+        //   3. Test invokes refresh(narrow) → bumps refresh generation,
+        //      cancels the bg Task. Provider ignores cancellation.
+        //   4. refresh() completes and replaces cache with narrow entry.
+        //   5. Test releases the gate → bg provider returns → performFetch's
+        //      post-await guard sees generation mismatch and drops the write.
+        // The pre-dispatch race is also covered: the bg Task's provider call
+        // is dispatched BEFORE refresh() is called, so `scheduledRefreshGen`
+        // captured at schedule time is stale by the time it completes.
+        let provider = GatedRefreshProvider(
+            wideRange: wideRange,
+            narrowRange: narrowRange,
+            bgRefreshPoints: bgRefreshPoints,
+            explicitRefreshPoints: [explicitRefreshPoint]
+        )
+
+        // Seed L2 with a stale wide entry so first access schedules a
+        // background refresh over wideRange.
+        let persistence = MockHealthCachePersistence()
+        let staleDate = Date().addingTimeInterval(-7200)
+        persistence.seed(
+            sampleType: .stepCount,
+            dataPoints: originalPoints,
+            fetchedAt: staleDate,
+            coveredRangeStart: wideStart,
+            coveredRangeEnd: wideEnd
+        )
+        let cache = HealthDataCache(dataProvider: provider, persistence: persistence, cacheTTL: 3600)
+
+        // Access #1: L2 hit (stale) → schedules a background refresh over
+        // wideRange. The provider enters await synchronously.
+        let firstHit = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(firstHit.count == 7)
+
+        // Deterministic sync: wait for the provider to signal it has started
+        // and is parked at the gate. NO sleeps.
+        await provider.awaitBackgroundRefreshStarted()
+
+        // Explicit refresh with a narrow range: bumps the per-type refresh
+        // generation, cancels the bg Task, dispatches its own fast fetch.
+        // The bg provider is still parked; explicit refresh proceeds
+        // independently through its own provider path.
+        let refreshed = try await cache.refresh(.stepCount, in: narrowRange)
+        #expect(refreshed.count == 1)
+        #expect(refreshed.first?.value == 42)
+
+        // Confirm L2 already reflects the explicit refresh's narrow write
+        // (persistInBackground is fire-and-forget; wait for it to land).
+        try await waitUntil(timeout: .milliseconds(500)) {
+            let stored = persistence.store[HealthSampleType.stepCount.rawValue]
+            guard let stored else { return false }
+            guard let decoded = try? JSONDecoder().decode([HealthDataPoint].self, from: stored.dataPointsData) else {
+                return false
+            }
+            return decoded.count == 1
+                && decoded.first?.value == 42
+                && stored.coveredRangeStart == narrowStart
+                && stored.coveredRangeEnd == narrowEnd
+        }
+
+        // Release the bg provider. Its Task was cancelled but the provider
+        // ignores cancellation, so its result reaches performFetch. The
+        // post-await guard MUST reject it: scheduledRefreshGeneration (0)
+        // no longer matches refreshGenerations (1). And even if the guard
+        // were absent, the pre-dispatch guard would have short-circuited
+        // when the Task body first ran — but here the Task body is already
+        // past that check, awaiting the provider, so only the post-await
+        // guard fires. That is exactly what this test forces.
+        await provider.releaseBackgroundRefresh()
+
+        // Deterministic sync: wait for the bg provider to fully finish (its
+        // fetchCount stops changing) so we know performFetch has run its
+        // post-await guard. No sleeps beyond this bounded poll.
+        try await waitUntil(timeout: .milliseconds(500)) {
+            await provider.backgroundRefreshDidComplete
+        }
+
+        // L1 must still be the explicit refresh's narrow entry.
+        let after = try await cache.data(for: .stepCount, in: narrowRange)
+        #expect(after.count == 1, "L1: explicit refresh entry survives late bg completion")
+        #expect(after.first?.value == 42, "L1: explicit refresh's point remains")
+        #expect(
+            !after.contains { $0.value == 999 },
+            "L1: background refresh's payload did NOT bleed into the explicit refresh entry"
+        )
+
+        // L2 must still be the explicit refresh's narrow entry — the bg
+        // refresh's persistInBackground must NOT have run either.
+        let l2 = persistence.store[HealthSampleType.stepCount.rawValue]
+        #expect(l2 != nil, "L2 entry exists")
+        if let l2 {
+            let decoded = try JSONDecoder().decode([HealthDataPoint].self, from: l2.dataPointsData)
+            #expect(decoded.count == 1, "L2: exactly one point (explicit refresh)")
+            #expect(decoded.first?.value == 42, "L2: explicit refresh's point remains")
+            #expect(!decoded.contains { $0.value == 999 }, "L2: bg refresh payload absent")
+            #expect(l2.coveredRangeStart == narrowStart, "L2: coveredRange narrowed")
+            #expect(l2.coveredRangeEnd == narrowEnd, "L2: coveredRange narrowed")
+        }
+
+        // A wider request now misses (covered range is narrow) — proving the
+        // bg refresh did NOT silently restore the wide range in L1 or L2.
+        let bgCountBefore = await provider.fetchCount
+        _ = try await cache.data(for: .stepCount, in: wideRange)
+        let bgCountAfter = await provider.fetchCount
+        #expect(
+            bgCountAfter > bgCountBefore,
+            "wide request must miss and fetch — explicit refresh's narrow range is authoritative"
+        )
+    }
+
+    @Test("Pre-dispatch race: bg Task scheduled but not yet executed cannot commit after refresh")
+    func predispatchRaceRefreshWinsOverStalledBackgroundTask() async throws {
+        // This test targets the pre-dispatch window: the bg Task is scheduled
+        // (its `scheduledRefreshGeneration` captured) but its Task body has
+        // not yet run when `refresh()` bumps the generation. Under the fix,
+        // the schedule-time captured value flows into performFetch and its
+        // post-await guard rejects the write even though the Task body
+        // itself sees the (post-bump) current value.
+        //
+        // Determinism: after refresh() runs, we release the bg provider's
+        // gate. Whether or not the bg Task body ran BEFORE refresh(), the
+        // release ensures the bg body — once served — completes, so we can
+        // observe its committed / rejected state. `waitUntil` polls for
+        // either bg completion or the bg provider never having been entered
+        // (Task cancellation absorbed the entire body). Either way, the
+        // final invariant on L1/L2 must hold.
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let wideStart = baseDate.addingTimeInterval(-7 * 86400)
+        let wideEnd = baseDate.addingTimeInterval(86400)
+        let wideRange = DateInterval(start: wideStart, end: wideEnd)
+        let narrowStart = baseDate
+        let narrowEnd = baseDate.addingTimeInterval(3600)
+        let narrowRange = DateInterval(start: narrowStart, end: narrowEnd)
+
+        let originalPoints = (0..<7).map { i in
+            makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400), value: Double(i))
+        }
+        let bgPoints = originalPoints + [
+            makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(-1800), value: 777),
+        ]
+        let explicitPoint = makeDataPoint(.stepCount, date: baseDate, value: 42)
+
+        let provider = GatedRefreshProvider(
+            wideRange: wideRange,
+            narrowRange: narrowRange,
+            bgRefreshPoints: bgPoints,
+            explicitRefreshPoints: [explicitPoint]
+        )
+
+        let persistence = MockHealthCachePersistence()
+        let staleDate = Date().addingTimeInterval(-7200)
+        persistence.seed(
+            sampleType: .stepCount,
+            dataPoints: originalPoints,
+            fetchedAt: staleDate,
+            coveredRangeStart: wideStart,
+            coveredRangeEnd: wideEnd
+        )
+        let cache = HealthDataCache(dataProvider: provider, persistence: persistence, cacheTTL: 3600)
+
+        // Access #1: L2 hit (stale) → schedules a background refresh over
+        // wideRange. data() returns synchronously after scheduling.
+        let firstHit = try await cache.data(for: .stepCount, in: wideRange)
+        #expect(firstHit.count == 7)
+
+        // Immediately call refresh(narrow). Depending on actor scheduling,
+        // the bg Task body may or may not have started; under the fix, both
+        // orderings preserve the invariant.
+        let refreshedResult = try await cache.refresh(.stepCount, in: narrowRange)
+        #expect(refreshedResult.count == 1)
+        #expect(refreshedResult.first?.value == 42)
+
+        // Release the bg provider gate first, so if the bg body did run and
+        // is parked at it, it can complete (and either commit or be rejected
+        // by the post-await guard).
+        await provider.releaseBackgroundRefresh()
+
+        // Force the bg Task body to be served. yield() gives the actor
+        // scheduler a chance to serve pending Tasks; ping the actor with
+        // real messages so the bg body definitely gets scheduled.
+        for _ in 0..<50 {
+            _ = await cache.cachedTypes()
+            await Task.yield()
+        }
+
+        // At this point, the bg Task body has either:
+        //   (a) run and passed all guards, entered provider, completed → didComplete=true, wrote to cache
+        //   (b) run and been rejected by the pre-dispatch guard → didComplete=false, bgEntered=false
+        //   (c) run, entered provider, and been rejected by post-await guard → didComplete=true, wrote nothing
+        // Under the fix, (b) or (c) hold. Under regression, (a) holds and
+        // clobbers the cache.
+        //
+        // Wait bounded until either "provider was never entered" (b) or
+        // "provider completed" (a/c). Both are terminal for our assertions.
+        // Timeout is acceptable when the pre-dispatch guard fired — no bg
+        // work is pending in that case.
+        try await waitUntil(timeout: .milliseconds(500), expectTimeoutOK: true) {
+            let didComplete = await provider.backgroundRefreshDidComplete
+            let bgEntered = await provider.startedFiredSnapshot
+            if didComplete { return true }
+            if !bgEntered {
+                return false
+            }
+            return false
+        }
+
+        // Invariant: L1 is the explicit refresh's narrow entry.
+        let after = try await cache.data(for: .stepCount, in: narrowRange)
+        #expect(after.count == 1, "L1: narrow entry survives late/absent bg completion")
+        #expect(after.first?.value == 42, "L1: explicit refresh's point remains")
+        #expect(!after.contains { $0.value == 777 }, "L1: bg sentinel absent")
+
+        // Invariant: L2 is the explicit refresh's narrow entry.
+        try await waitUntil(timeout: .milliseconds(500)) {
+            let stored = persistence.store[HealthSampleType.stepCount.rawValue]
+            guard let stored else { return false }
+            guard let decoded = try? JSONDecoder().decode([HealthDataPoint].self, from: stored.dataPointsData) else {
+                return false
+            }
+            return decoded.count == 1
+                && decoded.first?.value == 42
+                && stored.coveredRangeStart == narrowStart
+                && stored.coveredRangeEnd == narrowEnd
+        }
+        let l2 = persistence.store[HealthSampleType.stepCount.rawValue]
+        #expect(l2 != nil)
+        if let l2 {
+            let decoded = try JSONDecoder().decode([HealthDataPoint].self, from: l2.dataPointsData)
+            #expect(decoded.count == 1)
+            #expect(!decoded.contains { $0.value == 777 }, "L2: bg sentinel absent")
+            #expect(l2.coveredRangeStart == narrowStart)
+            #expect(l2.coveredRangeEnd == narrowEnd)
+        }
+    }
+}
+
+// Deterministic polling helper — replaces raw `Task.sleep` in tests that
+// otherwise couldn't observe an actor state change without a timeout. Polls
+// every 5 ms until `check` returns true or the timeout elapses. Records an
+// Issue on timeout unless `expectTimeoutOK` is true.
+@discardableResult
+private func waitUntil(
+    timeout: Duration,
+    expectTimeoutOK: Bool = false,
+    check: @escaping @Sendable () async throws -> Bool
+) async throws -> Bool {
+    let start = ContinuousClock.now
+    while ContinuousClock.now - start < timeout {
+        if try await check() { return true }
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    if !expectTimeoutOK {
+        Issue.record("waitUntil timed out after \(timeout)")
+    }
+    return false
+}
+
+private actor OrderedRangeProvider: HealthDataProviding {
+    let widePoints: [HealthDataPoint]
+    let narrowPoints: [HealthDataPoint]
+    let wideRange: DateInterval
+    let narrowRange: DateInterval
+    private var _fetchCount = 0
+
+    init(
+        widePoints: [HealthDataPoint],
+        narrowPoints: [HealthDataPoint],
+        wideRange: DateInterval,
+        narrowRange: DateInterval
+    ) {
+        self.widePoints = widePoints
+        self.narrowPoints = narrowPoints
+        self.wideRange = wideRange
+        self.narrowRange = narrowRange
+    }
+
+    var fetchCount: Int { _fetchCount }
+
+    private func recordFetch() { _fetchCount += 1 }
+
+    nonisolated func fetchData(
+        for sampleType: HealthSampleType,
+        dateRange: DateInterval?
+    ) async throws -> HealthFetchResult {
+        await recordFetch()
+        if dateRange == wideRange {
+            try await Task.sleep(for: .milliseconds(20))
+            return HealthFetchResult(dataPoints: widePoints, deletedObjectIDs: [])
+        }
+        if dateRange == narrowRange {
+            try await Task.sleep(for: .milliseconds(200))
+            return HealthFetchResult(dataPoints: narrowPoints, deletedObjectIDs: [])
+        }
+        return HealthFetchResult(dataPoints: [], deletedObjectIDs: [])
+    }
+}
+
+private actor GatedRefreshProvider: HealthDataProviding {
+    let wideRange: DateInterval
+    let narrowRange: DateInterval
+    let bgRefreshPoints: [HealthDataPoint]
+    let explicitRefreshPoints: [HealthDataPoint]
+
+    private var _fetchCount = 0
+    // Signal fired when the background (wide-range) provider call is entered.
+    private var startedContinuation: CheckedContinuation<Void, Never>?
+    private var startedFired = false
+    // Gate that the background (wide-range) call awaits until released.
+    private var gateContinuation: CheckedContinuation<Void, Never>?
+    private var gateReleased = false
+    // Set to true after the background call has fully returned.
+    private(set) var backgroundRefreshDidComplete = false
+
+    init(
+        wideRange: DateInterval,
+        narrowRange: DateInterval,
+        bgRefreshPoints: [HealthDataPoint],
+        explicitRefreshPoints: [HealthDataPoint]
+    ) {
+        self.wideRange = wideRange
+        self.narrowRange = narrowRange
+        self.bgRefreshPoints = bgRefreshPoints
+        self.explicitRefreshPoints = explicitRefreshPoints
+    }
+
+    var fetchCount: Int { _fetchCount }
+    var startedFiredSnapshot: Bool { startedFired }
+
+    // Await inside the test until the bg provider call has been entered.
+    func awaitBackgroundRefreshStarted() async {
+        if startedFired { return }
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            startedContinuation = cont
+        }
+    }
+
+    func releaseBackgroundRefresh() {
+        gateReleased = true
+        gateContinuation?.resume()
+        gateContinuation = nil
+    }
+
+    private func fireStarted() {
+        startedFired = true
+        startedContinuation?.resume()
+        startedContinuation = nil
+    }
+
+    private func awaitGate() async {
+        if gateReleased { return }
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            gateContinuation = cont
+        }
+    }
+
+    private func recordFetch() { _fetchCount += 1 }
+    private func markBackgroundRefreshComplete() { backgroundRefreshDidComplete = true }
+
+    nonisolated func fetchData(
+        for sampleType: HealthSampleType,
+        dateRange: DateInterval?
+    ) async throws -> HealthFetchResult {
+        await recordFetch()
+        if dateRange == wideRange {
+            // Background refresh path — signal start, then park at gate,
+            // then return. Ignores cancellation deliberately so the result
+            // reaches performFetch's post-await guard.
+            await fireStarted()
+            await awaitGate()
+            let payload = bgRefreshPoints
+            await markBackgroundRefreshComplete()
+            return HealthFetchResult(dataPoints: payload, deletedObjectIDs: [])
+        }
+        if dateRange == narrowRange {
+            // Explicit refresh path — fast, ungated.
+            return HealthFetchResult(dataPoints: explicitRefreshPoints, deletedObjectIDs: [])
+        }
+        return HealthFetchResult(dataPoints: [], deletedObjectIDs: [])
     }
 }

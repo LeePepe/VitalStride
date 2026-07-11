@@ -79,6 +79,12 @@ public actor HealthDataCache {
     private let persistence: (any HealthCachePersisting)?
     private let cacheTTL: TimeInterval
     private var generation: UInt64 = 0
+    // Per-type explicit-refresh generation. Bumped on every refresh() and on
+    // invalidate/invalidateAll so any in-flight background refresh whose
+    // performFetch started under the old value must NOT commit its result to
+    // the cache (its result would race with — or worse, merge into — the
+    // explicit refresh's whole-entry replacement).
+    private var refreshGenerations: [HealthSampleType: UInt64] = [:]
 
     private var hitCounts: [HealthSampleType: Int] = [:]
     private var missCounts: [HealthSampleType: Int] = [:]
@@ -230,13 +236,29 @@ public actor HealthDataCache {
         in dateRange: DateInterval? = nil
     ) async throws -> [HealthDataPoint] {
         cancelInFlightFetches(for: sampleType)
+        // Cancel any already-scheduled background refresh for this type and
+        // bump the per-type refresh generation. An in-flight background
+        // refresh whose Task.cancel arrives too late — or whose performFetch
+        // has already awaited the provider — will see the bumped generation
+        // in performFetch's post-await guard and abandon its cache write.
+        // This is what makes explicit refresh deterministically win over any
+        // previously scheduled background refresh for the same sample type,
+        // even when the background refresh completes strictly after the
+        // explicit refresh has replaced the entry.
+        backgroundRefreshTasks[sampleType]?.cancel()
+        backgroundRefreshTasks[sampleType] = nil
+        refreshGenerations[sampleType, default: 0] &+= 1
 
         refreshCounts[sampleType, default: 0] += 1
         logger.info(
             "healthkit_cache_refresh type=\(sampleType.rawValue) total=\(self.refreshCounts[sampleType, default: 0])"
         )
 
-        let points = try await performFetch(sampleType: sampleType, dateRange: dateRange)
+        let points = try await performFetch(
+            sampleType: sampleType,
+            dateRange: dateRange,
+            replaceExistingRange: true
+        )
         return Self.filtered(points, by: dateRange)
     }
 
@@ -439,12 +461,22 @@ public actor HealthDataCache {
     private func performFetch(
         sampleType: HealthSampleType,
         dateRange: DateInterval?,
-        mergeWithExisting: Bool = false
+        mergeWithExisting: Bool = false,
+        replaceExistingRange: Bool = false,
+        scheduledRefreshGeneration: UInt64? = nil
     ) async throws -> [HealthDataPoint] {
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("healthkit_fetch", id: signpostID)
         let start = ContinuousClock.now
         let fetchGeneration = generation
+        // For background refreshes, use the generation captured at SCHEDULE
+        // time (in scheduleBackgroundRefresh). This closes the pre-dispatch
+        // window: a bg refresh scheduled before refresh() bumped the counter
+        // must not commit even if its Task body only starts executing after
+        // the bump. For other callers, snapshot now — they cannot race with
+        // themselves.
+        let fetchRefreshGeneration = scheduledRefreshGeneration
+            ?? refreshGenerations[sampleType, default: 0]
 
         let key = FetchKey(sampleType, dateRange)
         let task = Task { [dataProvider] in
@@ -457,9 +489,18 @@ public actor HealthDataCache {
             inFlightFetches[key] = nil
 
             var resultPoints = points
-            if generation == fetchGeneration {
-                let finalPoints: [HealthDataPoint]
-                if mergeWithExisting, dateRange == nil, let existing = cache[sampleType] {
+            let refreshWinsOverBackground =
+                mergeWithExisting
+                && refreshGenerations[sampleType, default: 0] != fetchRefreshGeneration
+            if generation == fetchGeneration, !refreshWinsOverBackground {
+                let existing = cache[sampleType]
+
+                if mergeWithExisting, let existing {
+                    // Background refresh path: merge fresh data into the existing
+                    // entry and PRESERVE the existing coveredRange (never widen or
+                    // shrink). Refreshing fetchedAt is required — otherwise the
+                    // entry stays stale under TTL and every subsequent access
+                    // re-schedules a redundant background refresh.
                     var pointsByID = Dictionary(
                         existing.dataPoints.map { ($0.id, $0) },
                         uniquingKeysWith: { _, new in new }
@@ -467,17 +508,43 @@ public actor HealthDataCache {
                     for point in points {
                         pointsByID[point.id] = point
                     }
-                    finalPoints = Array(pointsByID.values).sorted { $0.startDate < $1.startDate }
+                    let merged = Array(pointsByID.values).sorted { $0.startDate < $1.startDate }
+                    cache[sampleType] = CacheEntry(
+                        dataPoints: merged,
+                        coveredRange: existing.coveredRange,
+                        fetchedAt: Date()
+                    )
+                    persistInBackground(sampleType: sampleType, dataPoints: merged, dateRange: existing.coveredRange, fetchGeneration: fetchGeneration)
+                    resultPoints = merged
+                } else if !replaceExistingRange,
+                          let existing,
+                          Self.coversRange(existing.coveredRange, requested: dateRange)
+                {
+                    // Cache-miss path (not an explicit refresh): the existing entry
+                    // already covers this fetch's range, so a narrower completed
+                    // fetch must not overwrite the wider cached range. Serve the
+                    // caller from the freshly-fetched narrow data and leave the
+                    // wider cache entry intact (immutable — no in-place mutation).
+                    resultPoints = points
                 } else {
-                    finalPoints = points
+                    cache[sampleType] = CacheEntry(
+                        dataPoints: points,
+                        coveredRange: dateRange,
+                        fetchedAt: Date()
+                    )
+                    persistInBackground(sampleType: sampleType, dataPoints: points, dateRange: dateRange, fetchGeneration: fetchGeneration)
+                    resultPoints = points
                 }
-                cache[sampleType] = CacheEntry(
-                    dataPoints: finalPoints,
-                    coveredRange: dateRange,
-                    fetchedAt: Date()
+            } else if refreshWinsOverBackground {
+                // An explicit refresh landed while this background refresh was
+                // awaiting the provider. Return the freshly-fetched data to the
+                // caller (for symmetry with other paths that do so) but do NOT
+                // touch the cache — the explicit refresh's replacement is the
+                // canonical entry.
+                logger.info(
+                    "healthkit_cache_bg_refresh_superseded type=\(sampleType.rawValue)"
                 )
-                persistInBackground(sampleType: sampleType, dataPoints: finalPoints, dateRange: dateRange, fetchGeneration: fetchGeneration)
-                resultPoints = finalPoints
+                resultPoints = points
             }
 
             signposter.endInterval("healthkit_fetch", state)
@@ -577,12 +644,35 @@ public actor HealthDataCache {
     ) {
         guard backgroundRefreshTasks[sampleType] == nil else { return }
         let refreshGeneration = generation
+        // Capture the per-type refresh generation at SCHEDULE time, not when
+        // the Task body starts executing. Passing this into performFetch as
+        // scheduledRefreshGeneration closes the pre-dispatch window: a bg
+        // refresh scheduled before an explicit refresh() bumps the counter
+        // is rejected on completion, even if its Task body only starts
+        // running (and would otherwise re-read the counter) after the bump.
+        let scheduledRefreshGeneration = refreshGenerations[sampleType, default: 0]
 
         let task = Task {
             defer { backgroundRefreshTasks[sampleType] = nil }
             guard self.generation == refreshGeneration else { return }
+            // Also short-circuit before dispatching the fetch when a
+            // refresh() has already superseded us. This avoids a needless
+            // provider round-trip; correctness still relies on the
+            // post-await guard in performFetch, but this trims the window
+            // when the bump lands between schedule and Task body start.
+            guard refreshGenerations[sampleType, default: 0] == scheduledRefreshGeneration else {
+                logger.info(
+                    "healthkit_cache_bg_refresh_superseded_predispatch type=\(sampleType.rawValue)"
+                )
+                return
+            }
             do {
-                _ = try await performFetch(sampleType: sampleType, dateRange: dateRange, mergeWithExisting: true)
+                _ = try await performFetch(
+                    sampleType: sampleType,
+                    dateRange: dateRange,
+                    mergeWithExisting: true,
+                    scheduledRefreshGeneration: scheduledRefreshGeneration
+                )
                 refreshCounts[sampleType, default: 0] += 1
                 logger.info("background refresh completed type=\(sampleType.rawValue)")
             } catch {
