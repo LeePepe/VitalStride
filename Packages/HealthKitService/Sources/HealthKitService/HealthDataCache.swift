@@ -462,19 +462,21 @@ public actor HealthDataCache {
         sampleType: HealthSampleType,
         dateRange: DateInterval?,
         mergeWithExisting: Bool = false,
-        replaceExistingRange: Bool = false
+        replaceExistingRange: Bool = false,
+        scheduledRefreshGeneration: UInt64? = nil
     ) async throws -> [HealthDataPoint] {
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("healthkit_fetch", id: signpostID)
         let start = ContinuousClock.now
         let fetchGeneration = generation
-        // Snapshot the per-type refresh generation at fetch dispatch. On
-        // resume after `try await task.value`, if the snapshot no longer
-        // matches, an explicit refresh() (or invalidation) landed while we
-        // were awaiting the provider. Our result must not be committed —
-        // otherwise a slow background merge could clobber or shrink the
-        // explicit refresh's whole-entry replacement.
-        let fetchRefreshGeneration = refreshGenerations[sampleType, default: 0]
+        // For background refreshes, use the generation captured at SCHEDULE
+        // time (in scheduleBackgroundRefresh). This closes the pre-dispatch
+        // window: a bg refresh scheduled before refresh() bumped the counter
+        // must not commit even if its Task body only starts executing after
+        // the bump. For other callers, snapshot now — they cannot race with
+        // themselves.
+        let fetchRefreshGeneration = scheduledRefreshGeneration
+            ?? refreshGenerations[sampleType, default: 0]
 
         let key = FetchKey(sampleType, dateRange)
         let task = Task { [dataProvider] in
@@ -642,12 +644,35 @@ public actor HealthDataCache {
     ) {
         guard backgroundRefreshTasks[sampleType] == nil else { return }
         let refreshGeneration = generation
+        // Capture the per-type refresh generation at SCHEDULE time, not when
+        // the Task body starts executing. Passing this into performFetch as
+        // scheduledRefreshGeneration closes the pre-dispatch window: a bg
+        // refresh scheduled before an explicit refresh() bumps the counter
+        // is rejected on completion, even if its Task body only starts
+        // running (and would otherwise re-read the counter) after the bump.
+        let scheduledRefreshGeneration = refreshGenerations[sampleType, default: 0]
 
         let task = Task {
             defer { backgroundRefreshTasks[sampleType] = nil }
             guard self.generation == refreshGeneration else { return }
+            // Also short-circuit before dispatching the fetch when a
+            // refresh() has already superseded us. This avoids a needless
+            // provider round-trip; correctness still relies on the
+            // post-await guard in performFetch, but this trims the window
+            // when the bump lands between schedule and Task body start.
+            guard refreshGenerations[sampleType, default: 0] == scheduledRefreshGeneration else {
+                logger.info(
+                    "healthkit_cache_bg_refresh_superseded_predispatch type=\(sampleType.rawValue)"
+                )
+                return
+            }
             do {
-                _ = try await performFetch(sampleType: sampleType, dateRange: dateRange, mergeWithExisting: true)
+                _ = try await performFetch(
+                    sampleType: sampleType,
+                    dateRange: dateRange,
+                    mergeWithExisting: true,
+                    scheduledRefreshGeneration: scheduledRefreshGeneration
+                )
                 refreshCounts[sampleType, default: 0] += 1
                 logger.info("background refresh completed type=\(sampleType.rawValue)")
             } catch {
