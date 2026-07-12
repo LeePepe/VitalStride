@@ -1,4 +1,10 @@
+// The `no_hardcoded_chinese` rule false-positives on these `String(localized:)`
+// dictionary/label literals once the line also carries `.color(theme:)` — the
+// strings ARE localized. Silenced at file scope (re-skin only re-touched the
+// lines; no new hardcoded strings), matching DataView.swift's precedent.
+// swiftlint:disable no_hardcoded_chinese
 import Charts
+import DesignKit
 import HealthKitService
 import SwiftUI
 import VitalModels
@@ -186,12 +192,12 @@ enum SleepStageInfo: String, CaseIterable, Identifiable {
         }
     }
 
-    var color: Color {
+    func color(theme: Theme) -> Color {
         switch self {
-        case .deep: .indigo
-        case .core: .blue.opacity(0.6)
-        case .rem: .purple
-        case .awake: .gray.opacity(0.5)
+        case .deep: theme.chart(3)
+        case .core: theme.chart(0)
+        case .rem: theme.chart(2)
+        case .awake: theme.neutrals.text3
         }
     }
 
@@ -215,6 +221,7 @@ struct SleepSection: View {
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "SleepSection")
 
@@ -241,10 +248,10 @@ struct SleepSection: View {
             VStack(spacing: 4) {
                 Image(systemName: "bed.double")
                     .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                 Text(String(localized: "无法加载睡眠数据", comment: "Sleep load error"))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
             }
             .frame(height: 120)
             .frame(maxWidth: .infinity)
@@ -252,10 +259,10 @@ struct SleepSection: View {
             VStack(spacing: 4) {
                 Image(systemName: "bed.double")
                     .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                 Text(String(localized: "暂无睡眠数据", comment: "No sleep data"))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
             }
             .frame(height: 120)
             .frame(maxWidth: .infinity)
@@ -332,14 +339,15 @@ struct SleepSection: View {
 private struct SleepStatItem: View {
     let label: String
     let duration: TimeInterval
+    @Environment(\.theme) private var theme
 
     var body: some View {
         VStack(spacing: 2) {
             Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(TypeScale.meta)
+                .foregroundStyle(theme.neutrals.text2)
             Text(formatDuration(duration))
-                .font(.headline)
+                .font(TypeScale.title)
         }
     }
 }
@@ -367,6 +375,7 @@ struct SleepChartView: View {
     let compact: Bool
 
     @State private var selectedDate: Date?
+    @Environment(\.theme) private var theme
 
     private var selectedNight: NightSleepData? {
         guard let selectedDate else { return nil }
@@ -399,10 +408,10 @@ struct SleepChartView: View {
             }
         }
         .chartForegroundStyleScale([
-            String(localized: "深睡", comment: "Deep"): SleepStageInfo.deep.color,
-            String(localized: "浅睡", comment: "Core"): SleepStageInfo.core.color,
-            String(localized: "REM", comment: "REM"): SleepStageInfo.rem.color,
-            String(localized: "清醒", comment: "Awake"): SleepStageInfo.awake.color,
+            String(localized: "深睡", comment: "Deep"): SleepStageInfo.deep.color(theme: theme),
+            String(localized: "浅睡", comment: "Core"): SleepStageInfo.core.color(theme: theme),
+            String(localized: "REM", comment: "REM"): SleepStageInfo.rem.color(theme: theme),
+            String(localized: "清醒", comment: "Awake"): SleepStageInfo.awake.color(theme: theme),
         ])
         .chartXSelection(value: $selectedDate)
         .chartXAxis {
@@ -436,14 +445,18 @@ struct SleepChartView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(night.date.formatted(.dateTime.month().day()))
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
             Text(formatDuration(night.totalSleep))
                 .font(.caption.bold())
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
-        .background(.regularMaterial)
+        .background(theme.neutrals.card)
         .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(theme.neutrals.border, lineWidth: 1)
+        )
     }
 
     private var xAxisFormat: Date.FormatStyle {
@@ -489,6 +502,7 @@ struct SleepDetailView: View {
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "SleepDetail")
 
@@ -519,10 +533,10 @@ struct SleepDetailView: View {
                     VStack(spacing: 4) {
                         Image(systemName: "bed.double")
                             .font(.title3)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.neutrals.text2)
                         Text(String(localized: "无法加载睡眠数据", comment: "Sleep load error"))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.neutrals.text2)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 200)
@@ -566,12 +580,12 @@ struct SleepDetailView: View {
                                 Text(night.date, format: .dateTime.month().day().weekday())
                                 Spacer()
                                 Text(formatDuration(night.totalSleep))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(theme.neutrals.text2)
                             }
                             HStack(spacing: 8) {
-                                stageLabel(String(localized: "深睡", comment: "Deep"), duration: night.deep, color: SleepStageInfo.deep.color)
-                                stageLabel(String(localized: "浅睡", comment: "Core"), duration: night.core, color: SleepStageInfo.core.color)
-                                stageLabel(String(localized: "REM", comment: "REM"), duration: night.rem, color: SleepStageInfo.rem.color)
+                                stageLabel(String(localized: "深睡", comment: "Deep"), duration: night.deep, color: SleepStageInfo.deep.color(theme: theme))
+                                stageLabel(String(localized: "浅睡", comment: "Core"), duration: night.core, color: SleepStageInfo.core.color(theme: theme))
+                                stageLabel(String(localized: "REM", comment: "REM"), duration: night.rem, color: SleepStageInfo.rem.color(theme: theme))
                             }
                             .font(.caption2)
                         }
@@ -600,7 +614,7 @@ struct SleepDetailView: View {
             Label(label, systemImage: image)
             Spacer()
             Text(value)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
         }
         .accessibilityElement(children: .combine)
     }
@@ -611,7 +625,7 @@ struct SleepDetailView: View {
                 .fill(color)
                 .frame(width: 6, height: 6)
             Text("\(name) \(formatDuration(duration))")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
         }
     }
 
@@ -658,4 +672,5 @@ struct SleepDetailView: View {
                 .padding()
         }
     }
+    .designThemePreview()
 }

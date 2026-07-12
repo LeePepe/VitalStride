@@ -3,6 +3,7 @@
 // silenced at file scope until the shared i18n cleanup migrates them to
 // Localizable.xcstrings. No semantic change from this pragma.
 // swiftlint:disable no_hardcoded_chinese
+import DesignKit
 import HealthKitService
 import os
 import SwiftData
@@ -547,16 +548,12 @@ struct DataSectionCard<Destination: View, Content: View>: View {
         NavigationLink {
             destination
         } label: {
-            VStack(alignment: .leading, spacing: 12) {
+            Card {
                 Label(title, systemImage: systemImage)
-                    .font(.headline)
+                    .font(TypeScale.title)
 
                 content()
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
-            .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -566,4 +563,5 @@ struct DataSectionCard<Destination: View, Content: View>: View {
 
 #Preview {
     DataView()
+        .designThemePreview()
 }

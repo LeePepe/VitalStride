@@ -1,4 +1,5 @@
 import Charts
+import DesignKit
 import HealthKitService
 import SwiftUI
 import VitalModels
@@ -114,6 +115,7 @@ struct GenericHealthDetailView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "GenericHealthDetail")
 
@@ -187,11 +189,11 @@ struct GenericHealthDetailView: View {
             VStack(spacing: 4) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .accessibilityHidden(true)
                 Text(message)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 200)
@@ -204,11 +206,11 @@ struct GenericHealthDetailView: View {
             VStack(spacing: 4) {
                 Image(systemName: sampleType.systemImage)
                     .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .accessibilityHidden(true)
                 Text(String(localized: "暂无数据", comment: "No data available"))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 200)
@@ -235,7 +237,7 @@ struct GenericHealthDetailView: View {
             HStack {
                 Text(day.date, format: .dateTime.year().month().day().weekday())
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                 Spacer()
                 Text("\(formattedValue(convertedValue(day.value))) \(displayUnitLabel)")
                     .font(.subheadline.weight(.semibold))
@@ -257,7 +259,7 @@ struct GenericHealthDetailView: View {
                         ),
                         y: .value(sampleType.localizedName, displayVal)
                     )
-                    .foregroundStyle(sampleType.chartColor.gradient)
+                    .foregroundStyle(theme.chart(0).gradient)
                     .opacity(barOpacity(for: item.date))
                 } else {
                     LineMark(
@@ -268,7 +270,7 @@ struct GenericHealthDetailView: View {
                         ),
                         y: .value(sampleType.localizedName, displayVal)
                     )
-                    .foregroundStyle(sampleType.chartColor)
+                    .foregroundStyle(theme.chart(0))
                     .interpolationMethod(.catmullRom)
 
                     PointMark(
@@ -279,7 +281,7 @@ struct GenericHealthDetailView: View {
                         ),
                         y: .value(sampleType.localizedName, displayVal)
                     )
-                    .foregroundStyle(sampleType.chartColor)
+                    .foregroundStyle(theme.chart(0))
                     .symbolSize(20)
                 }
             }
@@ -336,7 +338,7 @@ struct GenericHealthDetailView: View {
                     Text(item.date, format: .dateTime.month().day().weekday())
                     Spacer()
                     Text("\(formattedValue(convertedValue(item.value))) \(displayUnitLabel)")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(
@@ -355,7 +357,7 @@ struct GenericHealthDetailView: View {
             Label(label, systemImage: image)
             Spacer()
             Text("\(value) \(displayUnitLabel)")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label) \(value) \(displayUnitLabel)")
