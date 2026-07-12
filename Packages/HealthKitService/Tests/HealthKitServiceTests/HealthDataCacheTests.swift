@@ -1507,6 +1507,18 @@ struct HealthDataCacheRangeTramplingTests {
 
     @Test("Out-of-order wide/narrow fetch completion preserves wider covered range")
     func outOfOrderWideNarrowCompletion() async throws {
+        // Deterministic replacement for the previous timing-based sleep+ordering
+        // test. Both provider calls are gated with independent continuations so
+        // the test can:
+        //   1. Enqueue narrow (deterministically wait until it is parked in the
+        //      provider — no sleep-and-hope),
+        //   2. Enqueue wide (wait until it too is parked in the provider),
+        //   3. Release wide FIRST and await its return so the wider covered
+        //      range is committed to the cache,
+        //   4. Then release narrow — the narrow completion arrives AFTER wide
+        //      populated the cache, exercising the exact ordering that must
+        //      NOT shrink the covered range.
+        // No Task.sleep, no wall-clock ordering assumptions.
         let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
         let wideStart = baseDate.addingTimeInterval(-30 * 86400)
         let wideEnd = baseDate.addingTimeInterval(86400)
@@ -1520,7 +1532,7 @@ struct HealthDataCacheRangeTramplingTests {
 
         let wideRange = DateInterval(start: wideStart, end: wideEnd)
         let narrowRange = DateInterval(start: narrowStart, end: narrowEnd)
-        let provider = OrderedRangeProvider(
+        let provider = GatedOrderedProvider(
             widePoints: widePoints,
             narrowPoints: narrowPoints,
             wideRange: wideRange,
@@ -1528,15 +1540,57 @@ struct HealthDataCacheRangeTramplingTests {
         )
         let cache = HealthDataCache(dataProvider: provider)
 
+        // Step 1: enqueue the narrow fetch; bounded wait until it is parked
+        // at its gate. If it never enters the provider within the timeout,
+        // we release the gates, drain the async-lets, and fail terminally
+        // BEFORE awaiting `narrowTask` / `wideTask`.
         async let narrowTask = cache.data(for: .stepCount, in: narrowRange)
-        try await Task.sleep(for: .milliseconds(5))
+        let narrowEntered = try await waitUntil(timeout: .seconds(2)) {
+            await provider.narrowEnteredSnapshot
+        }
+        guard narrowEntered else {
+            // Provider never entered → the async-let is orphaned. Release
+            // both gates so the underlying tasks (if any) can unwind, then
+            // drain them without asserting on results.
+            await provider.releaseNarrow()
+            await provider.releaseWide()
+            _ = try? await narrowTask
+            Issue.record("narrow provider entry did not fire within 2s — terminal")
+            return
+        }
+
+        // Step 2: enqueue the wide fetch; bounded wait until it is parked
+        // at its gate.
         async let wideTask = cache.data(for: .stepCount, in: wideRange)
-        let (narrowOut, wideOut) = try await (narrowTask, wideTask)
+        let wideEntered = try await waitUntil(timeout: .seconds(2)) {
+            await provider.wideEnteredSnapshot
+        }
+        guard wideEntered else {
+            await provider.releaseNarrow()
+            await provider.releaseWide()
+            _ = try? await narrowTask
+            _ = try? await wideTask
+            Issue.record("wide provider entry did not fire within 2s — terminal")
+            return
+        }
+
+        // Step 3: release wide first and await its result. Wide completes and
+        // commits the wider covered range to the cache before narrow returns.
+        await provider.releaseWide()
+        let wideOut = try await wideTask
         #expect(wideOut.count == 31)
+
+        // Step 4: release narrow AFTER wide has populated the cache. Narrow
+        // completing here must not shrink the wider covered range.
+        await provider.releaseNarrow()
+        let narrowOut = try await narrowTask
         #expect(narrowOut.count == 1)
+
         let fetchCountAfterBoth = await provider.fetchCount
         #expect(fetchCountAfterBoth == 2)
 
+        // A repeated wide request must hit the cache (no third provider call)
+        // — proves the narrow completion did NOT overwrite the wider entry.
         let wideAgain = try await cache.data(for: .stepCount, in: wideRange)
         #expect(wideAgain.count == 31)
         let fetchCountAfterRepeat = await provider.fetchCount
@@ -1785,20 +1839,55 @@ struct HealthDataCacheRangeTramplingTests {
 
     @Test("Pre-dispatch race: bg Task scheduled but not yet executed cannot commit after refresh")
     func predispatchRaceRefreshWinsOverStalledBackgroundTask() async throws {
-        // This test targets the pre-dispatch window: the bg Task is scheduled
-        // (its `scheduledRefreshGeneration` captured) but its Task body has
-        // not yet run when `refresh()` bumps the generation. Under the fix,
-        // the schedule-time captured value flows into performFetch and its
-        // post-await guard rejects the write even though the Task body
-        // itself sees the (post-bump) current value.
+        // This regression proves ONLY the schedule-time (pre-dispatch) path:
+        // `scheduleBackgroundRefresh` captures `scheduledRefreshGeneration`
+        // at schedule time and enqueues a Task whose body must run AFTER an
+        // explicit `refresh()` has bumped the per-type generation. Under the
+        // fix, the bg Task body's second guard —
+        //   `guard refreshGenerations[...] == scheduledRefreshGeneration`
+        // — fires and the bg body returns WITHOUT calling into the provider.
         //
-        // Determinism: after refresh() runs, we release the bg provider's
-        // gate. Whether or not the bg Task body ran BEFORE refresh(), the
-        // release ensures the bg body — once served — completes, so we can
-        // observe its committed / rejected state. `waitUntil` polls for
-        // either bg completion or the bg provider never having been entered
-        // (Task cancellation absorbed the entire body). Either way, the
-        // final invariant on L1/L2 must hold.
+        // The pre-dispatch ordering is driven by actor priority scheduling
+        // inside a BOUNDED retry loop (max 20 attempts):
+        //
+        //   1. Fresh cache seeded with stale L2 each attempt.
+        //   2. `data(wide)` at .background — schedules the bg Task, which
+        //      inherits .background priority.
+        //   3. `refresh(narrow)` at .userInitiated — outranks the pending
+        //      .background bg body on the actor's job queue, so its per-
+        //      type generation bump lands FIRST.
+        //   4. EXPLICIT TERMINAL SIGNAL: submit one .background-priority
+        //      probe (`cachedTypes()`) via `Task.detached`. Actor FIFO
+        //      within a priority guarantees this probe runs strictly
+        //      AFTER the bg Task on the .background queue. Awaiting the
+        //      probe's return is the observable signal that the actor
+        //      SERVED the bg Task (either inline via the pre-dispatch
+        //      guard, or up to its first `await` inside `performFetch`).
+        //   5. Classify the served bg Task:
+        //        • `wideFetchCount == 0` → bg took the pre-dispatch path
+        //          (no provider call). WINNING attempt: exit loop, assert
+        //          L1/L2 invariants.
+        //        • `wideFetchCount == 1` → bg raced past pre-dispatch and
+        //          is parked at the closed wide gate inside `performFetch`.
+        //          Discard the attempt with full cleanup:
+        //             (a) release the wide gate,
+        //             (b) await `backgroundRefreshDidComplete` (bounded 500ms)
+        //                 — explicit signal that the wide provider call
+        //                 fully returned,
+        //             (c) submit one more .background probe so the outer
+        //                 bg body's post-await path settles on the actor
+        //                 before the next attempt's fresh setup.
+        //          No suspended task or continuation leaks between retries.
+        //   6. After maxAttempts without a winning attempt, the test fails
+        //      terminally with a specific `Issue.record` message.
+        //
+        // Result: the winning attempt provides an EXPLICIT terminal
+        // background-task-completion signal (the .background probe returns
+        // AFTER bg is served by the actor) plus an unambiguous pre-dispatch
+        // classification (`wideFetchCount == 0`), asserted BEFORE any L1/L2
+        // validation. The provider-entered path is a hard-failure for a
+        // winning attempt and is instead treated as a cleanly-cleaned-up
+        // discarded attempt.
         let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
         let wideStart = baseDate.addingTimeInterval(-7 * 86400)
         let wideEnd = baseDate.addingTimeInterval(86400)
@@ -1810,82 +1899,159 @@ struct HealthDataCacheRangeTramplingTests {
         let originalPoints = (0..<7).map { i in
             makeDataPoint(.stepCount, date: wideStart.addingTimeInterval(Double(i) * 86400), value: Double(i))
         }
+        // Sentinel 777 — must never end up in L1/L2 after the bg Task is rejected.
         let bgPoints = originalPoints + [
             makeDataPoint(.stepCount, date: baseDate.addingTimeInterval(-1800), value: 777),
         ]
         let explicitPoint = makeDataPoint(.stepCount, date: baseDate, value: 42)
 
-        let provider = GatedRefreshProvider(
-            wideRange: wideRange,
-            narrowRange: narrowRange,
-            bgRefreshPoints: bgPoints,
-            explicitRefreshPoints: [explicitPoint]
-        )
+        let maxAttempts = 20
+        var winningProvider: GatedRefreshProvider?
+        var winningPersistence: MockHealthCachePersistence?
+        var winningCache: HealthDataCache?
+        var attemptsUsed = 0
 
-        let persistence = MockHealthCachePersistence()
-        let staleDate = Date().addingTimeInterval(-7200)
-        persistence.seed(
-            sampleType: .stepCount,
-            dataPoints: originalPoints,
-            fetchedAt: staleDate,
-            coveredRangeStart: wideStart,
-            coveredRangeEnd: wideEnd
-        )
-        let cache = HealthDataCache(dataProvider: provider, persistence: persistence, cacheTTL: 3600)
+        for attempt in 1...maxAttempts {
+            attemptsUsed = attempt
 
-        // Access #1: L2 hit (stale) → schedules a background refresh over
-        // wideRange. data() returns synchronously after scheduling.
-        let firstHit = try await cache.data(for: .stepCount, in: wideRange)
-        #expect(firstHit.count == 7)
+            // Wide gate stays CLOSED for the whole attempt. Under the pre-
+            // dispatch path we want to observe, the bg body never reaches
+            // the gate. If the attempt races past pre-dispatch, the bg body
+            // parks at the gate; we release it and await terminal
+            // completion below before discarding the attempt.
+            let provider = GatedRefreshProvider(
+                wideRange: wideRange,
+                narrowRange: narrowRange,
+                bgRefreshPoints: bgPoints,
+                explicitRefreshPoints: [explicitPoint]
+            )
 
-        // Immediately call refresh(narrow). Depending on actor scheduling,
-        // the bg Task body may or may not have started; under the fix, both
-        // orderings preserve the invariant.
-        let refreshedResult = try await cache.refresh(.stepCount, in: narrowRange)
-        #expect(refreshedResult.count == 1)
-        #expect(refreshedResult.first?.value == 42)
+            let persistence = MockHealthCachePersistence()
+            let staleDate = Date().addingTimeInterval(-7200)
+            persistence.seed(
+                sampleType: .stepCount,
+                dataPoints: originalPoints,
+                fetchedAt: staleDate,
+                coveredRangeStart: wideStart,
+                coveredRangeEnd: wideEnd
+            )
+            let cache = HealthDataCache(dataProvider: provider, persistence: persistence, cacheTTL: 3600)
 
-        // Release the bg provider gate first, so if the bg body did run and
-        // is parked at it, it can complete (and either commit or be rejected
-        // by the post-await guard).
-        await provider.releaseBackgroundRefresh()
+            // Access #1 runs at .background priority. The bg Task it
+            // schedules inherits .background, so a later .userInitiated
+            // actor job (refresh) outranks it on the actor's job queue.
+            let firstHit = try await Task.detached(priority: .background) {
+                try await cache.data(for: .stepCount, in: wideRange)
+            }.value
+            #expect(firstHit.count == 7)
 
-        // Force the bg Task body to be served. yield() gives the actor
-        // scheduler a chance to serve pending Tasks; ping the actor with
-        // real messages so the bg body definitely gets scheduled.
-        for _ in 0..<50 {
-            _ = await cache.cachedTypes()
-            await Task.yield()
-        }
+            // Explicit refresh at .userInitiated — actor serves this before
+            // the pending .background bg Task body, so its per-type
+            // generation bump lands FIRST.
+            let refreshedResult = try await Task.detached(priority: .userInitiated) {
+                try await cache.refresh(.stepCount, in: narrowRange)
+            }.value
+            #expect(refreshedResult.count == 1)
+            #expect(refreshedResult.first?.value == 42)
 
-        // At this point, the bg Task body has either:
-        //   (a) run and passed all guards, entered provider, completed → didComplete=true, wrote to cache
-        //   (b) run and been rejected by the pre-dispatch guard → didComplete=false, bgEntered=false
-        //   (c) run, entered provider, and been rejected by post-await guard → didComplete=true, wrote nothing
-        // Under the fix, (b) or (c) hold. Under regression, (a) holds and
-        // clobbers the cache.
-        //
-        // Wait bounded until either "provider was never entered" (b) or
-        // "provider completed" (a/c). Both are terminal for our assertions.
-        // Timeout is acceptable when the pre-dispatch guard fired — no bg
-        // work is pending in that case.
-        try await waitUntil(timeout: .milliseconds(500), expectTimeoutOK: true) {
-            let didComplete = await provider.backgroundRefreshDidComplete
-            let bgEntered = await provider.startedFiredSnapshot
-            if didComplete { return true }
-            if !bgEntered {
-                return false
+            // EXPLICIT TERMINAL SIGNAL: the bg Task's body has been served
+            // by the actor. We submit a probe at the SAME .background
+            // priority as the bg Task. Actor FIFO within a priority
+            // guarantees the probe runs strictly AFTER the bg Task on the
+            // .background queue. When the probe returns, the bg Task body
+            // has either:
+            //   (i)  completed inline via the pre-dispatch guard (no await,
+            //        no provider call, no cache write), OR
+            //   (ii) yielded the actor at `performFetch`'s inner
+            //        `await task.value` (provider entered and parked at
+            //        the closed wide gate).
+            // Awaiting this probe is the explicit terminal signal that
+            // the actor has SERVED the bg Task — replacing any inference
+            // from repeated pings.
+            _ = await Task.detached(priority: .background) {
+                await cache.cachedTypes()
+            }.value
+
+            let wideFetchCount = await provider.wideFetchCount
+            if wideFetchCount == 0 {
+                // Case (i): the bg Task body ran its guards, hit the
+                // schedule-time (pre-dispatch) guard against the bumped
+                // per-type generation, and returned WITHOUT calling
+                // `performFetch`. The `defer` in
+                // `scheduleBackgroundRefresh`'s Task body has already
+                // cleared its slot. This is the winning attempt.
+                winningProvider = provider
+                winningPersistence = persistence
+                winningCache = cache
+                break
             }
-            return false
+
+            // Case (ii): this attempt raced past pre-dispatch (bg entered
+            // provider and is parked at the wide gate). Clean up so no
+            // suspended task / continuation leaks:
+            //   1. Release the wide gate → bg's inner fetch Task returns.
+            //   2. Await the explicit provider-completion signal
+            //      (`backgroundRefreshDidComplete`) — this fires only when
+            //      the wide provider call has fully returned, i.e. bg's
+            //      inner Task resolved. Bounded 500ms; if it never fires,
+            //      the test terminates with an Issue instead of leaking.
+            //   3. Submit one more .background probe → serializes after
+            //      the outer bg body's post-await path (which continues on
+            //      the actor once the inner Task resolves) so the actor
+            //      state fully settles before the next attempt's setup.
+            await provider.releaseBackgroundRefresh()
+            let bgReturned = try await waitUntil(timeout: .milliseconds(500)) {
+                await provider.backgroundRefreshDidComplete
+            }
+            guard bgReturned else {
+                Issue.record(
+                    "Discarded attempt \(attempt): bg provider call did not complete within 500ms after gate release — leaked task."
+                )
+                return
+            }
+            _ = await Task.detached(priority: .background) {
+                await cache.cachedTypes()
+            }.value
+            // Attempt discarded; loop to the next fresh setup.
         }
 
-        // Invariant: L1 is the explicit refresh's narrow entry.
-        let after = try await cache.data(for: .stepCount, in: narrowRange)
-        #expect(after.count == 1, "L1: narrow entry survives late/absent bg completion")
-        #expect(after.first?.value == 42, "L1: explicit refresh's point remains")
-        #expect(!after.contains { $0.value == 777 }, "L1: bg sentinel absent")
+        // Bounded terminal failure: if no attempt triggered pre-dispatch,
+        // the test fails with a specific message. Priority-based ordering
+        // did not deliver the required interleaving within `maxAttempts`.
+        guard let provider = winningProvider,
+              let persistence = winningPersistence,
+              let cache = winningCache
+        else {
+            Issue.record(
+                "Pre-dispatch guard was never observed to fire across \(maxAttempts) attempts. Either the fix has regressed, or actor priority scheduling no longer reliably orders .userInitiated refresh before .background background-refresh."
+            )
+            return
+        }
 
-        // Invariant: L2 is the explicit refresh's narrow entry.
+        // The winning attempt's bg Task has already returned via the pre-
+        // dispatch guard (proved above by the .background-priority probe
+        // serialization plus `wideFetchCount == 0`). L1/L2 invariants are
+        // asserted against the state produced by refresh(narrow).
+        let wideFetchCountFinal = await provider.wideFetchCount
+        let wideEnteredFinal = await provider.wideEnteredSnapshot
+        #expect(
+            wideFetchCountFinal == 0,
+            "Winning attempt \(attemptsUsed): bg Task must NOT have called the wide provider. Observed wideFetchCount=\(wideFetchCountFinal)."
+        )
+        #expect(
+            wideEnteredFinal == false,
+            "Winning attempt \(attemptsUsed): bg Task must NOT have entered the provider's wide path. Observed wideEnteredSnapshot=true."
+        )
+
+        // Terminal-rejection invariant: L1 holds the explicit refresh's
+        // narrow entry; the bg sentinel (777) is absent.
+        let after = try await cache.data(for: .stepCount, in: narrowRange)
+        #expect(after.count == 1, "L1: narrow entry survives bg rejection")
+        #expect(after.first?.value == 42, "L1: explicit refresh's point remains")
+        #expect(!after.contains { $0.value == 777 }, "L1: bg sentinel absent — rejection is terminal")
+
+        // Terminal-rejection invariant: L2 holds the explicit refresh's
+        // narrow entry only; the bg sentinel is absent, coveredRange narrowed.
         try await waitUntil(timeout: .milliseconds(500)) {
             let stored = persistence.store[HealthSampleType.stepCount.rawValue]
             guard let stored else { return false }
@@ -1930,12 +2096,21 @@ private func waitUntil(
     return false
 }
 
-private actor OrderedRangeProvider: HealthDataProviding {
+private actor GatedOrderedProvider: HealthDataProviding {
     let widePoints: [HealthDataPoint]
     let narrowPoints: [HealthDataPoint]
     let wideRange: DateInterval
     let narrowRange: DateInterval
+
     private var _fetchCount = 0
+
+    private var wideEntered = false
+    private var wideGateContinuation: CheckedContinuation<Void, Never>?
+    private var wideReleased = false
+
+    private var narrowEntered = false
+    private var narrowGateContinuation: CheckedContinuation<Void, Never>?
+    private var narrowReleased = false
 
     init(
         widePoints: [HealthDataPoint],
@@ -1950,6 +2125,42 @@ private actor OrderedRangeProvider: HealthDataProviding {
     }
 
     var fetchCount: Int { _fetchCount }
+    var wideEnteredSnapshot: Bool { wideEntered }
+    var narrowEnteredSnapshot: Bool { narrowEntered }
+
+    func releaseWide() {
+        wideReleased = true
+        wideGateContinuation?.resume()
+        wideGateContinuation = nil
+    }
+
+    func releaseNarrow() {
+        narrowReleased = true
+        narrowGateContinuation?.resume()
+        narrowGateContinuation = nil
+    }
+
+    private func markWideEntered() {
+        wideEntered = true
+    }
+
+    private func markNarrowEntered() {
+        narrowEntered = true
+    }
+
+    private func awaitWideGate() async {
+        if wideReleased { return }
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            wideGateContinuation = cont
+        }
+    }
+
+    private func awaitNarrowGate() async {
+        if narrowReleased { return }
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            narrowGateContinuation = cont
+        }
+    }
 
     private func recordFetch() { _fetchCount += 1 }
 
@@ -1959,11 +2170,13 @@ private actor OrderedRangeProvider: HealthDataProviding {
     ) async throws -> HealthFetchResult {
         await recordFetch()
         if dateRange == wideRange {
-            try await Task.sleep(for: .milliseconds(20))
+            await markWideEntered()
+            await awaitWideGate()
             return HealthFetchResult(dataPoints: widePoints, deletedObjectIDs: [])
         }
         if dateRange == narrowRange {
-            try await Task.sleep(for: .milliseconds(200))
+            await markNarrowEntered()
+            await awaitNarrowGate()
             return HealthFetchResult(dataPoints: narrowPoints, deletedObjectIDs: [])
         }
         return HealthFetchResult(dataPoints: [], deletedObjectIDs: [])
@@ -1977,6 +2190,7 @@ private actor GatedRefreshProvider: HealthDataProviding {
     let explicitRefreshPoints: [HealthDataPoint]
 
     private var _fetchCount = 0
+    private var _wideFetchCount = 0
     // Signal fired when the background (wide-range) provider call is entered.
     private var startedContinuation: CheckedContinuation<Void, Never>?
     private var startedFired = false
@@ -1999,7 +2213,9 @@ private actor GatedRefreshProvider: HealthDataProviding {
     }
 
     var fetchCount: Int { _fetchCount }
+    var wideFetchCount: Int { _wideFetchCount }
     var startedFiredSnapshot: Bool { startedFired }
+    var wideEnteredSnapshot: Bool { startedFired }
 
     // Await inside the test until the bg provider call has been entered.
     func awaitBackgroundRefreshStarted() async {
@@ -2029,6 +2245,7 @@ private actor GatedRefreshProvider: HealthDataProviding {
     }
 
     private func recordFetch() { _fetchCount += 1 }
+    private func recordWideFetch() { _wideFetchCount += 1 }
     private func markBackgroundRefreshComplete() { backgroundRefreshDidComplete = true }
 
     nonisolated func fetchData(
@@ -2037,9 +2254,11 @@ private actor GatedRefreshProvider: HealthDataProviding {
     ) async throws -> HealthFetchResult {
         await recordFetch()
         if dateRange == wideRange {
-            // Background refresh path — signal start, then park at gate,
-            // then return. Ignores cancellation deliberately so the result
-            // reaches performFetch's post-await guard.
+            // Background refresh path — count the entry, signal start, park
+            // at gate, then return. The wide-fetch counter proves the bg
+            // Task body reached `performFetch` (regression), independent of
+            // whether it later parked at the gate or was already cancelled.
+            await recordWideFetch()
             await fireStarted()
             await awaitGate()
             let payload = bgRefreshPoints
