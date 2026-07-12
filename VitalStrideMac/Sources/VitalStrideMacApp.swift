@@ -1,3 +1,4 @@
+import DesignKit
 import HealthKitService
 import SwiftData
 import SwiftUI
@@ -55,18 +56,21 @@ struct VitalStrideMacApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if let container {
-                if hasCompletedOnboarding {
-                    MacContentView()
-                        .modelContainer(container)
-                        .environment(\.healthDataCache, healthDataCache)
-                        .environment(\.healthKitService, healthKitService)
+            Group {
+                if let container {
+                    if hasCompletedOnboarding {
+                        MacContentView()
+                            .modelContainer(container)
+                            .environment(\.healthDataCache, healthDataCache)
+                            .environment(\.healthKitService, healthKitService)
+                    } else {
+                        OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
+                    }
                 } else {
-                    OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
+                    DataStoreErrorView(errorMessage: containerError ?? "Unknown error")
                 }
-            } else {
-                DataStoreErrorView(errorMessage: containerError ?? "Unknown error")
             }
+            .designTheme(seed: .teal, neutral: .slate)
         }
     }
 }

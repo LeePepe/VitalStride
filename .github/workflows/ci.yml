@@ -19,14 +19,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ---- Job A (REQUIRED): 5 SPM packages — swift build + test, seconds, no sim ----
+  # ---- Job A (REQUIRED): 6 SPM packages — swift build + test, seconds, no sim ----
   spm:
     name: SPM ${{ matrix.package }}
     runs-on: macos-26
     strategy:
       fail-fast: false
       matrix:
-        package: [VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit]
+        package: [VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit, DesignKit]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Select Xcode

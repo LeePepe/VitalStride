@@ -71,6 +71,13 @@ public extension View {
     func designTheme(seed: Seed = .blue, neutral: Neutral = .slate) -> some View {
         modifier(ThemeResolver(seed: seed, neutral: neutral))
     }
+
+    /// Convenience for `#Preview` blocks: applies the app's default theme
+    /// (teal / slate) plus page padding so previews render like production.
+    /// Use in previews of any view that reads `@Environment(\.theme)`.
+    func designThemePreview(seed: Seed = .teal, neutral: Neutral = .slate) -> some View {
+        modifier(ThemeResolver(seed: seed, neutral: neutral))
+    }
 }
 
 private struct ThemeResolver: ViewModifier {
