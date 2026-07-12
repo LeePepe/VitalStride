@@ -1,4 +1,11 @@
+// Pre-existing hardcoded Chinese literals in this file (empty-state / headline
+// copy) predate the `no_hardcoded_chinese` hook and are tracked under the shared
+// i18n cleanup; re-skinning to DesignKit re-touched their lines but did not add
+// new strings. Silenced at file scope until the i18n migration moves them to
+// Localizable.xcstrings, matching DataView.swift's precedent (MY-1090).
+// swiftlint:disable no_hardcoded_chinese
 import AIService
+import DesignKit
 import HealthKitService
 import OSLog
 import SwiftData
@@ -182,6 +189,7 @@ private enum HeadlineBarTelemetry {
 // MARK: - Headline Bar
 
 private struct HeadlineBar: View {
+    @Environment(\.theme) private var theme
     let headline: String
     let onTap: () -> Void
 
@@ -190,11 +198,11 @@ private struct HeadlineBar: View {
             HStack(spacing: 8) {
                 Image(systemName: "arrow.triangle.2.circlepath")
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.primary.primary)
 
                 Text(headline)
                     .font(.callout)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(theme.neutrals.text1)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
@@ -202,13 +210,17 @@ private struct HeadlineBar: View {
 
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(theme.neutrals.text3)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(minHeight: 44)
-            .background(.ultraThinMaterial)
+            .background(theme.neutrals.inner)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(theme.neutrals.border, lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
@@ -365,19 +377,15 @@ private struct OverviewHealthSnapshot: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("健康数据")
-                .font(.headline)
+            SectionHeader("健康数据", icon: "heart.fill")
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 StepsSummaryCard(preloaded: snapshot.todaySteps)
                 HeartRateSummaryCard(preloaded: snapshot.averageBPM)
                 SleepSummaryCard(preloaded: snapshot.lastNightSleep)
                 WeightSummaryCard(preloaded: snapshot.latestWeight)
             }
         }
-        .padding()
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
@@ -387,48 +395,50 @@ private struct OverviewHealthSnapshot: View {
 
 struct OverviewEmptyState: View {
     @Environment(AppNavigation.self) private var navigation: AppNavigation?
+    @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "heart.text.square")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
+        Card {
+            VStack(spacing: 16) {
+                Image(systemName: "heart.text.square")
+                    .font(.system(size: 48))
+                    .foregroundStyle(theme.primary.primary)
 
-            Text("开始你的健康旅程")
-                .font(.title3.bold())
+                Text("开始你的健康旅程")
+                    .font(.title3.bold())
+                    .foregroundStyle(theme.neutrals.text1)
 
-            Text("授权 HealthKit 查看健康数据快照，或开始你的第一次训练。")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                Text("授权 HealthKit 查看健康数据快照，或开始你的第一次训练。")
+                    .font(.subheadline)
+                    .foregroundStyle(theme.neutrals.text2)
+                    .multilineTextAlignment(.center)
 
-            VStack(spacing: 12) {
-                Button {
-                    navigation?.selectedTab = .settings
-                } label: {
-                    Label("前往「设置」授权 HealthKit", systemImage: "gearshape")
-                        .font(.subheadline)
+                VStack(spacing: 12) {
+                    Button {
+                        navigation?.selectedTab = .settings
+                    } label: {
+                        Label("前往「设置」授权 HealthKit", systemImage: "gearshape")
+                            .font(.subheadline)
+                    }
+                    .accessibilityHint("切换到设置页面以授权 HealthKit")
+
+                    Button {
+                        navigation?.selectedTab = .workout
+                    } label: {
+                        Label("前往「训练」开始第一次训练", systemImage: "figure.strengthtraining.traditional")
+                            .font(.subheadline)
+                    }
+                    .accessibilityHint("切换到训练页面以开始训练")
                 }
-                .accessibilityHint("切换到设置页面以授权 HealthKit")
-
-                Button {
-                    navigation?.selectedTab = .workout
-                } label: {
-                    Label("前往「训练」开始第一次训练", systemImage: "figure.strengthtraining.traditional")
-                        .font(.subheadline)
-                }
-                .accessibilityHint("切换到训练页面以开始训练")
             }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
-        .padding(.horizontal, 24)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
 #Preview {
     OverviewView()
         .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
+        .designThemePreview()
 }

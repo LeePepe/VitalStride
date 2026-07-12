@@ -1,10 +1,12 @@
 import AIService
+import DesignKit
 import SwiftUI
 
 // MARK: - Wide Summary (horizontal metrics)
 
 struct SummaryWideCardView: View {
     let insight: OverviewInsight
+    @Environment(\.theme) private var theme
 
     private var entries: [SummaryEntry] {
         CardContentParser.parseSummaryEntries(insight.content)
@@ -14,7 +16,8 @@ struct SummaryWideCardView: View {
         OverviewCardContainer {
             VStack(alignment: .leading, spacing: 10) {
                 Text(insight.title)
-                    .font(.headline)
+                    .font(TypeScale.title)
+                    .foregroundStyle(theme.neutrals.text1)
                     .lineLimit(1)
 
                 if entries.isEmpty {
@@ -35,12 +38,13 @@ struct SummaryWideCardView: View {
             ForEach(Array(entries.prefix(4).enumerated()), id: \.element.id) { index, entry in
                 VStack(spacing: 4) {
                     Text(entry.value)
-                        .font(.title3.bold().monospacedDigit())
+                        .font(TypeScale.display)
+                        .foregroundStyle(theme.neutrals.text1)
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)
                     Text(entry.key)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(TypeScale.meta)
+                        .foregroundStyle(theme.neutrals.text2)
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity)
@@ -56,8 +60,8 @@ struct SummaryWideCardView: View {
     @ViewBuilder
     private var emptyContent: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
-            .font(.caption)
-            .foregroundStyle(.tertiary)
+            .font(TypeScale.meta)
+            .foregroundStyle(theme.neutrals.text3)
     }
 
     private var summaryAccessibilityLabel: String {
@@ -79,6 +83,7 @@ struct SummaryWideCardView: View {
 
 struct SummaryLargeCardView: View {
     let insight: OverviewInsight
+    @Environment(\.theme) private var theme
 
     private var entries: [SummaryEntry] {
         CardContentParser.parseSummaryEntries(insight.content)
@@ -93,7 +98,8 @@ struct SummaryLargeCardView: View {
         OverviewCardContainer {
             VStack(alignment: .leading, spacing: 12) {
                 Text(insight.title)
-                    .font(.headline)
+                    .font(TypeScale.title)
+                    .foregroundStyle(theme.neutrals.text1)
                     .lineLimit(1)
 
                 if entries.isEmpty {
@@ -114,12 +120,13 @@ struct SummaryLargeCardView: View {
             ForEach(entries) { entry in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(entry.value)
-                        .font(.title3.bold().monospacedDigit())
+                        .font(TypeScale.display)
+                        .foregroundStyle(theme.neutrals.text1)
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)
                     Text(entry.key)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(TypeScale.meta)
+                        .foregroundStyle(theme.neutrals.text2)
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -131,8 +138,8 @@ struct SummaryLargeCardView: View {
     @ViewBuilder
     private var emptyContent: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
-            .font(.caption)
-            .foregroundStyle(.tertiary)
+            .font(TypeScale.meta)
+            .foregroundStyle(theme.neutrals.text3)
     }
 
     private var summaryAccessibilityLabel: String {
@@ -156,6 +163,7 @@ struct SummaryLargeCardView: View {
         title: "This Week",
         content: "{\"Steps\":\"52.3K\",\"Calories\":\"3,200\",\"Sleep\":\"7h 20m\"}"
     ))
+    .designThemePreview()
     .padding()
 }
 
@@ -165,5 +173,6 @@ struct SummaryLargeCardView: View {
         title: "Weekly Overview",
         content: "{\"Steps\":\"52.3K\",\"Calories\":\"3,200\",\"Sleep\":\"7h 20m\",\"Workouts\":\"5\",\"Active Min\":\"320\",\"Distance\":\"38 km\"}"
     ))
+    .designThemePreview()
     .padding()
 }

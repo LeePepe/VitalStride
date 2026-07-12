@@ -1,11 +1,13 @@
 import AIService
 import Charts
+import DesignKit
 import SwiftUI
 
 // MARK: - Medium Trend (mini chart, no axis labels)
 
 struct TrendMediumCardView: View {
     let insight: OverviewInsight
+    @Environment(\.theme) private var theme
 
     private var dataPoints: [TrendDataPoint] {
         CardContentParser.parseTrendData(insight.content)
@@ -15,8 +17,8 @@ struct TrendMediumCardView: View {
         OverviewCardContainer {
             VStack(alignment: .leading, spacing: 8) {
                 Text(insight.title)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(TypeScale.meta.weight(.semibold))
+                    .foregroundStyle(theme.neutrals.text2)
                     .lineLimit(1)
 
                 if dataPoints.isEmpty {
@@ -44,7 +46,7 @@ struct TrendMediumCardView: View {
                 y: .value(String(localized: "Value", comment: "Chart axis"), point.value)
             )
             .interpolationMethod(.catmullRom)
-            .foregroundStyle(.blue)
+            .foregroundStyle(theme.chart(0))
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
@@ -54,8 +56,8 @@ struct TrendMediumCardView: View {
     @ViewBuilder
     private var noDataView: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
-            .font(.caption)
-            .foregroundStyle(.tertiary)
+            .font(TypeScale.meta)
+            .foregroundStyle(theme.neutrals.text3)
             .frame(height: 50)
     }
 
@@ -73,6 +75,7 @@ struct TrendMediumCardView: View {
 
 struct TrendWideCardView: View {
     let insight: OverviewInsight
+    @Environment(\.theme) private var theme
 
     private var dataPoints: [TrendDataPoint] {
         CardContentParser.parseTrendData(insight.content)
@@ -82,7 +85,8 @@ struct TrendWideCardView: View {
         OverviewCardContainer {
             VStack(alignment: .leading, spacing: 8) {
                 Text(insight.title)
-                    .font(.headline)
+                    .font(TypeScale.title)
+                    .foregroundStyle(theme.neutrals.text1)
                     .lineLimit(1)
 
                 if dataPoints.isEmpty {
@@ -110,7 +114,7 @@ struct TrendWideCardView: View {
                 y: .value(String(localized: "Value", comment: "Chart axis"), point.value)
             )
             .interpolationMethod(.catmullRom)
-            .foregroundStyle(.blue)
+            .foregroundStyle(theme.chart(0))
             .symbol(Circle().strokeBorder(lineWidth: 1.5))
         }
         .chartXAxis {
@@ -131,8 +135,8 @@ struct TrendWideCardView: View {
     @ViewBuilder
     private var noDataPlaceholder: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
-            .font(.caption)
-            .foregroundStyle(.tertiary)
+            .font(TypeScale.meta)
+            .foregroundStyle(theme.neutrals.text3)
             .frame(height: 120)
     }
 
@@ -151,6 +155,7 @@ struct TrendWideCardView: View {
 struct TrendLargeCardView: View {
     let insight: OverviewInsight
     @State private var selectedPoint: String?
+    @Environment(\.theme) private var theme
 
     private var dataPoints: [TrendDataPoint] {
         CardContentParser.parseTrendData(insight.content)
@@ -166,12 +171,13 @@ struct TrendLargeCardView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text(insight.title)
-                        .font(.headline)
+                        .font(TypeScale.title)
+                        .foregroundStyle(theme.neutrals.text1)
                     Spacer()
                     if let suggestion = insight.suggestion, !suggestion.isEmpty {
                         Text(suggestion)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(TypeScale.meta)
+                            .foregroundStyle(theme.neutrals.text2)
                     }
                 }
 
@@ -200,7 +206,7 @@ struct TrendLargeCardView: View {
                 y: .value(String(localized: "Value", comment: "Chart axis"), point.value)
             )
             .interpolationMethod(.catmullRom)
-            .foregroundStyle(.blue)
+            .foregroundStyle(theme.chart(0))
             .symbol(Circle().strokeBorder(lineWidth: 1.5))
 
             if averageValue > 0 {
@@ -208,7 +214,7 @@ struct TrendLargeCardView: View {
                     String(localized: "Average", comment: "Chart average line"),
                     averageValue
                 ))
-                .foregroundStyle(.orange)
+                .foregroundStyle(theme.warning)
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
             }
         }
@@ -231,8 +237,8 @@ struct TrendLargeCardView: View {
     @ViewBuilder
     private var noDataPlaceholder: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
-            .font(.caption)
-            .foregroundStyle(.tertiary)
+            .font(TypeScale.meta)
+            .foregroundStyle(theme.neutrals.text3)
             .frame(height: 200)
     }
 
@@ -252,6 +258,7 @@ struct TrendLargeCardView: View {
         title: "Steps Trend",
         content: "[{\"date\":\"Mon\",\"value\":6000},{\"date\":\"Tue\",\"value\":8000},{\"date\":\"Wed\",\"value\":7500},{\"date\":\"Thu\",\"value\":9000},{\"date\":\"Fri\",\"value\":8500}]"
     ))
+    .designThemePreview()
     .frame(width: 200)
     .padding()
 }
@@ -262,6 +269,7 @@ struct TrendLargeCardView: View {
         title: "Steps Trend",
         content: "[{\"date\":\"Mon\",\"value\":6000},{\"date\":\"Tue\",\"value\":8000},{\"date\":\"Wed\",\"value\":7500},{\"date\":\"Thu\",\"value\":9000},{\"date\":\"Fri\",\"value\":8500}]"
     ))
+    .designThemePreview()
     .padding()
 }
 
@@ -272,5 +280,6 @@ struct TrendLargeCardView: View {
         content: "[{\"date\":\"Mon\",\"value\":6000},{\"date\":\"Tue\",\"value\":8000},{\"date\":\"Wed\",\"value\":7500},{\"date\":\"Thu\",\"value\":9000},{\"date\":\"Fri\",\"value\":8500},{\"date\":\"Sat\",\"value\":12000},{\"date\":\"Sun\",\"value\":4000}]",
         suggestion: "Avg: 7,857 steps/day"
     ))
+    .designThemePreview()
     .padding()
 }

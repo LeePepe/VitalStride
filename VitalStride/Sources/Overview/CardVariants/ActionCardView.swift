@@ -1,4 +1,5 @@
 import AIService
+import DesignKit
 import SwiftUI
 
 // MARK: - Small Action
@@ -6,6 +7,7 @@ import SwiftUI
 struct ActionSmallCardView: View {
     let insight: OverviewInsight
     let onTap: (@Sendable () -> Void)?
+    @Environment(\.theme) private var theme
 
     nonisolated init(insight: OverviewInsight, onTap: (@Sendable () -> Void)? = nil) {
         self.insight = insight
@@ -17,12 +19,13 @@ struct ActionSmallCardView: View {
             VStack(spacing: 8) {
                 if let icon = insight.iconName {
                     Image(systemName: icon)
-                        .font(.title3)
-                        .foregroundStyle(.blue)
+                        .font(TypeScale.title)
+                        .foregroundStyle(theme.primary.primary)
                 }
 
                 Text(insight.content)
-                    .font(.caption.weight(.medium))
+                    .font(TypeScale.meta.weight(.medium))
+                    .foregroundStyle(theme.neutrals.text1)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
@@ -51,6 +54,7 @@ struct ActionSmallCardView: View {
 struct ActionWideCardView: View {
     let insight: OverviewInsight
     let onTap: (@Sendable () -> Void)?
+    @Environment(\.theme) private var theme
 
     nonisolated init(insight: OverviewInsight, onTap: (@Sendable () -> Void)? = nil) {
         self.insight = insight
@@ -62,17 +66,18 @@ struct ActionWideCardView: View {
             HStack(spacing: 12) {
                 if let icon = insight.iconName {
                     Image(systemName: icon)
-                        .font(.title2)
-                        .foregroundStyle(.blue)
+                        .font(TypeScale.display)
+                        .foregroundStyle(theme.primary.primary)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(insight.title)
-                        .font(.subheadline.weight(.medium))
+                        .font(TypeScale.title)
+                        .foregroundStyle(theme.neutrals.text1)
                         .lineLimit(1)
                     Text(insight.content)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .font(TypeScale.body)
+                        .foregroundStyle(theme.neutrals.text2)
                         .lineLimit(2)
                 }
 
@@ -82,12 +87,12 @@ struct ActionWideCardView: View {
                     onTap?()
                 } label: {
                     Text(String(localized: "action_go", defaultValue: "Go"))
-                        .font(.subheadline.weight(.semibold))
+                        .font(TypeScale.title)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .frame(minHeight: 44)
-                        .background(.blue)
-                        .foregroundStyle(.white)
+                        .background(theme.primary.primary)
+                        .foregroundStyle(theme.primary.onPrimary)
                         .clipShape(Capsule())
                 }
                 .accessibilityLabel(
@@ -112,6 +117,7 @@ struct ActionWideCardView: View {
         key: "start_workout", cardType: "action", cardSize: "small",
         title: "Workout", content: "Start Workout", iconName: "figure.strengthtraining.traditional"
     ))
+    .designThemePreview()
     .frame(width: 160)
     .padding()
 }
@@ -123,5 +129,6 @@ struct ActionWideCardView: View {
         content: "You haven't worked out today. Start a session now!",
         iconName: "figure.strengthtraining.traditional"
     ))
+    .designThemePreview()
     .padding()
 }

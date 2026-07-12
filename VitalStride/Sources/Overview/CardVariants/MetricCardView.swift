@@ -1,26 +1,29 @@
 import AIService
+import DesignKit
 import SwiftUI
 
 // MARK: - Small Metric
 
 struct MetricSmallCardView: View {
     let insight: OverviewInsight
+    @Environment(\.theme) private var theme
 
     var body: some View {
         OverviewCardContainer {
             VStack(alignment: .leading, spacing: 6) {
                 if let icon = insight.iconName {
                     Image(systemName: icon)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(TypeScale.meta)
+                        .foregroundStyle(theme.neutrals.text2)
                 }
                 Text(insight.content)
-                    .font(.title2.bold().monospacedDigit())
+                    .font(TypeScale.display)
+                    .foregroundStyle(theme.neutrals.text1)
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                 Text(insight.title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(TypeScale.meta)
+                    .foregroundStyle(theme.neutrals.text2)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -44,6 +47,7 @@ struct MetricSmallCardView: View {
 
 struct MetricMediumCardView: View {
     let insight: OverviewInsight
+    @Environment(\.theme) private var theme
 
     var body: some View {
         OverviewCardContainer {
@@ -51,28 +55,29 @@ struct MetricMediumCardView: View {
                 HStack(spacing: 6) {
                     if let icon = insight.iconName {
                         Image(systemName: icon)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(TypeScale.meta.weight(.semibold))
+                            .foregroundStyle(theme.neutrals.text2)
                     }
                     Text(insight.title)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(TypeScale.meta.weight(.semibold))
+                        .foregroundStyle(theme.neutrals.text2)
                         .lineLimit(1)
                 }
 
                 Text(insight.content)
-                    .font(.title.bold().monospacedDigit())
+                    .font(TypeScale.display)
+                    .foregroundStyle(theme.neutrals.text1)
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
 
                 if let suggestion = insight.suggestion, !suggestion.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.up.right")
-                            .font(.caption2)
+                            .font(TypeScale.meta)
                         Text(suggestion)
-                            .font(.caption)
+                            .font(TypeScale.meta)
                     }
-                    .foregroundStyle(.green)
+                    .foregroundStyle(theme.success)
                     .lineLimit(1)
                 }
             }
@@ -101,6 +106,7 @@ struct MetricMediumCardView: View {
         key: "steps", cardType: "metric", cardSize: "small",
         title: "Steps", content: "8,543", iconName: "figure.walk"
     ))
+    .designThemePreview()
     .frame(width: 160)
     .padding()
 }
@@ -111,6 +117,7 @@ struct MetricMediumCardView: View {
         title: "Steps", content: "8,543",
         suggestion: "+12% vs last week", iconName: "figure.walk"
     ))
+    .designThemePreview()
     .frame(width: 200)
     .padding()
 }
