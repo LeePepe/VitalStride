@@ -1,4 +1,5 @@
 import Charts
+import DesignKit
 import SwiftData
 import SwiftUI
 import VitalModels
@@ -21,6 +22,7 @@ struct OneRepMaxTrendView: View {
     let exercise: Exercise
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.theme) private var theme
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
 
     @State private var points: [OneRepMaxTrendPoint] = []
@@ -47,7 +49,7 @@ struct OneRepMaxTrendView: View {
         VStack(spacing: 12) {
             Image(systemName: "chart.xyaxis.line")
                 .font(.system(size: 48))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .accessibilityHidden(true)
             Text(String(
                 localized: "one_rep_max_trend_empty",
@@ -61,7 +63,7 @@ struct OneRepMaxTrendView: View {
                 comment: "Empty-state hint on per-exercise 1RM trend view"
             ))
             .font(.footnote)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(theme.neutrals.text2)
             .multilineTextAlignment(.center)
         }
         .padding()
@@ -83,7 +85,7 @@ struct OneRepMaxTrendView: View {
                     comment: "Caveat about Epley 1RM estimation accuracy"
                 ))
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
             }
         }
         .listStyle(.insetGrouped)
@@ -112,7 +114,7 @@ struct OneRepMaxTrendView: View {
                 comment: "Number of sessions on trend chart, e.g. \"7 sessions\""
             ))
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(theme.neutrals.text2)
         }
     }
 
@@ -126,14 +128,14 @@ struct OneRepMaxTrendView: View {
                         x: .value("Date", point.date),
                         y: .value("1RM", displayWeight(point.oneRepMax))
                     )
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(theme.chart(0))
                     .interpolationMethod(.monotone)
 
                     PointMark(
                         x: .value("Date", point.date),
                         y: .value("1RM", displayWeight(point.oneRepMax))
                     )
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(theme.chart(0))
                     .symbolSize(40)
                 }
             } else if let point = points.first {
@@ -141,7 +143,7 @@ struct OneRepMaxTrendView: View {
                     x: .value("Date", point.date),
                     y: .value("1RM", displayWeight(point.oneRepMax))
                 )
-                .foregroundStyle(.blue)
+                .foregroundStyle(theme.chart(0))
                 .symbolSize(80)
             }
         }
@@ -176,7 +178,7 @@ struct OneRepMaxTrendView: View {
                 comment: "Hint shown when only a single 1RM data point exists"
             ))
             .font(.footnote)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(theme.neutrals.text2)
         }
     }
 
@@ -267,6 +269,7 @@ enum OneRepMaxTrendAggregator {
     }
     // swiftlint:disable:next force_try
     .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
+    .designThemePreview()
 }
 
 #Preview("Empty state") {
@@ -277,4 +280,5 @@ enum OneRepMaxTrendAggregator {
     }
     // swiftlint:disable:next force_try
     .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
+    .designThemePreview()
 }

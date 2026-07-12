@@ -7,6 +7,7 @@
 // the previous Menu function items (pyramid / drop-set / unilateral toggle)
 // into the keyboard's left column.
 
+import DesignKit
 import SwiftData
 import SwiftUI
 import TelemetryKit
@@ -135,6 +136,7 @@ struct SetRow: View {
     // to keep the caller signature (ActiveExerciseSection) untouched — T005
     // scope forbids editing that file.
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.theme) private var theme
 
     var body: some View {
         // MY-1091 P0 fix: wrap Large Mode's row in `ViewThatFits(in: .horizontal)`
@@ -188,7 +190,7 @@ struct SetRow: View {
         HStack(spacing: LargeWorkoutFieldWidth.rowSpacing(variant)) {
             Text("\(index + 1)")
                 .font(LargeWorkoutFonts.setIndex(large: isLarge))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .frame(width: LargeWorkoutFieldWidth.setIndexWidth(variant), alignment: .leading)
 
             if exerciseSet.isUnilateral {
@@ -207,7 +209,7 @@ struct SetRow: View {
                 )
 
                 Text("/")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .accessibilityHidden(true)
 
                 weightField(
@@ -222,7 +224,7 @@ struct SetRow: View {
                 )
 
                 Text("×")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
 
                 repsField(width: LargeWorkoutFieldWidth.reps(variant))
             } else {
@@ -238,7 +240,7 @@ struct SetRow: View {
                 )
 
                 Text("×")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
 
                 repsField(width: LargeWorkoutFieldWidth.reps(variant))
             }
@@ -458,7 +460,7 @@ struct SetRow: View {
         } label: {
             Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.title3)
-                .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
+                .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.neutrals.text2)
         }
         .buttonStyle(.borderless)
         // MY-1013: unambiguous 44pt hit target (Constitution P1-H). The prior
@@ -502,7 +504,7 @@ struct SetRow: View {
             )
         )
         .font(.caption)
-        .foregroundStyle(.tertiary)
+        .foregroundStyle(theme.neutrals.text3)
     }
 
     /// Builds the "{weight}{unit}" (or "{L}/{R}{unit}" unilateral) weight
@@ -642,7 +644,7 @@ struct SetRow: View {
         HStack(spacing: 6) {
             Image(systemName: "sparkles")
                 .font(.caption2)
-                .foregroundStyle(.tint)
+                .foregroundStyle(theme.primary.primary)
                 .accessibilityHidden(true)
             Text(
                 String(
@@ -656,20 +658,20 @@ struct SetRow: View {
                 )
             )
             .font(.caption)
-            .foregroundStyle(.primary)
+            .foregroundStyle(theme.neutrals.text1)
             Text(verbatim: "·")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .accessibilityHidden(true)
             Text(advice.reason)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .lineLimit(1)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(
-            Capsule().fill(Color.accentColor.opacity(0.12))
+            Capsule().fill(theme.primary.primary.opacity(0.12))
         )
         .contentShape(Capsule())
     }
@@ -978,6 +980,7 @@ private struct SetRowPreviewWrapper: View {
                 list
             }
         }
+        .designThemePreview()
     }
 }
 
@@ -1175,6 +1178,7 @@ private struct SmartProgressionPreviewWrapper: View {
         .listStyle(.plain)
         .frame(width: 375)
         .modelContainer(container)
+        .designThemePreview()
     }
 }
 

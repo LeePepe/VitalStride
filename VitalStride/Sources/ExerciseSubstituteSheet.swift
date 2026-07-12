@@ -1,4 +1,5 @@
 // swiftlint:disable no_hardcoded_chinese
+import DesignKit
 import SwiftUI
 
 /// UI shell for the AI substitute-exercise flow.
@@ -30,12 +31,13 @@ struct ExerciseSubstituteSheet: View {
     let onManualSelect: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
 
     var body: some View {
         NavigationStack {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.systemGroupedBackground))
+                .background(theme.neutrals.bg)
                 .navigationTitle(String(
                     localized: "智能替代",
                     comment: "Substitute exercise sheet navigation title"
@@ -77,7 +79,7 @@ struct ExerciseSubstituteSheet: View {
                 comment: "Substitute sheet loading label"
             ))
             .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(theme.neutrals.text2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
@@ -100,7 +102,7 @@ struct ExerciseSubstituteSheet: View {
                         comment: "Substitute sheet results header"
                     ))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .padding(.horizontal, 4)
 
                     ForEach(recommendations) { recommendation in
@@ -120,7 +122,7 @@ struct ExerciseSubstituteSheet: View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 40, weight: .regular))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .accessibilityHidden(true)
 
             Text(String(
@@ -131,7 +133,7 @@ struct ExerciseSubstituteSheet: View {
 
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
 
@@ -158,6 +160,7 @@ struct ExerciseSubstituteSheet: View {
 // MARK: - Card
 
 private struct RecommendationCard: View {
+    @Environment(\.theme) private var theme
     let recommendation: ExerciseSubstituteSheet.Recommendation
     let onTap: () -> Void
 
@@ -167,7 +170,7 @@ private struct RecommendationCard: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(recommendation.name)
                         .font(.headline)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(theme.neutrals.text1)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 8)
@@ -176,21 +179,25 @@ private struct RecommendationCard: View {
                         .fontWeight(.medium)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Color.accentColor.opacity(0.12))
-                        .foregroundStyle(Color.accentColor)
+                        .background(theme.primary.primary.opacity(0.12))
+                        .foregroundStyle(theme.primary.primary)
                         .clipShape(Capsule())
                 }
 
                 Text(recommendation.reason)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(Color(.secondarySystemGroupedBackground))
+            .background(theme.neutrals.card)
             .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(theme.neutrals.border, lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -232,6 +239,7 @@ private struct RecommendationCard: View {
         onSelect: { _ in },
         onManualSelect: {}
     )
+    .designThemePreview()
 }
 
 #Preview("Loading") {
@@ -240,6 +248,7 @@ private struct RecommendationCard: View {
         onSelect: { _ in },
         onManualSelect: {}
     )
+    .designThemePreview()
 }
 
 #Preview("Error") {
@@ -251,6 +260,7 @@ private struct RecommendationCard: View {
         onSelect: { _ in },
         onManualSelect: {}
     )
+    .designThemePreview()
 }
 
 #Preview("Empty Results") {
@@ -259,6 +269,7 @@ private struct RecommendationCard: View {
         onSelect: { _ in },
         onManualSelect: {}
     )
+    .designThemePreview()
 }
 
 #Preview("Results — Dark") {
@@ -287,4 +298,5 @@ private struct RecommendationCard: View {
         onManualSelect: {}
     )
     .preferredColorScheme(.dark)
+    .designThemePreview()
 }
