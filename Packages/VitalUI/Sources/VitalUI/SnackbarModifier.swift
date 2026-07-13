@@ -48,6 +48,17 @@ struct SnackbarModifier<SnackbarContent: View>: ViewModifier {
 
     var shadowYOffset: CGFloat { 4 }
 
+    /// `.bar` ShapeStyle is unavailable on watchOS; fall back to a solid
+    /// grouped-background color there so the shared snackbar compiles for Watch.
+    @ViewBuilder
+    private var snackbarBackground: some View {
+        #if os(watchOS)
+        Color.gray.opacity(0.25)
+        #else
+        Color.clear.background(.bar)
+        #endif
+    }
+
     func body(content: Content) -> some View {
         content
             .overlay(alignment: overlayAlignment) {
@@ -56,7 +67,7 @@ struct SnackbarModifier<SnackbarContent: View>: ViewModifier {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.bar)
+                        .background(snackbarBackground)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .shadow(color: .black.opacity(0.15), radius: 8, y: shadowYOffset)
                         .padding(.horizontal, 16)

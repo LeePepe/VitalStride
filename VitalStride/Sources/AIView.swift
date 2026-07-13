@@ -166,7 +166,7 @@ struct AIView: View {
             AIChatView(viewModel: chatViewModel)
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .primaryAction) {
                 if !chatViewModel.messages.isEmpty {
                     Button {
                         chatViewModel.clearConversation()
