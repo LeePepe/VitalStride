@@ -1,3 +1,4 @@
+import DesignKit
 import SwiftData
 import SwiftUI
 import TelemetryKit
@@ -31,12 +32,15 @@ struct VitalStrideWatchApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if let container {
-                WatchContentView()
-                    .modelContainer(container)
-            } else {
-                DataStoreErrorView(errorMessage: containerError ?? "Unknown error")
+            Group {
+                if let container {
+                    WatchContentView()
+                        .modelContainer(container)
+                } else {
+                    DataStoreErrorView(errorMessage: containerError ?? "Unknown error")
+                }
             }
+            .designTheme(seed: .teal, neutral: .slate)
         }
     }
 }

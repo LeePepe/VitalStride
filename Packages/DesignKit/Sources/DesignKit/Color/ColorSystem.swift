@@ -162,7 +162,7 @@ public enum Neutral: String, CaseIterable, Sendable {
                             text1: Color(hex: "#1C2024"), text2: Color(hex: "#60646C"), text3: Color(hex: "#80838D"),
                             border: Color(hex: "#D9D9E0"))
         case (.slate, true):
-            return Neutrals(bg: Color(hex: "#111113"), card: Color(hex: "#18191B"), inner: Color(hex: "#212225"),
+            return Neutrals(bg: Color(hex: "#111113"), card: Color(hex: "#18191B"), inner: Color(hex: "#282A2E"),
                             text1: Color(hex: "#EDEEF0"), text2: Color(hex: "#B0B4BA"), text3: Color(hex: "#777B84"),
                             border: Color(hex: "#363A3F"))
         case (.neutral, false):
@@ -170,7 +170,7 @@ public enum Neutral: String, CaseIterable, Sendable {
                             text1: Color(hex: "#171717"), text2: Color(hex: "#525252"), text3: Color(hex: "#737373"),
                             border: Color(hex: "#E5E5E5"))
         case (.neutral, true):
-            return Neutrals(bg: Color(hex: "#171717"), card: Color(hex: "#262626"), inner: Color(hex: "#2E2E2E"),
+            return Neutrals(bg: Color(hex: "#171717"), card: Color(hex: "#262626"), inner: Color(hex: "#353535"),
                             text1: Color(hex: "#FAFAFA"), text2: Color(hex: "#A3A3A3"), text3: Color(hex: "#737373"),
                             border: Color(hex: "#404040"))
         }
