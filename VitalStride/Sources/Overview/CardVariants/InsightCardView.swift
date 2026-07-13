@@ -1,27 +1,31 @@
 import AIService
+import DesignKit
 import SwiftUI
 
 // MARK: - Medium Insight
 
 struct InsightMediumCardView: View {
     let insight: OverviewInsight
+    @Environment(\.theme) private var theme
 
     var body: some View {
         OverviewCardContainer {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
-                        .font(.caption)
-                        .foregroundStyle(.purple)
+                        .font(TypeScale.meta)
+                        .foregroundStyle(theme.primary.primary)
                     Text(insight.title)
-                        .font(.subheadline.weight(.medium))
+                        .font(TypeScale.meta.weight(.semibold))
+                        .foregroundStyle(theme.neutrals.text1)
                         .lineLimit(1)
                 }
 
                 Text(insight.content)
-                    .font(.callout)
+                    .font(TypeScale.body)
+                    .lineSpacing(3)
                     .lineLimit(3)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(theme.neutrals.text1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
@@ -44,31 +48,34 @@ struct InsightMediumCardView: View {
 
 struct InsightWideCardView: View {
     let insight: OverviewInsight
+    @Environment(\.theme) private var theme
 
     var body: some View {
         OverviewCardContainer {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
-                        .font(.subheadline)
-                        .foregroundStyle(.purple)
+                        .font(TypeScale.meta.weight(.semibold))
+                        .foregroundStyle(theme.primary.primary)
                     Text(insight.title)
-                        .font(.headline)
+                        .font(TypeScale.title)
+                        .foregroundStyle(theme.neutrals.text1)
                         .lineLimit(1)
                 }
 
                 Text(insight.content)
-                    .font(.callout)
-                    .foregroundStyle(.primary)
+                    .font(TypeScale.body)
+                    .lineSpacing(3)
+                    .foregroundStyle(theme.neutrals.text1)
 
                 if let suggestion = insight.suggestion, !suggestion.isEmpty {
                     HStack(spacing: 6) {
                         Image(systemName: "lightbulb.fill")
-                            .font(.caption)
-                            .foregroundStyle(.yellow)
+                            .font(TypeScale.meta)
+                            .foregroundStyle(theme.primary.primary)
                         Text(suggestion)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .font(TypeScale.meta.weight(.semibold))
+                            .foregroundStyle(theme.neutrals.text2)
                     }
                     .padding(.top, 2)
                 }
@@ -104,6 +111,7 @@ struct InsightWideCardView: View {
         key: "recovery", cardType: "insight", cardSize: "medium",
         title: "Recovery", content: "You've trained legs 3 days in a row. Consider resting today."
     ))
+    .designThemePreview()
     .frame(width: 200)
     .padding()
 }
@@ -115,5 +123,6 @@ struct InsightWideCardView: View {
         content: "Your training volume increased 20% this week compared to last week.",
         suggestion: "Consider a deload next week to prevent overtraining."
     ))
+    .designThemePreview()
     .padding()
 }

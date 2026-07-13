@@ -1,4 +1,5 @@
 // swiftlint:disable no_hardcoded_chinese
+import DesignKit
 import HealthKitService
 import SwiftUI
 import TelemetryKit
@@ -14,9 +15,10 @@ struct SummaryCardView<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        Card {
             Label(title, systemImage: systemImage)
-                .font(.caption.weight(.medium))
+                .font(TypeScale.meta)
+                .fontWeight(.semibold)
                 .foregroundStyle(color)
 
             if isLoading {
@@ -28,10 +30,6 @@ struct SummaryCardView<Content: View>: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
     }
 }
@@ -43,6 +41,7 @@ struct StepsSummaryCard: View {
     @State private var isLoading: Bool
     private let needsFetch: Bool
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     init() {
         _todaySteps = State(initialValue: nil)
@@ -60,18 +59,18 @@ struct StepsSummaryCard: View {
         SummaryCardView(
             title: String(localized: "步数", comment: "Steps"),
             systemImage: "figure.walk",
-            color: .blue,
+            color: theme.primary.primary,
             isLoading: isLoading
         ) {
             if let steps = todaySteps {
                 Text(steps.formatted(.number))
-                    .font(.title3.bold())
+                    .font(TypeScale.display)
                 Text(String(localized: "步", comment: "Steps unit"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
                 Text("--")
-                    .font(.title3.bold())
+                    .font(TypeScale.display)
                     .foregroundStyle(.secondary)
             }
         }
@@ -103,6 +102,7 @@ struct HeartRateSummaryCard: View {
     @State private var isLoading: Bool
     private let needsFetch: Bool
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     init() {
         _latestBPM = State(initialValue: nil)
@@ -120,18 +120,18 @@ struct HeartRateSummaryCard: View {
         SummaryCardView(
             title: String(localized: "心率", comment: "Heart rate"),
             systemImage: "heart.fill",
-            color: .red,
+            color: theme.danger,
             isLoading: isLoading
         ) {
             if let bpm = latestBPM {
                 Text(bpm.formatted())
-                    .font(.title3.bold())
+                    .font(TypeScale.display)
                 Text(String(localized: "BPM", comment: "Beats per minute"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
                 Text("--")
-                    .font(.title3.bold())
+                    .font(TypeScale.display)
                     .foregroundStyle(.secondary)
             }
         }
@@ -165,6 +165,7 @@ struct SleepSummaryCard: View {
     @State private var isLoading: Bool
     private let needsFetch: Bool
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     init() {
         _lastNightSleep = State(initialValue: nil)
@@ -182,15 +183,15 @@ struct SleepSummaryCard: View {
         SummaryCardView(
             title: String(localized: "睡眠", comment: "Sleep"),
             systemImage: "bed.double.fill",
-            color: .indigo,
+            color: theme.primary.primary,
             isLoading: isLoading
         ) {
             if let sleep = lastNightSleep {
                 Text(formatDuration(sleep))
-                    .font(.title3.bold())
+                    .font(TypeScale.display)
             } else {
                 Text("--")
-                    .font(.title3.bold())
+                    .font(TypeScale.display)
                     .foregroundStyle(.secondary)
             }
         }
@@ -222,6 +223,7 @@ struct WeightSummaryCard: View {
     @State private var isLoading: Bool
     private let needsFetch: Bool
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     init() {
         _latestWeight = State(initialValue: nil)
@@ -239,18 +241,18 @@ struct WeightSummaryCard: View {
         SummaryCardView(
             title: String(localized: "体重", comment: "Body weight"),
             systemImage: "scalemass.fill",
-            color: .green,
+            color: theme.primary.primary,
             isLoading: isLoading
         ) {
             if let weight = latestWeight {
                 Text(weight.formatted(.number.precision(.fractionLength(1))))
-                    .font(.title3.bold())
+                    .font(TypeScale.display)
                 Text(String(localized: "kg", comment: "Kilogram"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
                 Text("--")
-                    .font(.title3.bold())
+                    .font(TypeScale.display)
                     .foregroundStyle(.secondary)
             }
         }

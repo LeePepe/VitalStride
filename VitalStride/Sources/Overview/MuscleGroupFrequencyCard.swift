@@ -1,3 +1,4 @@
+import DesignKit
 import SwiftUI
 import VitalModels
 
@@ -24,14 +25,13 @@ struct MuscleGroupFrequencyCard: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(
+        Card {
+            SectionHeader(
                 String(
                     localized: "overview_muscle_group_frequency_title",
                     defaultValue: "Muscle group frequency (last 7 days)"
                 )
             )
-            .font(.headline)
             .accessibilityAddTraits(.isHeader)
 
             LazyVGrid(columns: gridColumns, spacing: 8) {
@@ -40,9 +40,6 @@ struct MuscleGroupFrequencyCard: View {
                 }
             }
         }
-        .padding()
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
@@ -51,6 +48,7 @@ private struct MuscleGroupChip: View {
     let count: Int
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.theme) private var theme
 
     private var level: FrequencyLevel {
         switch count {
@@ -64,24 +62,24 @@ private struct MuscleGroupChip: View {
         HStack(spacing: 8) {
             Image(systemName: group.sfSymbol)
                 .font(.subheadline)
-                .foregroundStyle(level.iconColor)
+                .foregroundStyle(level.iconColor(theme))
                 .frame(width: 20)
 
             Text(group.localizedName)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
+                .font(TypeScale.body)
+                .foregroundStyle(theme.neutrals.text1)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
 
             Spacer(minLength: 4)
 
             Text("\(count)")
-                .font(.caption.bold().monospacedDigit())
-                .foregroundStyle(level.badgeForeground)
+                .font(TypeScale.meta.monospacedDigit()).fontWeight(.bold)
+                .foregroundStyle(level.badgeForeground(theme))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(
-                    Capsule().fill(level.badgeBackground)
+                    Capsule().fill(level.badgeBackground(theme))
                 )
         }
         .padding(.horizontal, 10)
@@ -89,7 +87,7 @@ private struct MuscleGroupChip: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(reduceTransparency ? level.solidChipBackground : level.chipBackground)
+                .fill(reduceTransparency ? level.solidChipBackground(theme) : level.chipBackground(theme))
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
@@ -108,43 +106,43 @@ private enum FrequencyLevel {
     case low
     case high
 
-    var iconColor: Color {
+    func iconColor(_ theme: Theme) -> Color {
         switch self {
-        case .zero: .secondary
-        case .low: .accentColor
-        case .high: .orange
+        case .zero: theme.neutrals.text3
+        case .low: theme.primary.primary
+        case .high: theme.primary.primaryText
         }
     }
 
-    var badgeForeground: Color {
+    func badgeForeground(_ theme: Theme) -> Color {
         switch self {
-        case .zero: .secondary
-        case .low: .white
-        case .high: .white
+        case .zero: theme.neutrals.text3
+        case .low: theme.primary.onPrimary
+        case .high: theme.primary.onPrimary
         }
     }
 
-    var badgeBackground: Color {
+    func badgeBackground(_ theme: Theme) -> Color {
         switch self {
-        case .zero: Color.secondary.opacity(0.2)
-        case .low: Color.accentColor
-        case .high: Color.orange
+        case .zero: theme.neutrals.text3.opacity(0.2)
+        case .low: theme.primary.primary
+        case .high: theme.primary.primaryText
         }
     }
 
-    var chipBackground: Color {
+    func chipBackground(_ theme: Theme) -> Color {
         switch self {
-        case .zero: Color.secondary.opacity(0.08)
-        case .low: Color.accentColor.opacity(0.10)
-        case .high: Color.orange.opacity(0.12)
+        case .zero: theme.neutrals.inner
+        case .low: theme.primary.primary.opacity(0.10)
+        case .high: theme.primary.primary.opacity(0.16)
         }
     }
 
-    var solidChipBackground: Color {
+    func solidChipBackground(_ theme: Theme) -> Color {
         switch self {
-        case .zero: Color.secondary.opacity(0.18)
-        case .low: Color.accentColor.opacity(0.22)
-        case .high: Color.orange.opacity(0.24)
+        case .zero: theme.neutrals.inner
+        case .low: theme.primary.primary.opacity(0.22)
+        case .high: theme.primary.primary.opacity(0.30)
         }
     }
 }
@@ -159,10 +157,12 @@ private enum FrequencyLevel {
         .core: 0,
         .fullBody: 0,
     ])
+    .designThemePreview()
     .padding()
 }
 
 #Preview("Empty data") {
     MuscleGroupFrequencyCard(counts: [:])
+        .designThemePreview()
         .padding()
 }

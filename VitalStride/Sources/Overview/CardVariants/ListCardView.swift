@@ -1,10 +1,12 @@
 import AIService
+import DesignKit
 import SwiftUI
 
 // MARK: - Wide List (2-3 rows preview)
 
 struct ListWideCardView: View {
     let insight: OverviewInsight
+    @Environment(\.theme) private var theme
 
     private var items: [ListItem] {
         CardContentParser.parseListItems(insight.content)
@@ -14,7 +16,8 @@ struct ListWideCardView: View {
         OverviewCardContainer {
             VStack(alignment: .leading, spacing: 8) {
                 Text(insight.title)
-                    .font(.headline)
+                    .font(TypeScale.title)
+                    .foregroundStyle(theme.neutrals.text1)
                     .lineLimit(1)
 
                 if items.isEmpty {
@@ -35,12 +38,13 @@ struct ListWideCardView: View {
             ForEach(items.prefix(maxItems)) { item in
                 HStack {
                     Text(item.label)
-                        .font(.callout)
+                        .font(TypeScale.body)
+                        .foregroundStyle(theme.neutrals.text1)
                     Spacer()
                     if let value = item.value {
                         Text(value)
-                            .font(.callout.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .font(TypeScale.num)
+                            .foregroundStyle(theme.neutrals.text2)
                     }
                 }
             }
@@ -48,8 +52,8 @@ struct ListWideCardView: View {
             if items.count > maxItems {
                 let remaining = items.count - maxItems
                 Text("+\(remaining) \(String(localized: "list_more", defaultValue: "more"))")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .font(TypeScale.meta)
+                    .foregroundStyle(theme.neutrals.text3)
             }
         }
     }
@@ -57,8 +61,8 @@ struct ListWideCardView: View {
     @ViewBuilder
     private var emptyContent: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
-            .font(.caption)
-            .foregroundStyle(.tertiary)
+            .font(TypeScale.meta)
+            .foregroundStyle(theme.neutrals.text3)
     }
 
     private func listAccessibilityLabel(maxItems: Int) -> String {
@@ -86,6 +90,7 @@ struct ListWideCardView: View {
 
 struct ListLargeCardView: View {
     let insight: OverviewInsight
+    @Environment(\.theme) private var theme
 
     private var items: [ListItem] {
         CardContentParser.parseListItems(insight.content)
@@ -95,7 +100,8 @@ struct ListLargeCardView: View {
         OverviewCardContainer {
             VStack(alignment: .leading, spacing: 8) {
                 Text(insight.title)
-                    .font(.headline)
+                    .font(TypeScale.title)
+                    .foregroundStyle(theme.neutrals.text1)
                     .lineLimit(1)
 
                 if items.isEmpty {
@@ -116,12 +122,13 @@ struct ListLargeCardView: View {
             ForEach(items) { item in
                 HStack {
                     Text(item.label)
-                        .font(.callout)
+                        .font(TypeScale.body)
+                        .foregroundStyle(theme.neutrals.text1)
                     Spacer()
                     if let value = item.value {
                         Text(value)
-                            .font(.callout.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .font(TypeScale.num)
+                            .foregroundStyle(theme.neutrals.text2)
                     }
                 }
                 if item.id != items.last?.id {
@@ -134,8 +141,8 @@ struct ListLargeCardView: View {
     @ViewBuilder
     private var emptyContent: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
-            .font(.caption)
-            .foregroundStyle(.tertiary)
+            .font(TypeScale.meta)
+            .foregroundStyle(theme.neutrals.text3)
     }
 
     private var fullListAccessibilityLabel: String {
@@ -164,6 +171,7 @@ struct ListLargeCardView: View {
         title: "Top Exercises",
         content: "[{\"label\":\"Bench Press\",\"value\":\"3 sets\"},{\"label\":\"Squat\",\"value\":\"4 sets\"},{\"label\":\"Deadlift\",\"value\":\"3 sets\"},{\"label\":\"Overhead Press\",\"value\":\"3 sets\"}]"
     ))
+    .designThemePreview()
     .padding()
 }
 
@@ -173,5 +181,6 @@ struct ListLargeCardView: View {
         title: "This Week's Exercises",
         content: "[{\"label\":\"Bench Press\",\"value\":\"12 sets\"},{\"label\":\"Squat\",\"value\":\"16 sets\"},{\"label\":\"Deadlift\",\"value\":\"9 sets\"},{\"label\":\"Overhead Press\",\"value\":\"8 sets\"},{\"label\":\"Barbell Row\",\"value\":\"10 sets\"}]"
     ))
+    .designThemePreview()
     .padding()
 }
