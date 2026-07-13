@@ -98,11 +98,10 @@ struct ExercisePickerView: View {
                         description: Text(String(localized: "请先导入预置动作库", comment: "Empty exercise library description"))
                     )
                 } else {
-                    HStack(spacing: 0) {
-                        muscleGroupSidebar
-                        Divider()
+                    VStack(spacing: 0) {
                         exerciseCardGrid
                             .frame(maxWidth: .infinity)
+                        muscleGroupFilterBar
                     }
                 }
             }
@@ -175,22 +174,20 @@ struct ExercisePickerView: View {
         .accessibilityLabel(String(localized: "添加 \(count) 个动作", comment: "Confirm multi-select a11y label"))
     }
 
-    // MARK: - Muscle Group Sidebar
+    // MARK: - Muscle Group Filter Bar (bottom)
 
-    private var muscleGroupSidebar: some View {
-        ScrollView {
-            LazyVStack(spacing: 2) {
-                sidebarItem(
-                    icon: "square.grid.2x2",
-                    label: String(localized: "全部", comment: "All muscle groups sidebar label"),
+    private var muscleGroupFilterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                muscleChip(
+                    label: String(localized: "全部", comment: "All muscle groups filter chip label"),
                     isSelected: selectedMuscleGroup == nil
                 ) {
                     selectedMuscleGroup = nil
                 }
 
                 ForEach(MuscleGroup.allCases, id: \.self) { group in
-                    sidebarItem(
-                        icon: group.sfSymbol,
+                    muscleChip(
                         label: group.localizedName,
                         isSelected: selectedMuscleGroup == group
                     ) {
@@ -198,35 +195,30 @@ struct ExercisePickerView: View {
                     }
                 }
             }
-            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .frame(width: 72)
-        .background(theme.neutrals.inner)
+        .frame(maxWidth: .infinity)
+        .liquidGlassBar(theme: theme, cornerRadius: 0)
+        .overlay(alignment: .top) {
+            Rectangle().fill(theme.neutrals.border).frame(height: 1)
+        }
     }
 
-    private func sidebarItem(
-        icon: String,
+    private func muscleChip(
         label: String,
         isSelected: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.title3)
-                    .frame(width: 28, height: 28)
-                Text(label)
-                    .font(.caption2)
-                    .fontWeight(isSelected ? .semibold : .regular)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .foregroundStyle(isSelected ? theme.primary.primary : theme.neutrals.text2)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? theme.primary.primary.opacity(0.12) : .clear)
-            )
-            .padding(.horizontal, 4)
+            Text(label)
+                .font(TypeScale.meta)
+                .fontWeight(.semibold)
+                .foregroundStyle(isSelected ? theme.primary.onPrimary : theme.neutrals.text2)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(isSelected ? theme.primary.primary : theme.neutrals.inner)
+                .clipShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -330,12 +322,19 @@ struct ExercisePickerView: View {
     }
 
     private func equipmentSection(equipment: Equipment, exercises: [Exercise]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let color = categoryColor(categoryColorIndex(for: equipment), theme: theme)
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 Image(systemName: equipment.sfSymbol)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(color)
+                Text(equipment.localizedName.uppercased())
+                    .font(TypeScale.meta)
+                    .fontWeight(.bold)
                     .foregroundStyle(theme.neutrals.text2)
-                Text(equipment.localizedName)
-                    .font(.headline)
+                Text("\(exercises.count)")
+                    .font(TypeScale.meta.monospacedDigit())
+                    .foregroundStyle(theme.neutrals.text3)
             }
 
             LazyVGrid(columns: gridColumns, spacing: 12) {
@@ -383,41 +382,49 @@ private struct ExerciseCard: View {
     let showsSelectionIndicator: Bool
     let onTap: () -> Void
 
+    private var equipmentColor: Color {
+        categoryColor(categoryColorIndex(for: exercise.equipment), theme: theme)
+    }
+
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: exercise.equipment.sfSymbol)
-                    .font(.title3)
-                    .foregroundStyle(theme.primary.primary)
+                HStack {
+                    Image(systemName: exercise.equipment.sfSymbol)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(equipmentColor)
+                        .frame(width: 34, height: 34)
+                        .background(equipmentColor.opacity(0.14))
+                        .clipShape(RoundedRectangle(cornerRadius: 9))
+                    Spacer(minLength: 0)
+                    if showsSelectionIndicator {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle")
+                            .font(.system(size: 20))
+                            .foregroundStyle(isSelected ? theme.primary.primary : theme.neutrals.text3)
+                            .accessibilityHidden(true)
+                    }
+                }
 
                 Text(exercise.localizedName)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(TypeScale.body)
+                    .fontWeight(.semibold)
                     .foregroundStyle(theme.neutrals.text1)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                muscleTags
+                muscleTag
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 118, alignment: .topLeading)
             .padding(12)
             .background(theme.neutrals.card)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.card))
             .overlay {
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: Radius.card)
                     .strokeBorder(
                         isSelected ? theme.primary.primary : theme.neutrals.border,
                         lineWidth: isSelected ? 2 : 1
                     )
-            }
-            .overlay(alignment: .topTrailing) {
-                if isSelected && showsSelectionIndicator {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(theme.primary.onPrimary, theme.primary.primary)
-                        .padding(6)
-                        .accessibilityHidden(true)
-                }
             }
         }
         .buttonStyle(.plain)
@@ -425,80 +432,17 @@ private struct ExerciseCard: View {
     }
 
     @ViewBuilder
-    private var muscleTags: some View {
-        let muscles = exercise.primaryMuscles
-        if !muscles.isEmpty {
-            WrappingHStack(spacing: 4) {
-                ForEach(muscles, id: \.self) { muscle in
-                    Text(MuscleTranslation.chineseName(for: muscle))
-                        .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(theme.primary.primary.opacity(0.12))
-                        .foregroundStyle(theme.primary.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                }
-            }
+    private var muscleTag: some View {
+        if let muscle = exercise.primaryMuscles.first {
+            Text(MuscleTranslation.chineseName(for: muscle))
+                .font(TypeScale.meta)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1)
+                .background(theme.neutrals.inner)
+                .foregroundStyle(theme.neutrals.text2)
+                .clipShape(Capsule())
         }
     }
-}
-
-// MARK: - Wrapping Layout
-
-private struct WrappingHStack: Layout {
-    var spacing: CGFloat = 4
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = computeRows(proposal: proposal, subviews: subviews)
-        guard !rows.isEmpty else { return .zero }
-        let height = rows.reduce(CGFloat.zero) { total, row in
-            total + row.height + (total > 0 ? spacing : 0)
-        }
-        return CGSize(width: proposal.width ?? 0, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let rows = computeRows(proposal: proposal, subviews: subviews)
-        var y = bounds.minY
-        for row in rows {
-            var x = bounds.minX
-            for index in row.indices {
-                let size = subviews[index].sizeThatFits(.unspecified)
-                subviews[index].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-                x += size.width + spacing
-            }
-            y += row.height + spacing
-        }
-    }
-
-    private func computeRows(proposal: ProposedViewSize, subviews: Subviews) -> [Row] {
-        let maxWidth = proposal.width ?? .infinity
-        var rows: [Row] = []
-        var currentRow = Row()
-        var currentWidth: CGFloat = 0
-
-        for (index, subview) in subviews.enumerated() {
-            let size = subview.sizeThatFits(.unspecified)
-            let neededWidth = currentRow.indices.isEmpty ? size.width : currentWidth + spacing + size.width
-            if neededWidth > maxWidth && !currentRow.indices.isEmpty {
-                rows.append(currentRow)
-                currentRow = Row()
-                currentWidth = 0
-            }
-            currentRow.indices.append(index)
-            currentRow.height = max(currentRow.height, size.height)
-            currentWidth = currentRow.indices.count == 1 ? size.width : currentWidth + spacing + size.width
-        }
-        if !currentRow.indices.isEmpty {
-            rows.append(currentRow)
-        }
-        return rows
-    }
-}
-
-private struct Row {
-    var indices: [Int] = []
-    var height: CGFloat = 0
 }
 
 // MARK: - Equipment Index Bar
@@ -521,18 +465,19 @@ private struct EquipmentIndexBar: View {
             ZStack(alignment: .trailing) {
                 VStack(spacing: 2) {
                     ForEach(equipments, id: \.self) { equipment in
+                        let active = activeEquipment == equipment
                         Image(systemName: equipment.sfSymbol)
-                            .font(.system(size: 11, weight: .medium))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .foregroundStyle(activeEquipment == equipment ? theme.primary.primary : theme.neutrals.text2)
+                            .font(.system(size: 11, weight: active ? .bold : .medium))
+                            .frame(width: 22, height: 22)
+                            .foregroundStyle(active ? theme.primary.onPrimary : theme.neutrals.text2)
+                            .background(active ? theme.primary.primary : Color.clear)
+                            .clipShape(Circle())
                             .accessibilityLabel(equipment.localizedName)
                     }
                 }
                 .frame(width: Self.barWidth)
                 .padding(.vertical, Self.verticalPadding)
-                .background(
-                    Capsule().fill(theme.neutrals.inner.opacity(0.7))
-                )
+                .liquidGlassCapsule(theme: theme)
             }
             .frame(width: Self.hitWidth, alignment: .trailing)
             .contentShape(Rectangle())
