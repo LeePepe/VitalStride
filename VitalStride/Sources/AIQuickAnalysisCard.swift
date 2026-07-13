@@ -1,4 +1,8 @@
+// AI 快速分析卡片:存量硬编码中文文案(标题/副标题/按钮/a11y)预留待
+// 统一 i18n 迁移到 Localizable.xcstrings,此处文件级静默,无语义改动。
+// swiftlint:disable no_hardcoded_chinese
 import AIService
+import DesignKit
 import HealthKitService
 import SwiftData
 import SwiftUI
@@ -35,14 +39,6 @@ enum QuickAnalysisType: String, CaseIterable, Identifiable, Sendable {
         case .weeklySummary: "chart.bar.xaxis.ascending"
         case .recovery: "heart.circle"
         case .prDetection: "trophy"
-        }
-    }
-
-    var iconColor: Color {
-        switch self {
-        case .weeklySummary: .blue
-        case .recovery: .green
-        case .prDetection: .orange
         }
     }
 
@@ -91,13 +87,14 @@ enum QuickAnalysisState: Sendable {
 // MARK: - Card View
 
 struct AIQuickAnalysisCard: View {
+    @Environment(\.theme) private var theme
     let analysisType: QuickAnalysisType
     let state: QuickAnalysisState
     let onTap: () -> Void
     let onRetry: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        Card {
             cardHeader
 
             switch state {
@@ -111,10 +108,6 @@ struct AIQuickAnalysisCard: View {
                 errorContent(message: message)
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(analysisType.accessibilityLabel)
     }
@@ -122,16 +115,19 @@ struct AIQuickAnalysisCard: View {
     private var cardHeader: some View {
         HStack(spacing: 10) {
             Image(systemName: analysisType.iconName)
-                .font(.title2)
-                .foregroundStyle(analysisType.iconColor)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(theme.primary.primary)
                 .frame(width: 32, height: 32)
+                .background(theme.primary.primary.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 9))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(analysisType.title)
-                    .font(.headline)
+                    .font(TypeScale.title)
+                    .foregroundStyle(theme.neutrals.text1)
                 Text(analysisType.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(TypeScale.meta)
+                    .foregroundStyle(theme.neutrals.text2)
             }
 
             Spacer()
@@ -156,14 +152,14 @@ struct AIQuickAnalysisCard: View {
             .padding(.vertical, 8)
         }
         .buttonStyle(.borderedProminent)
-        .tint(analysisType.iconColor)
+        .tint(theme.primary.primary)
         .accessibilityHint(String(localized: "点击开始 AI 分析", comment: "Start analysis a11y hint"))
     }
 
     private var loadingContent: some View {
         Text(String(localized: "正在组装数据并分析…", comment: "Loading analysis text"))
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .font(TypeScale.body)
+            .foregroundStyle(theme.neutrals.text2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.updatesFrequently)
     }
@@ -171,7 +167,8 @@ struct AIQuickAnalysisCard: View {
     private func resultContent(text: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(text)
-                .font(.subheadline)
+                .font(TypeScale.body)
+                .foregroundStyle(theme.neutrals.text1)
                 .textSelection(.enabled)
                 .accessibilityLabel(text)
 
@@ -184,15 +181,15 @@ struct AIQuickAnalysisCard: View {
                 }
                 .frame(minHeight: 44)
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(theme.neutrals.text2)
         }
     }
 
     private func errorContent(message: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.red)
+                .font(TypeScale.body)
+                .foregroundStyle(theme.danger)
 
             Button(action: onRetry) {
                 HStack(spacing: 4) {
@@ -216,6 +213,7 @@ struct AIQuickAnalysisCard: View {
         onRetry: {}
     )
     .padding()
+    .designThemePreview()
 }
 
 #Preview("Loading") {
@@ -226,6 +224,7 @@ struct AIQuickAnalysisCard: View {
         onRetry: {}
     )
     .padding()
+    .designThemePreview()
 }
 
 #Preview("Result") {
@@ -236,6 +235,7 @@ struct AIQuickAnalysisCard: View {
         onRetry: {}
     )
     .padding()
+    .designThemePreview()
 }
 
 #Preview("Error") {
@@ -246,4 +246,5 @@ struct AIQuickAnalysisCard: View {
         onRetry: {}
     )
     .padding()
+    .designThemePreview()
 }

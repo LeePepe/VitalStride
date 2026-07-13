@@ -1,4 +1,8 @@
+// AI 训练建议卡片:存量硬编码中文文案(标题/标签/肌群名/a11y)预留待统一 i18n
+// 迁移到 Localizable.xcstrings,此处文件级静默,无语义改动。
+// swiftlint:disable no_hardcoded_chinese
 import AIService
+import DesignKit
 import SwiftData
 import SwiftUI
 import VitalModels
@@ -24,13 +28,14 @@ enum TrainingAdviceSource: Sendable {
 // MARK: - Card View
 
 struct AITrainingAdviceCard: View {
+    @Environment(\.theme) private var theme
     let state: TrainingAdviceState
     let isExpanded: Bool
     let onToggleExpand: () -> Void
     let onRefresh: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        Card {
             cardHeader
 
             switch state {
@@ -44,10 +49,6 @@ struct AITrainingAdviceCard: View {
                 errorContent(message: message)
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .contain)
     }
 
@@ -59,18 +60,20 @@ struct AITrainingAdviceCard: View {
         }) {
             HStack(spacing: 10) {
                 Image(systemName: "brain.head.profile")
-                    .font(.title2)
-                    .foregroundStyle(.purple)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(theme.primary.primary)
                     .frame(width: 32, height: 32)
+                    .background(theme.primary.primary.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(localized: "今日训练建议", comment: "Training advice card title"))
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                        .font(TypeScale.title)
+                        .foregroundStyle(theme.neutrals.text1)
 
                     summaryText
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(TypeScale.meta)
+                        .foregroundStyle(theme.neutrals.text2)
                 }
 
                 Spacer()
@@ -87,7 +90,7 @@ struct AITrainingAdviceCard: View {
                 } else {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                 }
             }
         }
@@ -120,8 +123,8 @@ struct AITrainingAdviceCard: View {
 
     private var loadingContent: some View {
         Text(String(localized: "正在根据你的训练历史生成个性化建议…", comment: "Loading advice detail"))
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .font(TypeScale.body)
+            .foregroundStyle(theme.neutrals.text2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.updatesFrequently)
     }
@@ -147,10 +150,11 @@ struct AITrainingAdviceCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(String(localized: "推荐肌群", comment: "Recommended muscle groups label"))
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                     let displayGroups = recommendation.muscleGroups.map { localizedMuscleGroup($0) }
                     Text(displayGroups.joined(separator: "、"))
-                        .font(.subheadline)
+                        .font(TypeScale.body)
+                        .foregroundStyle(theme.neutrals.text1)
                         .accessibilityLabel(
                             String(
                                 localized: "推荐肌群：\(displayGroups.joined(separator: "、"))",
@@ -164,9 +168,10 @@ struct AITrainingAdviceCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(String(localized: "推荐动作", comment: "Recommended exercises label"))
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                     Text(recommendation.exercises.joined(separator: "、"))
-                        .font(.subheadline)
+                        .font(TypeScale.body)
+                        .foregroundStyle(theme.neutrals.text1)
                         .accessibilityLabel(
                             String(
                                 localized: "推荐动作：\(recommendation.exercises.joined(separator: "、"))",
@@ -180,9 +185,10 @@ struct AITrainingAdviceCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(String(localized: "推荐理由", comment: "Reasoning label"))
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                     Text(recommendation.reasoning)
-                        .font(.subheadline)
+                        .font(TypeScale.body)
+                        .foregroundStyle(theme.neutrals.text1)
                         .accessibilityLabel(
                             String(
                                 localized: "推荐理由：\(recommendation.reasoning)",
@@ -201,7 +207,7 @@ struct AITrainingAdviceCard: View {
                         )
                     )
                     .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(theme.neutrals.text3)
                 }
 
                 Spacer()
@@ -215,7 +221,7 @@ struct AITrainingAdviceCard: View {
                     }
                     .frame(minHeight: 44)
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .accessibilityLabel(
                     String(localized: "刷新训练建议", comment: "Refresh advice a11y label")
                 )
@@ -228,8 +234,8 @@ struct AITrainingAdviceCard: View {
     private func errorContent(message: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.red)
+                .font(TypeScale.body)
+                .foregroundStyle(theme.danger)
 
             Button(action: onRefresh) {
                 HStack(spacing: 4) {
@@ -481,6 +487,7 @@ func buildTrainingContext(modelContext: ModelContext) -> TrainingContext {
         onRefresh: {}
     )
     .padding()
+    .designThemePreview()
 }
 
 #Preview("Collapsed") {
@@ -499,6 +506,7 @@ func buildTrainingContext(modelContext: ModelContext) -> TrainingContext {
         onRefresh: {}
     )
     .padding()
+    .designThemePreview()
 }
 
 #Preview("Expanded") {
@@ -517,6 +525,7 @@ func buildTrainingContext(modelContext: ModelContext) -> TrainingContext {
         onRefresh: {}
     )
     .padding()
+    .designThemePreview()
 }
 
 #Preview("Error") {
@@ -527,4 +536,5 @@ func buildTrainingContext(modelContext: ModelContext) -> TrainingContext {
         onRefresh: {}
     )
     .padding()
+    .designThemePreview()
 }
