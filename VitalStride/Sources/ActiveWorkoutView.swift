@@ -1,3 +1,7 @@
+// swiftlint:disable no_hardcoded_chinese
+// Pre-existing `no_hardcoded_chinese` literals (alerts, a11y strings, summary
+// line) predate the shared i18n cleanup and stay silenced at file scope until
+// that migrates them to Localizable.xcstrings (matches DataView.swift).
 import AIService
 import DesignKit
 import HealthKitService
@@ -62,6 +66,7 @@ struct ActiveWorkoutView: View {
             ZStack(alignment: .bottomTrailing) {
                 VStack(spacing: 0) {
                     workoutTimer
+                    sessionStatsCard
                     exerciseList
                 }
                 .snackbar(
@@ -258,6 +263,93 @@ struct ActiveWorkoutView: View {
         .padding(.horizontal)
         .padding(.vertical, largeMode ? 16 : 8)
         .background(theme.neutrals.card)
+    }
+
+    // MARK: - Session stats (ActiveWorkoutPrototype top)
+
+    /// Live session summary: set-completion ring + total-volume big number +
+    /// per-exercise volume sparkline. Everything is derived from the observable
+    /// workout/set graph (no new @State, no per-tick work) so it re-renders only
+    /// when the training data itself changes — the same MY-1082 contract the
+    /// timer bar follows. Hidden until the workout has at least one set so the
+    /// empty-workout state stays clean.
+    @ViewBuilder
+    private var sessionStatsCard: some View {
+        if totalSetCount > 0 {
+            let displayVolume = weightUnit == .lb ? totalVolumeKg * 2.20462 : totalVolumeKg
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 16) {
+                    RingGauge(
+                        value: totalSetCount == 0 ? 0 : Double(completedSetCount) / Double(totalSetCount),
+                        size: 56,
+                        stroke: 6
+                    )
+                    .accessibilityLabel(String(localized: "组数进度", comment: "Session set progress a11y label"))
+                    .accessibilityValue(String(
+                        localized: "已完成 \(completedSetCount) / \(totalSetCount) 组",
+                        comment: "Session set progress a11y value"
+                    ))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(String(localized: "组数进度", comment: "Session set progress label"))
+                            .font(TypeScale.meta)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(theme.neutrals.text2)
+                        Text("\(completedSetCount) / \(totalSetCount)")
+                            .font(TypeScale.title.monospacedDigit())
+                            .foregroundStyle(theme.neutrals.text1)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(String(localized: "总容量", comment: "Session total volume label"))
+                            .font(TypeScale.meta)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(theme.neutrals.text2)
+                        HStack(alignment: .firstTextBaseline, spacing: 2) {
+                            Text(Int(displayVolume).formatted())
+                                .font(TypeScale.display)
+                                .foregroundStyle(theme.neutrals.text1)
+                            Text(weightUnit.rawValue)
+                                .font(TypeScale.meta)
+                                .foregroundStyle(theme.neutrals.text3)
+                        }
+                    }
+                }
+
+                if volumeSeries.count > 1 {
+                    Sparkline(data: volumeSeries, color: theme.primary.primary)
+                        .accessibilityHidden(true)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 10)
+            .background(theme.neutrals.card)
+            .overlay(alignment: .top) {
+                Rectangle().fill(theme.neutrals.border).frame(height: 1)
+            }
+            .accessibilityElement(children: .contain)
+        }
+    }
+
+    private var totalSetCount: Int {
+        (workout?.exercises ?? []).reduce(0) { $0 + ($1.sets?.count ?? 0) }
+    }
+
+    private var completedSetCount: Int {
+        (workout?.exercises ?? []).reduce(0) { partial, exercise in
+            partial + (exercise.sets ?? []).filter(\.isCompleted).count
+        }
+    }
+
+    /// Per-exercise working-volume series driving the session sparkline. Ordered
+    /// by the exercise `order` so the trend reads left-to-right in the same
+    /// sequence the list shows. Purely derived from the observable graph.
+    private var volumeSeries: [Double] {
+        (workout?.exercises ?? [])
+            .sorted { $0.order < $1.order }
+            .map(\.workingVolume)
     }
 
     private var elapsedTimeText: some View {

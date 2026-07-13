@@ -166,6 +166,14 @@ struct SetRow: View {
                 smartProgressionChip(advice)
             }
         }
+        .padding(10)
+        .background(exerciseSet.isCompleted ? theme.neutrals.card : theme.neutrals.inner)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.inner))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.inner)
+                .stroke(rowBorderColor, lineWidth: 1)
+        )
+        .opacity(exerciseSet.isCompleted ? 0.9 : 1)
         .onAppear {
             let displayW = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
             weightText = formatWeight(displayW)
@@ -188,10 +196,16 @@ struct SetRow: View {
         // want the larger fonts and 60pt min-height; only widths shrink.
         let isLarge = variant != .normal
         HStack(spacing: LargeWorkoutFieldWidth.rowSpacing(variant)) {
-            Text("\(index + 1)")
-                .font(LargeWorkoutFonts.setIndex(large: isLarge))
-                .foregroundStyle(theme.neutrals.text2)
-                .frame(width: LargeWorkoutFieldWidth.setIndexWidth(variant), alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(index + 1)")
+                    .font(LargeWorkoutFonts.setIndex(large: isLarge))
+                    .fontWeight(.bold)
+                    .foregroundStyle(theme.neutrals.text1)
+                if exerciseSet.setType != .working {
+                    setTypePill(exerciseSet.setType)
+                }
+            }
+            .frame(width: LargeWorkoutFieldWidth.setIndexWidth(variant), alignment: .leading)
 
             if exerciseSet.isUnilateral {
                 // MY-876: unilateral order matches bilateral "weight × reps":
@@ -317,6 +331,44 @@ struct SetRow: View {
             Spacer()
 
             completionButton
+        }
+    }
+
+    // MARK: - Row styling helpers
+
+    /// Row border tint. Active (not-yet-completed, empty weight) rows get a
+    /// faint primary edge to draw the eye to the next input, matching the
+    /// prototype; everything else uses the neutral hairline.
+    private var rowBorderColor: Color {
+        !exerciseSet.isCompleted && weightText.isEmpty
+            ? theme.primary.primary.opacity(0.5)
+            : theme.neutrals.border
+    }
+
+    /// Set-type badge in the SEED family (never semantic green/amber/red) so it
+    /// doesn't collide with the orange rest-timer / success completion. Rendered
+    /// only for non-working set types (warmup / drop-set / pyramid).
+    private func setTypePill(_ type: SetType) -> some View {
+        let color = categoryColor(setTypeCategoryIndex(type), theme: theme)
+        return Text(type.displayName)
+            .font(TypeScale.meta)
+            .fontWeight(.medium)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1)
+            .background(color.opacity(0.16))
+            .foregroundStyle(color)
+            .clipShape(Capsule())
+    }
+
+    /// Stable seed-family color index per set type (0..4 band from ProtoKit's
+    /// `categoryColor`). Distinct per type so warmup / drop-set / pyramid read
+    /// apart without ever using a semantic hue.
+    private func setTypeCategoryIndex(_ type: SetType) -> Int {
+        switch type {
+        case .working: 0
+        case .warmup: 2
+        case .dropSet: 1
+        case .pyramid: 3
         }
     }
 
