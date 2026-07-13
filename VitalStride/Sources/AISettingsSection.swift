@@ -1,4 +1,9 @@
+// Pre-existing `no_hardcoded_chinese` literals (provider name, section labels)
+// predate the strict SwiftLint baseline and are silenced at file scope until the
+// shared i18n cleanup migrates them to Localizable.xcstrings. DataView.swift precedent.
+// swiftlint:disable no_hardcoded_chinese
 import AIService
+import DesignKit
 import OSLog
 import SwiftUI
 import TelemetryKit
@@ -20,6 +25,7 @@ enum AIModel: String, CaseIterable, Sendable {
 struct AISettingsSection: View {
     nonisolated static let apiKeyKeychainService = "\(KeychainHelper.defaultServicePrefix).apikey"
 
+    @Environment(\.theme) private var theme
     @AppStorage("aiModel") private var selectedModel: AIModel = .glm4Flash
     @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
     @State private var hasAPIKey = false
@@ -69,9 +75,9 @@ struct AISettingsSection: View {
     private var providerRow: some View {
         HStack {
             Label(String(localized: "服务商", comment: "AI provider label"), systemImage: "brain")
+                .tint(theme.primary.primary)
             Spacer()
-            Text("智谱 AI")
-                .foregroundStyle(.secondary)
+            StatusPill("智谱 AI", tone: .primary)
         }
     }
 
@@ -80,14 +86,15 @@ struct AISettingsSection: View {
         if hasAPIKey {
             HStack {
                 Label("API Key", systemImage: "key")
+                    .tint(theme.primary.primary)
                 Spacer()
                 Text("••••••••")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                 Button(role: .destructive) {
                     showClearConfirmation = true
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text3)
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)
@@ -110,6 +117,7 @@ struct AISettingsSection: View {
             }
         } label: {
             Label(String(localized: "模型", comment: "AI model label"), systemImage: "cpu")
+                .tint(theme.primary.primary)
         }
         .accessibilityLabel(String(localized: "AI 模型选择", comment: "AI model picker a11y"))
         .onChange(of: selectedModel) { oldValue, newValue in
@@ -175,4 +183,5 @@ struct AISettingsSection: View {
     Form {
         AISettingsSection()
     }
+    .designThemePreview()
 }

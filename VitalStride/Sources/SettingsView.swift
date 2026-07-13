@@ -1,6 +1,9 @@
+import DesignKit
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.theme) private var theme
+
     var body: some View {
         NavigationStack {
             Form {
@@ -19,15 +22,19 @@ struct SettingsView: View {
         Section("关于") {
             HStack {
                 Label("版本", systemImage: "info.circle")
+                    .tint(theme.primary.primary)
                 Spacer()
                 Text(appVersion)
-                    .foregroundStyle(.secondary)
+                    .font(TypeScale.num)
+                    .monospacedDigit()
+                    .foregroundStyle(theme.neutrals.text2)
             }
 
             NavigationLink {
                 AcknowledgementsView()
             } label: {
                 Label("开源协议与致谢", systemImage: "doc.text")
+                    .tint(theme.primary.primary)
             }
         }
     }
@@ -40,12 +47,14 @@ struct SettingsView: View {
 }
 
 struct AcknowledgementsView: View {
+    @Environment(\.theme) private var theme
+
     var body: some View {
         List {
             Section {
                 Text("VitalStride 使用了以下开源技术和框架：")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
             }
 
             Section("Apple Frameworks") {
@@ -68,17 +77,19 @@ struct AcknowledgementsView: View {
                 .font(.body)
             Text(description)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
         }
     }
 }
 
 #Preview {
     SettingsView()
+        .designThemePreview()
 }
 
 #Preview("致谢") {
     NavigationStack {
         AcknowledgementsView()
     }
+    .designThemePreview()
 }
