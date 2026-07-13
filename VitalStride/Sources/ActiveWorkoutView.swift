@@ -1,4 +1,5 @@
 import AIService
+import DesignKit
 import HealthKitService
 import os
 import SwiftData
@@ -11,6 +12,7 @@ private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveWorko
 
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     #if !os(macOS)
@@ -237,7 +239,7 @@ struct ActiveWorkoutView: View {
                 Spacer()
                 Text(summaryText)
                     .font(summaryFont)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
             }
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
@@ -250,12 +252,12 @@ struct ActiveWorkoutView: View {
                 }
                 Text(summaryText)
                     .font(summaryFont)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
             }
         }
         .padding(.horizontal)
         .padding(.vertical, largeMode ? 16 : 8)
-        .background(.bar)
+        .background(theme.neutrals.card)
     }
 
     private var elapsedTimeText: some View {
@@ -287,10 +289,10 @@ struct ActiveWorkoutView: View {
     private var timerLabel: some View {
         HStack(spacing: 4) {
             Image(systemName: "timer")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
             Text(String(localized: "训练时长", comment: "Workout duration label"))
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
         }
     }
 
@@ -305,7 +307,7 @@ struct ActiveWorkoutView: View {
             Text(unitText)
         }
         .font(.subheadline)
-        .foregroundStyle(.pink)
+        .foregroundStyle(theme.danger)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "心率", comment: "Heart rate a11y label"))
         .accessibilityValue(HeartRateFormatter.accessibilityText(currentHeartRate))
@@ -334,7 +336,7 @@ struct ActiveWorkoutView: View {
             } label: {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(theme.success)
                     Text(String(localized: "休息结束", comment: "Rest completed banner text"))
                     Spacer()
                 }
@@ -352,10 +354,10 @@ struct ActiveWorkoutView: View {
                 HStack {
                     ZStack {
                         Circle()
-                            .stroke(Color.secondary.opacity(0.2), lineWidth: 3)
+                            .stroke(theme.neutrals.border, lineWidth: 3)
                         Circle()
                             .trim(from: 0, to: progress)
-                            .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                            .stroke(theme.primary.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                             .rotationEffect(.degrees(-90))
                             .animation(.linear(duration: 1), value: progress)
                         Text("\(remaining)")
@@ -384,7 +386,7 @@ struct ActiveWorkoutView: View {
             .font(.caption)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Color.secondary.opacity(0.15), in: Capsule())
+            .background(theme.neutrals.inner, in: Capsule())
             .frame(minHeight: 44)
             .contentShape(Capsule())
             .accessibilityLabel(String(localized: "缩短十秒", comment: "Subtract 10 seconds a11y label"))
@@ -394,7 +396,7 @@ struct ActiveWorkoutView: View {
             .font(.caption)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Color.secondary.opacity(0.15), in: Capsule())
+            .background(theme.neutrals.inner, in: Capsule())
             .frame(minHeight: 44)
             .contentShape(Capsule())
             .accessibilityLabel(String(localized: "延长十秒", comment: "Add 10 seconds a11y label"))
@@ -405,7 +407,7 @@ struct ActiveWorkoutView: View {
             .fontWeight(.semibold)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Color.accentColor.opacity(0.15), in: Capsule())
+            .background(theme.primary.primary.opacity(0.15), in: Capsule())
             .frame(minHeight: 44)
             .contentShape(Capsule())
             .accessibilityLabel(String(localized: "跳过休息", comment: "Skip rest a11y label"))
@@ -475,9 +477,9 @@ struct ActiveWorkoutView: View {
             Image(systemName: "plus")
                 .font(.title2)
                 .fontWeight(.semibold)
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primary.onPrimary)
                 .frame(width: 60, height: 60)
-                .background(Circle().fill(Color.accentColor))
+                .background(Circle().fill(theme.primary.primary))
                 .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
                 .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
         }
@@ -846,6 +848,7 @@ private struct ActiveWorkoutPreview: View {
     var body: some View {
         ActiveWorkoutView()
             .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+            .designThemePreview()
     }
 }
 

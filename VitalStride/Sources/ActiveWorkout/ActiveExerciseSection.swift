@@ -4,12 +4,14 @@
 // `no_hardcoded_chinese` literals move with the code and stay silenced at file
 // scope until the dedicated i18n cleanup (MY-1065). No semantic change.
 
+import DesignKit
 import SwiftData
 import SwiftUI
 import VitalModels
 import VitalUI
 
 struct ActiveExerciseSection: View {
+    @Environment(\.theme) private var theme
     let workoutExercise: WorkoutExercise
     let onSetCompleted: () -> Void
     let onSetDeleted: () -> Void
@@ -169,7 +171,7 @@ struct ActiveExerciseSection: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
@@ -208,7 +210,7 @@ struct ActiveExerciseSection: View {
         } label: {
             HStack {
                 Image(systemName: "plus.circle.fill")
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(theme.primary.primary)
                 Text("添加一组")
             }
             .font(.subheadline)

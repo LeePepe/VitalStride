@@ -5,11 +5,13 @@
 // scope until the dedicated i18n cleanup (MY-1065) migrates them. This split
 // does not change localization semantics.
 
+import DesignKit
 import SwiftUI
 import VitalModels
 import VitalUI
 
 struct SubSetRow: View {
+    @Environment(\.theme) private var theme
     let exerciseSet: ExerciseSet
     let weightUnit: WeightUnit
     let isLast: Bool
@@ -26,7 +28,7 @@ struct SubSetRow: View {
                 // "weight × reps": left-weight / right-weight × reps.
                 Text(weightDisplay(exerciseSet.weight))
                     .font(.footnote.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .frame(width: 50, alignment: .center)
                     .accessibilityLabel(String(
                         localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组左侧重量",
@@ -36,12 +38,12 @@ struct SubSetRow: View {
 
                 Text("/")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .accessibilityHidden(true)
 
                 Text(weightDisplay(exerciseSet.weightRight ?? exerciseSet.weight))
                     .font(.footnote.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .frame(width: 50, alignment: .center)
                     .accessibilityLabel(String(
                         localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组右侧重量",
@@ -53,12 +55,12 @@ struct SubSetRow: View {
 
                 Text("×")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .accessibilityHidden(true)
 
                 Text(repsDisplay)
                     .font(.footnote.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .frame(width: 52, alignment: .center)
                     .accessibilityLabel(String(
                         localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数",
@@ -68,7 +70,7 @@ struct SubSetRow: View {
             } else {
                 Text(weightDisplay(exerciseSet.weight))
                     .font(.footnote.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .frame(width: 62, alignment: .center)
                     .accessibilityLabel(String(
                         localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组重量",
@@ -78,12 +80,12 @@ struct SubSetRow: View {
 
                 Text("×")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .accessibilityHidden(true)
 
                 Text(repsDisplay)
                     .font(.footnote.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .frame(width: 52, alignment: .center)
                     .accessibilityLabel(String(
                         localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数",
@@ -94,7 +96,7 @@ struct SubSetRow: View {
 
             Text(exerciseSet.setType.displayName)
                 .font(.caption)
-                .foregroundStyle(exerciseSet.setType.labelColor)
+                .foregroundStyle(exerciseSet.setType.labelColor(theme: theme))
                 .frame(width: 44, alignment: .leading)
                 .accessibilityLabel(exerciseSet.setType.displayName)
 
@@ -110,7 +112,7 @@ struct SubSetRow: View {
             } label: {
                 Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.subheadline)
-                    .foregroundStyle(exerciseSet.isCompleted ? .green : .secondary)
+                    .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.neutrals.text2)
             }
             .buttonStyle(.borderless)
             // MY-1013: unambiguous 44pt hit target (Constitution P1-H). The
@@ -131,7 +133,7 @@ struct SubSetRow: View {
         HStack(spacing: 2) {
             Text(isLast ? "└─" : "├─")
                 .font(.caption.monospaced())
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(theme.neutrals.text3)
         }
         .frame(width: 28, alignment: .leading)
     }

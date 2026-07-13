@@ -1,14 +1,16 @@
+import DesignKit
 import HealthKitService
 import SwiftUI
 
 struct HealthKitWorkoutRowView: View {
+    @Environment(\.theme) private var theme
     let record: HealthWorkoutRecord
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: record.activityType.systemImage)
                 .font(.title3)
-                .foregroundStyle(.orange)
+                .foregroundStyle(theme.primary.primary)
                 .frame(width: 32)
                 .accessibilityHidden(true)
 
@@ -19,11 +21,11 @@ struct HealthKitWorkoutRowView: View {
                 HStack(spacing: 8) {
                     Text(Self.formattedDuration(record.duration))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
 
                     Text(record.startDate, format: .dateTime.month().day().weekday())
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                 }
             }
 
@@ -36,7 +38,7 @@ struct HealthKitWorkoutRowView: View {
                         comment: "Workout energy burned display"
                     ))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                 }
                 if let distance = record.totalDistance, distance > 0 {
                     Text(String(
@@ -44,7 +46,7 @@ struct HealthKitWorkoutRowView: View {
                         comment: "Workout distance display"
                     ))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                 }
             }
         }

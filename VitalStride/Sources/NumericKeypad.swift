@@ -1,3 +1,4 @@
+import DesignKit
 import SwiftUI
 
 enum NumericKeypadMode: Sendable {
@@ -52,6 +53,7 @@ enum NumericKeypadInputHandler {
 import UIKit
 
 struct NumericKeypad: View {
+    @Environment(\.theme) private var theme
     let mode: NumericKeypadMode
     let onKeyPress: @MainActor (NumericKeypadKey) -> Void
 
@@ -70,7 +72,7 @@ struct NumericKeypad: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background(theme.neutrals.bg)
         }
         .accessibilityElement(children: .contain)
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
@@ -99,6 +101,10 @@ struct NumericKeypad: View {
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .background(keyBackground(key))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(theme.neutrals.border, lineWidth: 1)
+                )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(key.a11yLabel)
@@ -107,8 +113,8 @@ struct NumericKeypad: View {
 
     private func keyBackground(_ key: NumericKeypadKey) -> Color {
         switch key {
-        case .delete: Color(uiColor: .systemGray4)
-        default: Color(uiColor: .systemBackground)
+        case .delete: theme.neutrals.inner
+        default: theme.neutrals.card
         }
     }
 }

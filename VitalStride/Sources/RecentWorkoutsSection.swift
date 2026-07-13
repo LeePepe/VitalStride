@@ -1,18 +1,26 @@
+// MY-1090 precedent: pre-existing `no_hardcoded_chinese` literals (section
+// title, empty-state text, workout-type labels) predate the `--strict`
+// SwiftLint hook and stay silenced at file scope until the shared i18n
+// cleanup migrates them. No semantic change from this pragma.
+// swiftlint:disable no_hardcoded_chinese
+import DesignKit
 import SwiftUI
 import VitalModels
 
 struct RecentWorkoutsSection: View {
+    @Environment(\.theme) private var theme
     let workouts: [Workout]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        Card {
             Text("最近训练")
-                .font(.headline)
+                .font(TypeScale.title)
+                .foregroundStyle(theme.neutrals.text1)
 
             if workouts.isEmpty {
                 Text("暂无训练记录")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
             } else {
@@ -26,13 +34,11 @@ struct RecentWorkoutsSection: View {
                 }
             }
         }
-        .padding()
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
 private struct RecentWorkoutRow: View {
+    @Environment(\.theme) private var theme
     let workout: Workout
 
     var body: some View {
@@ -47,7 +53,7 @@ private struct RecentWorkoutRow: View {
                         systemImage: workoutTypeIcon(workout.type)
                     )
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
 
                     if let endDate = workout.endDate {
                         let minutes = Int(endDate.timeIntervalSince(workout.startDate)) / 60
@@ -58,7 +64,7 @@ private struct RecentWorkoutRow: View {
                             systemImage: "clock"
                         )
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                     }
 
                     let exerciseCount = workout.exercises?.count ?? 0
@@ -68,7 +74,7 @@ private struct RecentWorkoutRow: View {
                             systemImage: "list.bullet"
                         )
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                     }
                 }
             }
@@ -77,7 +83,7 @@ private struct RecentWorkoutRow: View {
 
             Image(systemName: "chevron.right")
                 .font(.caption)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(theme.neutrals.text3)
         }
         .padding(.vertical, 4)
         .frame(minHeight: 44)
@@ -124,4 +130,5 @@ private struct RecentWorkoutRow: View {
         RecentWorkoutsSection(workouts: [])
     }
     .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
+    .designThemePreview()
 }

@@ -1,3 +1,4 @@
+import DesignKit
 import Foundation
 import HealthKitService
 import SwiftUI
@@ -39,6 +40,8 @@ enum WorkoutCalendarGrouping {
 /// accessibility audit pass (T014) land in later tasks.
 struct WorkoutCalendarView: View {
     let workouts: [UnifiedWorkout]
+
+    @Environment(\.theme) private var theme
 
     private var calendar: Calendar { Calendar.current }
 
@@ -176,7 +179,7 @@ struct WorkoutCalendarView: View {
                 ForEach(orderedWeekdayLabels, id: \.self) { label in
                     Text(label)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                         .frame(maxWidth: .infinity, minHeight: 24)
                         .accessibilityHidden(true)
                 }
@@ -261,16 +264,16 @@ struct WorkoutCalendarView: View {
 
     private func dayCellBackground(hasWorkout: Bool, isSelected: Bool) -> Color {
         if isSelected {
-            return Color.accentColor
+            return theme.primary.primary
         }
-        return hasWorkout ? Color.accentColor.opacity(0.18) : Color.clear
+        return hasWorkout ? theme.primary.primary.opacity(0.18) : Color.clear
     }
 
     private func dayCellForeground(hasWorkout: Bool, isSelected: Bool) -> Color {
         if isSelected {
-            return .white
+            return theme.primary.onPrimary
         }
-        return hasWorkout ? Color.accentColor : .primary
+        return hasWorkout ? theme.primary.primary : theme.neutrals.text1
     }
 
     /// Section rendered below the month grid when a workout day is
@@ -336,13 +339,14 @@ struct WorkoutCalendarView: View {
 /// screens — `WorkoutListView` continues to use its own `WorkoutRowView`
 /// / `HealthKitWorkoutRowView` cells for list mode.
 private struct SelectedDayWorkoutRow: View {
+    @Environment(\.theme) private var theme
     let item: UnifiedWorkout
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: item.displayIcon)
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .frame(width: 32)
                 .accessibilityHidden(true)
 
@@ -353,12 +357,12 @@ private struct SelectedDayWorkoutRow: View {
                 HStack(spacing: 8) {
                     Text(item.startDate, style: .time)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                     if let duration = item.duration,
                        let durationText = WorkoutCalendarDurationFormatter.string(from: duration) {
                         Text(durationText)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.neutrals.text2)
                     }
                 }
             }
@@ -367,7 +371,7 @@ private struct SelectedDayWorkoutRow: View {
 
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(theme.neutrals.text3)
                 .accessibilityHidden(true)
         }
         .padding(.vertical, 6)
@@ -464,10 +468,12 @@ private enum WorkoutCalendarPreviewFixtures {
             workouts: WorkoutCalendarPreviewFixtures.populatedWorkouts()
         )
     }
+    .designThemePreview()
 }
 
 #Preview("Empty State") {
     NavigationStack {
         WorkoutCalendarView(workouts: [])
     }
+    .designThemePreview()
 }

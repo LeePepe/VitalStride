@@ -1,3 +1,9 @@
+// MY-1090 precedent: pre-existing `no_hardcoded_chinese` literals (section
+// headers, row labels, badge text, a11y strings) predate the `--strict`
+// SwiftLint hook and stay silenced at file scope until the shared i18n
+// cleanup migrates them. No semantic change from this pragma.
+// swiftlint:disable no_hardcoded_chinese
+import DesignKit
 import HealthKitService
 import SwiftData
 import SwiftUI
@@ -9,6 +15,7 @@ private let logger = Logger(subsystem: "com.vitalstride", category: "WorkoutDeta
 struct WorkoutDetailView: View {
     let workout: Workout
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     @Environment(\.healthKitService) private var healthKitService
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
@@ -171,7 +178,7 @@ struct WorkoutDetailView: View {
                                             .frame(width: 8, height: 8)
                                         Text(zone.localizedName)
                                             .font(.footnote)
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(theme.neutrals.text2)
                                         Spacer()
                                         Text("\(Int(zone.percentage * 100))%")
                                             .font(.footnote.bold())
@@ -195,16 +202,16 @@ struct WorkoutDetailView: View {
                 Section(workoutExercise.exercise?.localizedName ?? "动作") {
                     if sets.isEmpty {
                         Text("无记录")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.neutrals.text2)
                     } else {
                         ForEach(Array(sets.enumerated()), id: \.element.persistentModelID) { index, exerciseSet in
                             HStack {
                                 Text("第 \(index + 1) 组")
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(theme.neutrals.text2)
                                     .frame(width: 60, alignment: .leading)
                                 Text("\(displayWeight(exerciseSet.weight), specifier: "%.1f") \(weightUnit.rawValue)")
                                 Text("×")
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(theme.neutrals.text2)
                                 Text("\(exerciseSet.reps) 次")
                                 Spacer()
                                 if exerciseSet.setType == .warmup {
@@ -212,7 +219,8 @@ struct WorkoutDetailView: View {
                                         .font(.caption)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
-                                        .background(.orange.opacity(0.15))
+                                        .background(theme.warning.opacity(0.15))
+                                        .foregroundStyle(theme.warning)
                                         .clipShape(Capsule())
                                 }
                                 if exerciseSet.isUnilateral {
@@ -220,8 +228,8 @@ struct WorkoutDetailView: View {
                                         .font(.caption.bold())
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
-                                        .background(.blue.opacity(0.15))
-                                        .foregroundStyle(.blue)
+                                        .background(theme.primary.primary.opacity(0.15))
+                                        .foregroundStyle(theme.primary.primary)
                                         .clipShape(Capsule())
                                         .accessibilityLabel(String(localized: "单侧重量", comment: "Unilateral weight a11y label for ×2 badge in detail view"))
                                 }
@@ -231,7 +239,7 @@ struct WorkoutDetailView: View {
                             HStack {
                                 Text(String(localized: "总组数", comment: "Per-exercise total sets"))
                                     .font(.footnote)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(theme.neutrals.text2)
                                 Spacer()
                                 Text("\(workoutExercise.totalSetsCount)")
                                     .font(.footnote.bold())
@@ -239,7 +247,7 @@ struct WorkoutDetailView: View {
                             HStack {
                                 Text(String(localized: "总次数", comment: "Per-exercise total reps"))
                                     .font(.footnote)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(theme.neutrals.text2)
                                 Spacer()
                                 Text("\(workoutExercise.totalRepsCount)")
                                     .font(.footnote.bold())
@@ -248,7 +256,7 @@ struct WorkoutDetailView: View {
                                 HStack {
                                     Text(String(localized: "总训练量", comment: "Per-exercise total volume"))
                                         .font(.footnote)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(theme.neutrals.text2)
                                     Spacer()
                                     Text("\(displayWeight(workoutExercise.workingVolume), specifier: "%.0f") \(weightUnit.rawValue)")
                                         .font(.footnote.bold())
@@ -301,7 +309,7 @@ struct WorkoutDetailView: View {
             HStack {
                 Text(String(localized: "workout_detail_estimated_1rm", defaultValue: "Estimated 1RM", comment: "Per-exercise estimated one-rep max label"))
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                 Spacer()
                 Text("\(displayWeight(oneRepMax), specifier: "%.1f") \(weightUnit.rawValue)")
                     .font(.footnote.bold())
@@ -424,6 +432,7 @@ struct HeartRateZoneStackedBar: View {
         )
     }
     .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
+    .designThemePreview()
 }
 
 private struct _HeartRateSummaryPreviewFixture {

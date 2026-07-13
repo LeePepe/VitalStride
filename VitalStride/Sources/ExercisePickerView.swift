@@ -1,4 +1,5 @@
 // swiftlint:disable no_hardcoded_chinese
+import DesignKit
 import os
 import SwiftData
 import SwiftUI
@@ -11,6 +12,7 @@ private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "E
 
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
     @State private var searchText = ""
@@ -199,7 +201,7 @@ struct ExercisePickerView: View {
             .padding(.vertical, 8)
         }
         .frame(width: 72)
-        .background(Color(.systemGroupedBackground))
+        .background(theme.neutrals.inner)
     }
 
     private func sidebarItem(
@@ -219,10 +221,10 @@ struct ExercisePickerView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
-            .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+            .foregroundStyle(isSelected ? theme.primary.primary : theme.neutrals.text2)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? Color.accentColor.opacity(0.12) : .clear)
+                    .fill(isSelected ? theme.primary.primary.opacity(0.12) : .clear)
             )
             .padding(.horizontal, 4)
         }
@@ -331,7 +333,7 @@ struct ExercisePickerView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 Image(systemName: equipment.sfSymbol)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                 Text(equipment.localizedName)
                     .font(.headline)
             }
@@ -375,6 +377,7 @@ struct ExercisePickerView: View {
 // MARK: - Exercise Card
 
 private struct ExerciseCard: View {
+    @Environment(\.theme) private var theme
     let exercise: Exercise
     let isSelected: Bool
     let showsSelectionIndicator: Bool
@@ -385,12 +388,12 @@ private struct ExerciseCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 Image(systemName: exercise.equipment.sfSymbol)
                     .font(.title3)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(theme.primary.primary)
 
                 Text(exercise.localizedName)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(theme.neutrals.text1)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
@@ -398,19 +401,20 @@ private struct ExerciseCard: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(12)
-            .background(Color(.secondarySystemGroupedBackground))
+            .background(theme.neutrals.card)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(Color.blue, lineWidth: 2)
-                }
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(
+                        isSelected ? theme.primary.primary : theme.neutrals.border,
+                        lineWidth: isSelected ? 2 : 1
+                    )
             }
             .overlay(alignment: .topTrailing) {
                 if isSelected && showsSelectionIndicator {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title3)
-                        .foregroundStyle(.white, Color.blue)
+                        .foregroundStyle(theme.primary.onPrimary, theme.primary.primary)
                         .padding(6)
                         .accessibilityHidden(true)
                 }
@@ -430,8 +434,8 @@ private struct ExerciseCard: View {
                         .font(.caption2)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.accentColor.opacity(0.12))
-                        .foregroundStyle(Color.accentColor)
+                        .background(theme.primary.primary.opacity(0.12))
+                        .foregroundStyle(theme.primary.primary)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
             }
@@ -500,6 +504,7 @@ private struct Row {
 // MARK: - Equipment Index Bar
 
 private struct EquipmentIndexBar: View {
+    @Environment(\.theme) private var theme
     let equipments: [Equipment]
     let activeEquipment: Equipment?
     let onSelect: (Equipment) -> Void
@@ -519,14 +524,14 @@ private struct EquipmentIndexBar: View {
                         Image(systemName: equipment.sfSymbol)
                             .font(.system(size: 11, weight: .medium))
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .foregroundStyle(activeEquipment == equipment ? Color.accentColor : Color.secondary)
+                            .foregroundStyle(activeEquipment == equipment ? theme.primary.primary : theme.neutrals.text2)
                             .accessibilityLabel(equipment.localizedName)
                     }
                 }
                 .frame(width: Self.barWidth)
                 .padding(.vertical, Self.verticalPadding)
                 .background(
-                    Capsule().fill(Color(.tertiarySystemFill).opacity(0.7))
+                    Capsule().fill(theme.neutrals.inner.opacity(0.7))
                 )
             }
             .frame(width: Self.hitWidth, alignment: .trailing)
