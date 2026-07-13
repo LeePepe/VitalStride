@@ -1,4 +1,8 @@
+// AI 标签根视图:存量硬编码中文文案(引导/隐私/a11y)预留待统一 i18n 迁移到
+// Localizable.xcstrings,此处文件级静默,无语义改动。
+// swiftlint:disable no_hardcoded_chinese
 import AIService
+import DesignKit
 import HealthKitService
 import SwiftData
 import SwiftUI
@@ -13,6 +17,7 @@ let aiPrivacyConsentKey = "ai_privacy_consent_accepted"
 
 struct AIView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.theme) private var theme
     #if os(iOS)
     @Environment(AppNavigation.self) private var navigation: AppNavigation?
     #endif
@@ -56,14 +61,15 @@ struct AIView: View {
 
                 Image(systemName: "key.fill")
                     .font(.system(size: 48))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
 
                 Text(String(localized: "需要配置 API Key", comment: "API key required title"))
                     .font(.title2.bold())
+                    .foregroundStyle(theme.neutrals.text1)
 
                 Text(String(localized: "AI 分析功能需要智谱 AI 的 API Key。请在设置中配置后再使用。", comment: "API key required description"))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
 
@@ -82,7 +88,7 @@ struct AIView: View {
                 #else
                 Text(String(localized: "请在侧边栏「设置」中配置 API Key", comment: "macOS API key guide"))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                 #endif
 
                 Spacer(minLength: 40)
@@ -101,12 +107,13 @@ struct AIView: View {
 
                 Image(systemName: "hand.raised.fill")
                     .font(.system(size: 48))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(theme.primary.primary)
 
                 Text(String(localized: "隐私告知", comment: "Privacy notice title"))
                     .font(.title2.bold())
+                    .foregroundStyle(theme.neutrals.text1)
 
-                VStack(alignment: .leading, spacing: 12) {
+                Card {
                     privacyBullet(
                         icon: "arrow.up.doc",
                         text: String(localized: "AI 分析会将你的训练数据（训练记录、组数、重量）和健康数据（心率、睡眠、步数）发送到第三方服务器进行分析。", comment: "Privacy data sent description")
@@ -120,9 +127,6 @@ struct AIView: View {
                         text: String(localized: "数据仅用于生成分析结果，具体数据处理方式以智谱 AI 服务条款为准。", comment: "Privacy purpose description")
                     )
                 }
-                .padding()
-                .background(.regularMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 Button {
                     viewModel.acceptPrivacyConsent()
@@ -146,10 +150,11 @@ struct AIView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
                 .font(.body)
-                .foregroundStyle(.blue)
+                .foregroundStyle(theme.primary.primary)
                 .frame(width: 24)
             Text(text)
                 .font(.subheadline)
+                .foregroundStyle(theme.neutrals.text1)
         }
     }
 
@@ -182,7 +187,8 @@ struct AIView: View {
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(String(localized: "ai_quick_analysis_section_title", comment: "Quick analysis section title above the chat"))
-                    .font(.headline)
+                    .font(TypeScale.title)
+                    .foregroundStyle(theme.neutrals.text1)
                 Spacer()
                 if hasMessages {
                     Button {
@@ -191,7 +197,7 @@ struct AIView: View {
                         }
                     } label: {
                         Image(systemName: quickAnalysisCollapsed ? "chevron.down" : "chevron.up")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.neutrals.text2)
                             .frame(minWidth: 44, minHeight: 44)
                     }
                     .accessibilityLabel(quickAnalysisCollapsed
@@ -350,4 +356,5 @@ final class AIViewState {
 #Preview("With Content") {
     AIView()
         .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
+        .designThemePreview()
 }

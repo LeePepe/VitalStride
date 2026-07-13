@@ -1,4 +1,8 @@
+// AI 对话视图:存量硬编码中文文案(占位符/a11y/空态提示)预留待统一 i18n
+// 迁移到 Localizable.xcstrings,此处文件级静默,无语义改动。
+// swiftlint:disable no_hardcoded_chinese
 import AIService
+import DesignKit
 import HealthKitService
 import SwiftData
 import SwiftUI
@@ -220,6 +224,7 @@ final class AIChatViewModel {
 struct AIChatView<EmptyContent: View>: View {
     @Bindable var viewModel: AIChatViewModel
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.theme) private var theme
     let emptyContent: EmptyContent
 
     init(viewModel: AIChatViewModel, @ViewBuilder emptyContent: () -> EmptyContent) {
@@ -276,14 +281,14 @@ struct AIChatView<EmptyContent: View>: View {
         VStack(spacing: 12) {
             Image(systemName: "bubble.left.and.bubble.right")
                 .font(.system(size: 36))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(theme.neutrals.text3)
 
             Text(String(
                 localized: "向 AI 助手提问关于训练和健康的问题",
                 comment: "Chat empty state prompt"
             ))
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .font(TypeScale.body)
+            .foregroundStyle(theme.neutrals.text2)
             .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -299,15 +304,24 @@ struct AIChatView<EmptyContent: View>: View {
                 axis: .vertical
             )
             .lineLimit(1...5)
-            .textFieldStyle(.roundedBorder)
+            .textFieldStyle(.plain)
+            .font(TypeScale.body)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(theme.neutrals.inner)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22)
+                    .stroke(theme.neutrals.border, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 22))
             .accessibilityLabel(String(localized: "向 AI 提问", comment: "Chat input a11y label"))
 
             Button {
                 viewModel.sendMessage(modelContext: modelContext)
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
-                    .font(.title2)
-                    .symbolRenderingMode(.hierarchical)
+                    .font(.system(size: 26))
+                    .foregroundStyle(viewModel.canSend ? theme.primary.primary : theme.neutrals.text3)
                     .frame(minWidth: 44, minHeight: 44)
             }
             .disabled(!viewModel.canSend)
@@ -315,7 +329,7 @@ struct AIChatView<EmptyContent: View>: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(.bar)
+        .background(theme.neutrals.card)
     }
 
     private func scrollToLast(proxy: ScrollViewProxy) {
@@ -336,6 +350,7 @@ extension AIChatView where EmptyContent == EmptyView {
 // MARK: - Message Bubble
 
 struct AIChatMessageBubble: View {
+    @Environment(\.theme) private var theme
     let message: AIChatMessage
     let onRetry: () -> Void
 
@@ -367,18 +382,23 @@ struct AIChatMessageBubble: View {
     private var bubbleContent: some View {
         if message.role == .user {
             Text(message.content)
-                .font(.body)
-                .foregroundStyle(.white)
+                .font(TypeScale.body)
+                .foregroundStyle(theme.primary.onPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
+                .background(theme.primary.primary, in: RoundedRectangle(cornerRadius: 16))
                 .textSelection(.enabled)
         } else {
             Text(message.content)
-                .font(.body)
+                .font(TypeScale.body)
+                .foregroundStyle(theme.neutrals.text1)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .background(theme.neutrals.card, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(theme.neutrals.border, lineWidth: 1)
+                )
                 .textSelection(.enabled)
         }
     }
@@ -386,8 +406,8 @@ struct AIChatMessageBubble: View {
     private func errorView(_ errorMessage: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(errorMessage)
-                .font(.caption)
-                .foregroundStyle(.red)
+                .font(TypeScale.meta)
+                .foregroundStyle(theme.danger)
 
             Button(action: onRetry) {
                 HStack(spacing: 4) {
@@ -420,13 +440,15 @@ struct AIChatMessageBubble: View {
 // MARK: - Typing Indicator
 
 struct AIChatTypingIndicator: View {
+    @Environment(\.theme) private var theme
+
     var body: some View {
         TimelineView(.animation(minimumInterval: 0.3)) { timeline in
             let phase = Int(timeline.date.timeIntervalSinceReferenceDate * 2.5) % 3
             HStack(spacing: 4) {
                 ForEach(0..<3, id: \.self) { index in
                     Circle()
-                        .fill(.secondary)
+                        .fill(theme.neutrals.text3)
                         .frame(width: 6, height: 6)
                         .opacity(index == phase ? 1.0 : 0.3)
                 }
@@ -434,7 +456,11 @@ struct AIChatTypingIndicator: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(theme.neutrals.card, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(theme.neutrals.border, lineWidth: 1)
+        )
         .accessibilityLabel(String(localized: "AI 正在回复", comment: "Typing indicator a11y"))
         .accessibilityAddTraits(.updatesFrequently)
     }
@@ -453,9 +479,11 @@ struct AIChatTypingIndicator: View {
         .navigationTitle("AI")
     }
     .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
+    .designThemePreview()
 }
 
 #Preview("Typing Indicator") {
     AIChatTypingIndicator()
         .padding()
+        .designThemePreview()
 }

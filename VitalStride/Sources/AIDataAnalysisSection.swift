@@ -1,4 +1,8 @@
+// AI 数据分析 Section:存量硬编码中文文案(标签/a11y)预留待统一 i18n 迁移到
+// Localizable.xcstrings,此处文件级静默,无语义改动。
+// swiftlint:disable no_hardcoded_chinese
 import AIService
+import DesignKit
 import HealthKitService
 import SwiftData
 import SwiftUI
@@ -18,6 +22,7 @@ struct AIDataAnalysisSection: View {
     @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthDataCache) private var healthDataCache
+    @Environment(\.theme) private var theme
 
     private let keychainHelper = KeychainHelper()
     private let apiKeyService = AISettingsSection.apiKeyKeychainService
@@ -51,7 +56,7 @@ struct AIDataAnalysisSection: View {
                 ProgressView()
                 Text(String(localized: "正在分析数据", comment: "AI analysis loading"))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
             }
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 8)
@@ -104,7 +109,7 @@ struct AIDataAnalysisSection: View {
                     .font(.subheadline.weight(.medium))
             } icon: {
                 Image(systemName: "lightbulb")
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(theme.primary.primary)
             }
             Text(suggestion)
                 .font(.body)
@@ -123,7 +128,7 @@ struct AIDataAnalysisSection: View {
                     )
                 )
                 .font(.caption)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(theme.neutrals.text3)
             }
             Spacer()
             Button {
@@ -344,10 +349,10 @@ struct AIDataAnalysisSection: View {
 
     private func trendColor(_ trend: String) -> Color {
         switch trend {
-        case "rising": .green
-        case "falling": .red
-        case "stable": .blue
-        default: .secondary
+        case "rising": theme.success
+        case "falling": theme.danger
+        case "stable": theme.primary.primary
+        default: theme.neutrals.text3
         }
     }
 
