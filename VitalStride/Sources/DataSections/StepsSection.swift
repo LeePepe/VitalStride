@@ -1,4 +1,5 @@
 import Charts
+import DesignKit
 import HealthKitService
 import SwiftUI
 import VitalModels
@@ -105,6 +106,7 @@ struct StepsSection: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "StepsSection")
 
@@ -130,7 +132,7 @@ struct StepsSection: View {
         } else if let errorMessage {
             Text(errorMessage)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .frame(height: 120)
                 .frame(maxWidth: .infinity)
         } else {
@@ -149,7 +151,7 @@ struct StepsSection: View {
             HStack {
                 Text(day.date, format: .dateTime.month().day().weekday())
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                 Spacer()
                 Text(
                     "\(day.totalSteps.formatted(.number)) "
@@ -175,7 +177,7 @@ struct StepsSection: View {
                         item.totalSteps
                     )
                 )
-                .foregroundStyle(.blue.gradient)
+                .foregroundStyle(theme.chart(0).gradient)
                 .opacity(barOpacity(for: item.date))
             }
         }
@@ -244,10 +246,10 @@ struct StepsSection: View {
     private func statisticItem(label: String, value: Int) -> some View {
         VStack(spacing: 2) {
             Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(TypeScale.meta)
+                .foregroundStyle(theme.neutrals.text2)
             Text(value.formatted(.number))
-                .font(.subheadline.weight(.medium))
+                .font(TypeScale.title)
         }
         .accessibilityElement(children: .combine)
     }
@@ -317,6 +319,7 @@ struct StepsDetailView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "StepsSection")
 
@@ -346,7 +349,7 @@ struct StepsDetailView: View {
                 Section {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                         .frame(maxWidth: .infinity)
                         .frame(height: 200)
                 }
@@ -387,7 +390,7 @@ struct StepsDetailView: View {
                                 "\(item.totalSteps.formatted(.number)) "
                                     + String(localized: "步", comment: "Steps unit")
                             )
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.neutrals.text2)
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(
@@ -419,7 +422,7 @@ struct StepsDetailView: View {
                 HStack {
                     Text(day.date, format: .dateTime.year().month().day().weekday())
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                     Spacer()
                     Text(
                         "\(day.totalSteps.formatted(.number)) "
@@ -442,7 +445,7 @@ struct StepsDetailView: View {
                             item.totalSteps
                         )
                     )
-                    .foregroundStyle(.blue.gradient)
+                    .foregroundStyle(theme.chart(0).gradient)
                     .opacity(detailBarOpacity(for: item.date))
                 }
             }
@@ -489,7 +492,7 @@ struct StepsDetailView: View {
             Label(label, systemImage: image)
             Spacer()
             Text(value.formatted(.number))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
         }
         .accessibilityElement(children: .combine)
     }

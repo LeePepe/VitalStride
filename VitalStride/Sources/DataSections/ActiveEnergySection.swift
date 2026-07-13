@@ -1,4 +1,5 @@
 import Charts
+import DesignKit
 import HealthKitService
 import SwiftUI
 import VitalModels
@@ -106,6 +107,7 @@ struct ActiveEnergySection: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveEnergySection")
 
@@ -135,7 +137,7 @@ struct ActiveEnergySection: View {
         } else if let errorMessage {
             Text(errorMessage)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .frame(height: 120)
                 .frame(maxWidth: .infinity)
         } else {
@@ -154,7 +156,7 @@ struct ActiveEnergySection: View {
             HStack {
                 Text(day.date, format: .dateTime.month().day().weekday())
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                 Spacer()
                 Text("\(displayValue(day.totalEnergy).formatted(.number)) \(energyUnit.abbreviation)")
                     .font(.caption.weight(.semibold))
@@ -177,7 +179,7 @@ struct ActiveEnergySection: View {
                         energyUnit.convert(fromKcal: item.totalEnergy)
                     )
                 )
-                .foregroundStyle(.orange.gradient)
+                .foregroundStyle(theme.chart(0).gradient)
                 .opacity(barOpacity(for: item.date))
             }
         }
@@ -246,14 +248,14 @@ struct ActiveEnergySection: View {
     private func statisticItem(label: String, value: Int) -> some View {
         VStack(spacing: 2) {
             Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(TypeScale.meta)
+                .foregroundStyle(theme.neutrals.text2)
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value.formatted(.number))
-                    .font(.subheadline.weight(.medium))
+                    .font(TypeScale.title)
                 Text(energyUnit.abbreviation)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(TypeScale.meta)
+                    .foregroundStyle(theme.neutrals.text2)
             }
         }
         .accessibilityElement(children: .combine)
@@ -328,6 +330,7 @@ struct ActiveEnergyDetailView: View {
 
     @AppStorage("energyUnit") private var energyUnit: EnergyUnit = .kcal
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
     private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveEnergySection")
 
     private func displayValue(_ kcal: Double) -> Int {
@@ -360,7 +363,7 @@ struct ActiveEnergyDetailView: View {
                 Section {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                         .frame(maxWidth: .infinity)
                         .frame(height: 200)
                 }
@@ -398,7 +401,7 @@ struct ActiveEnergyDetailView: View {
                             Text(item.date, format: .dateTime.month().day().weekday())
                             Spacer()
                             Text("\(displayValue(item.totalEnergy).formatted(.number)) \(energyUnit.abbreviation)")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(theme.neutrals.text2)
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(
@@ -429,7 +432,7 @@ struct ActiveEnergyDetailView: View {
                 HStack {
                     Text(day.date, format: .dateTime.year().month().day().weekday())
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                     Spacer()
                     Text("\(displayValue(day.totalEnergy).formatted(.number)) \(energyUnit.abbreviation)")
                         .font(.subheadline.weight(.semibold))
@@ -449,7 +452,7 @@ struct ActiveEnergyDetailView: View {
                             energyUnit.convert(fromKcal: item.totalEnergy)
                         )
                     )
-                    .foregroundStyle(.orange.gradient)
+                    .foregroundStyle(theme.chart(0).gradient)
                     .opacity(detailBarOpacity(for: item.date))
                 }
             }
@@ -501,7 +504,7 @@ struct ActiveEnergyDetailView: View {
             Label(label, systemImage: image)
             Spacer()
             Text("\(value.formatted(.number)) \(energyUnit.abbreviation)")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
         }
         .accessibilityElement(children: .combine)
     }
@@ -546,4 +549,5 @@ struct ActiveEnergyDetailView: View {
                 .padding()
         }
     }
+    .designThemePreview()
 }

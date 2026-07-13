@@ -1,4 +1,5 @@
 import Charts
+import DesignKit
 import HealthKit
 import HealthKitService
 import SwiftUI
@@ -95,6 +96,7 @@ struct HeartRateSection: View {
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "HeartRateSection")
 
@@ -132,10 +134,10 @@ struct HeartRateSection: View {
         VStack(spacing: 4) {
             Image(systemName: "heart.slash")
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
             Text(String(localized: "无法加载心率数据", comment: "Heart rate load error"))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
         }
         .frame(height: 120)
         .frame(maxWidth: .infinity)
@@ -145,10 +147,10 @@ struct HeartRateSection: View {
         VStack(spacing: 4) {
             Image(systemName: "heart.text.clipboard")
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
             Text(String(localized: "暂无心率数据", comment: "No heart rate data"))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
         }
         .frame(height: 120)
         .frame(maxWidth: .infinity)
@@ -229,17 +231,18 @@ private struct StatItem: View {
     let label: String
     let value: Int
     let unit: String
+    @Environment(\.theme) private var theme
 
     var body: some View {
         VStack(spacing: 2) {
             Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(TypeScale.meta)
+                .foregroundStyle(theme.neutrals.text2)
             Text(value.formatted())
-                .font(.headline)
+                .font(TypeScale.title)
             Text(unit)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(TypeScale.meta)
+                .foregroundStyle(theme.neutrals.text2)
         }
     }
 }
@@ -252,6 +255,7 @@ struct HeartRateChartView: View {
     let compact: Bool
 
     @State private var selectedDate: Date?
+    @Environment(\.theme) private var theme
 
     private var selectedPoint: HealthDataPoint? {
         guard let selectedDate else { return nil }
@@ -271,7 +275,7 @@ struct HeartRateChartView: View {
                         point.value
                     )
                 )
-                .foregroundStyle(.red)
+                .foregroundStyle(theme.chart(0))
                 .interpolationMethod(.catmullRom)
 
                 AreaMark(
@@ -286,7 +290,7 @@ struct HeartRateChartView: View {
                 )
                 .foregroundStyle(
                     .linearGradient(
-                        colors: [.red.opacity(0.3), .red.opacity(0.0)],
+                        colors: [theme.chart(0).opacity(0.3), theme.chart(0).opacity(0.0)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -296,7 +300,7 @@ struct HeartRateChartView: View {
 
             if let selectedPoint {
                 RuleMark(x: .value("Selected", selectedPoint.startDate))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text3)
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 2]))
                     .annotation(
                         position: .top,
@@ -334,15 +338,19 @@ struct HeartRateChartView: View {
                 .font(.caption.bold())
             Text(String(localized: "BPM", comment: "Beats per minute"))
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
             Text(point.startDate.formatted(.dateTime.hour().minute()))
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(.regularMaterial)
+        .background(theme.neutrals.card)
         .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(theme.neutrals.border, lineWidth: 1)
+        )
         .accessibilityLabel(
             String(localized: "心率 \(Int(point.value.rounded())) BPM，\(point.startDate.formatted(.dateTime.hour().minute()))", comment: "Selected HR a11y")
         )
@@ -384,6 +392,7 @@ struct HeartRateDetailView: View {
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "HeartRateDetail")
 
@@ -414,10 +423,10 @@ struct HeartRateDetailView: View {
                     VStack(spacing: 4) {
                         Image(systemName: "heart.slash")
                             .font(.title3)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.neutrals.text2)
                         Text(String(localized: "无法加载心率数据", comment: "Heart rate load error"))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.neutrals.text2)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 200)
@@ -446,16 +455,16 @@ struct HeartRateDetailView: View {
                                 if let source = point.sourceName {
                                     Text(source)
                                         .font(.caption2)
-                                        .foregroundStyle(.tertiary)
+                                        .foregroundStyle(theme.neutrals.text3)
                                 }
                             }
                             Spacer()
                             HStack(alignment: .firstTextBaseline, spacing: 2) {
                                 Text(Int(point.value.rounded()).formatted())
-                                    .font(.body.monospacedDigit())
+                                    .font(TypeScale.num)
                                 Text(String(localized: "BPM", comment: "Beats per minute"))
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(theme.neutrals.text2)
                             }
                         }
                         .accessibilityLabel(
@@ -465,7 +474,7 @@ struct HeartRateDetailView: View {
                     if dataPoints.count > displayLimit {
                         Text(String(localized: "显示最近 \(displayLimit) 条记录（共 \(dataPoints.count) 条）", comment: "Heart rate row cap note"))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.neutrals.text2)
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
                 } header: {
@@ -516,7 +525,7 @@ struct HeartRateDetailView: View {
             Label(label, systemImage: image)
             Spacer()
             Text("\(value.formatted()) " + String(localized: "BPM", comment: "Beats per minute"))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
         }
         .accessibilityElement(children: .combine)
     }
@@ -554,4 +563,5 @@ struct HeartRateDetailView: View {
                 .padding()
         }
     }
+    .designThemePreview()
 }

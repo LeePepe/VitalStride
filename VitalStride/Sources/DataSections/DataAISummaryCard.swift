@@ -1,9 +1,11 @@
+import DesignKit
 import Foundation
 import HealthKitService
 import SwiftUI
 
 struct DataAISummaryCard: View {
     let state: DataAISummaryState
+    @Environment(\.theme) private var theme
 
     var body: some View {
         switch state.phase {
@@ -25,7 +27,7 @@ struct DataAISummaryCard: View {
                     .accessibilityAddTraits(.updatesFrequently)
                 Text(String(localized: "正在分析…", comment: "AI summary loading text"))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
             }
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 8)
@@ -86,7 +88,7 @@ struct DataAISummaryCard: View {
 
             Text(truncatedSummary(result.summary))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .lineLimit(2)
         }
         .accessibilityElement(children: .ignore)
@@ -103,14 +105,14 @@ struct DataAISummaryCard: View {
     private func suggestionRow(suggestion: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "lightbulb")
-                .foregroundStyle(.yellow)
+                .foregroundStyle(theme.primary.primary)
                 .frame(width: 20, alignment: .center)
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(localized: "建议", comment: "Suggestion prefix"))
                     .font(.caption.weight(.medium))
                 Text(suggestion)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -129,7 +131,7 @@ struct DataAISummaryCard: View {
                     )
                 )
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(theme.neutrals.text3)
                 .accessibilityLabel(
                     String(
                         localized: "上次更新 \(generatedAt, format: .relative(presentation: .named))",
@@ -153,10 +155,10 @@ struct DataAISummaryCard: View {
 
     private func trendColor(_ trend: String) -> Color {
         switch trend {
-        case "rising": .green
-        case "falling": .red
-        case "stable": .blue
-        default: .secondary
+        case "rising": theme.success
+        case "falling": theme.danger
+        case "stable": theme.primary.primary
+        default: theme.neutrals.text3
         }
     }
 
