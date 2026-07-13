@@ -1,6 +1,9 @@
 import Foundation
 
-#if canImport(UIKit) && !os(macOS)
+// watchOS also `canImport(UIKit)` but lacks UIImpactFeedbackGenerator /
+// UINotificationFeedbackGenerator (those are WatchKit-side there), so the UIKit
+// path must exclude watchOS as well as macOS.
+#if canImport(UIKit) && !os(macOS) && !os(watchOS)
 import UIKit
 #endif
 
@@ -12,7 +15,7 @@ public enum HapticType: CaseIterable, Sendable {
 }
 
 public enum HapticManager {
-    #if canImport(UIKit) && !os(macOS)
+    #if canImport(UIKit) && !os(macOS) && !os(watchOS)
     @MainActor
     public static func trigger(_ type: HapticType) {
         switch type {

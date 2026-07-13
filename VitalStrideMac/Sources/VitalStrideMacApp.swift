@@ -37,13 +37,17 @@ struct VitalStrideMacApp: App {
                 typesProber: service
             )
 
+            // Copy the stored property into a local before the escaping Task so
+            // the closure captures the value, not `self` mid-init (matches the
+            // iOS VitalStrideApp init).
+            let cache = healthDataCache
             Task {
                 ExerciseSeeder.seedIfNeeded(context: modelContainer.mainContext)
                 let status = try? await service.authorizationStatus()
                 if status == .unnecessary {
-                    await healthDataCache.hydrate(types: HealthSampleType.overviewTypes)
+                    await cache.hydrate(types: HealthSampleType.overviewTypes)
                 } else {
-                    await healthDataCache.handleAuthorizationRevoked()
+                    await cache.handleAuthorizationRevoked()
                     service.clearAllAnchors()
                 }
             }
