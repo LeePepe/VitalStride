@@ -1,9 +1,11 @@
+import DesignKit
 import HealthKit
 import HealthKitService
 import SwiftUI
 import TelemetryKit
 
 struct OnboardingView: View {
+    @Environment(\.theme) private var theme
     @Binding var hasCompletedOnboarding: Bool
     @State private var currentPage = 0
     @State private var isRequestingAuth = false
@@ -41,7 +43,7 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 24)
             .padding(.top, 16)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(theme.neutrals.text2)
         }
     }
 
@@ -53,7 +55,7 @@ struct OnboardingView: View {
 
             Image(systemName: "figure.walk.motion")
                 .font(.system(size: 80))
-                .foregroundStyle(.tint)
+                .foregroundStyle(theme.primary.primary)
 
             Text("VitalStride")
                 .font(.largeTitle)
@@ -61,7 +63,7 @@ struct OnboardingView: View {
 
             Text("你的健康数据 + AI 分析助手")
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .multilineTextAlignment(.center)
 
             Spacer()
@@ -112,7 +114,7 @@ struct OnboardingView: View {
 
             Image(systemName: "heart.circle.fill")
                 .font(.system(size: 80))
-                .foregroundStyle(.pink)
+                .foregroundStyle(theme.primary.primary)
 
             Text("连接健康数据")
                 .font(.title2)
@@ -120,7 +122,7 @@ struct OnboardingView: View {
 
             Text("VitalStride 需要访问你的健康数据来展示心率、步数等信息，并将训练记录写入 HealthKit。")
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.neutrals.text2)
                 .multilineTextAlignment(.center)
 
             Spacer()
@@ -131,7 +133,7 @@ struct OnboardingView: View {
                 HStack {
                     if isRequestingAuth {
                         ProgressView()
-                            .tint(.white)
+                            .tint(theme.primary.onPrimary)
                     }
                     Text("授权 HealthKit")
                 }
@@ -139,12 +141,13 @@ struct OnboardingView: View {
                 .padding(.vertical, 14)
             }
             .buttonStyle(.borderedProminent)
+            .tint(theme.primary.primary)
             .disabled(isRequestingAuth)
 
             Button("稍后再说") {
                 completeOnboarding()
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(theme.neutrals.text2)
             .padding(.bottom, 32)
         }
         .padding(.horizontal, 32)
@@ -156,7 +159,7 @@ struct OnboardingView: View {
         HStack(alignment: .top, spacing: 16) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundStyle(.tint)
+                .foregroundStyle(theme.primary.primary)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -164,7 +167,7 @@ struct OnboardingView: View {
                     .font(.headline)
                 Text(description)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.neutrals.text2)
             }
         }
     }
@@ -179,12 +182,13 @@ struct OnboardingView: View {
                 .padding(.vertical, 14)
         }
         .buttonStyle(.borderedProminent)
+        .tint(theme.primary.primary)
     }
 
     private var swipeHint: some View {
         Text("左滑继续")
             .font(.footnote)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(theme.neutrals.text3)
             .padding(.bottom, 60)
     }
 
@@ -231,4 +235,5 @@ struct OnboardingView: View {
 
 #Preview {
     OnboardingView(hasCompletedOnboarding: .constant(false))
+        .designThemePreview()
 }

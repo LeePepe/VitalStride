@@ -1,8 +1,10 @@
+import DesignKit
 import SwiftUI
 import TelemetryKit
 import UniformTypeIdentifiers
 
 struct DataImportExportSection: View {
+    @Environment(\.theme) private var theme
     @State private var showingFileImporter = false
     @State private var showingFileExporter = false
     @State private var importedFiles: [ImportedFileRecord] = []
@@ -16,6 +18,7 @@ struct DataImportExportSection: View {
                 showingFileImporter = true
             } label: {
                 Label("导入 GPX/FIT 文件", systemImage: "square.and.arrow.down")
+                    .tint(theme.primary.primary)
             }
 
             if !importedFiles.isEmpty {
@@ -27,18 +30,20 @@ struct DataImportExportSection: View {
                             Spacer()
                             Text(file.importDate, style: .date)
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                                .foregroundStyle(theme.neutrals.text2)
                         }
                     }
                 } label: {
                     Label("导入历史 (\(importedFiles.count))", systemImage: "clock")
+                        .tint(theme.primary.primary)
                 }
             }
 
             if let importError {
                 Label(importError, systemImage: "exclamationmark.triangle")
                     .font(.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(theme.danger)
             }
         }
         .fileImporter(
@@ -56,12 +61,14 @@ struct DataImportExportSection: View {
                 }
             } label: {
                 Label("导出范围", systemImage: "calendar")
+                    .tint(theme.primary.primary)
             }
 
             Button {
                 showingFileExporter = true
             } label: {
                 Label("导出训练数据 (JSON)", systemImage: "square.and.arrow.up")
+                    .tint(theme.primary.primary)
             }
         }
         .fileExporter(
@@ -172,4 +179,5 @@ extension UTType {
     Form {
         DataImportExportSection()
     }
+    .designThemePreview()
 }

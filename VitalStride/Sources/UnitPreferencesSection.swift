@@ -1,3 +1,4 @@
+import DesignKit
 import SwiftUI
 
 enum WeightUnit: String, CaseIterable {
@@ -98,6 +99,7 @@ enum EnergyUnit: String, CaseIterable {
 }
 
 struct UnitPreferencesSection: View {
+    @Environment(\.theme) private var theme
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     @AppStorage("distanceUnit") private var distanceUnit: DistanceUnit = .km
     @AppStorage("energyUnit") private var energyUnit: EnergyUnit = .kcal
@@ -110,6 +112,7 @@ struct UnitPreferencesSection: View {
                 }
             } label: {
                 Label("重量", systemImage: "scalemass")
+                    .tint(theme.primary.primary)
             }
 
             Picker(selection: $distanceUnit) {
@@ -118,6 +121,7 @@ struct UnitPreferencesSection: View {
                 }
             } label: {
                 Label("距离", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                    .tint(theme.primary.primary)
             }
 
             Picker(selection: $energyUnit) {
@@ -126,6 +130,7 @@ struct UnitPreferencesSection: View {
                 }
             } label: {
                 Label("能量", systemImage: "flame")
+                    .tint(theme.primary.primary)
             }
         }
     }
@@ -135,4 +140,5 @@ struct UnitPreferencesSection: View {
     Form {
         UnitPreferencesSection()
     }
+    .designThemePreview()
 }

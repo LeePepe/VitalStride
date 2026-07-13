@@ -1,3 +1,4 @@
+import DesignKit
 import SwiftUI
 
 enum SidebarSection: String, CaseIterable, Identifiable {
@@ -42,6 +43,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 }
 
 struct MacContentView: View {
+    @Environment(\.theme) private var theme
     @State private var selectedSection: SidebarSection? = .overview
 
     var body: some View {
@@ -51,14 +53,15 @@ struct MacContentView: View {
                     .tag(section)
                     .accessibilityLabel(section.accessibilityName)
             }
+            .tint(theme.primary.primary)
             .navigationTitle("VitalStride")
         } detail: {
             if let section = selectedSection {
                 section.detailView
             } else {
                 Text("请选择一个功能区域")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
+                    .font(TypeScale.title)
+                    .foregroundStyle(theme.neutrals.text2)
             }
         }
     }
@@ -66,4 +69,5 @@ struct MacContentView: View {
 
 #Preview {
     MacContentView()
+        .designThemePreview()
 }

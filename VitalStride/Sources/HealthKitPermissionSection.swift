@@ -1,9 +1,11 @@
+import DesignKit
 import HealthKit
 import HealthKitService
 import SwiftUI
 import TelemetryKit
 
 struct HealthKitPermissionSection: View {
+    @Environment(\.theme) private var theme
     @State private var authorizationStatus: HKAuthorizationRequestStatus?
     @State private var isLoading = true
     @State private var isRequesting = false
@@ -51,12 +53,12 @@ struct HealthKitPermissionSection: View {
         Section("HealthKit 权限") {
             HStack {
                 Label("授权状态", systemImage: "heart.text.square")
+                    .tint(theme.primary.primary)
                 Spacer()
                 if isLoading {
                     ProgressView()
                 } else {
-                    Text(statusText)
-                        .foregroundStyle(statusColor)
+                    StatusPill(statusText, tone: statusTone)
                 }
             }
 
@@ -85,10 +87,11 @@ struct HealthKitPermissionSection: View {
                 ForEach(Self.requestedTypes, id: \.0) { name, icon in
                     Label(name, systemImage: icon)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.neutrals.text2)
                 }
             } label: {
                 Label("请求的数据类型", systemImage: "list.bullet")
+                    .tint(theme.primary.primary)
             }
         }
         .task {
@@ -111,14 +114,14 @@ struct HealthKitPermissionSection: View {
         }
     }
 
-    private var statusColor: Color {
+    private var statusTone: PillTone {
         switch authorizationStatus {
         case .unnecessary:
-            return .green
+            return .success
         case .shouldRequest:
-            return .orange
+            return .warning
         default:
-            return .secondary
+            return .neutral
         }
     }
 
@@ -176,4 +179,5 @@ struct HealthKitPermissionSection: View {
     Form {
         HealthKitPermissionSection()
     }
+    .designThemePreview()
 }
