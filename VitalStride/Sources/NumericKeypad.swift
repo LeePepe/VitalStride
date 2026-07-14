@@ -98,6 +98,7 @@ struct NumericKeypad: View {
             Text(key.label)
                 .font(.title2)
                 .fontWeight(.medium)
+                .foregroundStyle(keyForeground(key))
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .background(keyBackground(key))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -115,6 +116,13 @@ struct NumericKeypad: View {
         switch key {
         case .delete: theme.neutrals.inner
         default: theme.neutrals.card
+        }
+    }
+
+    private func keyForeground(_ key: NumericKeypadKey) -> Color {
+        switch key {
+        case .delete: theme.neutrals.text2
+        default: theme.neutrals.text1
         }
     }
 }
