@@ -135,8 +135,8 @@ struct WorkoutNumericKeyboardContentView: View {
                 .font(.subheadline)
                 .fontWeight(.medium)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .foregroundStyle(enabled ? Color.primary : Color.secondary.opacity(0.6))
-                .background(Color(uiColor: .secondarySystemBackground))
+                .foregroundStyle(enabled ? theme.neutrals.text2 : theme.neutrals.text3)
+                .background(theme.neutrals.inner)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
@@ -204,8 +204,9 @@ struct WorkoutNumericKeyboardContentView: View {
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .monospacedDigit()
+                .foregroundStyle(theme.primary.primaryText)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .background(Color(uiColor: .tertiarySystemBackground))
+                .background(theme.primary.primarySubtle)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
@@ -220,9 +221,9 @@ struct WorkoutNumericKeyboardContentView: View {
             Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Workout keyboard: Done key label"))
                 .font(.subheadline)
                 .fontWeight(.semibold)
-                .foregroundStyle(Color.white)
+                .foregroundStyle(theme.primary.onPrimary)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .background(Color.accentColor)
+                .background(theme.primary.primary)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
@@ -352,7 +353,10 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
     }
 
     private func setUp() {
-        backgroundColor = .systemGroupedBackground
+        // Backing UIView is transparent — the hosted SwiftUI content owns the
+        // visible background (`theme.neutrals.bg`), keeping the keyboard on
+        // the DesignKit token pipeline instead of UIKit system colors.
+        backgroundColor = .clear
         translatesAutoresizingMaskIntoConstraints = false
 
         host.view.backgroundColor = .clear
