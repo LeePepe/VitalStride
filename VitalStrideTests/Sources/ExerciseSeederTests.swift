@@ -47,14 +47,36 @@ struct ExerciseSeederTests {
         return payload
     }
 
+    private struct BundledCatalogEnvelope: Decodable {
+        struct BundledExercise: Decodable { let id: String }
+        let version: String
+        let exercises: [BundledExercise]
+    }
+
+    private func loadBundledCatalog() throws -> BundledCatalogEnvelope {
+        let url = try #require(Bundle.main.url(forResource: "exercises", withExtension: "json"))
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode(BundledCatalogEnvelope.self, from: data)
+    }
+
+    private func bundledCatalogPresetCount() throws -> Int {
+        try loadBundledCatalog().exercises.count
+    }
+
+    private func bundledCatalogVersion() -> String {
+        (try? loadBundledCatalog().version) ?? ""
+    }
+
     // MARK: - Full Bundle Tests
 
-    @Test("Seeds 300 exercises into empty container with presetId")
+    @Test("Seeds full bundled catalog into empty container with presetId")
     func seedsIntoEmptyContainer() throws {
         let container = try ModelContainerConfiguration.makeTestContainer()
         let context = ModelContext(container)
         let defaults = makeUserDefaults()
         defer { cleanUp(defaults) }
+
+        let expectedCount = try bundledCatalogPresetCount()
 
         ExerciseSeeder.seedIfNeeded(context: context, userDefaults: defaults)
 
@@ -62,10 +84,10 @@ struct ExerciseSeederTests {
             predicate: #Predicate { $0.isCustom == false }
         )
         let exercises = try context.fetch(descriptor)
-        #expect(exercises.count == 300)
+        #expect(exercises.count == expectedCount)
 
         let withPresetId = exercises.filter { $0.presetId != nil }
-        #expect(withPresetId.count == 300)
+        #expect(withPresetId.count == expectedCount)
     }
 
     @Test("Idempotent — same version does not duplicate")
@@ -75,6 +97,8 @@ struct ExerciseSeederTests {
         let defaults = makeUserDefaults()
         defer { cleanUp(defaults) }
 
+        let expectedCount = try bundledCatalogPresetCount()
+
         ExerciseSeeder.seedIfNeeded(context: context, userDefaults: defaults)
         ExerciseSeeder.seedIfNeeded(context: context, userDefaults: defaults)
 
@@ -82,7 +106,7 @@ struct ExerciseSeederTests {
             predicate: #Predicate { $0.isCustom == false }
         )
         let count = try context.fetchCount(descriptor)
-        #expect(count == 300)
+        #expect(count == expectedCount)
     }
 
     @Test("Does not affect custom exercises")
@@ -91,6 +115,8 @@ struct ExerciseSeederTests {
         let context = ModelContext(container)
         let defaults = makeUserDefaults()
         defer { cleanUp(defaults) }
+
+        let expectedCount = try bundledCatalogPresetCount()
 
         let custom = Exercise(
             nameEn: "My Custom Exercise",
@@ -114,7 +140,7 @@ struct ExerciseSeederTests {
             predicate: #Predicate { $0.isCustom == false }
         )
         let presetCount = try context.fetchCount(presetDescriptor)
-        #expect(presetCount == 300)
+        #expect(presetCount == expectedCount)
     }
 
     @Test("Seeded data matches JSON source")
@@ -153,7 +179,7 @@ struct ExerciseSeederTests {
 
         ExerciseSeeder.seedIfNeeded(context: context, userDefaults: defaults)
 
-        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == "2")
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == bundledCatalogVersion())
     }
 
     // MARK: - Version Skip + Empty DB Recovery
