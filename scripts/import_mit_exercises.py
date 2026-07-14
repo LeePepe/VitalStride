@@ -55,7 +55,7 @@ EQUIPMENT_MAP: dict[str, str] = {
     "ez barbell": "barbell",
     "olympic barbell": "barbell",
     "trap bar": "barbell",
-    "smith machine": "barbell",
+    "smith machine": "machine",
     "dumbbell": "dumbbell",
     "kettlebell": "kettlebell",
     "cable": "cable",
@@ -324,6 +324,21 @@ def main() -> int:
         file=sys.stderr,
     )
     print(f"info: total after merge = {len(existing)} + {len(added)} = {total_after}", file=sys.stderr)
+
+    # Idempotent rerun: if the on-disk catalog is already at TARGET_VERSION and
+    # a full mapping pass produces zero net-new rows (every MIT row is either
+    # already present by deterministic UUIDv5 or dedup-matched by nameEn against
+    # an existing entry), treat this as a verified no-op rerun and exit 0. The
+    # initial-import ≥600 guard still applies to any run where the catalog has
+    # not yet been bumped to TARGET_VERSION.
+    already_imported = catalog.get("version") == TARGET_VERSION and len(added) == 0
+    if already_imported:
+        print(
+            f"info: catalog already at version={TARGET_VERSION} and MIT rerun yields "
+            "no net-new rows; nothing to do (idempotent rerun)",
+            file=sys.stderr,
+        )
+        return 0
 
     if len(added) < NEW_NET_MIN:
         print(

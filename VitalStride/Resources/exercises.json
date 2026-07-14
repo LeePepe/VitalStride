@@ -21872,15 +21872,15 @@
       "nameEn": "Smith Back Shrug",
       "nameZh": "Smith Back Shrug",
       "muscleGroup": "back",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "shoulders"
       ],
       "secondaryMuscles": [
         "shoulders"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 55.0,
       "defaultWeightHigh": 40.0
     },
     {
@@ -21888,7 +21888,7 @@
       "nameEn": "Smith Behind Neck Press",
       "nameZh": "Smith Behind Neck Press",
       "muscleGroup": "shoulders",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -21898,14 +21898,14 @@
       ],
       "defaultWeightLow": 50.0,
       "defaultWeightMid": 40.0,
-      "defaultWeightHigh": 25.0
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "999ed0da-4130-5b7d-ab22-07a15d4a23fc",
       "nameEn": "Smith Bench Press",
       "nameZh": "Smith Bench Press",
       "muscleGroup": "chest",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -21913,16 +21913,16 @@
         "triceps",
         "shoulders"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
-      "defaultWeightHigh": 40.0
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "7fb06c13-bc3a-5435-a3e1-6c811f53e51e",
       "nameEn": "Smith Bent Knee Good Morning",
       "nameZh": "Smith Bent Knee Good Morning",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "hamstrings"
       ],
@@ -21930,16 +21930,16 @@
         "hamstrings",
         "lower back"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "e6a6b54d-46be-5f88-b280-e6ece40d02de",
       "nameEn": "Smith Bent Over Row",
       "nameZh": "Smith Bent Over Row",
       "muscleGroup": "back",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "biceps"
       ],
@@ -21947,8 +21947,8 @@
         "biceps",
         "forearms"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 55.0,
       "defaultWeightHigh": 40.0
     },
     {
@@ -21956,7 +21956,7 @@
       "nameEn": "Smith Chair Squat",
       "nameZh": "Smith Chair Squat",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "glutes"
       ],
@@ -21965,16 +21965,16 @@
         "hamstrings",
         "calves"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "3004d7c1-ee24-522e-8691-e847a80f39eb",
       "nameEn": "Smith Close-Grip Bench Press",
       "nameZh": "Smith Close-Grip Bench Press",
       "muscleGroup": "arms",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "chest"
       ],
@@ -21982,16 +21982,16 @@
         "chest",
         "shoulders"
       ],
-      "defaultWeightLow": 35.0,
-      "defaultWeightMid": 25.0,
-      "defaultWeightHigh": 18.0
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "eff99675-5c93-57e7-86cb-227f88ed70c2",
       "nameEn": "Smith Deadlift",
       "nameZh": "Smith Deadlift",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "hamstrings"
       ],
@@ -22000,16 +22000,16 @@
         "quadriceps",
         "lower back"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "c60904ed-f483-587c-8b55-537da651ab4d",
       "nameEn": "Smith Decline Bench Press",
       "nameZh": "Smith Decline Bench Press",
       "muscleGroup": "chest",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -22017,16 +22017,16 @@
         "triceps",
         "shoulders"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
-      "defaultWeightHigh": 40.0
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "622044b3-93d1-5779-ad25-5e793cb7436c",
       "nameEn": "Smith Decline Reverse-Grip Press",
       "nameZh": "Smith Decline Reverse-Grip Press",
       "muscleGroup": "chest",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -22034,16 +22034,16 @@
         "triceps",
         "shoulders"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
-      "defaultWeightHigh": 40.0
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "ba5b9740-e3a0-5b23-b7d5-2fc31a8545df",
       "nameEn": "Smith Front Squat (clean Grip)",
       "nameZh": "Smith Front Squat (clean Grip)",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "quadriceps"
       ],
@@ -22053,16 +22053,16 @@
         "calves",
         "core"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "cbc60b76-4ce0-5c30-aac0-10613d79ae02",
       "nameEn": "Smith Full Squat",
       "nameZh": "Smith Full Squat",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "quadriceps"
       ],
@@ -22071,16 +22071,16 @@
         "hamstrings",
         "calves"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "8b052ae4-a729-5c5f-aae0-0cf1b78210f5",
       "nameEn": "Smith Hack Squat",
       "nameZh": "Smith Hack Squat",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "quadriceps"
       ],
@@ -22089,16 +22089,16 @@
         "hamstrings",
         "calves"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "1298bc08-d1f2-5836-a923-81f4c2e019fa",
       "nameEn": "Smith Hip Raise",
       "nameZh": "Smith Hip Raise",
       "muscleGroup": "core",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "glutes"
       ],
@@ -22115,7 +22115,7 @@
       "nameEn": "Smith Incline Bench Press",
       "nameZh": "Smith Incline Bench Press",
       "muscleGroup": "chest",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "shoulders"
       ],
@@ -22123,16 +22123,16 @@
         "shoulders",
         "triceps"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
-      "defaultWeightHigh": 40.0
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "0b12f0c0-1fa9-5d86-9597-0f71aca398db",
       "nameEn": "Smith Incline Reverse-Grip Press",
       "nameZh": "Smith Incline Reverse-Grip Press",
       "muscleGroup": "chest",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -22140,16 +22140,16 @@
         "triceps",
         "shoulders"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
-      "defaultWeightHigh": 40.0
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "6aff70b7-f19a-5345-ad9c-7a43b3c39d6d",
       "nameEn": "Smith Incline Shoulder Raises",
       "nameZh": "Smith Incline Shoulder Raises",
       "muscleGroup": "chest",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "deltoids"
       ],
@@ -22157,16 +22157,16 @@
         "deltoids",
         "trapezius"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
-      "defaultWeightHigh": 40.0
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "a8b14ea1-49b1-5f41-b60d-be34390eb9b2",
       "nameEn": "Smith Leg Press",
       "nameZh": "Smith Leg Press",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "quadriceps"
       ],
@@ -22175,16 +22175,16 @@
         "hamstrings",
         "calves"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "2a513535-41ac-5221-8b09-f25c0fe31c3a",
       "nameEn": "Smith Low Bar Squat",
       "nameZh": "Smith Low Bar Squat",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "quadriceps"
       ],
@@ -22193,32 +22193,32 @@
         "hamstrings",
         "calves"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "5d81f20a-b158-5a83-b90c-6d21590241f2",
       "nameEn": "Smith Machine Bicep Curl",
       "nameZh": "Smith Machine Bicep Curl",
       "muscleGroup": "arms",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "forearms"
       ],
       "secondaryMuscles": [
         "forearms"
       ],
-      "defaultWeightLow": 35.0,
-      "defaultWeightMid": 25.0,
-      "defaultWeightHigh": 18.0
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "5382ea52-eb59-5022-84c4-facb52fb71ec",
       "nameEn": "Smith Machine Decline Close Grip Bench Press",
       "nameZh": "Smith Machine Decline Close Grip Bench Press",
       "muscleGroup": "arms",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "chest"
       ],
@@ -22226,32 +22226,32 @@
         "chest",
         "shoulders"
       ],
-      "defaultWeightLow": 35.0,
-      "defaultWeightMid": 25.0,
-      "defaultWeightHigh": 18.0
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "280ed784-811f-5876-923d-4865ef7e08d7",
       "nameEn": "Smith Machine Incline Tricep Extension",
       "nameZh": "Smith Machine Incline Tricep Extension",
       "muscleGroup": "arms",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "shoulders"
       ],
       "secondaryMuscles": [
         "shoulders"
       ],
-      "defaultWeightLow": 35.0,
-      "defaultWeightMid": 25.0,
-      "defaultWeightHigh": 18.0
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "a1ffe29f-a7e0-567a-8c4d-6a8af9397cb5",
       "nameEn": "Smith Machine Reverse Decline Close Grip Bench Press",
       "nameZh": "Smith Machine Reverse Decline Close Grip Bench Press",
       "muscleGroup": "chest",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -22259,16 +22259,16 @@
         "triceps",
         "shoulders"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
-      "defaultWeightHigh": 40.0
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "f98a89fe-876d-540b-9461-e964af4aa8eb",
       "nameEn": "Smith Narrow Row",
       "nameZh": "Smith Narrow Row",
       "muscleGroup": "back",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "biceps"
       ],
@@ -22276,8 +22276,8 @@
         "biceps",
         "rear deltoids"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 55.0,
       "defaultWeightHigh": 40.0
     },
     {
@@ -22285,7 +22285,7 @@
       "nameEn": "Smith One Arm Row",
       "nameZh": "Smith One Arm Row",
       "muscleGroup": "back",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "biceps"
       ],
@@ -22293,8 +22293,8 @@
         "biceps",
         "forearms"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 55.0,
       "defaultWeightHigh": 40.0
     },
     {
@@ -22302,7 +22302,7 @@
       "nameEn": "Smith One Leg Floor Calf Raise",
       "nameZh": "Smith One Leg Floor Calf Raise",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "hamstrings"
       ],
@@ -22310,16 +22310,16 @@
         "hamstrings",
         "glutes"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "9b2167c9-f78c-5de2-b956-18f3e256b598",
       "nameEn": "Smith Rear Delt Row",
       "nameZh": "Smith Rear Delt Row",
       "muscleGroup": "shoulders",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "trapezius"
       ],
@@ -22330,30 +22330,30 @@
       ],
       "defaultWeightLow": 50.0,
       "defaultWeightMid": 40.0,
-      "defaultWeightHigh": 25.0
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "bf6cfca3-bbc3-5e30-b69c-70070611799d",
       "nameEn": "Smith Reverse Calf Raises",
       "nameZh": "Smith Reverse Calf Raises",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "hamstrings"
       ],
       "secondaryMuscles": [
         "hamstrings"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "7eda29db-1606-5984-af49-054b59f7aa6c",
       "nameEn": "Smith Reverse Grip Bent Over Row",
       "nameZh": "Smith Reverse Grip Bent Over Row",
       "muscleGroup": "back",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "biceps"
       ],
@@ -22361,8 +22361,8 @@
         "biceps",
         "forearms"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 55.0,
       "defaultWeightHigh": 40.0
     },
     {
@@ -22370,7 +22370,7 @@
       "nameEn": "Smith Reverse-Grip Press",
       "nameZh": "Smith Reverse-Grip Press",
       "muscleGroup": "chest",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -22378,32 +22378,32 @@
         "triceps",
         "shoulders"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
-      "defaultWeightHigh": 40.0
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "26f279bf-2101-5516-959b-b2bf31683097",
       "nameEn": "Smith Seated One Leg Calf Raise",
       "nameZh": "Smith Seated One Leg Calf Raise",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "hamstrings"
       ],
       "secondaryMuscles": [
         "hamstrings"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "15c03fba-4e1b-5ab3-ab53-3645c13e3060",
       "nameEn": "Smith Seated Shoulder Press",
       "nameZh": "Smith Seated Shoulder Press",
       "muscleGroup": "shoulders",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -22413,14 +22413,14 @@
       ],
       "defaultWeightLow": 50.0,
       "defaultWeightMid": 40.0,
-      "defaultWeightHigh": 25.0
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "d323d5e0-36da-5f31-bf1e-b97d27edfe4c",
       "nameEn": "Smith Seated Wrist Curl",
       "nameZh": "Smith Seated Wrist Curl",
       "muscleGroup": "arms",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "biceps"
       ],
@@ -22428,16 +22428,16 @@
         "biceps",
         "brachialis"
       ],
-      "defaultWeightLow": 35.0,
-      "defaultWeightMid": 25.0,
-      "defaultWeightHigh": 18.0
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "5b429ce1-aa10-5a96-9f64-98b660806b4f",
       "nameEn": "Smith Shoulder Press",
       "nameZh": "Smith Shoulder Press",
       "muscleGroup": "shoulders",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -22447,22 +22447,22 @@
       ],
       "defaultWeightLow": 50.0,
       "defaultWeightMid": 40.0,
-      "defaultWeightHigh": 25.0
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "9ab5f21b-4583-536b-ac45-5b370969e99a",
       "nameEn": "Smith Shrug",
       "nameZh": "Smith Shrug",
       "muscleGroup": "back",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "shoulders"
       ],
       "secondaryMuscles": [
         "shoulders"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 55.0,
       "defaultWeightHigh": 40.0
     },
     {
@@ -22470,7 +22470,7 @@
       "nameEn": "Smith Single Leg Split Squat",
       "nameZh": "Smith Single Leg Split Squat",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "glutes"
       ],
@@ -22478,16 +22478,16 @@
         "glutes",
         "hamstrings"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "b2884ec0-821a-5c91-a4ab-48ce1f9cda26",
       "nameEn": "Smith Sprint Lunge",
       "nameZh": "Smith Sprint Lunge",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "quadriceps"
       ],
@@ -22496,16 +22496,16 @@
         "hamstrings",
         "calves"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "0a5c45f0-ebf5-5e43-881e-360e1b75feeb",
       "nameEn": "Smith Squat",
       "nameZh": "Smith Squat",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "quadriceps"
       ],
@@ -22514,16 +22514,16 @@
         "hamstrings",
         "calves"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "cbee24c1-9d72-5bb5-a116-101fe19aa5b0",
       "nameEn": "Smith Standing Back Wrist Curl",
       "nameZh": "Smith Standing Back Wrist Curl",
       "muscleGroup": "arms",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "biceps"
       ],
@@ -22531,16 +22531,16 @@
         "biceps",
         "triceps"
       ],
-      "defaultWeightLow": 35.0,
-      "defaultWeightMid": 25.0,
-      "defaultWeightHigh": 18.0
+      "defaultWeightLow": 30.0,
+      "defaultWeightMid": 22.0,
+      "defaultWeightHigh": 15.0
     },
     {
       "id": "da535a97-2529-5995-8db6-a0fb4e0062c7",
       "nameEn": "Smith Standing Behind Head Military Press",
       "nameZh": "Smith Standing Behind Head Military Press",
       "muscleGroup": "shoulders",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -22550,14 +22550,14 @@
       ],
       "defaultWeightLow": 50.0,
       "defaultWeightMid": 40.0,
-      "defaultWeightHigh": 25.0
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "c14dad50-c915-5518-8617-9319cf63b21a",
       "nameEn": "Smith Standing Leg Calf Raise",
       "nameZh": "Smith Standing Leg Calf Raise",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "hamstrings"
       ],
@@ -22565,16 +22565,16 @@
         "hamstrings",
         "glutes"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "bf16733d-0f9a-52a0-b9e5-8a59bdf73ba9",
       "nameEn": "Smith Standing Military Press",
       "nameZh": "Smith Standing Military Press",
       "muscleGroup": "shoulders",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -22584,14 +22584,14 @@
       ],
       "defaultWeightLow": 50.0,
       "defaultWeightMid": 40.0,
-      "defaultWeightHigh": 25.0
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "7246abfa-adc7-5052-a78f-313d4ac9777a",
       "nameEn": "Smith Sumo Squat",
       "nameZh": "Smith Sumo Squat",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "quadriceps"
       ],
@@ -22600,16 +22600,16 @@
         "hamstrings",
         "calves"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "b04ee308-07be-506a-a96c-a868f0c03b69",
       "nameEn": "Smith Toe Raise",
       "nameZh": "Smith Toe Raise",
       "muscleGroup": "legs",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "ankles"
       ],
@@ -22617,16 +22617,16 @@
         "ankles",
         "shins"
       ],
-      "defaultWeightLow": 120.0,
-      "defaultWeightMid": 90.0,
-      "defaultWeightHigh": 60.0
+      "defaultWeightLow": 100.0,
+      "defaultWeightMid": 75.0,
+      "defaultWeightHigh": 50.0
     },
     {
       "id": "74e4ed46-6eef-52d8-a841-27dc556f7592",
       "nameEn": "Smith Upright Row",
       "nameZh": "Smith Upright Row",
       "muscleGroup": "shoulders",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "traps"
       ],
@@ -22636,14 +22636,14 @@
       ],
       "defaultWeightLow": 50.0,
       "defaultWeightMid": 40.0,
-      "defaultWeightHigh": 25.0
+      "defaultWeightHigh": 30.0
     },
     {
       "id": "2b286dad-5293-57d3-b515-b9d31b424ae6",
       "nameEn": "Smith Wide Grip Bench Press",
       "nameZh": "Smith Wide Grip Bench Press",
       "muscleGroup": "chest",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -22651,16 +22651,16 @@
         "triceps",
         "shoulders"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
-      "defaultWeightHigh": 40.0
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "76e99559-df3b-5159-b83d-e41d4400508c",
       "nameEn": "Smith Wide Grip Decline Bench Press",
       "nameZh": "Smith Wide Grip Decline Bench Press",
       "muscleGroup": "chest",
-      "equipment": "barbell",
+      "equipment": "machine",
       "primaryMuscles": [
         "triceps"
       ],
@@ -22668,9 +22668,9 @@
         "triceps",
         "shoulders"
       ],
-      "defaultWeightLow": 80.0,
-      "defaultWeightMid": 60.0,
-      "defaultWeightHigh": 40.0
+      "defaultWeightLow": 70.0,
+      "defaultWeightMid": 50.0,
+      "defaultWeightHigh": 35.0
     },
     {
       "id": "3516979d-2eb8-53b8-a702-cbc3834dc008",
