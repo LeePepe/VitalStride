@@ -23,6 +23,7 @@ enum ExerciseSeeder {
         let defaultWeightLow: Double?
         let defaultWeightMid: Double?
         let defaultWeightHigh: Double?
+        let mediaKey: String?
     }
 
     static func seedIfNeeded(
@@ -130,6 +131,7 @@ enum ExerciseSeeder {
                 secondaryMuscles: dto.secondaryMuscles,
                 isCustom: false,
                 presetId: dto.id,
+                mediaKey: dto.mediaKey,
                 defaultWeightLow: dto.defaultWeightLow,
                 defaultWeightMid: dto.defaultWeightMid,
                 defaultWeightHigh: dto.defaultWeightHigh
@@ -183,6 +185,9 @@ enum ExerciseSeeder {
             }
             if exercise.defaultWeightHigh == nil {
                 exercise.defaultWeightHigh = dto.defaultWeightHigh
+            }
+            if exercise.mediaKey == nil {
+                exercise.mediaKey = dto.mediaKey
             }
         }
     }

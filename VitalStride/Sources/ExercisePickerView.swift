@@ -405,6 +405,8 @@ private struct ExerciseCard: View {
                     }
                 }
 
+                mediaPreview
+
                 Text(exercise.localizedName)
                     .font(TypeScale.body)
                     .fontWeight(.semibold)
@@ -441,6 +443,16 @@ private struct ExerciseCard: View {
                 .background(theme.neutrals.inner)
                 .foregroundStyle(theme.neutrals.text2)
                 .clipShape(Capsule())
+        }
+    }
+
+    // Media display point reserved for future authorized media assets. When
+    // `mediaKey` is nil (the current default for every seeded exercise), the
+    // ViewBuilder returns nothing — no placeholder frame, no image fetch.
+    @ViewBuilder
+    private var mediaPreview: some View {
+        if exercise.mediaKey != nil {
+            EmptyView()
         }
     }
 }
