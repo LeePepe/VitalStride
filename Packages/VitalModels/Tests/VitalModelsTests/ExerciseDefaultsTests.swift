@@ -22,6 +22,20 @@ struct ExerciseDefaultsTests {
         #expect(exercise.defaultWeightLow == nil)
         #expect(exercise.defaultWeightMid == nil)
         #expect(exercise.defaultWeightHigh == nil)
+        #expect(exercise.mediaKey == nil)
+    }
+
+    @Test("init accepts mediaKey")
+    func initWithMediaKey() {
+        let exercise = Exercise(
+            nameEn: "Bench Press",
+            nameZh: "卧推",
+            muscleGroup: .chest,
+            equipment: .barbell,
+            mediaKey: "bench-press-001"
+        )
+
+        #expect(exercise.mediaKey == "bench-press-001")
     }
 
     @Test("init accepts custom weight and reps triples")
@@ -64,7 +78,7 @@ struct ExerciseDefaultsTests {
 
     @Test("Decodable JSON with defaultWeight fields present")
     func decodesWithDefaultWeights() throws {
-        let json = """
+        let json = Data("""
         {
           "id": "abc",
           "nameEn": "Bench Press",
@@ -77,7 +91,7 @@ struct ExerciseDefaultsTests {
           "defaultWeightMid": 60.0,
           "defaultWeightHigh": 40.0
         }
-        """.data(using: .utf8)!
+        """.utf8)
 
         let decoded = try JSONDecoder().decode(DecodableFixture.self, from: json)
         #expect(decoded.defaultWeightLow == 80.0)
@@ -87,7 +101,7 @@ struct ExerciseDefaultsTests {
 
     @Test("Decodable JSON with defaultWeight explicitly null")
     func decodesWithNullDefaultWeights() throws {
-        let json = """
+        let json = Data("""
         {
           "id": "abc",
           "nameEn": "Plank",
@@ -100,7 +114,7 @@ struct ExerciseDefaultsTests {
           "defaultWeightMid": null,
           "defaultWeightHigh": null
         }
-        """.data(using: .utf8)!
+        """.utf8)
 
         let decoded = try JSONDecoder().decode(DecodableFixture.self, from: json)
         #expect(decoded.defaultWeightLow == nil)
@@ -110,7 +124,7 @@ struct ExerciseDefaultsTests {
 
     @Test("Decodable JSON with defaultWeight fields absent still decodes")
     func decodesWithMissingDefaultWeights() throws {
-        let json = """
+        let json = Data("""
         {
           "id": "abc",
           "nameEn": "Plank",
@@ -120,7 +134,7 @@ struct ExerciseDefaultsTests {
           "primaryMuscles": ["rectus abdominis"],
           "secondaryMuscles": []
         }
-        """.data(using: .utf8)!
+        """.utf8)
 
         let decoded = try JSONDecoder().decode(DecodableFixture.self, from: json)
         #expect(decoded.defaultWeightLow == nil)

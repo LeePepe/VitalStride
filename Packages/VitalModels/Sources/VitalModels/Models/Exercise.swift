@@ -11,6 +11,7 @@ public final class Exercise {
     public var secondaryMuscles: [String] = []
     public var isCustom: Bool = false
     public var presetId: String?
+    public var mediaKey: String?
 
     public var defaultWeightLow: Double?
     public var defaultWeightMid: Double?
@@ -39,6 +40,7 @@ public final class Exercise {
         secondaryMuscles: [String] = [],
         isCustom: Bool = false,
         presetId: String? = nil,
+        mediaKey: String? = nil,
         defaultWeightLow: Double? = nil,
         defaultWeightMid: Double? = nil,
         defaultWeightHigh: Double? = nil,
@@ -54,6 +56,7 @@ public final class Exercise {
         self.secondaryMuscles = secondaryMuscles
         self.isCustom = isCustom
         self.presetId = presetId
+        self.mediaKey = mediaKey
         self.defaultWeightLow = defaultWeightLow
         self.defaultWeightMid = defaultWeightMid
         self.defaultWeightHigh = defaultWeightHigh
