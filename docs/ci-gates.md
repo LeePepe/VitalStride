@@ -51,3 +51,5 @@ self-hosted runner + `pull_request` + checkout PR head = 公认高危:step 执�
 `scripts/rulesets/main-protection.json` 是唯一真相,改后重跑 `scripts/rulesets/apply`
 (幂等 create-or-update)同步到服务端。**先让 `claude-review` check 至少成功上报过一次,
 再把它加进 required 并 apply**,否则新门会把所有 PR 卡死。
+
+<!-- auto-review-merge smoke test 89309c0 -->
