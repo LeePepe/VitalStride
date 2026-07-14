@@ -1,3 +1,4 @@
+import DesignKit
 import SwiftUI
 import VitalModels
 
@@ -63,6 +64,12 @@ struct WorkoutNumericKeyboardContentView: View {
     let setType: SetType
     let exercise: Exercise?
     let recentWeightKg: Double?
+    /// Explicit theme injected by the enclosing `WorkoutNumericKeyboard`
+    /// host. `inputView` is a detached UIKit hierarchy and does not inherit
+    /// the app-root `.designTheme(...)` environment, so the host resolves the
+    /// theme itself (seed: teal, isDark: from trait collection) and pushes it
+    /// through the environment for descendants (e.g. `NumericKeypad`).
+    let theme: Theme
     let onKeyPress: @MainActor (NumericKeypadKey) -> Void
     let onLeftAction: @MainActor (LeftKeyAction) -> Void
     let onPresetReps: @MainActor (_ weightKg: Double?, _ reps: Int) -> Void
@@ -83,7 +90,8 @@ struct WorkoutNumericKeyboardContentView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(theme.neutrals.bg)
+        .environment(\.theme, theme)
         .accessibilityElement(children: .contain)
     }
 
@@ -260,6 +268,26 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
 
     var enableInputClicksWhenVisible: Bool { true }
 
+    // MARK: Theme resolution
+
+    /// Seed used for the keyboard's theme. Matches the app-root
+    /// `.designTheme(seed: .teal, ...)` in `VitalStrideApp` so the inputView
+    /// renders in the same palette as the rest of the app.
+    private static let seed: Seed = .teal
+    private static let neutral: Neutral = .slate
+
+    /// Resolve the theme for the current trait collection. `inputView` is a
+    /// detached UIKit hierarchy that does not inherit the SwiftUI environment,
+    /// so we compute `isDark` from the view's own trait collection and hand
+    /// the resulting `Theme` down as an explicit value.
+    static func resolveTheme(isDark: Bool) -> Theme {
+        Theme(seed: seed, neutral: neutral, isDark: isDark)
+    }
+
+    private func currentIsDark() -> Bool {
+        traitCollection.userInterfaceStyle == .dark
+    }
+
     // MARK: Init
 
     init(
@@ -306,6 +334,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
             setType: setType,
             exercise: exercise,
             recentWeightKg: recentWeightKg,
+            theme: Self.resolveTheme(isDark: UITraitCollection.current.userInterfaceStyle == .dark),
             onKeyPress: clickingKeyPress,
             onLeftAction: clickingLeft,
             onPresetReps: clickingPreset,
@@ -341,6 +370,45 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         constraint.priority = .required
         constraint.isActive = true
         heightConstraint = constraint
+
+        // Ensure the content view's theme matches this view's own trait
+        // collection (may differ from the class-level `UITraitCollection.current`
+        // sampled at init time, e.g. when the host presents in a scene whose
+        // interface style overrides the app default).
+        refreshTheme()
+    }
+
+    // MARK: Trait / colorScheme bridging
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.userInterfaceStyle != previousTraitCollection?.userInterfaceStyle {
+            refreshTheme()
+        }
+    }
+
+    /// Rebuild `host.rootView` with a theme resolved from the current trait
+    /// collection. The content view is a value type; replacing `rootView` is
+    /// the SwiftUI way to push a fresh environment value into the hosted tree.
+    private func refreshTheme() {
+        let existing = host.rootView
+        let theme = Self.resolveTheme(isDark: currentIsDark())
+        guard theme.isDark != existing.theme.isDark ||
+              theme.seed != existing.theme.seed ||
+              theme.neutral != existing.theme.neutral else {
+            return
+        }
+        host.rootView = WorkoutNumericKeyboardContentView(
+            field: existing.field,
+            setType: existing.setType,
+            exercise: existing.exercise,
+            recentWeightKg: existing.recentWeightKg,
+            theme: theme,
+            onKeyPress: existing.onKeyPress,
+            onLeftAction: existing.onLeftAction,
+            onPresetReps: existing.onPresetReps,
+            onDone: existing.onDone
+        )
     }
 
     // MARK: Public API — updating context between key presses
@@ -361,13 +429,15 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
 
         // Re-hydrate the hosting root view with the new context. The closures
         // are stable — reuse the audio-click wrappers by copying the existing
-        // root's callbacks.
+        // root's callbacks. Theme is also re-resolved from the current trait
+        // collection so any pending light/dark change is picked up here.
         let existing = host.rootView
         host.rootView = WorkoutNumericKeyboardContentView(
             field: field,
             setType: setType,
             exercise: exercise,
             recentWeightKg: recentWeightKg,
+            theme: Self.resolveTheme(isDark: currentIsDark()),
             onKeyPress: existing.onKeyPress,
             onLeftAction: existing.onLeftAction,
             onPresetReps: existing.onPresetReps,
@@ -397,6 +467,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         setType: .working,
         exercise: nil,
         recentWeightKg: 40,
+        theme: Theme(seed: .teal, neutral: .slate, isDark: false),
         onKeyPress: { _ in },
         onLeftAction: { _ in },
         onPresetReps: { _, _ in },
@@ -411,6 +482,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         setType: .warmup,
         exercise: nil,
         recentWeightKg: nil,
+        theme: Theme(seed: .teal, neutral: .slate, isDark: false),
         onKeyPress: { _ in },
         onLeftAction: { _ in },
         onPresetReps: { _, _ in },
