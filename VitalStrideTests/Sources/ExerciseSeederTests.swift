@@ -30,7 +30,8 @@ struct ExerciseSeederTests {
         equipment: String = "barbell",
         defaultWeightLow: Double? = nil,
         defaultWeightMid: Double? = nil,
-        defaultWeightHigh: Double? = nil
+        defaultWeightHigh: Double? = nil,
+        mediaKey: String? = nil
     ) -> [String: Any] {
         var payload: [String: Any] = [
             "id": id,
@@ -44,6 +45,7 @@ struct ExerciseSeederTests {
         if let low = defaultWeightLow { payload["defaultWeightLow"] = low }
         if let mid = defaultWeightMid { payload["defaultWeightMid"] = mid }
         if let high = defaultWeightHigh { payload["defaultWeightHigh"] = high }
+        if let mediaKey { payload["mediaKey"] = mediaKey }
         return payload
     }
 
@@ -558,5 +560,168 @@ struct ExerciseSeederTests {
         #expect(customs.first?.defaultWeightLow == nil)
         #expect(customs.first?.defaultWeightMid == nil)
         #expect(customs.first?.defaultWeightHigh == nil)
+    }
+
+    // MARK: - v2 → v3 mediaKey + incremental upsert
+
+    @Test("DTO tolerates JSON without mediaKey (v2 back-compat)")
+    func dtoDecodesWithoutMediaKey() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        // Payload without a `mediaKey` field at all — simulates v2 JSON.
+        let catalogV2 = makeCatalogData(version: "2", exercises: [
+            makeExerciseJSON(id: "ex-1", nameEn: "Exercise A"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV2)
+
+        let bench = try #require(
+            try context.fetch(FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.presetId == "ex-1" }
+            )).first
+        )
+        #expect(bench.mediaKey == nil)
+    }
+
+    @Test("DTO decodes mediaKey when present in v3 JSON")
+    func dtoDecodesMediaKeyWhenPresent() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let catalogV3 = makeCatalogData(version: "3", exercises: [
+            makeExerciseJSON(id: "ex-1", nameEn: "Exercise A", mediaKey: "bench-001"),
+            makeExerciseJSON(id: "ex-2", nameEn: "Exercise B"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV3)
+
+        let a = try #require(
+            try context.fetch(FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.presetId == "ex-1" }
+            )).first
+        )
+        #expect(a.mediaKey == "bench-001")
+
+        let b = try #require(
+            try context.fetch(FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.presetId == "ex-2" }
+            )).first
+        )
+        #expect(b.mediaKey == nil)
+    }
+
+    @Test("v2 → v3 upgrade preserves existing presets, inserts new, leaves custom alone")
+    func v2ToV3IncrementalUpsert() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        // v2: two presets + one user custom action already in DB.
+        let catalogV2 = makeCatalogData(version: "2", exercises: [
+            makeExerciseJSON(id: "ex-1", nameEn: "Exercise A"),
+            makeExerciseJSON(id: "ex-2", nameEn: "Exercise B"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV2)
+
+        let custom = Exercise(
+            nameEn: "My Move",
+            nameZh: "自定义",
+            muscleGroup: .arms,
+            equipment: .bodyweight,
+            isCustom: true
+        )
+        context.insert(custom)
+        try context.save()
+
+        // Simulate user having edited Exercise A after v2 seeded it — v3
+        // must not overwrite user-authored fields.
+        let aBefore = try #require(
+            try context.fetch(FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.presetId == "ex-1" }
+            )).first
+        )
+        aBefore.defaultWeightLow = 999
+        try context.save()
+
+        // v3: same two presets (now with mediaKey) + one net-new preset.
+        let catalogV3 = makeCatalogData(version: "3", exercises: [
+            makeExerciseJSON(id: "ex-1", nameEn: "Exercise A", mediaKey: "a-001"),
+            makeExerciseJSON(id: "ex-2", nameEn: "Exercise B", mediaKey: "b-001"),
+            makeExerciseJSON(id: "ex-3", nameEn: "Exercise C",
+                             muscleGroup: "back", mediaKey: "c-001"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV3)
+
+        // Presets: 2 preserved + 1 inserted = 3.
+        let presets = try context.fetch(FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.isCustom == false }
+        ))
+        #expect(presets.count == 3)
+
+        // Existing presets preserved (identity + user-authored field kept).
+        let aAfter = try #require(presets.first { $0.presetId == "ex-1" })
+        #expect(aAfter.nameEn == "Exercise A")
+        #expect(aAfter.defaultWeightLow == 999)
+        // mediaKey was nil pre-upgrade → backfilled from v3 DTO.
+        #expect(aAfter.mediaKey == "a-001")
+
+        let bAfter = try #require(presets.first { $0.presetId == "ex-2" })
+        #expect(bAfter.mediaKey == "b-001")
+
+        // Net-new preset inserted with its mediaKey.
+        let cAfter = try #require(presets.first { $0.presetId == "ex-3" })
+        #expect(cAfter.nameEn == "Exercise C")
+        #expect(cAfter.muscleGroup == .back)
+        #expect(cAfter.mediaKey == "c-001")
+
+        // Custom untouched.
+        let customs = try context.fetch(FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.isCustom == true }
+        ))
+        #expect(customs.count == 1)
+        #expect(customs.first?.nameEn == "My Move")
+        #expect(customs.first?.presetId == nil)
+        #expect(customs.first?.mediaKey == nil)
+
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == "3")
+    }
+
+    @Test("v2 → v3 backfill does not overwrite user-set mediaKey")
+    func v3BackfillPreservesUserMediaKey() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        // v2 seed with no mediaKey.
+        let catalogV2 = makeCatalogData(version: "2", exercises: [
+            makeExerciseJSON(id: "ex-1", nameEn: "Exercise A"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV2)
+
+        let a = try #require(
+            try context.fetch(FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.presetId == "ex-1" }
+            )).first
+        )
+        // Simulate a user- or migration-set mediaKey before v3.
+        a.mediaKey = "user-set"
+        try context.save()
+
+        let catalogV3 = makeCatalogData(version: "3", exercises: [
+            makeExerciseJSON(id: "ex-1", nameEn: "Exercise A", mediaKey: "catalog-a"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV3)
+
+        let aAfter = try #require(
+            try context.fetch(FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.presetId == "ex-1" }
+            )).first
+        )
+        #expect(aAfter.mediaKey == "user-set")
     }
 }
