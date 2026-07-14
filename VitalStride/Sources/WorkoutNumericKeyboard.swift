@@ -82,11 +82,12 @@ struct WorkoutNumericKeyboardContentView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             leftColumn
-                .frame(maxWidth: 84)
+                .frame(maxWidth: 72)
             centerColumn
                 .frame(maxWidth: .infinity)
+                .layoutPriority(1)
             rightColumn
-                .frame(maxWidth: 84)
+                .frame(maxWidth: 72)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
@@ -101,39 +102,43 @@ struct WorkoutNumericKeyboardContentView: View {
         VStack(spacing: 6) {
             functionKey(
                 .addPyramid,
-                label: "+↑",
+                content: .symbol("arrow.up.to.line"),
                 a11y: String(localized: "workout_keyboard.add_pyramid_a11y", defaultValue: "Add ascending sub-set", comment: "Workout keyboard: add pyramid sub-set")
             )
             functionKey(
                 .addDropSet,
-                label: "+↓",
+                content: .symbol("arrow.down.to.line"),
                 a11y: String(localized: "workout_keyboard.add_drop_set_a11y", defaultValue: "Add drop-set sub-set", comment: "Workout keyboard: add drop-set sub-set")
             )
             functionKey(
                 .toggleUnilateral,
-                label: String(localized: "workout_keyboard.toggle_unilateral_label", defaultValue: "Uni/Total", comment: "Workout keyboard: unilateral/bilateral toggle key label"),
+                content: .text(String(localized: "workout_keyboard.toggle_unilateral_label", defaultValue: "Uni/Total", comment: "Workout keyboard: unilateral/bilateral toggle key label")),
                 a11y: String(localized: "workout_keyboard.toggle_unilateral_a11y", defaultValue: "Toggle unilateral or bilateral input", comment: "Workout keyboard: toggle unilateral/bilateral input")
             )
             functionKey(
                 .copyToNext,
-                label: String(localized: "workout_keyboard.copy_label", defaultValue: "Copy", comment: "Workout keyboard: copy-to-next key label"),
+                content: .text(String(localized: "workout_keyboard.copy_label", defaultValue: "Copy", comment: "Workout keyboard: copy-to-next key label")),
                 a11y: String(localized: "workout_keyboard.copy_to_next_a11y", defaultValue: "Copy values to next set", comment: "Workout keyboard: copy values to next set")
             )
         }
     }
 
+    private enum FunctionKeyContent {
+        case text(String)
+        case symbol(String)
+    }
+
+    @ViewBuilder
     private func functionKey(
         _ action: LeftKeyAction,
-        label: String,
+        content: FunctionKeyContent,
         a11y: String
     ) -> some View {
         let enabled = isEnabled(action)
-        return Button {
+        Button {
             onLeftAction(action)
         } label: {
-            Text(label)
-                .font(.subheadline)
-                .fontWeight(.medium)
+            functionKeyLabel(content)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .foregroundStyle(enabled ? theme.neutrals.text2 : theme.neutrals.text3)
                 .background(theme.neutrals.inner)
@@ -144,6 +149,22 @@ struct WorkoutNumericKeyboardContentView: View {
         .accessibilityLabel(a11y)
         .accessibilityHint(enabled ? "" : String(localized: "workout_keyboard.disabled_hint", defaultValue: "This key is unavailable for the current set type", comment: "Workout keyboard: disabled key hint"))
         .accessibilityAddTraits(.isKeyboardKey)
+    }
+
+    @ViewBuilder
+    private func functionKeyLabel(_ content: FunctionKeyContent) -> some View {
+        switch content {
+        case .text(let text):
+            Text(text)
+                .font(.footnote)
+                .fontWeight(.medium)
+                .minimumScaleFactor(0.8)
+                .lineLimit(1)
+        case .symbol(let name):
+            Image(systemName: name)
+                .font(.title3)
+                .fontWeight(.medium)
+        }
     }
 
     private func isEnabled(_ action: LeftKeyAction) -> Bool {

@@ -85,7 +85,7 @@ struct NumericKeypad: View {
             keyButton(.decimal)
         case .integer:
             Color.clear
-                .frame(minHeight: 48)
+                .frame(minHeight: 52)
                 .accessibilityHidden(true)
         }
     }
@@ -99,7 +99,7 @@ struct NumericKeypad: View {
                 .font(.title2)
                 .fontWeight(.medium)
                 .foregroundStyle(keyForeground(key))
-                .frame(maxWidth: .infinity, minHeight: 48)
+                .frame(maxWidth: .infinity, minHeight: 52)
                 .background(keyBackground(key))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(
