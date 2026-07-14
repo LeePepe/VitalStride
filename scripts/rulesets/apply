@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Apply the default-branch protection ruleset to the GitHub repo.
+#
+# Idempotent: creates the ruleset if absent, updates it if a ruleset with the
+# same name already exists. The source of truth is the JSON alongside this
+# script — edit that, re-run this, and the server matches it.
+#
+#     scripts/rulesets/apply
+#
+# Requires: gh CLI authenticated with admin on the repo. The repo must be
+# public OR on a plan that allows rulesets (private+free returns 403).
+#
+# Note: required_status_checks + pull_request only gate PRs. Direct pushes to
+# the protected default branch are blocked by the pull_request rule, so all
+# changes must land via PR and pass the required checks.
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+JSON="scripts/rulesets/main-protection.json"
+NAME="$(jq -r .name "$JSON")"
+
+# Resolve owner/repo from the default remote.
+SLUG="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
+
+echo "[ruleset] repo=$SLUG name=\"$NAME\""
+
+# Find an existing ruleset with this name.
+existing_id="$(gh api "repos/$SLUG/rulesets" --jq \
+    ".[] | select(.name == \"$NAME\") | .id" 2>/dev/null || true)"
+
+if [ -n "$existing_id" ]; then
+    echo "[ruleset] updating id=$existing_id"
+    gh api -X PUT "repos/$SLUG/rulesets/$existing_id" --input "$JSON" \
+        --jq '{id, name, enforcement, target}'
+else
+    echo "[ruleset] creating"
+    gh api -X POST "repos/$SLUG/rulesets" --input "$JSON" \
+        --jq '{id, name, enforcement, target}'
+fi
+
+echo "[ruleset] done."
