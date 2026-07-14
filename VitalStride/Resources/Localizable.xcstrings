@@ -4506,6 +4506,222 @@
         }
       }
     },
+    "workout_keyboard.add_drop_set_a11y" : {
+      "extractionState" : "manual",
+      "comment" : "Workout keyboard: add drop-set sub-set (MY-1241).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add drop-set sub-set"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加递减子组"
+          }
+        }
+      }
+    },
+    "workout_keyboard.add_pyramid_a11y" : {
+      "extractionState" : "manual",
+      "comment" : "Workout keyboard: add pyramid sub-set (MY-1241).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add ascending sub-set"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加递增子组"
+          }
+        }
+      }
+    },
+    "workout_keyboard.copy_label" : {
+      "extractionState" : "manual",
+      "comment" : "Workout keyboard: copy-to-next key label (MY-1241).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制"
+          }
+        }
+      }
+    },
+    "workout_keyboard.copy_to_next_a11y" : {
+      "extractionState" : "manual",
+      "comment" : "Workout keyboard: copy values to next set (MY-1241).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy values to next set"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制到下一组"
+          }
+        }
+      }
+    },
+    "workout_keyboard.disabled_hint" : {
+      "extractionState" : "manual",
+      "comment" : "Workout keyboard: disabled key hint (MY-1241).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This key is unavailable for the current set type"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前组类型下此键不可用"
+          }
+        }
+      }
+    },
+    "workout_keyboard.done_a11y" : {
+      "extractionState" : "manual",
+      "comment" : "Workout keyboard: Done key a11y label (MY-1241).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish input"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成输入"
+          }
+        }
+      }
+    },
+    "workout_keyboard.done_label" : {
+      "extractionState" : "manual",
+      "comment" : "Workout keyboard: Done key label (MY-1241).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成"
+          }
+        }
+      }
+    },
+    "workout_keyboard.preset_high_a11y" : {
+      "extractionState" : "manual",
+      "comment" : "Workout keyboard: 15-20 reps preset (MY-1241).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "15 to 20 reps preset"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "15 到 20 次预设"
+          }
+        }
+      }
+    },
+    "workout_keyboard.preset_low_a11y" : {
+      "extractionState" : "manual",
+      "comment" : "Workout keyboard: 4-6 reps preset (MY-1241).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4 to 6 reps preset"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4 到 6 次预设"
+          }
+        }
+      }
+    },
+    "workout_keyboard.preset_mid_a11y" : {
+      "extractionState" : "manual",
+      "comment" : "Workout keyboard: 8-12 reps preset (MY-1241).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "8 to 12 reps preset"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "8 到 12 次预设"
+          }
+        }
+      }
+    },
+    "workout_keyboard.toggle_unilateral_a11y" : {
+      "extractionState" : "manual",
+      "comment" : "Workout keyboard: toggle unilateral/bilateral input (MY-1241).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle unilateral or bilateral input"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换单侧或合计输入"
+          }
+        }
+      }
+    },
+    "workout_keyboard.toggle_unilateral_label" : {
+      "extractionState" : "manual",
+      "comment" : "Workout keyboard: unilateral/bilateral toggle key label (MY-1241).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uni/Total"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单侧/合计"
+          }
+        }
+      }
+    },
     "workout_list_load_more_a11y" : {
       "extractionState" : "manual",
       "comment" : "WorkoutListView load-more button accessibility label (MY-1077).",
