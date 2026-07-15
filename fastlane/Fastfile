@@ -18,6 +18,9 @@ default_platform(:ios)
 APP_IDENTIFIER = "com.leepepe.vitalstride".freeze
 SCHEME = "VitalStride".freeze
 XCODEPROJ = "VitalStride.xcodeproj".freeze
+# 付费 Apple Developer team（Tianpei Li）。runner 钥匙串里有多个账号的证书，
+# 必须显式锁定，否则自动签名会挑错账号（如 qq 邮箱那张 Development 证书）。
+TEAM_ID = "4Z8GG667QD".freeze
 # MARKETING_VERSION，与 project.yml 保持一致；改版本号时两处同步。
 MARKETING_VERSION = "1.0".freeze
 
@@ -51,12 +54,20 @@ platform :ios do
       scheme: SCHEME,
       configuration: "Release",
       export_method: "app-store",
+      # runner 钥匙串有多个 Apple 账号的证书；明确锁定付费 team，
+      # 否则 xcodebuild 自动签名会挑错账号的 Development 证书。
+      export_team_id: TEAM_ID,
       # 覆盖 build number 仅作用于本次 archive，不写回 project.yml。
-      # -allowProvisioningUpdates 让 xcodebuild 用 API key 自动管 profile。
-      xcargs: "CURRENT_PROJECT_VERSION=#{next_build} -allowProvisioningUpdates",
+      # DEVELOPMENT_TEAM 强制用付费 team；-allowProvisioningUpdates 让
+      # xcodebuild 用 API key 自动创建/下载 Distribution profile。
+      xcargs: "CURRENT_PROJECT_VERSION=#{next_build} " \
+              "DEVELOPMENT_TEAM=#{TEAM_ID} -allowProvisioningUpdates",
       export_options: {
         # 防止 gym 覆盖我们算好的 build number。
-        manageAppVersionAndBuildNumber: false
+        manageAppVersionAndBuildNumber: false,
+        # app + widget 扩展都用付费 team 的 app-store profile。
+        signingStyle: "automatic",
+        teamID: TEAM_ID
       },
       output_directory: ENV.fetch("RUNNER_TEMP", "/tmp"),
       clean: true
