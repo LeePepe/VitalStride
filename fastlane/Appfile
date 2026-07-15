@@ -1,4 +1,4 @@
-app_identifier("com.vitalstride.ios")
+app_identifier("com.leepepe.vitalstride")
 team_id("4Z8GG667QD")
 
 # Auth is via App Store Connect API key (see Fastfile / testflight.yml) — no
