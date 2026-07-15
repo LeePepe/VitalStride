@@ -35,6 +35,65 @@ private func makePoint(
     )
 }
 
+// MARK: - Loading State Transition Tests (MY-1247)
+
+@Suite("HealthDetailLoadingState — Loading transition contract")
+struct HealthDetailLoadingStateTests {
+
+    // Reproducible check for the MY-1247 "dark-mode black-flash on time-range switch"
+    // bug: when the user switches the segmented picker while data is already on screen,
+    // the resolver MUST NOT collapse the section to the full-height blank loader; it
+    // MUST emit `.loadingOverlayOverContent` so the prior chart stays visible under a
+    // themed overlay strip.
+    @Test("Loading with prior data yields overlay, not blank full loader")
+    func loadingWithPriorDataShowsOverlay() {
+        let state = HealthDetailLoadingState.resolve(
+            isLoading: true, hasData: true, hasError: false
+        )
+        #expect(state == .loadingOverlayOverContent)
+    }
+
+    @Test("First-time loading with no prior data yields full loader")
+    func firstLoadShowsFullLoader() {
+        let state = HealthDetailLoadingState.resolve(
+            isLoading: true, hasData: false, hasError: false
+        )
+        #expect(state == .fullLoading)
+    }
+
+    @Test("Error with no prior data yields error section")
+    func errorWithNoDataShowsError() {
+        let state = HealthDetailLoadingState.resolve(
+            isLoading: false, hasData: false, hasError: true
+        )
+        #expect(state == .error)
+    }
+
+    @Test("Error while prior data present keeps content (does not blank the chart)")
+    func errorWithPriorDataKeepsContent() {
+        let state = HealthDetailLoadingState.resolve(
+            isLoading: false, hasData: true, hasError: true
+        )
+        #expect(state == .content)
+    }
+
+    @Test("No loading, no data, no error is empty")
+    func idleEmptyShowsEmpty() {
+        let state = HealthDetailLoadingState.resolve(
+            isLoading: false, hasData: false, hasError: false
+        )
+        #expect(state == .empty)
+    }
+
+    @Test("Idle with data shows content")
+    func idleWithDataShowsContent() {
+        let state = HealthDetailLoadingState.resolve(
+            isLoading: false, hasData: true, hasError: false
+        )
+        #expect(state == .content)
+    }
+}
+
 // MARK: - HealthSampleTypeInfo Tests
 
 @Suite("HealthSampleType — Display Metadata")

@@ -179,6 +179,28 @@ enum HealthDetailWindow {
 
 // MARK: - GenericHealthDetailView
 
+/// Pure resolution of what a health detail screen should render given the current
+/// `isLoading` / `hasData` / `hasError` state. Extracted so the loading-state contract
+/// is unit-testable without instantiating the SwiftUI view — see MY-1247 (dark-mode
+/// black-flash on time-range switch): while `isLoading` and prior `hasData` is true,
+/// we render `.loadingOverlayOverContent` so the chart is preserved beneath a themed
+/// overlay instead of the whole section going blank.
+enum HealthDetailLoadingState: Equatable {
+    case fullLoading
+    case loadingOverlayOverContent
+    case error
+    case empty
+    case content
+
+    static func resolve(isLoading: Bool, hasData: Bool, hasError: Bool) -> HealthDetailLoadingState {
+        if isLoading && !hasData { return .fullLoading }
+        if hasError && !hasData { return .error }
+        if !hasData { return .empty }
+        if isLoading { return .loadingOverlayOverContent }
+        return .content
+    }
+}
+
 struct GenericHealthDetailView: View {
     let sampleType: HealthSampleType
 
@@ -215,13 +237,24 @@ struct GenericHealthDetailView: View {
             if selectedRange != .year {
                 windowNavigatorSection
             }
-            if isLoading {
+            let state = HealthDetailLoadingState.resolve(
+                isLoading: isLoading,
+                hasData: !dailyData.isEmpty,
+                hasError: errorMessage != nil
+            )
+            switch state {
+            case .fullLoading:
                 loadingSection
-            } else if let errorMessage {
-                errorSection(errorMessage)
-            } else if dailyData.isEmpty {
+            case .error:
+                errorSection(errorMessage ?? "")
+            case .empty:
                 emptySection
-            } else {
+            case .loadingOverlayOverContent:
+                loadingOverlayStrip
+                chartSection.redacted(reason: .placeholder)
+                statsSection.redacted(reason: .placeholder)
+                dailyBreakdownSection.redacted(reason: .placeholder)
+            case .content:
                 chartSection
                 statsSection
                 AIDataAnalysisSection(sampleType: sampleType)
@@ -266,9 +299,47 @@ struct GenericHealthDetailView: View {
 
     private var loadingSection: some View {
         Section {
-            ProgressView()
-                .frame(maxWidth: .infinity)
-                .frame(height: 200)
+            VStack(spacing: 12) {
+                ProgressView()
+                    .tint(theme.primary.primary)
+                    .controlSize(.large)
+                Text(String(localized: "generic_health_detail.loading",
+                            defaultValue: "Loading…",
+                            comment: "Loading indicator label"))
+                    .font(.caption)
+                    .foregroundStyle(theme.neutrals.text2)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 200)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(String(localized: "generic_health_detail.loading_a11y",
+                                       defaultValue: "Loading",
+                                       comment: "Loading a11y"))
+        }
+        .listRowBackground(Color.clear)
+    }
+
+    /// Compact themed loading indicator shown above prior chart content while refreshing.
+    /// Keeps the existing chart visible (redacted) so the screen never goes blank.
+    private var loadingOverlayStrip: some View {
+        Section {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .tint(theme.primary.primary)
+                    .controlSize(.small)
+                Text(String(localized: "generic_health_detail.refreshing",
+                            defaultValue: "Updating…",
+                            comment: "Refreshing indicator label"))
+                    .font(.caption)
+                    .foregroundStyle(theme.neutrals.text2)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 4)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(String(localized: "generic_health_detail.refreshing_a11y",
+                                       defaultValue: "Updating data",
+                                       comment: "Refreshing a11y"))
         }
         .listRowBackground(Color.clear)
     }
@@ -310,6 +381,9 @@ struct GenericHealthDetailView: View {
     private var chartSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
+                if selectedRange != .year {
+                    windowNavigator
+                }
                 selectedDayInfo
                 chart
                     #if os(iOS)
