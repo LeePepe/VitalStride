@@ -83,6 +83,10 @@ targets:
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps."
         INFOPLIST_KEY_UILaunchScreen_Generation: true
         INFOPLIST_KEY_NSSupportsLiveActivities: true
+        # TestFlight/App Store: declares the app uses no non-exempt encryption,
+        # so each build skips the manual export-compliance prompt. VitalStride
+        # only uses HTTPS/standard OS crypto (exempt). See ci/testflight workflow.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: false
 
   VitalStrideMac:
     type: application

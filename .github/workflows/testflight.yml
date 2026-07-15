@@ -1,0 +1,100 @@
+name: testflight
+
+# 定时把 main 打包上传 TestFlight（内部测试）。
+#   - schedule: 每 6 小时检查一次；仅当 main 自上次成功发布后有新 commit 才 build。
+#     "上次发布点" 记录在 moving tag `testflight/last-released`（累积式：build 失败
+#     或机器关机期间不丢 commit，下次开机的 cron 会把攒的一起发）。
+#   - workflow_dispatch: 手动触发兜底，force=true 可忽略"无新提交"检查强制发。
+#
+# 跑在 self-hosted `vitalstride-mac`（复用 auto-review-merge 那台）：Distribution
+# 证书已在登录钥匙串，签名走 project.yml 的 Automatic + API key，无需证书 Secret。
+# 需要的 Secrets: ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8_BASE64（见 AGENTS.md）。
+#
+# push tag 不触发 ci.yml（其 push 过滤是 branches:[main]），无副作用。
+
+on:
+  schedule:
+    - cron: "0 */6 * * *" # 每 6 小时（UTC）
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '忽略"无新提交"检查，强制发一次'
+        type: boolean
+        default: false
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false # 不打断进行中的上传
+
+permissions:
+  contents: write # 移动 testflight/last-released tag
+
+jobs:
+  release:
+    name: Build & upload to TestFlight
+    runs-on: [self-hosted, vitalstride-mac]
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Decide whether to release
+        id: gate
+        run: |
+          set -euo pipefail
+          LATEST="$(git rev-parse HEAD)"
+          RELEASED="$(git rev-parse -q --verify refs/tags/testflight/last-released || echo none)"
+          FORCE="${{ github.event.inputs.force }}"
+          echo "latest=$LATEST"   >> "$GITHUB_OUTPUT"
+          echo "HEAD=$LATEST  last-released=$RELEASED  force=$FORCE"
+          if [ "$FORCE" = "true" ] || [ "$LATEST" != "$RELEASED" ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "→ 有新提交（或 force）：将 build + 上传"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "→ skipped: no new commits since last TestFlight release"
+          fi
+
+      - name: Select Xcode
+        if: steps.gate.outputs.release == 'true'
+        run: sudo xcode-select -s /Applications/Xcode_26.5.app
+
+      - name: Ensure fastlane
+        if: steps.gate.outputs.release == 'true'
+        run: brew list fastlane >/dev/null 2>&1 || brew install fastlane
+
+      - name: Write API key
+        if: steps.gate.outputs.release == 'true'
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          # fastlane 直接吃 base64 key_content（is_key_content_base64: true），
+          # 这里仅校验 Secret 存在，不落地明文 .p8。
+          if [ -z "${ASC_KEY_P8_BASE64:-}" ]; then
+            echo "::error::ASC_KEY_P8_BASE64 secret 未设置" ; exit 1
+          fi
+
+      - name: fastlane beta
+        if: steps.gate.outputs.release == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          FASTLANE_SKIP_UPDATE_CHECK: "1"
+        run: fastlane ios beta
+
+      - name: Move last-released tag
+        if: steps.gate.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SHA="${{ steps.gate.outputs.latest }}"
+          git tag -f testflight/last-released "$SHA"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "refs/tags/testflight/last-released"
+          echo "✅ testflight/last-released → $SHA"

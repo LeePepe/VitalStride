@@ -37,3 +37,15 @@ scripts/i18n_extract_hardcoded.report.md
 
 # Redesign dev-only prototype scaffolding (not shipped)
 Prototype/
+
+# Local dev-only scripts (personal device names / UDIDs — not shipped)
+local/
+
+# fastlane build artifacts + App Store Connect API key (never commit the .p8)
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/test_output/
+AuthKey_*.p8
+*.ipa
+*.dSYM.zip
+
