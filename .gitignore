@@ -49,3 +49,7 @@ AuthKey_*.p8
 *.ipa
 *.dSYM.zip
 
+
+# fastlane sigh-downloaded provisioning profiles (never commit — signing material)
+*.mobileprovision
+AppStore_*.mobileprovision
