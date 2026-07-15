@@ -140,6 +140,7 @@
 		7F4B229A477C6BE34A6DC29B /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 193733B006ED472D5112547F /* HealthKit.framework */; };
 		8144A9F5F1E820411467F543 /* AIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 996A0597AEFCDF67B6E7854A /* AIView.swift */; };
 		815258714EA0D8B7FCB7D992 /* WorkoutListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADF0FD53B5A37E442F6ED623 /* WorkoutListView.swift */; };
+		8196A07E1C9D49DBFEDBD5F8 /* ExercisePickerScrollResetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21AF8A909739012BEE09316D /* ExercisePickerScrollResetTests.swift */; };
 		821982CDD01D5ED20EA41300 /* VitalUI in Frameworks */ = {isa = PBXBuildFile; productRef = 6F987A4D67E18D6C3093080D /* VitalUI */; };
 		85095CDDB006A04A5B1D8AC6 /* ExerciseSeederFindTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6237846EBCF154AE6E40E203 /* ExerciseSeederFindTests.swift */; };
 		85A01FB635940342ECA3EEB8 /* SmartProgressionAdvisorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31CB92CB606B373292D017DE /* SmartProgressionAdvisorTests.swift */; };
@@ -319,6 +320,7 @@
 		1E2C97DDA63128107019DFBF /* OnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTests.swift; sourceTree = "<group>"; };
 		200FE032CCD4A657A1D891D6 /* MinOneSetInvariantTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinOneSetInvariantTests.swift; sourceTree = "<group>"; };
 		2093CD48BCD1BDEEC94BEDC5 /* WorkoutTemplateBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTemplateBuilderTests.swift; sourceTree = "<group>"; };
+		21AF8A909739012BEE09316D /* ExercisePickerScrollResetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisePickerScrollResetTests.swift; sourceTree = "<group>"; };
 		21DB88AE870BE2542D688914 /* TelemetryIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryIntegrationTests.swift; sourceTree = "<group>"; };
 		224D8E4161C7961EC3D7E22A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		25A4CD9CFE450104FA8D4F51 /* CardVariantTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardVariantTests.swift; sourceTree = "<group>"; };
@@ -577,6 +579,7 @@
 				572B0D6CBD4C809E1C0384C9 /* ExerciseDefaultsTests.swift */,
 				DB29B418799CA76CB6EEF87B /* ExerciseManagementTests.swift */,
 				8F8EE1ECA76C11DBF006F938 /* ExercisePickerCardGridLayoutTests.swift */,
+				21AF8A909739012BEE09316D /* ExercisePickerScrollResetTests.swift */,
 				6237846EBCF154AE6E40E203 /* ExerciseSeederFindTests.swift */,
 				0157658A314DA1AC81783B49 /* ExerciseSeederTests.swift */,
 				F052E6A365C4391D3E607AE4 /* ExercisesJSONTests.swift */,
@@ -1340,6 +1343,7 @@
 				9C971EDC504956577317AAA3 /* ExerciseDefaultsTests.swift in Sources */,
 				B5FB14AAC91C7837E47F8162 /* ExerciseManagementTests.swift in Sources */,
 				12142237F13AD3FA9E69C0C8 /* ExercisePickerCardGridLayoutTests.swift in Sources */,
+				8196A07E1C9D49DBFEDBD5F8 /* ExercisePickerScrollResetTests.swift in Sources */,
 				85095CDDB006A04A5B1D8AC6 /* ExerciseSeederFindTests.swift in Sources */,
 				613159B4B0795DCD4501138F /* ExerciseSeederTests.swift in Sources */,
 				36549AF279412FDE4043F44A /* ExerciseSubstituteParseTests.swift in Sources */,

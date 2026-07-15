@@ -57,7 +57,7 @@ struct ExercisePickerView: View {
         )
     }
 
-    private static func computeEquipmentGroups(
+    static nonisolated func computeEquipmentGroups(
         from exercises: [Exercise],
         muscleGroup: MuscleGroup?,
         searchText: String
@@ -135,18 +135,28 @@ struct ExercisePickerView: View {
                 )
             }
             .onChange(of: selectedMuscleGroup) { _, newGroup in
-                cachedEquipmentGroups = Self.computeEquipmentGroups(
+                let newGroups = Self.computeEquipmentGroups(
                     from: exercises,
                     muscleGroup: newGroup,
                     searchText: debouncedSearchText
                 )
+                cachedEquipmentGroups = newGroups
+                // Unconditionally reset scroll to top when muscle group changes,
+                // even if the new list still contains the current visibleEquipment
+                // (e.g. both "全部" and "胸部" have "哑铃"). Otherwise the ScrollView
+                // keeps the old offset and shows blank space at the bottom (MY-1250).
+                visibleEquipment = newGroups.first?.0
             }
             .onChange(of: debouncedSearchText) { _, newText in
-                cachedEquipmentGroups = Self.computeEquipmentGroups(
+                let newGroups = Self.computeEquipmentGroups(
                     from: exercises,
                     muscleGroup: selectedMuscleGroup,
                     searchText: newText
                 )
+                cachedEquipmentGroups = newGroups
+                // Same reasoning as muscle-group change: search-driven content
+                // shrinks can strand the scroll offset past the new content end.
+                visibleEquipment = newGroups.first?.0
             }
             .task(id: searchText) {
                 let pending = searchText
