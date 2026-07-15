@@ -46,7 +46,8 @@ struct AISettingsSection: View {
         } header: {
             Text(String(localized: "AI 服务", comment: "AI settings section header"))
         } footer: {
-            Text(String(localized: "前往 [open.bigmodel.cn](https://open.bigmodel.cn) 获取 API Key", comment: "AI settings section footer"))
+            Text(AttributedString(localized: "前往 [open.bigmodel.cn](https://open.bigmodel.cn) 获取 API Key", comment: "AI settings section footer"))
+                .tint(theme.primary.primary)
         }
         .onAppear(perform: loadAPIKeyState)
         .onDisappear(perform: savePendingAPIKey)
