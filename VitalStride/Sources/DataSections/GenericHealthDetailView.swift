@@ -234,6 +234,9 @@ struct GenericHealthDetailView: View {
     var body: some View {
         List {
             timeRangeSection
+            if selectedRange != .year {
+                windowNavigatorSection
+            }
             let state = HealthDetailLoadingState.resolve(
                 isLoading: isLoading,
                 hasData: !dailyData.isEmpty,
@@ -388,6 +391,19 @@ struct GenericHealthDetailView: View {
                     #endif
             }
             .padding()
+        }
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+    }
+
+    private var windowNavigatorSection: some View {
+        Section {
+            windowNavigator
+                .padding(.horizontal)
+                #if os(iOS)
+                .contentShape(Rectangle())
+                .gesture(chartSwipeGesture)
+                #endif
         }
         .listRowInsets(EdgeInsets())
         .listRowBackground(Color.clear)

@@ -661,3 +661,106 @@ struct HealthDetailWindowIntervalTests {
         #expect(intervalB.start < intervalA.start)
     }
 }
+
+// MARK: - Regression: Empty-window navigation availability (PR #251 P0)
+
+/// These tests pin the contract that navigation availability on the health
+/// detail chart is a function of `(anchor, range, now)` ONLY — it MUST NOT
+/// depend on whether the current window contains any data points.
+///
+/// Regression for PR #251 P0 (2026-07-15): empty windows previously rendered
+/// only the empty-state section, hiding the prev/next controls and the
+/// VoiceOver current-range label, trapping users in an empty window they
+/// could not navigate away from.
+@Suite("HealthDetailWindow — Empty Window Navigation Availability")
+struct HealthDetailWindowEmptyWindowAvailabilityTests {
+
+    private let calendar: Calendar = {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        return cal
+    }()
+
+    private func day(_ y: Int, _ m: Int, _ d: Int) -> Date {
+        calendar.date(from: DateComponents(year: y, month: m, day: d))!
+    }
+
+    @Test("canGoBackward signature takes no data (structural guarantee)")
+    func canGoBackwardHasNoDataParameter() {
+        // Pure structural: the function only consumes (anchor, range).
+        // If the signature ever grows a data parameter this test will fail
+        // to compile — that IS the regression alarm.
+        let anchor = day(2026, 6, 15)
+        for range in [TimeRange.day, .week, .month] {
+            #expect(HealthDetailWindow.canGoBackward(anchor: anchor, range: range))
+        }
+    }
+
+    @Test("canGoBackward is true for day/week/month even for empty past window")
+    func backwardAvailableInEmptyPastWindow() {
+        // Simulate a window user shifted into that yields no data.
+        // Availability must remain true so the user can leave.
+        let anchor = day(2020, 1, 1) // deep past, plausibly empty
+        for range in [TimeRange.day, .week, .month] {
+            #expect(
+                HealthDetailWindow.canGoBackward(anchor: anchor, range: range),
+                "Empty past \(range) window must still allow backward navigation"
+            )
+        }
+    }
+
+    @Test("canGoForward is true from empty past window (day/week/month)")
+    func forwardAvailableInEmptyPastWindow() {
+        let anchor = day(2020, 1, 1)
+        let now = day(2026, 6, 20)
+        for range in [TimeRange.day, .week, .month] {
+            #expect(
+                HealthDetailWindow.canGoForward(
+                    anchor: anchor, range: range, now: now, calendar: calendar
+                ),
+                "Empty past \(range) window must still allow forward navigation"
+            )
+        }
+    }
+
+    @Test("canGoForward false at today regardless of data (empty or not)")
+    func forwardDisabledAtTodayEvenWhenEmpty() {
+        let now = day(2026, 6, 20)
+        for range in [TimeRange.day, .week, .month] {
+            #expect(
+                !HealthDetailWindow.canGoForward(
+                    anchor: now, range: range, now: now, calendar: calendar
+                ),
+                "Forward must clamp at today for \(range) irrespective of data"
+            )
+        }
+    }
+
+    @Test("Year range stays non-scrollable — empty or not, both directions false")
+    func yearRemainsNonScrollableForEmptyData() {
+        let anchor = day(2020, 1, 1) // empty
+        let now = day(2026, 6, 20)
+        #expect(!HealthDetailWindow.canGoBackward(anchor: anchor, range: .year))
+        #expect(
+            !HealthDetailWindow.canGoForward(
+                anchor: anchor, range: .year, now: now, calendar: calendar
+            )
+        )
+    }
+
+    @Test("Shift math is independent of data (pure on anchor/range/now)")
+    func shiftIsPureAndDataIndependent() {
+        // Two calls with identical (anchor, range, now, calendar) produce
+        // identical results — no hidden data dependency.
+        let anchor = day(2020, 1, 15)
+        let now = day(2026, 6, 20)
+        let a = HealthDetailWindow.shift(
+            anchor: anchor, by: .forward, range: .week, now: now, calendar: calendar
+        )
+        let b = HealthDetailWindow.shift(
+            anchor: anchor, by: .forward, range: .week, now: now, calendar: calendar
+        )
+        #expect(a == b)
+        #expect(calendar.isDate(a, inSameDayAs: day(2020, 1, 22)))
+    }
+}
