@@ -88,4 +88,82 @@ struct ExercisePickerIndexSyncTests {
     func hitTargetMeetsConstitution() {
         #expect(ExercisePickerView.equipmentIndexBarHitWidth >= 44)
     }
+
+    // MARK: - Callback / configuration path (P0 regression coverage)
+
+    /// P0 regression from PR #256 review: each scroll target is a whole
+    /// equipment section, and a single section can be far taller than the
+    /// viewport (dumbbell has ≥200 exercises). If the visibility threshold
+    /// stays at the SwiftUI default of `0.5`, such a section can never
+    /// reach 50% visibility and gets omitted from `visibleIds`, leaving
+    /// the highlight stale. This test locks the configured threshold to a
+    /// value low enough that even a section only 5% on-screen still enters
+    /// the callback payload — i.e. the fix cannot be silently reverted.
+    @Test("visibility threshold is low enough to include viewport-taller sections")
+    func visibilityThresholdIsLowEnoughForTallSections() {
+        // Any section showing this fraction of itself or more must be
+        // reported as visible. A viewport-taller section with only 5% of
+        // its own height on-screen is a realistic worst case.
+        let worstCaseSectionVisibleFraction: Double = 0.05
+
+        #expect(ExercisePickerView.visibilityThreshold <= worstCaseSectionVisibleFraction)
+        // Threshold must be a legal SwiftUI value (0.0 ... 1.0).
+        #expect(ExercisePickerView.visibilityThreshold >= 0)
+        #expect(ExercisePickerView.visibilityThreshold <= 1)
+    }
+
+    /// Exercises the real callback path (`applyVisibleIds`) that
+    /// `onScrollTargetVisibilityChange` invokes — not just the ordering
+    /// helper. Simulates the tall-section case: only one id is reported
+    /// (because the previous section scrolled off and the next section
+    /// is still just below the viewport). The setter MUST receive that
+    /// single id so the highlight follows.
+    @Test("callback path picks the top-visible section when only one id is reported")
+    func callbackPathHandlesSingleTallSection() {
+        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        var applied: Equipment? = .barbell // stale
+
+        // Dumbbell is the only section on-screen (huge section, fills the
+        // viewport). Without a low threshold this would be an empty list;
+        // WITH the low threshold, the single id arrives — and the
+        // highlight must move to `.dumbbell` (not stay stale on barbell).
+        ExercisePickerView.applyVisibleIds([.dumbbell], in: order) { applied = $0 }
+        #expect(applied == .dumbbell)
+
+        // Scroll further: only machine on-screen. Same contract.
+        ExercisePickerView.applyVisibleIds([.machine], in: order) { applied = $0 }
+        #expect(applied == .machine)
+    }
+
+    /// Callback path preserves the "top-most in equipment order wins"
+    /// contract when the scroll view reports multiple ids (e.g. two
+    /// shorter sections both on-screen). This is the classic case the
+    /// original review flagged for regression coverage on the callback
+    /// configuration path, not just on `firstVisibleEquipment`.
+    @Test("callback path selects top-most on-screen section across multiple ids")
+    func callbackPathSelectsTopMostAcrossIds() {
+        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        var applied: Equipment? = nil
+
+        // Barbell (top-most) + dumbbell both visible.
+        ExercisePickerView.applyVisibleIds([.dumbbell, .barbell], in: order) { applied = $0 }
+        #expect(applied == .barbell)
+
+        // Scrolled: dumbbell + machine both visible. Highlight moves to
+        // dumbbell — this is the exact MY-1249 repro at the callback layer.
+        ExercisePickerView.applyVisibleIds([.machine, .dumbbell], in: order) { applied = $0 }
+        #expect(applied == .dumbbell)
+    }
+
+    /// Empty callback payload (nothing on-screen — e.g. the grid was
+    /// filtered to zero rows mid-scroll) must clear the highlight rather
+    /// than crash or leak a stale id through to the setter.
+    @Test("callback path clears highlight when nothing is on-screen")
+    func callbackPathClearsHighlightOnEmpty() {
+        let order: [Equipment] = [.barbell, .dumbbell]
+        var applied: Equipment? = .barbell
+
+        ExercisePickerView.applyVisibleIds([], in: order) { applied = $0 }
+        #expect(applied == nil)
+    }
 }

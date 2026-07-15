@@ -306,8 +306,23 @@ struct ExercisePickerView: View {
                     // of .scrollPosition(id:anchor:.top) — the latter's binding
                     // updates lagged during finger scroll with lazy sections, so
                     // the right-side index bar highlight fell out of sync.
-                    .onScrollTargetVisibilityChange(idType: Equipment.self) { visibleIds in
-                        visibleEquipment = Self.firstVisibleEquipment(from: visibleIds, in: equipments)
+                    //
+                    // Threshold MUST stay low (see `visibilityThreshold`). Each
+                    // scroll target is a whole equipment section, and sections
+                    // can be viewport-taller (dumbbell alone has ≥200 exercises);
+                    // the default 0.5 threshold would omit any section that never
+                    // reaches 50% visibility, hiding the actual top-visible
+                    // section from `visibleIds`. Locked by
+                    // `ExercisePickerIndexSyncTests.visibilityThresholdIsLowEnoughForTallSections`.
+                    .onScrollTargetVisibilityChange(
+                        idType: Equipment.self,
+                        threshold: Self.visibilityThreshold
+                    ) { visibleIds in
+                        Self.applyVisibleIds(
+                            visibleIds,
+                            in: equipments,
+                            using: applyVisibleEquipment
+                        )
                     }
 
                     if showsIndexBar {
@@ -379,10 +394,42 @@ struct ExercisePickerView: View {
     /// band of the column. The top spacer is unbounded and consumes the rest.
     private static let indexBarBottomInset: CGFloat = 96
 
+    /// MY-1249: `onScrollTargetVisibilityChange` threshold, expressed as the
+    /// fraction of the target that must be on-screen for it to enter
+    /// `visibleIds`. Kept intentionally near-zero because each scroll target
+    /// here is a whole `equipmentSection`, and a single section (e.g. dumbbell,
+    /// ≥200 exercises) can be far taller than the viewport. With the default
+    /// `0.5`, such a section can never cross 50% visibility and would be
+    /// silently omitted from the callback — leaving the highlight stale on
+    /// the previous section. `0.01` = "any pixel visible → include".
+    static let visibilityThreshold: Double = 0.01
+
     /// Test-facing accessor for the index-bar hit-target lane width so
     /// `ExercisePickerIndexSyncTests` can lock Constitution §H without
     /// piercing the `private` scope of `EquipmentIndexBar`.
     static var equipmentIndexBarHitWidth: CGFloat { EquipmentIndexBar.hitWidth }
+
+    /// Callback bridge used by the SwiftUI `onScrollTargetVisibilityChange`
+    /// closure. `MainActor`-isolated because it writes `@State`.
+    @MainActor
+    private func applyVisibleEquipment(_ equipment: Equipment?) {
+        visibleEquipment = equipment
+    }
+
+    /// MY-1249: pure entry-point mirroring what
+    /// `onScrollTargetVisibilityChange` does in production — takes the raw
+    /// visible-ids callback payload plus the current equipment order, picks
+    /// the highlight, and applies it via the supplied setter. Extracted so
+    /// tests can exercise the full callback path (not just the ordering
+    /// helper) with representative inputs, including the tall-section case
+    /// (single id reported) that motivates the low `visibilityThreshold`.
+    static func applyVisibleIds(
+        _ visibleIds: [Equipment],
+        in order: [Equipment],
+        using setter: (Equipment?) -> Void
+    ) {
+        setter(firstVisibleEquipment(from: visibleIds, in: order))
+    }
 
     /// MY-1249: pick the section that should own the index-bar highlight
     /// given the set of currently visible section ids. Prefer the first
