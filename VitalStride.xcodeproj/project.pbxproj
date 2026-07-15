@@ -20,6 +20,7 @@
 		0FA3452B45A92F36FCF142D2 /* AIAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492DFA7A404099CCF2293717 /* AIAnalysisService.swift */; };
 		10C827ED178013E2553A5F13 /* RestTimerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CFDC52DBDDF9DF15C8DCC9E /* RestTimerLiveActivity.swift */; };
 		11C5C66B083087C46CB87E34 /* AIAnalysisServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D551D352FEC3C216F4BAB58A /* AIAnalysisServiceTests.swift */; };
+		12142237F13AD3FA9E69C0C8 /* ExercisePickerCardGridLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F8EE1ECA76C11DBF006F938 /* ExercisePickerCardGridLayoutTests.swift */; };
 		1252E2E85769B438F78301CE /* AIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 996A0597AEFCDF67B6E7854A /* AIView.swift */; };
 		129EBA4FD6F749E5CCE90FD3 /* SleepSectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5BC15730DE3D0DBEC8FF7E /* SleepSectionTests.swift */; };
 		12A433540C8B86B2F89298E5 /* EnumTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B254B7B0D02CADEF442964 /* EnumTests.swift */; };
@@ -401,6 +402,7 @@
 		8CC41CBBB0306141FF6935C5 /* ExerciseSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSeeder.swift; sourceTree = "<group>"; };
 		8DC61C2BF0124494E72640C2 /* WorkoutListMergerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutListMergerTests.swift; sourceTree = "<group>"; };
 		8E1AE320ABD22A1684FB38CC /* RestTimerCancellationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerCancellationTests.swift; sourceTree = "<group>"; };
+		8F8EE1ECA76C11DBF006F938 /* ExercisePickerCardGridLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisePickerCardGridLayoutTests.swift; sourceTree = "<group>"; };
 		92A787CF4DB49927AFBC5DDF /* ModelContainerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelContainerTests.swift; sourceTree = "<group>"; };
 		942F2D9113C5463CAF00AB87 /* SleepSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSection.swift; sourceTree = "<group>"; };
 		951759CA7A2CB18B447F2E1D /* ActiveExerciseSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveExerciseSection.swift; sourceTree = "<group>"; };
@@ -574,6 +576,7 @@
 				D8B254B7B0D02CADEF442964 /* EnumTests.swift */,
 				572B0D6CBD4C809E1C0384C9 /* ExerciseDefaultsTests.swift */,
 				DB29B418799CA76CB6EEF87B /* ExerciseManagementTests.swift */,
+				8F8EE1ECA76C11DBF006F938 /* ExercisePickerCardGridLayoutTests.swift */,
 				6237846EBCF154AE6E40E203 /* ExerciseSeederFindTests.swift */,
 				0157658A314DA1AC81783B49 /* ExerciseSeederTests.swift */,
 				F052E6A365C4391D3E607AE4 /* ExercisesJSONTests.swift */,
@@ -1336,6 +1339,7 @@
 				12A433540C8B86B2F89298E5 /* EnumTests.swift in Sources */,
 				9C971EDC504956577317AAA3 /* ExerciseDefaultsTests.swift in Sources */,
 				B5FB14AAC91C7837E47F8162 /* ExerciseManagementTests.swift in Sources */,
+				12142237F13AD3FA9E69C0C8 /* ExercisePickerCardGridLayoutTests.swift in Sources */,
 				85095CDDB006A04A5B1D8AC6 /* ExerciseSeederFindTests.swift in Sources */,
 				613159B4B0795DCD4501138F /* ExerciseSeederTests.swift in Sources */,
 				36549AF279412FDE4043F44A /* ExerciseSubstituteParseTests.swift in Sources */,
