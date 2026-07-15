@@ -212,6 +212,9 @@ struct GenericHealthDetailView: View {
     var body: some View {
         List {
             timeRangeSection
+            if selectedRange != .year {
+                windowNavigatorSection
+            }
             if isLoading {
                 loadingSection
             } else if let errorMessage {
@@ -307,9 +310,6 @@ struct GenericHealthDetailView: View {
     private var chartSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
-                if selectedRange != .year {
-                    windowNavigator
-                }
                 selectedDayInfo
                 chart
                     #if os(iOS)
@@ -317,6 +317,19 @@ struct GenericHealthDetailView: View {
                     #endif
             }
             .padding()
+        }
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+    }
+
+    private var windowNavigatorSection: some View {
+        Section {
+            windowNavigator
+                .padding(.horizontal)
+                #if os(iOS)
+                .contentShape(Rectangle())
+                .gesture(chartSwipeGesture)
+                #endif
         }
         .listRowInsets(EdgeInsets())
         .listRowBackground(Color.clear)
