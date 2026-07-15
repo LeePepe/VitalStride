@@ -102,6 +102,81 @@ enum GenericHealthAggregator {
     }
 }
 
+// MARK: - Health Detail Window Helper (testable)
+
+/// Pure helpers for horizontal time-window navigation on the health detail chart.
+///
+/// The chart's window is anchored to a single reference date (`anchor`). Given a
+/// `TimeRange`, the visible interval is `TimeRange.dateInterval(from: anchor)`
+/// (an inclusive-of-anchor-day, half-open interval ending at the day after
+/// `anchor`). Shifting the window moves `anchor` by the range granularity, and
+/// the anchor is clamped so the window never extends beyond today.
+enum HealthDetailWindow {
+
+    /// Direction of a shift. `+1` moves forward in time (toward today), `-1` moves back.
+    enum Direction: Int, Sendable {
+        case backward = -1
+        case forward = 1
+    }
+
+    /// Shift the anchor by exactly one window worth of the given range.
+    ///
+    /// Day → ±1 day, Week → ±7 days, Month → ±1 month. `.year` returns `anchor`
+    /// unchanged (the year range is intentionally non-scrollable per MY-1248).
+    /// The returned anchor is always clamped to `<= today`.
+    static func shift(
+        anchor: Date,
+        by direction: Direction,
+        range: TimeRange,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Date {
+        let step = direction.rawValue
+        let shifted: Date? = {
+            switch range {
+            case .day:
+                return calendar.date(byAdding: .day, value: step, to: anchor)
+            case .week:
+                return calendar.date(byAdding: .day, value: 7 * step, to: anchor)
+            case .month:
+                return calendar.date(byAdding: .month, value: step, to: anchor)
+            case .year:
+                return anchor
+            }
+        }()
+        return clampedAnchor(shifted ?? anchor, now: now, calendar: calendar)
+    }
+
+    /// Whether the window can move forward in time from `anchor`.
+    ///
+    /// Returns `false` when the current window already ends at today (or the
+    /// range is `.year`, which is intentionally non-scrollable).
+    static func canGoForward(
+        anchor: Date,
+        range: TimeRange,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Bool {
+        guard range != .year else { return false }
+        let today = calendar.startOfDay(for: now)
+        return calendar.startOfDay(for: anchor) < today
+    }
+
+    /// Whether the window can move backward in time from `anchor`.
+    ///
+    /// Always `true` for day/week/month; `false` for `.year`.
+    static func canGoBackward(anchor _: Date, range: TimeRange) -> Bool {
+        range != .year
+    }
+
+    /// Clamp the anchor to today's start-of-day (never allow future anchors).
+    static func clampedAnchor(_ anchor: Date, now: Date = Date(), calendar: Calendar = .current) -> Date {
+        let today = calendar.startOfDay(for: now)
+        let anchorDay = calendar.startOfDay(for: anchor)
+        return anchorDay > today ? today : anchorDay
+    }
+}
+
 // MARK: - GenericHealthDetailView
 
 struct GenericHealthDetailView: View {
@@ -109,6 +184,7 @@ struct GenericHealthDetailView: View {
 
     @AppStorage("distanceUnit") private var distanceUnit: DistanceUnit = .km
     @State private var selectedRange: TimeRange = .week
+    @State private var windowAnchor: Date = Date()
     @State private var dailyData: [GenericHealthAggregator.DailyData] = []
     @State private var statistics: GenericHealthAggregator.Statistics = .empty
     @State private var selectedDate: Date?
@@ -153,9 +229,19 @@ struct GenericHealthDetailView: View {
         .listStyle(.insetGrouped)
         #endif
         .navigationTitle(sampleType.localizedName)
-        .task(id: selectedRange) {
+        .task(id: TaskKey(range: selectedRange, anchor: windowAnchor)) {
             await loadData()
         }
+        .onChange(of: selectedRange) { _, _ in
+            windowAnchor = Date()
+        }
+    }
+
+    // MARK: - Task key
+
+    private struct TaskKey: Equatable {
+        let range: TimeRange
+        let anchor: Date
     }
 
     // MARK: - Sections
@@ -221,13 +307,108 @@ struct GenericHealthDetailView: View {
     private var chartSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
+                if selectedRange != .year {
+                    windowNavigator
+                }
                 selectedDayInfo
                 chart
+                    #if os(iOS)
+                    .gesture(chartSwipeGesture)
+                    #endif
             }
             .padding()
         }
         .listRowInsets(EdgeInsets())
         .listRowBackground(Color.clear)
+    }
+
+    private var windowRangeText: String {
+        let interval = windowInterval
+        let lastDay = Calendar.current.date(byAdding: .day, value: -1, to: interval.end) ?? interval.end
+        switch selectedRange {
+        case .day:
+            return interval.start.formatted(.dateTime.year().month().day())
+        case .week, .month:
+            return "\(interval.start.formatted(.dateTime.month().day())) – \(lastDay.formatted(.dateTime.month().day()))"
+        case .year:
+            return "\(interval.start.formatted(.dateTime.year().month())) – \(lastDay.formatted(.dateTime.year().month()))"
+        }
+    }
+
+    private var windowNavigator: some View {
+        let canPrev = HealthDetailWindow.canGoBackward(anchor: windowAnchor, range: selectedRange)
+        let canNext = HealthDetailWindow.canGoForward(anchor: windowAnchor, range: selectedRange)
+        return HStack {
+            Button {
+                shiftWindow(.backward)
+            } label: {
+                Image(systemName: "chevron.left")
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!canPrev)
+            .accessibilityLabel(String(
+                localized: "health_detail.window.previous",
+                defaultValue: "Previous window",
+                comment: "Health detail: shift chart window one range earlier"
+            ))
+            Spacer()
+            Text(windowRangeText)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(theme.neutrals.text1)
+                .accessibilityLabel(
+                    String(
+                        format: String(
+                            localized: "health_detail.window.range_a11y %@",
+                            defaultValue: "Current range %@",
+                            comment: "Health detail: current chart window range (VoiceOver)"
+                        ),
+                        windowRangeText
+                    )
+                )
+            Spacer()
+            Button {
+                shiftWindow(.forward)
+            } label: {
+                Image(systemName: "chevron.right")
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!canNext)
+            .accessibilityLabel(String(
+                localized: "health_detail.window.next",
+                defaultValue: "Next window",
+                comment: "Health detail: shift chart window one range later"
+            ))
+        }
+    }
+
+    #if os(iOS)
+    private var chartSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onEnded { value in
+                guard selectedRange != .year else { return }
+                let horizontal = value.translation.width
+                let vertical = value.translation.height
+                guard abs(horizontal) > abs(vertical) * 1.5 else { return }
+                if horizontal < -40 {
+                    // Swipe left → move window forward in time (toward today)
+                    shiftWindow(.forward)
+                } else if horizontal > 40 {
+                    // Swipe right → move window backward in time
+                    shiftWindow(.backward)
+                }
+            }
+    }
+    #endif
+
+    private func shiftWindow(_ direction: HealthDetailWindow.Direction) {
+        let next = HealthDetailWindow.shift(anchor: windowAnchor, by: direction, range: selectedRange)
+        guard next != windowAnchor else { return }
+        selectedDate = nil
+        windowAnchor = next
     }
 
     @ViewBuilder
@@ -405,12 +586,16 @@ struct GenericHealthDetailView: View {
 
     // MARK: - Data Loading
 
+    private var windowInterval: DateInterval {
+        selectedRange.dateInterval(from: windowAnchor)
+    }
+
     private func loadData() async {
         isLoading = true
         selectedDate = nil
         errorMessage = nil
 
-        let interval = selectedRange.dateInterval()
+        let interval = windowInterval
 
         do {
             let dataPoints = try await cache.data(for: sampleType, in: interval)

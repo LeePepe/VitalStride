@@ -1,6 +1,7 @@
 import Foundation
 import HealthKitService
 import Testing
+import VitalModels
 
 @testable import VitalStride
 
@@ -386,5 +387,218 @@ struct WorkoutActivityTypeInfoTests {
         let names = WorkoutActivityType.allCases.map(\.localizedName)
         let unique = Set(names)
         #expect(names.count == unique.count, "Duplicate workout type names found")
+    }
+}
+
+// MARK: - HealthDetailWindow Tests (MY-1248)
+
+@Suite("HealthDetailWindow — Shift")
+struct HealthDetailWindowShiftTests {
+
+    private let calendar: Calendar = {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        return cal
+    }()
+
+    private func day(_ y: Int, _ m: Int, _ d: Int) -> Date {
+        calendar.date(from: DateComponents(year: y, month: m, day: d))!
+    }
+
+    @Test("Day range shifts anchor by 1 day backward")
+    func dayShiftBackward() {
+        let anchor = day(2026, 6, 15)
+        let now = day(2026, 6, 20)
+        let result = HealthDetailWindow.shift(
+            anchor: anchor, by: .backward, range: .day, now: now, calendar: calendar
+        )
+        #expect(calendar.isDate(result, inSameDayAs: day(2026, 6, 14)))
+    }
+
+    @Test("Day range shifts anchor by 1 day forward")
+    func dayShiftForward() {
+        let anchor = day(2026, 6, 15)
+        let now = day(2026, 6, 20)
+        let result = HealthDetailWindow.shift(
+            anchor: anchor, by: .forward, range: .day, now: now, calendar: calendar
+        )
+        #expect(calendar.isDate(result, inSameDayAs: day(2026, 6, 16)))
+    }
+
+    @Test("Week range shifts anchor by 7 days")
+    func weekShiftBackward() {
+        let anchor = day(2026, 6, 15)
+        let now = day(2026, 6, 30)
+        let result = HealthDetailWindow.shift(
+            anchor: anchor, by: .backward, range: .week, now: now, calendar: calendar
+        )
+        #expect(calendar.isDate(result, inSameDayAs: day(2026, 6, 8)))
+    }
+
+    @Test("Month range shifts anchor by 1 month")
+    func monthShiftBackward() {
+        let anchor = day(2026, 6, 15)
+        let now = day(2026, 8, 1)
+        let result = HealthDetailWindow.shift(
+            anchor: anchor, by: .backward, range: .month, now: now, calendar: calendar
+        )
+        #expect(calendar.isDate(result, inSameDayAs: day(2026, 5, 15)))
+    }
+
+    @Test("Year range shift is a no-op")
+    func yearShiftIsNoop() {
+        let anchor = day(2026, 6, 15)
+        let now = day(2026, 7, 1)
+        let forward = HealthDetailWindow.shift(
+            anchor: anchor, by: .forward, range: .year, now: now, calendar: calendar
+        )
+        let backward = HealthDetailWindow.shift(
+            anchor: anchor, by: .backward, range: .year, now: now, calendar: calendar
+        )
+        // Clamped to startOfDay(anchor)
+        #expect(calendar.isDate(forward, inSameDayAs: anchor))
+        #expect(calendar.isDate(backward, inSameDayAs: anchor))
+    }
+
+    @Test("Forward shift is clamped to today")
+    func forwardClampedToToday() {
+        let anchor = day(2026, 6, 20)
+        let now = day(2026, 6, 20)
+        let result = HealthDetailWindow.shift(
+            anchor: anchor, by: .forward, range: .day, now: now, calendar: calendar
+        )
+        // Cannot advance past today
+        #expect(calendar.isDate(result, inSameDayAs: day(2026, 6, 20)))
+    }
+
+    @Test("Forward month shift is clamped to today (mid-month)")
+    func monthForwardClampedToToday() {
+        let anchor = day(2026, 5, 15)
+        let now = day(2026, 6, 10)
+        let result = HealthDetailWindow.shift(
+            anchor: anchor, by: .forward, range: .month, now: now, calendar: calendar
+        )
+        // Anchor + 1 month = 6/15 which is beyond today (6/10) → clamped
+        #expect(calendar.isDate(result, inSameDayAs: day(2026, 6, 10)))
+    }
+}
+
+@Suite("HealthDetailWindow — Clamp and canGo")
+struct HealthDetailWindowClampTests {
+
+    private let calendar: Calendar = {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        return cal
+    }()
+
+    private func day(_ y: Int, _ m: Int, _ d: Int) -> Date {
+        calendar.date(from: DateComponents(year: y, month: m, day: d))!
+    }
+
+    @Test("clampedAnchor collapses future dates to today")
+    func clampFutureToToday() {
+        let future = day(2027, 1, 1)
+        let now = day(2026, 6, 20)
+        let result = HealthDetailWindow.clampedAnchor(future, now: now, calendar: calendar)
+        #expect(calendar.isDate(result, inSameDayAs: day(2026, 6, 20)))
+    }
+
+    @Test("clampedAnchor keeps past dates unchanged (start-of-day)")
+    func clampPastUnchanged() {
+        let past = day(2026, 5, 1)
+        let now = day(2026, 6, 20)
+        let result = HealthDetailWindow.clampedAnchor(past, now: now, calendar: calendar)
+        #expect(calendar.isDate(result, inSameDayAs: day(2026, 5, 1)))
+    }
+
+    @Test("canGoForward is false when anchor is today")
+    func canGoForwardFalseAtToday() {
+        let now = day(2026, 6, 20)
+        for range in [TimeRange.day, .week, .month] {
+            #expect(
+                !HealthDetailWindow.canGoForward(
+                    anchor: now, range: range, now: now, calendar: calendar
+                ),
+                "canGoForward should be false at today for \(range)"
+            )
+        }
+    }
+
+    @Test("canGoForward is true when anchor is before today")
+    func canGoForwardTrueInPast() {
+        let anchor = day(2026, 6, 15)
+        let now = day(2026, 6, 20)
+        for range in [TimeRange.day, .week, .month] {
+            #expect(
+                HealthDetailWindow.canGoForward(
+                    anchor: anchor, range: range, now: now, calendar: calendar
+                ),
+                "canGoForward should be true in past for \(range)"
+            )
+        }
+    }
+
+    @Test("canGoForward is always false for year range")
+    func canGoForwardFalseForYear() {
+        let anchor = day(2026, 6, 15)
+        let now = day(2026, 6, 20)
+        #expect(
+            !HealthDetailWindow.canGoForward(
+                anchor: anchor, range: .year, now: now, calendar: calendar
+            )
+        )
+    }
+
+    @Test("canGoBackward is true for day/week/month")
+    func canGoBackwardTrueForNonYear() {
+        let anchor = day(2026, 6, 15)
+        for range in [TimeRange.day, .week, .month] {
+            #expect(HealthDetailWindow.canGoBackward(anchor: anchor, range: range))
+        }
+    }
+
+    @Test("canGoBackward is false for year")
+    func canGoBackwardFalseForYear() {
+        let anchor = day(2026, 6, 15)
+        #expect(!HealthDetailWindow.canGoBackward(anchor: anchor, range: .year))
+    }
+}
+
+@Suite("HealthDetailWindow — Interval integration")
+struct HealthDetailWindowIntervalTests {
+
+    private let calendar: Calendar = {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        return cal
+    }()
+
+    private func day(_ y: Int, _ m: Int, _ d: Int) -> Date {
+        calendar.date(from: DateComponents(year: y, month: m, day: d))!
+    }
+
+    @Test("Week window from shifted anchor covers 7 days ending at anchor+1")
+    func weekWindowSpans7Days() {
+        let anchor = day(2026, 6, 15)
+        let interval = TimeRange.week.dateInterval(from: anchor, calendar: calendar)
+        // start = anchor - 6 days, end = anchor + 1 day
+        #expect(calendar.isDate(interval.start, inSameDayAs: day(2026, 6, 9)))
+        #expect(calendar.isDate(interval.end, inSameDayAs: day(2026, 6, 16)))
+    }
+
+    @Test("Shifting anchor produces a different, non-overlapping window")
+    func shiftProducesDifferentWindow() {
+        let now = day(2026, 6, 30)
+        let anchor = day(2026, 6, 15)
+        let shifted = HealthDetailWindow.shift(
+            anchor: anchor, by: .backward, range: .week, now: now, calendar: calendar
+        )
+        let intervalA = TimeRange.week.dateInterval(from: anchor, calendar: calendar)
+        let intervalB = TimeRange.week.dateInterval(from: shifted, calendar: calendar)
+        #expect(intervalA.start != intervalB.start)
+        #expect(intervalA.end != intervalB.end)
+        // Backward shift → older window
+        #expect(intervalB.start < intervalA.start)
     }
 }

@@ -4739,6 +4739,60 @@
           }
         }
       }
+    },
+    "health_detail.window.previous" : {
+      "extractionState" : "manual",
+      "comment" : "Health detail: shift chart window one range earlier (MY-1248).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous window"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上一段"
+          }
+        }
+      }
+    },
+    "health_detail.window.next" : {
+      "extractionState" : "manual",
+      "comment" : "Health detail: shift chart window one range later (MY-1248).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next window"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下一段"
+          }
+        }
+      }
+    },
+    "health_detail.window.range_a11y %@" : {
+      "extractionState" : "manual",
+      "comment" : "Health detail: current chart window range for VoiceOver (MY-1248).",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current range %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前范围 %@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
