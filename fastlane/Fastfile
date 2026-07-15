@@ -15,7 +15,7 @@
 
 default_platform(:ios)
 
-APP_IDENTIFIER = "com.vitalstride.ios".freeze
+APP_IDENTIFIER = "com.leepepe.vitalstride".freeze
 SCHEME = "VitalStride".freeze
 XCODEPROJ = "VitalStride.xcodeproj".freeze
 # MARKETING_VERSION，与 project.yml 保持一致；改版本号时两处同步。

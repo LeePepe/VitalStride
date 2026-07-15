@@ -1447,7 +1447,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VitalStride.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VitalStride";
@@ -1474,7 +1474,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride;
 				PRODUCT_NAME = VitalStride;
 				SDKROOT = iphoneos;
 				SUPPORTED_INTERFACE_ORIENTATIONS = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -1496,7 +1496,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.watchos;
+				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.watchos;
 				PRODUCT_NAME = "VitalStrideWatch Watch App";
 				SDKROOT = watchos;
 				SKIP_INSTALL = NO;
@@ -1576,7 +1576,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VitalStride.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VitalStride";
@@ -1603,7 +1603,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride;
 				PRODUCT_NAME = VitalStride;
 				SDKROOT = iphoneos;
 				SUPPORTED_INTERFACE_ORIENTATIONS = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -1625,7 +1625,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.watchos;
+				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.watchos;
 				PRODUCT_NAME = "VitalStrideWatch Watch App";
 				SDKROOT = watchos;
 				SKIP_INSTALL = NO;
@@ -1717,7 +1717,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.mac;
+				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.mac;
 				PRODUCT_NAME = VitalStride;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1732,7 +1732,7 @@
 				INFOPLIST_FILE = VitalStrideWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../Frameworks";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.ios.widgets;
+				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.widgets;
 				PRODUCT_NAME = VitalStrideWidgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1749,7 +1749,7 @@
 				INFOPLIST_FILE = VitalStrideWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../Frameworks";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.ios.widgets;
+				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.widgets;
 				PRODUCT_NAME = VitalStrideWidgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1773,7 +1773,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.vitalstride.mac;
+				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.mac;
 				PRODUCT_NAME = VitalStride;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
