@@ -94,6 +94,26 @@ xcodegen generate
 
 测试目录（VitalStrideTests/）使用目录源引用，新增测试文件自动包含，无需手动添加。
 
+## TestFlight 自动发布
+
+`.github/workflows/testflight.yml` 每 6 小时检查一次 main，若自上次成功发布后有新 commit，就在
+self-hosted runner `vitalstride-mac` 上 build + 上传 TestFlight（内部测试）。手动兜底：Actions →
+testflight → Run workflow（`force=true` 忽略"无新提交"检查）。
+
+- **发布点记录**：moving tag `testflight/last-released`（累积式；build 失败/关机期间不丢 commit）。
+- **签名**：project.yml 保持 Automatic + `DEVELOPMENT_TEAM 4Z8GG667QD`；archive 用
+  `-allowProvisioningUpdates` + App Store Connect API key 非交互签名（app + widget 扩展两个 bundleID）。
+- **build number**：查 TestFlight 现存最大值 +1，archive 时 `xcargs` 注入，不写回 project.yml。
+- **fastlane**：`fastlane/Fastfile` 的 `ios beta` lane（Homebrew 装 fastlane）。
+
+**需要的 GitHub Secrets**（一次性，值来自 App Store Connect API Key）：
+
+| Secret | 来源 |
+|---|---|
+| `ASC_KEY_ID` | ASC → Users and Access → Integrations → API Key 的 Key ID |
+| `ASC_ISSUER_ID` | 同页 Issuer ID |
+| `ASC_KEY_P8_BASE64` | `base64 -i AuthKey_XXX.p8`（.p8 只能下载一次，妥善保管；prod 密钥禁入 repo） |
+
 ## Architecture
 
 - **XcodeGen 项目**：`project.yml` 定义 targets，`xcodegen generate` 生成 `.xcodeproj`
