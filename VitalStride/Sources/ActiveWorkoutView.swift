@@ -11,6 +11,9 @@ import SwiftUI
 import TelemetryKit
 import VitalModels
 import VitalUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveWorkout")
 
@@ -34,6 +37,13 @@ struct ActiveWorkoutView: View {
     @State private var restTimer = RestTimerController()
     @State private var currentHeartRate: Double?
     @State private var heartRateReceivedAt: Date?
+    // MY-1245: track custom-numeric-keyboard visibility so the FAB can retreat
+    // when the input keyboard is on screen — prevents the FAB from covering
+    // input rows / row controls. `UITextField.inputView` (WorkoutNumericKeyboard)
+    // still fires the standard `UIResponder.keyboardWill{Show,Hide}Notification`
+    // through iOS input system, so a simple notification observer is enough
+    // and avoids adding a bespoke publisher inside the input view.
+    @State private var isKeyboardVisible = false
     #if !os(macOS)
     @State private var sessionManager: (any WorkoutSessionManaging)?
     #endif
@@ -63,22 +73,36 @@ struct ActiveWorkoutView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
-                VStack(spacing: 0) {
-                    workoutTimer
-                    sessionStatsCard
-                    exerciseList
-                }
-                .snackbar(
-                    isPresented: restSnackbarPresented,
-                    mode: restTimer.phase == .completed ? .autoDismiss(duration: 2) : .persistent
-                ) {
-                    restSnackbarContent
-                }
-                addExerciseButton
-                    .padding(.bottom, restTimer.phase != .idle ? 100 : 0)
-                    .animation(.spring(duration: 0.35, bounce: 0.2), value: restTimer.phase != .idle)
+            VStack(spacing: 0) {
+                workoutTimer
+                sessionStatsCard
+                exerciseList
             }
+            .snackbar(
+                isPresented: restSnackbarPresented,
+                mode: restTimer.phase == .completed ? .autoDismiss(duration: 2) : .persistent
+            ) {
+                restSnackbarContent
+            }
+            // MY-1245: place the FAB via `safeAreaInset` instead of a
+            // bottom-trailing ZStack overlay. `safeAreaInset` both **reserves
+            // bottom scroll content inset** equal to the FAB footprint (so the
+            // last set row's `⋯` menu and completion ring are never obscured)
+            // and positions the button in the trailing corner. Hides the FAB
+            // when the custom numeric keyboard is on screen so it can't cover
+            // any input row or row-inline control (Acceptance criterion #3).
+            .safeAreaInset(edge: .bottom, alignment: .trailing, spacing: 0) {
+                if !isKeyboardVisible {
+                    addExerciseButton
+                        .padding(.bottom, restTimer.phase != .idle ? 100 : 0)
+                        .animation(
+                            .spring(duration: 0.35, bounce: 0.2),
+                            value: restTimer.phase != .idle
+                        )
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: isKeyboardVisible)
             .navigationTitle(String(localized: "训练中", comment: "Active workout navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -221,6 +245,16 @@ struct ActiveWorkoutView: View {
             #if !os(macOS)
             .task { await observeHeartRate() }
             .task { await monitorHeartRateStaleness() }
+            .onReceive(
+                NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
+            ) { _ in
+                isKeyboardVisible = true
+            }
+            .onReceive(
+                NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
+            ) { _ in
+                isKeyboardVisible = false
+            }
             #endif
         }
     }
@@ -550,7 +584,9 @@ struct ActiveWorkoutView: View {
                 .onMove { source, destination in
                     moveExercises(from: source, to: destination)
                 }
-                Section {} footer: { Color.clear.frame(height: 72) }
+                // MY-1245: FAB inset is now reserved by `safeAreaInset(edge:
+                // .bottom)` in `body`, so a manual 72pt footer spacer is no
+                // longer needed — it would double-count the reserved area.
             }
             // MY-877: plain list style + immediate keyboard dismissal on scroll
             // for compact, scannable in-workout entry. Reduce default row floor
