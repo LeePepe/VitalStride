@@ -58,9 +58,13 @@ jobs:
             echo "→ skipped: no new commits since last TestFlight release"
           fi
 
-      - name: Select Xcode
+      - name: Verify Xcode
         if: steps.gate.outputs.release == 'true'
-        run: sudo xcode-select -s /Applications/Xcode_26.5.app
+        # self-hosted runner 上 Xcode 已由用户选定（无 passwordless sudo，
+        # 不能像 GitHub 托管 runner 那样 sudo xcode-select）。这里只校验版本。
+        run: |
+          echo "Using: $(xcode-select -p)"
+          xcodebuild -version
 
       - name: Ensure fastlane
         if: steps.gate.outputs.release == 'true'
