@@ -236,6 +236,30 @@ struct ExercisePickerView: View {
     static let cardGridVerticalInset: CGFloat = 16
     static let cardGridIndexBarReserve: CGFloat = EquipmentIndexBar.hitWidth + 4
 
+    /// Leading inset used by the card grid. Independent of index-bar
+    /// visibility by design (MY-1251 / MY-1258): the parameter exists so the
+    /// invariant is expressible and testable, not because the value varies.
+    static func cardGridLeadingInset(showsIndexBar _: Bool) -> CGFloat {
+        cardGridHorizontalInset
+    }
+
+    /// Trailing inset used by the card grid. Always reserves space for the
+    /// index bar whether or not the bar is currently rendered, so that
+    /// switching between multi-section and single-section muscle groups
+    /// cannot reflow `LazyVGrid` column widths.
+    static func cardGridTrailingInset(showsIndexBar _: Bool) -> CGFloat {
+        cardGridHorizontalInset + cardGridIndexBarReserve
+    }
+
+    /// Width available to the `LazyVGrid` columns after the fixed horizontal
+    /// insets are removed from `containerWidth`. Must be invariant across
+    /// `showsIndexBar` transitions.
+    static func cardGridAvailableWidth(containerWidth: CGFloat, showsIndexBar: Bool) -> CGFloat {
+        let used = cardGridLeadingInset(showsIndexBar: showsIndexBar)
+            + cardGridTrailingInset(showsIndexBar: showsIndexBar)
+        return max(0, containerWidth - used)
+    }
+
     @ViewBuilder
     private var exerciseCardGrid: some View {
         if equipmentGroups.isEmpty {
@@ -253,8 +277,8 @@ struct ExercisePickerView: View {
                             }
                         }
                         .padding(.vertical, Self.cardGridVerticalInset)
-                        .padding(.leading, Self.cardGridHorizontalInset)
-                        .padding(.trailing, Self.cardGridHorizontalInset + Self.cardGridIndexBarReserve)
+                        .padding(.leading, Self.cardGridLeadingInset(showsIndexBar: showsIndexBar))
+                        .padding(.trailing, Self.cardGridTrailingInset(showsIndexBar: showsIndexBar))
                         .scrollTargetLayout()
                     }
                     .scrollPosition(id: $visibleEquipment, anchor: .top)
