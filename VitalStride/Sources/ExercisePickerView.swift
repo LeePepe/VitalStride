@@ -23,6 +23,15 @@ struct ExercisePickerView: View {
     @State private var visibleEquipment: Equipment?
     @State private var draggedEquipment: Equipment?
     @State private var cachedEquipmentGroups: [(Equipment, [Exercise])]?
+    // MY-1249 + MY-1250 reconciliation: MY-1250 previously reset the card-grid
+    // scroll to the top on filter/search change by writing `visibleEquipment`
+    // and letting `.scrollPosition(id:)` push the offset. MY-1249 removed
+    // that binding (its update lag caused the index-bar sync bug), so a
+    // dedicated trigger is needed to keep the scroll-reset intent. Bumping
+    // this token drives an `.onChange` inside the ScrollViewReader that calls
+    // `gridProxy.scrollTo(...)` — decoupling scroll-reset from the (now
+    // observation-only) `visibleEquipment` highlight state.
+    @State private var scrollResetToken: Int = 0
     let selectionMode: SelectionMode
 
     private static let searchDebounceNanoseconds: UInt64 = 200_000_000
@@ -146,6 +155,7 @@ struct ExercisePickerView: View {
                 // (e.g. both "全部" and "胸部" have "哑铃"). Otherwise the ScrollView
                 // keeps the old offset and shows blank space at the bottom (MY-1250).
                 visibleEquipment = newGroups.first?.0
+                scrollResetToken &+= 1
             }
             .onChange(of: debouncedSearchText) { _, newText in
                 let newGroups = Self.computeEquipmentGroups(
@@ -157,6 +167,7 @@ struct ExercisePickerView: View {
                 // Same reasoning as muscle-group change: search-driven content
                 // shrinks can strand the scroll offset past the new content end.
                 visibleEquipment = newGroups.first?.0
+                scrollResetToken &+= 1
             }
             .task(id: searchText) {
                 let pending = searchText
@@ -291,26 +302,16 @@ struct ExercisePickerView: View {
                         .padding(.trailing, Self.cardGridTrailingInset(showsIndexBar: showsIndexBar))
                         .scrollTargetLayout()
                     }
-                    .scrollPosition(id: $visibleEquipment, anchor: .top)
+                    // MY-1249: use onScrollTargetVisibilityChange (iOS 18) instead
+                    // of .scrollPosition(id:anchor:.top) — the latter's binding
+                    // updates lagged during finger scroll with lazy sections, so
+                    // the right-side index bar highlight fell out of sync.
+                    .onScrollTargetVisibilityChange(idType: Equipment.self) { visibleIds in
+                        visibleEquipment = Self.firstVisibleEquipment(from: visibleIds, in: equipments)
+                    }
 
                     if showsIndexBar {
-                        EquipmentIndexBar(
-                            equipments: equipments,
-                            activeEquipment: visibleEquipment ?? draggedEquipment,
-                            onSelect: { equipment in
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    gridProxy.scrollTo(equipment, anchor: .top)
-                                }
-                            },
-                            onDragChanged: { equipment in
-                                draggedEquipment = equipment
-                            },
-                            onDragEnded: {
-                                draggedEquipment = nil
-                            }
-                        )
-                        .padding(.trailing, 4)
-                        .padding(.vertical, 16)
+                        indexBarSlot(equipments: equipments, gridProxy: gridProxy)
                     }
                 }
                 .overlay(alignment: .center) {
@@ -328,8 +329,72 @@ struct ExercisePickerView: View {
                         visibleEquipment = newEquipments.first
                     }
                 }
+                // MY-1250 reconciliation: filter/search change bumps
+                // `scrollResetToken`; here we imperatively scroll the grid to
+                // the top of the first section. This restores the "reset to
+                // top on filter change" behavior that MY-1250 originally got
+                // from `.scrollPosition(id: $visibleEquipment)` (removed by
+                // MY-1249 to fix index-bar sync lag).
+                .onChange(of: scrollResetToken) { _, _ in
+                    guard let first = equipmentGroups.first?.0 else { return }
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        gridProxy.scrollTo(first, anchor: .top)
+                    }
+                }
             }
         }
+    }
+
+    // MY-1249: index bar wrapper anchoring the bar in the middle-bottom band
+    // of the vertical column instead of stretching the full column height.
+    // Top spacer is unbounded; bottom spacer capped at `indexBarBottomInset`
+    // so the compact bar drifts toward — but does not touch — the bottom.
+    @ViewBuilder
+    private func indexBarSlot(equipments: [Equipment], gridProxy: ScrollViewProxy) -> some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            EquipmentIndexBar(
+                equipments: equipments,
+                activeEquipment: visibleEquipment ?? draggedEquipment,
+                onSelect: { equipment in
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        gridProxy.scrollTo(equipment, anchor: .top)
+                    }
+                    visibleEquipment = equipment
+                },
+                onDragChanged: { equipment in
+                    draggedEquipment = equipment
+                },
+                onDragEnded: {
+                    draggedEquipment = nil
+                }
+            )
+            .padding(.trailing, 4)
+            Spacer(minLength: 0)
+                .frame(maxHeight: Self.indexBarBottomInset)
+        }
+    }
+
+    /// Bottom-spacer cap that biases the index bar toward the middle-bottom
+    /// band of the column. The top spacer is unbounded and consumes the rest.
+    private static let indexBarBottomInset: CGFloat = 96
+
+    /// Test-facing accessor for the index-bar hit-target lane width so
+    /// `ExercisePickerIndexSyncTests` can lock Constitution §H without
+    /// piercing the `private` scope of `EquipmentIndexBar`.
+    static var equipmentIndexBarHitWidth: CGFloat { EquipmentIndexBar.hitWidth }
+
+    /// MY-1249: pick the section that should own the index-bar highlight
+    /// given the set of currently visible section ids. Prefer the first
+    /// visible section in equipment order (i.e. the top-most on-screen).
+    /// Falls back to `nil` when no ids are reported (empty content).
+    static func firstVisibleEquipment(
+        from visibleIds: [Equipment],
+        in order: [Equipment]
+    ) -> Equipment? {
+        guard !visibleIds.isEmpty else { return nil }
+        let visibleSet = Set(visibleIds)
+        return order.first(where: visibleSet.contains) ?? visibleIds.first
     }
 
     private func sectionPreviewPopup(equipment: Equipment) -> some View {
@@ -514,51 +579,60 @@ private struct EquipmentIndexBar: View {
 
     private static let verticalPadding: CGFloat = 8
     private static let barWidth: CGFloat = 28
+    private static let iconSize: CGFloat = 22
+    private static let iconSpacing: CGFloat = 2
     // Constitution §H: interactive hit targets must be at least 44pt.
     static let hitWidth: CGFloat = 44
 
+    /// MY-1249: intrinsic (icons * iconSize + gaps + padding) so the bar
+    /// no longer stretches to fill the column — outer VStack + spacers
+    /// position it in the middle-bottom band.
+    private var intrinsicHeight: CGFloat {
+        let iconCount = CGFloat(max(equipments.count, 1))
+        let gaps = max(iconCount - 1, 0) * Self.iconSpacing
+        return iconCount * Self.iconSize + gaps + Self.verticalPadding * 2
+    }
+
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .trailing) {
-                VStack(spacing: 2) {
-                    ForEach(equipments, id: \.self) { equipment in
-                        let active = activeEquipment == equipment
-                        Image(systemName: equipment.sfSymbol)
-                            .font(.system(size: 11, weight: active ? .bold : .medium))
-                            .frame(width: 22, height: 22)
-                            .foregroundStyle(active ? theme.primary.onPrimary : theme.neutrals.text2)
-                            .background(active ? theme.primary.primary : Color.clear)
-                            .clipShape(Circle())
-                            .accessibilityLabel(equipment.localizedName)
-                    }
+        let height = intrinsicHeight
+        return ZStack(alignment: .trailing) {
+            VStack(spacing: Self.iconSpacing) {
+                ForEach(equipments, id: \.self) { equipment in
+                    let active = activeEquipment == equipment
+                    Image(systemName: equipment.sfSymbol)
+                        .font(.system(size: 11, weight: active ? .bold : .medium))
+                        .frame(width: Self.iconSize, height: Self.iconSize)
+                        .foregroundStyle(active ? theme.primary.onPrimary : theme.neutrals.text2)
+                        .background(active ? theme.primary.primary : Color.clear)
+                        .clipShape(Circle())
+                        .accessibilityLabel(equipment.localizedName)
                 }
-                .frame(width: Self.barWidth)
-                .padding(.vertical, Self.verticalPadding)
-                .liquidGlassCapsule(theme: theme)
             }
-            .frame(width: Self.hitWidth, alignment: .trailing)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        guard let equipment = equipmentAt(
-                            y: value.location.y,
-                            totalHeight: geo.size.height
-                        ) else { return }
-                        if equipment != activeEquipment {
-                            onSelect(equipment)
-                            triggerSelectionHaptic()
-                        }
-                        onDragChanged(equipment)
-                    }
-                    .onEnded { _ in
-                        onDragEnded()
-                    }
-            )
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(String(localized: "器械分区索引", comment: "Equipment section index bar a11y label"))
+            .frame(width: Self.barWidth)
+            .padding(.vertical, Self.verticalPadding)
+            .liquidGlassCapsule(theme: theme)
         }
-        .frame(width: Self.hitWidth)
+        .frame(width: Self.hitWidth, height: height, alignment: .trailing)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    guard let equipment = equipmentAt(
+                        y: value.location.y,
+                        totalHeight: height
+                    ) else { return }
+                    if equipment != activeEquipment {
+                        onSelect(equipment)
+                        triggerSelectionHaptic()
+                    }
+                    onDragChanged(equipment)
+                }
+                .onEnded { _ in
+                    onDragEnded()
+                }
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(String(localized: "器械分区索引", comment: "Equipment section index bar a11y label"))
     }
 
     private func equipmentAt(y: CGFloat, totalHeight: CGFloat) -> Equipment? {
