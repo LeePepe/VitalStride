@@ -1190,6 +1190,78 @@
         }
       }
     },
+    "generic_health_detail.loading" : {
+      "comment" : "Full-height loading indicator label on the health detail view (MY-1247).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加载中…"
+          }
+        }
+      }
+    },
+    "generic_health_detail.loading_a11y" : {
+      "comment" : "Accessibility label for the loading section on the health detail view (MY-1247).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加载中"
+          }
+        }
+      }
+    },
+    "generic_health_detail.refreshing" : {
+      "comment" : "Compact refresh indicator shown above prior chart content while a time-range switch loads (MY-1247).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updating…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新中…"
+          }
+        }
+      }
+    },
+    "generic_health_detail.refreshing_a11y" : {
+      "comment" : "Accessibility label for the refresh indicator strip (MY-1247).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updating data"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在更新数据"
+          }
+        }
+      }
+    },
     "headline_bar_a11y_hint" : {
       "comment" : "VoiceOver hint appended to headline bar text",
       "localizations" : {
