@@ -79,6 +79,15 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SUPPORTED_INTERFACE_ORIENTATIONS: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         SUPPORTED_INTERFACE_ORIENTATIONS~ipad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        # 显式写进生成的 Info.plist —— App Store 上传校验要求主 app bundle 有
+        # UISupportedInterfaceOrientations（GeneratedByBuildSystem 模式下上面的
+        # SUPPORTED_INTERFACE_ORIENTATIONS build setting 没投影进 plist，报 Invalid bundle）。
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        # 声明需要全屏 → 不参与 iPad 分屏多任务，从而不必支持全部 4 个方向
+        # （否则 App Store 校验：All interface orientations must be supported
+        # unless the app requires full screen）。健身 app 全屏使用，可逆设置。
+        INFOPLIST_KEY_UIRequiresFullScreen: true
         INFOPLIST_KEY_NSHealthShareUsageDescription: "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations."
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps."
         INFOPLIST_KEY_UILaunchScreen_Generation: true
@@ -223,6 +232,9 @@ targets:
     info:
       path: VitalStrideWidgets/Info.plist
       properties:
+        # App Store 要求扩展 bundle 必须有 CFBundleDisplayName，否则上传校验
+        # 报 90360（Missing Info.plist value）。
+        CFBundleDisplayName: VitalStride
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
         NSSupportsLiveActivities: true
