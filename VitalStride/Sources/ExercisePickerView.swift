@@ -225,6 +225,16 @@ struct ExercisePickerView: View {
     }
 
     // MARK: - Card Grid
+    //
+    // Horizontal insets are kept stable regardless of index-bar visibility so
+    // that switching muscle groups between multi-section and single-section
+    // states does not reflow `LazyVGrid` column widths (MY-1251). The trailing
+    // reserve equals the space the index bar physically occupies
+    // (`EquipmentIndexBar.hitWidth` + its trailing padding) and is applied
+    // whether or not the bar is currently rendered.
+    static let cardGridHorizontalInset: CGFloat = 16
+    static let cardGridVerticalInset: CGFloat = 16
+    static let cardGridIndexBarReserve: CGFloat = EquipmentIndexBar.hitWidth + 4
 
     @ViewBuilder
     private var exerciseCardGrid: some View {
@@ -242,8 +252,9 @@ struct ExercisePickerView: View {
                                     .id(equipment)
                             }
                         }
-                        .padding()
-                        .padding(.trailing, showsIndexBar ? 48 : 0)
+                        .padding(.vertical, Self.cardGridVerticalInset)
+                        .padding(.leading, Self.cardGridHorizontalInset)
+                        .padding(.trailing, Self.cardGridHorizontalInset + Self.cardGridIndexBarReserve)
                         .scrollTargetLayout()
                     }
                     .scrollPosition(id: $visibleEquipment, anchor: .top)
