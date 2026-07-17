@@ -74,8 +74,16 @@ struct ActiveWorkoutView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                workoutTimer
-                sessionStatsCard
+                // MY-1262: default mode collapses the standalone timer and stats
+                // cards into a single ~48pt compact info band. Large Mode keeps
+                // its dual-card layout so its accessibility presentation stays
+                // intact.
+                if largeMode {
+                    workoutTimer
+                    sessionStatsCard
+                } else {
+                    compactInfoBand
+                }
                 exerciseList
             }
             .snackbar(
@@ -257,6 +265,123 @@ struct ActiveWorkoutView: View {
             }
             #endif
         }
+    }
+
+    // MARK: - Compact info band (MY-1262, default mode)
+
+    /// Single-row information band that replaces the standalone timer + stats
+    /// cards in default mode. Presents duration, heart rate (iOS), completed/
+    /// total sets with a compact progress ring, and total volume in a
+    /// horizontal layout at body scale. Sits above the scrolling exercise list
+    /// (parent `VStack`) so it stays visible while sets scroll. Each metric is
+    /// its own VoiceOver element with a localized label/value pair.
+    @ViewBuilder
+    private var compactInfoBand: some View {
+        let volumeKg = totalVolumeKg
+        let displayVolume = weightUnit == .lb ? volumeKg * 2.20462 : volumeKg
+        let volumeText = Int(displayVolume).formatted()
+        HStack(spacing: 12) {
+            compactDurationItem
+            #if !os(macOS)
+            compactHeartRateItem
+            #endif
+            Spacer(minLength: 0)
+            compactSetsItem
+            compactVolumeItem(volumeText: volumeText, unit: weightUnit.rawValue)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .frame(minHeight: 48)
+        .background(theme.neutrals.card)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(theme.neutrals.border).frame(height: 1)
+        }
+    }
+
+    private var compactDurationItem: some View {
+        TimelineView(.periodic(from: startTime, by: 1)) { context in
+            let elapsed = context.date.timeIntervalSince(startTime)
+            let totalSeconds = Int(elapsed)
+            let hours = totalSeconds / 3600
+            let minutes = (totalSeconds % 3600) / 60
+            let seconds = totalSeconds % 60
+            let timeString = String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            HStack(spacing: 4) {
+                Image(systemName: "timer")
+                    .font(.subheadline)
+                    .foregroundStyle(theme.neutrals.text2)
+                    .accessibilityHidden(true)
+                Text(timeString)
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(theme.neutrals.text1)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(String(localized: "训练时长", comment: "Workout duration a11y label"))
+            .accessibilityValue(Text(timeString))
+        }
+    }
+
+    #if !os(macOS)
+    private var compactHeartRateItem: some View {
+        let bpmText = HeartRateFormatter.displayText(currentHeartRate)
+        return HStack(spacing: 4) {
+            Image(systemName: "heart.fill")
+                .font(.subheadline)
+                .foregroundStyle(theme.danger)
+                .accessibilityHidden(true)
+            Text(bpmText)
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(theme.neutrals.text1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "心率", comment: "Heart rate a11y label"))
+        .accessibilityValue(HeartRateFormatter.accessibilityText(currentHeartRate))
+    }
+    #endif
+
+    private var compactSetsItem: some View {
+        let progress = totalSetCount == 0
+            ? 0.0
+            : Double(completedSetCount) / Double(totalSetCount)
+        let clamped = min(1, max(0, progress))
+        return HStack(spacing: 6) {
+            ZStack {
+                Circle()
+                    .stroke(theme.neutrals.border, lineWidth: 2)
+                Circle()
+                    .trim(from: 0, to: clamped)
+                    .stroke(
+                        theme.primary.primary,
+                        style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+            }
+            .frame(width: 16, height: 16)
+            .accessibilityHidden(true)
+            Text("\(completedSetCount)/\(totalSetCount)")
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(theme.neutrals.text1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "组数进度", comment: "Session set progress a11y label"))
+        .accessibilityValue(String(
+            localized: "已完成 \(completedSetCount) / \(totalSetCount) 组",
+            comment: "Session set progress a11y value"
+        ))
+    }
+
+    private func compactVolumeItem(volumeText: String, unit: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 2) {
+            Text(volumeText)
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(theme.neutrals.text1)
+            Text(unit)
+                .font(.caption)
+                .foregroundStyle(theme.neutrals.text3)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "总容量", comment: "Session total volume a11y label"))
+        .accessibilityValue(Text("\(volumeText) \(unit)"))
     }
 
     // MARK: - Subviews
