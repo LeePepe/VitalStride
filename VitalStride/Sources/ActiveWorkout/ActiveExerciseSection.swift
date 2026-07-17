@@ -111,7 +111,11 @@ struct ActiveExerciseSection: View {
                             copyToNext(from: exerciseSet)
                         }
                     )
-                    .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
+                    // MY-1263 (D2): compact set-row vertical spacing in normal
+                    // mode brings the row visual height toward ~36pt while
+                    // preserving Large Mode's existing 2pt breathing room and
+                    // the row-internal ≥44pt hit targets defined by SetRow.
+                    .listRowInsets(EdgeInsets(top: largeMode ? 2 : 1, leading: 16, bottom: largeMode ? 2 : 1, trailing: 16))
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if canDelete {
                             Button(role: .destructive) {
@@ -127,7 +131,17 @@ struct ActiveExerciseSection: View {
         } header: {
             HStack {
                 Text(workoutExercise.exercise?.localizedName ?? "动作")
-                    .font(LargeWorkoutFonts.exerciseName(large: largeMode))
+                    // MY-1263 (D2): compact semibold body header in normal mode
+                    // (SwiftUI's default `List` section header uses a larger
+                    // title font that dominated the visual band). Large Mode
+                    // continues to use the `.title2` semibold ramp from
+                    // `LargeWorkoutFonts.exerciseName(large:)` for rack-step
+                    // legibility (MY-1091). Text-style-driven so Dynamic Type
+                    // still scales.
+                    .font(largeMode
+                        ? LargeWorkoutFonts.exerciseName(large: true)
+                        : Font.system(.body, design: .default).weight(.semibold))
+                    .foregroundStyle(theme.neutrals.text1)
                     .contextMenu {
                         Button {
                             onSubstitute()
@@ -219,7 +233,10 @@ struct ActiveExerciseSection: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
-        .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
+        // MY-1263 (D2): tighter list row insets in normal mode compact the
+        // "add set" row toward the ~36pt visual density target. Large Mode
+        // retains the pre-existing 2pt breathing room.
+        .listRowInsets(EdgeInsets(top: largeMode ? 2 : 1, leading: 16, bottom: largeMode ? 2 : 1, trailing: 16))
         .accessibilityLabel("添加一组")
         .accessibilityHint("在列表末尾插入新的一组")
     }
