@@ -2374,6 +2374,23 @@
     "左滑继续" : {
 
     },
+    "已完成 %lld / %lld 组" : {
+      "comment" : "Session set progress a11y value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed %1$lld of %2$lld sets"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已完成 %1$lld / %2$lld 组"
+          }
+        }
+      }
+    },
     "已爬楼层" : {
       "comment" : "Flights climbed",
       "localizations" : {
@@ -2550,6 +2567,23 @@
     },
     "总次数" : {
       "comment" : "Per-exercise total reps\nPer-exercise total reps a11y"
+    },
+    "总容量" : {
+      "comment" : "Session total volume a11y label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total volume"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总容量"
+          }
+        }
+      }
     },
     "总组数" : {
       "comment" : "Per-exercise total sets\nPer-exercise total sets a11y"
@@ -3484,6 +3518,23 @@
     "组" : {
       "comment" : "Sets unit a11y"
     },
+    "组数进度" : {
+      "comment" : "Session set progress a11y label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set progress"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "组数进度"
+          }
+        }
+      }
+    },
     "组类型" : {
       "comment" : "Set type picker label in menu"
     },
@@ -3607,7 +3658,21 @@
 
     },
     "训练时长" : {
-
+      "comment" : "Workout duration a11y label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workout duration"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "训练时长"
+          }
+        }
+      }
     },
     "训练详情" : {
 
