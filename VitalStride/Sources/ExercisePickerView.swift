@@ -14,6 +14,7 @@ struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
     @State private var searchText = ""
     @State private var debouncedSearchText = ""
@@ -23,6 +24,7 @@ struct ExercisePickerView: View {
     @State private var visibleEquipment: Equipment?
     @State private var draggedEquipment: Equipment?
     @State private var cachedEquipmentGroups: [(Equipment, [Exercise])]?
+    @FocusState private var isSearchFocused: Bool
     // MY-1249 + MY-1250 reconciliation: MY-1250 previously reset the card-grid
     // scroll to the top on filter/search change by writing `visibleEquipment`
     // and letting `.scrollPosition(id:)` push the offset. MY-1249 removed
@@ -107,14 +109,13 @@ struct ExercisePickerView: View {
                         description: Text(String(localized: "请先导入预置动作库", comment: "Empty exercise library description"))
                     )
                 } else {
-                    VStack(spacing: 0) {
-                        exerciseCardGrid
-                            .frame(maxWidth: .infinity)
-                        muscleGroupFilterBar
-                    }
+                    exerciseCardGrid
+                        .frame(maxWidth: .infinity)
+                        .safeAreaInset(edge: .bottom, spacing: 0) {
+                            floatingSearchAndFilterPanel
+                        }
                 }
             }
-            .searchable(text: $searchText, prompt: String(localized: "搜索动作", comment: "Exercise search prompt"))
             .navigationTitle(String(localized: "选择动作", comment: "Exercise picker navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -195,9 +196,92 @@ struct ExercisePickerView: View {
         .accessibilityLabel(String(localized: "添加 \(count) 个动作", comment: "Confirm multi-select a11y label"))
     }
 
-    // MARK: - Muscle Group Filter Bar (bottom)
+    // MARK: - Floating Search + Muscle Filter Panel (MY-1260)
+    //
+    // A single floating glass panel that combines the search input and the
+    // muscle-group filter chips. Replaces the prior split layout (system
+    // `.searchable` at the top + a separate `.liquidGlassBar` chip strip
+    // at the bottom) that felt like two disconnected surfaces. The panel:
+    //
+    // - Sits above the safe-area with symmetric horizontal padding so it
+    //   reads as a floating slab, not a bar glued to the edges.
+    // - Uses the existing `.liquidGlassBar` helper for the material (gated
+    //   `.glassEffect` on iOS 26+, DesignKit card fallback below) and
+    //   respects Reduce Transparency by dropping to an opaque card.
+    // - Hosts two rows separated by a 1pt hairline: search input on top,
+    //   muscle-group chips on the bottom. The chips row remains horizontal
+    //   scroll but the whole panel is one hit surface.
+    //
+    // Debounce + `debouncedSearchText` (`.task(id: searchText)`) is
+    // preserved verbatim — only the outer chrome changes.
 
-    private var muscleGroupFilterBar: some View {
+    private static let panelHorizontalInset: CGFloat = 12
+    private static let panelBottomInset: CGFloat = 8
+    private static let panelInnerHPadding: CGFloat = 14
+    private static let panelInnerVPadding: CGFloat = 10
+
+    private var floatingSearchAndFilterPanel: some View {
+        VStack(spacing: 8) {
+            searchRow
+            Rectangle()
+                .fill(theme.neutrals.border)
+                .frame(height: 1)
+                .accessibilityHidden(true)
+            muscleGroupChipsRow
+        }
+        .padding(.horizontal, Self.panelInnerHPadding)
+        .padding(.vertical, Self.panelInnerVPadding)
+        .modifier(PanelSurfaceModifier(theme: theme, opaque: reduceTransparency))
+        .padding(.horizontal, Self.panelHorizontalInset)
+        .padding(.bottom, Self.panelBottomInset)
+    }
+
+    // MARK: Search row (self-drawn — replaces system `.searchable`)
+
+    @ViewBuilder
+    private var searchRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(theme.neutrals.text3)
+                .accessibilityHidden(true)
+
+            TextField(
+                String(localized: "搜索动作", comment: "Exercise search prompt"),
+                text: $searchText
+            )
+            .font(TypeScale.body)
+            .foregroundStyle(theme.neutrals.text1)
+            .textFieldStyle(.plain)
+            .autocorrectionDisabled(true)
+            #if canImport(UIKit)
+            .textInputAutocapitalization(.never)
+            #endif
+            .submitLabel(.search)
+            .focused($isSearchFocused)
+            .accessibilityLabel(String(localized: "搜索动作", comment: "Exercise search prompt"))
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                    debouncedSearchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(theme.neutrals.text3)
+                        .frame(width: 44, height: 32, alignment: .trailing)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "清除搜索", comment: "Clear search a11y label"))
+            }
+        }
+        .frame(minHeight: 32)
+    }
+
+    // MARK: Muscle-group chips row (segmented-like, native-feel)
+
+    private var muscleGroupChipsRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 muscleChip(
@@ -216,13 +300,7 @@ struct ExercisePickerView: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-        }
-        .frame(maxWidth: .infinity)
-        .liquidGlassBar(theme: theme, cornerRadius: 0)
-        .overlay(alignment: .top) {
-            Rectangle().fill(theme.neutrals.border).frame(height: 1)
+            .padding(.vertical, 2)
         }
     }
 
@@ -238,8 +316,21 @@ struct ExercisePickerView: View {
                 .foregroundStyle(isSelected ? theme.primary.onPrimary : theme.neutrals.text2)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
-                .background(isSelected ? theme.primary.primary : theme.neutrals.inner)
-                .clipShape(Capsule())
+                .frame(minHeight: 32)
+                .background(
+                    Group {
+                        if isSelected {
+                            Capsule().fill(theme.primary.primary)
+                        } else {
+                            // Transparent capsule keeps the row visually
+                            // lighter (segmented-like) instead of the prior
+                            // dense inner-fill chip strip. A hairline stroke
+                            // keeps each pill legible against the glass.
+                            Capsule().stroke(theme.neutrals.border, lineWidth: 1)
+                        }
+                    }
+                )
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -526,6 +617,39 @@ struct ExercisePickerView: View {
         } else {
             selectedIDs.insert(id)
             selectedExercises.append(exercise)
+        }
+    }
+}
+
+// MARK: - Panel Surface Modifier
+
+/// Wraps the floating search + filter panel with the shared Liquid Glass
+/// material, a hairline border, and the DesignKit card corner radius. When
+/// `Reduce Transparency` is enabled the material collapses to an opaque
+/// DesignKit card fill so the panel remains legible.
+private struct PanelSurfaceModifier: ViewModifier {
+    let theme: Theme
+    let opaque: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if opaque {
+            content
+                .background(
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                        .fill(theme.neutrals.card)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                        .strokeBorder(theme.neutrals.border, lineWidth: 1)
+                )
+        } else {
+            content
+                .liquidGlassBar(theme: theme, cornerRadius: Radius.card)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                        .strokeBorder(theme.neutrals.border, lineWidth: 1)
+                )
         }
     }
 }
