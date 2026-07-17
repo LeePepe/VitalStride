@@ -30,6 +30,31 @@ enum ActiveWorkoutHitTarget {
     static let side: CGFloat = 44
 }
 
+/// MY-1266 (D2 re-scope): expands the tappable region around normal-mode
+/// SetRow inputs to the 44pt Constitution P1-H floor without visually
+/// enlarging the underlying `SelectAllTextField`. In normal mode the
+/// weight/reps text fields hug `.body` typography and land near ~28pt
+/// rendered height — well below the HIG floor. This modifier keeps the
+/// drawn text field size unchanged and pads the *hit region* only via
+/// `contentShape(Rectangle())` plus transparent vertical padding, so the
+/// row lands on ~36pt visual density (AC #1) while every input still
+/// exposes an effective ≥44pt tap target (AC #2). No-op when `active` is
+/// false so Large Mode continues to rely on `largeMinHeight` for its own
+/// accessible sizing (AC #3).
+private struct NormalModeHitTargetPadding: ViewModifier {
+    let active: Bool
+
+    func body(content: Content) -> some View {
+        if active {
+            content
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+        } else {
+            content
+        }
+    }
+}
+
 struct SetRow: View {
     let index: Int
     let exerciseSet: ExerciseSet
@@ -166,7 +191,13 @@ struct SetRow: View {
                 smartProgressionChip(advice)
             }
         }
-        .padding(10)
+        // MY-1266 (D2 re-scope): tighten default-mode outer padding so the
+        // visible row lands near ~36pt while Large Mode keeps its accessible
+        // padding. Only the normal path shrinks; `largeMode == true` still
+        // uses the pre-existing 10pt outer padding required by the Large
+        // Mode accessibility contract (parent MY-1261 / spec preserves Large
+        // Mode typography, spacing, control sizing, and toggle behavior).
+        .padding(largeMode ? 10 : 6)
         .background(exerciseSet.isCompleted ? theme.neutrals.card : theme.neutrals.inner)
         .clipShape(RoundedRectangle(cornerRadius: Radius.inner))
         .overlay(
@@ -408,6 +439,7 @@ struct SetRow: View {
         )
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
+        .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
@@ -428,6 +460,7 @@ struct SetRow: View {
         )
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
+        .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
@@ -461,6 +494,7 @@ struct SetRow: View {
         )
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
+        .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel("第 \(index + 1) 组次数")
         .accessibilityHint("输入次数")
         .onChange(of: repsText) { _, newValue in
@@ -477,6 +511,7 @@ struct SetRow: View {
         )
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
+        .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel("第 \(index + 1) 组次数")
         .accessibilityHint("输入次数")
         .onChange(of: repsText) { _, newValue in
