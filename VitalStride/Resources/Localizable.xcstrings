@@ -3192,6 +3192,23 @@
     "清除 API Key" : {
       "comment" : "Clear API key button a11y"
     },
+    "清除搜索" : {
+      "comment" : "Clear search a11y label",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear search"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除搜索"
+          }
+        }
+      }
+    },
     "游泳" : {
       "comment" : "Swimming",
       "localizations" : {

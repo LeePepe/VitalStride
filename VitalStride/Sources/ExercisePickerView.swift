@@ -242,7 +242,7 @@ struct ExercisePickerView: View {
     private var searchRow: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(.subheadline, design: .default, weight: .semibold))
                 .foregroundStyle(theme.neutrals.text3)
                 .accessibilityHidden(true)
 
@@ -250,7 +250,13 @@ struct ExercisePickerView: View {
                 String(localized: "搜索动作", comment: "Exercise search prompt"),
                 text: $searchText
             )
-            .font(TypeScale.body)
+            // Use `.body` text style (dynamic-type scaled) instead of
+            // `TypeScale.body` (fixed 14pt) so the search input honors the
+            // user's preferred Content Size Category. This is the only
+            // field in the panel that accepts free-form text input and
+            // reviewer feedback flagged fixed sizing as an accessibility
+            // regression versus the prior system `.searchable` field.
+            .font(.system(.body))
             .foregroundStyle(theme.neutrals.text1)
             .textFieldStyle(.plain)
             .autocorrectionDisabled(true)
@@ -266,17 +272,21 @@ struct ExercisePickerView: View {
                     searchText = ""
                     debouncedSearchText = ""
                 } label: {
+                    // Icon renders at its intrinsic size but the button's hit
+                    // frame is 44×44pt so it satisfies Constitution §H (44pt
+                    // minimum hit target) even when the visible glyph is
+                    // smaller.
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.system(.body))
                         .foregroundStyle(theme.neutrals.text3)
-                        .frame(width: 44, height: 32, alignment: .trailing)
+                        .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "清除搜索", comment: "Clear search a11y label"))
             }
         }
-        .frame(minHeight: 32)
+        .frame(minHeight: 44)
     }
 
     // MARK: Muscle-group chips row (segmented-like, native-feel)
@@ -330,7 +340,14 @@ struct ExercisePickerView: View {
                         }
                     }
                 )
-                .contentShape(Capsule())
+                // Extend the tap area vertically beyond the ~32pt visual
+                // capsule so the *hit* target satisfies Constitution §H
+                // (≥44pt). `contentShape` picks up the padded frame so a
+                // finger landing on the invisible top/bottom band above/below
+                // the capsule still hits this chip.
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+                .frame(minHeight: 44)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
