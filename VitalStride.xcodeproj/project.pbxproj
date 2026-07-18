@@ -1471,7 +1471,6 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = VitalStride/VitalStride.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
@@ -1502,7 +1501,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "VitalStrideWatch Watch App/VitalStrideWatch.entitlements";
-				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
@@ -1554,6 +1552,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1604,7 +1603,6 @@
 				CODE_SIGN_ENTITLEMENTS = VitalStride/VitalStride.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
@@ -1636,7 +1634,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "VitalStrideWatch Watch App/VitalStrideWatch.entitlements";
-				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
@@ -1688,6 +1685,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 4Z8GG667QD;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1726,7 +1724,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = VitalStrideMac/VitalStrideMac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
@@ -1748,7 +1745,6 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_IDENTITY = "Apple Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = VitalStrideWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../Frameworks";
 				MARKETING_VERSION = 1.0;
@@ -1766,7 +1762,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = VitalStrideWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../Frameworks";
 				MARKETING_VERSION = 1.0;
@@ -1785,7 +1780,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = VitalStrideMac/VitalStrideMac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
