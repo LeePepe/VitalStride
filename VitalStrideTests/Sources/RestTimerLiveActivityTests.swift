@@ -80,6 +80,102 @@ struct RestTimerAttributesTests {
     }
 }
 
+/// Regression tests for MY-1273: RestTimerLiveActivity range crashes when the
+/// timer has expired or has an invalid duration. Before the fix, the widget
+/// constructed `Date.now...state.endDate` and `startDate...state.endDate` as
+/// `ClosedRange<Date>` values with `lowerBound > upperBound`, tripping
+/// `_assertionFailure` on the widget process (EXC_BREAKPOINT).
+@Suite("RestTimerAttributes.ContentState range safety (MY-1273)")
+struct RestTimerContentStateRangeSafetyTests {
+
+    @Test("Expired timer (endDate <= now) is treated as completed")
+    func expiredTimerIsCompleted() {
+        let reference = Date(timeIntervalSince1970: 2000)
+        let expired = RestTimerAttributes.ContentState(
+            endDate: Date(timeIntervalSince1970: 1000), // in the past vs reference
+            totalDuration: 60,
+            phase: .resting
+        )
+        #expect(expired.isEffectivelyCompleted(referenceDate: reference))
+        #expect(expired.remainingInterval(referenceDate: reference) == nil)
+        #expect(expired.progressInterval(referenceDate: reference) == nil)
+    }
+
+    @Test("endDate exactly equal to now is treated as completed (boundary)")
+    func endDateEqualToNowIsCompleted() {
+        let reference = Date(timeIntervalSince1970: 1000)
+        let atBoundary = RestTimerAttributes.ContentState(
+            endDate: reference,
+            totalDuration: 60,
+            phase: .resting
+        )
+        #expect(atBoundary.isEffectivelyCompleted(referenceDate: reference))
+        #expect(atBoundary.remainingInterval(referenceDate: reference) == nil)
+        #expect(atBoundary.progressInterval(referenceDate: reference) == nil)
+    }
+
+    @Test("Zero totalDuration is treated as completed")
+    func zeroDurationIsCompleted() {
+        let reference = Date(timeIntervalSince1970: 1000)
+        let zero = RestTimerAttributes.ContentState(
+            endDate: reference.addingTimeInterval(60),
+            totalDuration: 0,
+            phase: .resting
+        )
+        #expect(zero.isEffectivelyCompleted(referenceDate: reference))
+        #expect(zero.remainingInterval(referenceDate: reference) == nil)
+        #expect(zero.progressInterval(referenceDate: reference) == nil)
+    }
+
+    @Test("Negative totalDuration is treated as completed")
+    func negativeDurationIsCompleted() {
+        let reference = Date(timeIntervalSince1970: 1000)
+        let negative = RestTimerAttributes.ContentState(
+            endDate: reference.addingTimeInterval(60),
+            totalDuration: -30,
+            phase: .resting
+        )
+        #expect(negative.isEffectivelyCompleted(referenceDate: reference))
+        #expect(negative.remainingInterval(referenceDate: reference) == nil)
+        #expect(negative.progressInterval(referenceDate: reference) == nil)
+    }
+
+    @Test("Explicit completed phase is treated as completed regardless of dates")
+    func completedPhaseIsCompleted() {
+        let reference = Date(timeIntervalSince1970: 1000)
+        let completed = RestTimerAttributes.ContentState(
+            endDate: reference.addingTimeInterval(60),
+            totalDuration: 60,
+            phase: .completed
+        )
+        #expect(completed.isEffectivelyCompleted(referenceDate: reference))
+        #expect(completed.remainingInterval(referenceDate: reference) == nil)
+        #expect(completed.progressInterval(referenceDate: reference) == nil)
+    }
+
+    @Test("Valid ongoing rest returns well-formed ranges (lowerBound <= upperBound)")
+    func ongoingRestReturnsValidRanges() throws {
+        let reference = Date(timeIntervalSince1970: 1000)
+        let ongoing = RestTimerAttributes.ContentState(
+            endDate: reference.addingTimeInterval(45),
+            totalDuration: 60,
+            phase: .resting
+        )
+        #expect(!ongoing.isEffectivelyCompleted(referenceDate: reference))
+
+        let remaining = try #require(ongoing.remainingInterval(referenceDate: reference))
+        #expect(remaining.lowerBound <= remaining.upperBound)
+        #expect(remaining.lowerBound == reference)
+        #expect(remaining.upperBound == ongoing.endDate)
+
+        let progress = try #require(ongoing.progressInterval(referenceDate: reference))
+        #expect(progress.lowerBound <= progress.upperBound)
+        // startDate = endDate - totalDuration = 1000+45-60 = 985
+        #expect(progress.lowerBound == reference.addingTimeInterval(-15))
+        #expect(progress.upperBound == ongoing.endDate)
+    }
+}
+
 @Suite("RestTimerController Live Activity integration")
 struct RestTimerLiveActivityIntegrationTests {
 

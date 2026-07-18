@@ -36,39 +36,47 @@ struct RestTimerLiveActivity: Widget {
     @ViewBuilder
     private func lockScreenView(context: ActivityViewContext<RestTimerAttributes>) -> some View {
         let state = context.state
-        if state.phase == .completed {
+        if state.isEffectivelyCompleted() {
             completedLockScreen()
         } else {
             restingLockScreen(state: state)
         }
     }
 
+    @ViewBuilder
     private func restingLockScreen(state: RestTimerAttributes.ContentState) -> some View {
-        let startDate = state.endDate.addingTimeInterval(-state.totalDuration)
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "timer")
-                    .foregroundStyle(Color.accentColor)
-                Text("rest_live_activity_title", comment: "Live Activity lock screen title")
-                    .font(.headline)
-                Spacer()
-                Text(timerInterval: Date.now...state.endDate, countsDown: true)
-                    .font(.title2.monospacedDigit())
-                    .fontWeight(.semibold)
-                    .multilineTextAlignment(.trailing)
+        if let remaining = state.remainingInterval(),
+           let progress = state.progressInterval() {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "timer")
+                        .foregroundStyle(Color.accentColor)
+                    Text("rest_live_activity_title", comment: "Live Activity lock screen title")
+                        .font(.headline)
+                    Spacer()
+                    Text(timerInterval: remaining, countsDown: true)
+                        .font(.title2.monospacedDigit())
+                        .fontWeight(.semibold)
+                        .multilineTextAlignment(.trailing)
+                }
+                ProgressView(timerInterval: progress, countsDown: false)
+                    .tint(Color.accentColor)
+                    .accessibilityHidden(true)
             }
-            ProgressView(timerInterval: startDate...state.endDate, countsDown: false)
-                .tint(Color.accentColor)
-                .accessibilityHidden(true)
+            .padding()
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                Text("rest_live_activity_a11y_label", comment: "Live Activity a11y: Resting")
+            )
+            .accessibilityValue(
+                Text(timerInterval: remaining, countsDown: true)
+            )
+        } else {
+            // Fallback: state became invalid (expired / zero duration) between
+            // the lockScreenView guard and this render pass. Render the
+            // completed view rather than constructing an illegal range.
+            completedLockScreen()
         }
-        .padding()
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            Text("rest_live_activity_a11y_label", comment: "Live Activity a11y: Resting")
-        )
-        .accessibilityValue(
-            Text(timerInterval: Date.now...state.endDate, countsDown: true)
-        )
     }
 
     private func completedLockScreen() -> some View {
@@ -91,16 +99,17 @@ struct RestTimerLiveActivity: Widget {
 
     private func expandedContent(context: ActivityViewContext<RestTimerAttributes>) -> some View {
         let state = context.state
-        let startDate = state.endDate.addingTimeInterval(-state.totalDuration)
         return VStack(spacing: 4) {
             Text("rest_live_activity_title", comment: "Live Activity DI expanded title")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            if state.phase == .resting {
-                Text(timerInterval: Date.now...state.endDate, countsDown: true)
+            if state.phase == .resting,
+               let remaining = state.remainingInterval(),
+               let progress = state.progressInterval() {
+                Text(timerInterval: remaining, countsDown: true)
                     .font(.title3.monospacedDigit())
                     .fontWeight(.semibold)
-                ProgressView(timerInterval: startDate...state.endDate, countsDown: false)
+                ProgressView(timerInterval: progress, countsDown: false)
                     .tint(Color.accentColor)
                     .accessibilityHidden(true)
             } else {
@@ -120,8 +129,9 @@ struct RestTimerLiveActivity: Widget {
     private func compactTrailingContent(context: ActivityViewContext<RestTimerAttributes>) -> some View {
         let state = context.state
         return Group {
-            if state.phase == .resting {
-                Text(timerInterval: Date.now...state.endDate, countsDown: true)
+            if state.phase == .resting,
+               let remaining = state.remainingInterval() {
+                Text(timerInterval: remaining, countsDown: true)
                     .monospacedDigit()
                     .font(.caption2)
                     .frame(minWidth: 32)
@@ -129,7 +139,7 @@ struct RestTimerLiveActivity: Widget {
                         Text("rest_live_activity_compact_a11y", comment: "DI compact remaining a11y")
                     )
                     .accessibilityValue(
-                        Text(timerInterval: Date.now...state.endDate, countsDown: true)
+                        Text(timerInterval: remaining, countsDown: true)
                     )
             } else {
                 Image(systemName: "checkmark.circle.fill")
