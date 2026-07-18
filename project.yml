@@ -243,6 +243,11 @@ targets:
         # App Store 要求扩展 bundle 必须有 CFBundleDisplayName，否则上传校验
         # 报 90360（Missing Info.plist value）。
         CFBundleDisplayName: VitalStride
+        # extension 的 build/version 号必须与父 app 一致，否则 ASC 处理阶段拒收
+        # （CFBundleVersion of extension must match parent app）。引用 build setting
+        # 让 CI 的 xcargs CURRENT_PROJECT_VERSION=N 同时覆盖 app 与 widget。
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleShortVersionString: $(MARKETING_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
         NSSupportsLiveActivities: true
