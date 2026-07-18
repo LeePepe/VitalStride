@@ -24,7 +24,7 @@ struct ActivitySummaryCard: View {
     var body: some View {
         Card {
             HStack {
-                Text("今日活动")
+                Text(String(localized: "今日活动", comment: ""))
                     .font(TypeScale.title)
                 Spacer()
             }
@@ -36,17 +36,17 @@ struct ActivitySummaryCard: View {
                 VStack(alignment: .leading, spacing: 8) {
                     StatRow(
                         icon: "figure.strengthtraining.traditional",
-                        label: "训练",
-                        value: "\(summary.workoutCount) 次"
+                        label: String(localized: "训练", comment: ""),
+                        value: String(localized: "\(summary.workoutCount) 次", comment: "Workout count with unit")
                     )
                     StatRow(
                         icon: "clock",
-                        label: "时长",
+                        label: String(localized: "时长", comment: ""),
                         value: formatDuration(summary.totalDurationMinutes)
                     )
                     StatRow(
                         icon: "flame",
-                        label: "消耗",
+                        label: String(localized: "消耗", comment: ""),
                         value: "\(summary.totalCalories) kcal"
                     )
                 }
@@ -60,7 +60,7 @@ struct ActivitySummaryCard: View {
         if hours > 0 {
             return "\(hours)h \(remainingMinutes)m"
         }
-        return "\(minutes) 分钟"
+        return String(localized: "\(minutes) 分钟", comment: "Duration in minutes")
     }
 }
 

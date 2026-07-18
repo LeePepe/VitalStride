@@ -13,11 +13,11 @@ struct DataImportExportSection: View {
     @State private var exportRange: ExportRange = .all
 
     var body: some View {
-        Section("数据导入") {
+        Section(String(localized: "数据导入", comment: "")) {
             Button {
                 showingFileImporter = true
             } label: {
-                Label("导入 GPX/FIT 文件", systemImage: "square.and.arrow.down")
+                Label(String(localized: "导入 GPX/FIT 文件", comment: ""), systemImage: "square.and.arrow.down")
                     .tint(theme.primary.primary)
             }
 
@@ -35,7 +35,7 @@ struct DataImportExportSection: View {
                         }
                     }
                 } label: {
-                    Label("导入历史 (\(importedFiles.count))", systemImage: "clock")
+                    Label(String(localized: "导入历史 (\(importedFiles.count))", comment: "Import history menu label with count"), systemImage: "clock")
                         .tint(theme.primary.primary)
                 }
             }
@@ -54,20 +54,20 @@ struct DataImportExportSection: View {
             handleImportResult(result)
         }
 
-        Section("数据导出") {
+        Section(String(localized: "数据导出", comment: "")) {
             Picker(selection: $exportRange) {
                 ForEach(ExportRange.allCases, id: \.self) { range in
                     Text(range.displayName).tag(range)
                 }
             } label: {
-                Label("导出范围", systemImage: "calendar")
+                Label(String(localized: "导出范围", comment: ""), systemImage: "calendar")
                     .tint(theme.primary.primary)
             }
 
             Button {
                 showingFileExporter = true
             } label: {
-                Label("导出训练数据 (JSON)", systemImage: "square.and.arrow.up")
+                Label(String(localized: "导出训练数据 (JSON)", comment: ""), systemImage: "square.and.arrow.up")
                     .tint(theme.primary.primary)
             }
         }
@@ -79,11 +79,11 @@ struct DataImportExportSection: View {
         ) { result in
             handleExportResult(result)
         }
-        .alert("导出失败", isPresented: Binding(
+        .alert(String(localized: "导出失败", comment: ""), isPresented: Binding(
             get: { exportError != nil },
             set: { if !$0 { exportError = nil } }
         )) {
-            Button("确定", role: .cancel) {}
+            Button(String(localized: "确定", comment: ""), role: .cancel) {}
         } message: {
             Text(exportError ?? "")
         }
@@ -111,7 +111,7 @@ struct DataImportExportSection: View {
                 TelemetryService.shared.trackNonisolated(.dataImported(format: format))
             }
         case .failure(let error):
-            importError = "导入失败: \(error.localizedDescription)"
+            importError = String(localized: "导入失败: \(error.localizedDescription)", comment: "Import failure with error detail")
         }
     }
 
@@ -139,10 +139,10 @@ enum ExportRange: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .all: return "全部"
-        case .lastMonth: return "最近一个月"
-        case .lastThreeMonths: return "最近三个月"
-        case .lastYear: return "最近一年"
+        case .all: return String(localized: "全部", comment: "")
+        case .lastMonth: return String(localized: "最近一个月", comment: "")
+        case .lastThreeMonths: return String(localized: "最近三个月", comment: "")
+        case .lastYear: return String(localized: "最近一年", comment: "")
         }
     }
 }

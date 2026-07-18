@@ -113,24 +113,24 @@ struct WorkoutDetailView: View {
 
     private var detailList: some View {
         List {
-            Section("概要") {
-                LabeledContent("日期") {
+            Section(String(localized: "概要", comment: "")) {
+                LabeledContent(String(localized: "日期", comment: "")) {
                     Text(workout.startDate, style: .date)
                 }
                 if let endDate = workout.endDate {
-                    LabeledContent("时长") {
+                    LabeledContent(String(localized: "时长", comment: "")) {
                         let totalSeconds = Int(endDate.timeIntervalSince(workout.startDate))
                         let hours = totalSeconds / 3600
                         let minutes = (totalSeconds % 3600) / 60
-                        Text(hours > 0 ? "\(hours) 小时 \(minutes) 分钟" : "\(minutes) 分钟")
+                        Text(hours > 0 ? String(localized: "\(hours) 小时 \(minutes) 分钟", comment: "Workout duration hours + minutes") : String(localized: "\(minutes) 分钟", comment: "Workout duration minutes only"))
                     }
                 }
-                LabeledContent("动作数") {
+                LabeledContent(String(localized: "动作数", comment: "")) {
                     Text("\(sortedExercises.count)")
                 }
                 let totalSets = sortedExercises
                     .reduce(0) { $0 + ($1.sets?.count ?? 0) }
-                LabeledContent("总组数") {
+                LabeledContent(String(localized: "总组数", comment: "")) {
                     Text("\(totalSets)")
                 }
                 if workout.hasWorkingSets {
@@ -142,7 +142,7 @@ struct WorkoutDetailView: View {
                     )
                 }
                 if let calories = workout.totalCalories {
-                    LabeledContent("消耗热量") {
+                    LabeledContent(String(localized: "消耗热量", comment: "")) {
                         Text("\(Int(calories)) kcal")
                     }
                 }
@@ -199,23 +199,23 @@ struct WorkoutDetailView: View {
 
             ForEach(sortedExercises) { workoutExercise in
                 let sets = workoutExercise.sets ?? []
-                Section(workoutExercise.exercise?.localizedName ?? "动作") {
+                Section(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: "")) {
                     if sets.isEmpty {
-                        Text("无记录")
+                        Text(String(localized: "无记录", comment: ""))
                             .foregroundStyle(theme.neutrals.text2)
                     } else {
                         ForEach(Array(sets.enumerated()), id: \.element.persistentModelID) { index, exerciseSet in
                             HStack {
-                                Text("第 \(index + 1) 组")
+                                Text(String(localized: "第 \(index + 1) 组", comment: "Set index label"))
                                     .foregroundStyle(theme.neutrals.text2)
                                     .frame(width: 60, alignment: .leading)
                                 Text("\(displayWeight(exerciseSet.weight), specifier: "%.1f") \(weightUnit.rawValue)")
                                 Text("×")
                                     .foregroundStyle(theme.neutrals.text2)
-                                Text("\(exerciseSet.reps) 次")
+                                Text(String(localized: "\(exerciseSet.reps) 次", comment: "Reps count label"))
                                 Spacer()
                                 if exerciseSet.setType == .warmup {
-                                    Text("热身")
+                                    Text(String(localized: "热身", comment: ""))
                                         .font(.caption)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)

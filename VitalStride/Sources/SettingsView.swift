@@ -22,9 +22,9 @@ struct SettingsView: View {
     }
 
     private var aboutSection: some View {
-        Section("关于") {
+        Section(String(localized: "关于", comment: "")) {
             HStack {
-                Label("版本", systemImage: "info.circle")
+                Label(String(localized: "版本", comment: ""), systemImage: "info.circle")
                     .tint(theme.primary.primary)
                 Spacer()
                 Text(appVersion)
@@ -36,7 +36,7 @@ struct SettingsView: View {
             NavigationLink {
                 AcknowledgementsView()
             } label: {
-                Label("开源协议与致谢", systemImage: "doc.text")
+                Label(String(localized: "开源协议与致谢", comment: ""), systemImage: "doc.text")
                     .tint(theme.primary.primary)
             }
         }
@@ -55,17 +55,17 @@ struct AcknowledgementsView: View {
     var body: some View {
         List {
             Section {
-                Text("VitalStride 使用了以下开源技术和框架：")
+                Text(String(localized: "VitalStride 使用了以下开源技术和框架：", comment: ""))
                     .font(.subheadline)
                     .foregroundStyle(theme.neutrals.text2)
             }
 
             Section("Apple Frameworks") {
-                acknowledgementRow("SwiftUI", description: "用户界面框架")
-                acknowledgementRow("SwiftData", description: "数据持久化")
-                acknowledgementRow("HealthKit", description: "健康数据访问")
-                acknowledgementRow("Swift Charts", description: "数据可视化")
-                acknowledgementRow("CloudKit", description: "跨设备同步")
+                acknowledgementRow("SwiftUI", description: String(localized: "用户界面框架", comment: ""))
+                acknowledgementRow("SwiftData", description: String(localized: "数据持久化", comment: ""))
+                acknowledgementRow("HealthKit", description: String(localized: "健康数据访问", comment: ""))
+                acknowledgementRow("Swift Charts", description: String(localized: "数据可视化", comment: ""))
+                acknowledgementRow("CloudKit", description: String(localized: "跨设备同步", comment: ""))
             }
         }
         .navigationTitle(String(localized: "致谢", comment: "Nav title"))
@@ -90,7 +90,7 @@ struct AcknowledgementsView: View {
         .designThemePreview()
 }
 
-#Preview("致谢") {
+#Preview(String(localized: "致谢", comment: "")) {
     NavigationStack {
         AcknowledgementsView()
     }

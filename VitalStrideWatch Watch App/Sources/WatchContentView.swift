@@ -11,11 +11,11 @@ struct WatchContentView: View {
         NavigationStack {
             List {
                 NavigationLink {
-                    Text("力量训练 — Coming Soon")
+                    Text(String(localized: "力量训练 — Coming Soon", comment: ""))
                         .font(.headline)
                         .foregroundStyle(theme.neutrals.text2)
                 } label: {
-                    Label("开始训练", systemImage: "dumbbell.fill")
+                    Label(String(localized: "开始训练", comment: ""), systemImage: "dumbbell.fill")
                         .tint(theme.primary.primary)
                 }
                 .accessibilityLabel(String(localized: "开始训练", comment: "Start workout a11y (watch)"))

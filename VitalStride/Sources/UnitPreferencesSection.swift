@@ -7,8 +7,8 @@ enum WeightUnit: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .kg: return "公斤 (kg)"
-        case .lb: return "磅 (lb)"
+        case .kg: return String(localized: "公斤 (kg)", comment: "")
+        case .lb: return String(localized: "磅 (lb)", comment: "")
         }
     }
 
@@ -26,8 +26,8 @@ enum DistanceUnit: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .km: return "公里 (km)"
-        case .mi: return "英里 (mi)"
+        case .km: return String(localized: "公里 (km)", comment: "")
+        case .mi: return String(localized: "英里 (mi)", comment: "")
         }
     }
 
@@ -69,8 +69,8 @@ enum EnergyUnit: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .kcal: return "千卡 (kcal)"
-        case .kJ: return "千焦 (kJ)"
+        case .kcal: return String(localized: "千卡 (kcal)", comment: "")
+        case .kJ: return String(localized: "千焦 (kJ)", comment: "")
         }
     }
 
@@ -105,13 +105,13 @@ struct UnitPreferencesSection: View {
     @AppStorage("energyUnit") private var energyUnit: EnergyUnit = .kcal
 
     var body: some View {
-        Section("单位偏好") {
+        Section(String(localized: "单位偏好", comment: "")) {
             Picker(selection: $weightUnit) {
                 ForEach(WeightUnit.allCases, id: \.self) { unit in
                     Text(unit.displayName).tag(unit)
                 }
             } label: {
-                Label("重量", systemImage: "scalemass")
+                Label(String(localized: "重量", comment: ""), systemImage: "scalemass")
                     .tint(theme.primary.primary)
             }
 
@@ -120,7 +120,7 @@ struct UnitPreferencesSection: View {
                     Text(unit.displayName).tag(unit)
                 }
             } label: {
-                Label("距离", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                Label(String(localized: "距离", comment: ""), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                     .tint(theme.primary.primary)
             }
 
@@ -129,7 +129,7 @@ struct UnitPreferencesSection: View {
                     Text(unit.displayName).tag(unit)
                 }
             } label: {
-                Label("能量", systemImage: "flame")
+                Label(String(localized: "能量", comment: ""), systemImage: "flame")
                     .tint(theme.primary.primary)
             }
         }

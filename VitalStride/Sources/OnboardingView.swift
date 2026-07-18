@@ -38,7 +38,7 @@ struct OnboardingView: View {
             .indexViewStyle(.page(backgroundDisplayMode: .always))
             #endif
 
-            Button("跳过") {
+            Button(String(localized: "跳过", comment: "")) {
                 completeOnboarding()
             }
             .padding(.horizontal, 24)
@@ -61,7 +61,7 @@ struct OnboardingView: View {
                 .font(.largeTitle)
                 .fontWeight(.bold)
 
-            Text("你的健康数据 + AI 分析助手")
+            Text(String(localized: "你的健康数据 + AI 分析助手", comment: ""))
                 .font(.title3)
                 .foregroundStyle(theme.neutrals.text2)
                 .multilineTextAlignment(.center)
@@ -78,25 +78,25 @@ struct OnboardingView: View {
         VStack(spacing: 32) {
             Spacer()
 
-            Text("核心功能")
+            Text(String(localized: "核心功能", comment: ""))
                 .font(.title2)
                 .fontWeight(.bold)
 
             VStack(alignment: .leading, spacing: 24) {
                 featureRow(
                     icon: "dumbbell.fill",
-                    title: "训练记录",
-                    description: "记录力量训练，追踪每组重量和次数"
+                    title: String(localized: "训练记录", comment: ""),
+                    description: String(localized: "记录力量训练，追踪每组重量和次数", comment: "")
                 )
                 featureRow(
                     icon: "heart.text.square.fill",
-                    title: "健康数据",
-                    description: "心率、步数、睡眠、体重、活动能量一目了然"
+                    title: String(localized: "健康数据", comment: ""),
+                    description: String(localized: "心率、步数、睡眠、体重、活动能量一目了然", comment: "")
                 )
                 featureRow(
                     icon: "brain",
-                    title: "AI 分析",
-                    description: "智能分析训练数据，提供个性化建议"
+                    title: String(localized: "AI 分析", comment: ""),
+                    description: String(localized: "智能分析训练数据，提供个性化建议", comment: "")
                 )
             }
 
@@ -116,11 +116,11 @@ struct OnboardingView: View {
                 .font(.system(size: 80))
                 .foregroundStyle(theme.primary.primary)
 
-            Text("连接健康数据")
+            Text(String(localized: "连接健康数据", comment: ""))
                 .font(.title2)
                 .fontWeight(.bold)
 
-            Text("VitalStride 需要访问你的健康数据来展示心率、步数等信息，并将训练记录写入 HealthKit。")
+            Text(String(localized: "VitalStride 需要访问你的健康数据来展示心率、步数等信息，并将训练记录写入 HealthKit。", comment: ""))
                 .font(.body)
                 .foregroundStyle(theme.neutrals.text2)
                 .multilineTextAlignment(.center)
@@ -135,7 +135,7 @@ struct OnboardingView: View {
                         ProgressView()
                             .tint(theme.primary.onPrimary)
                     }
-                    Text("授权 HealthKit")
+                    Text(String(localized: "授权 HealthKit", comment: ""))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -144,7 +144,7 @@ struct OnboardingView: View {
             .tint(theme.primary.primary)
             .disabled(isRequestingAuth)
 
-            Button("稍后再说") {
+            Button(String(localized: "稍后再说", comment: "")) {
                 completeOnboarding()
             }
             .foregroundStyle(theme.neutrals.text2)
@@ -186,7 +186,7 @@ struct OnboardingView: View {
     }
 
     private var swipeHint: some View {
-        Text("左滑继续")
+        Text(String(localized: "左滑继续", comment: ""))
             .font(.footnote)
             .foregroundStyle(theme.neutrals.text3)
             .padding(.bottom, 60)

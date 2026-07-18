@@ -27,17 +27,17 @@ struct ContentView: View {
     var body: some View {
         @Bindable var nav = navigation
         TabView(selection: $nav.selectedTab) {
-            Tab("概览", systemImage: "chart.bar.fill", value: .overview) {
+            Tab(String(localized: "概览", comment: ""), systemImage: "chart.bar.fill", value: .overview) {
                 OverviewView()
             }
             .accessibilityLabel(String(localized: "概览", comment: "Overview tab a11y label"))
 
-            Tab("训练", systemImage: "dumbbell.fill", value: .workout) {
+            Tab(String(localized: "训练", comment: ""), systemImage: "dumbbell.fill", value: .workout) {
                 WorkoutListView()
             }
             .accessibilityLabel(String(localized: "训练", comment: "Workouts tab a11y label"))
 
-            Tab("数据", systemImage: "heart.text.square.fill", value: .data) {
+            Tab(String(localized: "数据", comment: ""), systemImage: "heart.text.square.fill", value: .data) {
                 DataView()
             }
             .accessibilityLabel(String(localized: "数据", comment: "Data tab a11y label"))
@@ -47,7 +47,7 @@ struct ContentView: View {
             }
             .accessibilityLabel(String(localized: "AI 助手", comment: "AI assistant tab a11y label"))
 
-            Tab("设置", systemImage: "gearshape.fill", value: .settings) {
+            Tab(String(localized: "设置", comment: ""), systemImage: "gearshape.fill", value: .settings) {
                 SettingsView()
             }
             .accessibilityLabel(String(localized: "设置", comment: "Settings tab a11y label"))

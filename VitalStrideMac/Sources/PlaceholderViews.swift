@@ -9,7 +9,7 @@ struct MacOverviewPlaceholder: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        Text("概览 — Coming Soon")
+        Text(String(localized: "概览 — Coming Soon", comment: ""))
             .font(.largeTitle)
             .foregroundStyle(theme.neutrals.text2)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -21,7 +21,7 @@ struct MacWorkoutPlaceholder: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        Text("训练 — Coming Soon")
+        Text(String(localized: "训练 — Coming Soon", comment: ""))
             .font(.largeTitle)
             .foregroundStyle(theme.neutrals.text2)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -33,7 +33,7 @@ struct MacDataPlaceholder: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        Text("数据 — Coming Soon")
+        Text(String(localized: "数据 — Coming Soon", comment: ""))
             .font(.largeTitle)
             .foregroundStyle(theme.neutrals.text2)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -57,7 +57,7 @@ struct MacSettingsPlaceholder: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        Text("设置 — Coming Soon")
+        Text(String(localized: "设置 — Coming Soon", comment: ""))
             .font(.largeTitle)
             .foregroundStyle(theme.neutrals.text2)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -65,8 +65,8 @@ struct MacSettingsPlaceholder: View {
     }
 }
 
-#Preview("概览") { MacOverviewPlaceholder().designThemePreview() }
-#Preview("训练") { MacWorkoutPlaceholder().designThemePreview() }
-#Preview("数据") { MacDataPlaceholder().designThemePreview() }
+#Preview(String(localized: "概览", comment: "")) { MacOverviewPlaceholder().designThemePreview() }
+#Preview(String(localized: "训练", comment: "")) { MacWorkoutPlaceholder().designThemePreview() }
+#Preview(String(localized: "数据", comment: "")) { MacDataPlaceholder().designThemePreview() }
 #Preview("AI") { MacAIPlaceholder().designThemePreview() }
-#Preview("设置") { MacSettingsPlaceholder().designThemePreview() }
+#Preview(String(localized: "设置", comment: "")) { MacSettingsPlaceholder().designThemePreview() }

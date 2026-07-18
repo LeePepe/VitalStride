@@ -480,7 +480,7 @@ struct SetRow: View {
     private func repsField(width: CGFloat) -> some View {
         #if canImport(UIKit) && !os(macOS)
         SelectAllTextField(
-            placeholder: "次数",
+            placeholder: String(localized: "次数", comment: ""),
             text: $repsText,
             keyboardType: .numberPad,
             font: inputUIFont,
@@ -505,7 +505,7 @@ struct SetRow: View {
         }
         #else
         SelectAllTextField(
-            placeholder: "次数",
+            placeholder: String(localized: "次数", comment: ""),
             text: $repsText,
             keyboardType: .numberPad
         )
@@ -559,7 +559,7 @@ struct SetRow: View {
         // button's layout claim.
         .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
         .contentShape(Rectangle())
-        .accessibilityLabel("第 \(index + 1) 组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
+        .accessibilityLabel(String(localized: "第 \(index + 1) 组，\(exerciseSet.isCompleted ? String(localized: "已完成", comment: "Set completion status: completed") : String(localized: "未完成", comment: "Set completion status: incomplete"))", comment: "A11y label composing set index and completion status"))
         .accessibilityHint(String(localized: "双击切换完成状态", comment: "A11y hint"))
     }
 
@@ -999,7 +999,7 @@ private struct SetRowPreviewWrapper: View {
     var body: some View {
         let exercise = Exercise(
             nameEn: "Bench Press",
-            nameZh: "卧推",
+            nameZh: String(localized: "卧推", comment: ""),
             muscleGroup: .chest,
             equipment: .barbell
         )
@@ -1178,7 +1178,7 @@ private struct SmartProgressionPreviewWrapper: View {
 
         let exercise = Exercise(
             nameEn: "Bench Press",
-            nameZh: "卧推",
+            nameZh: String(localized: "卧推", comment: ""),
             muscleGroup: .chest,
             equipment: .barbell
         )

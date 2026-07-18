@@ -494,10 +494,10 @@ func buildTrainingContext(modelContext: ModelContext) -> TrainingContext {
     AITrainingAdviceCard(
         state: .loaded(
             TrainingRecommendation(
-                title: "建议今天练背部，已休息 2 天",
+                title: String(localized: "建议今天练背部，已休息 2 天", comment: ""),
                 muscleGroups: ["back", "arms"],
-                exercises: ["引体向上", "杠铃划船", "坐姿绳索划船"],
-                reasoning: "你已经连续 2 天没有训练背部，背部肌群已充分恢复。配合臂部训练可以提高整体效率。"
+                exercises: [String(localized: "引体向上", comment: ""), String(localized: "杠铃划船", comment: ""), String(localized: "坐姿绳索划船", comment: "")],
+                reasoning: String(localized: "你已经连续 2 天没有训练背部，背部肌群已充分恢复。配合臂部训练可以提高整体效率。", comment: "")
             ),
             source: .fresh
         ),
@@ -513,10 +513,10 @@ func buildTrainingContext(modelContext: ModelContext) -> TrainingContext {
     AITrainingAdviceCard(
         state: .loaded(
             TrainingRecommendation(
-                title: "建议今天练背部，已休息 2 天",
+                title: String(localized: "建议今天练背部，已休息 2 天", comment: ""),
                 muscleGroups: ["back", "arms"],
-                exercises: ["引体向上", "杠铃划船", "坐姿绳索划船"],
-                reasoning: "你已经连续 2 天没有训练背部，背部肌群已充分恢复。配合臂部训练可以提高整体效率。"
+                exercises: [String(localized: "引体向上", comment: ""), String(localized: "杠铃划船", comment: ""), String(localized: "坐姿绳索划船", comment: "")],
+                reasoning: String(localized: "你已经连续 2 天没有训练背部，背部肌群已充分恢复。配合臂部训练可以提高整体效率。", comment: "")
             ),
             source: .cache(generatedAt: Date().addingTimeInterval(-3600))
         ),
@@ -530,7 +530,7 @@ func buildTrainingContext(modelContext: ModelContext) -> TrainingContext {
 
 #Preview("Error") {
     AITrainingAdviceCard(
-        state: .error("暂时无法生成训练建议，请稍后重试。"),
+        state: .error(String(localized: "暂时无法生成训练建议，请稍后重试。", comment: "")),
         isExpanded: true,
         onToggleExpand: {},
         onRefresh: {}

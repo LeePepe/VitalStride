@@ -219,21 +219,21 @@ private struct RecommendationCard: View {
         state: .results([
             ExerciseSubstituteSheet.Recommendation(
                 id: "incline-dumbbell-press",
-                name: "上斜哑铃卧推",
-                muscleGroup: "胸",
-                reason: "同为胸大肌上部主导，无杠铃时可平替。"
+                name: String(localized: "上斜哑铃卧推", comment: ""),
+                muscleGroup: String(localized: "胸", comment: ""),
+                reason: String(localized: "同为胸大肌上部主导，无杠铃时可平替。", comment: "")
             ),
             ExerciseSubstituteSheet.Recommendation(
                 id: "machine-chest-press",
-                name: "器械胸推",
-                muscleGroup: "胸",
-                reason: "轨迹固定、稳定性要求低，肩伤时更安全。"
+                name: String(localized: "器械胸推", comment: ""),
+                muscleGroup: String(localized: "胸", comment: ""),
+                reason: String(localized: "轨迹固定、稳定性要求低，肩伤时更安全。", comment: "")
             ),
             ExerciseSubstituteSheet.Recommendation(
                 id: "push-up",
-                name: "俯卧撑",
-                muscleGroup: "胸",
-                reason: "自重完成，无器械环境可用。"
+                name: String(localized: "俯卧撑", comment: ""),
+                muscleGroup: String(localized: "胸", comment: ""),
+                reason: String(localized: "自重完成，无器械环境可用。", comment: "")
             ),
         ]),
         onSelect: { _ in },
@@ -277,21 +277,21 @@ private struct RecommendationCard: View {
         state: .results([
             ExerciseSubstituteSheet.Recommendation(
                 id: "seated-cable-row",
-                name: "坐姿绳索划船",
-                muscleGroup: "背",
-                reason: "同为背阔肌水平拉主导，轨迹稳定。"
+                name: String(localized: "坐姿绳索划船", comment: ""),
+                muscleGroup: String(localized: "背", comment: ""),
+                reason: String(localized: "同为背阔肌水平拉主导，轨迹稳定。", comment: "")
             ),
             ExerciseSubstituteSheet.Recommendation(
                 id: "one-arm-dumbbell-row",
-                name: "单臂哑铃划船",
-                muscleGroup: "背",
-                reason: "单侧发力，纠正左右不平衡。"
+                name: String(localized: "单臂哑铃划船", comment: ""),
+                muscleGroup: String(localized: "背", comment: ""),
+                reason: String(localized: "单侧发力，纠正左右不平衡。", comment: "")
             ),
             ExerciseSubstituteSheet.Recommendation(
                 id: "chest-supported-row",
-                name: "俯身支撑划船",
-                muscleGroup: "背",
-                reason: "去除腰椎代偿，可加大离心。"
+                name: String(localized: "俯身支撑划船", comment: ""),
+                muscleGroup: String(localized: "背", comment: ""),
+                reason: String(localized: "去除腰椎代偿，可加大离心。", comment: "")
             ),
         ]),
         onSelect: { _ in },

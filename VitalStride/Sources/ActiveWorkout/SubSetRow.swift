@@ -124,7 +124,7 @@ struct SubSetRow: View {
             .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
             .contentShape(Rectangle())
             // swiftlint:disable:next line_length
-            .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
+            .accessibilityLabel(String(localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? String(localized: "已完成", comment: "Set completion status: completed") : String(localized: "未完成", comment: "Set completion status: incomplete"))", comment: "A11y label composing parent set index and completion status"))
             .accessibilityHint(String(localized: "双击切换完成状态", comment: "A11y hint"))
         }
     }

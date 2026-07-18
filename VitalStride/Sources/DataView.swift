@@ -132,7 +132,7 @@ struct DataView: View {
                 Image(systemName: "heart.text.square")
                     .font(.largeTitle)
                     .foregroundStyle(.secondary)
-                Text("需要 HealthKit 授权")
+                Text(String(localized: "需要 HealthKit 授权", comment: ""))
                     .font(.headline)
                 #if os(iOS)
                 Text(String(

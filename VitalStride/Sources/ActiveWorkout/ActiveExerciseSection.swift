@@ -121,7 +121,7 @@ struct ActiveExerciseSection: View {
                             Button(role: .destructive) {
                                 deleteSet(exerciseSet)
                             } label: {
-                                Label("删除", systemImage: "trash")
+                                Label(String(localized: "删除", comment: ""), systemImage: "trash")
                             }
                         }
                     }
@@ -130,7 +130,7 @@ struct ActiveExerciseSection: View {
             addSetButton
         } header: {
             HStack {
-                Text(workoutExercise.exercise?.localizedName ?? "动作")
+                Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
                     // MY-1263 (D2): compact semibold body header in normal mode
                     // (SwiftUI's default `List` section header uses a larger
                     // title font that dominated the visual band). Large Mode
@@ -225,7 +225,7 @@ struct ActiveExerciseSection: View {
             HStack {
                 Image(systemName: "plus.circle.fill")
                     .foregroundStyle(theme.primary.primary)
-                Text("添加一组")
+                Text(String(localized: "添加一组", comment: ""))
             }
             .font(.subheadline)
             .frame(maxWidth: .infinity, alignment: .leading)
