@@ -24,7 +24,7 @@ WIDGET_IDENTIFIER = "com.leepepe.vitalstride.widgets".freeze
 SCHEME = "VitalStride".freeze
 XCODEPROJ = "VitalStride.xcodeproj".freeze
 TEAM_ID = "4Z8GG667QD".freeze
-MARKETING_VERSION = "1.0".freeze
+MARKETING_VERSION = "1.1".freeze
 
 platform :ios do
   desc "Build and upload a build to TestFlight (internal testing)"
