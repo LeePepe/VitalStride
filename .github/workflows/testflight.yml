@@ -82,6 +82,30 @@ jobs:
             echo "::error::ASC_KEY_P8_BASE64 secret 未设置" ; exit 1
           fi
 
+      - name: Unlock login keychain for codesign
+        if: steps.gate.outputs.release == 'true'
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # runner 跑在独立 launchd 会话（PPID=1），login keychain 在该会话里默认
+          # 锁定 → codesign 拿不到 Apple Distribution 私钥 → errSecInternalComponent。
+          # 每次 build 前显式解锁 + 放行 codesign 无提示访问私钥。
+          if [ -z "${KEYCHAIN_PASSWORD:-}" ]; then
+            echo "::error::KEYCHAIN_PASSWORD secret 未设置（gh secret set KEYCHAIN_PASSWORD）"; exit 1
+          fi
+          KC="$HOME/Library/Keychains/login.keychain-db"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KC"
+          # 关掉自动锁定（interval / lock-on-sleep），避免长 archive 期间被重新锁上。
+          security set-keychain-settings "$KC"
+          # 确保 login keychain 在 search list 里（codesign 才找得到私钥）。
+          # 保留现有 search list，只补上 login（-s 会替换整份，故先读回再合并去重）。
+          EXISTING=$(security list-keychains -d user | sed -e 's/^[[:space:]]*"//' -e 's/"$//')
+          security list-keychains -d user -s $(printf '%s\n' "$KC" $EXISTING | awk '!seen[$0]++')
+          # 放行 codesign/apple 工具无提示访问私钥（幂等，重复跑无害）。
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KC" >/dev/null 2>&1 || true
+
       - name: fastlane beta
         if: steps.gate.outputs.release == 'true'
         env:
