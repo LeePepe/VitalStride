@@ -70,10 +70,12 @@ platform :ios do
       configuration: "Release",
       export_method: "app-store",
       export_team_id: TEAM_ID,
+      # 签名走 project.yml 的 Release config：每个 target 各自 Manual +
+      # PROVISIONING_PROFILE_SPECIFIER（profile 已由上面 get_provisioning_profile
+      # 拉取并安装）。这里只注入 build number + team，不再全局覆盖签名设置
+      # （全局 xcargs 无法按 target 区分 app/widget 的不同 profile）。
       xcargs: "CURRENT_PROJECT_VERSION=#{next_build} " \
-              "DEVELOPMENT_TEAM=#{TEAM_ID} " \
-              "CODE_SIGN_STYLE=Manual " \
-              "CODE_SIGN_IDENTITY=Apple\\ Distribution",
+              "DEVELOPMENT_TEAM=#{TEAM_ID}",
       export_options: {
         manageAppVersionAndBuildNumber: false,
         signingStyle: "manual",

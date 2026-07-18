@@ -67,6 +67,13 @@ targets:
       - sdk: HealthKit.framework
       - target: VitalStrideWidgets
     settings:
+      configs:
+        # Release/CI archive 走 manual + 显式 App Store profile（fastlane 已拉取安装）。
+        # Debug 继承顶层 Automatic，本地 Xcode 调试不受影响。
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: VitalStride App Store
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride
         PRODUCT_NAME: VitalStride
@@ -239,6 +246,11 @@ targets:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
         NSSupportsLiveActivities: true
     settings:
+      configs:
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: VitalStride Widgets App Store
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride.widgets
         PRODUCT_NAME: VitalStrideWidgets
