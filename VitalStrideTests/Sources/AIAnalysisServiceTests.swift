@@ -267,9 +267,9 @@ struct AIAnalysisServiceTests {
             ChatResponse(content: "not json")
         }
         let result = try await service.generateTrainingAdvice(context: makeTrainingContext())
-        #expect(result.title == "训练建议")
+        #expect(result.title == String(localized: "训练建议", comment: "Fallback training advice title"))
         #expect(result.muscleGroups.isEmpty)
-        #expect(result.reasoning == "暂时无法生成训练建议，请稍后重试。")
+        #expect(result.reasoning == String(localized: "暂时无法生成训练建议，请稍后重试。", comment: "Fallback training advice reasoning"))
     }
 
     @Test("generateTrainingAdvice with forceRefresh bypasses cache")

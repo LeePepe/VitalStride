@@ -1267,7 +1267,8 @@
             "value": "AI"
           }
         }
-      }
+      },
+      "shouldTranslate": false
     },
     "AI — Coming Soon": {
       "localizations": {
@@ -1623,7 +1624,8 @@
             "value": "BMI"
           }
         }
-      }
+      },
+      "shouldTranslate": false
     },
     "BPM": {
       "comment": "Beats per minute",
@@ -1640,7 +1642,8 @@
             "value": "BPM"
           }
         }
-      }
+      },
+      "shouldTranslate": false
     },
     "Cancel": {
       "comment": "Crash recovery cancel failed save button",
@@ -1845,7 +1848,8 @@
             "value": "cm"
           }
         }
-      }
+      },
+      "shouldTranslate": false
     },
     "common_cancel": {
       "comment": "Cancel button on the save-as-template alert",
@@ -1951,7 +1955,8 @@
             "value": "g"
           }
         }
-      }
+      },
+      "shouldTranslate": false
     },
     "generic_health_detail.loading": {
       "comment": "Full-height loading indicator label on the health detail view (MY-1247).",
@@ -2090,7 +2095,8 @@
             "value": "HIIT"
           }
         }
-      }
+      },
+      "shouldTranslate": false
     },
     "kcal": {
       "comment": "Kilocalories unit",
@@ -2107,7 +2113,8 @@
             "value": "kcal"
           }
         }
-      }
+      },
+      "shouldTranslate": false
     },
     "kg": {
       "comment": "Kilogram\nKilograms unit",
@@ -2124,7 +2131,8 @@
             "value": "kg"
           }
         }
-      }
+      },
+      "shouldTranslate": false
     },
     "km": {
       "comment": "Kilometers unit",
@@ -2141,7 +2149,8 @@
             "value": "km"
           }
         }
-      }
+      },
+      "shouldTranslate": false
     },
     "list_more": {
       "extractionState": "extracted_with_value",
@@ -2175,7 +2184,8 @@
             "value": "mL"
           }
         }
-      }
+      },
+      "shouldTranslate": false
     },
     "mL/kg/min": {
       "comment": "VO2 Max unit",
@@ -2209,7 +2219,8 @@
             "value": "ms"
           }
         }
-      }
+      },
+      "shouldTranslate": false
     },
     "no_data": {
       "extractionState": "extracted_with_value",

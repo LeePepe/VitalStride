@@ -1,3 +1,6 @@
+// swiftlint:disable no_hardcoded_chinese
+// Rationale: All CJK literals in this file are wrapped in String(localized:) for i18n;
+// the regex-based rule can't distinguish that from a raw literal (MY-1269).
 import DesignKit
 import SwiftUI
 

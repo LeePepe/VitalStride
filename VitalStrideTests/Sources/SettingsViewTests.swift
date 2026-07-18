@@ -7,14 +7,14 @@ import Testing
 struct SettingsViewTests {
     @Test("WeightUnit has correct display names")
     func weightUnitDisplayNames() {
-        #expect(WeightUnit.kg.displayName == "公斤 (kg)")
-        #expect(WeightUnit.lb.displayName == "磅 (lb)")
+        #expect(WeightUnit.kg.displayName == String(localized: "公斤 (kg)", comment: ""))
+        #expect(WeightUnit.lb.displayName == String(localized: "磅 (lb)", comment: ""))
     }
 
     @Test("WeightUnit a11yName returns localized unit name")
     func weightUnitA11yNames() {
-        #expect(WeightUnit.kg.a11yName == "公斤")
-        #expect(WeightUnit.lb.a11yName == "磅")
+        #expect(WeightUnit.kg.a11yName == String(localized: "公斤", comment: "Kilogram a11y name"))
+        #expect(WeightUnit.lb.a11yName == String(localized: "磅", comment: "Pound a11y name"))
     }
 
     @Test("WeightUnit rawValues for AppStorage")
@@ -25,8 +25,8 @@ struct SettingsViewTests {
 
     @Test("DistanceUnit has correct display names")
     func distanceUnitDisplayNames() {
-        #expect(DistanceUnit.km.displayName == "公里 (km)")
-        #expect(DistanceUnit.mi.displayName == "英里 (mi)")
+        #expect(DistanceUnit.km.displayName == String(localized: "公里 (km)", comment: ""))
+        #expect(DistanceUnit.mi.displayName == String(localized: "英里 (mi)", comment: ""))
     }
 
     @Test("DistanceUnit rawValues for AppStorage")
@@ -51,10 +51,10 @@ struct SettingsViewTests {
 
     @Test("ExportRange has correct display names")
     func exportRangeDisplayNames() {
-        #expect(ExportRange.all.displayName == "全部")
-        #expect(ExportRange.lastMonth.displayName == "最近一个月")
-        #expect(ExportRange.lastThreeMonths.displayName == "最近三个月")
-        #expect(ExportRange.lastYear.displayName == "最近一年")
+        #expect(ExportRange.all.displayName == String(localized: "全部", comment: ""))
+        #expect(ExportRange.lastMonth.displayName == String(localized: "最近一个月", comment: ""))
+        #expect(ExportRange.lastThreeMonths.displayName == String(localized: "最近三个月", comment: ""))
+        #expect(ExportRange.lastYear.displayName == String(localized: "最近一年", comment: ""))
     }
 
     @Test("ExportRange conforms to CaseIterable")
