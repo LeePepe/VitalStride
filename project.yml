@@ -82,7 +82,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride
         PRODUCT_NAME: VitalStride
         INFOPLIST_GENERATION_MODE: GeneratedByBuildSystem
-        MARKETING_VERSION: "1.0"
+        MARKETING_VERSION: "1.1"
         GENERATE_INFOPLIST_FILE: true
         SWIFT_EMIT_LOC_STRINGS: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -157,7 +157,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride.mac
         PRODUCT_NAME: VitalStride
         INFOPLIST_GENERATION_MODE: GeneratedByBuildSystem
-        MARKETING_VERSION: "1.0"
+        MARKETING_VERSION: "1.1"
         GENERATE_INFOPLIST_FILE: true
         SWIFT_EMIT_LOC_STRINGS: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -218,7 +218,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride.watchos
         PRODUCT_NAME: "VitalStrideWatch Watch App"
         INFOPLIST_GENERATION_MODE: GeneratedByBuildSystem
-        MARKETING_VERSION: "1.0"
+        MARKETING_VERSION: "1.1"
         GENERATE_INFOPLIST_FILE: true
         SWIFT_EMIT_LOC_STRINGS: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -260,7 +260,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride.widgets
         PRODUCT_NAME: VitalStrideWidgets
-        MARKETING_VERSION: "1.0"
+        MARKETING_VERSION: "1.1"
         SWIFT_EMIT_LOC_STRINGS: true
         SKIP_INSTALL: true
         APPLICATION_EXTENSION_API_ONLY: true
