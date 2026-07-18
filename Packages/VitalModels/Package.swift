@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.1
 import PackageDescription
 
 let package = Package(
@@ -9,11 +9,17 @@ let package = Package(
         .library(name: "VitalModels", targets: ["VitalModels"]),
     ],
     targets: [
+        .plugin(
+            name: "CompileXCStrings",
+            capability: .buildTool()
+        ),
         .target(
             name: "VitalModels",
-            exclude: ["Resources/Localizable.xcstrings"],
             resources: [
-                .process("Resources/zh-Hans.lproj"),
+                .process("Resources/Localizable.xcstrings"),
+            ],
+            plugins: [
+                .plugin(name: "CompileXCStrings"),
             ]
         ),
         .testTarget(name: "VitalModelsTests", dependencies: ["VitalModels"]),

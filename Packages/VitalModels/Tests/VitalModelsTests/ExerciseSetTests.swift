@@ -26,12 +26,25 @@ struct ExerciseSetTests {
         #expect(set.isCompleted == false)
     }
 
-    @Test("SetType displayName returns correct Chinese names")
+    @Test("SetType displayName returns non-empty localized values")
     func setTypeDisplayName() {
-        #expect(SetType.working.displayName == "正式")
-        #expect(SetType.warmup.displayName == "热身")
-        #expect(SetType.dropSet.displayName == "递减")
-        #expect(SetType.pyramid.displayName == "递增")
+        // Locale-dependent output; assert non-empty for each case, then check
+        // the zh-Hans catalog carries the historical spec values.
+        for setType in SetType.allCases {
+            #expect(!setType.displayName.isEmpty, "SetType.\(setType) has empty displayName")
+        }
+        guard let zhURL = Bundle.module.url(forResource: "zh-Hans", withExtension: "lproj"),
+              let zhBundle = Bundle(url: zhURL) else {
+            Issue.record("zh-Hans.lproj not found in resource bundle")
+            return
+        }
+        func zh(_ key: String) -> String {
+            NSLocalizedString(key, tableName: nil, bundle: zhBundle, comment: "")
+        }
+        #expect(zh("set_type.working") == "正式")
+        #expect(zh("set_type.warmup") == "热身")
+        #expect(zh("set_type.dropSet") == "递减")
+        #expect(zh("set_type.pyramid") == "递增")
     }
 
     @Test("SetType isSubSet identifies sub-set types")
