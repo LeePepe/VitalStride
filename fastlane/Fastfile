@@ -91,11 +91,20 @@ platform :ios do
       clean: true
     )
 
+    # 自动把 build 分配到 TestFlight internal 群组，省去每次手动加。
+    # 群组名从 TESTFLIGHT_GROUPS 读（逗号分隔可多组），默认 ASC 每个 app 自带的
+    # "App Store Connect Users" internal 群组。注意：分配群组必须等 ASC 处理完，
+    # 所以 skip_waiting_for_build_processing 必须为 false（代价：CI 多等 processing）。
+    tf_groups = ENV.fetch("TESTFLIGHT_GROUPS", "App Store Connect Users")
+                   .split(",").map(&:strip).reject(&:empty?)
+
     upload_to_testflight(
       api_key: api_key,
       app_identifier: APP_IDENTIFIER,
-      skip_waiting_for_build_processing: true,
-      skip_submission: true
+      skip_waiting_for_build_processing: false,
+      skip_submission: true,
+      distribute_external: false,
+      groups: tf_groups
     )
   end
 end
