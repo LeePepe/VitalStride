@@ -46,8 +46,14 @@ platform :ios do
       configuration: "Release",
       export_method: "app-store",
       export_team_id: TEAM_ID,
+      # 关键：runner 钥匙串里有多账号证书（含免费 qq.com Development），
+      # -allowProvisioningUpdates 自动签名会误挑 Development 证书签 Release
+      # → errSecInternalComponent。显式锁 "Apple Distribution" 身份，逼它用付费
+      # team 4Z8GG667QD 的唯一 Distribution 证书（app-store archive 正确身份）。
       xcargs: "CURRENT_PROJECT_VERSION=#{next_build} " \
-              "DEVELOPMENT_TEAM=#{TEAM_ID} -allowProvisioningUpdates",
+              "DEVELOPMENT_TEAM=#{TEAM_ID} " \
+              "CODE_SIGN_IDENTITY=Apple\\ Distribution " \
+              "-allowProvisioningUpdates",
       export_options: {
         manageAppVersionAndBuildNumber: false,
         teamID: TEAM_ID
