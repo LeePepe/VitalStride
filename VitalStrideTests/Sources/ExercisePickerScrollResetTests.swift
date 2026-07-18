@@ -9,19 +9,19 @@ import VitalModels
 ///
 /// Reproducible check point for the scroll-reset contract.
 ///
-/// The bug's precondition is that `computeEquipmentGroups` can return a set
-/// whose first element is *the same* Equipment after a muscle-group change,
-/// while the tail of the list shrinks. In that case the old
-/// `.onChange(of: equipmentGroups.map(\.0))` handler kept `visibleEquipment`
-/// unchanged (because the current equipment was still in the new list), so
-/// the ScrollView held its old offset and rendered blank space at the bottom.
+/// **MY-1272 refinement.** Muscle-group changes now prefer the current
+/// `visibleEquipment` when it survives the new filter (parent MY-1271
+/// acceptance: 切部位 → 滚到当前 `visibleEquipment` 对应 section 顶,
+/// 若不在新列表则回退到第一个 section). Search-driven changes still
+/// unconditionally re-anchor to `newGroups.first?.0` because the user
+/// changed intent (search bar reset).
 ///
-/// The fix drops the "only reset when current is missing" gate and
-/// unconditionally re-anchors to `newGroups.first?.0` after either
-/// `selectedMuscleGroup` or `debouncedSearchText` changes. These tests pin
-/// that contract by asserting the sequence of `first` equipments the picker
-/// would anchor to across the buggy repro sequence and around an
-/// intersecting-equipment shrink for both muscle-group and search changes.
+/// These tests pin both contracts:
+/// • Search path — locks the search-driven scroll to first-section
+///   fallback that the MY-1250 fix originally introduced (unchanged).
+/// • Muscle-group path — locks the MY-1272 refinement: pin to the
+///   previously visible equipment when present, fall back to the first
+///   section when absent, and return `nil` when the new list is empty.
 @Suite("ExercisePicker scroll reset (MY-1250)")
 struct ExercisePickerScrollResetTests {
     let container: ModelContainer
@@ -99,14 +99,102 @@ struct ExercisePickerScrollResetTests {
         try #require(!chest.isEmpty)
         #expect(all.first?.0 == chest.first?.0)
 
-        // Fixed contract: the picker now anchors unconditionally to
-        // `newGroups.first?.0` on muscle-group change, regardless of
-        // whether the current first equipment survives. `computeEquipmentGroups`
-        // is a pure function; the assertion here locks the value the fixed
-        // handler passes into `visibleEquipment`.
-        let newAnchor = chest.first?.0
-        #expect(newAnchor != nil)
-        #expect(newAnchor == chest.first?.0)
+        // Fixed contract (MY-1250 base + MY-1272 refinement): the picker
+        // now scrolls to `resolveMuscleGroupScrollAnchor(previouslyVisible,
+        // in: newOrder)` on muscle-group change. When the previously
+        // visible equipment (`.barbell`) is still present in the new
+        // filter (chest also has `.barbell`), the anchor MUST pin to
+        // that equipment — not blindly reset to `newGroups.first?.0`.
+        // Since `.barbell` IS the first section of chest, the assertion
+        // holds either way; the stronger MY-1272 branch is covered by
+        // `muscleGroupChangePreservesVisibleEquipmentWhenPresent`.
+        let anchor = ExercisePickerView.resolveMuscleGroupScrollAnchor(
+            previouslyVisible: all.first?.0,
+            in: chest.map(\.0)
+        )
+        #expect(anchor != nil)
+        #expect(anchor == chest.first?.0)
+    }
+
+    @Test("MY-1272: 切部位时保留 visibleEquipment（当它仍存在于新列表时）")
+    func muscleGroupChangePreservesVisibleEquipmentWhenPresent() throws {
+        let context = ModelContext(container)
+        makeMY1250Library(context)
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+
+        // Both "全部" and "胸部" contain .dumbbell — but .dumbbell is NOT
+        // the first equipment of either list. This is the discriminating
+        // case: MY-1250 fallback would return `.barbell` (first section);
+        // MY-1272 must return `.dumbbell` because the user was reading
+        // the dumbbell section and it survives the filter.
+        let chest = ExercisePickerView.computeEquipmentGroups(
+            from: exercises,
+            muscleGroup: .chest,
+            searchText: ""
+        )
+        let chestEquipments = chest.map(\.0)
+        try #require(chestEquipments.contains(.dumbbell))
+        try #require(chestEquipments.first != .dumbbell)
+
+        let anchor = ExercisePickerView.resolveMuscleGroupScrollAnchor(
+            previouslyVisible: .dumbbell,
+            in: chestEquipments
+        )
+        #expect(anchor == .dumbbell,
+                "muscle-group change must pin to the survived visibleEquipment, not the first section")
+    }
+
+    @Test("MY-1272: 切部位时 visibleEquipment 不在新列表 → 回退到第一个 section")
+    func muscleGroupChangeFallsBackToFirstWhenVisibleEquipmentAbsent() throws {
+        // Simulate: user was on `.machine` (not in chest fixture) then
+        // switched to chest. Fallback MUST be the new first section.
+        let context = ModelContext(container)
+        makeMY1250Library(context)
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+
+        let chest = ExercisePickerView.computeEquipmentGroups(
+            from: exercises,
+            muscleGroup: .chest,
+            searchText: ""
+        )
+        let chestEquipments = chest.map(\.0)
+        try #require(!chestEquipments.contains(.machine))
+
+        let anchor = ExercisePickerView.resolveMuscleGroupScrollAnchor(
+            previouslyVisible: .machine,
+            in: chestEquipments
+        )
+        #expect(anchor == chestEquipments.first)
+    }
+
+    @Test("MY-1272: 切部位时 visibleEquipment 为 nil → 回退到第一个 section")
+    func muscleGroupChangeFallsBackWhenPreviouslyNil() throws {
+        // First-open path: no `visibleEquipment` yet. Anchor MUST be the
+        // new first section (preserves MY-1250 base behavior for the
+        // "no prior scroll intent" case).
+        let context = ModelContext(container)
+        makeMY1250Library(context)
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+
+        let chest = ExercisePickerView.computeEquipmentGroups(
+            from: exercises,
+            muscleGroup: .chest,
+            searchText: ""
+        )
+        let anchor = ExercisePickerView.resolveMuscleGroupScrollAnchor(
+            previouslyVisible: nil,
+            in: chest.map(\.0)
+        )
+        #expect(anchor == chest.first?.0)
+    }
+
+    @Test("MY-1272: 切部位到空结果 → anchor 为 nil, 不 crash")
+    func muscleGroupChangeToEmptyReturnsNil() {
+        let anchor = ExercisePickerView.resolveMuscleGroupScrollAnchor(
+            previouslyVisible: .barbell,
+            in: []
+        )
+        #expect(anchor == nil)
     }
 
     @Test("搜索文本变化后 first equipment 也会被重锚")

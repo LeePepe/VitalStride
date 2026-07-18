@@ -34,6 +34,18 @@ struct ExercisePickerView: View {
     // `gridProxy.scrollTo(...)` — decoupling scroll-reset from the (now
     // observation-only) `visibleEquipment` highlight state.
     @State private var scrollResetToken: Int = 0
+    // MY-1272: scroll target for the next `scrollResetToken` bump. Search
+    // resets always anchor to the first section; muscle-group changes
+    // prefer the current `visibleEquipment` when it survives (see
+    // `resolveMuscleGroupScrollAnchor`). Captured at the moment the token
+    // bumps so the `.onChange(scrollResetToken)` handler picks the correct
+    // section without re-deriving intent.
+    @State private var pendingScrollAnchor: Equipment?
+    // MY-1272: floating-search collapsed/expanded state. Collapsed = a
+    // circular magnifier button; expanded = the full search field. Forced
+    // open whenever `searchText` is non-empty so we never orphan an
+    // in-flight query behind a collapsed button.
+    @State private var isSearchExpanded: Bool = false
     let selectionMode: SelectionMode
 
     private static let searchDebounceNanoseconds: UInt64 = 200_000_000
@@ -137,6 +149,24 @@ struct ExercisePickerView: View {
                     )
                 }
             }
+            // MY-1272: keep the collapsed/expanded state consistent with
+            // focus + query state. Any focus change while `searchText` is
+            // empty collapses the pill; any non-empty query forces expand
+            // so the user can always see and edit what they typed.
+            .onChange(of: isSearchFocused) { _, focused in
+                if !focused && searchText.isEmpty {
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        isSearchExpanded = false
+                    }
+                }
+            }
+            .onChange(of: searchText) { _, newValue in
+                if !newValue.isEmpty && !isSearchExpanded {
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        isSearchExpanded = true
+                    }
+                }
+            }
             .onChange(of: exercises) { _, newExercises in
                 cachedEquipmentGroups = Self.computeEquipmentGroups(
                     from: newExercises,
@@ -151,11 +181,17 @@ struct ExercisePickerView: View {
                     searchText: debouncedSearchText
                 )
                 cachedEquipmentGroups = newGroups
-                // Unconditionally reset scroll to top when muscle group changes,
-                // even if the new list still contains the current visibleEquipment
-                // (e.g. both "全部" and "胸部" have "哑铃"). Otherwise the ScrollView
-                // keeps the old offset and shows blank space at the bottom (MY-1250).
-                visibleEquipment = newGroups.first?.0
+                // MY-1272: on muscle-group change, prefer scrolling to the
+                // user's currently-visible equipment section when it
+                // survives the filter. Falls back to the first section of
+                // the new list (preserving the MY-1250 fallback) when the
+                // equipment is gone. See `resolveMuscleGroupScrollAnchor`.
+                let anchor = Self.resolveMuscleGroupScrollAnchor(
+                    previouslyVisible: visibleEquipment,
+                    in: newGroups.map(\.0)
+                )
+                visibleEquipment = anchor
+                pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
             }
             .onChange(of: debouncedSearchText) { _, newText in
@@ -165,9 +201,14 @@ struct ExercisePickerView: View {
                     searchText: newText
                 )
                 cachedEquipmentGroups = newGroups
-                // Same reasoning as muscle-group change: search-driven content
-                // shrinks can strand the scroll offset past the new content end.
-                visibleEquipment = newGroups.first?.0
+                // MY-1272: search-driven content changes keep the historical
+                // "reset to first section" behavior — the user changed
+                // intent, so returning to the top is correct (search bar +
+                // parent MY-1271 acceptance criteria explicitly preserve
+                // this path).
+                let anchor = newGroups.first?.0
+                visibleEquipment = anchor
+                pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
             }
             .task(id: searchText) {
@@ -196,21 +237,18 @@ struct ExercisePickerView: View {
         .accessibilityLabel(String(localized: "添加 \(count) 个动作", comment: "Confirm multi-select a11y label"))
     }
 
-    // MARK: - Floating Search + Muscle Filter Panel (MY-1260)
+    // MARK: - Floating Search + Muscle Filter Panel (MY-1272)
     //
-    // A single floating glass panel that combines the search input and the
-    // muscle-group filter chips. Replaces the prior split layout (system
-    // `.searchable` at the top + a separate `.liquidGlassBar` chip strip
-    // at the bottom) that felt like two disconnected surfaces. The panel:
+    // Two independent floating glass surfaces stacked above the safe-area:
+    //   • Muscle-group chips row (always full-width glass panel).
+    //   • Search control (collapsible — circular magnifier button by
+    //     default; expands into a full-width search field once tapped).
     //
-    // - Sits above the safe-area with symmetric horizontal padding so it
-    //   reads as a floating slab, not a bar glued to the edges.
-    // - Uses the existing `.liquidGlassBar` helper for the material (gated
-    //   `.glassEffect` on iOS 26+, DesignKit card fallback below) and
-    //   respects Reduce Transparency by dropping to an opaque card.
-    // - Hosts two rows separated by a 1pt hairline: search input on top,
-    //   muscle-group chips on the bottom. The chips row remains horizontal
-    //   scroll but the whole panel is one hit surface.
+    // Replaces the prior MY-1260 single combined panel that hosted both
+    // rows inside one glass surface separated by a 1pt hairline. The two
+    // controls now read as two distinct floating widgets so the search
+    // can shrink to a compact pill without dragging the chip strip with
+    // it.
     //
     // Debounce + `debouncedSearchText` (`.task(id: searchText)`) is
     // preserved verbatim — only the outer chrome changes.
@@ -219,21 +257,90 @@ struct ExercisePickerView: View {
     private static let panelBottomInset: CGFloat = 8
     private static let panelInnerHPadding: CGFloat = 14
     private static let panelInnerVPadding: CGFloat = 10
+    private static let panelSurfaceSpacing: CGFloat = 8
+    /// Diameter of the collapsed search pill. Satisfies Constitution §H
+    /// (≥44pt) directly — the visual pill itself is the hit target.
+    static let collapsedSearchDiameter: CGFloat = 44
 
     private var floatingSearchAndFilterPanel: some View {
-        VStack(spacing: 8) {
-            searchRow
-            Rectangle()
-                .fill(theme.neutrals.border)
-                .frame(height: 1)
-                .accessibilityHidden(true)
-            muscleGroupChipsRow
+        VStack(alignment: .trailing, spacing: Self.panelSurfaceSpacing) {
+            // Row 1: chips strip on its own glass surface (full width).
+            muscleGroupChipsSurface
+            // Row 2: search control glass surface — right-aligned in
+            // collapsed state (compact pill) so the chip strip above it
+            // keeps its full breathing room; expands to full width when
+            // active. Wrapped in HStack so the trailing-alignment of the
+            // outer VStack keeps the collapsed pill snapped to the
+            // trailing edge without stretching the surface itself.
+            searchSurface
         }
-        .padding(.horizontal, Self.panelInnerHPadding)
-        .padding(.vertical, Self.panelInnerVPadding)
-        .modifier(PanelSurfaceModifier(theme: theme, opaque: reduceTransparency))
         .padding(.horizontal, Self.panelHorizontalInset)
         .padding(.bottom, Self.panelBottomInset)
+        .animation(.easeOut(duration: 0.22), value: isSearchExpanded)
+    }
+
+    // MARK: Muscle-group chips surface (independent glass)
+
+    private var muscleGroupChipsSurface: some View {
+        muscleGroupChipsRow
+            .padding(.horizontal, Self.panelInnerHPadding)
+            .padding(.vertical, Self.panelInnerVPadding)
+            .frame(maxWidth: .infinity)
+            .modifier(PanelSurfaceModifier(theme: theme, opaque: reduceTransparency))
+    }
+
+    // MARK: Search surface (collapsible — circular button ↔ full field)
+
+    @ViewBuilder
+    private var searchSurface: some View {
+        if isSearchExpanded {
+            expandedSearchSurface
+                .transition(.opacity)
+        } else {
+            collapsedSearchSurface
+                .transition(.opacity)
+        }
+    }
+
+    private var expandedSearchSurface: some View {
+        searchRow
+            .padding(.horizontal, Self.panelInnerHPadding)
+            .padding(.vertical, Self.panelInnerVPadding)
+            .frame(maxWidth: .infinity)
+            .modifier(PanelSurfaceModifier(theme: theme, opaque: reduceTransparency))
+    }
+
+    /// Collapsed = a circular magnifier button. Tapping expands the
+    /// surface into `expandedSearchSurface` and focuses the field. The
+    /// diameter equals `collapsedSearchDiameter` (≥44pt) so the visible
+    /// pill is the full hit target — no invisible padding trickery.
+    private var collapsedSearchSurface: some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.22)) {
+                isSearchExpanded = true
+            }
+            // Defer focus to the next runloop tick so the TextField exists
+            // before we try to focus it. Without this, the first tap
+            // sometimes expands the pill without pulling up the keyboard.
+            DispatchQueue.main.async {
+                isSearchFocused = true
+            }
+        } label: {
+            Image(systemName: "magnifyingglass")
+                .font(.system(.body, design: .default, weight: .semibold))
+                .foregroundStyle(theme.neutrals.text2)
+                .frame(
+                    width: Self.collapsedSearchDiameter,
+                    height: Self.collapsedSearchDiameter
+                )
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .background(
+            CollapsedSearchPillSurface(theme: theme, opaque: reduceTransparency)
+        )
+        .accessibilityLabel(String(localized: "搜索动作", comment: "Exercise search prompt"))
+        .accessibilityHint(String(localized: "展开搜索", comment: "Expand search a11y hint"))
     }
 
     // MARK: Search row (self-drawn — replaces system `.searchable`)
@@ -271,6 +378,11 @@ struct ExercisePickerView: View {
                 Button {
                     searchText = ""
                     debouncedSearchText = ""
+                    // MY-1272: clearing an empty query while unfocused
+                    // collapses the pill (search focus onChange handles
+                    // the empty-and-blur case). Explicit blur so tapping
+                    // the clear button collapses without an extra tap.
+                    isSearchFocused = false
                 } label: {
                     // Icon renders at its intrinsic size but the button's hit
                     // frame is 44×44pt so it satisfies Constitution §H (44pt
@@ -410,6 +522,15 @@ struct ExercisePickerView: View {
                         .padding(.trailing, Self.cardGridTrailingInset(showsIndexBar: showsIndexBar))
                         .scrollTargetLayout()
                     }
+                    // MY-1272: dismiss the search keyboard as soon as the
+                    // card grid scrolls. `.immediately` mirrors
+                    // `ActiveWorkoutView`'s existing choice: any drag
+                    // gesture on the grid dismisses the keyboard, and the
+                    // subsequent `isSearchFocused == false` transition
+                    // collapses the search control back to its magnifier
+                    // pill when `searchText` is empty (see
+                    // `.onChange(of: isSearchFocused)` below).
+                    .scrollDismissesKeyboard(.immediately)
                     // MY-1249: use onScrollTargetVisibilityChange (iOS 18) instead
                     // of .scrollPosition(id:anchor:.top) — the latter's binding
                     // updates lagged during finger scroll with lazy sections, so
@@ -454,14 +575,16 @@ struct ExercisePickerView: View {
                 }
                 // MY-1250 reconciliation: filter/search change bumps
                 // `scrollResetToken`; here we imperatively scroll the grid to
-                // the top of the first section. This restores the "reset to
-                // top on filter change" behavior that MY-1250 originally got
-                // from `.scrollPosition(id: $visibleEquipment)` (removed by
-                // MY-1249 to fix index-bar sync lag).
+                // the top of the resolved anchor section. MY-1272 refined
+                // "anchor" to `pendingScrollAnchor` so muscle-group changes
+                // can target the current `visibleEquipment` when it
+                // survives (see `resolveMuscleGroupScrollAnchor`), while
+                // search resets still fall back to the first section.
                 .onChange(of: scrollResetToken) { _, _ in
-                    guard let first = equipmentGroups.first?.0 else { return }
+                    let target = pendingScrollAnchor ?? equipmentGroups.first?.0
+                    guard let anchor = target else { return }
                     withAnimation(.easeOut(duration: 0.2)) {
-                        gridProxy.scrollTo(first, anchor: .top)
+                        gridProxy.scrollTo(anchor, anchor: .top)
                     }
                 }
             }
@@ -550,6 +673,24 @@ struct ExercisePickerView: View {
         guard !visibleIds.isEmpty else { return nil }
         let visibleSet = Set(visibleIds)
         return order.first(where: visibleSet.contains) ?? visibleIds.first
+    }
+
+    /// MY-1272: pick the equipment section to scroll to when the muscle
+    /// group filter changes. Prefer the user's currently-visible
+    /// equipment when it survives the filter — that anchors the reset to
+    /// "the section you were already reading" (per parent MY-1271 UX).
+    /// When the previously visible equipment is missing from the new
+    /// list (e.g. the current group has no barbell exercises), fall back
+    /// to the first section of the new list (preserving MY-1250).
+    /// Returns `nil` when the new list is empty.
+    static func resolveMuscleGroupScrollAnchor(
+        previouslyVisible: Equipment?,
+        in newOrder: [Equipment]
+    ) -> Equipment? {
+        if let previous = previouslyVisible, newOrder.contains(previous) {
+            return previous
+        }
+        return newOrder.first
     }
 
     private func sectionPreviewPopup(equipment: Equipment) -> some View {
@@ -667,6 +808,31 @@ private struct PanelSurfaceModifier: ViewModifier {
                     RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
                         .strokeBorder(theme.neutrals.border, lineWidth: 1)
                 )
+        }
+    }
+}
+
+// MARK: - Collapsed Search Pill Surface (MY-1272)
+
+/// Circular Liquid-Glass background for the collapsed search pill. Uses
+/// the same gated material as `PanelSurfaceModifier` but clipped to a
+/// `Circle()` so it reads as a compact pill instead of a slab. Falls back
+/// to an opaque DesignKit card fill when Reduce Transparency is on.
+private struct CollapsedSearchPillSurface: View {
+    let theme: Theme
+    let opaque: Bool
+
+    @ViewBuilder
+    var body: some View {
+        if opaque {
+            Circle()
+                .fill(theme.neutrals.card)
+                .overlay(Circle().strokeBorder(theme.neutrals.border, lineWidth: 1))
+        } else {
+            Color.clear
+                .liquidGlassCapsule(theme: theme)
+                .overlay(Circle().strokeBorder(theme.neutrals.border, lineWidth: 1))
+                .clipShape(Circle())
         }
     }
 }

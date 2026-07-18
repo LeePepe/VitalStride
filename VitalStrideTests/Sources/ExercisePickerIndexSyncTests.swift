@@ -89,6 +89,14 @@ struct ExercisePickerIndexSyncTests {
         #expect(ExercisePickerView.equipmentIndexBarHitWidth >= 44)
     }
 
+    /// MY-1272: the collapsed search pill is the entire hit target — its
+    /// diameter MUST satisfy Constitution §H. If a future style change
+    /// shrinks the pill for aesthetics, this test regresses first.
+    @Test("collapsed search pill diameter is at least 44pt (MY-1272)")
+    func collapsedSearchDiameterMeetsConstitution() {
+        #expect(ExercisePickerView.collapsedSearchDiameter >= 44)
+    }
+
     // MARK: - Callback / configuration path (P0 regression coverage)
 
     /// P0 regression from PR #256 review: each scroll target is a whole
