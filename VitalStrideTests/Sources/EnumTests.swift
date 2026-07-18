@@ -49,12 +49,22 @@ struct EnumTests {
         #expect(SetType.pyramid.isSubSet == true)
     }
 
-    @Test("SetType displayName returns correct names for all types")
+    @Test("SetType displayName is non-empty and unique across all cases")
     func setTypeDisplayNames() {
-        #expect(SetType.working.displayName == "正式")
-        #expect(SetType.warmup.displayName == "热身")
-        #expect(SetType.dropSet.displayName == "递减")
-        #expect(SetType.pyramid.displayName == "递增")
+        // `SetType.displayName` is resolved via `String(localized:bundle: .module)`
+        // in VitalModels, so its value depends on the host's runtime locale
+        // (e.g. English on CI vs Chinese on a zh-Hans dev machine). Assert on
+        // invariants that hold in every locale:
+        //   1) every case has a non-empty displayName
+        //   2) all four cases produce distinct values
+        // The zh-Hans catalog spec strings are asserted in
+        // `Packages/VitalModels/Tests/VitalModelsTests/ExerciseSetTests.swift`,
+        // which can reach `Bundle.module` directly.
+        let displayNames = SetType.allCases.map(\.displayName)
+        for (setType, value) in zip(SetType.allCases, displayNames) {
+            #expect(!value.isEmpty, "SetType.\(setType) has empty displayName")
+        }
+        #expect(Set(displayNames).count == SetType.allCases.count, "SetType displayNames are not unique")
     }
 
     @Test("MuscleGroup has all expected cases")
