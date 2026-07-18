@@ -10,9 +10,17 @@
 # (app + widget) 均已在 Developer Portal 注册并带 HealthKit capability。
 # 用 export_team_id + DEVELOPMENT_TEAM 锁定付费 team，避免钥匙串里其它账号证书干扰。
 
+# 签名：manual + App Store distribution profile（fastlane 自动为付费 team 拉取）。
+# 不用 automatic —— runner 钥匙串含 5 个 Apple 账号的证书，automatic 在 archive
+# 阶段给每个 target 解析 Development 证书，但付费 team 4Z8GG667QD 只有 Distribution、
+# 无 Development → automatic 回退误挑别账号（qq.com 等）的 Development 证书 →
+# errSecInternalComponent。改 manual：用 get_provisioning_profile 拉两个 bundleID 的
+# App Store profile，build_app 显式映射，彻底不依赖 automatic 的启发式挑选。
+
 default_platform(:ios)
 
 APP_IDENTIFIER = "com.leepepe.vitalstride".freeze
+WIDGET_IDENTIFIER = "com.leepepe.vitalstride.widgets".freeze
 SCHEME = "VitalStride".freeze
 XCODEPROJ = "VitalStride.xcodeproj".freeze
 TEAM_ID = "4Z8GG667QD".freeze
@@ -40,23 +48,45 @@ platform :ios do
     next_build = latest.to_i + 1
     UI.message("TestFlight latest build = #{latest}; this build = #{next_build}")
 
+    # 为 app + widget 拉 App Store distribution profile（付费 team）。
+    # 需要时自动在 Developer Portal 创建（含各自的 capability）。
+    app_profile = get_provisioning_profile(
+      api_key: api_key,
+      app_identifier: APP_IDENTIFIER,
+      team_id: TEAM_ID,
+      adhoc: false,
+      developer_id: false,
+      skip_install: false
+    )
+    widget_profile = get_provisioning_profile(
+      api_key: api_key,
+      app_identifier: WIDGET_IDENTIFIER,
+      team_id: TEAM_ID,
+      adhoc: false,
+      developer_id: false,
+      skip_install: false
+    )
+
     build_app(
       project: XCODEPROJ,
       scheme: SCHEME,
       configuration: "Release",
       export_method: "app-store",
       export_team_id: TEAM_ID,
-      # 关键：runner 钥匙串里有多账号证书（含免费 qq.com Development），
-      # -allowProvisioningUpdates 自动签名会误挑 Development 证书签 Release
-      # → errSecInternalComponent。显式锁 "Apple Distribution" 身份，逼它用付费
-      # team 4Z8GG667QD 的唯一 Distribution 证书（app-store archive 正确身份）。
       xcargs: "CURRENT_PROJECT_VERSION=#{next_build} " \
               "DEVELOPMENT_TEAM=#{TEAM_ID} " \
-              "CODE_SIGN_IDENTITY=Apple\\ Distribution " \
-              "-allowProvisioningUpdates",
+              "CODE_SIGN_STYLE=Manual " \
+              "CODE_SIGN_IDENTITY=Apple\\ Distribution",
       export_options: {
         manageAppVersionAndBuildNumber: false,
-        teamID: TEAM_ID
+        signingStyle: "manual",
+        teamID: TEAM_ID,
+        provisioningProfiles: {
+          APP_IDENTIFIER => ENV.fetch("sigh_#{APP_IDENTIFIER}_appstore_profile-name",
+                                      app_profile),
+          WIDGET_IDENTIFIER => ENV.fetch("sigh_#{WIDGET_IDENTIFIER}_appstore_profile-name",
+                                         widget_profile)
+        }
       },
       output_directory: ENV.fetch("RUNNER_TEMP", "/tmp"),
       clean: true
