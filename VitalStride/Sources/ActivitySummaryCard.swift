@@ -119,7 +119,7 @@ struct ActivityRing: View {
             .accessibilityHidden(true)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("今日活动进度")
+        .accessibilityLabel(String(localized: "今日活动进度", comment: "Today activity progress a11y"))
         .accessibilityValue("\(Int(progress * 100))%")
     }
 }

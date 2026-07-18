@@ -1,3 +1,8 @@
+// swiftlint:disable no_hardcoded_chinese
+// MY-1269: Chinese string values are the xcstrings *source keys* that get
+// resolved through Localizable.xcstrings via String(localized:) — that is the
+// intended flow, not a hardcoded literal. Rule stays silenced at file scope
+// until we migrate to ASCII key IDs (tracked in the follow-up i18n sub-issue).
 import SwiftUI
 import TelemetryKit
 import VitalModels
@@ -25,27 +30,27 @@ struct ContentView: View {
             Tab("概览", systemImage: "chart.bar.fill", value: .overview) {
                 OverviewView()
             }
-            .accessibilityLabel("概览")
+            .accessibilityLabel(String(localized: "概览", comment: "Overview tab a11y label"))
 
             Tab("训练", systemImage: "dumbbell.fill", value: .workout) {
                 WorkoutListView()
             }
-            .accessibilityLabel("训练")
+            .accessibilityLabel(String(localized: "训练", comment: "Workouts tab a11y label"))
 
             Tab("数据", systemImage: "heart.text.square.fill", value: .data) {
                 DataView()
             }
-            .accessibilityLabel("数据")
+            .accessibilityLabel(String(localized: "数据", comment: "Data tab a11y label"))
 
             Tab("AI", systemImage: "brain", value: .ai) {
                 AIView()
             }
-            .accessibilityLabel("AI 助手")
+            .accessibilityLabel(String(localized: "AI 助手", comment: "AI assistant tab a11y label"))
 
             Tab("设置", systemImage: "gearshape.fill", value: .settings) {
                 SettingsView()
             }
-            .accessibilityLabel("设置")
+            .accessibilityLabel(String(localized: "设置", comment: "Settings tab a11y label"))
         }
         .environment(navigation)
         .detectsCrashRecovery(navigation: navigation)

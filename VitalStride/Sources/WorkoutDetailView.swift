@@ -36,7 +36,7 @@ struct WorkoutDetailView: View {
 
     var body: some View {
         content
-            .navigationTitle("训练详情")
+            .navigationTitle(String(localized: "训练详情", comment: "Nav title"))
             .toolbar {
                 saveTemplateToolbarItem
                 deleteToolbarItem

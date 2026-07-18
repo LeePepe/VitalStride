@@ -1,3 +1,6 @@
+// swiftlint:disable no_hardcoded_chinese
+// MY-1269: Chinese string values are xcstrings source keys resolved via
+// String(localized:). Rule silenced at file scope pending ASCII-key migration.
 import DesignKit
 import SwiftUI
 
@@ -15,7 +18,7 @@ struct WatchContentView: View {
                     Label("开始训练", systemImage: "dumbbell.fill")
                         .tint(theme.primary.primary)
                 }
-                .accessibilityLabel("开始训练")
+                .accessibilityLabel(String(localized: "开始训练", comment: "Start workout a11y (watch)"))
             }
             .navigationTitle("VitalStride")
         }

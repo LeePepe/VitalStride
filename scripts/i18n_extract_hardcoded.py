@@ -139,6 +139,28 @@ def is_test_path(path: Path) -> bool:
     return "Tests" in parts or path.name.endswith("Tests.swift") or "VitalStrideTests" in parts
 
 
+# File-level exemption marker. A file containing a line starting with
+# `// i18n:exempt` in its first 40 lines is fully skipped by this scanner.
+# Intended for non-UI text such as AI prompt templates that are sent to
+# language models rather than rendered to end users (Constitution §VI-G notes
+# that only user-visible strings are P1; AI prompts are explicitly exempt per
+# MY-1269 acceptance criteria).
+I18N_EXEMPT_MARKER = "// i18n:exempt"
+
+
+def is_file_exempt(path: Path) -> bool:
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            for i, line in enumerate(fh):
+                if i >= 40:
+                    break
+                if I18N_EXEMPT_MARKER in line:
+                    return True
+    except OSError:
+        return False
+    return False
+
+
 def swift_files() -> list[Path]:
     files: list[Path] = []
     for root in SCAN_ROOTS:
@@ -147,7 +169,7 @@ def swift_files() -> list[Path]:
     packages = REPO_ROOT / "Packages"
     if packages.exists():
         files.extend(packages.glob("*/Sources/**/*.swift"))
-    return sorted({p for p in files if not is_test_path(p)})
+    return sorted({p for p in files if not is_test_path(p) and not is_file_exempt(p)})
 
 
 def iter_string_literals(source: str):

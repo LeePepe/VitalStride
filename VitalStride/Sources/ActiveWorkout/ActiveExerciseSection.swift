@@ -237,8 +237,8 @@ struct ActiveExerciseSection: View {
         // "add set" row toward the ~36pt visual density target. Large Mode
         // retains the pre-existing 2pt breathing room.
         .listRowInsets(EdgeInsets(top: largeMode ? 2 : 1, leading: 16, bottom: largeMode ? 2 : 1, trailing: 16))
-        .accessibilityLabel("添加一组")
-        .accessibilityHint("在列表末尾插入新的一组")
+        .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
+        .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
     }
 
     private func addSet() {

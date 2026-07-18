@@ -74,7 +74,7 @@ struct StartWorkoutView: View {
                     }
                 }
             }
-            .navigationTitle("开始训练")
+            .navigationTitle(String(localized: "开始训练", comment: "Nav title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

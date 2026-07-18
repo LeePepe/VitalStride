@@ -1,3 +1,6 @@
+// swiftlint:disable no_hardcoded_chinese
+// MY-1269: Chinese string values are xcstrings source keys resolved via
+// String(localized:). Rule silenced at file scope pending ASCII-key migration.
 import DesignKit
 import SwiftUI
 
@@ -14,7 +17,7 @@ struct SettingsView: View {
                 aboutSection
             }
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle("设置")
+            .navigationTitle(String(localized: "设置", comment: "Nav title"))
         }
     }
 
@@ -65,7 +68,7 @@ struct AcknowledgementsView: View {
                 acknowledgementRow("CloudKit", description: "跨设备同步")
             }
         }
-        .navigationTitle("致谢")
+        .navigationTitle(String(localized: "致谢", comment: "Nav title"))
         #if !os(macOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

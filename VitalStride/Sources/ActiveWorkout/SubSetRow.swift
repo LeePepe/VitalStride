@@ -125,7 +125,7 @@ struct SubSetRow: View {
             .contentShape(Rectangle())
             // swiftlint:disable:next line_length
             .accessibilityLabel("第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? "已完成" : "未完成")")
-            .accessibilityHint("双击切换完成状态")
+            .accessibilityHint(String(localized: "双击切换完成状态", comment: "A11y hint"))
         }
     }
 

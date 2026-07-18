@@ -420,7 +420,7 @@ struct OverviewEmptyState: View {
                         Label("前往「设置」授权 HealthKit", systemImage: "gearshape")
                             .font(.subheadline)
                     }
-                    .accessibilityHint("切换到设置页面以授权 HealthKit")
+                    .accessibilityHint(String(localized: "切换到设置页面以授权 HealthKit", comment: "A11y hint"))
 
                     Button {
                         navigation?.selectedTab = .workout
@@ -428,7 +428,7 @@ struct OverviewEmptyState: View {
                         Label("前往「训练」开始第一次训练", systemImage: "figure.strengthtraining.traditional")
                             .font(.subheadline)
                     }
-                    .accessibilityHint("切换到训练页面以开始训练")
+                    .accessibilityHint(String(localized: "切换到训练页面以开始训练", comment: "A11y hint"))
                 }
             }
             .frame(maxWidth: .infinity)
