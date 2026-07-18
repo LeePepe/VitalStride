@@ -459,7 +459,7 @@ private struct WorkoutRowView: View {
             HStack {
                 let exerciseCount = workout.exercises?.count ?? 0
                 Label(
-                    "\(exerciseCount) 个动作",
+                    String(localized: "\(exerciseCount) 个动作", comment: "Exercise count label"),
                     systemImage: "figure.strengthtraining.traditional"
                 )
                 .font(.subheadline)

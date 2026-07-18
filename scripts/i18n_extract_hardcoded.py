@@ -139,6 +139,28 @@ def is_test_path(path: Path) -> bool:
     return "Tests" in parts or path.name.endswith("Tests.swift") or "VitalStrideTests" in parts
 
 
+# File-level exemption marker. A file containing a line starting with
+# `// i18n:exempt` in its first 40 lines is fully skipped by this scanner.
+# Intended for non-UI text such as AI prompt templates that are sent to
+# language models rather than rendered to end users (Constitution §VI-G notes
+# that only user-visible strings are P1; AI prompts are explicitly exempt per
+# MY-1269 acceptance criteria).
+I18N_EXEMPT_MARKER = "// i18n:exempt"
+
+
+def is_file_exempt(path: Path) -> bool:
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            for i, line in enumerate(fh):
+                if i >= 40:
+                    break
+                if I18N_EXEMPT_MARKER in line:
+                    return True
+    except OSError:
+        return False
+    return False
+
+
 def swift_files() -> list[Path]:
     files: list[Path] = []
     for root in SCAN_ROOTS:
@@ -147,7 +169,7 @@ def swift_files() -> list[Path]:
     packages = REPO_ROOT / "Packages"
     if packages.exists():
         files.extend(packages.glob("*/Sources/**/*.swift"))
-    return sorted({p for p in files if not is_test_path(p)})
+    return sorted({p for p in files if not is_test_path(p) and not is_file_exempt(p)})
 
 
 def iter_string_literals(source: str):
@@ -227,7 +249,54 @@ def iter_string_literals(source: str):
 
 def is_string_localized_first_argument(source: str, start: int) -> bool:
     prefix = source[max(0, start - 250) : start]
-    return re.search(r"String\s*\(\s*localized\s*:\s*$", prefix, re.DOTALL) is not None
+    # Strip line comments so `String(localized: // swiftlint:disable...\n "..."`
+    # still matches.
+    prefix_no_comments = re.sub(r"//[^\n]*", "", prefix)
+    if re.search(r"String\s*\(\s*localized\s*:\s*$", prefix_no_comments, re.DOTALL) is not None:
+        return True
+    # Also skip literals used as `defaultValue:` argument of String(localized: "key", defaultValue: "...")
+    # — this is the standard SwiftUI/Foundation i18n pattern for supplying a fallback string.
+    if re.search(r"defaultValue\s*:\s*$", prefix_no_comments, re.DOTALL) is not None:
+        return True
+    return False
+
+
+def is_swiftui_localized_key_with_comment(source: str, start: int, end: int) -> bool:
+    """Return True when a literal is the first arg to a SwiftUI initializer that
+    also passes an explicit `comment:` argument — the standard Apple i18n pattern
+    for translator hints (e.g. `Text("训练", comment: "Tab title")`).
+
+    We match the surrounding parenthesized call ending with `, comment: "..."`.
+    """
+    # Look at the ~250 chars before to see we're in an argument list
+    prefix = source[max(0, start - 250) : start]
+    # Must be immediately after `(` or `, ` — i.e. this is a positional first arg
+    if not re.search(r"[(,]\s*$", prefix, re.DOTALL):
+        return False
+    # Look forward for `, comment:` before the enclosing `)` at same paren depth
+    depth = 0
+    i = end
+    src_len = len(source)
+    while i < src_len:
+        ch = source[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            if depth == 0:
+                return False
+            depth -= 1
+        elif ch == "," and depth == 0:
+            # Check if the next non-whitespace token is `comment:`
+            j = i + 1
+            while j < src_len and source[j] in " \t\n":
+                j += 1
+            if source.startswith("comment:", j):
+                return True
+        elif ch == "\n" and depth == 0:
+            # Multi-line arg list — allow, continue scanning
+            pass
+        i += 1
+    return False
 
 
 def is_debug_print_line(source: str, start: int, end: int) -> bool:
@@ -300,6 +369,8 @@ def collect_findings() -> list[Finding]:
             if is_debug_print_line(source, start, end):
                 continue
             if is_string_localized_first_argument(source, start):
+                continue
+            if is_swiftui_localized_key_with_comment(source, start, end):
                 continue
             line_text = lines[line - 1] if 0 <= line - 1 < len(lines) else ""
             findings.append(Finding(path, line, text, suggested_key(path, line_text, text)))

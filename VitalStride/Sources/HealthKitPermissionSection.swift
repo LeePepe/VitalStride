@@ -1,3 +1,6 @@
+// swiftlint:disable no_hardcoded_chinese
+// Rationale: All CJK literals in this file are wrapped in String(localized:) for i18n;
+// the regex-based rule can't distinguish that from a raw literal (MY-1269).
 import DesignKit
 import HealthKit
 import HealthKitService
@@ -13,30 +16,30 @@ struct HealthKitPermissionSection: View {
     private let healthStore = HKHealthStore()
 
     private static let requestedTypes: [(String, String)] = [
-        ("心率", "heart.fill"),
-        ("步数", "figure.walk"),
-        ("睡眠", "moon.fill"),
-        ("训练记录", "figure.run"),
-        ("活动能量", "flame.fill"),
-        ("体重", "scalemass.fill"),
-        ("基础代谢", "flame"),
-        ("步行+跑步距离", "figure.walk.motion"),
-        ("骑行距离", "bicycle"),
-        ("锻炼时间", "timer"),
-        ("站立时间", "figure.stand"),
-        ("已爬楼层", "figure.stairs"),
-        ("体脂率", "percent"),
-        ("去脂体重", "figure.arms.open"),
-        ("身高", "ruler"),
+        (String(localized: "心率", comment: ""), "heart.fill"),
+        (String(localized: "步数", comment: ""), "figure.walk"),
+        (String(localized: "睡眠", comment: ""), "moon.fill"),
+        (String(localized: "训练记录", comment: ""), "figure.run"),
+        (String(localized: "活动能量", comment: ""), "flame.fill"),
+        (String(localized: "体重", comment: ""), "scalemass.fill"),
+        (String(localized: "基础代谢", comment: ""), "flame"),
+        (String(localized: "步行+跑步距离", comment: ""), "figure.walk.motion"),
+        (String(localized: "骑行距离", comment: ""), "bicycle"),
+        (String(localized: "锻炼时间", comment: ""), "timer"),
+        (String(localized: "站立时间", comment: ""), "figure.stand"),
+        (String(localized: "已爬楼层", comment: ""), "figure.stairs"),
+        (String(localized: "体脂率", comment: ""), "percent"),
+        (String(localized: "去脂体重", comment: ""), "figure.arms.open"),
+        (String(localized: "身高", comment: ""), "ruler"),
         ("BMI", "number"),
-        ("静息心率", "heart"),
-        ("心率变异性", "waveform.path.ecg"),
-        ("最大摄氧量", "lungs.fill"),
-        ("膳食能量", "fork.knife"),
-        ("蛋白质", "takeoutbag.and.cup.and.straw.fill"),
-        ("碳水化合物", "leaf.fill"),
-        ("脂肪", "drop.fill"),
-        ("饮水量", "cup.and.saucer.fill"),
+        (String(localized: "静息心率", comment: ""), "heart"),
+        (String(localized: "心率变异性", comment: ""), "waveform.path.ecg"),
+        (String(localized: "最大摄氧量", comment: ""), "lungs.fill"),
+        (String(localized: "膳食能量", comment: ""), "fork.knife"),
+        (String(localized: "蛋白质", comment: ""), "takeoutbag.and.cup.and.straw.fill"),
+        (String(localized: "碳水化合物", comment: ""), "leaf.fill"),
+        (String(localized: "脂肪", comment: ""), "drop.fill"),
+        (String(localized: "饮水量", comment: ""), "cup.and.saucer.fill"),
     ]
 
     private static let shareTypes: Set<HKSampleType> = [
@@ -50,9 +53,9 @@ struct HealthKitPermissionSection: View {
     }
 
     var body: some View {
-        Section("HealthKit 权限") {
+        Section(String(localized: "HealthKit 权限", comment: "")) {
             HStack {
-                Label("授权状态", systemImage: "heart.text.square")
+                Label(String(localized: "授权状态", comment: ""), systemImage: "heart.text.square")
                     .tint(theme.primary.primary)
                 Spacer()
                 if isLoading {
@@ -67,7 +70,7 @@ struct HealthKitPermissionSection: View {
                     Task { await requestAuthorization() }
                 } label: {
                     HStack {
-                        Label("请求授权", systemImage: "checkmark.shield")
+                        Label(String(localized: "请求授权", comment: ""), systemImage: "checkmark.shield")
                         Spacer()
                         if isRequesting {
                             ProgressView()
@@ -80,7 +83,7 @@ struct HealthKitPermissionSection: View {
             Button {
                 openHealthSettings()
             } label: {
-                Label("管理 HealthKit 权限", systemImage: "arrow.up.right.square")
+                Label(String(localized: "管理 HealthKit 权限", comment: ""), systemImage: "arrow.up.right.square")
             }
 
             DisclosureGroup {
@@ -90,7 +93,7 @@ struct HealthKitPermissionSection: View {
                         .foregroundStyle(theme.neutrals.text2)
                 }
             } label: {
-                Label("请求的数据类型", systemImage: "list.bullet")
+                Label(String(localized: "请求的数据类型", comment: ""), systemImage: "list.bullet")
                     .tint(theme.primary.primary)
             }
         }
@@ -102,15 +105,15 @@ struct HealthKitPermissionSection: View {
     private var statusText: String {
         switch authorizationStatus {
         case .shouldRequest:
-            return "待授权"
+            return String(localized: "待授权", comment: "")
         case .unknown:
-            return "未知"
+            return String(localized: "未知", comment: "")
         case .unnecessary:
-            return "已请求授权"
+            return String(localized: "已请求授权", comment: "")
         case .none:
-            return "检查中…"
+            return String(localized: "检查中…", comment: "")
         @unknown default:
-            return "未知"
+            return String(localized: "未知", comment: "")
         }
     }
 

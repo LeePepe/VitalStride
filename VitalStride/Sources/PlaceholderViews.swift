@@ -9,7 +9,7 @@ struct OverviewPlaceholder: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        Text("概览 — Coming Soon")
+        Text(String(localized: "概览 — Coming Soon", comment: ""))
             .font(.title)
             .foregroundStyle(theme.neutrals.text2)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -21,7 +21,7 @@ struct WorkoutPlaceholder: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        Text("训练 — Coming Soon")
+        Text(String(localized: "训练 — Coming Soon", comment: ""))
             .font(.title)
             .foregroundStyle(theme.neutrals.text2)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -33,7 +33,7 @@ struct DataPlaceholder: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        Text("数据 — Coming Soon")
+        Text(String(localized: "数据 — Coming Soon", comment: ""))
             .font(.title)
             .foregroundStyle(theme.neutrals.text2)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -57,7 +57,7 @@ struct SettingsPlaceholder: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        Text("设置 — Coming Soon")
+        Text(String(localized: "设置 — Coming Soon", comment: ""))
             .font(.title)
             .foregroundStyle(theme.neutrals.text2)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -65,8 +65,8 @@ struct SettingsPlaceholder: View {
     }
 }
 
-#Preview("概览") { OverviewPlaceholder().designThemePreview() }
-#Preview("训练") { WorkoutPlaceholder().designThemePreview() }
-#Preview("数据") { DataPlaceholder().designThemePreview() }
+#Preview(String(localized: "概览", comment: "")) { OverviewPlaceholder().designThemePreview() }
+#Preview(String(localized: "训练", comment: "")) { WorkoutPlaceholder().designThemePreview() }
+#Preview(String(localized: "数据", comment: "")) { DataPlaceholder().designThemePreview() }
 #Preview("AI") { AIPlaceholder().designThemePreview() }
-#Preview("设置") { SettingsPlaceholder().designThemePreview() }
+#Preview(String(localized: "设置", comment: "")) { SettingsPlaceholder().designThemePreview() }

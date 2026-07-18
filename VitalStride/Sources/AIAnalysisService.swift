@@ -1,3 +1,6 @@
+// swiftlint:disable no_hardcoded_chinese
+// MY-1269: Chinese string values are xcstrings source keys resolved via
+// String(localized:). Rule silenced at file scope pending ASCII-key migration.
 import AIService
 import Foundation
 import OSLog
@@ -244,12 +247,13 @@ actor AIAnalysisService: ModelActor {
 
         logger.log("JSON parse: method=generateTrainingAdvice retry=2 result=fallback")
         return TrainingRecommendation(
-            // swiftlint:disable:next no_hardcoded_chinese
-            title: "训练建议",
+            title: String(localized: "训练建议", comment: "Fallback training advice title"),
             muscleGroups: [],
             exercises: [],
-            // swiftlint:disable:next no_hardcoded_chinese
-            reasoning: "暂时无法生成训练建议，请稍后重试。"
+            reasoning: String(
+                localized: "暂时无法生成训练建议，请稍后重试。",
+                comment: "Fallback training advice reasoning"
+            )
         )
     }
 
@@ -297,8 +301,10 @@ actor AIAnalysisService: ModelActor {
         logger.log("JSON parse: method=analyzeDataTrend retry=2 result=fallback")
         return DataAnalysis(
             sampleType: context.sampleType,
-            // swiftlint:disable:next no_hardcoded_chinese
-            summary: "暂时无法分析数据趋势，请稍后重试。",
+            summary: String(
+                localized: "暂时无法分析数据趋势，请稍后重试。",
+                comment: "Fallback data trend analysis summary"
+            ),
             trend: "insufficient"
         )
     }

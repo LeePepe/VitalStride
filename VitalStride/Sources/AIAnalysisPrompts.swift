@@ -1,3 +1,8 @@
+// i18n:exempt — This file assembles prompt payloads sent to LLM providers.
+// Strings here are not rendered in the UI; they are instructions & context
+// for the model (which itself is instructed to reply in the user's locale).
+// Per MY-1269 acceptance criteria and Constitution §VI-G, AI prompt templates
+// are exempt from user-facing i18n migration.
 import AIService
 import Foundation
 

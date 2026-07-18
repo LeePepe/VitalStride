@@ -1,12 +1,15 @@
+// swiftlint:disable no_hardcoded_chinese
+// Rationale: All CJK literals in this file are wrapped in String(localized:) for i18n;
+// the regex-based rule can't distinguish that from a raw literal (MY-1269).
 import DesignKit
 import SwiftUI
 
 enum SidebarSection: String, CaseIterable, Identifiable {
-    case overview = "概览"
-    case workout = "训练"
-    case data = "数据"
-    case ai = "AI"
-    case settings = "设置"
+    case overview = "overview"
+    case workout = "workout"
+    case data = "data"
+    case ai = "ai"
+    case settings = "settings"
 
     var id: String { rawValue }
 
@@ -20,15 +23,18 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         }
     }
 
-    var accessibilityName: String {
+    /// Localized display name shown in the sidebar list and used as the a11y label.
+    var displayName: String {
         switch self {
-        case .overview: "概览"
-        case .workout: "训练"
-        case .data: "数据"
-        case .ai: "AI 助手"
-        case .settings: "设置"
+        case .overview: String(localized: "概览", comment: "Sidebar section: Overview")
+        case .workout: String(localized: "训练", comment: "Sidebar section: Workouts")
+        case .data: String(localized: "数据", comment: "Sidebar section: Data")
+        case .ai: String(localized: "AI 助手", comment: "Sidebar section: AI assistant")
+        case .settings: String(localized: "设置", comment: "Sidebar section: Settings")
         }
     }
+
+    var accessibilityName: String { displayName }
 
     @ViewBuilder
     var detailView: some View {
@@ -49,7 +55,7 @@ struct MacContentView: View {
     var body: some View {
         NavigationSplitView {
             List(SidebarSection.allCases, selection: $selectedSection) { section in
-                Label(section.rawValue, systemImage: section.icon)
+                Label(section.displayName, systemImage: section.icon)
                     .tag(section)
                     .accessibilityLabel(section.accessibilityName)
             }
@@ -59,7 +65,7 @@ struct MacContentView: View {
             if let section = selectedSection {
                 section.detailView
             } else {
-                Text("请选择一个功能区域")
+                Text(String(localized: "请选择一个功能区域", comment: ""))
                     .font(TypeScale.title)
                     .foregroundStyle(theme.neutrals.text2)
             }

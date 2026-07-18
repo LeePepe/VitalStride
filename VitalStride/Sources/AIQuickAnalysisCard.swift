@@ -230,7 +230,7 @@ struct AIQuickAnalysisCard: View {
 #Preview("Result") {
     AIQuickAnalysisCard(
         analysisType: .prDetection,
-        state: .result("你在卧推上达到了新的个人记录！80kg × 5 是一个很好的突破。建议继续保持当前的渐进超负荷策略。"),
+        state: .result(String(localized: "你在卧推上达到了新的个人记录！80kg × 5 是一个很好的突破。建议继续保持当前的渐进超负荷策略。", comment: "")),
         onTap: {},
         onRetry: {}
     )
@@ -241,7 +241,7 @@ struct AIQuickAnalysisCard: View {
 #Preview("Error") {
     AIQuickAnalysisCard(
         analysisType: .weeklySummary,
-        state: .error("网络请求失败，请检查网络连接。"),
+        state: .error(String(localized: "网络请求失败，请检查网络连接。", comment: "")),
         onTap: {},
         onRetry: {}
     )

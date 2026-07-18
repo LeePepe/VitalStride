@@ -13,12 +13,12 @@ struct RecentWorkoutsSection: View {
 
     var body: some View {
         Card {
-            Text("最近训练")
+            Text(String(localized: "最近训练", comment: ""))
                 .font(TypeScale.title)
                 .foregroundStyle(theme.neutrals.text1)
 
             if workouts.isEmpty {
-                Text("暂无训练记录")
+                Text(String(localized: "暂无训练记录", comment: ""))
                     .font(.subheadline)
                     .foregroundStyle(theme.neutrals.text2)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -70,7 +70,7 @@ private struct RecentWorkoutRow: View {
                     let exerciseCount = workout.exercises?.count ?? 0
                     if exerciseCount > 0 {
                         Label(
-                            "\(exerciseCount) 个动作",
+                            String(localized: "\(exerciseCount) 个动作", comment: "Exercise count label"),
                             systemImage: "list.bullet"
                         )
                         .font(.caption)
@@ -92,18 +92,18 @@ private struct RecentWorkoutRow: View {
 
     private func workoutTypeLabel(_ type: WorkoutType) -> String {
         switch type {
-        case .strength: "力量训练"
-        case .running: "跑步"
-        case .cycling: "骑行"
-        case .swimming: "游泳"
-        case .yoga: "瑜伽"
-        case .hiking: "徒步"
-        case .walking: "步行"
-        case .rowing: "划船"
-        case .elliptical: "椭圆机"
-        case .coreTraining: "核心训练"
-        case .flexibility: "柔韧性"
-        case .other: "其他"
+        case .strength: String(localized: "力量训练", comment: "")
+        case .running: String(localized: "跑步", comment: "")
+        case .cycling: String(localized: "骑行", comment: "")
+        case .swimming: String(localized: "游泳", comment: "")
+        case .yoga: String(localized: "瑜伽", comment: "")
+        case .hiking: String(localized: "徒步", comment: "")
+        case .walking: String(localized: "步行", comment: "")
+        case .rowing: String(localized: "划船", comment: "")
+        case .elliptical: String(localized: "椭圆机", comment: "")
+        case .coreTraining: String(localized: "核心训练", comment: "")
+        case .flexibility: String(localized: "柔韧性", comment: "")
+        case .other: String(localized: "其他", comment: "")
         }
     }
 

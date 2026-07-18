@@ -78,7 +78,7 @@ struct AISettingsSection: View {
             Label(String(localized: "服务商", comment: "AI provider label"), systemImage: "brain")
                 .tint(theme.primary.primary)
             Spacer()
-            StatusPill("智谱 AI", tone: .primary)
+            StatusPill(String(localized: "智谱 AI", comment: ""), tone: .primary)
         }
     }
 
@@ -180,7 +180,7 @@ struct AISettingsSection: View {
     }
 }
 
-#Preview("AI 设置") {
+#Preview(String(localized: "AI 设置", comment: "")) {
     Form {
         AISettingsSection()
     }

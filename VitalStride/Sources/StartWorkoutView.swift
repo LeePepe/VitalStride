@@ -35,9 +35,9 @@ struct StartWorkoutView: View {
                     } label: {
                         Label {
                             VStack(alignment: .leading) {
-                                Text("空白训练")
+                                Text(String(localized: "空白训练", comment: ""))
                                     .font(.body)
-                                Text("从零开始，逐个添加动作")
+                                Text(String(localized: "从零开始，逐个添加动作", comment: ""))
                                     .font(.caption)
                                     .foregroundStyle(theme.neutrals.text2)
                             }
@@ -49,7 +49,7 @@ struct StartWorkoutView: View {
                 }
 
                 if !recentWorkouts.isEmpty {
-                    Section("从历史复制") {
+                    Section(String(localized: "从历史复制", comment: "")) {
                         ForEach(recentWorkouts.prefix(5)) { workout in
                             Button {
                                 dismiss()
@@ -62,7 +62,7 @@ struct StartWorkoutView: View {
                 }
 
                 if !templates.isEmpty {
-                    Section("从模板开始") {
+                    Section(String(localized: "从模板开始", comment: "")) {
                         ForEach(templates) { template in
                             Button {
                                 dismiss()
@@ -74,11 +74,11 @@ struct StartWorkoutView: View {
                     }
                 }
             }
-            .navigationTitle("开始训练")
+            .navigationTitle(String(localized: "开始训练", comment: "Nav title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button(String(localized: "取消", comment: "")) { dismiss() }
                 }
             }
         }
@@ -117,7 +117,7 @@ private struct TemplateRow: View {
             Text(template.name)
                 .font(.body)
             HStack(spacing: 4) {
-                Text("\(exerciseCount) 个动作")
+                Text(String(localized: "\(exerciseCount) 个动作", comment: "Exercise count label"))
                 Text(verbatim: "·")
                 durationText
             }

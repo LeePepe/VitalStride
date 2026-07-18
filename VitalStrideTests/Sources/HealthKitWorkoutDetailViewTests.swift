@@ -245,11 +245,11 @@ struct DistanceUnitConversionTests {
 
     @Test("km accessibilityName")
     func kmA11yName() {
-        #expect(DistanceUnit.km.accessibilityName == "公里")
+        #expect(DistanceUnit.km.accessibilityName == String(localized: "公里", comment: "Kilometer a11y name"))
     }
 
     @Test("mi accessibilityName")
     func miA11yName() {
-        #expect(DistanceUnit.mi.accessibilityName == "英里")
+        #expect(DistanceUnit.mi.accessibilityName == String(localized: "英里", comment: "Mile a11y name"))
     }
 }

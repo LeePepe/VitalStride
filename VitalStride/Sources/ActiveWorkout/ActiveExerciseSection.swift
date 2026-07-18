@@ -121,7 +121,7 @@ struct ActiveExerciseSection: View {
                             Button(role: .destructive) {
                                 deleteSet(exerciseSet)
                             } label: {
-                                Label("删除", systemImage: "trash")
+                                Label(String(localized: "删除", comment: ""), systemImage: "trash")
                             }
                         }
                     }
@@ -130,7 +130,7 @@ struct ActiveExerciseSection: View {
             addSetButton
         } header: {
             HStack {
-                Text(workoutExercise.exercise?.localizedName ?? "动作")
+                Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
                     // MY-1263 (D2): compact semibold body header in normal mode
                     // (SwiftUI's default `List` section header uses a larger
                     // title font that dominated the visual band). Large Mode
@@ -225,7 +225,7 @@ struct ActiveExerciseSection: View {
             HStack {
                 Image(systemName: "plus.circle.fill")
                     .foregroundStyle(theme.primary.primary)
-                Text("添加一组")
+                Text(String(localized: "添加一组", comment: ""))
             }
             .font(.subheadline)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -237,8 +237,8 @@ struct ActiveExerciseSection: View {
         // "add set" row toward the ~36pt visual density target. Large Mode
         // retains the pre-existing 2pt breathing room.
         .listRowInsets(EdgeInsets(top: largeMode ? 2 : 1, leading: 16, bottom: largeMode ? 2 : 1, trailing: 16))
-        .accessibilityLabel("添加一组")
-        .accessibilityHint("在列表末尾插入新的一组")
+        .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
+        .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
     }
 
     private func addSet() {

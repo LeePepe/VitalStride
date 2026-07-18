@@ -1,3 +1,7 @@
+// i18n:exempt — This file assembles prompt payloads sent to LLM providers.
+// Strings here are not rendered in the UI; they are model instructions and
+// context blocks. Per MY-1269 acceptance criteria and Constitution §VI-G,
+// AI prompt templates are exempt from user-facing i18n migration.
 import Foundation
 import HealthKitService
 import SwiftData

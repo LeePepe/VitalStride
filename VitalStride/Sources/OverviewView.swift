@@ -377,7 +377,7 @@ private struct OverviewHealthSnapshot: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("健康数据", icon: "heart.fill")
+            SectionHeader(String(localized: "健康数据", comment: ""), icon: "heart.fill")
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 StepsSummaryCard(preloaded: snapshot.todaySteps)
@@ -404,11 +404,11 @@ struct OverviewEmptyState: View {
                     .font(.system(size: 48))
                     .foregroundStyle(theme.primary.primary)
 
-                Text("开始你的健康旅程")
+                Text(String(localized: "开始你的健康旅程", comment: ""))
                     .font(.title3.bold())
                     .foregroundStyle(theme.neutrals.text1)
 
-                Text("授权 HealthKit 查看健康数据快照，或开始你的第一次训练。")
+                Text(String(localized: "授权 HealthKit 查看健康数据快照，或开始你的第一次训练。", comment: ""))
                     .font(.subheadline)
                     .foregroundStyle(theme.neutrals.text2)
                     .multilineTextAlignment(.center)
@@ -417,18 +417,18 @@ struct OverviewEmptyState: View {
                     Button {
                         navigation?.selectedTab = .settings
                     } label: {
-                        Label("前往「设置」授权 HealthKit", systemImage: "gearshape")
+                        Label(String(localized: "前往「设置」授权 HealthKit", comment: ""), systemImage: "gearshape")
                             .font(.subheadline)
                     }
-                    .accessibilityHint("切换到设置页面以授权 HealthKit")
+                    .accessibilityHint(String(localized: "切换到设置页面以授权 HealthKit", comment: "A11y hint"))
 
                     Button {
                         navigation?.selectedTab = .workout
                     } label: {
-                        Label("前往「训练」开始第一次训练", systemImage: "figure.strengthtraining.traditional")
+                        Label(String(localized: "前往「训练」开始第一次训练", comment: ""), systemImage: "figure.strengthtraining.traditional")
                             .font(.subheadline)
                     }
-                    .accessibilityHint("切换到训练页面以开始训练")
+                    .accessibilityHint(String(localized: "切换到训练页面以开始训练", comment: "A11y hint"))
                 }
             }
             .frame(maxWidth: .infinity)
