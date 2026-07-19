@@ -746,6 +746,8 @@ public final class HealthKitService: Sendable {
             return WorkoutSessionManager(healthStore: realStore)
         }
         return NoopWorkoutSessionManager()
+        #elseif canImport(WatchConnectivity) && os(iOS)
+        return PhoneWorkoutSessionManager(session: DefaultWatchConnectivitySessionProvider())
         #else
         return NoopWorkoutSessionManager()
         #endif

@@ -8,6 +8,57 @@ public protocol WorkoutSessionManaging: Sendable {
     func startSession() async
     @discardableResult
     func endSession(save: Bool) async -> String?
+
+    /// Realtime HR samples pushed by the paired Watch during an active workout.
+    /// On the watchOS-side manager this is a finished stream (Watch produces HR
+    /// via `HKLiveWorkoutBuilder` and pushes to phone, not to itself).
+    /// On iPhone this drives UI. HR values MUST NOT be logged (§I).
+    func observeLiveWorkoutHeartRate() -> AsyncStream<LiveHeartRatePayload>
+
+    /// Connection-state signal so UI can render three states
+    /// (unpaired / unreachable / reachable) without silently stalling.
+    func observeConnectionState() -> AsyncStream<WatchConnectionState>
+
+    /// Latest workout state (iPhone → watch, latest-wins).
+    func updateWorkoutState(_ snapshot: WorkoutStateSnapshot) async
+
+    /// Latest screen config (iPhone → watch, low-frequency).
+    func updateWatchScreenConfig(_ config: WatchScreenConfig) async
+
+    /// SetCompleted events pushed from the watch.
+    func observeSetCompleted() -> AsyncStream<SetCompletedEvent>
+}
+
+extension WorkoutSessionManaging {
+    public func observeLiveWorkoutHeartRate() -> AsyncStream<LiveHeartRatePayload> {
+        AsyncStream { $0.finish() }
+    }
+
+    public func observeConnectionState() -> AsyncStream<WatchConnectionState> {
+        AsyncStream { $0.finish() }
+    }
+
+    public func updateWorkoutState(_ snapshot: WorkoutStateSnapshot) async {}
+    public func updateWatchScreenConfig(_ config: WatchScreenConfig) async {}
+    public func observeSetCompleted() -> AsyncStream<SetCompletedEvent> {
+        AsyncStream { $0.finish() }
+    }
+}
+
+// MARK: - Connection State
+
+public enum WatchConnectionState: Sendable, Equatable {
+    /// `WCSession.isSupported()` is false (e.g. macOS or unsupported device).
+    case unsupported
+    /// Paired Watch not detected.
+    case notPaired
+    /// Watch app not installed on the paired device.
+    case notInstalled
+    /// Paired + installed but session not currently reachable (Watch asleep,
+    /// out of range, etc.). Streams keep flowing whatever we can deliver.
+    case unreachable
+    /// Session active + reachable.
+    case reachable
 }
 
 // MARK: - NoopWorkoutSessionManager
@@ -16,6 +67,7 @@ public struct NoopWorkoutSessionManager: WorkoutSessionManaging {
     public init() {}
     public func startSession() async {}
     public func endSession(save: Bool) async -> String? { nil }
+    // observe*/update* inherit default no-op impls from the protocol extension.
 }
 
 // MARK: - WorkoutSessionManager
