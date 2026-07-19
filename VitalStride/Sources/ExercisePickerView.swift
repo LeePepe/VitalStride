@@ -237,12 +237,14 @@ struct ExercisePickerView: View {
         .accessibilityLabel(String(localized: "添加 \(count) 个动作", comment: "Confirm multi-select a11y label"))
     }
 
-    // MARK: - Floating Search + Muscle Filter Panel (MY-1272)
+    // MARK: - Floating Search + Muscle Filter Panel (MY-1272, order reversed MY-1277)
     //
     // Two independent floating glass surfaces stacked above the safe-area:
-    //   • Muscle-group chips row (always full-width glass panel).
     //   • Search control (collapsible — circular magnifier button by
     //     default; expands into a full-width search field once tapped).
+    //     Sits on top per MY-1277 (user preference).
+    //   • Muscle-group chips row (always full-width glass panel). Sits on
+    //     the bottom per MY-1277.
     //
     // Replaces the prior MY-1260 single combined panel that hosted both
     // rows inside one glass surface separated by a 1pt hairline. The two
@@ -263,16 +265,20 @@ struct ExercisePickerView: View {
     static let collapsedSearchDiameter: CGFloat = 44
 
     private var floatingSearchAndFilterPanel: some View {
+        // MY-1277: search on TOP, chips on BOTTOM (user preference — reversed
+        // from the MY-1272 layout where chips were on top). Both surfaces
+        // remain independent glass panels; the search surface still collapses
+        // to a compact pill and the chip strip still horizontally scrolls.
         VStack(alignment: .trailing, spacing: Self.panelSurfaceSpacing) {
-            // Row 1: chips strip on its own glass surface (full width).
-            muscleGroupChipsSurface
-            // Row 2: search control glass surface — right-aligned in
-            // collapsed state (compact pill) so the chip strip above it
+            // Row 1: search control glass surface — right-aligned in
+            // collapsed state (compact pill) so the chip strip below it
             // keeps its full breathing room; expands to full width when
-            // active. Wrapped in HStack so the trailing-alignment of the
-            // outer VStack keeps the collapsed pill snapped to the
-            // trailing edge without stretching the surface itself.
+            // active. Trailing-alignment of the outer VStack keeps the
+            // collapsed pill snapped to the trailing edge without
+            // stretching the surface itself.
             searchSurface
+            // Row 2: chips strip on its own glass surface (full width).
+            muscleGroupChipsSurface
         }
         .padding(.horizontal, Self.panelHorizontalInset)
         .padding(.bottom, Self.panelBottomInset)
@@ -282,8 +288,17 @@ struct ExercisePickerView: View {
     // MARK: Muscle-group chips surface (independent glass)
 
     private var muscleGroupChipsSurface: some View {
+        // MY-1277: horizontal insets moved from the outer padding onto the
+        // ScrollView's content margins so chips can scroll under the glass
+        // panel's rounded edge without being clipped mid-pill. The previous
+        // outer `.padding(.horizontal, panelInnerHPadding)` placed the
+        // scroll content inside a rectangular cutout the ScrollView clipped
+        // to; edges of the scrolling row therefore hit the panel's rounded
+        // clipShape and got sliced. `.contentMargins(.horizontal, ...)`
+        // insets the row's *content* while keeping the ScrollView itself
+        // full-width, so the row now visually flush-fills the glass and
+        // chips near the edges scroll cleanly to the inner rounded corner.
         muscleGroupChipsRow
-            .padding(.horizontal, Self.panelInnerHPadding)
             .padding(.vertical, Self.panelInnerVPadding)
             .frame(maxWidth: .infinity)
             .modifier(PanelSurfaceModifier(theme: theme, opaque: reduceTransparency))
@@ -424,6 +439,14 @@ struct ExercisePickerView: View {
             }
             .padding(.vertical, 2)
         }
+        // MY-1277: use `.contentMargins` (iOS 17+) so the ScrollView itself
+        // extends edge-to-edge inside the glass panel while its scrollable
+        // *content* is inset by `panelInnerHPadding`. This lets chips near
+        // the leading/trailing edge scroll past the visual inset without
+        // being sliced by the panel's rounded clipShape (previously the
+        // outer `.padding(.horizontal)` produced a rectangular cutout that
+        // clipped chips mid-pill when scrolled to either end).
+        .contentMargins(.horizontal, Self.panelInnerHPadding, for: .scrollContent)
     }
 
     private func muscleChip(
@@ -435,20 +458,35 @@ struct ExercisePickerView: View {
             Text(label)
                 .font(TypeScale.meta)
                 .fontWeight(.semibold)
-                .foregroundStyle(isSelected ? theme.primary.onPrimary : theme.neutrals.text2)
-                .padding(.horizontal, 12)
+                // MY-1277: unselected text uses `text1` (primary body color)
+                // for stronger legibility on the glass surface — the prior
+                // `text2` reduction made unselected chips look disabled.
+                // Selected retains `onPrimary` for AA contrast on the
+                // primary fill (see DesignKit `contrastChoose`).
+                .foregroundStyle(isSelected ? theme.primary.onPrimary : theme.neutrals.text1)
+                .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .frame(minHeight: 32)
                 .background(
+                    // MY-1277: refined chip visual language.
+                    //
+                    // * Selected: filled `primary` capsule — unchanged
+                    //   colour token, but no stroke overlay, so it reads
+                    //   as one confident solid pill (matches iOS
+                    //   segmented-control selected segment).
+                    // * Unselected: subtle `neutrals.inner` fill (the
+                    //   luminance-tier one step *up* from `card`, per
+                    //   Components.swift elevation model), no stroke. This
+                    //   replaces the prior transparent + hairline-border
+                    //   look — on glass, a soft filled pill reads more
+                    //   like a modern filter chip and less like a wire
+                    //   outline. All tokens sourced from DesignKit; no
+                    //   hardcoded colours.
                     Group {
                         if isSelected {
                             Capsule().fill(theme.primary.primary)
                         } else {
-                            // Transparent capsule keeps the row visually
-                            // lighter (segmented-like) instead of the prior
-                            // dense inner-fill chip strip. A hairline stroke
-                            // keeps each pill legible against the glass.
-                            Capsule().stroke(theme.neutrals.border, lineWidth: 1)
+                            Capsule().fill(theme.neutrals.inner)
                         }
                     }
                 )
