@@ -23,7 +23,7 @@ final class MockWorkoutSessionManager: WorkoutSessionManaging, @unchecked Sendab
         lock.withLock { _endCalls.last?.save }
     }
 
-    func startSession() async {
+    func startSession() async throws {
         if let delay = startShouldDelay {
             try? await Task.sleep(for: delay)
         }
@@ -42,9 +42,9 @@ final class MockWorkoutSessionManager: WorkoutSessionManaging, @unchecked Sendab
 struct WorkoutSessionManagingTests {
 
     @Test("NoopWorkoutSessionManager start does nothing")
-    func noopStartIsNoop() async {
+    func noopStartIsNoop() async throws {
         let noop = NoopWorkoutSessionManager()
-        await noop.startSession()
+        try await noop.startSession()
     }
 
     @Test("NoopWorkoutSessionManager end does nothing")
@@ -57,14 +57,14 @@ struct WorkoutSessionManagingTests {
     }
 
     @Test("MockWorkoutSessionManager tracks start calls")
-    func mockTracksStart() async {
+    func mockTracksStart() async throws {
         let mock = MockWorkoutSessionManager()
         #expect(mock.startCallCount == 0)
 
-        await mock.startSession()
+        try await mock.startSession()
         #expect(mock.startCallCount == 1)
 
-        await mock.startSession()
+        try await mock.startSession()
         #expect(mock.startCallCount == 2)
     }
 
@@ -90,9 +90,9 @@ struct WorkoutSessionManagingTests {
     }
 
     @Test("Multiple rapid end calls are all tracked")
-    func multipleEndCallsTracked() async {
+    func multipleEndCallsTracked() async throws {
         let mock = MockWorkoutSessionManager()
-        await mock.startSession()
+        try await mock.startSession()
 
         await mock.endSession(save: true)
         await mock.endSession(save: false)

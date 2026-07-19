@@ -802,7 +802,7 @@ struct ActiveWorkoutView: View {
         #if !os(macOS)
         let manager = healthKitService.makeWorkoutSessionManager()
         sessionManager = manager
-        Task { await manager.startSession() }
+        Task { try? await manager.startSession() }
         #endif
     }
 

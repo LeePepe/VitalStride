@@ -111,7 +111,7 @@ public actor PhoneWorkoutSessionManager: WorkoutSessionManaging {
 
     // MARK: WorkoutSessionManaging
 
-    public func startSession() async {
+    public func startSession() async throws {
         let wasActive = isSessionActive
         isSessionActive = true
         forwardedHRCount = 0
