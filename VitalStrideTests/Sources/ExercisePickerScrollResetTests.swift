@@ -221,13 +221,45 @@ struct ExercisePickerScrollResetTests {
         try #require(!searched.isEmpty)
         #expect(unfiltered.count >= searched.count)
 
-        // Same fixed contract as above: anchor to `newGroups.first?.0`.
-        let newAnchor = searched.first?.0
-        #expect(newAnchor != nil)
-        #expect(newAnchor == searched.first?.0)
+        // MY-1259: exercise the production helper the search handler
+        // routes through. Comparing the helper's return against the
+        // independently-computed `searched.first?.0` (not the same
+        // expression on both sides) locks the "search always anchors to
+        // first section" policy. If the helper regressed to e.g. return
+        // the last section, this assertion would fail — the previous
+        // tautology (`searched.first?.0 == searched.first?.0`) would not.
+        let anchor = ExercisePickerView.resolveSearchScrollAnchor(
+            in: searched.map(\.0)
+        )
+        #expect(anchor != nil)
+        #expect(anchor == searched.first?.0,
+                "search-driven reset must anchor to the first section of the filtered list")
     }
 
-    @Test("空结果时 first?.0 是 nil, 不会 crash")
+    @Test("MY-1259: 搜索到空结果 → resolveSearchScrollAnchor 返回 nil, 不 crash")
+    func searchAnchorReturnsNilForEmptyResult() throws {
+        let context = ModelContext(container)
+        makeMY1250Library(context)
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+
+        // Search string guaranteed not to match any localized name.
+        let noMatch = ExercisePickerView.computeEquipmentGroups(
+            from: exercises,
+            muscleGroup: nil,
+            searchText: "zzz-no-match-\(UUID().uuidString)"
+        )
+        #expect(noMatch.isEmpty)
+
+        // MY-1259: empty-result policy is `nil` so the handler can safely
+        // clear scroll state without a `guard` at every call site.
+        // Mirrors `resolveMuscleGroupScrollAnchor(..., in: [])`.
+        let anchor = ExercisePickerView.resolveSearchScrollAnchor(
+            in: noMatch.map(\.0)
+        )
+        #expect(anchor == nil)
+    }
+
+    @Test("MY-1259: 空结果时 first?.0 是 nil, 不会 crash")
     func emptyResultAnchorsToNil() throws {
         let context = ModelContext(container)
         makeMY1250Library(context)

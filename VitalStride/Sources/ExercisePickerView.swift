@@ -205,8 +205,13 @@ struct ExercisePickerView: View {
                 // "reset to first section" behavior — the user changed
                 // intent, so returning to the top is correct (search bar +
                 // parent MY-1271 acceptance criteria explicitly preserve
-                // this path).
-                let anchor = newGroups.first?.0
+                // this path). MY-1259: routed through
+                // `resolveSearchScrollAnchor` so the policy (including
+                // empty-result `nil`) is directly testable, mirroring the
+                // muscle-group path.
+                let anchor = Self.resolveSearchScrollAnchor(
+                    in: newGroups.map(\.0)
+                )
                 visibleEquipment = anchor
                 pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
@@ -754,6 +759,18 @@ struct ExercisePickerView: View {
             return previous
         }
         return newOrder.first
+    }
+
+    /// MY-1259: pick the equipment section to scroll to when the search
+    /// text changes. Search always resets scroll intent (the user changed
+    /// query), so the anchor is unconditionally the first section of the
+    /// filtered list — or `nil` when the search yields no matches so the
+    /// caller does not attempt to scroll to a missing target. Mirrors
+    /// `resolveMuscleGroupScrollAnchor`'s empty-list contract.
+    static func resolveSearchScrollAnchor(
+        in newOrder: [Equipment]
+    ) -> Equipment? {
+        newOrder.first
     }
 
     private func sectionPreviewPopup(equipment: Equipment) -> some View {
