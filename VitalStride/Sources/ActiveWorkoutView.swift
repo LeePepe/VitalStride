@@ -717,6 +717,13 @@ struct ActiveWorkoutView: View {
             // for compact, scannable in-workout entry. Reduce default row floor
             // so main SetRow targets ~36pt and SubSetRow targets ~28pt.
             .listStyle(.plain)
+            // MY-1274 (P0): tighten the inter-exercise section gap in default
+            // mode. SwiftUI's `.plain` List still applies a ~28pt system inset
+            // between sections (gap A in the issue) which reads as "too big".
+            // Large Mode keeps a 20pt cushion to match its intentionally
+            // roomier accessibility layout; default drops to 8pt for a
+            // "compact but not cramped" band-to-band rhythm.
+            .listSectionSpacing(largeMode ? 20 : 8)
             .scrollDismissesKeyboard(.immediately)
             .environment(\.defaultMinListRowHeight, 28)
         }
