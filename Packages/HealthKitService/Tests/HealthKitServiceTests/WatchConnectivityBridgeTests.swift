@@ -495,7 +495,7 @@ struct PhoneHRForwardingTests {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         // Now start a session and push again — this one should arrive.
-        await manager.startSession()
+        try await manager.startSession()
         let payload2 = LiveHeartRatePayload(bpm: 100, timestamp: ts, sourceName: nil)
         let dict2 = try WatchConnectivityCodec.encodeDictionary(.liveHeartRate(payload2))
         fake.simulateIncomingMessage(dict2)
@@ -510,7 +510,7 @@ struct PhoneHRForwardingTests {
         let fake = FakeWCSession()
         fake.set(isReachable: true)
         let manager = PhoneWorkoutSessionManager(session: fake)
-        await manager.startSession()
+        try await manager.startSession()
 
         let stream = await manager.observeLiveWorkoutHeartRate()
 
@@ -531,11 +531,11 @@ struct PhoneHRForwardingTests {
     }
 
     @Test("Malformed payload does not crash")
-    func malformedPayloadNoCrash() async {
+    func malformedPayloadNoCrash() async throws {
         let fake = FakeWCSession()
         fake.set(isReachable: true)
         let manager = PhoneWorkoutSessionManager(session: fake)
-        await manager.startSession()
+        try await manager.startSession()
 
         fake.simulateIncomingMessage(["garbage": "here"])
         fake.simulateIncomingMessage(["envelope": Data("nonsense".utf8)])
@@ -619,7 +619,7 @@ struct PhoneChannelDirectionTests {
     func hrOnApplicationContextDropped() async throws {
         let fake = FakeWCSession()
         let manager = PhoneWorkoutSessionManager(session: fake)
-        await manager.startSession()
+        try await manager.startSession()
 
         let stream = await manager.observeLiveWorkoutHeartRate()
 
@@ -679,7 +679,7 @@ struct PhoneChannelDirectionTests {
     func workoutStateOnMessageIgnored() async throws {
         let fake = FakeWCSession()
         let manager = PhoneWorkoutSessionManager(session: fake)
-        await manager.startSession()
+        try await manager.startSession()
 
         // Push a state snapshot as a message (wrong direction — iPhone SENDs
         // state, never receives it). The bridge must not crash and must not
@@ -714,7 +714,7 @@ struct PhoneHRBufferingTests {
     func hrKeepsNewestOnly() async throws {
         let fake = FakeWCSession()
         let manager = PhoneWorkoutSessionManager(session: fake)
-        await manager.startSession()
+        try await manager.startSession()
 
         let stream = await manager.observeLiveWorkoutHeartRate()
 
@@ -772,7 +772,7 @@ struct PhoneSendableContractTests {
     func concurrentArrivalsDoNotRace() async throws {
         let fake = FakeWCSession()
         let manager = PhoneWorkoutSessionManager(session: fake)
-        await manager.startSession()
+        try await manager.startSession()
 
         let hrStream = await manager.observeLiveWorkoutHeartRate()
         let setStream = await manager.observeSetCompleted()

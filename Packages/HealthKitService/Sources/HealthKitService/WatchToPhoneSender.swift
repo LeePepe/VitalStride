@@ -18,9 +18,10 @@ import WatchConnectivity
 //
 // Concurrency:
 //   * Protocol is Sendable — safe to hand into the actor/watchOS class.
-//   * Default watchOS implementation follows the same
-//     "checked-isolation + narrow `@unchecked Sendable` shim" pattern used by
+//   * Default watchOS implementation uses **checked** `Sendable` with a
+//     narrow, per-property `nonisolated(unsafe) let` escape hatch, mirroring
 //     `DefaultWatchConnectivitySessionProvider` on iOS (§Constitution II).
+//     Class-wide `@unchecked Sendable` is forbidden on production types.
 
 public protocol WatchToPhoneSending: Sendable {
     /// True when a live message can be delivered right now (counterpart
@@ -55,10 +56,20 @@ public struct NoopWatchToPhoneSender: WatchToPhoneSending {
 
 /// Default watchOS-side WCSession-backed sender.
 ///
+/// Concurrency (§Constitution II — checked isolation only on production types):
+///   * `DefaultWatchToPhoneSender` conforms to **checked** `Sendable` via an
+///     extension. Its ONLY stored properties are compile-time immutable and
+///     either genuinely Sendable (`Logger`) or wrapped behind a
+///     `nonisolated(unsafe) let` escape (`shim`).
+///   * The `NSObject`-subclass `WCDelegateShim` — required by the `@objc`
+///     `WCSessionDelegate` protocol — is the ONLY `@unchecked Sendable`
+///     surface, kept as small as possible (≈30 lines, no mutable
+///     WCSession-owned state).
+///
 /// Activation:
-///   * `WCSession.default` is activated on init and this instance is installed
-///     as its delegate. Apple retains the delegate; we hold it via
-///     `nonisolated(unsafe) let` on the shim following the same pattern as
+///   * `WCSession.default` is activated on init and the shim is installed as
+///     its delegate. Apple retains the delegate; we hold it via
+///     `nonisolated(unsafe) let` following the same pattern as
 ///     `DefaultWatchConnectivitySessionProvider` on iOS.
 ///
 /// Transport routing:
@@ -70,12 +81,27 @@ public struct NoopWatchToPhoneSender: WatchToPhoneSending {
 ///     watchOS sender (iPhone is the SENDER of those). We still route them
 ///     via `updateApplicationContext` for forward-compatibility, but they
 ///     should not be posted from watch code paths in this task's scope.
-public final class DefaultWatchToPhoneSender: NSObject, WatchToPhoneSending, @unchecked Sendable {
+public final class DefaultWatchToPhoneSender: WatchToPhoneSending {
     private let logger: Logger
 
-    public override init() {
+    // `WCDelegateShim` is a non-Sendable NSObject subclass (required by the
+    // `@objc WCSessionDelegate` protocol). We store it via
+    // `nonisolated(unsafe) let` — a per-property, Swift 6-blessed narrow
+    // escape hatch (SE-0412 / SE-0414) rather than class-wide
+    // `@unchecked Sendable`. The shim is:
+    //   * assigned once, at init time, on the initializing thread;
+    //   * handed to `WCSession.default.delegate` inside `activate()`; after
+    //     that Apple retains it and dispatches to it on WCSession's private
+    //     serial queue;
+    //   * never mutated by us after init.
+    // These invariants make it safe to share across concurrency domains.
+    nonisolated(unsafe) private let shim: WCDelegateShim
+
+    public init() {
         self.logger = Logger(subsystem: "com.vitalstride", category: "WatchToPhoneSender")
-        super.init()
+        self.shim = WCDelegateShim(
+            logger: Logger(subsystem: "com.vitalstride", category: "WatchToPhoneSender.Shim")
+        )
         activate()
     }
 
@@ -84,7 +110,7 @@ public final class DefaultWatchToPhoneSender: NSObject, WatchToPhoneSending, @un
             logger.info("watch_wcsession_unsupported")
             return
         }
-        WCSession.default.delegate = self
+        WCSession.default.delegate = shim
         WCSession.default.activate()
     }
 
@@ -143,8 +169,30 @@ public final class DefaultWatchToPhoneSender: NSObject, WatchToPhoneSending, @un
     }
 }
 
-extension DefaultWatchToPhoneSender: WCSessionDelegate {
-    public func session(
+extension DefaultWatchToPhoneSender: Sendable {}
+
+// MARK: - WCDelegateShim (private NSObject bridge)
+//
+// The only place `@unchecked Sendable` remains is on this private nested type.
+// Rationale (documented per §Constitution II):
+//   * `WCSessionDelegate` is an `@objc` protocol; conforming types MUST
+//     inherit from `NSObject`. NSObject subclasses cannot express checked
+//     `Sendable` conformance in Swift 6 — that's a language/ObjC-runtime
+//     boundary, not our choice.
+//   * The shim has NO mutable state — only an immutable `Logger`. Every
+//     callback path just logs (privacy-safe: no session-owned state, no HR
+//     value ever visible here).
+// This keeps the unchecked surface to the smallest possible slice.
+
+private final class WCDelegateShim: NSObject, WCSessionDelegate, @unchecked Sendable {
+    private let logger: Logger
+
+    init(logger: Logger) {
+        self.logger = logger
+        super.init()
+    }
+
+    func session(
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: (any Error)?

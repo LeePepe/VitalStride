@@ -5,7 +5,11 @@ import os
 // MARK: - Protocol
 
 public protocol WorkoutSessionManaging: Sendable {
-    func startSession() async
+    /// Start a workout session. Throws when the underlying platform session
+    /// (`HKWorkoutSession` on watchOS) cannot be constructed / activated —
+    /// callers MUST surface the failure to the UI so users see an error state
+    /// instead of a stuck-in-idle UI or a false `.active` transition.
+    func startSession() async throws
     @discardableResult
     func endSession(save: Bool) async -> String?
 
@@ -67,9 +71,45 @@ public enum WatchConnectionState: Sendable, Equatable {
 
 public struct NoopWorkoutSessionManager: WorkoutSessionManaging {
     public init() {}
-    public func startSession() async {}
+    public func startSession() async throws {}
     public func endSession(save: Bool) async -> String? { nil }
     // observe*/update* inherit default no-op impls from the protocol extension.
+}
+
+// MARK: - Callback gating helper
+//
+// Extracted so the lifecycle gate (session ended? callback for a stale
+// builder?) is unit-testable without constructing an `HKLiveWorkoutBuilder`
+// (which requires a real `HKHealthStore` + workout session). The delegate
+// method just forwards to this pure function.
+
+enum WorkoutBuilderGate {
+    /// Whether an HR-collection callback should be honored right now.
+    /// - `sessionActive`: `session != nil` in the manager.
+    /// - `activeBuilderID`: identity of the currently-owned builder, if any.
+    /// - `callbackBuilderID`: identity of the builder that invoked the callback.
+    static func shouldProcess(
+        sessionActive: Bool,
+        activeBuilderID: ObjectIdentifier?,
+        callbackBuilderID: ObjectIdentifier
+    ) -> Bool {
+        guard sessionActive, let active = activeBuilderID else { return false }
+        return active == callbackBuilderID
+    }
+}
+
+// MARK: - Failure surface
+
+/// Error thrown by `WorkoutSessionManager.startSession()` on watchOS so
+/// callers can drive a `.failed` UI state instead of a silent stuck-idle.
+public enum WorkoutSessionStartError: Error, Sendable, Equatable {
+    /// `HKWorkoutSession` construction failed (unavailable, mis-configured).
+    case sessionUnavailable(String)
+    /// `HKLiveWorkoutBuilder.beginCollection(at:)` failed after the session
+    /// started; the session was rolled back before this is thrown.
+    case beginCollectionFailed(String)
+    /// Attempted to start while another session was already active.
+    case alreadyActive
 }
 
 // MARK: - WorkoutSessionManager
@@ -85,6 +125,7 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
 
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
+    private var activeBuilderID: ObjectIdentifier?
     private var pushedHRSampleCount = 0
 
     public init(
@@ -97,51 +138,59 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
         super.init()
     }
 
-    public func startSession() async {
+    public func startSession() async throws {
         guard lock.withLock({ session == nil }) else {
             logger.info("workout_session_start_skipped reason=already_active")
-            return
+            throw WorkoutSessionStartError.alreadyActive
         }
 
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = .traditionalStrengthTraining
 
+        let newSession: HKWorkoutSession
         do {
-            let newSession = try HKWorkoutSession(
+            newSession = try HKWorkoutSession(
                 healthStore: healthStore,
                 configuration: configuration
             )
-            newSession.delegate = self
-
-            let newBuilder = newSession.associatedWorkoutBuilder()
-            newBuilder.dataSource = HKLiveWorkoutDataSource(
-                healthStore: healthStore,
-                workoutConfiguration: configuration
-            )
-            newBuilder.delegate = self
-
-            let startDate = Date()
-            newSession.startActivity(with: startDate)
-
-            do {
-                try await newBuilder.beginCollection(at: startDate)
-            } catch {
-                newSession.end()
-                throw error
-            }
-
-            lock.withLock {
-                self.session = newSession
-                self.builder = newBuilder
-                self.pushedHRSampleCount = 0
-            }
-
-            logger.info("workout_session_started activityType=traditionalStrengthTraining")
         } catch {
             logger.error(
-                "workout_session_start_failed error=\(error.localizedDescription, privacy: .private)"
+                "workout_session_start_failed stage=create error=\(error.localizedDescription, privacy: .private)"
             )
+            throw WorkoutSessionStartError.sessionUnavailable(error.localizedDescription)
         }
+        newSession.delegate = self
+
+        let newBuilder = newSession.associatedWorkoutBuilder()
+        newBuilder.dataSource = HKLiveWorkoutDataSource(
+            healthStore: healthStore,
+            workoutConfiguration: configuration
+        )
+        newBuilder.delegate = self
+
+        let startDate = Date()
+        newSession.startActivity(with: startDate)
+
+        do {
+            try await newBuilder.beginCollection(at: startDate)
+        } catch {
+            // Roll back so the manager stays in a clean idle state and the
+            // caller sees the failure.
+            newSession.end()
+            logger.error(
+                "workout_session_start_failed stage=beginCollection error=\(error.localizedDescription, privacy: .private)"
+            )
+            throw WorkoutSessionStartError.beginCollectionFailed(error.localizedDescription)
+        }
+
+        lock.withLock {
+            self.session = newSession
+            self.builder = newBuilder
+            self.activeBuilderID = ObjectIdentifier(newBuilder)
+            self.pushedHRSampleCount = 0
+        }
+
+        logger.info("workout_session_started activityType=traditionalStrengthTraining")
     }
 
     public func endSession(save: Bool) async -> String? {
@@ -149,6 +198,7 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
             let result = (session, builder, pushedHRSampleCount)
             session = nil
             builder = nil
+            activeBuilderID = nil
             pushedHRSampleCount = 0
             return result
         }
@@ -185,6 +235,12 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
 
     /// Extract HR quantity samples from a builder statistics update and push
     /// each via `sender`. Privacy §I: NEVER log the bpm value; count only.
+    ///
+    /// Callers MUST have already confirmed via `WorkoutBuilderGate` that this
+    /// callback belongs to the currently-active builder — HKLiveWorkoutBuilder
+    /// occasionally delivers a trailing callback after the session ends, and
+    /// pushing HR from that stale callback would leak samples that don't
+    /// belong to any live workout.
     private func pushHRSamplesIfAvailable(
         collectedTypes: Set<HKSampleType>,
         from builder: HKLiveWorkoutBuilder
@@ -243,6 +299,7 @@ extension WorkoutSessionManager: HKWorkoutSessionDelegate {
         lock.withLock {
             session = nil
             builder = nil
+            activeBuilderID = nil
         }
     }
 }
@@ -255,6 +312,22 @@ extension WorkoutSessionManager: HKLiveWorkoutBuilderDelegate {
         _ workoutBuilder: HKLiveWorkoutBuilder,
         didCollectDataOf collectedTypes: Set<HKSampleType>
     ) {
+        // Lifecycle gate — reject callbacks that belong to a builder we no
+        // longer own (session ended, session was replaced, or session failed
+        // with `didFailWithError`). This prevents HKLiveWorkoutBuilder's
+        // trailing callbacks from pushing stray HR after end/failure.
+        let (sessionActive, activeID) = lock.withLock {
+            (self.session != nil, self.activeBuilderID)
+        }
+        let callbackID = ObjectIdentifier(workoutBuilder)
+        guard WorkoutBuilderGate.shouldProcess(
+            sessionActive: sessionActive,
+            activeBuilderID: activeID,
+            callbackBuilderID: callbackID
+        ) else {
+            logger.info("workout_builder_callback_ignored reason=stale_or_inactive")
+            return
+        }
         pushHRSamplesIfAvailable(collectedTypes: collectedTypes, from: workoutBuilder)
     }
 

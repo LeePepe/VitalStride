@@ -45,6 +45,13 @@ final class WatchWorkoutViewModel: ObservableObject {
         self.manager = service.makeWorkoutSessionManager()
     }
 
+    /// Test / preview seam — inject a stubbed manager without touching HealthKit.
+    init(manager: any WorkoutSessionManaging, initialState: State = .idle) {
+        self.service = HealthKitService(deviceIdentifier: "preview-device")
+        self.manager = manager
+        self.state = initialState
+    }
+
     static var defaultDeviceIdentifier: String {
         #if os(watchOS)
         return "watchOS-\(ProcessInfo.processInfo.hostName)"
@@ -65,12 +72,25 @@ final class WatchWorkoutViewModel: ObservableObject {
                 try await service.requestAuthorization()
             } catch {
                 logger.error("watch_auth_request_failed error=\(error.localizedDescription, privacy: .private)")
-                await MainActor.run { self.state = .failed("HealthKit 授权失败") }
+                await MainActor.run {
+                    self.state = .failed(
+                        String(localized: "HealthKit 授权失败", comment: "Watch workout: auth failure")
+                    )
+                }
                 return
             }
             await MainActor.run { self.state = .starting }
-            await manager.startSession()
-            await MainActor.run { self.state = .active }
+            do {
+                try await manager.startSession()
+                await MainActor.run { self.state = .active }
+            } catch {
+                logger.error("watch_workout_start_failed error=\(error.localizedDescription, privacy: .private)")
+                await MainActor.run {
+                    self.state = .failed(
+                        String(localized: "启动失败", comment: "Watch workout: session start failed")
+                    )
+                }
+            }
         }
     }
 
@@ -195,7 +215,34 @@ struct StrengthWorkoutView: View {
     }
 }
 
-#Preview {
+#Preview("WatchContentView — idle") {
     WatchContentView()
         .designThemePreview()
+}
+
+// A second representative preview so reviewers can eyeball the active +
+// failed states without running the workout end-to-end. Uses the
+// `NoopWorkoutSessionManager` seam so no HealthKit call is made.
+#Preview("StrengthWorkoutView — active") {
+    NavigationStack {
+        StrengthWorkoutView(
+            viewModel: WatchWorkoutViewModel(
+                manager: NoopWorkoutSessionManager(),
+                initialState: .active
+            )
+        )
+    }
+    .designThemePreview()
+}
+
+#Preview("StrengthWorkoutView — failed") {
+    NavigationStack {
+        StrengthWorkoutView(
+            viewModel: WatchWorkoutViewModel(
+                manager: NoopWorkoutSessionManager(),
+                initialState: .failed(String(localized: "启动失败", comment: "preview failure"))
+            )
+        )
+    }
+    .designThemePreview()
 }
