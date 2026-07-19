@@ -12,6 +12,12 @@ import Foundation
 //     to sync via CloudKit at the persistence layer, but WC transport itself is
 //     ephemeral — the payload is not a new persistence surface.
 //   - `WatchScreenConfig` carries no HK health values.
+//
+// Validation contract:
+//   - `WatchConnectivityCodec` decode paths run *semantic* validation after
+//     structural decode. Missing/wrong fields, non-finite numbers, non-finite
+//     dates, out-of-range enums, and kind/payload mismatches all raise typed
+//     `WatchConnectivityCodecError`. The delegate never crashes.
 
 // MARK: Envelope
 
@@ -27,10 +33,11 @@ public enum WatchConnectivityMessage: Sendable, Equatable {
 ///
 /// Wire shape:
 /// `{ "kind": "liveHeartRate" | "workoutState" | "watchScreenConfig" | "setCompleted",
-///    "payload": <payload> }`
+///    "payload": <payload-as-nested-Data> }`
 ///
-/// Unknown `kind` and missing/malformed `payload` throw `WatchConnectivityCodecError`
-/// (do NOT crash the delegate callback).
+/// Unknown `kind`, missing/malformed `payload`, kind/payload mismatch, and
+/// semantically-invalid fields all throw `WatchConnectivityCodecError`
+/// (never crash the delegate callback).
 public enum WatchConnectivityCodec {
     public static func encode(_ message: WatchConnectivityMessage) throws -> Data {
         let encoder = JSONEncoder()
@@ -64,13 +71,21 @@ public enum WatchConnectivityCodec {
         do {
             switch envelope.kind {
             case .liveHeartRate:
-                return .liveHeartRate(try decoder.decode(LiveHeartRatePayload.self, from: payloadData))
+                let payload = try decoder.decode(LiveHeartRatePayload.self, from: payloadData)
+                try payload.validate(expectedKind: envelope.kind.rawValue)
+                return .liveHeartRate(payload)
             case .workoutState:
-                return .workoutState(try decoder.decode(WorkoutStateSnapshot.self, from: payloadData))
+                let payload = try decoder.decode(WorkoutStateSnapshot.self, from: payloadData)
+                try payload.validate(expectedKind: envelope.kind.rawValue)
+                return .workoutState(payload)
             case .watchScreenConfig:
-                return .watchScreenConfig(try decoder.decode(WatchScreenConfig.self, from: payloadData))
+                let payload = try decoder.decode(WatchScreenConfig.self, from: payloadData)
+                try payload.validate(expectedKind: envelope.kind.rawValue)
+                return .watchScreenConfig(payload)
             case .setCompleted:
-                return .setCompleted(try decoder.decode(SetCompletedEvent.self, from: payloadData))
+                let payload = try decoder.decode(SetCompletedEvent.self, from: payloadData)
+                try payload.validate(expectedKind: envelope.kind.rawValue)
+                return .setCompleted(payload)
             }
         } catch let error as WatchConnectivityCodecError {
             throw error
@@ -117,21 +132,43 @@ public enum WatchConnectivityCodecError: Error, Sendable, Equatable {
     case malformedEnvelope
     case missingPayload(kind: String)
     case malformedPayload(kind: String)
+    /// Payload struct decoded but a field failed semantic validation
+    /// (out-of-range, non-finite, negative-where-nonneg-required, wrong enum, etc.).
+    case invalidField(kind: String, field: String, reason: String)
+    /// Payload's self-declared `sampleType` (or another discriminator inside
+    /// the payload) disagreed with the envelope `kind`.
+    case kindMismatch(envelopeKind: String, payloadKind: String)
 }
 
 // MARK: LiveHeartRatePayload (watch → iPhone)
 
+/// Explicit sample-type discriminator embedded in HR payloads. Currently only
+/// `heartRate` is defined; future HRV / respiratory-rate work can extend this
+/// enum without breaking the wire shape.
+public enum LiveSampleType: String, Sendable, Codable, CaseIterable {
+    case heartRate
+}
+
 /// Single realtime HR sample pushed from Watch during a workout session.
 /// Value is display-only and MUST NOT be logged (§I).
 public struct LiveHeartRatePayload: Sendable, Codable, Equatable {
-    /// Beats per minute. Rejected if `<= 0` or `> 300`.
+    /// Explicit sample-type discriminator (redundant-but-defensive against
+    /// envelope corruption; validated against envelope `kind`).
+    public let sampleType: LiveSampleType
+    /// Beats per minute. Rejected if `<= 0`, `> 300`, or non-finite.
     public let bpm: Double
     /// Sample timestamp on the source device.
     public let timestamp: Date
     /// Source device/app name for provenance (e.g. "Apple Watch"). Optional.
     public let sourceName: String?
 
-    public init(bpm: Double, timestamp: Date, sourceName: String?) {
+    public init(
+        sampleType: LiveSampleType = .heartRate,
+        bpm: Double,
+        timestamp: Date,
+        sourceName: String?
+    ) {
+        self.sampleType = sampleType
         self.bpm = bpm
         self.timestamp = timestamp
         self.sourceName = sourceName
@@ -140,7 +177,31 @@ public struct LiveHeartRatePayload: Sendable, Codable, Equatable {
     /// Physiologically-plausible bpm range gate. Values outside are rejected at
     /// the bridge boundary — never crash, never forward.
     public var isPhysiologicallyPlausible: Bool {
-        bpm > 0 && bpm <= 300
+        bpm.isFinite && bpm > 0 && bpm <= 300
+    }
+
+    fileprivate func validate(expectedKind: String) throws {
+        if sampleType != .heartRate {
+            throw WatchConnectivityCodecError.kindMismatch(
+                envelopeKind: expectedKind,
+                payloadKind: sampleType.rawValue
+            )
+        }
+        if !bpm.isFinite {
+            throw WatchConnectivityCodecError.invalidField(
+                kind: expectedKind, field: "bpm", reason: "non-finite"
+            )
+        }
+        if !isPhysiologicallyPlausible {
+            throw WatchConnectivityCodecError.invalidField(
+                kind: expectedKind, field: "bpm", reason: "out-of-range"
+            )
+        }
+        if !timestamp.timeIntervalSince1970.isFinite {
+            throw WatchConnectivityCodecError.invalidField(
+                kind: expectedKind, field: "timestamp", reason: "non-finite"
+            )
+        }
     }
 }
 
@@ -152,9 +213,11 @@ public struct WorkoutStateSnapshot: Sendable, Codable, Equatable {
     public let currentExerciseID: UUID?
     public let currentExerciseName: String?
     public let sets: [PlannedSet]
-    /// Elapsed seconds since workout start on the phone clock.
+    /// Elapsed seconds since workout start on the phone clock. Must be finite
+    /// and `>= 0`.
     public let elapsedSeconds: TimeInterval
-    /// (completedSetCount, totalSetCount) across the whole workout.
+    /// (completedSetCount, totalSetCount) across the whole workout. Both must
+    /// be `>= 0` and `completed <= total`.
     public let progress: Progress
     public let updatedAt: Date
 
@@ -207,6 +270,65 @@ public struct WorkoutStateSnapshot: Sendable, Codable, Equatable {
             self.totalSetCount = totalSetCount
         }
     }
+
+    fileprivate func validate(expectedKind: String) throws {
+        if !elapsedSeconds.isFinite {
+            throw WatchConnectivityCodecError.invalidField(
+                kind: expectedKind, field: "elapsedSeconds", reason: "non-finite"
+            )
+        }
+        if elapsedSeconds < 0 {
+            throw WatchConnectivityCodecError.invalidField(
+                kind: expectedKind, field: "elapsedSeconds", reason: "negative"
+            )
+        }
+        if progress.completedSetCount < 0 {
+            throw WatchConnectivityCodecError.invalidField(
+                kind: expectedKind, field: "progress.completedSetCount", reason: "negative"
+            )
+        }
+        if progress.totalSetCount < 0 {
+            throw WatchConnectivityCodecError.invalidField(
+                kind: expectedKind, field: "progress.totalSetCount", reason: "negative"
+            )
+        }
+        if progress.completedSetCount > progress.totalSetCount {
+            throw WatchConnectivityCodecError.invalidField(
+                kind: expectedKind,
+                field: "progress",
+                reason: "completed > total"
+            )
+        }
+        if !updatedAt.timeIntervalSince1970.isFinite {
+            throw WatchConnectivityCodecError.invalidField(
+                kind: expectedKind, field: "updatedAt", reason: "non-finite"
+            )
+        }
+        for set in sets {
+            if set.index < 0 {
+                throw WatchConnectivityCodecError.invalidField(
+                    kind: expectedKind, field: "sets[].index", reason: "negative"
+                )
+            }
+            if let reps = set.targetReps, reps < 0 {
+                throw WatchConnectivityCodecError.invalidField(
+                    kind: expectedKind, field: "sets[].targetReps", reason: "negative"
+                )
+            }
+            if let weight = set.targetWeightKg {
+                if !weight.isFinite {
+                    throw WatchConnectivityCodecError.invalidField(
+                        kind: expectedKind, field: "sets[].targetWeightKg", reason: "non-finite"
+                    )
+                }
+                if weight < 0 {
+                    throw WatchConnectivityCodecError.invalidField(
+                        kind: expectedKind, field: "sets[].targetWeightKg", reason: "negative"
+                    )
+                }
+            }
+        }
+    }
 }
 
 // MARK: WatchScreenConfig (iPhone → watch)
@@ -239,6 +361,14 @@ public struct WatchScreenConfig: Sendable, Codable, Equatable {
         self.enabledModules = enabledModules
         self.updatedAt = updatedAt
     }
+
+    fileprivate func validate(expectedKind: String) throws {
+        if !updatedAt.timeIntervalSince1970.isFinite {
+            throw WatchConnectivityCodecError.invalidField(
+                kind: expectedKind, field: "updatedAt", reason: "non-finite"
+            )
+        }
+    }
 }
 
 // MARK: SetCompletedEvent (watch → iPhone)
@@ -249,6 +379,7 @@ public struct SetCompletedEvent: Sendable, Codable, Equatable {
     public let workoutID: UUID
     public let setID: UUID
     /// Reps actually completed if user adjusted on watch; nil = use planned.
+    /// Rejected if negative.
     public let actualReps: Int?
     public let completedAt: Date
 
@@ -257,5 +388,18 @@ public struct SetCompletedEvent: Sendable, Codable, Equatable {
         self.setID = setID
         self.actualReps = actualReps
         self.completedAt = completedAt
+    }
+
+    fileprivate func validate(expectedKind: String) throws {
+        if let reps = actualReps, reps < 0 {
+            throw WatchConnectivityCodecError.invalidField(
+                kind: expectedKind, field: "actualReps", reason: "negative"
+            )
+        }
+        if !completedAt.timeIntervalSince1970.isFinite {
+            throw WatchConnectivityCodecError.invalidField(
+                kind: expectedKind, field: "completedAt", reason: "non-finite"
+            )
+        }
     }
 }

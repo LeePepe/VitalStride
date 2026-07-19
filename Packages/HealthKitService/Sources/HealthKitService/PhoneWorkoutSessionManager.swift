@@ -45,7 +45,7 @@ public protocol WatchConnectivitySessionDelegateHandling: AnyObject, Sendable {
     )
 }
 
-// MARK: - PhoneWorkoutSessionManager (iOS receive side)
+// MARK: - PhoneWorkoutSessionManager (iOS receive side, actor-isolated)
 //
 // Responsibilities on iOS:
 //   1. Own an activated `WCSession` and route incoming payloads to typed
@@ -55,14 +55,31 @@ public protocol WatchConnectivitySessionDelegateHandling: AnyObject, Sendable {
 //      the watch via `updateApplicationContext` (latest-wins).
 //   3. Never log the HR value; only sample type + count + time range.
 //
+// Channel-direction enforcement (§ADR-0010 Addendum contract):
+//   - `sessionDidReceiveMessage`  MUST carry watch→iPhone payloads only
+//     (`.liveHeartRate`, `.setCompleted`). WorkoutState / WatchScreenConfig
+//     arriving here are reverse-direction bugs — dropped, logged, never
+//     forwarded to subscribers.
+//   - `sessionDidReceiveApplicationContext`  is unused by us as receiver
+//     (we're the sender of state/config). Anything arriving here is
+//     dropped. HR / SetCompleted on this channel are ALSO dropped as a
+//     wrong-channel violation (per contract they must use sendMessage).
+//
+// Concurrency:
+//   - Actor-isolated state. No `@unchecked Sendable`, no `NSLock`.
+//   - Delegate callbacks arrive on Apple-owned threads via `nonisolated`
+//     conformance methods that dispatch typed, Sendable messages into the
+//     actor. `[String: Any]` never crosses the concurrency boundary — we
+//     decode into `WatchConnectivityMessage` (Sendable) synchronously in
+//     the nonisolated shim.
+//
 // startSession / endSession control WHETHER we forward HR into the observer
 // stream. If a session is not active, incoming HR messages are dropped (still
 // no crash, still no log of value).
 
-public final class PhoneWorkoutSessionManager: NSObject, WorkoutSessionManaging, @unchecked Sendable {
+public actor PhoneWorkoutSessionManager: WorkoutSessionManaging {
     private let session: any WatchConnectivitySessionProviding
-    private let logger: Logger
-    private let lock = NSLock()
+    private nonisolated let logger: Logger
 
     private var isSessionActive = false
     private var hrContinuations: [UUID: AsyncStream<LiveHeartRatePayload>.Continuation] = [:]
@@ -74,21 +91,30 @@ public final class PhoneWorkoutSessionManager: NSObject, WorkoutSessionManaging,
     public init(session: any WatchConnectivitySessionProviding) {
         self.session = session
         self.logger = Logger(subsystem: "com.vitalstride", category: "PhoneWorkoutSession")
-        super.init()
-        self.session.setDelegate(self)
-        self.session.activate()
-        self.updateConnectionState(computeConnectionState(activated: false))
+        // Compute initial connection state synchronously so observers get the
+        // correct first value regardless of when the delegate's activation
+        // callback later hops into the actor.
+        if !session.isSupported {
+            self.lastConnectionState = .unsupported
+        } else if !session.isPaired {
+            self.lastConnectionState = .notPaired
+        } else if !session.isWatchAppInstalled {
+            self.lastConnectionState = .notInstalled
+        } else if !session.isReachable {
+            self.lastConnectionState = .unreachable
+        } else {
+            self.lastConnectionState = .reachable
+        }
+        session.setDelegate(self)
+        session.activate()
     }
 
     // MARK: WorkoutSessionManaging
 
     public func startSession() async {
-        let wasActive = lock.withLock { () -> Bool in
-            let previous = isSessionActive
-            isSessionActive = true
-            forwardedHRCount = 0
-            return previous
-        }
+        let wasActive = isSessionActive
+        isSessionActive = true
+        forwardedHRCount = 0
         if wasActive {
             logger.info("phone_workout_session_start_skipped reason=already_active")
         } else {
@@ -98,13 +124,10 @@ public final class PhoneWorkoutSessionManager: NSObject, WorkoutSessionManaging,
 
     @discardableResult
     public func endSession(save: Bool) async -> String? {
-        let (wasActive, count) = lock.withLock { () -> (Bool, Int) in
-            let previous = isSessionActive
-            let count = forwardedHRCount
-            isSessionActive = false
-            forwardedHRCount = 0
-            return (previous, count)
-        }
+        let wasActive = isSessionActive
+        let count = forwardedHRCount
+        isSessionActive = false
+        forwardedHRCount = 0
         if wasActive {
             logger.info(
                 "phone_workout_session_ended saved=\(save, privacy: .public) hrSampleCount=\(count, privacy: .public)"
@@ -114,39 +137,53 @@ public final class PhoneWorkoutSessionManager: NSObject, WorkoutSessionManaging,
         return nil
     }
 
-    public func observeLiveWorkoutHeartRate() -> AsyncStream<LiveHeartRatePayload> {
+    public func observeLiveWorkoutHeartRate() async -> AsyncStream<LiveHeartRatePayload> {
         let id = UUID()
-        return AsyncStream { continuation in
-            lock.withLock { hrContinuations[id] = continuation }
-            continuation.onTermination = { [weak self] _ in
-                guard let self else { return }
-                self.lock.withLock { self.hrContinuations[id] = nil }
-            }
+        // Bounded newest-value buffering (§P1 review fix). HR is display-only;
+        // if a slow subscriber falls behind, we prefer to render the newest
+        // value rather than replay a stale queue.
+        let (stream, continuation) = AsyncStream<LiveHeartRatePayload>.makeStream(
+            bufferingPolicy: .bufferingNewest(1)
+        )
+        hrContinuations[id] = continuation
+        continuation.onTermination = { [weak self] _ in
+            guard let self else { return }
+            Task { await self.removeHRContinuation(id) }
         }
+        return stream
     }
 
-    public func observeConnectionState() -> AsyncStream<WatchConnectionState> {
+    public func observeConnectionState() async -> AsyncStream<WatchConnectionState> {
         let id = UUID()
-        let initialState = lock.withLock { lastConnectionState }
-        return AsyncStream { continuation in
-            self.lock.withLock { self.connectionContinuations[id] = continuation }
-            continuation.yield(initialState)
-            continuation.onTermination = { [weak self] _ in
-                guard let self else { return }
-                self.lock.withLock { self.connectionContinuations[id] = nil }
-            }
+        let initialState = lastConnectionState
+        // Bounded newest-value: connection-state is idempotent; only the
+        // latest value ever matters to UI.
+        let (stream, continuation) = AsyncStream<WatchConnectionState>.makeStream(
+            bufferingPolicy: .bufferingNewest(1)
+        )
+        connectionContinuations[id] = continuation
+        continuation.yield(initialState)
+        continuation.onTermination = { [weak self] _ in
+            guard let self else { return }
+            Task { await self.removeConnectionContinuation(id) }
         }
+        return stream
     }
 
-    public func observeSetCompleted() -> AsyncStream<SetCompletedEvent> {
+    public func observeSetCompleted() async -> AsyncStream<SetCompletedEvent> {
         let id = UUID()
-        return AsyncStream { continuation in
-            self.lock.withLock { self.setCompletedContinuations[id] = continuation }
-            continuation.onTermination = { [weak self] _ in
-                guard let self else { return }
-                self.lock.withLock { self.setCompletedContinuations[id] = nil }
-            }
+        // Explicit queue semantics: `.unbounded` — every set-completion event
+        // MUST reach the reconciler. iPhone is source of truth; dropping a
+        // watch confirmation would leave the two sides out of sync.
+        let (stream, continuation) = AsyncStream<SetCompletedEvent>.makeStream(
+            bufferingPolicy: .unbounded
+        )
+        setCompletedContinuations[id] = continuation
+        continuation.onTermination = { [weak self] _ in
+            guard let self else { return }
+            Task { await self.removeSetCompletedContinuation(id) }
         }
+        return stream
     }
 
     public func updateWorkoutState(_ snapshot: WorkoutStateSnapshot) async {
@@ -177,9 +214,21 @@ public final class PhoneWorkoutSessionManager: NSObject, WorkoutSessionManaging,
         }
     }
 
-    // MARK: Internal
+    // MARK: Actor-internal helpers
 
-    private func computeConnectionState(activated: Bool) -> WatchConnectionState {
+    private func removeHRContinuation(_ id: UUID) {
+        hrContinuations[id] = nil
+    }
+
+    private func removeConnectionContinuation(_ id: UUID) {
+        connectionContinuations[id] = nil
+    }
+
+    private func removeSetCompletedContinuation(_ id: UUID) {
+        setCompletedContinuations[id] = nil
+    }
+
+    private func computeConnectionState() -> WatchConnectionState {
         if !session.isSupported { return .unsupported }
         if !session.isPaired { return .notPaired }
         if !session.isWatchAppInstalled { return .notInstalled }
@@ -187,47 +236,68 @@ public final class PhoneWorkoutSessionManager: NSObject, WorkoutSessionManaging,
         return .reachable
     }
 
+    fileprivate func handleReachabilityChange() {
+        updateConnectionState(computeConnectionState())
+    }
+
+    fileprivate func handleActivationCompleted() {
+        updateConnectionState(computeConnectionState())
+    }
+
     private func updateConnectionState(_ new: WatchConnectionState) {
-        let continuations = lock.withLock { () -> [AsyncStream<WatchConnectionState>.Continuation] in
-            guard new != lastConnectionState else { return [] }
-            lastConnectionState = new
-            return Array(connectionContinuations.values)
-        }
-        for continuation in continuations {
+        guard new != lastConnectionState else { return }
+        lastConnectionState = new
+        for continuation in connectionContinuations.values {
             continuation.yield(new)
         }
     }
 
-    private func handleDecoded(_ message: WatchConnectivityMessage) {
+    // MARK: Channel-direction enforcement
+
+    fileprivate func handleIncomingMessage(_ message: WatchConnectivityMessage) {
         switch message {
         case .liveHeartRate(let payload):
             handleHRSample(payload)
         case .setCompleted(let event):
             handleSetCompleted(event)
-        case .workoutState, .watchScreenConfig:
-            // These are iPhone → watch only. Receiving one means the peer
-            // echoed or misused the channel; drop it, don't crash, don't log
-            // the payload.
-            logger.info("phone_workout_bridge_ignored_reverse_payload")
+        case .workoutState:
+            // Reverse direction — iPhone is the SENDER of workoutState.
+            logger.info("phone_workout_bridge_ignored_reverse_payload channel=message kind=workoutState")
+        case .watchScreenConfig:
+            logger.info("phone_workout_bridge_ignored_reverse_payload channel=message kind=watchScreenConfig")
+        }
+    }
+
+    fileprivate func handleIncomingApplicationContext(_ message: WatchConnectivityMessage) {
+        switch message {
+        case .workoutState:
+            // Reverse direction — iPhone is the SENDER of workoutState.
+            logger.info("phone_workout_bridge_ignored_reverse_payload channel=applicationContext kind=workoutState")
+        case .watchScreenConfig:
+            logger.info("phone_workout_bridge_ignored_reverse_payload channel=applicationContext kind=watchScreenConfig")
+        case .liveHeartRate:
+            // Wrong channel: per contract HR MUST arrive via sendMessage.
+            // Drop silently (never crash, never log value).
+            logger.info("phone_workout_bridge_wrong_channel expected=message actual=applicationContext kind=liveHeartRate")
+        case .setCompleted:
+            logger.info("phone_workout_bridge_wrong_channel expected=message actual=applicationContext kind=setCompleted")
         }
     }
 
     private func handleHRSample(_ payload: LiveHeartRatePayload) {
+        // Physiological plausibility gate (already applied at codec.validate,
+        // this is defence-in-depth for future callers).
         guard payload.isPhysiologicallyPlausible else {
-            // Reject impossible values; do NOT log the value itself.
+            // Do NOT log the value itself (§I).
             logger.info("phone_workout_hr_rejected reason=out_of_range")
             return
         }
-        let continuations: [AsyncStream<LiveHeartRatePayload>.Continuation] = lock.withLock {
-            guard isSessionActive else { return [] }
-            forwardedHRCount += 1
-            return Array(hrContinuations.values)
-        }
-        guard !continuations.isEmpty else {
-            // No active session or no subscribers: silently drop, don't log.
+        guard isSessionActive, !hrContinuations.isEmpty else {
+            // No active session or no subscribers: silently drop.
             return
         }
-        for continuation in continuations {
+        forwardedHRCount += 1
+        for continuation in hrContinuations.values {
             continuation.yield(payload)
         }
         // Privacy §I: log sample type + count only, never bpm value.
@@ -235,47 +305,55 @@ public final class PhoneWorkoutSessionManager: NSObject, WorkoutSessionManaging,
     }
 
     private func handleSetCompleted(_ event: SetCompletedEvent) {
-        let continuations = lock.withLock { Array(setCompletedContinuations.values) }
-        for continuation in continuations {
+        for continuation in setCompletedContinuations.values {
             continuation.yield(event)
         }
         logger.info("phone_workout_set_completed workoutID=\(event.workoutID.uuidString, privacy: .public)")
     }
 }
 
-// MARK: - Delegate conformance
+// MARK: - Delegate conformance (nonisolated bridge)
+//
+// The delegate callbacks arrive on the WCSession's private queue (or on the
+// FakeWCSession's caller thread in tests). We keep them `nonisolated`, decode
+// the `[String: Any]` payload synchronously into a `Sendable` message, and
+// hop into the actor to update state. This is the standard Swift 6 pattern
+// for bridging Apple ObjC-delegate boundaries into actor-isolated state.
 
 extension PhoneWorkoutSessionManager: WatchConnectivitySessionDelegateHandling {
-    public func sessionDidChangeReachability(isReachable: Bool) {
-        let state = computeConnectionState(activated: true)
-        updateConnectionState(state)
+    public nonisolated func sessionDidChangeReachability(isReachable: Bool) {
+        Task { await self.handleReachabilityChange() }
     }
 
-    public func sessionDidReceiveMessage(_ dictionary: [String: Any]) {
+    public nonisolated func sessionDidReceiveMessage(_ dictionary: [String: Any]) {
+        // Decode outside the actor. `WatchConnectivityMessage` is Sendable,
+        // so it crosses the boundary safely; `[String: Any]` does not.
+        let decoded: WatchConnectivityMessage
         do {
-            let message = try WatchConnectivityCodec.decodeDictionary(dictionary)
-            handleDecoded(message)
+            decoded = try WatchConnectivityCodec.decodeDictionary(dictionary)
         } catch {
             logger.info(
                 "phone_workout_bridge_decode_failed source=message reason=\(String(describing: error), privacy: .public)"
             )
+            return
         }
+        Task { await self.handleIncomingMessage(decoded) }
     }
 
-    public func sessionDidReceiveApplicationContext(_ dictionary: [String: Any]) {
-        // application-context is currently only iPhone→watch, but decode
-        // defensively in case future work adds watch→iPhone latest-wins state.
+    public nonisolated func sessionDidReceiveApplicationContext(_ dictionary: [String: Any]) {
+        let decoded: WatchConnectivityMessage
         do {
-            let message = try WatchConnectivityCodec.decodeDictionary(dictionary)
-            handleDecoded(message)
+            decoded = try WatchConnectivityCodec.decodeDictionary(dictionary)
         } catch {
             logger.info(
                 "phone_workout_bridge_decode_failed source=applicationContext reason=\(String(describing: error), privacy: .public)"
             )
+            return
         }
+        Task { await self.handleIncomingApplicationContext(decoded) }
     }
 
-    public func sessionDidActivate(
+    public nonisolated func sessionDidActivate(
         isSupported: Bool,
         isPaired: Bool,
         isWatchAppInstalled: Bool,
@@ -287,19 +365,33 @@ extension PhoneWorkoutSessionManager: WatchConnectivitySessionDelegateHandling {
                 "phone_workout_bridge_activation_failed error=\(error.localizedDescription, privacy: .private)"
             )
         }
-        let state = computeConnectionState(activated: true)
-        updateConnectionState(state)
+        Task { await self.handleActivationCompleted() }
     }
 }
 
 // MARK: - Default WCSession-backed provider (iOS only)
+//
+// Apple-SDK boundary wrapper for `WCSession`. This is the ONLY type in the
+// bridge that keeps `@unchecked Sendable`, because:
+//   1. `WCSession` is a non-Sendable Apple SDK singleton.
+//   2. `WCSessionDelegate` is an `@objc` protocol requiring `NSObject`
+//      inheritance, which Swift actors do not permit.
+//   3. Delegate callbacks are dispatched by CoreFoundation on WCSession's
+//      own serial queue — Apple already serialises them for us.
+// Mutable state is confined to the `handlerBox` (an `OSAllocatedUnfairLock`,
+// itself `Sendable`); all other stored properties are `let`. Sendable
+// violations are impossible by construction. See ADR-0010 Addendum for the
+// original boundary decision.
 
 #if canImport(WatchConnectivity) && os(iOS)
 
 public final class DefaultWatchConnectivitySessionProvider: NSObject, WatchConnectivitySessionProviding, @unchecked Sendable {
     private let session: WCSession
-    private let lock = NSLock()
-    private weak var handler: (any WatchConnectivitySessionDelegateHandling)?
+    private let handlerBox = OSAllocatedUnfairLock<HandlerBox>(initialState: HandlerBox())
+
+    private struct HandlerBox: Sendable {
+        weak var handler: (any WatchConnectivitySessionDelegateHandling)?
+    }
 
     public override init() {
         self.session = WCSession.default
@@ -318,7 +410,7 @@ public final class DefaultWatchConnectivitySessionProvider: NSObject, WatchConne
     }
 
     public func setDelegate(_ delegate: any WatchConnectivitySessionDelegateHandling) {
-        lock.withLock { handler = delegate }
+        handlerBox.withLock { $0.handler = delegate }
     }
 
     public func sendMessage(_ dictionary: [String: Any]) throws {
@@ -329,6 +421,10 @@ public final class DefaultWatchConnectivitySessionProvider: NSObject, WatchConne
     public func updateApplicationContext(_ dictionary: [String: Any]) throws {
         try session.updateApplicationContext(dictionary)
     }
+
+    private func currentHandler() -> (any WatchConnectivitySessionDelegateHandling)? {
+        handlerBox.withLock { $0.handler }
+    }
 }
 
 extension DefaultWatchConnectivitySessionProvider: WCSessionDelegate {
@@ -337,8 +433,7 @@ extension DefaultWatchConnectivitySessionProvider: WCSessionDelegate {
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: (any Error)?
     ) {
-        let handler = lock.withLock { self.handler }
-        handler?.sessionDidActivate(
+        currentHandler()?.sessionDidActivate(
             isSupported: WCSession.isSupported(),
             isPaired: session.isPaired,
             isWatchAppInstalled: session.isWatchAppInstalled,
@@ -348,8 +443,7 @@ extension DefaultWatchConnectivitySessionProvider: WCSessionDelegate {
     }
 
     public func sessionDidBecomeInactive(_ session: WCSession) {
-        let handler = lock.withLock { self.handler }
-        handler?.sessionDidChangeReachability(isReachable: session.isReachable)
+        currentHandler()?.sessionDidChangeReachability(isReachable: session.isReachable)
     }
 
     public func sessionDidDeactivate(_ session: WCSession) {
@@ -358,18 +452,15 @@ extension DefaultWatchConnectivitySessionProvider: WCSessionDelegate {
     }
 
     public func sessionReachabilityDidChange(_ session: WCSession) {
-        let handler = lock.withLock { self.handler }
-        handler?.sessionDidChangeReachability(isReachable: session.isReachable)
+        currentHandler()?.sessionDidChangeReachability(isReachable: session.isReachable)
     }
 
     public func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-        let handler = lock.withLock { self.handler }
-        handler?.sessionDidReceiveMessage(message)
+        currentHandler()?.sessionDidReceiveMessage(message)
     }
 
     public func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        let handler = lock.withLock { self.handler }
-        handler?.sessionDidReceiveApplicationContext(applicationContext)
+        currentHandler()?.sessionDidReceiveApplicationContext(applicationContext)
     }
 }
 
