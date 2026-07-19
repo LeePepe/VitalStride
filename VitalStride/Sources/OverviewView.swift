@@ -44,7 +44,7 @@ struct OverviewView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    if snapshotState.isLoading {
+                    if isAnyLoading {
                         ProgressView()
                             .frame(maxWidth: .infinity, minHeight: 60)
                     } else if !snapshotState.isAuthorized, !hasWorkoutData {
@@ -111,12 +111,47 @@ struct OverviewView: View {
 
     private var hasWorkoutData: Bool { !recentWorkouts.isEmpty }
 
+    /// Combined loading truth table: overview shows a single spinner while
+    /// either the HealthKit snapshot or the dynamic insights phase is still
+    /// loading. Normal content only reveals once both phases have finished.
+    /// See MY-1276 (two spinners on same screen).
+    var isAnyLoading: Bool {
+        Self.isAnyLoading(
+            snapshotIsLoading: snapshotState.isLoading,
+            snapshotIsAuthorized: snapshotState.isAuthorized,
+            hasWorkoutData: hasWorkoutData,
+            dynamicLayoutState: dynamicState.layoutState
+        )
+    }
+
+    /// Pure truth-table extraction for `isAnyLoading` so it can be exercised
+    /// without spinning up a SwiftUI `@Query` context. See MY-1276.
+    static func isAnyLoading(
+        snapshotIsLoading: Bool,
+        snapshotIsAuthorized: Bool,
+        hasWorkoutData: Bool,
+        dynamicLayoutState: OverviewLayoutState
+    ) -> Bool {
+        if snapshotIsLoading {
+            return true
+        }
+        if case .loading = dynamicLayoutState {
+            // Only gate on dynamic loading when we would have entered the
+            // dynamic-content branch — i.e. the user is authorized OR has
+            // local workout data. Otherwise the empty state renders and the
+            // dynamic phase never starts.
+            return snapshotIsAuthorized || hasWorkoutData
+        }
+        return false
+    }
+
     @ViewBuilder
     private var dynamicContent: some View {
         switch dynamicState.layoutState {
         case .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity, minHeight: 60)
+            // Loading is rendered by the top-level unified spinner; emit
+            // nothing here to keep exactly one ProgressView on-screen.
+            EmptyView()
 
         case .dynamic(let insights, let lastUpdated):
             if let headline = dynamicState.pendingHeadline {

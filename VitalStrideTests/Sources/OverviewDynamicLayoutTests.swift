@@ -787,4 +787,108 @@ struct OverviewLayoutStateTests {
             #expect((orderIndex[tiedThrees[i]] ?? 0) < (orderIndex[tiedThrees[i + 1]] ?? 0), "ties break by MuscleGroup.allCases order")
         }
     }
+
+    // MARK: - Unified Overview Loading Spinner (MY-1276)
+
+    private static func sampleInsights() -> [OverviewInsight] {
+        [
+            OverviewInsight(key: "a", cardType: "metric", cardSize: "small", title: "A", content: "a"),
+            OverviewInsight(key: "b", cardType: "metric", cardSize: "small", title: "B", content: "b"),
+            OverviewInsight(key: "c", cardType: "metric", cardSize: "small", title: "C", content: "c"),
+        ]
+    }
+
+    @Test("isAnyLoading: snapshot loading → true regardless of dynamic state")
+    func unifiedSpinnerSnapshotLoadingIsAnyLoading() {
+        // Historical bug: even after the dynamic phase reached .dynamic, if
+        // snapshot was still loading we would still render its ProgressView.
+        // Here we assert the unified truth table returns true for any
+        // combination whenever snapshot is still loading.
+        let insights = Self.sampleInsights()
+        let now = Date()
+        let combos: [OverviewLayoutState] = [
+            .loading,
+            .dynamic(insights, lastUpdated: now),
+            .fallback,
+        ]
+        for state in combos {
+            for authorized in [true, false] {
+                for hasWorkouts in [true, false] {
+                    #expect(
+                        OverviewView.isAnyLoading(
+                            snapshotIsLoading: true,
+                            snapshotIsAuthorized: authorized,
+                            hasWorkoutData: hasWorkouts,
+                            dynamicLayoutState: state
+                        ) == true,
+                        "snapshot loading must always show unified spinner"
+                    )
+                }
+            }
+        }
+    }
+
+    @Test("isAnyLoading: dynamic loading while authorized → true")
+    func unifiedSpinnerDynamicLoadingAuthorized() {
+        #expect(
+            OverviewView.isAnyLoading(
+                snapshotIsLoading: false,
+                snapshotIsAuthorized: true,
+                hasWorkoutData: false,
+                dynamicLayoutState: .loading
+            ) == true
+        )
+    }
+
+    @Test("isAnyLoading: dynamic loading while unauthorized but has workouts → true")
+    func unifiedSpinnerDynamicLoadingHasWorkouts() {
+        #expect(
+            OverviewView.isAnyLoading(
+                snapshotIsLoading: false,
+                snapshotIsAuthorized: false,
+                hasWorkoutData: true,
+                dynamicLayoutState: .loading
+            ) == true
+        )
+    }
+
+    @Test("isAnyLoading: unauthorized empty user → dynamic branch never runs, spinner off")
+    func unifiedSpinnerUnauthorizedEmptyNoSpinner() {
+        // The empty-state UI renders in this branch; the dynamic phase never
+        // starts, so a lingering .loading in the dynamic state must NOT keep
+        // the spinner visible.
+        #expect(
+            OverviewView.isAnyLoading(
+                snapshotIsLoading: false,
+                snapshotIsAuthorized: false,
+                hasWorkoutData: false,
+                dynamicLayoutState: .loading
+            ) == false
+        )
+    }
+
+    @Test("isAnyLoading: both phases finished → spinner off")
+    func unifiedSpinnerBothFinishedNoSpinner() {
+        let insights = Self.sampleInsights()
+        let now = Date()
+        let finished: [OverviewLayoutState] = [
+            .dynamic(insights, lastUpdated: now),
+            .fallback,
+        ]
+        for state in finished {
+            for authorized in [true, false] {
+                for hasWorkouts in [true, false] {
+                    #expect(
+                        OverviewView.isAnyLoading(
+                            snapshotIsLoading: false,
+                            snapshotIsAuthorized: authorized,
+                            hasWorkoutData: hasWorkouts,
+                            dynamicLayoutState: state
+                        ) == false,
+                        "no loading phase active → no spinner"
+                    )
+                }
+            }
+        }
+    }
 }
