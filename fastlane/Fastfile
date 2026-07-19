@@ -17,6 +17,8 @@
 # errSecInternalComponent。改 manual：用 get_provisioning_profile 拉两个 bundleID 的
 # App Store profile，build_app 显式映射，彻底不依赖 automatic 的启发式挑选。
 
+require "base64"
+
 default_platform(:ios)
 
 APP_IDENTIFIER = "com.leepepe.vitalstride".freeze
@@ -96,31 +98,59 @@ platform :ios do
       clean: true
     )
 
-    # 自动把 build 分配到 TestFlight internal 群组，省去每次手动加。
-    # 群组名从 TESTFLIGHT_GROUPS 读（逗号分隔可多组），默认本 app 的 internal
-    # 群组 "Internal"。⚠️ 群组名必须与 App Store Connect 里**完全一致**（区分
-    # 大小写）；名字对不上时 fastlane 会静默跳过分配、build 传上去却不进任何
-    # 群组、测试员看不到（2026-07 踩过：默认填成不存在的 "App Store Connect
-    # Users" → 从未分配）。
+    # 上传 build 并等 ASC 处理完（分发到群组的前提）。
     #
-    # 分配群组要求 build 已 processed，所以 skip_waiting_for_build_processing 为
-    # false（lane 会等 ASC 处理完，通常 5-15min；workflow timeout 40min 足够）。
-    # 容错：即使等待/分配这步失败（处理异常慢、ASC 抖动），build 本身已上传成功，
-    # 不让整个 lane 失败 —— 分配可下次补或手动加。
-    tf_groups = ENV.fetch("TESTFLIGHT_GROUPS", "Internal")
-                   .split(",").map(&:strip).reject(&:empty?)
+    # ⚠️ 为什么不用 upload_to_testflight 的 `groups:` 参数：fastlane 文档明确
+    # `groups` 只在 `distribute_external: true` 时生效。我们要发到 **internal**
+    # 群组（distribute_external: false），所以 `groups:` 会被完全忽略 —— build
+    # 传上去、处理完，却不分发给 internal 测试员（2026-07 踩过 build 4/5：日志无
+    # 任何分发动作、也不报错，测试员看不到，要手动加）。而 ASC 对「Xcode/API 上传
+    # 的 build」的 internal 群组强制「手动分发」，不提供自动分发开关。
+    #
+    # 正确做法：上传后用 spaceship（fastlane 内置 ASC API）显式把 build 加到
+    # internal betaGroup。见下方 distribute-to-internal 块。
+    upload_to_testflight(
+      api_key: api_key,
+      app_identifier: APP_IDENTIFIER,
+      skip_waiting_for_build_processing: false,
+      skip_submission: true,
+      distribute_external: false
+    )
+
+    # 显式把刚上传的 build 分发到 internal 群组（默认 "Internal"，可用
+    # TESTFLIGHT_GROUPS 覆盖，逗号分隔可多组）。用 spaceship 直接调 ASC API，
+    # 绕开 upload_to_testflight `groups:` 对 internal 无效的坑。
+    # 容错：分发失败不让整个 lane 挂（binary 已上传），除非 TESTFLIGHT_STRICT_UPLOAD=1。
+    tf_group_names = ENV.fetch("TESTFLIGHT_GROUPS", "Internal")
+                        .split(",").map(&:strip).reject(&:empty?)
     begin
-      upload_to_testflight(
-        api_key: api_key,
-        app_identifier: APP_IDENTIFIER,
-        skip_waiting_for_build_processing: false,
-        skip_submission: true,
-        distribute_external: false,
-        groups: tf_groups
+      require "spaceship"
+      Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
+        key_id: ENV.fetch("ASC_KEY_ID"),
+        issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+        key: Base64.decode64(ENV.fetch("ASC_KEY_P8_BASE64"))
       )
+      asc_app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+      build = Spaceship::ConnectAPI::Build.all(
+        app_id: asc_app.id,
+        version: MARKETING_VERSION,
+        build_number: next_build.to_s
+      ).first
+      UI.user_error!("Uploaded build #{MARKETING_VERSION}(#{next_build}) not found in ASC for distribution") if build.nil?
+
+      all_groups = asc_app.get_beta_groups
+      tf_group_names.each do |gname|
+        grp = all_groups.find { |g| g.name == gname }
+        if grp.nil?
+          UI.important("Beta group '#{gname}' not found in ASC — skipping (check the exact name, case-sensitive).")
+          next
+        end
+        build.add_beta_groups(beta_groups: [grp])
+        UI.success("Distributed build #{MARKETING_VERSION}(#{next_build}) to group '#{gname}'.")
+      end
     rescue => e
-      UI.error("upload_to_testflight group-distribution step failed: #{e.message}")
-      UI.important("Binary upload itself may have succeeded; group assignment can be redone manually or next run.")
+      UI.error("Internal-group distribution failed: #{e.message}")
+      UI.important("Binary upload succeeded; the build is in TestFlight but not distributed to the group — add it manually or re-run.")
       raise e if ENV["TESTFLIGHT_STRICT_UPLOAD"] == "1"
     end
   end
