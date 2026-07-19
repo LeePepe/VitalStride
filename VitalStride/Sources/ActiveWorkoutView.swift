@@ -35,8 +35,14 @@ struct ActiveWorkoutView: View {
     @State private var substituteSheetState: ExerciseSubstituteSheet.ViewState = .loading
     @State private var substituteLoadTask: Task<Void, Never>?
     @State private var restTimer = RestTimerController()
+    // MY-1283: three-state HR model (T003). `hrConnectionState` reflects the
+    // WatchConnectivity link driven by T001 (unpaired/unreachable → not
+    // connected); `hrLastValue` + `heartRateReceivedAt` gate the `awaiting`
+    // vs `value` UI transitions. When the connection state is not `.reachable`
+    // we always render the disconnected state regardless of the last value.
     @State private var currentHeartRate: Double?
     @State private var heartRateReceivedAt: Date?
+    @State private var hrConnectionState: WatchConnectionState = .unsupported
     // MY-1245: track custom-numeric-keyboard visibility so the FAB can retreat
     // when the input keyboard is on screen — prevents the FAB from covering
     // input rows / row controls. `UITextField.inputView` (WorkoutNumericKeyboard)
@@ -252,6 +258,7 @@ struct ActiveWorkoutView: View {
             }
             #if !os(macOS)
             .task { await observeHeartRate() }
+            .task { await observeHeartRateConnection() }
             .task { await monitorHeartRateStaleness() }
             .onReceive(
                 NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
@@ -323,7 +330,8 @@ struct ActiveWorkoutView: View {
 
     #if !os(macOS)
     private var compactHeartRateItem: some View {
-        let bpmText = HeartRateFormatter.displayText(currentHeartRate)
+        let state = heartRateDisplayState
+        let bpmText = HeartRateFormatter.displayText(state)
         return HStack(spacing: 4) {
             Image(systemName: "heart.fill")
                 .font(.subheadline)
@@ -335,7 +343,7 @@ struct ActiveWorkoutView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "心率", comment: "Heart rate a11y label"))
-        .accessibilityValue(HeartRateFormatter.accessibilityText(currentHeartRate))
+        .accessibilityValue(HeartRateFormatter.accessibilityText(state))
     }
     #endif
 
@@ -549,19 +557,24 @@ struct ActiveWorkoutView: View {
 
     #if !os(macOS)
     private var heartRateLabel: some View {
-        let bpmText = HeartRateFormatter.displayText(currentHeartRate)
+        let state = heartRateDisplayState
+        let bpmText = HeartRateFormatter.displayText(state)
         let unitText = String(localized: "次/分", comment: "Heart rate unit bpm")
         return HStack(spacing: 2) {
             Image(systemName: "heart.fill")
             Text(bpmText)
                 .monospacedDigit()
-            Text(unitText)
+            // Only render the "次/分" unit suffix alongside a real numeric
+            // value — showing "未连接 次/分" would be nonsensical.
+            if case .value = state {
+                Text(unitText)
+            }
         }
         .font(.subheadline)
         .foregroundStyle(theme.danger)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "心率", comment: "Heart rate a11y label"))
-        .accessibilityValue(HeartRateFormatter.accessibilityText(currentHeartRate))
+        .accessibilityValue(HeartRateFormatter.accessibilityText(state))
     }
     #endif
 
@@ -755,7 +768,50 @@ struct ActiveWorkoutView: View {
     // MARK: - Actions
 
     #if !os(macOS)
+    /// MY-1283: derive the three-state display from
+    /// `hrConnectionState` + freshness of the last sample. Order matters:
+    ///
+    /// 1. If the Watch link is not `.reachable`, we're `disconnected` —
+    ///    regardless of whether we happen to still hold a stale value from a
+    ///    previous session. ADR-0010 Consequences: no Watch → no value.
+    /// 2. If we are reachable but the last value is stale (older than the
+    ///    freshness window) or absent, we're `awaiting`. Realtime HR should
+    ///    reflect a disconnect faster than the old 120 s window; drop to 20 s
+    ///    so an idle / dropped stream shows honestly.
+    /// 3. Otherwise render the fresh value.
+    private var heartRateDisplayState: HeartRateDisplayState {
+        guard hrConnectionState == .reachable else {
+            return .disconnected
+        }
+        let freshnessLimit: TimeInterval = 20
+        if let value = currentHeartRate,
+           let receivedAt = heartRateReceivedAt,
+           receivedAt.timeIntervalSinceNow > -freshnessLimit {
+            return .value(value)
+        }
+        return .awaiting
+    }
+
+    /// Consume the realtime Watch → iPhone HR stream exposed by T001
+    /// (`PhoneWorkoutSessionManager.observeLiveWorkoutHeartRate()`) instead
+    /// of passively polling the local HealthKit store. Falls back to the
+    /// pre-existing local anchored query for platforms / managers that
+    /// don't implement the live stream (default protocol impl returns a
+    /// finished stream — the `for await` loop simply exits then, and the
+    /// legacy passive read below fills in).
     private func observeHeartRate() async {
+        // Live Watch → iPhone stream (T001). Never logs the bpm value (§I).
+        if let manager = sessionManager {
+            let stream = await manager.observeLiveWorkoutHeartRate()
+            for await payload in stream {
+                currentHeartRate = payload.bpm
+                heartRateReceivedAt = Date()
+            }
+        }
+        // Legacy passive-read fallback (kept so macOS-adjacent builds and
+        // NoopWorkoutSessionManager runs still surface any value the local
+        // store already holds). Realtime path is preferred; this only runs
+        // if the live stream finished immediately.
         for await dataPoint in healthKitService.observeHeartRate() {
             guard dataPoint.startDate.timeIntervalSinceNow > -120 else { continue }
             currentHeartRate = dataPoint.value
@@ -763,9 +819,25 @@ struct ActiveWorkoutView: View {
         }
     }
 
+    /// Track the T001 WatchConnectivity connection-state stream so the UI
+    /// can drop to the honest "not connected" state the moment the Watch
+    /// link goes away (unpaired, unreachable, or unsupported).
+    private func observeHeartRateConnection() async {
+        guard let manager = sessionManager else { return }
+        let stream = await manager.observeConnectionState()
+        for await state in stream {
+            hrConnectionState = state
+        }
+    }
+
     private func monitorHeartRateStaleness() async {
-        let freshnessLimit: TimeInterval = 120
-        let checkInterval: Duration = .seconds(10)
+        // Realtime stream should surface staleness faster than the historic
+        // 120 s window. `heartRateDisplayState` already down-grades to
+        // `.awaiting` after 20 s without a sample; here we just clear the
+        // held value+timestamp so stale numbers can't linger in memory across
+        // a long silence. Preserves ADR-0010: no fabricated values.
+        let freshnessLimit: TimeInterval = 20
+        let checkInterval: Duration = .seconds(5)
         while !Task.isCancelled {
             try? await Task.sleep(for: checkInterval)
             if let receivedAt = heartRateReceivedAt,
@@ -1072,20 +1144,70 @@ struct ActiveWorkoutView: View {
     }
 }
 
-// MARK: - Heart Rate Formatter
+// MARK: - Heart Rate Display State (MY-1283)
+
+/// Three-state model for the active-workout heart-rate display. Replaces the
+/// ambiguous single "nil → --" placeholder (ADR-0010 Consequences: users
+/// without an Apple Watch must not see a value or imply one).
+///
+/// - `disconnected`: No paired / reachable Watch. UI shows an explicit
+///   "not connected" prompt; never renders a numeric value or the raw `--`.
+/// - `awaiting`: Watch session is active but no HR sample has arrived yet.
+///   UI shows a neutral waiting glyph so the user can tell we're online but
+///   haven't received data.
+/// - `value(bpm)`: Live BPM from the Watch's `HKLiveWorkoutBuilder` stream.
+enum HeartRateDisplayState: Equatable {
+    case disconnected
+    case awaiting
+    case value(Double)
+}
 
 enum HeartRateFormatter {
-    static func displayText(_ heartRate: Double?) -> String {
-        guard let heartRate else { return "--" }
-        return "\(Int(heartRate))"
+    /// Compact numeric / status text for the info-band and header.
+    static func displayText(_ state: HeartRateDisplayState) -> String {
+        switch state {
+        case .disconnected:
+            return String(
+                localized: "active_workout.heart_rate.disconnected",
+                defaultValue: "No Watch",
+                comment: "Active workout HR compact display when Watch not connected"
+            )
+        case .awaiting:
+            return String(
+                localized: "active_workout.heart_rate.awaiting",
+                defaultValue: "…",
+                comment: "Active workout HR compact display waiting for first sample"
+            )
+        case .value(let bpm):
+            return "\(Int(bpm))"
+        }
     }
 
-    static func accessibilityText(_ heartRate: Double?) -> String {
-        guard let heartRate else {
-            return String(localized: "无数据", comment: "No data a11y value")
+    /// VoiceOver value string. Uses the existing "N 次每分钟" a11y phrasing for
+    /// the value case (unchanged) and dedicated localized prompts for the
+    /// disconnected / awaiting states so screen-reader users get the same
+    /// honest three-state signal as sighted users.
+    static func accessibilityText(_ state: HeartRateDisplayState) -> String {
+        switch state {
+        case .disconnected:
+            return String(
+                localized: "active_workout.heart_rate.disconnected_a11y",
+                defaultValue: "Apple Watch not connected",
+                comment: "VoiceOver: no Apple Watch connected during workout"
+            )
+        case .awaiting:
+            return String(
+                localized: "active_workout.heart_rate.awaiting_a11y",
+                defaultValue: "Waiting for heart rate",
+                comment: "VoiceOver: connected but no HR sample yet"
+            )
+        case .value(let bpm):
+            let intBPM = Int(bpm)
+            return String(
+                localized: "\(intBPM) 次每分钟",
+                comment: "Heart rate a11y value with full unit"
+            )
         }
-        let bpm = Int(heartRate)
-        return String(localized: "\(bpm) 次每分钟", comment: "Heart rate a11y value with full unit")
     }
 }
 
