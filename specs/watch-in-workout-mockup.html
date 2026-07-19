@@ -1,0 +1,191 @@
+<!doctype html>
+<!--
+  DESIGN MOCKUP v5 — watchOS in-workout screen (MY-1282) · LAYER PRESETS
+  Two orthogonal config axes:
+    (A) LAYER PRESET — the tier skeleton (how many tiers, what each holds). 4 designed.
+    (B) MODULE TOGGLES — within a preset, turn individual modules on/off.
+  All preset cards use the same data (connected · Zone 3 · 深蹲) to compare skeletons.
+  Pixel-faithful DesignKit tokens (slate/dark) + teal seed. Visual reference only.
+-->
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VitalStride · Watch 训练屏 · Layer 预设</title>
+<style>
+  :root{
+    --bg:#111113; --card:#18191B; --inner:#282A2E;
+    --text1:#EDEEF0; --text2:#B0B4BA; --text3:#777B84; --border:#363A3F;
+    --success:#30D158; --warning:#FF9F0A; --danger:#FF453A;
+    --primary:#12A594; --onPrimary:#FFFFFF;
+    --sf:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0a0b;color:var(--text1);font-family:var(--sf);
+       padding:40px 24px 60px;display:flex;flex-direction:column;align-items:center;gap:8px}
+  h1{font-size:18px;font-weight:600;letter-spacing:-.02em}
+  h2{font-size:14px;color:var(--text2);margin:34px 0 4px;align-self:flex-start;max-width:960px;width:100%}
+  .sub{color:var(--text3);font-size:13px;margin-bottom:20px;text-align:center;line-height:1.5}
+  .row{display:flex;gap:34px;flex-wrap:wrap;justify-content:center;align-items:flex-start;max-width:1000px}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:10px;width:214px}
+  .caption{color:var(--text1);font-size:13px;font-weight:600;text-align:center}
+  .caption small{color:var(--text3);font-weight:400;display:block;margin-top:3px;line-height:1.45}
+  .tiermap{font-size:11px;color:var(--primary);font-weight:600;letter-spacing:.03em}
+
+  .watch{width:214px;height:260px;border-radius:52px;background:#000;padding:8px;
+         box-shadow:0 0 0 3px #1c1c1e,0 20px 40px rgba(0,0,0,.6)}
+  .screen{width:100%;height:100%;border-radius:44px;background:var(--bg);overflow:hidden;
+          padding:11px 15px 12px;display:flex;flex-direction:column;gap:8px;font-variant-numeric:tabular-nums}
+
+  .band{display:flex;justify-content:space-between;align-items:center;color:var(--text2);font-size:12px}
+  .band .clock{font-weight:600;color:var(--text1)}
+  .band span{display:flex;align-items:center;gap:4px}
+  .ic{color:var(--text3);font-size:11px}
+
+  .hr{display:flex;align-items:flex-start;justify-content:space-between}
+  .hrleft{display:flex;flex-direction:column}
+  .hrnum{display:flex;align-items:baseline;gap:6px}
+  .dot{width:8px;height:8px;border-radius:50%;margin-top:14px}
+  .num{font-size:40px;font-weight:600;line-height:.9;letter-spacing:-.02em}
+  .num.xl{font-size:64px}
+  .num.sm{font-size:22px;margin-top:0}
+  .bpm{font-size:11px;color:var(--text3);margin:1px 0 0 14px}
+  .hrright{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+  .pill{font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .pill.success{color:var(--success);background:rgba(48,209,88,.16)}
+  .pill.danger {color:var(--danger); background:rgba(255,69,58,.16)}
+  .pill.primary{color:var(--primary);background:rgba(18,165,148,.16)}
+  .pill.neutral{color:var(--text3); background:rgba(119,123,132,.16)}
+  .avg{font-size:11px;color:var(--text3);text-align:right}
+  .avg b{color:var(--text2);font-weight:600}
+
+  .next{background:var(--inner);border-radius:10px;padding:8px 11px;display:flex;flex-direction:column;gap:4px}
+  .next.big{padding:11px 12px;gap:7px}
+  .nexthead{display:flex;align-items:center;justify-content:space-between}
+  .sh{font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--text2);text-transform:uppercase}
+  .dotlbl{font-size:11px;color:var(--text3)}
+  .exrow{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .ex{font-size:15px;font-weight:600;color:var(--text1);line-height:1}
+  .ex.big{font-size:19px}
+  .stats{font-size:14px;font-weight:600;color:var(--text1);white-space:nowrap}
+  .stats.big{font-size:24px;font-weight:700}
+  .stats .u{font-size:11px;color:var(--text3);font-weight:500}
+  .stats .x{color:var(--text3);font-weight:400;margin:0 2px}
+  .dots{display:flex;align-items:center;gap:5px;margin-top:2px}
+  .pdot{width:8px;height:8px;border-radius:50%}
+  .pdot.done{background:var(--primary)}
+  .pdot.cur{background:var(--primary);box-shadow:0 0 0 3px rgba(18,165,148,.25)}
+  .pdot.todo{background:var(--border)}
+
+  /* list preset rows */
+  .lrow{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)}
+  .lrow:last-of-type{border-bottom:none}
+  .llbl{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.03em}
+  .lval{font-size:16px;font-weight:600;color:var(--text1)}
+  .lval .u{font-size:11px;color:var(--text3);font-weight:500}
+  .lval.hrv{color:var(--success)}
+
+  .btn{margin-top:auto;height:44px;border-radius:11px;background:var(--primary);color:var(--onPrimary);
+       display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px;font-weight:600;flex-shrink:0}
+  .btn .chev{font-size:13px;opacity:.85}
+
+  .legend{margin-top:40px;max-width:960px;background:var(--card);border:1px solid var(--border);
+          border-radius:14px;padding:20px 22px;color:var(--text2);font-size:13px;line-height:1.75}
+  .legend h3{color:var(--text1);font-size:15px;margin-bottom:10px}
+  .legend code{background:var(--inner);color:var(--text1);padding:1px 6px;border-radius:5px;font-size:12px}
+  .legend .fixed{color:var(--primary);font-weight:600}
+  .legend table{width:100%;border-collapse:collapse;margin:10px 0}
+  .legend td,.legend th{text-align:left;padding:5px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  .legend th{color:var(--text1);font-size:12px}
+</style>
+</head>
+<body>
+  <h1>VitalStride · Apple Watch 训练屏 <span style="color:var(--primary)">Layer 预设</span></h1>
+  <div class="sub">两个正交配置维度：<b style="color:var(--text2)">Layer 预设</b>（换骨架）× <b style="color:var(--text2)">模块开关</b>（骨架内开关模块）<br>下面 4 个预设都用同一数据（已连接 · Zone 3 · 深蹲），只对比骨架差异</div>
+
+  <div class="row">
+
+    <!-- A. 3·2·1 全信息（默认） -->
+    <div class="cell">
+      <div class="watch"><div class="screen">
+        <div class="band"><span class="clock">14:32</span><span><span class="ic">⏱</span> 24:18</span><span><span class="ic">◔</span> 6/12</span></div>
+        <div class="hr">
+          <div class="hrleft"><div class="hrnum"><div class="dot" style="background:var(--success)"></div><div class="num">128</div></div><div class="bpm">BPM</div></div>
+          <div class="hrright"><div class="pill success">Zone 3</div><div class="avg">均 <b>122</b> · 峰 <b>141</b></div></div>
+        </div>
+        <div class="next">
+          <div class="nexthead"><div class="sh">下一组</div><div class="dotlbl">第 3 / 5 组</div></div>
+          <div class="exrow"><div class="ex">深蹲</div><div class="stats">8<span class="u">次</span><span class="x">×</span>60<span class="u">kg</span></div></div>
+          <div class="dots"><span class="pdot done"></span><span class="pdot done"></span><span class="pdot cur"></span><span class="pdot todo"></span><span class="pdot todo"></span></div>
+        </div>
+        <div class="btn">完成这组 <span class="chev">✓</span></div>
+      </div></div>
+      <div class="tiermap">3 · 2 · 1</div>
+      <div class="caption">A. 全信息（默认）<small>顶带3项 / 心率2列 / 下一组1块。信息最全，日常首选。</small></div>
+    </div>
+
+    <!-- B. 2·1 心率优先（极简 glance） -->
+    <div class="cell">
+      <div class="watch"><div class="screen">
+        <div class="band"><span><span class="ic">⏱</span> 24:18</span><span><span class="ic">◔</span> 6/12</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px">
+          <div class="hrnum" style="justify-content:center"><div class="dot" style="background:var(--success);margin-top:26px"></div><div class="num xl">128</div></div>
+          <div style="display:flex;gap:8px;align-items:center"><span class="pill success">Zone 3</span><span class="bpm" style="margin:0">BPM · 均122</span></div>
+        </div>
+        <div class="btn">完成这组 <span class="chev">✓</span></div>
+      </div></div>
+      <div class="tiermap">2 · 1</div>
+      <div class="caption">B. 心率优先（极简）<small>顶带2项 / 心率超大独占。跑步、有氧、只盯心率时最快 glance。</small></div>
+    </div>
+
+    <!-- C. 列表（所有指标竖排） -->
+    <div class="cell">
+      <div class="watch"><div class="screen">
+        <div class="band"><span class="clock">14:32</span><span><span class="ic">◔</span> 6/12 组</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
+          <div class="lrow"><span class="llbl">心率</span><span class="lval hrv">128 <span class="u">· Zone 3</span></span></div>
+          <div class="lrow"><span class="llbl">下一组</span><span class="lval">深蹲 8<span class="u">×</span>60<span class="u">kg</span></span></div>
+          <div class="lrow"><span class="llbl">时长</span><span class="lval">24:18</span></div>
+          <div class="lrow"><span class="llbl">均 / 峰</span><span class="lval">122 <span class="u">/</span> 141</span></div>
+        </div>
+        <div class="btn">完成这组 <span class="chev">✓</span></div>
+      </div></div>
+      <div class="tiermap">1 · 1 · 1 · 1</div>
+      <div class="caption">C. 列表<small>每个指标一行竖排（仿 Apple 体能训练多指标视图）。想同时读全部数值时用。</small></div>
+    </div>
+
+    <!-- D. 下一组优先（倒置） -->
+    <div class="cell">
+      <div class="watch"><div class="screen">
+        <div class="band">
+          <span style="display:flex;align-items:center;gap:5px"><span class="dot" style="margin-top:0;background:var(--success)"></span><span style="color:var(--text1);font-weight:600">128</span><span class="pill success" style="padding:1px 6px">Z3</span></span>
+          <span><span class="ic">⏱</span> 24:18</span>
+        </div>
+        <div class="next big" style="flex:1;justify-content:center">
+          <div class="nexthead"><div class="sh">下一组</div><div class="dotlbl">第 3 / 5 组</div></div>
+          <div class="ex big">深蹲</div>
+          <div class="stats big">8<span class="u">次</span><span class="x">×</span>60<span class="u">kg</span></div>
+          <div class="dots"><span class="pdot done"></span><span class="pdot done"></span><span class="pdot cur"></span><span class="pdot todo"></span><span class="pdot todo"></span></div>
+        </div>
+        <div class="btn">完成这组 <span class="chev">✓</span></div>
+      </div></div>
+      <div class="tiermap">1 · 2 (倒置)</div>
+      <div class="caption">D. 下一组优先<small>心率缩成顶带一行 / 下一组放大为主视觉。力量训练看动作重量为主时用。</small></div>
+    </div>
+
+  </div>
+
+  <div class="legend">
+    <h3>配置架构（本 spec 直接做，不再占位）</h3>
+    两个正交维度，iPhone 端配置，WatchConnectivity 推给手表：
+    <table>
+      <tr><th>维度</th><th>含义</th><th>取值</th></tr>
+      <tr><td><b style="color:var(--text1)">Layer 预设</b></td><td>整屏骨架：分几层、每层放什么、谁是主视觉</td><td><code>fullInfo(3·2·1)</code> · <code>hrFocus(2·1)</code> · <code>list</code> · <code>nextFocus</code>，4 选 1（默认 fullInfo）</td></tr>
+      <tr><td><b style="color:var(--text1)">模块开关</b></td><td>选定预设内，开关每个信息模块</td><td><code>clock</code> <code>elapsed</code> <code>setsTotal</code> <code>hrZone</code> <code>hrAvgPeak</code> <code>nextSet</code> <code>setDots</code> 各可开关</td></tr>
+    </table>
+    <b class="fixed">两个硬锁（任何预设/开关都不能去掉）：</b> <code>heartRate</code> 心率（这屏存在的意义）· <code>primaryAction</code> 完成按钮（核心操作）。<br>
+    <b style="color:var(--text2)">不变量：</b>任何预设 × 任何开关组合，都必须<b>一屏装下不滚动</b>，完成按钮恒在底部锁定；关掉的模块由 <code>Spacer</code>/flex 自动重排填补。<br>
+    <b style="color:var(--text2)">实现要求（MY-1282）：</b>屏幕 body 写成 <code>预设骨架 + ForEach(启用模块)</code>，不写死任何一种布局——这样切换预设/开关是纯数据变化，零重写。
+  </div>
+</body>
+</html>
