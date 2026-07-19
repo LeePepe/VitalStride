@@ -457,7 +457,11 @@ struct ExercisePickerView: View {
         Button(action: action) {
             Text(label)
                 .font(TypeScale.meta)
-                .fontWeight(.semibold)
+                // MY-1277 repair: differentiate the two states via weight
+                // per the approved design-reviewer scheme — unselected
+                // `.medium`, selected `.semibold`. Weight (in addition to
+                // colour) reinforces the selected pill without shouting.
+                .fontWeight(isSelected ? .semibold : .medium)
                 // MY-1277: unselected text uses `text1` (primary body color)
                 // for stronger legibility on the glass surface — the prior
                 // `text2` reduction made unselected chips look disabled.
@@ -490,6 +494,19 @@ struct ExercisePickerView: View {
                         }
                     }
                 )
+                // MY-1277 repair: selected-state micro-lift via a
+                // token-derived shadow (primary @ 25% opacity). Matches the
+                // design-reviewer spec exactly (radius 4, y-offset 1) and
+                // pulls the selected pill fractionally out of the row
+                // without adding a stroke. Unselected chips remain flat so
+                // the row reads as a family of pills with one raised
+                // member. Shadow is attached to the capsule background,
+                // not the outer hit rect, so it hugs the pill silhouette.
+                .shadow(
+                    color: isSelected ? theme.primary.primary.opacity(0.25) : .clear,
+                    radius: isSelected ? 4 : 0,
+                    y: isSelected ? 1 : 0
+                )
                 // Extend the tap area vertically beyond the ~32pt visual
                 // capsule so the *hit* target satisfies Constitution §H
                 // (≥44pt). `contentShape` picks up the padded frame so a
@@ -497,7 +514,15 @@ struct ExercisePickerView: View {
                 // the capsule still hits this chip.
                 .padding(.vertical, 6)
                 .contentShape(Rectangle())
-                .frame(minHeight: 44)
+                // MY-1277 repair: enforce ≥44pt on BOTH axes so
+                // single-character CJK labels ("胸/背/肩/腿/臂") whose visual
+                // capsule renders ~40pt wide still meet Constitution §H
+                // (Cross-Cutting hit target). `.frame(minWidth: 44)`
+                // widens only the invisible tap rectangle picked up by
+                // `contentShape(Rectangle())`; the visible Capsule
+                // background sits inside and keeps its content-hugging
+                // width, so the chip strip's visual density is unchanged.
+                .frame(minWidth: 44, minHeight: 44)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
