@@ -371,64 +371,121 @@ extension PhoneWorkoutSessionManager: WatchConnectivitySessionDelegateHandling {
 
 // MARK: - Default WCSession-backed provider (iOS only)
 //
-// Apple-SDK boundary wrapper for `WCSession`. This is the ONLY type in the
-// bridge that keeps `@unchecked Sendable`, because:
-//   1. `WCSession` is a non-Sendable Apple SDK singleton.
-//   2. `WCSessionDelegate` is an `@objc` protocol requiring `NSObject`
-//      inheritance, which Swift actors do not permit.
-//   3. Delegate callbacks are dispatched by CoreFoundation on WCSession's
-//      own serial queue — Apple already serialises them for us.
-// Mutable state is confined to the `handlerBox` (an `OSAllocatedUnfairLock`,
-// itself `Sendable`); all other stored properties are `let`. Sendable
-// violations are impossible by construction. See ADR-0010 Addendum for the
-// original boundary decision.
+// Apple-SDK boundary wrapper for `WCSession`. This uses **checked** `Sendable`
+// conformance with per-property `nonisolated(unsafe)` markers — NOT
+// class-level `@unchecked Sendable`. The distinction matters (§Constitution II):
+//
+//   * `@unchecked Sendable` disables Sendable verification for the WHOLE type.
+//   * `nonisolated(unsafe) let` on a specific property is a narrow, per-line
+//     documented escape hatch that keeps the rest of the type under checked
+//     Sendable verification.
+//
+// The two objects we can't fully check are:
+//   1. `WCSession.default` — Apple's non-Sendable singleton. We hold no
+//      instance-owned reference to it; we always access it via
+//      `WCSession.default` at call sites (Apple guarantees thread safety for
+//      its public API: activate/isReachable/sendMessage/updateApplicationContext
+//      are all documented as safe to call from any thread).
+//   2. `DelegateShim` — an `NSObject`-subclass required by the `@objc`
+//      `WCSessionDelegate` protocol. NSObject subclasses cannot conform to
+//      checked `Sendable`. We instead give it `@unchecked Sendable` in the
+//      narrowest possible surface (a private nested type whose only role is
+//      to forward callbacks to a lock-guarded handler), and we mark this
+//      provider's single reference to it as `nonisolated(unsafe)` — the shim
+//      instance never escapes our control after `activate()` hands it to
+//      Apple. This is the checked-isolation pattern Apple documents in
+//      SE-0414 (Region-based Isolation) for pre-concurrency C/ObjC APIs.
 
 #if canImport(WatchConnectivity) && os(iOS)
 
-public final class DefaultWatchConnectivitySessionProvider: NSObject, WatchConnectivitySessionProviding, @unchecked Sendable {
-    private let session: WCSession
+public final class DefaultWatchConnectivitySessionProvider: WatchConnectivitySessionProviding {
+    // `DelegateShim` is a non-Sendable NSObject subclass (required by the
+    // `@objc WCSessionDelegate` protocol). We store it via
+    // `nonisolated(unsafe) let` — a per-property, Swift 6-blessed narrow
+    // escape hatch (SE-0412 / SE-0414) rather than class-wide
+    // `@unchecked Sendable`. The shim is:
+    //   * assigned once, at init time, on the initializing thread;
+    //   * handed to `WCSession.default.delegate` inside `activate()`; after
+    //     that Apple retains it and dispatches to it on WCSession's private
+    //     serial queue;
+    //   * never mutated by us after init, never read from our own
+    //     concurrent code paths (we always talk to it through the shim's
+    //     own lock-guarded handler slot, from within Apple's serial queue).
+    // These invariants make it safe to share across concurrency domains.
+    nonisolated(unsafe) private let shim: DelegateShim
+
+    public init() {
+        self.shim = DelegateShim()
+    }
+
+    // WCSession.default returns a non-Sendable singleton, but Apple
+    // documents its accessors as thread-safe. We never store it as an
+    // instance-owned property; each accessor calls WCSession.default
+    // directly so the compiler doesn't have to reason about our sharing it.
+    public var isSupported: Bool { WCSession.isSupported() }
+    public var isPaired: Bool { WCSession.default.isPaired }
+    public var isWatchAppInstalled: Bool { WCSession.default.isWatchAppInstalled }
+    public var isReachable: Bool { WCSession.default.isReachable }
+
+    public func activate() {
+        guard WCSession.isSupported() else { return }
+        WCSession.default.delegate = shim
+        WCSession.default.activate()
+    }
+
+    public func setDelegate(_ delegate: any WatchConnectivitySessionDelegateHandling) {
+        shim.setHandler(delegate)
+    }
+
+    public func sendMessage(_ dictionary: [String: Any]) throws {
+        guard WCSession.default.isReachable else {
+            throw WatchConnectivityBridgeError.notReachable
+        }
+        WCSession.default.sendMessage(dictionary, replyHandler: nil, errorHandler: nil)
+    }
+
+    public func updateApplicationContext(_ dictionary: [String: Any]) throws {
+        try WCSession.default.updateApplicationContext(dictionary)
+    }
+}
+
+extension DefaultWatchConnectivitySessionProvider: Sendable {}
+
+// MARK: - DelegateShim (private NSObject bridge)
+//
+// The only place `@unchecked Sendable` remains is on this private nested type.
+// Rationale (documented per §Constitution II):
+//   * `WCSessionDelegate` is an `@objc` protocol; conforming types MUST
+//     inherit from `NSObject`. NSObject subclasses cannot express checked
+//     `Sendable` conformance in Swift 6 — that's a language/ObjC-runtime
+//     boundary, not our choice.
+//   * The shim's ONLY mutable state is a `weak` handler reference guarded
+//     by `OSAllocatedUnfairLock` (itself Sendable). Every callback path
+//     reads/writes only through the lock.
+//   * The shim never touches WCSession internals; it just forwards
+//     Sendable-safe values (Bool, Error?) or `[String: Any]` dictionaries
+//     — the latter are decoded synchronously in the target actor's
+//     nonisolated shim (see `PhoneWorkoutSessionManager` above), so
+//     `[String: Any]` never leaves the delegate thread.
+// This is the smallest possible unchecked surface: 30 lines instead of
+// spreading across the whole provider.
+
+private final class DelegateShim: NSObject, WCSessionDelegate, @unchecked Sendable {
     private let handlerBox = OSAllocatedUnfairLock<HandlerBox>(initialState: HandlerBox())
 
     private struct HandlerBox: Sendable {
         weak var handler: (any WatchConnectivitySessionDelegateHandling)?
     }
 
-    public override init() {
-        self.session = WCSession.default
-        super.init()
-    }
-
-    public var isSupported: Bool { WCSession.isSupported() }
-    public var isPaired: Bool { session.isPaired }
-    public var isWatchAppInstalled: Bool { session.isWatchAppInstalled }
-    public var isReachable: Bool { session.isReachable }
-
-    public func activate() {
-        guard WCSession.isSupported() else { return }
-        session.delegate = self
-        session.activate()
-    }
-
-    public func setDelegate(_ delegate: any WatchConnectivitySessionDelegateHandling) {
-        handlerBox.withLock { $0.handler = delegate }
-    }
-
-    public func sendMessage(_ dictionary: [String: Any]) throws {
-        guard session.isReachable else { throw WatchConnectivityBridgeError.notReachable }
-        session.sendMessage(dictionary, replyHandler: nil, errorHandler: nil)
-    }
-
-    public func updateApplicationContext(_ dictionary: [String: Any]) throws {
-        try session.updateApplicationContext(dictionary)
+    func setHandler(_ handler: any WatchConnectivitySessionDelegateHandling) {
+        handlerBox.withLock { $0.handler = handler }
     }
 
     private func currentHandler() -> (any WatchConnectivitySessionDelegateHandling)? {
         handlerBox.withLock { $0.handler }
     }
-}
 
-extension DefaultWatchConnectivitySessionProvider: WCSessionDelegate {
-    public func session(
+    func session(
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: (any Error)?
@@ -442,24 +499,24 @@ extension DefaultWatchConnectivitySessionProvider: WCSessionDelegate {
         )
     }
 
-    public func sessionDidBecomeInactive(_ session: WCSession) {
+    func sessionDidBecomeInactive(_ session: WCSession) {
         currentHandler()?.sessionDidChangeReachability(isReachable: session.isReachable)
     }
 
-    public func sessionDidDeactivate(_ session: WCSession) {
+    func sessionDidDeactivate(_ session: WCSession) {
         // Per Apple guidance re-activate to allow switching watches.
         WCSession.default.activate()
     }
 
-    public func sessionReachabilityDidChange(_ session: WCSession) {
+    func sessionReachabilityDidChange(_ session: WCSession) {
         currentHandler()?.sessionDidChangeReachability(isReachable: session.isReachable)
     }
 
-    public func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         currentHandler()?.sessionDidReceiveMessage(message)
     }
 
-    public func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
         currentHandler()?.sessionDidReceiveApplicationContext(applicationContext)
     }
 }

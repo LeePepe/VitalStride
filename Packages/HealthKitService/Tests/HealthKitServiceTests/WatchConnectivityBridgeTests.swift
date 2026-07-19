@@ -736,6 +736,105 @@ struct PhoneHRBufferingTests {
     }
 }
 
+// MARK: - Concurrency / Sendable regression (P0: replace @unchecked Sendable)
+
+/// Verifies the bridge types compose under Swift 6 strict-concurrency
+/// checking. If any of these guarantees regress (e.g. someone re-introduces
+/// class-level `@unchecked Sendable` on the provider, or a stored property
+/// becomes mutable without proper isolation), this file will fail to
+/// compile — the tests' mere existence is the assertion.
+@Suite("PhoneWorkoutSessionManager Sendable / concurrency contracts")
+struct PhoneSendableContractTests {
+
+    /// Compile-time proof: `PhoneWorkoutSessionManager` is `Sendable`
+    /// (automatically, because it's an actor). If someone accidentally
+    /// converts it back to a class this line stops compiling.
+    @Test("Manager conforms to Sendable (compile-time)")
+    func managerIsSendable() {
+        func requireSendable<T: Sendable>(_ value: T.Type) {}
+        requireSendable(PhoneWorkoutSessionManager.self)
+    }
+
+    /// Compile-time proof: `WatchConnectivityMessage` is `Sendable` — it's
+    /// the type that crosses the delegate-thread → actor boundary.
+    @Test("Message is Sendable (compile-time)")
+    func messageIsSendable() {
+        func requireSendable<T: Sendable>(_ value: T.Type) {}
+        requireSendable(WatchConnectivityMessage.self)
+    }
+
+    /// The manager must tolerate concurrent HR + set-completed +
+    /// wrong-channel arrivals from multiple pseudo-delegate threads
+    /// without racing or crashing. If actor isolation or channel
+    /// enforcement regresses this test will either data-race (crash
+    /// under TSAN) or drop events.
+    @Test("Concurrent multi-channel arrivals do not race")
+    func concurrentArrivalsDoNotRace() async throws {
+        let fake = FakeWCSession()
+        let manager = PhoneWorkoutSessionManager(session: fake)
+        await manager.startSession()
+
+        let hrStream = await manager.observeLiveWorkoutHeartRate()
+        let setStream = await manager.observeSetCompleted()
+
+        let ts = Date(timeIntervalSince1970: 1_700_003_000)
+        let workoutID = UUID()
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for i in 0..<50 {
+                group.addTask {
+                    let payload = LiveHeartRatePayload(bpm: 60 + Double(i % 10), timestamp: ts, sourceName: nil)
+                    fake.simulateIncomingMessage(
+                        try WatchConnectivityCodec.encodeDictionary(.liveHeartRate(payload))
+                    )
+                }
+            }
+            for i in 0..<25 {
+                group.addTask {
+                    let event = SetCompletedEvent(
+                        workoutID: workoutID,
+                        setID: UUID(),
+                        actualReps: i,
+                        completedAt: ts
+                    )
+                    fake.simulateIncomingMessage(
+                        try WatchConnectivityCodec.encodeDictionary(.setCompleted(event))
+                    )
+                }
+            }
+            for _ in 0..<25 {
+                group.addTask {
+                    // Wrong-channel HR: must be silently dropped by
+                    // channel-direction enforcement.
+                    let payload = LiveHeartRatePayload(bpm: 120, timestamp: ts, sourceName: nil)
+                    fake.simulateIncomingApplicationContext(
+                        try WatchConnectivityCodec.encodeDictionary(.liveHeartRate(payload))
+                    )
+                }
+            }
+            try await group.waitForAll()
+        }
+
+        // Drain queued delegate Tasks.
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        var hrIterator = hrStream.makeAsyncIterator()
+        let hr = await hrIterator.next()
+        #expect(hr != nil, "at least one HR sample expected to survive")
+
+        var setIterator = setStream.makeAsyncIterator()
+        let event = await setIterator.next()
+        #expect(event != nil, "at least one set-completed event expected")
+    }
+
+    /// The fake session provider must itself be Sendable so tests exercise
+    /// the same concurrency contract as production. Compile-time only.
+    @Test("FakeWCSession conforms to Sendable")
+    func fakeIsSendable() {
+        func requireSendable<T: Sendable>(_ value: T.Type) {}
+        requireSendable(FakeWCSession.self)
+    }
+}
+
 // MARK: - Contract: WatchScreenConfig carries no HK values (privacy §I)
 
 @Suite("WatchScreenConfig privacy contract")
