@@ -3222,6 +3222,23 @@
         }
       }
     },
+    "展开搜索": {
+      "comment": "Expand search a11y hint",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expand search"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "展开搜索"
+          }
+        }
+      }
+    },
     "最低": {
       "comment": "Minimum\nMinimum heart rate",
       "localizations": {
