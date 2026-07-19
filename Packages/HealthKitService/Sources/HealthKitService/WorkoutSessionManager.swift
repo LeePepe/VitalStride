@@ -79,14 +79,20 @@ public struct NoopWorkoutSessionManager: WorkoutSessionManaging {
 @available(watchOS 5.0, *)
 public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unchecked Sendable {
     private let healthStore: HKHealthStore
+    private let sender: any WatchToPhoneSending
     private let logger: Logger
     private let lock = NSLock()
 
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
+    private var pushedHRSampleCount = 0
 
-    public init(healthStore: HKHealthStore) {
+    public init(
+        healthStore: HKHealthStore,
+        sender: any WatchToPhoneSending = NoopWatchToPhoneSender()
+    ) {
         self.healthStore = healthStore
+        self.sender = sender
         self.logger = Logger(subsystem: "com.vitalstride", category: "WorkoutSession")
         super.init()
     }
@@ -112,6 +118,7 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
                 healthStore: healthStore,
                 workoutConfiguration: configuration
             )
+            newBuilder.delegate = self
 
             let startDate = Date()
             newSession.startActivity(with: startDate)
@@ -126,6 +133,7 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
             lock.withLock {
                 self.session = newSession
                 self.builder = newBuilder
+                self.pushedHRSampleCount = 0
             }
 
             logger.info("workout_session_started activityType=traditionalStrengthTraining")
@@ -137,10 +145,11 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
     }
 
     public func endSession(save: Bool) async -> String? {
-        let (currentSession, currentBuilder) = lock.withLock {
-            let result = (session, builder)
+        let (currentSession, currentBuilder, hrCount) = lock.withLock {
+            let result = (session, builder, pushedHRSampleCount)
             session = nil
             builder = nil
+            pushedHRSampleCount = 0
             return result
         }
 
@@ -157,11 +166,11 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
 
             if save {
                 let hkWorkout = try await currentBuilder.finishWorkout()
-                logger.info("workout_session_ended saved=true")
+                logger.info("workout_session_ended saved=true hrPushed=\(hrCount, privacy: .public)")
                 return hkWorkout?.uuid.uuidString
             } else {
                 currentBuilder.discardWorkout()
-                logger.info("workout_session_ended saved=false")
+                logger.info("workout_session_ended saved=false hrPushed=\(hrCount, privacy: .public)")
                 return nil
             }
         } catch {
@@ -169,6 +178,42 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
                 "workout_session_end_failed error=\(error.localizedDescription, privacy: .private)"
             )
             return nil
+        }
+    }
+
+    // MARK: HR push helper
+
+    /// Extract HR quantity samples from a builder statistics update and push
+    /// each via `sender`. Privacy §I: NEVER log the bpm value; count only.
+    private func pushHRSamplesIfAvailable(
+        collectedTypes: Set<HKSampleType>,
+        from builder: HKLiveWorkoutBuilder
+    ) {
+        let hrType = HKQuantityType(.heartRate)
+        guard collectedTypes.contains(hrType) else { return }
+        guard let stats = builder.statistics(for: hrType) else { return }
+        guard let mostRecent = stats.mostRecentQuantity() else { return }
+        guard let dateInterval = stats.mostRecentQuantityDateInterval() else { return }
+
+        let bpm = mostRecent.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+        let payload = LiveHeartRatePayload(
+            bpm: bpm,
+            timestamp: dateInterval.end,
+            sourceName: "Apple Watch"
+        )
+        guard payload.isPhysiologicallyPlausible else {
+            // Never log bpm; log rejection reason only.
+            logger.info("workout_hr_rejected reason=out_of_range")
+            return
+        }
+        do {
+            try sender.send(.liveHeartRate(payload))
+            lock.withLock { pushedHRSampleCount += 1 }
+            logger.info("workout_hr_pushed sampleType=heartRate count=1")
+        } catch {
+            // Do not log the value. `.notReachable` is expected when phone
+            // is asleep/out of range — record kind only.
+            logger.info("workout_hr_push_failed reason=\(String(describing: error), privacy: .public)")
         }
     }
 }
@@ -199,6 +244,22 @@ extension WorkoutSessionManager: HKWorkoutSessionDelegate {
             session = nil
             builder = nil
         }
+    }
+}
+
+// MARK: - HKLiveWorkoutBuilderDelegate
+
+@available(watchOS 5.0, *)
+extension WorkoutSessionManager: HKLiveWorkoutBuilderDelegate {
+    public func workoutBuilder(
+        _ workoutBuilder: HKLiveWorkoutBuilder,
+        didCollectDataOf collectedTypes: Set<HKSampleType>
+    ) {
+        pushHRSamplesIfAvailable(collectedTypes: collectedTypes, from: workoutBuilder)
+    }
+
+    public func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {
+        // No HR value — nothing to forward here. Kept to satisfy protocol.
     }
 }
 

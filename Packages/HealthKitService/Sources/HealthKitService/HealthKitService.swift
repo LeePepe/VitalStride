@@ -743,7 +743,14 @@ public final class HealthKitService: Sendable {
             return NoopWorkoutSessionManager()
         }
         if #available(watchOS 5.0, *) {
+            #if canImport(WatchConnectivity)
+            return WorkoutSessionManager(
+                healthStore: realStore,
+                sender: DefaultWatchToPhoneSender()
+            )
+            #else
             return WorkoutSessionManager(healthStore: realStore)
+            #endif
         }
         return NoopWorkoutSessionManager()
         #elseif canImport(WatchConnectivity) && os(iOS)
