@@ -79,9 +79,10 @@ AI provider chain：**Apple Intelligence Foundation Models 优先**（On-device,
 
 - iOS 全功能；macOS 复用 iOS 视图（SwiftUI 自适应）；watchOS 仅展示训练 + 健康概览。
 - 不为 watchOS 写独立 complication / 独立训练流程；不为 macOS 写 menubar / shortcut intent 等。
-- 重启 watchOS/macOS 专属 feature 需新 ADR 推翻 ADR-0002。
+- **例外（ADR-0010）**：watchOS 实时心率训练流程（Watch `HKWorkoutSession` + `WatchConnectivity` 把实时心率推给 iOS active-workout）已被显式 promote，属 ADR-0002 的 narrow 例外，可立项。此例外仅限该实时心率路径；其余 watchOS/macOS 专属 feature 仍冻结。
+- 重启其它 watchOS/macOS 专属 feature 需新 ADR（推翻或再开 ADR-0002 例外）。
 
-参考：ADR-0002 (deferred watchOS / macOS feature work)。
+参考：ADR-0002 (deferred watchOS / macOS feature work)、ADR-0010 (promote watchOS live heart-rate)。
 
 ---
 
@@ -261,6 +262,8 @@ TL 每次 pipeline 起手前必须扫描：
   - MAJOR — 删除/反转原则；MINOR — 新增原则/新 Quality Bar；PATCH — 文字澄清不改语义
 - 与本宪法相关：AGENTS.md（agent 操作手册）、CONTEXT.md（数据架构细节）、`docs/adr/`（决策档案）、`scripts/hooks/`（强制规则机器实现）。
 
-**Version**: 2.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-03
+**Version**: 2.1.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-19
+
+> 2.1.0（MINOR，放松 §VII 约束）：watchOS 实时心率训练流程被显式 promote 为 ADR-0002 的 narrow 例外（[ADR-0010](../../docs/adr/0010-promote-watchos-live-heart-rate.md)）。companion-first 与「promote 须 ADR」的门槛不变，§I 隐私红线对该路径全额适用。
 
 > 2.0.0（MAJOR，反转原则）：Git 工作流由 no-PR 反转为 PR-required（[ADR-0009](../../docs/adr/0009-pr-required-workflow.md) supersede ADR-0001）。`main` 改由 branch protection（6 required checks + 1 review + enforce_admins）强制，替代已移除的 pre-push main-only / MY-key 强制。
