@@ -1,6 +1,78 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "active_workout.heart_rate.disconnected": {
+      "extractionState": "manual",
+      "comment": "Active workout HR compact display when no Apple Watch is connected / reachable (MY-1283 three-state HR).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Watch"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未连接"
+          }
+        }
+      }
+    },
+    "active_workout.heart_rate.awaiting": {
+      "extractionState": "manual",
+      "comment": "Active workout HR compact display when Watch is connected but no HR sample has arrived yet (MY-1283 three-state HR).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "…"
+          }
+        }
+      }
+    },
+    "active_workout.heart_rate.disconnected_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver value for the active-workout heart-rate metric when no Apple Watch is connected (MY-1283).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Watch not connected"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需 Apple Watch 连接"
+          }
+        }
+      }
+    },
+    "active_workout.heart_rate.awaiting_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver value for the active-workout heart-rate metric when connected to Watch but waiting for the first sample (MY-1283).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for heart rate"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待心率数据"
+          }
+        }
+      }
+    },
     "active_workout_toggle_large_text_size": {
       "extractionState": "manual",
       "localizations": {
