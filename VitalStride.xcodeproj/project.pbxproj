@@ -202,6 +202,7 @@
 		BA6CA2B0ED006467F210B49E /* UserInterestTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AE17B68B9690E64E34762B /* UserInterestTracker.swift */; };
 		BC6EF5C6005A4680303385AD /* RestTimerAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52A132220BBE3C14313FCEC3 /* RestTimerAttributes.swift */; };
 		BC8A20B0D2B649FFA8B38BAE /* WorkoutCopyToNextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C631CA96B865182A29C34AE0 /* WorkoutCopyToNextTests.swift */; };
+		BD6776D419E5B646BD243721 /* HeartRateStreamAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5BC183A2F32AE7536AB65D /* HeartRateStreamAdapterTests.swift */; };
 		BDF0D43401B90AEC27A36D00 /* ListCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED02E7485ECEE98DB402147 /* ListCardView.swift */; };
 		BE7FE5DFE1252469CEA058CF /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 193733B006ED472D5112547F /* HealthKit.framework */; };
 		BE90671E88BC6F81CC20D7D9 /* ActivitySummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58713437993C2C6908610F8E /* ActivitySummaryCard.swift */; };
@@ -317,6 +318,7 @@
 		1603D0F5C77012505D046A7D /* MetricCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCardView.swift; sourceTree = "<group>"; };
 		193733B006ED472D5112547F /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		1974A9040E4E0E1EB46255EE /* ActiveWorkoutHitTargetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutHitTargetTests.swift; sourceTree = "<group>"; };
+		1A5BC183A2F32AE7536AB65D /* HeartRateStreamAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateStreamAdapterTests.swift; sourceTree = "<group>"; };
 		1C452054A5F7F0CDF19E2C9F /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		1D1431725938026D6E946363 /* AdaptiveCardGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveCardGrid.swift; sourceTree = "<group>"; };
 		1E2C97DDA63128107019DFBF /* OnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTests.swift; sourceTree = "<group>"; };
@@ -597,6 +599,7 @@
 				693E0C1C4D96AC82F1478F2F /* HeartRatePrivacyLoggingTests.swift */,
 				EDDDA5C49A692159D6CDD57D /* HeartRateSectionTests.swift */,
 				CCC94E0BE8383E0D8E7C1036 /* HeartRateStateResolverTests.swift */,
+				1A5BC183A2F32AE7536AB65D /* HeartRateStreamAdapterTests.swift */,
 				200FE032CCD4A657A1D891D6 /* MinOneSetInvariantTests.swift */,
 				92A787CF4DB49927AFBC5DDF /* ModelContainerTests.swift */,
 				524E9CAE68FFB5B851E45752 /* ModelTests.swift */,
@@ -1361,6 +1364,7 @@
 				9E8570F86AA3E24BFF3BAC19 /* HeartRatePrivacyLoggingTests.swift in Sources */,
 				264A22BE35CA02EF3BE4B846 /* HeartRateSectionTests.swift in Sources */,
 				2914B56CF03FF2807647DECF /* HeartRateStateResolverTests.swift in Sources */,
+				BD6776D419E5B646BD243721 /* HeartRateStreamAdapterTests.swift in Sources */,
 				5F4D388D73032C6865B2304F /* MinOneSetInvariantTests.swift in Sources */,
 				E68DBA49DC9C0A4E75F339FD /* ModelContainerTests.swift in Sources */,
 				614503EFA888692CA1F1088D /* ModelTests.swift in Sources */,
