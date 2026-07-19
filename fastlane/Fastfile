@@ -97,14 +97,17 @@ platform :ios do
     )
 
     # 自动把 build 分配到 TestFlight internal 群组，省去每次手动加。
-    # 群组名从 TESTFLIGHT_GROUPS 读（逗号分隔可多组），默认 ASC 每个 app 自带的
-    # "App Store Connect Users" internal 群组。
+    # 群组名从 TESTFLIGHT_GROUPS 读（逗号分隔可多组），默认本 app 的 internal
+    # 群组 "Internal"。⚠️ 群组名必须与 App Store Connect 里**完全一致**（区分
+    # 大小写）；名字对不上时 fastlane 会静默跳过分配、build 传上去却不进任何
+    # 群组、测试员看不到（2026-07 踩过：默认填成不存在的 "App Store Connect
+    # Users" → 从未分配）。
     #
     # 分配群组要求 build 已 processed，所以 skip_waiting_for_build_processing 为
     # false（lane 会等 ASC 处理完，通常 5-15min；workflow timeout 40min 足够）。
     # 容错：即使等待/分配这步失败（处理异常慢、ASC 抖动），build 本身已上传成功，
     # 不让整个 lane 失败 —— 分配可下次补或手动加。
-    tf_groups = ENV.fetch("TESTFLIGHT_GROUPS", "App Store Connect Users")
+    tf_groups = ENV.fetch("TESTFLIGHT_GROUPS", "Internal")
                    .split(",").map(&:strip).reject(&:empty?)
     begin
       upload_to_testflight(
