@@ -258,12 +258,26 @@ public final class WatchWorkoutViewModel: ObservableObject {
 
     private func applyConnectionState(_ state: WatchConnectionState) {
         display = display.with(connection: state)
-        // Downgrade HR to "not connected" when transport goes cold and
-        // we haven't yet seen a local sample. Once we have one we keep
-        // showing it — Apple's Workout app follows the same "last-good"
-        // convention on the watch's own screen.
-        if state != .reachable, case .notConnected = display.hr {
-            // stays notConnected
+        // Emit the three-state HR transition per spec §6a. Connection is
+        // the sole signal for `.notConnected` / `.connectedNoData`; a
+        // `.connected(bpm, zone)` value is only produced by `applyLocalHR`.
+        //
+        //   * reachable + no sample seen yet  → .connectedNoData
+        //   * reachable + sample already seen → keep last-good .connected
+        //   * !reachable                      → .notConnected (drop bpm)
+        //
+        // "Last-good on drop" would mask a real transport failure on the
+        // watch's own screen, so we surface `.notConnected` as soon as
+        // the connection is not reachable regardless of prior samples.
+        switch state {
+        case .reachable:
+            if case .connected = display.hr {
+                // keep last-good bpm; a subsequent HR sample will refresh it
+            } else {
+                display = display.with(hr: .connectedNoData)
+            }
+        case .unsupported, .notPaired, .notInstalled, .unreachable:
+            display = display.with(hr: .notConnected)
         }
         logger.info("watch_vm_connection_state state=\(String(describing: state), privacy: .public)")
     }
