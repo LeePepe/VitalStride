@@ -7,7 +7,7 @@ import HealthKitService
 import SwiftUI
 import os
 
-// MARK: - WatchWorkoutViewModel
+// MARK: - WatchWorkoutLifecycleViewModel
 //
 // Owns the watch-side workout lifecycle for the strength-training screen
 // (MY-1282). Responsibilities:
@@ -16,6 +16,12 @@ import os
 //   * Track a coarse UI state — idle / requestingAuth / active / ending /
 //     failed(reason) — so the view can render start/end/failure states.
 //
+// Renamed from `WatchWorkoutViewModel` in MY-1290 so the new display-state
+// adapter (`WatchWorkoutViewModel` in `WatchWorkoutViewModel.swift`) can
+// take the shorter name without collision. This lifecycle VM is invoked
+// by the entry screen; the display-state VM is owned by the in-workout
+// screen (MY-1291/MY-1292) once composition lands.
+//
 // Privacy §I: NEVER log HR values. This view-model does not hold HR values
 // (they flow watch → iPhone through `WatchToPhoneSending` inside the manager);
 // the on-watch UI in scope for T002 is start/end only.
@@ -23,7 +29,7 @@ import os
 // Concurrency §II: `@MainActor` isolation for UI-driving state; manager
 // callbacks are already async and delivered onto the caller's actor.
 @MainActor
-final class WatchWorkoutViewModel: ObservableObject {
+final class WatchWorkoutLifecycleViewModel: ObservableObject {
     enum State: Equatable {
         case idle
         case requestingAuthorization
@@ -39,7 +45,7 @@ final class WatchWorkoutViewModel: ObservableObject {
     private let manager: any WorkoutSessionManaging
     private let logger = Logger(subsystem: "com.vitalstride", category: "WatchWorkoutVM")
 
-    init(deviceIdentifier: String = WatchWorkoutViewModel.defaultDeviceIdentifier) {
+    init(deviceIdentifier: String = WatchWorkoutLifecycleViewModel.defaultDeviceIdentifier) {
         let service = HealthKitService(deviceIdentifier: deviceIdentifier)
         self.service = service
         self.manager = service.makeWorkoutSessionManager()
@@ -119,7 +125,7 @@ final class WatchWorkoutViewModel: ObservableObject {
 
 struct WatchContentView: View {
     @Environment(\.theme) private var theme
-    @StateObject private var viewModel = WatchWorkoutViewModel()
+    @StateObject private var viewModel = WatchWorkoutLifecycleViewModel()
 
     var body: some View {
         NavigationStack {
@@ -144,7 +150,7 @@ struct WatchContentView: View {
 /// live HR rendering. This view only exposes the workout lifecycle.
 struct StrengthWorkoutView: View {
     @Environment(\.theme) private var theme
-    @ObservedObject var viewModel: WatchWorkoutViewModel
+    @ObservedObject var viewModel: WatchWorkoutLifecycleViewModel
 
     var body: some View {
         VStack(spacing: 12) {
@@ -226,7 +232,7 @@ struct StrengthWorkoutView: View {
 #Preview("StrengthWorkoutView — active") {
     NavigationStack {
         StrengthWorkoutView(
-            viewModel: WatchWorkoutViewModel(
+            viewModel: WatchWorkoutLifecycleViewModel(
                 manager: NoopWorkoutSessionManager(),
                 initialState: .active
             )
@@ -238,7 +244,7 @@ struct StrengthWorkoutView: View {
 #Preview("StrengthWorkoutView — failed") {
     NavigationStack {
         StrengthWorkoutView(
-            viewModel: WatchWorkoutViewModel(
+            viewModel: WatchWorkoutLifecycleViewModel(
                 manager: NoopWorkoutSessionManager(),
                 initialState: .failed(String(localized: "启动失败", comment: "preview failure"))
             )
