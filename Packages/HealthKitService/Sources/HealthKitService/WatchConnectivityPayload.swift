@@ -335,6 +335,15 @@ public struct WorkoutStateSnapshot: Sendable, Codable, Equatable {
 
 /// User-selected layout for the in-workout watch screen. App-configuration,
 /// no HK health values (§I).
+///
+/// Contract is defined by `specs/watch-in-workout-screen.md` §7 (axis A + axis B):
+/// - **Axis A** (`Preset`): one of four preset layouts. Default `.fullInfo`.
+/// - **Axis B** (`enabledModules`): the set of modules the user has enabled.
+///   Two modules are **locked on** at the contract level (`heartRate`,
+///   `primaryAction`) — even if a decoded payload or a caller-supplied set omits
+///   them, `enabledModules` on the resulting value will always contain them.
+///   This enforces the "never blank / never HR-hidden / always actionable"
+///   guarantee spec §7 gives the watch renderer.
 public struct WatchScreenConfig: Sendable, Codable, Equatable {
     public enum Preset: String, Sendable, Codable, CaseIterable {
         case fullInfo
@@ -343,14 +352,27 @@ public struct WatchScreenConfig: Sendable, Codable, Equatable {
         case nextFocus
     }
 
+    /// Module identifiers correspond 1:1 with spec §7 axis B "Module toggles"
+    /// table. Adding a new case is a wire-format change.
     public enum Module: String, Sendable, Codable, CaseIterable {
-        case currentExercise
-        case nextExercise
-        case setList
+        case clock
+        case elapsed
+        case setsTotal
         case heartRate
-        case timer
-        case setProgress
+        case hrZone
+        case hrAvgPeak
+        case nextSet
+        case setDots
+        case primaryAction
     }
+
+    /// Modules that are locked on at the contract level. Even when a
+    /// decoded payload or caller-provided set omits them, the effective
+    /// `enabledModules` will still contain them. Spec §7 marks these
+    /// `LOCKED on` because the watch screen must never hide HR (safety /
+    /// core value proposition) and must always expose the primary action
+    /// (otherwise the user can't complete a set).
+    public static let lockedOnModules: Set<Module> = [.heartRate, .primaryAction]
 
     public let preset: Preset
     public let enabledModules: Set<Module>
@@ -358,8 +380,49 @@ public struct WatchScreenConfig: Sendable, Codable, Equatable {
 
     public init(preset: Preset, enabledModules: Set<Module>, updatedAt: Date) {
         self.preset = preset
-        self.enabledModules = enabledModules
+        // Enforce locked-on invariant at the boundary. Callers cannot
+        // construct a config that omits `heartRate` / `primaryAction`.
+        self.enabledModules = enabledModules.union(Self.lockedOnModules)
         self.updatedAt = updatedAt
+    }
+
+    /// Deterministic fallback config used by the watch when no config has
+    /// been received yet (fresh install, WC transport still handshaking,
+    /// or decode failure at the boundary). Spec §7 "Watch fallback":
+    /// stale/absent config → default (`fullInfo`, all on). Never blank.
+    public static func defaultConfig(
+        at date: Date = Date(timeIntervalSince1970: 0)
+    ) -> WatchScreenConfig {
+        WatchScreenConfig(
+            preset: .fullInfo,
+            enabledModules: Set(Module.allCases),
+            updatedAt: date
+        )
+    }
+
+    // MARK: Codable — enforce locked invariants on decode
+
+    private enum CodingKeys: String, CodingKey {
+        case preset
+        case enabledModules
+        case updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let preset = try container.decode(Preset.self, forKey: .preset)
+        let decodedModules = try container.decode(Set<Module>.self, forKey: .enabledModules)
+        let updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        // Route through the designated init so lockedOn invariants apply
+        // to decoded payloads too — even if a producer stripped them off.
+        self.init(preset: preset, enabledModules: decodedModules, updatedAt: updatedAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(preset, forKey: .preset)
+        try container.encode(enabledModules, forKey: .enabledModules)
+        try container.encode(updatedAt, forKey: .updatedAt)
     }
 
     fileprivate func validate(expectedKind: String) throws {
