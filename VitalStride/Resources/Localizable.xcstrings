@@ -10052,6 +10052,492 @@
           }
         }
       }
+    },
+    "watch.hr.notConnected": {
+      "extractionState": "manual",
+      "comment": "Watch HR pill: no session stream / WC unreachable (spec §6a).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not connected"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未连接"
+          }
+        }
+      }
+    },
+    "watch.hr.connecting": {
+      "extractionState": "manual",
+      "comment": "Watch HR pill: session active, awaiting first sample (spec §6a).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接中"
+          }
+        }
+      }
+    },
+    "watch.hr.hint.start": {
+      "extractionState": "manual",
+      "comment": "Watch HR hero sub-label when not connected (spec §6a).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a workout to connect HR"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开始训练以连接心率"
+          }
+        }
+      }
+    },
+    "watch.hr.zone": {
+      "extractionState": "manual",
+      "comment": "Watch HR zone pill long form (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zone %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zone %lld"
+          }
+        }
+      }
+    },
+    "watch.hr.zoneShort": {
+      "extractionState": "manual",
+      "comment": "Watch HR zone pill compact form used by nextFocus band chip (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Z%lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Z%lld"
+          }
+        }
+      }
+    },
+    "watch.hr.avgPeak": {
+      "extractionState": "manual",
+      "comment": "Watch HR avg/peak inline line (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "avg %lld · peak %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "均 %lld · 峰 %lld"
+          }
+        }
+      }
+    },
+    "watch.hr.avgPeakPlaceholder": {
+      "extractionState": "manual",
+      "comment": "Watch HR avg/peak placeholder form when either value is nil.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "avg %@ · peak %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "均 %@ · 峰 %@"
+          }
+        }
+      }
+    },
+    "watch.nextSet.label": {
+      "extractionState": "manual",
+      "comment": "Watch next-set block header (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下一组"
+          }
+        }
+      }
+    },
+    "watch.nextSet.freeform": {
+      "extractionState": "manual",
+      "comment": "Watch next-set block: freeform session (no plan) header (spec §6b).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Freeform"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自由训练"
+          }
+        }
+      }
+    },
+    "watch.nextSet.noplan": {
+      "extractionState": "manual",
+      "comment": "Watch next-set block: freeform session body copy (spec §6b).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No planned session"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无预定计划"
+          }
+        }
+      }
+    },
+    "watch.nextSet.last": {
+      "extractionState": "manual",
+      "comment": "Watch next-set block header for the final set of the workout (spec §6b).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last set 💪"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最后一组 💪"
+          }
+        }
+      }
+    },
+    "watch.nextSet.progress": {
+      "extractionState": "manual",
+      "comment": "Watch next-set block progress ordinal (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set %lld of %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第 %lld / %lld 组"
+          }
+        }
+      }
+    },
+    "watch.set.format": {
+      "extractionState": "manual",
+      "comment": "Watch next-set target format (reps × weight, iPhone-formatted). Spec §8.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld reps × %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld次 × %@"
+          }
+        }
+      }
+    },
+    "watch.set.reps.unit": {
+      "extractionState": "manual",
+      "comment": "Watch next-set hero variant: reps unit label.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次"
+          }
+        }
+      }
+    },
+    "watch.band.sets": {
+      "extractionState": "manual",
+      "comment": "Watch session band: completed/total sets (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld/%lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld/%lld"
+          }
+        }
+      }
+    },
+    "watch.list.hr": {
+      "extractionState": "manual",
+      "comment": "Watch list preset row label: heart rate (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HR"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "心率"
+          }
+        }
+      }
+    },
+    "watch.list.nextSet": {
+      "extractionState": "manual",
+      "comment": "Watch list preset row label: next set (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下一组"
+          }
+        }
+      }
+    },
+    "watch.list.duration": {
+      "extractionState": "manual",
+      "comment": "Watch list preset row label: elapsed duration (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duration"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "时长"
+          }
+        }
+      }
+    },
+    "watch.list.avgPeak": {
+      "extractionState": "manual",
+      "comment": "Watch list preset row label: HR avg/peak (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avg / Peak"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "均/峰"
+          }
+        }
+      }
+    },
+    "watch.action.completeSet": {
+      "extractionState": "manual",
+      "comment": "Watch primary action: complete current set (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Complete set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成这组"
+          }
+        }
+      }
+    },
+    "watch.action.logSet": {
+      "extractionState": "manual",
+      "comment": "Watch primary action: log a set (freeform/no plan) (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "记录一组"
+          }
+        }
+      }
+    },
+    "watch.action.finish": {
+      "extractionState": "manual",
+      "comment": "Watch primary action: finish workout (last set of last exercise) (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish workout"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成训练"
+          }
+        }
+      }
+    },
+    "watch.controls.pause": {
+      "extractionState": "manual",
+      "comment": "Watch controls: pause (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂停"
+          }
+        }
+      }
+    },
+    "watch.controls.end": {
+      "extractionState": "manual",
+      "comment": "Watch controls: end workout (spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End workout"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "结束训练"
+          }
+        }
+      }
+    },
+    "watch.saving": {
+      "extractionState": "manual",
+      "comment": "Watch saving overlay (spec §6b, spec §8).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving workout…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存训练…"
+          }
+        }
+      }
+    },
+    "watch.a11y.setsProgress": {
+      "extractionState": "manual",
+      "comment": "Watch band a11y label for sets progress module (VoiceOver).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sets progress"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "组数进度"
+          }
+        }
+      }
+    },
+    "watch.a11y.setDots": {
+      "extractionState": "manual",
+      "comment": "Watch next-set a11y label for the set dots array (VoiceOver).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set dots"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "组进度"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
