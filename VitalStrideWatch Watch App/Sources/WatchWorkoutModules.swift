@@ -690,7 +690,12 @@ public struct WatchNextSetBlockModule: View {
                     WatchSetDotsModule(currentIndex: s.index, total: s.total)
                 }
             } else {
-                SectionHeader(WatchModuleStrings.nextSetFreeform)
+                // Spec §6b: no-plan / freeform state renders a neutral
+                // StatusPill (`自由训练` / `Freeform`) + localized no-plan
+                // body copy — not a SectionHeader, which would style this
+                // as a titled section rather than a status label.
+                StatusPill(WatchModuleStrings.nextSetFreeform, tone: .neutral)
+                    .accessibilityLabel(WatchModuleStrings.nextSetFreeform)
                 Text(WatchModuleStrings.nextSetNoPlan)
                     .font(TypeScale.body)
                     .foregroundStyle(theme.neutrals.text3)
