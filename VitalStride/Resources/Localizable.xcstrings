@@ -9746,6 +9746,312 @@
           }
         }
       }
+    },
+    "settings.watchScreen.title": {
+      "extractionState": "manual",
+      "comment": "iOS Settings → Training → Watch in-workout screen nav title.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watch Workout Screen"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手表训练屏"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.preset": {
+      "extractionState": "manual",
+      "comment": "Watch screen preset picker section header / label.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Layout"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "布局"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.preset.fullInfo": {
+      "extractionState": "manual",
+      "comment": "Watch screen preset name: full-info (default).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full Info"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全信息"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.preset.hrFocus": {
+      "extractionState": "manual",
+      "comment": "Watch screen preset name: heart-rate focus.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HR Focus"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "心率优先"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.preset.list": {
+      "extractionState": "manual",
+      "comment": "Watch screen preset name: list.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "List"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "列表"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.preset.nextFocus": {
+      "extractionState": "manual",
+      "comment": "Watch screen preset name: next-set focus.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next Set Focus"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下一组优先"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.modules": {
+      "extractionState": "manual",
+      "comment": "Watch screen module toggles section header.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modules"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示模块"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.locked": {
+      "extractionState": "manual",
+      "comment": "Chip label on locked (mandatory) watch modules.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Required"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "必选"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.module.clock": {
+      "extractionState": "manual",
+      "comment": "Watch module: current time.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Time"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "时间"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.module.elapsed": {
+      "extractionState": "manual",
+      "comment": "Watch module: elapsed workout time.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elapsed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "训练时长"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.module.setsTotal": {
+      "extractionState": "manual",
+      "comment": "Watch module: total sets progress counter.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total Sets"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "总组数"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.module.heartRate": {
+      "extractionState": "manual",
+      "comment": "Watch module: heart rate hero.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heart Rate"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "心率"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.module.hrZone": {
+      "extractionState": "manual",
+      "comment": "Watch module: heart-rate zone pill.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HR Zone"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "心率区间"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.module.hrAvgPeak": {
+      "extractionState": "manual",
+      "comment": "Watch module: avg / peak heart rate.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avg / Peak HR"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "均值/峰值心率"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.module.nextSet": {
+      "extractionState": "manual",
+      "comment": "Watch module: next planned set preview.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next Set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下一组"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.module.setDots": {
+      "extractionState": "manual",
+      "comment": "Watch module: per-exercise set progress dots.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set Progress"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "组进度"
+          }
+        }
+      }
+    },
+    "settings.watchScreen.module.primaryAction": {
+      "extractionState": "manual",
+      "comment": "Watch module: primary action button (complete/log set).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primary Action"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "主操作"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

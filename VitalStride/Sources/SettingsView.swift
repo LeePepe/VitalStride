@@ -2,22 +2,55 @@
 // MY-1269: Chinese string values are xcstrings source keys resolved via
 // String(localized:). Rule silenced at file scope pending ASCII-key migration.
 import DesignKit
+import HealthKitService
 import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.theme) private var theme
+    @Environment(\.healthKitService) private var healthKitService
 
     var body: some View {
         NavigationStack {
             Form {
                 HealthKitPermissionSection()
                 UnitPreferencesSection()
+                trainingSection
                 DataImportExportSection()
                 AISettingsSection()
                 aboutSection
             }
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(String(localized: "设置", comment: "Nav title"))
+        }
+    }
+
+    private var trainingSection: some View {
+        Section(String(localized: "训练", comment: "Settings section: training")) {
+            NavigationLink {
+                WatchScreenSettingsView(pusher: makeWatchScreenConfigPusher())
+            } label: {
+                Label(
+                    String(
+                        localized: "settings.watchScreen.title",
+                        comment: "Settings entry: iOS Settings → Training → Watch in-workout screen"
+                    ),
+                    systemImage: "applewatch"
+                )
+                .tint(theme.primary.primary)
+            }
+        }
+    }
+
+    /// Wire the environment `HealthKitService` into a
+    /// `WatchScreenConfigPusher` so the settings view only depends on the
+    /// injectable seam. The manager is created lazily inside the closure
+    /// so we don't pay for `WCSession` setup unless the user actually
+    /// changes a toggle.
+    private func makeWatchScreenConfigPusher() -> WatchScreenConfigPusher {
+        let service = healthKitService
+        return { config in
+            let manager = service.makeWorkoutSessionManager()
+            await manager.updateWatchScreenConfig(config)
         }
     }
 
