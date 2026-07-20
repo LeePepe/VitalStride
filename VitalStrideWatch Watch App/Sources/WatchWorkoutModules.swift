@@ -377,11 +377,12 @@ public struct WatchHRNumberModule: View {
                 .accessibilityLabel(WatchModuleStrings.listHR)
                 .accessibilityValue(WatchModuleStrings.hrConnecting)
         case .notConnected:
-            Text("--")
-                .font(font)
-                .foregroundStyle(theme.neutrals.text3)
-                .accessibilityLabel(WatchModuleStrings.listHR)
-                .accessibilityValue(WatchModuleStrings.hrNotConnected)
+            // Spec §6a: HR not-connected state renders NO digits (no
+            // placeholder "--" that reads as a fake bpm). Callers (Hero,
+            // Centered, BandChip) render the neutral status pill + start
+            // hint stack instead. Emit an EmptyView so surrounding layouts
+            // simply omit the number slot.
+            EmptyView()
         }
     }
 }
@@ -476,24 +477,27 @@ public struct WatchHRHeroModule: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                WatchHRPulseDotModule(hr: hr)
-                WatchHRNumberModule(hr: hr, font: font)
+        if case .notConnected = hr {
+            // Spec §6a: not-connected state — neutral status pill above
+            // the start-workout hint, no HR digits at all.
+            VStack(alignment: .leading, spacing: 4) {
+                StatusPill(WatchModuleStrings.hrNotConnected, tone: .neutral)
+                    .accessibilityLabel(WatchModuleStrings.hrNotConnected)
+                Text(WatchModuleStrings.hrHintStart)
+                    .font(TypeScale.meta)
+                    .foregroundStyle(theme.neutrals.text3)
             }
-            subLabel
-                .font(TypeScale.meta)
-                .foregroundStyle(theme.neutrals.text3)
-                .padding(.leading, 14)
-        }
-    }
-
-    @ViewBuilder private var subLabel: some View {
-        switch hr {
-        case .notConnected:
-            Text(WatchModuleStrings.hrHintStart)
-        default:
-            Text(WatchModuleStrings.bpmUnit)
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    WatchHRPulseDotModule(hr: hr)
+                    WatchHRNumberModule(hr: hr, font: font)
+                }
+                Text(WatchModuleStrings.bpmUnit)
+                    .font(TypeScale.meta)
+                    .foregroundStyle(theme.neutrals.text3)
+                    .padding(.leading, 14)
+            }
         }
     }
 }
@@ -520,19 +524,33 @@ public struct WatchHRHeroCenteredModule: View {
     }
 
     public var body: some View {
-        VStack(spacing: 5) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                WatchHRPulseDotModule(hr: hr)
-                WatchHRNumberModule(hr: hr, font: TypeScale.metricXXL)
+        if case .notConnected = hr {
+            // Spec §6a: not-connected renders neutral status pill above
+            // the start hint — no HR digits, no pulse dot.
+            VStack(spacing: 6) {
+                StatusPill(WatchModuleStrings.hrNotConnected, tone: .neutral)
+                    .accessibilityLabel(WatchModuleStrings.hrNotConnected)
+                Text(WatchModuleStrings.hrHintStart)
+                    .font(TypeScale.meta)
+                    .foregroundStyle(theme.neutrals.text3)
+                    .multilineTextAlignment(.center)
             }
-            HStack(spacing: 8) {
-                if showZonePill {
-                    WatchHRZonePillModule(hr: hr, variant: .long)
+            .frame(maxWidth: .infinity)
+        } else {
+            VStack(spacing: 5) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    WatchHRPulseDotModule(hr: hr)
+                    WatchHRNumberModule(hr: hr, font: TypeScale.metricXXL)
                 }
-                WatchHRAvgPeakModule(averageBPM: averageBPM, peakBPM: peakBPM)
+                HStack(spacing: 8) {
+                    if showZonePill {
+                        WatchHRZonePillModule(hr: hr, variant: .long)
+                    }
+                    WatchHRAvgPeakModule(averageBPM: averageBPM, peakBPM: peakBPM)
+                }
             }
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
     }
 }
 
@@ -560,12 +578,19 @@ public struct WatchHRBandChipModule: View {
 
     public var body: some View {
         HStack {
-            HStack(spacing: 5) {
-                WatchHRPulseDotModule(hr: hr)
-                WatchHRNumberModule(hr: hr, font: TypeScale.title.monospacedDigit())
-                if showZonePill, case .connected(_, let zone) = hr, let z = zone {
-                    StatusPill(WatchModuleStrings.hrZoneShort(z), tone: watchZoneTone(z))
-                        .accessibilityLabel(WatchModuleStrings.hrZoneLong(z))
+            if case .notConnected = hr {
+                // Spec §6a: not-connected — neutral pill only in the
+                // compressed band; no digits, no pulse dot.
+                StatusPill(WatchModuleStrings.hrNotConnected, tone: .neutral)
+                    .accessibilityLabel(WatchModuleStrings.hrNotConnected)
+            } else {
+                HStack(spacing: 5) {
+                    WatchHRPulseDotModule(hr: hr)
+                    WatchHRNumberModule(hr: hr, font: TypeScale.title.monospacedDigit())
+                    if showZonePill, case .connected(_, let zone) = hr, let z = zone {
+                        StatusPill(WatchModuleStrings.hrZoneShort(z), tone: watchZoneTone(z))
+                            .accessibilityLabel(WatchModuleStrings.hrZoneLong(z))
+                    }
                 }
             }
             Spacer()
