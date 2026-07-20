@@ -185,6 +185,7 @@
 		A35DE297023B3A6047D4FE3D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 224D8E4161C7961EC3D7E22A /* Localizable.xcstrings */; };
 		A39C53D57D11C74A095538F5 /* RestTimerNotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82FB31C7A8CD534A47CCDFF7 /* RestTimerNotificationTests.swift */; };
 		A4EC24E95DD3EBE9ECEDF3A7 /* TelemetryIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21DB88AE870BE2542D688914 /* TelemetryIntegrationTests.swift */; };
+		A5FB19BD9636B8D0BED6EAC7 /* HealthKitService in Frameworks */ = {isa = PBXBuildFile; productRef = 57DB9D0F7682D6A81573F062 /* HealthKitService */; };
 		A65934D37C0DF83B88223B69 /* ExerciseSubstituteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092370327B1C10DB7FBAFD1A /* ExerciseSubstituteSheet.swift */; };
 		A852815843A816E5EFC283BD /* VitalUI in Frameworks */ = {isa = PBXBuildFile; productRef = B1158D1F2C58CCE12B5E58B9 /* VitalUI */; };
 		A9EFB85A810FDA7E5BF3BD57 /* VitalStrideMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EC3F9204735BAE46DFFDF0 /* VitalStrideMacApp.swift */; };
@@ -214,6 +215,7 @@
 		C2732E2BA5AC135709D388CF /* ActiveEnergySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2006662F4E40A3B02201E47 /* ActiveEnergySection.swift */; };
 		C2D215940769A32199196721 /* WorkoutDetailDeletionRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3782E8E2A0520DF4B50D9E5 /* WorkoutDetailDeletionRegressionTests.swift */; };
 		C2D80D80EEBB56ED09746B83 /* UnifiedWorkoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0F2C179353A73AE3F6E0E8 /* UnifiedWorkoutTests.swift */; };
+		C39B2EE05488008CA3D203E9 /* WatchWorkoutViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D90AC17E2AA90E7393ABDB /* WatchWorkoutViewModelTests.swift */; };
 		C3F7804856CFE4D12794902A /* DesignKit in Frameworks */ = {isa = PBXBuildFile; productRef = CC6A54D931703266EC568983 /* DesignKit */; };
 		C6542FA6257E8803078E471F /* CardVariant.swift in Sources */ = {isa = PBXBuildFile; fileRef = D32DBAED1356728A1F9461EE /* CardVariant.swift */; };
 		C91957186700998E3139316F /* VitalUI in Frameworks */ = {isa = PBXBuildFile; productRef = 025591A7DBDF37484A293198 /* VitalUI */; };
@@ -260,6 +262,7 @@
 		F6DEBB93AB30796DDB87B899 /* WorkoutAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3274184F69678B14ACB647F8 /* WorkoutAggregator.swift */; };
 		F6F15DEB55614BC14A4EB593 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 18AA3D0CBD054FC6EB8E6E36 /* InfoPlist.strings */; };
 		F7AD09CAEFC12214943F80C8 /* ExerciseSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC41CBBB0306141FF6935C5 /* ExerciseSeeder.swift */; };
+		F852748AF1F5BE250B692B4D /* WatchWorkoutDisplayStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEFBCFADAEECB997C22D14EC /* WatchWorkoutDisplayStateTests.swift */; };
 		F94E4FA429B980CCAD4B88BB /* TrendCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E577C57CE59651FBE3466D /* TrendCardView.swift */; };
 		F9AC595F18F137D56D3BD66B /* WatchScreenSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F065D5046BB7DF2037C4C67 /* WatchScreenSettingsTests.swift */; };
 		FA26E41E4423C80B3C49CF6F /* GenericHealthDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78DCB0AB8EDE0CEE01A0C7A3 /* GenericHealthDetailView.swift */; };
@@ -275,6 +278,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = C094206A853C4AAA3D71EFD9;
 			remoteInfo = VitalStrideWidgets;
+		};
+		CFB8BB9537E1BFF863072835 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 05D27E8A4B6AC68E00793EFF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6868D7B2B319ADA46F70B615;
+			remoteInfo = "VitalStrideWatch Watch App";
 		};
 		E287CA334D51B5B485267B80 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -348,6 +358,7 @@
 		3680A9FD223DA4BC25B34824 /* RestTimerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerController.swift; sourceTree = "<group>"; };
 		36AE17B68B9690E64E34762B /* UserInterestTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserInterestTracker.swift; sourceTree = "<group>"; };
 		37A2DA5D0FBEDC56FC2670D9 /* OverviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewTests.swift; sourceTree = "<group>"; };
+		38D90AC17E2AA90E7393ABDB /* WatchWorkoutViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWorkoutViewModelTests.swift; sourceTree = "<group>"; };
 		3A7664EB59C867B7F8FDAD25 /* DataViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataViewTests.swift; sourceTree = "<group>"; };
 		3CEE18F3894931D9B777A7C3 /* LiquidGlassStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassStyle.swift; sourceTree = "<group>"; };
 		3CFDC52DBDDF9DF15C8DCC9E /* RestTimerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerLiveActivity.swift; sourceTree = "<group>"; };
@@ -496,6 +507,7 @@
 		E7F421454544F6E7988C3AD4 /* HealthKitWorkoutRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitWorkoutRowView.swift; sourceTree = "<group>"; };
 		E86F8670937F600897C6BDBC /* VitalUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = VitalUI; path = Packages/VitalUI; sourceTree = SOURCE_ROOT; };
 		EC823BE600BBB6692E51C6BC /* ExerciseDefaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDefaults.swift; sourceTree = "<group>"; };
+		ED3945333048E1D5EB372A2A /* VitalStrideWatchTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VitalStrideWatchTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EDDDA5C49A692159D6CDD57D /* HeartRateSectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateSectionTests.swift; sourceTree = "<group>"; };
 		EE096029B6F02694FFF32984 /* StartWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartWorkoutView.swift; sourceTree = "<group>"; };
 		EEBAEB2529E34AFEFB87D518 /* OverviewDynamicState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewDynamicState.swift; sourceTree = "<group>"; };
@@ -510,9 +522,18 @@
 		FB0561577CD9C4C93B2A6615 /* CrashRecoveryModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashRecoveryModifier.swift; sourceTree = "<group>"; };
 		FC81CF556640A9CDBF9F5A2E /* WatchWorkoutDisplayState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWorkoutDisplayState.swift; sourceTree = "<group>"; };
 		FDBA9FC9538E2252A4990875 /* CrashRecoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashRecoveryService.swift; sourceTree = "<group>"; };
+		FEFBCFADAEECB997C22D14EC /* WatchWorkoutDisplayStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWorkoutDisplayStateTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		37B7027B60FA65C4D7E5753F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A5FB19BD9636B8D0BED6EAC7 /* HealthKitService in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6E150BD6BE29FEA88BD9F59E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -739,6 +760,7 @@
 				62752D819DEC3C928DEE3CB1 /* VitalStrideMac.app */,
 				9AF574AE878C5FC5709F5411 /* VitalStrideTests.xctest */,
 				58C946AE957021F69C8E2C60 /* VitalStrideWatch Watch App.app */,
+				ED3945333048E1D5EB372A2A /* VitalStrideWatchTests.xctest */,
 				2F9C6A27CB551B32C0DDFEA0 /* VitalStrideWidgets.appex */,
 			);
 			name = Products;
@@ -862,6 +884,15 @@
 			path = VitalStrideMac;
 			sourceTree = "<group>";
 		};
+		AE9ACA930C714BD6537AC754 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				FEFBCFADAEECB997C22D14EC /* WatchWorkoutDisplayStateTests.swift */,
+				38D90AC17E2AA90E7393ABDB /* WatchWorkoutViewModelTests.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
 		B1EEFAC7D3EEA33DE42C5079 /* Defaults */ = {
 			isa = PBXGroup;
 			children = (
@@ -906,6 +937,7 @@
 				AB684A45C0D2385FE180FA9C /* VitalStrideMac */,
 				404662489D53688383433FD1 /* VitalStrideTests */,
 				4F76D572EDEF9D524C3C458D /* VitalStrideWatch Watch App */,
+				EDE885B553E86B57F37F2A93 /* VitalStrideWatchTests */,
 				5D0F0A168427AA6D17F9D1D3 /* VitalStrideWidgets */,
 				B22A7D307DC20707965AD5A6 /* Frameworks */,
 				709A8293A9188956CF675353 /* Products */,
@@ -960,6 +992,14 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
+		EDE885B553E86B57F37F2A93 /* VitalStrideWatchTests */ = {
+			isa = PBXGroup;
+			children = (
+				AE9ACA930C714BD6537AC754 /* Sources */,
+			);
+			path = VitalStrideWatchTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -989,6 +1029,26 @@
 			productName = VitalStride;
 			productReference = 9D2F46A6B7B993E95FDAA5C5 /* VitalStride.app */;
 			productType = "com.apple.product-type.application";
+		};
+		0E62B12BE348E2C69C61E981 /* VitalStrideWatchTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5D729F361A04ACBDC408BF79 /* Build configuration list for PBXNativeTarget "VitalStrideWatchTests" */;
+			buildPhases = (
+				A7DDA70BDF00C392E46EBE2C /* Sources */,
+				37B7027B60FA65C4D7E5753F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C26A3C088BA7599169BDE635 /* PBXTargetDependency */,
+			);
+			name = VitalStrideWatchTests;
+			packageProductDependencies = (
+				57DB9D0F7682D6A81573F062 /* HealthKitService */,
+			);
+			productName = VitalStrideWatchTests;
+			productReference = ED3945333048E1D5EB372A2A /* VitalStrideWatchTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		6868D7B2B319ADA46F70B615 /* VitalStrideWatch Watch App */ = {
 			isa = PBXNativeTarget;
@@ -1094,6 +1154,10 @@
 					014DB075EC88DB68BB66224D = {
 						DevelopmentTeam = 4Z8GG667QD;
 					};
+					0E62B12BE348E2C69C61E981 = {
+						DevelopmentTeam = 4Z8GG667QD;
+						ProvisioningStyle = Automatic;
+					};
 					6868D7B2B319ADA46F70B615 = {
 						DevelopmentTeam = 4Z8GG667QD;
 						ProvisioningStyle = Automatic;
@@ -1138,6 +1202,7 @@
 				F192035F877F1B2AA721CDCF /* VitalStrideMac */,
 				E43685623584B2F760F1AF45 /* VitalStrideTests */,
 				6868D7B2B319ADA46F70B615 /* VitalStrideWatch Watch App */,
+				0E62B12BE348E2C69C61E981 /* VitalStrideWatchTests */,
 				C094206A853C4AAA3D71EFD9 /* VitalStrideWidgets */,
 			);
 		};
@@ -1341,6 +1406,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A7DDA70BDF00C392E46EBE2C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F852748AF1F5BE250B692B4D /* WatchWorkoutDisplayStateTests.swift in Sources */,
+				C39B2EE05488008CA3D203E9 /* WatchWorkoutViewModelTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D01BB8AF6B4DAF060314D766 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1455,6 +1529,11 @@
 			target = C094206A853C4AAA3D71EFD9 /* VitalStrideWidgets */;
 			targetProxy = A902CD21A244B684E57EC44B /* PBXContainerItemProxy */;
 		};
+		C26A3C088BA7599169BDE635 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6868D7B2B319ADA46F70B615 /* VitalStrideWatch Watch App */;
+			targetProxy = CFB8BB9537E1BFF863072835 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -1549,6 +1628,25 @@
 			};
 			name = Debug;
 		};
+		3300461A3D321E8A44FDBFBB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.watchos.tests;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VitalStrideWatch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VitalStrideWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Release;
+		};
 		448B2581FF2848996C3CF81C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1609,6 +1707,25 @@
 				WATCHOS_DEPLOYMENT_TARGET = 11.0;
 			};
 			name = Release;
+		};
+		4A8B33855D7C80091DB7BD03 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.watchos.tests;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VitalStrideWatch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VitalStrideWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Debug;
 		};
 		66435532182BFF1C3F322AD9 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1848,6 +1965,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		5D729F361A04ACBDC408BF79 /* Build configuration list for PBXNativeTarget "VitalStrideWatchTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4A8B33855D7C80091DB7BD03 /* Debug */,
+				3300461A3D321E8A44FDBFBB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		798C86DC0902C08E381398E0 /* Build configuration list for PBXNativeTarget "VitalStrideTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1945,6 +2071,10 @@
 		45BB7EF4AA81DA202BAAD171 /* TelemetryKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TelemetryKit;
+		};
+		57DB9D0F7682D6A81573F062 /* HealthKitService */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = HealthKitService;
 		};
 		664522C2C3BB624FE1681CA9 /* VitalModels */ = {
 			isa = XCSwiftPackageProductDependency;
