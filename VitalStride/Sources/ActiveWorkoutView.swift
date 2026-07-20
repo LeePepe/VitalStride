@@ -768,28 +768,17 @@ struct ActiveWorkoutView: View {
     // MARK: - Actions
 
     #if !os(macOS)
-    /// MY-1283: derive the three-state display from
-    /// `hrConnectionState` + freshness of the last sample. Order matters:
-    ///
-    /// 1. If the Watch link is not `.reachable`, we're `disconnected` —
-    ///    regardless of whether we happen to still hold a stale value from a
-    ///    previous session. ADR-0010 Consequences: no Watch → no value.
-    /// 2. If we are reachable but the last value is stale (older than the
-    ///    freshness window) or absent, we're `awaiting`. Realtime HR should
-    ///    reflect a disconnect faster than the old 120 s window; drop to 20 s
-    ///    so an idle / dropped stream shows honestly.
-    /// 3. Otherwise render the fresh value.
+    /// MY-1283: derive the three-state display via the pure
+    /// `HeartRateStateResolver`. Kept as a thin adapter so the view code
+    /// reads naturally and the resolver stays unit-testable in isolation.
     private var heartRateDisplayState: HeartRateDisplayState {
-        guard hrConnectionState == .reachable else {
-            return .disconnected
-        }
-        let freshnessLimit: TimeInterval = 20
-        if let value = currentHeartRate,
-           let receivedAt = heartRateReceivedAt,
-           receivedAt.timeIntervalSinceNow > -freshnessLimit {
-            return .value(value)
-        }
-        return .awaiting
+        HeartRateStateResolver.resolve(
+            connection: hrConnectionState,
+            lastValue: currentHeartRate,
+            lastTimestamp: heartRateReceivedAt,
+            now: Date(),
+            freshnessLimit: HeartRateStateResolver.defaultFreshnessLimit
+        )
     }
 
     /// Consume the realtime Watch → iPhone HR stream exposed by T001
@@ -799,14 +788,25 @@ struct ActiveWorkoutView: View {
     /// don't implement the live stream (default protocol impl returns a
     /// finished stream — the `for await` loop simply exits then, and the
     /// legacy passive read below fills in).
+    ///
+    /// Freshness is stamped from the payload's own `timestamp`, NOT from
+    /// receipt-time (`Date()`): a payload that was queued while the phone
+    /// was asleep must not render as "just now" the instant it arrives.
+    /// The resolver's freshness window is compared against this sample-time
+    /// stamp, so an old payload immediately resolves to `.awaiting`.
     private func observeHeartRate() async {
         // Live Watch → iPhone stream (T001). Never logs the bpm value (§I).
+        // Per-payload logic lives in HeartRateStreamAdapter.applyLivePayload
+        // so unit tests can drive the exact same code path with a real
+        // AsyncStream — any regression to receipt-time stamping breaks
+        // HeartRateStreamAdapterTests.consumeLiveHeartRate_stampsFromPayloadTimestamp.
         if let manager = sessionManager {
             let stream = await manager.observeLiveWorkoutHeartRate()
-            for await payload in stream {
-                currentHeartRate = payload.bpm
-                heartRateReceivedAt = Date()
-            }
+            await HeartRateStreamAdapter.consumeLiveHeartRate(
+                stream,
+                setValue: { currentHeartRate = $0 },
+                setTimestamp: { heartRateReceivedAt = $0 }
+            )
         }
         // Legacy passive-read fallback (kept so macOS-adjacent builds and
         // NoopWorkoutSessionManager runs still surface any value the local
@@ -815,33 +815,44 @@ struct ActiveWorkoutView: View {
         for await dataPoint in healthKitService.observeHeartRate() {
             guard dataPoint.startDate.timeIntervalSinceNow > -120 else { continue }
             currentHeartRate = dataPoint.value
-            heartRateReceivedAt = Date()
+            heartRateReceivedAt = dataPoint.startDate
         }
     }
 
     /// Track the T001 WatchConnectivity connection-state stream so the UI
     /// can drop to the honest "not connected" state the moment the Watch
     /// link goes away (unpaired, unreachable, or unsupported).
+    ///
+    /// Per-state logic lives in `HeartRateStreamAdapter.applyConnectionState`
+    /// so tests can exercise the exact same code path — including the
+    /// mandatory clear of `currentHeartRate` + `heartRateReceivedAt` on
+    /// any non-`.reachable` transition. Post-drop UX contract: reconnect
+    /// always enters `.awaiting` until the first post-reconnect sample.
     private func observeHeartRateConnection() async {
         guard let manager = sessionManager else { return }
         let stream = await manager.observeConnectionState()
-        for await state in stream {
-            hrConnectionState = state
-        }
+        await HeartRateStreamAdapter.consumeConnectionState(
+            stream,
+            setConnection: { hrConnectionState = $0 },
+            setValue: { currentHeartRate = $0 },
+            setTimestamp: { heartRateReceivedAt = $0 }
+        )
     }
 
     private func monitorHeartRateStaleness() async {
         // Realtime stream should surface staleness faster than the historic
         // 120 s window. `heartRateDisplayState` already down-grades to
-        // `.awaiting` after 20 s without a sample; here we just clear the
-        // held value+timestamp so stale numbers can't linger in memory across
-        // a long silence. Preserves ADR-0010: no fabricated values.
-        let freshnessLimit: TimeInterval = 20
+        // `.awaiting` after the resolver's freshness window; here we just
+        // clear the held value+timestamp so stale numbers can't linger in
+        // memory across a long silence. Preserves ADR-0010: no fabricated
+        // values. Compared against the sample-time timestamp (not receipt
+        // time) so a stalled stream can't hide behind a fresh receipt clock.
+        let freshnessLimit = HeartRateStateResolver.defaultFreshnessLimit
         let checkInterval: Duration = .seconds(5)
         while !Task.isCancelled {
             try? await Task.sleep(for: checkInterval)
             if let receivedAt = heartRateReceivedAt,
-               receivedAt.timeIntervalSinceNow < -freshnessLimit {
+               Date().timeIntervalSince(receivedAt) > freshnessLimit {
                 currentHeartRate = nil
                 heartRateReceivedAt = nil
             }
@@ -1160,6 +1171,153 @@ enum HeartRateDisplayState: Equatable {
     case disconnected
     case awaiting
     case value(Double)
+}
+
+// MARK: - Heart Rate State Resolver (MY-1283)
+
+/// Pure resolver that maps (connection, last sample) → three-state display.
+///
+/// Extracted from `ActiveWorkoutView` so both invariants can be exercised
+/// under unit tests without spinning up SwiftUI @State:
+///
+/// - **Reconnect enters `.awaiting`**: when the WatchConnectivity link
+///   drops the view MUST clear the held value+timestamp so a reconnect
+///   cannot re-render the pre-drop BPM as fresh. The view enforces the
+///   clear on the state transition; the resolver enforces the
+///   guard-clause: a non-`.reachable` connection always resolves to
+///   `.disconnected` regardless of held values.
+/// - **Freshness stamped from payload time, not receipt time**: callers
+///   pass the payload's own `timestamp` as `lastTimestamp` (never
+///   `Date()`) so a delayed sample can't inherit a fresh clock. The
+///   resolver compares `now - lastTimestamp` against `freshnessLimit`;
+///   any sample older than the window resolves to `.awaiting`.
+enum HeartRateStateResolver {
+    /// Freshness window used by the live-workout HR display. Chosen to
+    /// surface a dropped realtime stream faster than the historical 120 s
+    /// passive-read window while still tolerating a normal HR sampling
+    /// cadence (~5 s intervals).
+    static let defaultFreshnessLimit: TimeInterval = 20
+
+    /// - Parameters:
+    ///   - connection: current `WatchConnectivity` link state.
+    ///   - lastValue: last received BPM (nil if none received or cleared
+    ///     by a link-drop).
+    ///   - lastTimestamp: sample time reported by the payload (NOT the
+    ///     receipt clock). Nil mirrors `lastValue == nil`.
+    ///   - now: current wall clock; injected for testability.
+    ///   - freshnessLimit: max age (seconds) a value may still render as
+    ///     `.value`. Older or absent samples fall through to `.awaiting`.
+    static func resolve(
+        connection: WatchConnectionState,
+        lastValue: Double?,
+        lastTimestamp: Date?,
+        now: Date,
+        freshnessLimit: TimeInterval = defaultFreshnessLimit
+    ) -> HeartRateDisplayState {
+        guard connection == .reachable else {
+            return .disconnected
+        }
+        guard let value = lastValue, let timestamp = lastTimestamp else {
+            return .awaiting
+        }
+        let age = now.timeIntervalSince(timestamp)
+        // A future-dated timestamp (clock skew) or a fresh sample both
+        // render as `.value`; anything older than the window falls to
+        // `.awaiting`.
+        guard age <= freshnessLimit else {
+            return .awaiting
+        }
+        return .value(value)
+    }
+}
+
+// MARK: - Heart Rate Stream Adapter (MY-1283)
+
+/// Testable adapter that owns the *production* per-item logic used by
+/// `ActiveWorkoutView.observeHeartRate()` and
+/// `ActiveWorkoutView.observeHeartRateConnection()`. Both view methods
+/// delegate to the two static consumers below — so any regression in the
+/// production write behavior (e.g. re-introducing receipt-time `Date()`
+/// stamping, or forgetting to clear the held value on disconnect) breaks
+/// the tests that drive these consumers with real `AsyncStream`s.
+///
+/// The adapter deliberately has NO reference to SwiftUI: mutations are
+/// applied via `@MainActor` closures so the view can plug in `@State`
+/// setters, and tests can plug in a tiny in-memory holder. This keeps
+/// the adapter Sendable-safe under Swift 6 strict concurrency while
+/// exercising the same per-item statements the view runs in production.
+///
+/// Privacy: consumers never log the bpm value (§I). Only stream lifetime
+/// / transition events would be loggable, and none are added here.
+@MainActor
+enum HeartRateStreamAdapter {
+
+    /// Per-payload mutation used by `observeHeartRate`.
+    ///
+    /// Freshness MUST be stamped from `payload.timestamp` (the sample time
+    /// reported by the Watch). Never `Date()` — a delayed payload must not
+    /// inherit a fresh receipt clock. Regression guard: if a future edit
+    /// switches this back to receipt-time, the corresponding test fails
+    /// deterministically.
+    static func applyLivePayload(
+        _ payload: LiveHeartRatePayload,
+        setValue: (Double?) -> Void,
+        setTimestamp: (Date?) -> Void
+    ) {
+        setValue(payload.bpm)
+        setTimestamp(payload.timestamp)
+    }
+
+    /// Drives a `LiveHeartRatePayload` stream to completion, applying each
+    /// payload via `applyLivePayload`. Called from `observeHeartRate()`
+    /// with the view's `@State` setters; called from tests with a small
+    /// captured-state holder.
+    static func consumeLiveHeartRate(
+        _ stream: AsyncStream<LiveHeartRatePayload>,
+        setValue: @MainActor @escaping (Double?) -> Void,
+        setTimestamp: @MainActor @escaping (Date?) -> Void
+    ) async {
+        for await payload in stream {
+            applyLivePayload(payload, setValue: setValue, setTimestamp: setTimestamp)
+        }
+    }
+
+    /// Per-state mutation used by `observeHeartRateConnection`.
+    ///
+    /// On every non-`.reachable` transition we MUST clear the held BPM +
+    /// timestamp; otherwise a reconnect would render the pre-drop BPM as
+    /// fresh until a new sample arrived. Regression guard: dropping the
+    /// clear breaks the corresponding disconnect→reconnect test.
+    static func applyConnectionState(
+        _ state: WatchConnectionState,
+        setConnection: (WatchConnectionState) -> Void,
+        setValue: (Double?) -> Void,
+        setTimestamp: (Date?) -> Void
+    ) {
+        setConnection(state)
+        if state != .reachable {
+            setValue(nil)
+            setTimestamp(nil)
+        }
+    }
+
+    /// Drives a `WatchConnectionState` stream to completion, applying each
+    /// state via `applyConnectionState`.
+    static func consumeConnectionState(
+        _ stream: AsyncStream<WatchConnectionState>,
+        setConnection: @MainActor @escaping (WatchConnectionState) -> Void,
+        setValue: @MainActor @escaping (Double?) -> Void,
+        setTimestamp: @MainActor @escaping (Date?) -> Void
+    ) async {
+        for await state in stream {
+            applyConnectionState(
+                state,
+                setConnection: setConnection,
+                setValue: setValue,
+                setTimestamp: setTimestamp
+            )
+        }
+    }
 }
 
 enum HeartRateFormatter {
