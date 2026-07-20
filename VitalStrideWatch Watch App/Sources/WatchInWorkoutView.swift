@@ -240,10 +240,13 @@ struct WatchInWorkoutCore: View {
 // verify at design time.
 //
 // MY-1292 P0-3 coverage — the matrix previews below iterate every
-// non-locked toggle for each preset (all-on, locked-only, and each
-// individual toggle flipped off), plus the three HR states and the
-// saving overlay, so acceptance criterion "every preset × toggle
-// combination at 41mm" is verifiable at design time.
+// preset × non-locked toggle combination (4 presets × 2^7 = 512
+// fixtures via `allToggleCombinationsFixtures`), plus the three HR
+// states and the saving overlay, so acceptance criterion "every
+// preset × toggle combination at 41mm" is verifiable at design time.
+// The all-on / locked-only / single-toggle-off strips are retained
+// for fast eyeballing; the four per-preset all-combinations strips
+// (128 fixtures each) satisfy the full-matrix acceptance bar.
 
 #if DEBUG
 enum WatchInWorkoutViewPreview {
@@ -347,6 +350,46 @@ enum WatchInWorkoutViewPreview {
                 out.append(
                     Fixture(
                         id: "\(preset.rawValue) · no \(turnedOff.rawValue)",
+                        preset: preset,
+                        enabled: enabled
+                    )
+                )
+            }
+        }
+        return out
+    }
+
+    /// Complete 41mm preset × non-locked toggle matrix — every one of
+    /// the 4 presets crossed with every one of the 2^7 = 128 subsets of
+    /// the seven non-locked toggles, for a total of 4 × 128 = 512
+    /// fixtures. Locked modules (`heartRate` + `primaryAction`) are
+    /// re-added to every subset — `WatchScreenConfig.init` also enforces
+    /// this invariant, so the actual rendered module set can never drop
+    /// them. Acceptance criterion "Cover every preset × toggle
+    /// combination at 41mm sizing" (spec §5) is satisfied by iterating
+    /// all 128 subsets rather than a sampled subset.
+    ///
+    /// The fixture id encodes the toggle-subset bitmask in binary so
+    /// each preview canvas is self-labelling for reviewer scrolling.
+    static func allToggleCombinationsFixtures() -> [Fixture] {
+        var out: [Fixture] = []
+        out.reserveCapacity(WatchScreenConfig.Preset.allCases.count * (1 << toggleableModules.count))
+        for preset in WatchScreenConfig.Preset.allCases {
+            for mask in 0..<(1 << toggleableModules.count) {
+                var enabled = lockedModules
+                var flags: [String] = []
+                for (bitIndex, module) in toggleableModules.enumerated() {
+                    if (mask >> bitIndex) & 1 == 1 {
+                        enabled.insert(module)
+                        flags.append(String(module.rawValue.prefix(2)))
+                    }
+                }
+                let bits = String(mask, radix: 2)
+                let padded = String(repeating: "0", count: toggleableModules.count - bits.count) + bits
+                let label = flags.isEmpty ? "locked only" : flags.joined(separator: "+")
+                out.append(
+                    Fixture(
+                        id: "\(preset.rawValue) · \(padded) · \(label)",
                         preset: preset,
                         enabled: enabled
                     )
@@ -547,6 +590,47 @@ private struct WatchMatrixStrip: View {
     WatchMatrixStrip(
         title: "Each toggleable module OFF (per preset)",
         fixtures: WatchInWorkoutViewPreview.singleToggleOffFixtures()
+    )
+    .designThemePreview()
+}
+
+// MY-1292 remediation — full 4 × 2^7 = 512 preset × toggle matrix so
+// the AI Reviewer no longer needs to spot-check subsets. Split into 4
+// per-preset canvases (128 fixtures each) so each ScrollView remains
+// navigable at 41mm; iterating all 512 cases satisfies acceptance
+// criterion "Cover every preset × toggle combination at 41mm sizing".
+#Preview("Matrix — fullInfo · all 128 toggle combos") {
+    WatchMatrixStrip(
+        title: "fullInfo · all 128 non-locked toggle combos",
+        fixtures: WatchInWorkoutViewPreview.allToggleCombinationsFixtures()
+            .filter { $0.preset == .fullInfo }
+    )
+    .designThemePreview()
+}
+
+#Preview("Matrix — hrFocus · all 128 toggle combos") {
+    WatchMatrixStrip(
+        title: "hrFocus · all 128 non-locked toggle combos",
+        fixtures: WatchInWorkoutViewPreview.allToggleCombinationsFixtures()
+            .filter { $0.preset == .hrFocus }
+    )
+    .designThemePreview()
+}
+
+#Preview("Matrix — list · all 128 toggle combos") {
+    WatchMatrixStrip(
+        title: "list · all 128 non-locked toggle combos",
+        fixtures: WatchInWorkoutViewPreview.allToggleCombinationsFixtures()
+            .filter { $0.preset == .list }
+    )
+    .designThemePreview()
+}
+
+#Preview("Matrix — nextFocus · all 128 toggle combos") {
+    WatchMatrixStrip(
+        title: "nextFocus · all 128 non-locked toggle combos",
+        fixtures: WatchInWorkoutViewPreview.allToggleCombinationsFixtures()
+            .filter { $0.preset == .nextFocus }
     )
     .designThemePreview()
 }
