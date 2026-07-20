@@ -51,6 +51,8 @@ public enum TypeScale {
     public static let body = Font.system(size: 14)
     public static let meta = Font.system(size: 12)
     public static let num = Font.system(size: 14).monospacedDigit()
+    public static let metricXL = Font.system(size: 44, weight: .semibold).monospacedDigit()
+    public static let metricXXL = Font.system(size: 64, weight: .semibold).monospacedDigit()
 }
 
 // MARK: - Environment plumbing

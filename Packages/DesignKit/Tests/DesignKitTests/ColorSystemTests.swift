@@ -45,3 +45,25 @@ struct ThemeTests {
         #expect(a.danger == b.danger)
     }
 }
+
+@Suite("TypeScale")
+struct TypeScaleTests {
+    @Test("metricXL matches 44pt semibold monospaced-digit")
+    func metricXL() {
+        #expect(TypeScale.metricXL == Font.system(size: 44, weight: .semibold).monospacedDigit())
+    }
+
+    @Test("metricXXL matches 64pt semibold monospaced-digit")
+    func metricXXL() {
+        #expect(TypeScale.metricXXL == Font.system(size: 64, weight: .semibold).monospacedDigit())
+    }
+
+    @Test("existing tokens unchanged")
+    func existingTokensStable() {
+        #expect(TypeScale.display == Font.system(size: 26, weight: .semibold).monospacedDigit())
+        #expect(TypeScale.title == Font.system(size: 16, weight: .semibold))
+        #expect(TypeScale.body == Font.system(size: 14))
+        #expect(TypeScale.meta == Font.system(size: 12))
+        #expect(TypeScale.num == Font.system(size: 14).monospacedDigit())
+    }
+}
