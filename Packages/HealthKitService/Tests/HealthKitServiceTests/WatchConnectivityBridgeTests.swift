@@ -42,7 +42,7 @@ struct WatchConnectivityCodecRoundTripTests {
     func configRoundTrip() throws {
         let config = WatchScreenConfig(
             preset: .nextFocus,
-            enabledModules: [.currentExercise, .nextExercise, .setProgress],
+            enabledModules: [.clock, .elapsed, .setsTotal, .heartRate, .nextSet, .setDots, .primaryAction],
             updatedAt: Date(timeIntervalSince1970: 1_700_000_200)
         )
         let data = try WatchConnectivityCodec.encode(.watchScreenConfig(config))
@@ -599,7 +599,7 @@ struct PhoneOutgoingStateTests {
 
         let config = WatchScreenConfig(
             preset: .hrFocus,
-            enabledModules: [.heartRate, .timer],
+            enabledModules: [.heartRate, .elapsed],
             updatedAt: Date(timeIntervalSince1970: 1_700_000_800)
         )
         await manager.updateWatchScreenConfig(config)
@@ -860,6 +860,202 @@ struct WatchScreenConfigPrivacyTests {
             // check above uses `heartRate\":` (dict value form) which shouldn't
             // appear because it's a set element, not a key.
             #expect(!json.contains(token), "WatchScreenConfig JSON leaked token \(token): \(json)")
+        }
+    }
+}
+
+// MARK: - Contract: WatchScreenConfig axis-A presets + axis-B modules
+// Aligns with specs/watch-in-workout-screen.md §7 (MY-1286).
+
+@Suite("WatchScreenConfig preset contract")
+struct WatchScreenConfigPresetTests {
+
+    @Test("All four spec presets exist")
+    func allPresetsExist() {
+        let names = WatchScreenConfig.Preset.allCases.map { $0.rawValue }.sorted()
+        #expect(names == ["fullInfo", "hrFocus", "list", "nextFocus"])
+    }
+
+    @Test("Default config uses fullInfo preset with every module enabled")
+    func defaultConfigMatchesSpec() {
+        let config = WatchScreenConfig.defaultConfig()
+        #expect(config.preset == .fullInfo)
+        #expect(config.enabledModules == Set(WatchScreenConfig.Module.allCases))
+    }
+
+    @Test("Default config is deterministic (same call → same value)")
+    func defaultConfigIsDeterministic() {
+        let a = WatchScreenConfig.defaultConfig(at: Date(timeIntervalSince1970: 0))
+        let b = WatchScreenConfig.defaultConfig(at: Date(timeIntervalSince1970: 0))
+        #expect(a == b)
+    }
+
+    @Test("Every preset survives a round-trip via the codec")
+    func everyPresetRoundTrips() throws {
+        for preset in WatchScreenConfig.Preset.allCases {
+            let config = WatchScreenConfig(
+                preset: preset,
+                enabledModules: Set(WatchScreenConfig.Module.allCases),
+                updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            )
+            let data = try WatchConnectivityCodec.encode(.watchScreenConfig(config))
+            let decoded = try WatchConnectivityCodec.decode(data)
+            #expect(decoded == .watchScreenConfig(config), "preset \(preset) failed round-trip")
+        }
+    }
+}
+
+@Suite("WatchScreenConfig module contract")
+struct WatchScreenConfigModuleTests {
+
+    @Test("Module set exactly matches spec §7 axis-B ids")
+    func moduleIdsMatchSpec() {
+        let expected = Set([
+            "clock", "elapsed", "setsTotal", "heartRate", "hrZone",
+            "hrAvgPeak", "nextSet", "setDots", "primaryAction",
+        ])
+        let actual = Set(WatchScreenConfig.Module.allCases.map { $0.rawValue })
+        #expect(actual == expected)
+    }
+
+    @Test("Every module survives a round-trip when enabled alone")
+    func everyModuleRoundTrips() throws {
+        for module in WatchScreenConfig.Module.allCases {
+            let config = WatchScreenConfig(
+                preset: .fullInfo,
+                enabledModules: [module],
+                updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            )
+            let data = try WatchConnectivityCodec.encode(.watchScreenConfig(config))
+            let decoded = try WatchConnectivityCodec.decode(data)
+            #expect(decoded == .watchScreenConfig(config), "module \(module) failed round-trip")
+        }
+    }
+
+    @Test("Legacy module ids from the pre-MY-1286 shape no longer decode as valid modules")
+    func legacyModuleIdsRemoved() {
+        for legacy in ["currentExercise", "nextExercise", "setList", "timer", "setProgress"] {
+            #expect(WatchScreenConfig.Module(rawValue: legacy) == nil,
+                    "legacy module id \(legacy) must be gone per spec §7")
+        }
+    }
+}
+
+@Suite("WatchScreenConfig locked-on invariants")
+struct WatchScreenConfigLockedInvariantTests {
+
+    @Test("Locked-on set is exactly {heartRate, primaryAction}")
+    func lockedOnSetMatchesSpec() {
+        #expect(WatchScreenConfig.lockedOnModules == [.heartRate, .primaryAction])
+    }
+
+    @Test("Init with empty modules still reads heartRate + primaryAction enabled")
+    func initInjectsLockedModules() {
+        let config = WatchScreenConfig(
+            preset: .fullInfo,
+            enabledModules: [],
+            updatedAt: Date(timeIntervalSince1970: 0)
+        )
+        #expect(config.enabledModules.contains(.heartRate))
+        #expect(config.enabledModules.contains(.primaryAction))
+    }
+
+    @Test("Init preserves user-selected non-locked modules alongside locked ones")
+    func initPreservesUserModules() {
+        let config = WatchScreenConfig(
+            preset: .fullInfo,
+            enabledModules: [.clock, .elapsed],
+            updatedAt: Date(timeIntervalSince1970: 0)
+        )
+        #expect(config.enabledModules == [.clock, .elapsed, .heartRate, .primaryAction])
+    }
+
+    @Test("Decoded payload missing heartRate is re-injected on decode")
+    func decodeInjectsHeartRate() throws {
+        let payloadJSON = #"{"preset":"hrFocus","enabledModules":["elapsed"],"updatedAt":0}"#
+        let data = Data(payloadJSON.utf8)
+        let decoded = try JSONDecoder().decode(WatchScreenConfig.self, from: data)
+        #expect(decoded.enabledModules.contains(.heartRate),
+                "heartRate is LOCKED on per spec §7 axis-B; decode MUST inject it")
+        #expect(decoded.enabledModules.contains(.primaryAction),
+                "primaryAction is LOCKED on per spec §7 axis-B; decode MUST inject it")
+    }
+
+    @Test("Decoded payload missing primaryAction is re-injected on decode")
+    func decodeInjectsPrimaryAction() throws {
+        let payloadJSON = #"{"preset":"list","enabledModules":["nextSet","clock"],"updatedAt":0}"#
+        let data = Data(payloadJSON.utf8)
+        let decoded = try JSONDecoder().decode(WatchScreenConfig.self, from: data)
+        #expect(decoded.enabledModules.contains(.primaryAction))
+        #expect(decoded.enabledModules.contains(.heartRate))
+        // User-selected modules survive.
+        #expect(decoded.enabledModules.contains(.nextSet))
+        #expect(decoded.enabledModules.contains(.clock))
+    }
+
+    @Test("Codec round-trip preserves the enforced locked-on invariant end-to-end")
+    func codecRoundTripPreservesLockedOn() throws {
+        // Construct via the init that strips (via override) is impossible —
+        // the init always unions in locked modules — so we exercise the
+        // full codec path with a payload the wire never provided the locks.
+        let payloadJSON = #"{"preset":"nextFocus","enabledModules":["setsTotal"],"updatedAt":0}"#
+        let envelope = #"{"kind":"watchScreenConfig","payload":"\#(Data(payloadJSON.utf8).base64EncodedString())"}"#
+        let decoded = try WatchConnectivityCodec.decode(Data(envelope.utf8))
+        guard case .watchScreenConfig(let config) = decoded else {
+            Issue.record("wrong envelope decoded")
+            return
+        }
+        #expect(config.enabledModules.contains(.heartRate))
+        #expect(config.enabledModules.contains(.primaryAction))
+        #expect(config.enabledModules.contains(.setsTotal))
+    }
+}
+
+@Suite("WatchScreenConfig malformed input")
+struct WatchScreenConfigMalformedTests {
+
+    @Test("Unknown preset raises a codec error (does not crash)")
+    func unknownPresetRejected() {
+        let payloadJSON = #"{"preset":"pizza","enabledModules":[],"updatedAt":0}"#
+        let envelope = #"{"kind":"watchScreenConfig","payload":"\#(Data(payloadJSON.utf8).base64EncodedString())"}"#
+        do {
+            _ = try WatchConnectivityCodec.decode(Data(envelope.utf8))
+            Issue.record("expected throw for unknown preset")
+        } catch let error as WatchConnectivityCodecError {
+            if case .malformedPayload(let kind) = error {
+                #expect(kind == "watchScreenConfig")
+            } else {
+                Issue.record("wrong error: \(error)")
+            }
+        } catch {
+            Issue.record("wrong error type: \(error)")
+        }
+    }
+
+    @Test("Unknown module id raises a codec error (does not crash)")
+    func unknownModuleRejected() {
+        let payloadJSON = #"{"preset":"fullInfo","enabledModules":["banana"],"updatedAt":0}"#
+        let envelope = #"{"kind":"watchScreenConfig","payload":"\#(Data(payloadJSON.utf8).base64EncodedString())"}"#
+        do {
+            _ = try WatchConnectivityCodec.decode(Data(envelope.utf8))
+            Issue.record("expected throw for unknown module")
+        } catch let error as WatchConnectivityCodecError {
+            if case .malformedPayload(let kind) = error {
+                #expect(kind == "watchScreenConfig")
+            } else {
+                Issue.record("wrong error: \(error)")
+            }
+        } catch {
+            Issue.record("wrong error type: \(error)")
+        }
+    }
+
+    @Test("Missing preset key raises malformedPayload")
+    func missingPresetRejected() {
+        let payloadJSON = #"{"enabledModules":["heartRate"],"updatedAt":0}"#
+        let envelope = #"{"kind":"watchScreenConfig","payload":"\#(Data(payloadJSON.utf8).base64EncodedString())"}"#
+        #expect(throws: WatchConnectivityCodecError.self) {
+            _ = try WatchConnectivityCodec.decode(Data(envelope.utf8))
         }
     }
 }
