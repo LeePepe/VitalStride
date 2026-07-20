@@ -189,22 +189,16 @@ struct WatchInWorkoutCore: View {
             showZonePill: display.config.enabledModules.contains(.hrZone),
             showElapsed: display.config.enabledModules.contains(.elapsed)
         )
-        // The next-set hero block is the tier-2 hero even when the
-        // `nextSet` toggle is off — nextFocus without a next-set slot
-        // has no reason to exist as a preset, so we still render the
-        // block; when the toggle is off we swap in a compact freeform
-        // pill to preserve the invariant "no blank tier" (spec §5).
+        // Only `heartRate` + `primaryAction` are locked. When `.nextSet`
+        // is disabled we omit the hero block entirely — the outer
+        // `Spacer(minLength: 4)` in `content` handles reflow and keeps
+        // the primary action pinned to the bottom (spec §5 invariant 2 +
+        // MY-1292 P0-2: "reflow when a non-locked module is off").
         if display.config.enabledModules.contains(.nextSet) {
             WatchNextSetBlockModule(
                 nextSet: display.nextSet,
                 showDots: display.config.enabledModules.contains(.setDots),
                 variant: .hero
-            )
-        } else {
-            WatchNextSetBlockModule(
-                nextSet: nil,
-                showDots: false,
-                variant: .regular
             )
         }
     }
@@ -244,6 +238,12 @@ struct WatchInWorkoutCore: View {
 // The 176×216 canvas approximates the 41mm safe area so the "one
 // screen, no scroll" invariant (spec §5, invariant 1) is easy to
 // verify at design time.
+//
+// MY-1292 P0-3 coverage — the matrix previews below iterate every
+// non-locked toggle for each preset (all-on, locked-only, and each
+// individual toggle flipped off), plus the three HR states and the
+// saving overlay, so acceptance criterion "every preset × toggle
+// combination at 41mm" is verifiable at design time.
 
 #if DEBUG
 enum WatchInWorkoutViewPreview {
@@ -256,6 +256,17 @@ enum WatchInWorkoutViewPreview {
         targetWeightKg: 60,
         isLastSetOfWorkout: false
     )
+
+    /// Toggleable modules — the seven `Module` cases that are NOT
+    /// contract-locked. Iterated by the matrix previews so every
+    /// preset × single-toggle-off combination is rendered.
+    static let toggleableModules: [WatchScreenConfig.Module] = [
+        .clock, .elapsed, .setsTotal, .hrZone, .hrAvgPeak, .nextSet, .setDots
+    ]
+
+    /// The two contract-locked modules — always retained by
+    /// `WatchScreenConfig.init` regardless of caller intent.
+    static let lockedModules: Set<WatchScreenConfig.Module> = [.heartRate, .primaryAction]
 
     static func makeState(
         preset: WatchScreenConfig.Preset,
@@ -292,6 +303,58 @@ enum WatchInWorkoutViewPreview {
             saving: saving
         )
     }
+
+    /// A named preset × toggle-set combination used by the matrix.
+    struct Fixture: Identifiable {
+        let id: String
+        let preset: WatchScreenConfig.Preset
+        let enabled: Set<WatchScreenConfig.Module>
+    }
+
+    /// All non-locked toggles enabled — verifies default rendering.
+    static func allOnFixtures() -> [Fixture] {
+        WatchScreenConfig.Preset.allCases.map { preset in
+            Fixture(
+                id: "\(preset.rawValue) · all",
+                preset: preset,
+                enabled: Set(WatchScreenConfig.Module.allCases)
+            )
+        }
+    }
+
+    /// Only the two locked modules enabled — verifies the "collapse to
+    /// bare minimum" case respects the locked-on invariant + never
+    /// shows a blank tier (spec §5 invariant 2).
+    static func lockedOnlyFixtures() -> [Fixture] {
+        WatchScreenConfig.Preset.allCases.map { preset in
+            Fixture(
+                id: "\(preset.rawValue) · locked only",
+                preset: preset,
+                enabled: lockedModules
+            )
+        }
+    }
+
+    /// For every preset, one fixture per single toggle turned OFF (the
+    /// remaining six toggles + locked stay on). This gives the reviewer
+    /// coverage of every preset × toggle-off combination required by
+    /// acceptance criteria — 4 presets × 7 toggles = 28 fixtures.
+    static func singleToggleOffFixtures() -> [Fixture] {
+        var out: [Fixture] = []
+        for preset in WatchScreenConfig.Preset.allCases {
+            for turnedOff in toggleableModules {
+                let enabled = Set(WatchScreenConfig.Module.allCases).subtracting([turnedOff])
+                out.append(
+                    Fixture(
+                        id: "\(preset.rawValue) · no \(turnedOff.rawValue)",
+                        preset: preset,
+                        enabled: enabled
+                    )
+                )
+            }
+        }
+        return out
+    }
 }
 
 private struct WatchPreviewCanvas<Content: View>: View {
@@ -310,6 +373,52 @@ private struct WatchPreviewCanvas<Content: View>: View {
     }
 }
 
+/// Matrix strip — vertically stacks a scrollable list of 41mm canvases
+/// so reviewers can eyeball every preset × toggle fixture in one
+/// preview without opening 30 separate #Preview blocks. Individual
+/// #Preview blocks below expose the four presets' default renderings
+/// for quick single-canvas checks.
+private struct WatchMatrixStrip: View {
+    let title: String
+    let fixtures: [WatchInWorkoutViewPreview.Fixture]
+    var hr: HRDisplayState = .connected(bpm: 128, zone: 3)
+    var nextSet: WatchNextSetDisplay? = WatchInWorkoutViewPreview.sampleNextSet
+    var saving: WorkoutSavingState = .idle
+    var connection: WatchConnectionState = .reachable
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(title)
+                    .font(.caption.bold())
+                    .padding(.horizontal, 4)
+                ForEach(fixtures) { fixture in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(fixture.id)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        WatchInWorkoutCore(
+                            display: WatchInWorkoutViewPreview.makeState(
+                                preset: fixture.preset,
+                                enabled: fixture.enabled,
+                                hr: hr,
+                                nextSet: nextSet,
+                                saving: saving,
+                                connection: connection
+                            )
+                        )
+                        .frame(width: 176, height: 216)
+                        .border(Color.gray.opacity(0.3), width: 0.5)
+                    }
+                }
+            }
+            .padding(8)
+        }
+    }
+}
+
+// MARK: Per-preset single-canvas previews (fast eyeball)
+
 #Preview("A · fullInfo (default)") {
     WatchPreviewCanvas("A · fullInfo") {
         WatchInWorkoutCore(display: WatchInWorkoutViewPreview.makeState(preset: .fullInfo))
@@ -317,7 +426,7 @@ private struct WatchPreviewCanvas<Content: View>: View {
     }
 }
 
-#Preview("B · hrFocus") {
+#Preview("B · hrFocus (default)") {
     WatchPreviewCanvas("B · hrFocus") {
         WatchInWorkoutCore(
             display: WatchInWorkoutViewPreview.makeState(
@@ -329,14 +438,14 @@ private struct WatchPreviewCanvas<Content: View>: View {
     }
 }
 
-#Preview("C · list") {
+#Preview("C · list (default)") {
     WatchPreviewCanvas("C · list") {
         WatchInWorkoutCore(display: WatchInWorkoutViewPreview.makeState(preset: .list))
             .designThemePreview()
     }
 }
 
-#Preview("D · nextFocus") {
+#Preview("D · nextFocus (default)") {
     WatchPreviewCanvas("D · nextFocus") {
         WatchInWorkoutCore(
             display: WatchInWorkoutViewPreview.makeState(
@@ -347,6 +456,8 @@ private struct WatchPreviewCanvas<Content: View>: View {
         .designThemePreview()
     }
 }
+
+// MARK: HR / lifecycle state previews
 
 #Preview("HR — not connected · freeform") {
     WatchPreviewCanvas("Not connected · freeform") {
@@ -412,27 +523,60 @@ private struct WatchPreviewCanvas<Content: View>: View {
     }
 }
 
-#Preview("fullInfo — minimal toggles (HR + action only)") {
-    WatchPreviewCanvas("fullInfo minimal") {
-        WatchInWorkoutCore(
-            display: WatchInWorkoutViewPreview.makeState(
-                preset: .fullInfo,
-                enabled: [] // locked-on invariant still forces HR + action
-            )
-        )
-        .designThemePreview()
-    }
+// MARK: Comprehensive matrix previews (MY-1292 P0-3)
+// One #Preview per matrix so the reviewer can scroll through every
+// preset × toggle combination without editing this file.
+
+#Preview("Matrix — all toggles ON (4 presets)") {
+    WatchMatrixStrip(
+        title: "All toggles ON",
+        fixtures: WatchInWorkoutViewPreview.allOnFixtures()
+    )
+    .designThemePreview()
 }
 
-#Preview("list — minimal") {
-    WatchPreviewCanvas("list minimal") {
-        WatchInWorkoutCore(
-            display: WatchInWorkoutViewPreview.makeState(
-                preset: .list,
-                enabled: [.elapsed, .setsTotal, .clock]
-            )
-        )
-        .designThemePreview()
-    }
+#Preview("Matrix — locked-only (4 presets, invariant check)") {
+    WatchMatrixStrip(
+        title: "Locked-only (HR + action)",
+        fixtures: WatchInWorkoutViewPreview.lockedOnlyFixtures()
+    )
+    .designThemePreview()
+}
+
+#Preview("Matrix — single toggle OFF (28 fixtures)") {
+    WatchMatrixStrip(
+        title: "Each toggleable module OFF (per preset)",
+        fixtures: WatchInWorkoutViewPreview.singleToggleOffFixtures()
+    )
+    .designThemePreview()
+}
+
+#Preview("Matrix — HR states × 4 presets (not connected)") {
+    WatchMatrixStrip(
+        title: "HR: not connected",
+        fixtures: WatchInWorkoutViewPreview.allOnFixtures(),
+        hr: .notConnected,
+        nextSet: nil,
+        connection: .unreachable
+    )
+    .designThemePreview()
+}
+
+#Preview("Matrix — HR states × 4 presets (connecting)") {
+    WatchMatrixStrip(
+        title: "HR: connected, no data yet",
+        fixtures: WatchInWorkoutViewPreview.allOnFixtures(),
+        hr: .connectedNoData
+    )
+    .designThemePreview()
+}
+
+#Preview("Matrix — saving overlay × 4 presets") {
+    WatchMatrixStrip(
+        title: "Saving overlay",
+        fixtures: WatchInWorkoutViewPreview.allOnFixtures(),
+        saving: .saving
+    )
+    .designThemePreview()
 }
 #endif

@@ -7,17 +7,37 @@ import HealthKitService
 import SwiftUI
 import os
 
-// MARK: - WatchNoopSetCompletedSender
+// MARK: - Watch → Phone sender factory
 //
-// Stand-in `WatchSetCompletedSending` used by the in-workout screen
-// composition (MY-1292). Real wiring to `DefaultWatchToPhoneSender`
-// (via `WatchWorkoutViewModel(manager:toPhoneSender:)`) lands with the
-// primary-action side-effect follow-up; MY-1292 focuses on the
-// display-composition layer, so a Noop keeps the screen renderable
-// without accidentally emitting `SetCompletedEvent`s during composition
-// verification. Privacy §I: no HR / rep values are logged here.
-struct WatchNoopSetCompletedSender: WatchSetCompletedSending {
-    func send(_ event: SetCompletedEvent) throws {}
+// Production wiring for the in-workout screen's primary-action side
+// effect (MY-1292 P0-1). The display view-model needs a
+// `WatchSetCompletedSending` seam so complete/log/finish taps deliver
+// a `SetCompletedEvent` to the paired iPhone. On watchOS we hand it a
+// real `DefaultWatchToPhoneSender` (thin wrapper over the shared
+// `WCSession.default`) via the `toPhoneSender:` convenience init on
+// `WatchWorkoutViewModel`. On preview/other platforms we fall back to
+// `NoopWatchToPhoneSender` so previews still compile.
+//
+// Privacy §I: neither branch logs the event body; `DefaultWatchToPhoneSender`
+// only logs the message `kind` + transport, and `NoopWatchToPhoneSender`
+// throws without logging.
+private enum WatchDisplaySenderFactory {
+    @MainActor
+    static func makeViewModel(
+        manager: any WorkoutSessionManaging
+    ) -> WatchWorkoutViewModel {
+        #if os(watchOS) && canImport(WatchConnectivity)
+        return WatchWorkoutViewModel(
+            manager: manager,
+            toPhoneSender: DefaultWatchToPhoneSender()
+        )
+        #else
+        return WatchWorkoutViewModel(
+            manager: manager,
+            toPhoneSender: NoopWatchToPhoneSender()
+        )
+        #endif
+    }
 }
 
 // MARK: - WatchWorkoutLifecycleViewModel
@@ -171,18 +191,16 @@ struct StrengthWorkoutView: View {
     /// Display-state adapter (MY-1290) fed by the merged WC streams. It
     /// shares the lifecycle VM's underlying `WorkoutSessionManaging` so
     /// state / config / HR / connection events all funnel from one
-    /// source of truth. `sender` is a Noop by default — the watch's
-    /// `sendCompleteSet` path routes through the manager's own sender,
-    /// but MY-1292 focuses on composition; the real sender wiring is
-    /// finalized alongside the primary-action side effect in a follow-up.
+    /// source of truth. The `WatchSetCompletedSending` seam is supplied
+    /// by `WatchDisplaySenderFactory`, which wires the real
+    /// `DefaultWatchToPhoneSender` on watchOS (MY-1292 P0-1).
     @StateObject private var displayModel: WatchWorkoutViewModel
 
     init(viewModel: WatchWorkoutLifecycleViewModel) {
         self.viewModel = viewModel
         self._displayModel = StateObject(
-            wrappedValue: WatchWorkoutViewModel(
-                manager: viewModel.manager,
-                sender: WatchNoopSetCompletedSender()
+            wrappedValue: WatchDisplaySenderFactory.makeViewModel(
+                manager: viewModel.manager
             )
         )
     }
