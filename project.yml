@@ -42,6 +42,18 @@ schemes:
     test:
       targets:
         - VitalStrideTests
+  "VitalStrideWatch Watch App":
+    build:
+      targets:
+        "VitalStrideWatch Watch App": all
+  VitalStrideWatchTests:
+    build:
+      targets:
+        "VitalStrideWatch Watch App": all
+        VitalStrideWatchTests: [test]
+    test:
+      targets:
+        - VitalStrideWatchTests
 
 targets:
   VitalStride:
@@ -262,3 +274,28 @@ targets:
         SKIP_INSTALL: true
         APPLICATION_EXTENSION_API_ONLY: true
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../Frameworks"
+
+  # watchOS unit-test bundle covering the MY-1290 display-state projection,
+  # HR/connection transition reducers, and the MY-1292 complete-set sender
+  # seam. Kept as a stand-alone bundle (`type: bundle.unit-test`) so it can
+  # link the watch app for `@testable import` without needing a full-blown
+  # host app on the simulator — the target inherits watchOS deployment from
+  # the top-level `options.deploymentTarget.watchOS`.
+  VitalStrideWatchTests:
+    type: bundle.unit-test
+    platform: watchOS
+    sources:
+      - path: VitalStrideWatchTests
+    dependencies:
+      - target: "VitalStrideWatch Watch App"
+      - package: HealthKitService
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride.watchos.tests
+        GENERATE_INFOPLIST_FILE: true
+        # Test bundle links against the watch app so that `@testable import`
+        # of watch-target sources works. TEST_HOST + BUNDLE_LOADER mirror
+        # the pattern used by `VitalStrideTests`.
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/VitalStrideWatch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VitalStrideWatch Watch App"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        WATCHOS_DEPLOYMENT_TARGET: "11.0"
