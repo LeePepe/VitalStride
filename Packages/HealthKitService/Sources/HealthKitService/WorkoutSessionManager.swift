@@ -33,6 +33,43 @@ public protocol WorkoutSessionManaging: Sendable {
 
     /// SetCompleted events pushed from the watch.
     func observeSetCompleted() async -> AsyncStream<SetCompletedEvent>
+
+    /// Latest `WorkoutStateSnapshot` decoded from the inbound WC
+    /// application-context channel. Watch-side manager routes iPhone-pushed
+    /// state here; phone-side manager returns a finished stream (phone is
+    /// the SENDER of this payload). Latest-wins buffering — a subscriber
+    /// that falls behind sees only the newest snapshot.
+    func observeInboundWorkoutState() async -> AsyncStream<WorkoutStateSnapshot>
+
+    /// Latest `WatchScreenConfig` decoded from the inbound WC
+    /// application-context channel. Watch-side manager emits the deterministic
+    /// `WatchScreenConfig.defaultConfig()` as the first value so the watch
+    /// UI can render immediately — even before iPhone has pushed a config or
+    /// during a WC handshake — then replaces it as real config arrives.
+    /// Phone-side manager returns a finished stream.
+    func observeInboundWatchScreenConfig() async -> AsyncStream<WatchScreenConfig>
+
+    /// Live HR samples collected LOCALLY on the watch via HKLiveWorkoutBuilder,
+    /// exposed to watch UI. Distinct from `observeLiveWorkoutHeartRate`
+    /// (which is the iPhone-side receive stream). On non-watchOS this
+    /// returns a finished stream. Latest-wins buffering — HR is
+    /// display-only, we prefer the newest bpm to a queued stale one.
+    /// HR values MUST NOT be logged (§I).
+    func observeLocalHeartRate() async -> AsyncStream<LiveHeartRatePayload>
+}
+
+extension WorkoutSessionManaging {
+    public func observeInboundWorkoutState() async -> AsyncStream<WorkoutStateSnapshot> {
+        AsyncStream { $0.finish() }
+    }
+
+    public func observeInboundWatchScreenConfig() async -> AsyncStream<WatchScreenConfig> {
+        AsyncStream { $0.finish() }
+    }
+
+    public func observeLocalHeartRate() async -> AsyncStream<LiveHeartRatePayload> {
+        AsyncStream { $0.finish() }
+    }
 }
 
 extension WorkoutSessionManaging {
@@ -98,7 +135,199 @@ enum WorkoutBuilderGate {
     }
 }
 
-// MARK: - Failure surface
+// MARK: - WatchWorkoutInboundStore
+//
+// Actor-isolated fan-out for iPhone → watch payloads decoded from the WC
+// application-context (or messages) channel. Platform-neutral so it can be
+// unit-tested without any watchOS build. On watch, it's plugged into
+// `WorkoutSessionManager` via `WatchInboundReceiving`; the WC shim decodes
+// synchronously off the delegate queue (see `WatchToPhoneSender.swift`) and
+// hops into this actor with a Sendable message.
+//
+// Semantics:
+//   * `observeInboundWorkoutState()` — bounded newest-value (buffer 1). Emits
+//     nothing until a first state arrives; latest-wins.
+//   * `observeInboundWatchScreenConfig()` — bounded newest-value (buffer 1).
+//     Emits `WatchScreenConfig.defaultConfig()` synchronously on subscribe
+//     so watch UI is never blank (spec §7 "Watch fallback"). Subsequent
+//     values from `apply(...)` replace it.
+//   * `observeLocalHeartRate()` — bounded newest-value (buffer 1). HR is
+//     display-only, we prefer the newest bpm.
+//   * Malformed payloads → dropped with a privacy-safe log.
+//   * Reverse-direction / wrong-channel payloads → dropped with a
+//     privacy-safe log (contract enforcement, see PhoneWorkoutSessionManager).
+
+public actor WatchWorkoutInboundStore: WatchInboundReceiving {
+    private nonisolated let logger: Logger
+
+    private var latestState: WorkoutStateSnapshot?
+    private var latestConfig: WatchScreenConfig?
+    private var stateContinuations: [UUID: AsyncStream<WorkoutStateSnapshot>.Continuation] = [:]
+    private var configContinuations: [UUID: AsyncStream<WatchScreenConfig>.Continuation] = [:]
+    private var hrContinuations: [UUID: AsyncStream<LiveHeartRatePayload>.Continuation] = [:]
+
+    public init() {
+        self.logger = Logger(subsystem: "com.vitalstride", category: "WatchInboundStore")
+    }
+
+    // MARK: Read side (streams)
+
+    public func observeInboundWorkoutState() -> AsyncStream<WorkoutStateSnapshot> {
+        let id = UUID()
+        let (stream, continuation) = AsyncStream<WorkoutStateSnapshot>.makeStream(
+            bufferingPolicy: .bufferingNewest(1)
+        )
+        stateContinuations[id] = continuation
+        if let latestState {
+            continuation.yield(latestState)
+        }
+        continuation.onTermination = { [weak self] _ in
+            guard let self else { return }
+            Task { await self.removeStateContinuation(id) }
+        }
+        return stream
+    }
+
+    public func observeInboundWatchScreenConfig() -> AsyncStream<WatchScreenConfig> {
+        let id = UUID()
+        let (stream, continuation) = AsyncStream<WatchScreenConfig>.makeStream(
+            bufferingPolicy: .bufferingNewest(1)
+        )
+        configContinuations[id] = continuation
+        // Spec §7 "Watch fallback": watch UI must never render blank. Emit the
+        // deterministic default first, then replace as real config arrives.
+        continuation.yield(latestConfig ?? WatchScreenConfig.defaultConfig())
+        continuation.onTermination = { [weak self] _ in
+            guard let self else { return }
+            Task { await self.removeConfigContinuation(id) }
+        }
+        return stream
+    }
+
+    public func observeLocalHeartRate() -> AsyncStream<LiveHeartRatePayload> {
+        let id = UUID()
+        let (stream, continuation) = AsyncStream<LiveHeartRatePayload>.makeStream(
+            bufferingPolicy: .bufferingNewest(1)
+        )
+        hrContinuations[id] = continuation
+        continuation.onTermination = { [weak self] _ in
+            guard let self else { return }
+            Task { await self.removeHRContinuation(id) }
+        }
+        return stream
+    }
+
+    // MARK: Write side (inbound + local HR)
+
+    /// Ingest a decoded inbound message. Only iPhone→watch payloads are
+    /// honored; watch→iPhone payloads on this side are reverse-direction
+    /// (dropped and logged).
+    public func apply(_ message: WatchConnectivityMessage) {
+        switch message {
+        case .workoutState(let snapshot):
+            latestState = snapshot
+            for continuation in stateContinuations.values {
+                continuation.yield(snapshot)
+            }
+            // Privacy §I: log setCount + progress counters only, never reps/weight values.
+            logger.info(
+                "watch_inbound_state_applied setCount=\(snapshot.sets.count, privacy: .public) progress=\(snapshot.progress.completedSetCount, privacy: .public)/\(snapshot.progress.totalSetCount, privacy: .public)"
+            )
+        case .watchScreenConfig(let config):
+            latestConfig = config
+            for continuation in configContinuations.values {
+                continuation.yield(config)
+            }
+            logger.info(
+                "watch_inbound_config_applied preset=\(config.preset.rawValue, privacy: .public) modules=\(config.enabledModules.count, privacy: .public)"
+            )
+        case .liveHeartRate:
+            // Reverse direction on the watch — watch is the SENDER of HR.
+            logger.info("watch_inbound_ignored_reverse_payload kind=liveHeartRate")
+        case .setCompleted:
+            logger.info("watch_inbound_ignored_reverse_payload kind=setCompleted")
+        }
+    }
+
+    /// Broadcast a locally-collected HR sample to watch-UI subscribers of
+    /// `observeLocalHeartRate()`. Values MUST NOT be logged (§I).
+    public func broadcastLocalHR(_ payload: LiveHeartRatePayload) {
+        guard payload.isPhysiologicallyPlausible else {
+            // Never log bpm; log rejection reason only.
+            logger.info("watch_local_hr_rejected reason=out_of_range")
+            return
+        }
+        for continuation in hrContinuations.values {
+            continuation.yield(payload)
+        }
+        // Privacy §I: log sampleType + count only.
+        logger.info("watch_local_hr_broadcast sampleType=heartRate count=1")
+    }
+
+    /// Terminate all outstanding streams. Called on session end or store
+    /// tear-down so subscribers observe stream termination deterministically.
+    public func finishAllStreams() {
+        for continuation in stateContinuations.values { continuation.finish() }
+        for continuation in configContinuations.values { continuation.finish() }
+        for continuation in hrContinuations.values { continuation.finish() }
+        stateContinuations.removeAll()
+        configContinuations.removeAll()
+        hrContinuations.removeAll()
+    }
+
+    // MARK: Internal cleanup
+
+    private func removeStateContinuation(_ id: UUID) {
+        stateContinuations[id] = nil
+    }
+
+    private func removeConfigContinuation(_ id: UUID) {
+        configContinuations[id] = nil
+    }
+
+    private func removeHRContinuation(_ id: UUID) {
+        hrContinuations[id] = nil
+    }
+
+    // MARK: WatchInboundReceiving (nonisolated bridge)
+    //
+    // Same pattern as PhoneWorkoutSessionManager — decode `[String: Any]`
+    // synchronously in the nonisolated method (the Sendable
+    // `WatchConnectivityMessage` crosses safely), then hop into the actor.
+
+    public nonisolated func inboundDidReceiveApplicationContext(_ dictionary: [String: Any]) {
+        let decoded: WatchConnectivityMessage
+        do {
+            decoded = try WatchConnectivityCodec.decodeDictionary(dictionary)
+        } catch {
+            // Never crash on malformed input; log kind of failure only.
+            logger.info(
+                "watch_inbound_decode_failed source=applicationContext reason=\(String(describing: error), privacy: .public)"
+            )
+            return
+        }
+        Task { await self.apply(decoded) }
+    }
+
+    public nonisolated func inboundDidReceiveMessage(_ dictionary: [String: Any]) {
+        let decoded: WatchConnectivityMessage
+        do {
+            decoded = try WatchConnectivityCodec.decodeDictionary(dictionary)
+        } catch {
+            logger.info(
+                "watch_inbound_decode_failed source=message reason=\(String(describing: error), privacy: .public)"
+            )
+            return
+        }
+        // iPhone → watch state/config normally arrive via applicationContext;
+        // if a producer routes them via sendMessage we still accept them
+        // (contract flexibility). Reverse-direction payloads are handled in
+        // `apply` and dropped with a log.
+        Task { await self.apply(decoded) }
+    }
+}
+
+
 
 /// Error thrown by `WorkoutSessionManager.startSession()` on watchOS so
 /// callers can drive a `.failed` UI state instead of a silent stuck-idle.
@@ -120,6 +349,7 @@ public enum WorkoutSessionStartError: Error, Sendable, Equatable {
 public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unchecked Sendable {
     private let healthStore: HKHealthStore
     private let sender: any WatchToPhoneSending
+    private let inboundStore: WatchWorkoutInboundStore
     private let logger: Logger
     private let lock = NSLock()
 
@@ -130,12 +360,31 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
 
     public init(
         healthStore: HKHealthStore,
-        sender: any WatchToPhoneSending = NoopWatchToPhoneSender()
+        sender: any WatchToPhoneSending = NoopWatchToPhoneSender(),
+        inboundStore: WatchWorkoutInboundStore = WatchWorkoutInboundStore()
     ) {
         self.healthStore = healthStore
         self.sender = sender
+        self.inboundStore = inboundStore
         self.logger = Logger(subsystem: "com.vitalstride", category: "WorkoutSession")
         super.init()
+    }
+
+    /// Exposes the inbound store for callers that want to hand it to
+    /// `DefaultWatchToPhoneSender.setInboundReceiver(_:)` (or set it as the
+    /// initial receiver at sender-construction time).
+    public var inboundReceiver: any WatchInboundReceiving { inboundStore }
+
+    public func observeInboundWorkoutState() async -> AsyncStream<WorkoutStateSnapshot> {
+        await inboundStore.observeInboundWorkoutState()
+    }
+
+    public func observeInboundWatchScreenConfig() async -> AsyncStream<WatchScreenConfig> {
+        await inboundStore.observeInboundWatchScreenConfig()
+    }
+
+    public func observeLocalHeartRate() async -> AsyncStream<LiveHeartRatePayload> {
+        await inboundStore.observeLocalHeartRate()
     }
 
     public func startSession() async throws {
@@ -261,6 +510,15 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
             // Never log bpm; log rejection reason only.
             logger.info("workout_hr_rejected reason=out_of_range")
             return
+        }
+        // Broadcast to local watch-UI subscribers via the inbound store.
+        // Fire-and-forget: we're inside a synchronous HK delegate callback
+        // and the actor-hop is the standard Swift 6 pattern here. The store
+        // is Sendable and holds only the watch-UI HR fan-out — it does not
+        // log the bpm value.
+        let localPayload = payload
+        Task { [inboundStore] in
+            await inboundStore.broadcastLocalHR(localPayload)
         }
         do {
             try sender.send(.liveHeartRate(payload))

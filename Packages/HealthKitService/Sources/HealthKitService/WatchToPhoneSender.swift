@@ -36,6 +36,35 @@ public protocol WatchToPhoneSending: Sendable {
     func send(_ message: WatchConnectivityMessage) throws
 }
 
+// MARK: - WatchInboundReceiving
+//
+// Watch-side counterpart to the phone's `WatchConnectivitySessionDelegateHandling`.
+// The Watch's WCSession delegate forwards `didReceiveApplicationContext` and
+// `didReceiveMessage` here so that inbound iPhone → watch payloads
+// (`WorkoutStateSnapshot`, `WatchScreenConfig`) can be decoded off the actor
+// and routed into typed AsyncStreams.
+//
+// Contract (matches phone-side pattern):
+//   * Both methods are `nonisolated` so they can be invoked from the WCSession
+//     delegate's private serial queue (or from tests) without an actor hop.
+//   * Implementations MUST decode the `[String: Any]` synchronously in the
+//     nonisolated method; only Sendable values may cross into any owned
+//     actor.
+//   * Decode failures MUST be swallowed with a privacy-safe log — the
+//     delegate never crashes and never fans out garbage.
+public protocol WatchInboundReceiving: AnyObject, Sendable {
+    /// Called with the raw `applicationContext` dictionary from WCSession.
+    /// Latest-wins channel — carries `WorkoutStateSnapshot` and
+    /// `WatchScreenConfig`.
+    nonisolated func inboundDidReceiveApplicationContext(_ dictionary: [String: Any])
+
+    /// Called with the raw `didReceiveMessage` dictionary from WCSession.
+    /// Wrong-channel HR / SetCompleted arriving here are dropped (contract
+    /// enforces the direction), but we still hand them in so the receiver
+    /// can log the violation instead of the shim guessing.
+    nonisolated func inboundDidReceiveMessage(_ dictionary: [String: Any])
+}
+
 // MARK: - NoopWatchToPhoneSender
 
 /// Used on platforms without WatchConnectivity (macOS, tests) and by
@@ -97,10 +126,11 @@ public final class DefaultWatchToPhoneSender: WatchToPhoneSending {
     // These invariants make it safe to share across concurrency domains.
     nonisolated(unsafe) private let shim: WCDelegateShim
 
-    public init() {
+    public init(inboundReceiver: (any WatchInboundReceiving)? = nil) {
         self.logger = Logger(subsystem: "com.vitalstride", category: "WatchToPhoneSender")
         self.shim = WCDelegateShim(
-            logger: Logger(subsystem: "com.vitalstride", category: "WatchToPhoneSender.Shim")
+            logger: Logger(subsystem: "com.vitalstride", category: "WatchToPhoneSender.Shim"),
+            receiver: inboundReceiver
         )
         activate()
     }
@@ -112,6 +142,12 @@ public final class DefaultWatchToPhoneSender: WatchToPhoneSending {
         }
         WCSession.default.delegate = shim
         WCSession.default.activate()
+    }
+
+    /// Install or replace the inbound receiver after init. Safe to call at
+    /// any time — the shim serializes access via the WCSession delegate queue.
+    public func setInboundReceiver(_ receiver: any WatchInboundReceiving) {
+        shim.setReceiver(receiver)
     }
 
     public var isReachable: Bool {
@@ -179,17 +215,35 @@ extension DefaultWatchToPhoneSender: Sendable {}
 //     inherit from `NSObject`. NSObject subclasses cannot express checked
 //     `Sendable` conformance in Swift 6 — that's a language/ObjC-runtime
 //     boundary, not our choice.
-//   * The shim has NO mutable state — only an immutable `Logger`. Every
-//     callback path just logs (privacy-safe: no session-owned state, no HR
-//     value ever visible here).
+//   * Mutable state is limited to a single weak `receiver` reference guarded
+//     by `OSAllocatedUnfairLock`. Every callback path reads the receiver
+//     through the lock. Payload dictionaries are handed to the receiver
+//     synchronously on the delegate queue; the receiver is responsible for
+//     decoding + actor-hopping (mirrors the phone-side pattern).
 // This keeps the unchecked surface to the smallest possible slice.
 
 private final class WCDelegateShim: NSObject, WCSessionDelegate, @unchecked Sendable {
     private let logger: Logger
+    private let receiverBox = OSAllocatedUnfairLock<ReceiverBox>(initialState: ReceiverBox())
 
-    init(logger: Logger) {
+    private struct ReceiverBox: Sendable {
+        weak var receiver: (any WatchInboundReceiving)?
+    }
+
+    init(logger: Logger, receiver: (any WatchInboundReceiving)? = nil) {
         self.logger = logger
         super.init()
+        if let receiver {
+            receiverBox.withLock { $0.receiver = receiver }
+        }
+    }
+
+    func setReceiver(_ receiver: any WatchInboundReceiving) {
+        receiverBox.withLock { $0.receiver = receiver }
+    }
+
+    private func currentReceiver() -> (any WatchInboundReceiving)? {
+        receiverBox.withLock { $0.receiver }
     }
 
     func session(
@@ -204,6 +258,14 @@ private final class WCDelegateShim: NSObject, WCSessionDelegate, @unchecked Send
         } else {
             logger.info("watch_wcsession_activated state=\(activationState.rawValue, privacy: .public)")
         }
+    }
+
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        currentReceiver()?.inboundDidReceiveApplicationContext(applicationContext)
+    }
+
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        currentReceiver()?.inboundDidReceiveMessage(message)
     }
 }
 
