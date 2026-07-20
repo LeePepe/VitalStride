@@ -36,6 +36,8 @@ Each ADR is its own file, numbered sequentially: `NNNN-kebab-case-title.md`.
 | [0007](0007-telemetrykit-standalone-spm-package.md) | TelemetryKit as Standalone SPM Package | Accepted | 2026-06-18 |
 | [0008](0008-designkit-seed-based-design-system.md) | DesignKit — One Seed-Based Design System Package | Accepted | 2026-07-02 |
 | [0009](0009-pr-required-workflow.md) | PR-Required Git Workflow (supersedes 0001) | Accepted | 2026-07-03 |
+| [0010](0010-promote-watchos-live-heart-rate.md) | Promote watchOS Live Heart Rate (narrow ADR-0002 exception) | Accepted | 2026-07-19 |
+| [0011](0011-telemetrydeck-first-production-provider.md) | TelemetryDeck as First Production Telemetry Provider | Accepted | 2026-07-20 |
 
 ## Writing a new ADR
 
