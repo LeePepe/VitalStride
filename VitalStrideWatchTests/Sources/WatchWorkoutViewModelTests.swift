@@ -59,8 +59,15 @@ final class WatchWorkoutViewModelTests: XCTestCase {
         // stream subscribers have attached, so subsequent yields are
         // guaranteed to be delivered. Bounded so a wiring regression
         // fails loudly (2s) instead of hanging.
-        try await withTimeout(seconds: 2.0) {
-            await self.manager.awaitAllSubscribersReady()
+        //
+        // `awaitAllSubscribersReady()` is cancellation-aware — the
+        // sibling deadline task in `withTimeout` cancels the enclosing
+        // task group, and the readiness continuation throws
+        // `CancellationError` so the group actually returns instead of
+        // waiting forever on a stranded `CheckedContinuation`.
+        try await withTimeout(seconds: 2.0) { [manager] in
+            guard let manager else { return }
+            try await manager.awaitAllSubscribersReady()
         }
     }
 
@@ -236,6 +243,62 @@ final class WatchWorkoutViewModelTests: XCTestCase {
         XCTAssertEqual(vm.display, .initial)
     }
 
+    // MARK: Readiness-timeout regression (MY-1300)
+
+    /// Regression: before MY-1300 `awaitAllSubscribersReady()` awaited a
+    /// non-cancellation-aware `CheckedContinuation`, so cancelling the
+    /// caller (as `withTimeout`'s sibling deadline branch does via
+    /// `group.cancelAll()`) left the continuation stranded and hung the
+    /// enclosing task group forever. This test cancels the caller task
+    /// directly and asserts that (a) the wait DOES return (bounded
+    /// elapsed time proves cancellation escapes), and (b) it surfaces
+    /// as `CancellationError` from the throwing continuation — i.e. the
+    /// cancel path resumed the continuation exactly once with the
+    /// expected error type.
+    func test_awaitAllSubscribersReady_isCancellationAware() async throws {
+        let orphan = FakeWorkoutSessionManager()
+        let start = Date()
+        let task = Task { try await orphan.awaitAllSubscribersReady() }
+        // Small delay so the task actually suspends inside the checked
+        // continuation before we cancel — otherwise we'd only be
+        // exercising the pre-suspension re-check path.
+        try await Task.sleep(nanoseconds: 20_000_000)
+        task.cancel()
+        do {
+            try await task.value
+            XCTFail("expected CancellationError")
+        } catch is CancellationError {
+            // expected
+        }
+        let elapsed = Date().timeIntervalSince(start)
+        XCTAssertLessThan(elapsed, 1.0, "cancellation did not propagate through the continuation")
+    }
+
+    /// Regression: even under an ATTACH-then-CANCEL race the checked
+    /// continuation must be resumed exactly once. We prime a manager
+    /// with all four subscribers already attached BEFORE the waiter
+    /// suspends — the re-check inside `awaitAllSubscribersReady()`
+    /// resumes synchronously, and a subsequent cancel must be a no-op
+    /// rather than a second resume (which would trap the checked
+    /// runtime). Running many iterations amplifies any latent race.
+    func test_awaitAllSubscribersReady_singleShotUnderRace() async throws {
+        for _ in 0..<64 {
+            let m = FakeWorkoutSessionManager()
+            _ = await m.observeInboundWorkoutState()
+            _ = await m.observeInboundWatchScreenConfig()
+            _ = await m.observeLocalHeartRate()
+            _ = await m.observeConnectionState()
+
+            let task = Task { try await m.awaitAllSubscribersReady() }
+            task.cancel()
+            do {
+                try await task.value
+            } catch is CancellationError {
+                // acceptable — cancel may have beaten the fast-path
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     private func makeHR(bpm: Double) -> LiveHeartRatePayload {
@@ -285,8 +348,14 @@ final class WatchWorkoutViewModelTests: XCTestCase {
 
     /// Deterministic wait: iterate `@Published`'s async publisher until
     /// the predicate holds. No wall-clock polling; the loop wakes on
-    /// each real publish. A hard-timeout task races the publisher so a
-    /// broken predicate surfaces as `XCTFail`, not a hang.
+    /// each real publish. A hard-timeout task cancels the observing
+    /// task so a broken predicate surfaces as `XCTFail`, not a hang.
+    ///
+    /// Uses a `Task` + `Task.sleep` deadline instead of a mixed-
+    /// isolation task group — the latter tripped a Swift 6 region-based
+    /// isolation checker bug ("pattern that the region-based isolation
+    /// checker does not understand how to check") when a `@MainActor`
+    /// child was combined with a non-isolated deadline child.
     private func waitForDisplay(
         timeout: TimeInterval = 2.0,
         _ predicate: @escaping @MainActor (WatchWorkoutDisplayState) -> Bool,
@@ -295,21 +364,20 @@ final class WatchWorkoutViewModelTests: XCTestCase {
     ) async throws {
         if predicate(vm.display) { return }
         let currentVM = try XCTUnwrap(vm, file: file, line: line)
-        let matched: Bool = try await withThrowingTaskGroup(of: Bool.self) { group in
-            group.addTask { @MainActor in
-                for await display in currentVM.$display.values {
-                    if predicate(display) { return true }
-                }
-                return false
+        let observer = Task { @MainActor in
+            var matched = false
+            for await display in currentVM.$display.values {
+                if Task.isCancelled { break }
+                if predicate(display) { matched = true; break }
             }
-            group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                return false
-            }
-            let first = try await group.next() ?? false
-            group.cancelAll()
-            return first
+            return matched
         }
+        let deadline = Task {
+            try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+            observer.cancel()
+        }
+        let matched = await observer.value
+        deadline.cancel()
         if !matched {
             XCTFail(
                 "waitForDisplay timed out after \(timeout)s",
@@ -321,16 +389,31 @@ final class WatchWorkoutViewModelTests: XCTestCase {
 
     /// Race `operation` against a hard deadline. Used only for actor
     /// awaits in setup so a wiring regression cannot hang the suite.
+    ///
+    /// `operation` must itself honour cancellation — if it awaits a
+    /// bare `CheckedContinuation`, the deadline branch will win the
+    /// race but the operation branch will remain suspended forever,
+    /// hanging the task group. See
+    /// `FakeWorkoutSessionManager.awaitAllSubscribersReady()` for the
+    /// cancellation-aware pattern used here (throwing continuation
+    /// resumed on `withTaskCancellationHandler`'s cancel branch).
     private func withTimeout(
         seconds: TimeInterval,
-        _ operation: @escaping @Sendable () async -> Void,
+        _ operation: @escaping @Sendable () async throws -> Void,
         file: StaticString = #filePath,
         line: UInt = #line
     ) async throws {
         let ok: Bool = await withTaskGroup(of: Bool.self) { group in
             group.addTask {
-                await operation()
-                return true
+                do {
+                    try await operation()
+                    return true
+                } catch {
+                    // Cancellation (or any thrown error) is treated as
+                    // "did not complete on its own", but critically the
+                    // task RETURNS so the group can make progress.
+                    return false
+                }
             }
             group.addTask {
                 (try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))) ?? ()
@@ -370,17 +453,57 @@ final actor FakeWorkoutSessionManager: WorkoutSessionManaging {
 
     private static let expectedSubscribers = 4
     private var attachedCount = 0
-    private var readyContinuation: CheckedContinuation<Void, Never>?
+    /// Holds the throwing continuation for exactly one waiter. Setting
+    /// this back to `nil` is the single-shot guard: both the ready
+    /// branch (`markSubscriberAttached`) and the cancel branch
+    /// (installed by `withTaskCancellationHandler`) atomically clear it
+    /// on the actor's serial executor before calling `resume`, so a
+    /// `CheckedContinuation` can never be resumed twice — even if
+    /// cancellation and the final subscriber attach race.
+    private var readyContinuation: CheckedContinuation<Void, any Error>?
 
     // MARK: Test-driver API
 
     /// Suspend until the VM has attached all four stream subscribers.
     /// Idempotent: returns immediately if the fan-out is already live.
-    func awaitAllSubscribersReady() async {
+    ///
+    /// Cancellation-aware: if the caller's task is cancelled (e.g.
+    /// because a sibling deadline task in `withTimeout` won the race
+    /// and cancelled the enclosing task group), the continuation is
+    /// resumed with `CancellationError` so the group can actually
+    /// return instead of stranding a suspended waiter. Single-shot by
+    /// construction — both the success and cancel paths clear
+    /// `readyContinuation` before resuming, so the checked continuation
+    /// runtime cannot observe a double-resume even if the final
+    /// subscriber attaches at the same instant cancellation fires.
+    func awaitAllSubscribersReady() async throws {
         if attachedCount >= Self.expectedSubscribers { return }
-        await withCheckedContinuation { continuation in
-            self.readyContinuation = continuation
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                // Re-check on the actor after suspension: a rapid
+                // attach that beat us here would otherwise leave the
+                // continuation stranded until the next attach.
+                if attachedCount >= Self.expectedSubscribers {
+                    continuation.resume()
+                    return
+                }
+                // Assert single-waiter contract; overwriting a live
+                // continuation would leak it (never resumed) and trap
+                // the checked-continuation runtime later.
+                assert(readyContinuation == nil, "awaitAllSubscribersReady is single-waiter")
+                readyContinuation = continuation
+            }
+        } onCancel: {
+            // Hop back onto the actor so the take-and-resume is a
+            // single serial step relative to `markSubscriberAttached`.
+            Task { await self.cancelReadyWait() }
         }
+    }
+
+    private func cancelReadyWait() {
+        guard let cont = readyContinuation else { return }
+        readyContinuation = nil
+        cont.resume(throwing: CancellationError())
     }
 
     func yieldState(_ snapshot: WorkoutStateSnapshot) {
@@ -468,10 +591,12 @@ final actor FakeWorkoutSessionManager: WorkoutSessionManaging {
 
     private func markSubscriberAttached() {
         attachedCount += 1
-        if attachedCount >= Self.expectedSubscribers, let cont = readyContinuation {
-            cont.resume()
-            readyContinuation = nil
-        }
+        guard attachedCount >= Self.expectedSubscribers,
+              let cont = readyContinuation else { return }
+        // Single-shot: clear BEFORE resume so a concurrent cancel path
+        // can't observe a live continuation and try to resume it again.
+        readyContinuation = nil
+        cont.resume()
     }
 }
 
