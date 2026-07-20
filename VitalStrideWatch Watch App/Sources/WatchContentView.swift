@@ -7,6 +7,19 @@ import HealthKitService
 import SwiftUI
 import os
 
+// MARK: - WatchNoopSetCompletedSender
+//
+// Stand-in `WatchSetCompletedSending` used by the in-workout screen
+// composition (MY-1292). Real wiring to `DefaultWatchToPhoneSender`
+// (via `WatchWorkoutViewModel(manager:toPhoneSender:)`) lands with the
+// primary-action side-effect follow-up; MY-1292 focuses on the
+// display-composition layer, so a Noop keeps the screen renderable
+// without accidentally emitting `SetCompletedEvent`s during composition
+// verification. Privacy §I: no HR / rep values are logged here.
+struct WatchNoopSetCompletedSender: WatchSetCompletedSending {
+    func send(_ event: SetCompletedEvent) throws {}
+}
+
 // MARK: - WatchWorkoutLifecycleViewModel
 //
 // Owns the watch-side workout lifecycle for the strength-training screen
@@ -42,7 +55,7 @@ final class WatchWorkoutLifecycleViewModel: ObservableObject {
     @Published private(set) var state: State = .idle
 
     private let service: HealthKitService
-    private let manager: any WorkoutSessionManaging
+    let manager: any WorkoutSessionManaging
     private let logger = Logger(subsystem: "com.vitalstride", category: "WatchWorkoutVM")
 
     init(deviceIdentifier: String = WatchWorkoutLifecycleViewModel.defaultDeviceIdentifier) {
@@ -146,19 +159,70 @@ struct WatchContentView: View {
 // MARK: - StrengthWorkoutView
 
 /// Watch-side start / active / end UI for the strength-training session
-/// (ADR-0010 narrow scope). No HR value is shown here — the iPhone owns
-/// live HR rendering. This view only exposes the workout lifecycle.
+/// (ADR-0010 narrow scope). When the session is `.active` this view
+/// hands off to `WatchInWorkoutView` (MY-1292) which renders the
+/// configured preset from the merged display state; the pre-active
+/// states (idle / auth / start / end / failed) still render the coarse
+/// lifecycle chrome so users see progress before the WC pipeline is up.
 struct StrengthWorkoutView: View {
     @Environment(\.theme) private var theme
     @ObservedObject var viewModel: WatchWorkoutLifecycleViewModel
 
+    /// Display-state adapter (MY-1290) fed by the merged WC streams. It
+    /// shares the lifecycle VM's underlying `WorkoutSessionManaging` so
+    /// state / config / HR / connection events all funnel from one
+    /// source of truth. `sender` is a Noop by default — the watch's
+    /// `sendCompleteSet` path routes through the manager's own sender,
+    /// but MY-1292 focuses on composition; the real sender wiring is
+    /// finalized alongside the primary-action side effect in a follow-up.
+    @StateObject private var displayModel: WatchWorkoutViewModel
+
+    init(viewModel: WatchWorkoutLifecycleViewModel) {
+        self.viewModel = viewModel
+        self._displayModel = StateObject(
+            wrappedValue: WatchWorkoutViewModel(
+                manager: viewModel.manager,
+                sender: WatchNoopSetCompletedSender()
+            )
+        )
+    }
+
     var body: some View {
-        VStack(spacing: 12) {
-            headerView
-            controlView
+        Group {
+            if viewModel.state == .active {
+                WatchInWorkoutView(viewModel: displayModel)
+                    .navigationBarBackButtonHidden(true)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(role: .destructive) {
+                                viewModel.endWorkoutTapped(save: true)
+                            } label: {
+                                Image(systemName: "stop.fill")
+                                    .accessibilityLabel(
+                                        String(localized: "结束训练", comment: "Watch: end workout toolbar")
+                                    )
+                            }
+                        }
+                    }
+            } else {
+                VStack(spacing: 12) {
+                    headerView
+                    controlView
+                }
+                .padding()
+                .navigationTitle(String(localized: "力量训练", comment: "Watch strength workout title"))
+            }
         }
-        .padding()
-        .navigationTitle(String(localized: "力量训练", comment: "Watch strength workout title"))
+        .onChange(of: viewModel.state) { _, new in
+            switch new {
+            case .active:
+                displayModel.start()
+            case .idle, .ending:
+                displayModel.stop()
+            case .failed, .requestingAuthorization, .starting:
+                break
+            }
+        }
     }
 
     @ViewBuilder
