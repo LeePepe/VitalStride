@@ -58,16 +58,23 @@ platform :ios do
     # 为 app + widget 拉 App Store distribution profile（付费 team）。
     # 需要时自动在 Developer Portal 创建（含各自的 capability）。
     # 不传 adhoc/developer_id（互斥且默认即 false = App Store distribution）。
+    #
+    # force: true —— 每次都重新生成 profile。App ID 新增 capability（如 iCloud）后,
+    # 旧 profile 是加能力之前的快照、不含新 entitlements;fastlane 默认(force:false)
+    # 会复用这份过时 profile → archive 报 "profile doesn't include the iCloud
+    # capability" 签名失败。force:true 确保 profile 始终包含 App ID 的最新能力。
     app_profile = get_provisioning_profile(
       api_key: api_key,
       app_identifier: APP_IDENTIFIER,
       team_id: TEAM_ID,
+      force: true,
       skip_install: false
     )
     widget_profile = get_provisioning_profile(
       api_key: api_key,
       app_identifier: WIDGET_IDENTIFIER,
       team_id: TEAM_ID,
+      force: true,
       skip_install: false
     )
 
