@@ -14,6 +14,11 @@ struct VitalStrideApp: App {
     private let containerError: String?
     private let healthKitService: HealthKitService
     private let healthDataCache: HealthDataCache
+    #if canImport(MetricKit) && !os(watchOS)
+    // Retained for the app's lifetime so it keeps receiving MetricKit
+    // diagnostic payloads (crash + hang) delivered on subsequent launches.
+    private let diagnosticCollector = MetricKitDiagnosticCollector()
+    #endif
 
     init() {
         let service = HealthKitService(deviceIdentifier: "ios-display")
@@ -23,6 +28,12 @@ struct VitalStrideApp: App {
         Task {
             await TelemetryService.shared.register(ConsoleTelemetryProvider())
         }
+        #endif
+
+        #if canImport(MetricKit) && !os(watchOS)
+        // ADR-0012: begin collecting MetricKit crash/hang diagnostics. In DEBUG
+        // the collector logs locally and does not transport (§Decision.4).
+        diagnosticCollector.start()
         #endif
 
         do {
