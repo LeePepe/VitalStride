@@ -34,6 +34,14 @@ public enum DiagnosticSanitizer {
         let trimmed = trim(raw)
         guard !trimmed.isEmpty, trimmed.count <= maxFrameLength else { return nil }
         guard trimmed.utf8.allSatisfy(isAllowedFrameByte) else { return nil }
+        // Structural requirement: every frame produced by the collector has the
+        // shape "<binary> <symbol-or-address> +<offset>" and therefore ends
+        // with a " +<digits>" offset marker (see MetricKitDiagnosticCollector
+        // .appendFrames). Requiring it rejects arbitrary prose that happens to
+        // use only allowed characters — e.g. a leaked "heartRate 172bpm" has no
+        // trailing " +<digits>" and is dropped whole. This closes the public-init
+        // bypass a byte allow-list alone cannot (ADR-0012 §Decision.3).
+        guard hasOffsetSuffix(trimmed) else { return nil }
         return trimmed
     }
 
@@ -117,6 +125,25 @@ public enum DiagnosticSanitizer {
         default:
             return false
         }
+    }
+
+    /// Requires the frame to end with a " +<digits>" offset marker: a space,
+    /// a '+', then one or more ASCII digits at the very end. This is the
+    /// structural signature of a real symbolication frame (see
+    /// MetricKitDiagnosticCollector.appendFrames) and is absent from free-form
+    /// prose, so it rejects strings that pass the byte allow-list but are not
+    /// frames — e.g. a leaked "heartRate 172bpm".
+    private static func hasOffsetSuffix(_ s: String) -> Bool {
+        let bytes = Array(s.utf8)
+        var i = bytes.count - 1
+        var digitCount = 0
+        while i >= 0, bytes[i] >= 0x30, bytes[i] <= 0x39 {  // trailing digits
+            digitCount += 1
+            i -= 1
+        }
+        guard digitCount > 0 else { return false }
+        // Preceded by " +"
+        return i >= 1 && bytes[i] == 0x2B && bytes[i - 1] == 0x20
     }
 
     private static func isAllowedFrameByte(_ byte: UInt8) -> Bool {

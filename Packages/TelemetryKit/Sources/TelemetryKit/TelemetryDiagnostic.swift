@@ -40,10 +40,18 @@ public struct TelemetryDiagnostic: Sendable, Equatable {
         frames: [String],
         terminationReason: String? = nil
     ) {
+        // Enforce sanitization at the point of construction, not just in
+        // DiagnosticBuilder. The initializer is public, so an external caller
+        // could otherwise build `TelemetryDiagnostic(frames: ["heartRate 172"])`
+        // and hand it to a provider — bypassing the §I chokepoint. Running the
+        // sanitizer here (idempotent on already-clean input) makes it
+        // impossible to construct a diagnostic that carries free-form strings
+        // or health values, so every downstream transport is safe by
+        // construction (Constitution §I; ADR-0012 §Decision.3).
         self.kind = kind
-        self.osVersion = osVersion
-        self.appBuild = appBuild
-        self.frames = frames
-        self.terminationReason = terminationReason
+        self.osVersion = DiagnosticSanitizer.sanitizeVersion(osVersion)
+        self.appBuild = DiagnosticSanitizer.sanitizeVersion(appBuild)
+        self.frames = DiagnosticSanitizer.sanitizeFrames(frames)
+        self.terminationReason = DiagnosticSanitizer.sanitizeTerminationReason(terminationReason)
     }
 }
