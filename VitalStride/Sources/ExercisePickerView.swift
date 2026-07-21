@@ -618,6 +618,7 @@ struct ExercisePickerView: View {
                         Self.applyVisibleIds(
                             visibleIds,
                             in: equipments,
+                            current: visibleEquipment,
                             using: applyVisibleEquipment
                         )
                     }
@@ -710,8 +711,18 @@ struct ExercisePickerView: View {
 
     /// Callback bridge used by the SwiftUI `onScrollTargetVisibilityChange`
     /// closure. `MainActor`-isolated because it writes `@State`.
+    ///
+    /// Dedup guard: `onScrollTargetVisibilityChange` fires at a very high
+    /// rate during a finger scroll (the low `visibilityThreshold` makes it
+    /// fire for any pixel change across ≥1000 exercises). Writing
+    /// `visibleEquipment` unconditionally re-published `@State` on nearly
+    /// every frame even when the top-visible section had not changed,
+    /// forcing redundant SwiftUI re-evaluation of the whole grid and
+    /// starving the main thread mid-scroll. Only writing on a genuine
+    /// section change removes that per-frame churn.
     @MainActor
     private func applyVisibleEquipment(_ equipment: Equipment?) {
+        guard visibleEquipment != equipment else { return }
         visibleEquipment = equipment
     }
 
@@ -728,6 +739,31 @@ struct ExercisePickerView: View {
         using setter: (Equipment?) -> Void
     ) {
         setter(firstVisibleEquipment(from: visibleIds, in: order))
+    }
+
+    /// Dedup-aware variant of `applyVisibleIds`. Resolves the top-visible
+    /// section from the callback payload and invokes `setter` **only when
+    /// it differs from `current`**, returning the resolved value so callers
+    /// can thread it forward. This is the pure mirror of the production
+    /// `applyVisibleEquipment` dedup guard: during a finger scroll the
+    /// SwiftUI callback fires on nearly every frame with an unchanged
+    /// top-visible section, and suppressing those no-op `@State` writes is
+    /// what keeps the main thread free of redundant grid re-evaluation.
+    /// Extracted as a `static` pure function so the dedup contract is
+    /// directly testable without a rendered view (see
+    /// `ExercisePickerIndexSyncTests`).
+    @discardableResult
+    static func applyVisibleIds(
+        _ visibleIds: [Equipment],
+        in order: [Equipment],
+        current: Equipment?,
+        using setter: (Equipment?) -> Void
+    ) -> Equipment? {
+        let resolved = firstVisibleEquipment(from: visibleIds, in: order)
+        if resolved != current {
+            setter(resolved)
+        }
+        return resolved
     }
 
     /// MY-1249: pick the section that should own the index-bar highlight
