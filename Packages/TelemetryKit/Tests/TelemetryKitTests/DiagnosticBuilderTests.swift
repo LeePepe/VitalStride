@@ -62,3 +62,59 @@ struct DiagnosticBuilderTests {
         #expect(diag?.frames == ["VitalStride Z.y() +8"])
     }
 }
+
+/// ADR-0012 §Decision.3 / codex review: the `TelemetryDiagnostic` initializer
+/// is public, so it must itself enforce sanitization — an external caller must
+/// not be able to construct one carrying free-form strings / health values and
+/// hand it to a provider, bypassing `DiagnosticBuilder`. These tests lock that
+/// the init sanitizes every field.
+@Suite("TelemetryDiagnostic init sanitization")
+struct TelemetryDiagnosticInitTests {
+
+    @Test("direct init sanitizes dirty frames (closes the bypass)")
+    func initSanitizesFrames() {
+        let diag = TelemetryDiagnostic(
+            kind: .hang,
+            osVersion: "26.5",
+            appBuild: "5",
+            frames: [
+                "VitalStride Good.f() +0",  // clean symbolication frame — kept
+                "heartRate=172bpm",          // '=' → rejected whole
+                "user 卧推",                 // non-ASCII → rejected whole
+            ]
+        )
+        // Only the clean frame survives; frames carrying disallowed bytes
+        // (separators / non-ASCII — the shapes leaked user text or a health
+        // key=value would take) are dropped whole by the init-time sanitizer.
+        #expect(diag.frames == ["VitalStride Good.f() +0"])
+    }
+
+    @Test("direct init neutralizes junk metadata and reason")
+    func initSanitizesMetadata() {
+        let diag = TelemetryDiagnostic(
+            kind: .crash,
+            osVersion: "iOS 卧推",
+            appBuild: "build; rm -rf",
+            frames: ["VitalStride Z.y() +8"],
+            terminationReason: "crashed 卧推"
+        )
+        #expect(diag.osVersion == "unknown")
+        #expect(diag.appBuild == "unknown")
+        #expect(diag.terminationReason == nil)
+    }
+
+    @Test("already-clean input passes through unchanged (idempotent)")
+    func initIsIdempotentOnCleanInput() {
+        let diag = TelemetryDiagnostic(
+            kind: .crash,
+            osVersion: "26.5.2",
+            appBuild: "5",
+            frames: ["VitalStride A.f() +0", "VitalStride B.g() +16"],
+            terminationReason: "EXC_BAD_ACCESS"
+        )
+        #expect(diag.osVersion == "26.5.2")
+        #expect(diag.appBuild == "5")
+        #expect(diag.frames == ["VitalStride A.f() +0", "VitalStride B.g() +16"])
+        #expect(diag.terminationReason == "EXC_BAD_ACCESS")
+    }
+}
