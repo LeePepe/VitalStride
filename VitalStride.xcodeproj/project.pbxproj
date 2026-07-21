@@ -32,6 +32,7 @@
 		18A9869ABB4D870AFA3BFBE1 /* HealthDataCacheEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2682FD70AE06FB9FCF624E81 /* HealthDataCacheEnvironment.swift */; };
 		19C50D3C9C6691FB4763259E /* AIPromptBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF9B3DAD8628A25D47910D86 /* AIPromptBuilderTests.swift */; };
 		1C28D5E6CA2CD46CDB9C1BEB /* WorkoutTemplateBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 769ED93D2CAE9D4C20018B8A /* WorkoutTemplateBuilder.swift */; };
+		1D007FB42132DAA535AF7EAA /* MetricKitDiagnosticCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = D35852466F118D8DBCC0A3E6 /* MetricKitDiagnosticCollector.swift */; };
 		1DA54E50DF2D106406A65867 /* DesignKit in Frameworks */ = {isa = PBXBuildFile; productRef = C7F4BA2AC432D749732AF2D3 /* DesignKit */; };
 		1E06F16DD57D8E064BC3B60C /* OverviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37A2DA5D0FBEDC56FC2670D9 /* OverviewTests.swift */; };
 		221FE0EF38B52019483DA001 /* WorkoutDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C5574C1FC8DDE5C487EE9D9 /* WorkoutDetailView.swift */; };
@@ -489,6 +490,7 @@
 		D1EC3F9204735BAE46DFFDF0 /* VitalStrideMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideMacApp.swift; sourceTree = "<group>"; };
 		D32DBAED1356728A1F9461EE /* CardVariant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardVariant.swift; sourceTree = "<group>"; };
 		D344548ECC2B711E8DC1897B /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		D35852466F118D8DBCC0A3E6 /* MetricKitDiagnosticCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricKitDiagnosticCollector.swift; sourceTree = "<group>"; };
 		D3AD223B725AFEBB33444035 /* ExercisePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisePickerView.swift; sourceTree = "<group>"; };
 		D551D352FEC3C216F4BAB58A /* AIAnalysisServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAnalysisServiceTests.swift; sourceTree = "<group>"; };
 		D5F9807A864A73FB553CC29C /* MuscleGroupFrequencyCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleGroupFrequencyCard.swift; sourceTree = "<group>"; };
@@ -821,6 +823,7 @@
 				E7F421454544F6E7988C3AD4 /* HealthKitWorkoutRowView.swift */,
 				B49701A5271080F16964F20B /* HealthSummaryCards.swift */,
 				3CEE18F3894931D9B777A7C3 /* LiquidGlassStyle.swift */,
+				D35852466F118D8DBCC0A3E6 /* MetricKitDiagnosticCollector.swift */,
 				3293E75003657AF1D6EB163A /* NumericKeypad.swift */,
 				1C452054A5F7F0CDF19E2C9F /* OnboardingView.swift */,
 				6AEB71D207A5EC5C5D30942F /* OneRepMaxTrendView.swift */,
@@ -1353,6 +1356,7 @@
 				E4C4CFA9D63E744F4E608BBB /* LiquidGlassStyle.swift in Sources */,
 				BDF0D43401B90AEC27A36D00 /* ListCardView.swift in Sources */,
 				13858537F761B04ACCEBEE2C /* MetricCardView.swift in Sources */,
+				1D007FB42132DAA535AF7EAA /* MetricKitDiagnosticCollector.swift in Sources */,
 				4E894B0F249EF8EBA16B3AF5 /* MuscleGroupFrequencyCard.swift in Sources */,
 				F4F00A7A9A8AF6C48752A0E5 /* NumericKeypad.swift in Sources */,
 				ABFB1D957B476C9D3066097B /* OnboardingView.swift in Sources */,
@@ -1769,7 +1773,7 @@
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride;
 				PRODUCT_NAME = VitalStride;
-				PROVISIONING_PROFILE_SPECIFIER = "com.leepepe.vitalstride AppStore";
+				PROVISIONING_PROFILE_SPECIFIER = "VitalStride App Store";
 				SDKROOT = iphoneos;
 				SUPPORTED_INTERFACE_ORIENTATIONS = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				"SUPPORTED_INTERFACE_ORIENTATIONS~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -1899,7 +1903,7 @@
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.widgets;
 				PRODUCT_NAME = VitalStrideWidgets;
-				PROVISIONING_PROFILE_SPECIFIER = "com.leepepe.vitalstride.widgets AppStore";
+				PROVISIONING_PROFILE_SPECIFIER = "VitalStride Widgets App Store";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;

@@ -62,8 +62,9 @@ AI provider chain：**Apple Intelligence Foundation Models 优先**（On-device,
 - API key 仅存 Keychain，不得硬编码。
 - 新增 provider = 在 `AIService` 实现 `AIProvider` 协议接入 chain，不替换。
 - **Telemetry 例外（narrow）**：允许引入**隐私合规的第三方 telemetry SDK**，当前限 **TelemetryDeck**，且只能作为 `TelemetryProvider` 消费强类型 `TelemetryEvent`（DEBUG 不发、EU 托管、标识符发送前哈希）；§I 健康隐私红线对该 provider 全额适用，不得引入任何接受自由字符串 / 原始健康数值的 API。AI provider 的「无第三方 SDK」约束不变。详见 [ADR-0011](../../docs/adr/0011-telemetrydeck-first-production-provider.md)。
+- **诊断通道例外（narrow）**：崩溃 / 挂起（hang）诊断由 **Apple MetricKit** 采集，经**同一个** TelemetryDeck 通道上报——不引入第二个第三方 SDK。「typed-event-only」被收窄而非取消：新增**封闭类型** `TelemetryDiagnostic`（结构化 payload：诊断类别 + OS/版本元数据 + 由 `MXCallStackTree` 派生的 `frames: [String]` 符号列表），provider 仅新增 `record(_:)` sink 消费该封闭类型，**仍不接受**调用点传入的任意字符串。栈经 `DiagnosticSanitizer` 纯函数强制清洗（只留符号帧 + 偏移），§I 健康隐私红线全额适用，配 allow-list/fuzz 测试锁死。DEBUG 不发。详见 [ADR-0012](../../docs/adr/0012-metrickit-diagnostics-via-telemetrydeck.md)。
 
-参考：ADR-0005 (AI ProviderChain)、ADR-0011 (TelemetryDeck 首个生产 telemetry provider)。
+参考：ADR-0005 (AI ProviderChain)、ADR-0011 (TelemetryDeck 首个生产 telemetry provider)、ADR-0012 (MetricKit 诊断经 TelemetryDeck 上报)。
 
 ### VI. I18n：xcstrings 单源 + 无硬编码 (NON-NEGOTIABLE)
 
@@ -263,7 +264,9 @@ TL 每次 pipeline 起手前必须扫描：
   - MAJOR — 删除/反转原则；MINOR — 新增原则/新 Quality Bar；PATCH — 文字澄清不改语义
 - 与本宪法相关：AGENTS.md（agent 操作手册）、CONTEXT.md（数据架构细节）、`docs/adr/`（决策档案）、`scripts/hooks/`（强制规则机器实现）。
 
-**Version**: 2.2.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-20
+**Version**: 2.3.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-21
+
+> 2.3.0（MINOR，收窄 §V telemetry 例外）：崩溃 / 挂起诊断由 **Apple MetricKit** 采集、经**同一** TelemetryDeck 通道上报（不引第二个 SDK）；「typed-event-only」收窄为允许一个封闭的 `TelemetryDiagnostic` 诊断通道（provider 新增 `record(_:)` sink），栈经 `DiagnosticSanitizer` 强制清洗、§I 全额适用（[ADR-0012](../../docs/adr/0012-metrickit-diagnostics-via-telemetrydeck.md)）。触发自 ADR-0011 自列的 revisit trigger：TestFlight-only app 的所有 Apple 自动诊断管道为空。
 
 > 2.2.0（MINOR，放松 §V 约束）：允许**隐私合规的第三方 telemetry SDK**（narrow 例外，当前限 TelemetryDeck，只能作为 `TelemetryProvider` 消费强类型 `TelemetryEvent`），回答 ADR-0007 遗留的「first real provider」决策（[ADR-0011](../../docs/adr/0011-telemetrydeck-first-production-provider.md)）。§V 的 AI provider「无第三方 SDK」约束与 §I 健康隐私红线均不变。
 
