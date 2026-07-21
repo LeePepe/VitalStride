@@ -174,4 +174,100 @@ struct ExercisePickerIndexSyncTests {
         ExercisePickerView.applyVisibleIds([], in: order) { applied = $0 }
         #expect(applied == nil)
     }
+
+    // MARK: - Dedup guard (scroll-hang fix)
+    //
+    // `onScrollTargetVisibilityChange` fires on nearly every frame during a
+    // finger scroll across ≥1000 exercises. The original callback wrote
+    // `visibleEquipment` unconditionally, re-publishing `@State` (and forcing
+    // a full-grid SwiftUI re-evaluation) even when the top-visible section had
+    // not changed — the redundant per-frame churn that starved the main thread
+    // and produced the "动作选择页面滚动" hang. The dedup-aware
+    // `applyVisibleIds(_:in:current:using:)` overload must invoke the setter
+    // ONLY on a genuine section change.
+
+    /// When the resolved top-visible section equals `current`, the setter
+    /// must NOT fire — this is the per-frame no-op that the fix suppresses.
+    @Test("dedup: unchanged top-visible section does not write @State")
+    func dedupSuppressesUnchangedWrite() {
+        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        var writeCount = 0
+        var applied: Equipment? = .dumbbell
+
+        // Same section still top-visible (payload jitters between frames but
+        // dumbbell stays top-most). No write should occur.
+        let resolved = ExercisePickerView.applyVisibleIds(
+            [.dumbbell, .machine],
+            in: order,
+            current: .dumbbell
+        ) { applied = $0; writeCount += 1 }
+
+        #expect(resolved == .dumbbell)
+        #expect(writeCount == 0, "unchanged section must not re-publish @State")
+        #expect(applied == .dumbbell)
+    }
+
+    /// A genuine section change MUST still write exactly once so the
+    /// highlight keeps following the scroll (the dedup cannot over-suppress).
+    @Test("dedup: changed top-visible section writes exactly once")
+    func dedupWritesOnGenuineChange() {
+        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        var writeCount = 0
+        var applied: Equipment? = .barbell
+
+        let resolved = ExercisePickerView.applyVisibleIds(
+            [.dumbbell, .machine],
+            in: order,
+            current: .barbell
+        ) { applied = $0; writeCount += 1 }
+
+        #expect(resolved == .dumbbell)
+        #expect(writeCount == 1)
+        #expect(applied == .dumbbell)
+    }
+
+    /// A whole scroll gesture that surfaces the same section across many
+    /// high-frequency callbacks must collapse to a single write — the crux
+    /// of the hang fix. Simulates 100 frames reporting dumbbell as top-most.
+    @Test("dedup: 100 same-section frames collapse to a single write")
+    func dedupCollapsesHighFrequencyFrames() {
+        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        var writeCount = 0
+        var current: Equipment? = .barbell
+
+        for _ in 0..<100 {
+            current = ExercisePickerView.applyVisibleIds(
+                [.dumbbell, .machine],
+                in: order,
+                current: current
+            ) { _ in writeCount += 1 }
+        }
+
+        // First frame changes barbell→dumbbell (1 write); the remaining 99
+        // frames report the same top section and must all be suppressed.
+        #expect(writeCount == 1, "high-frequency same-section frames must not each re-publish @State")
+        #expect(current == .dumbbell)
+    }
+
+    /// Clearing to `nil` (grid emptied mid-scroll) is itself a change from a
+    /// non-nil current and must write once; a subsequent empty frame while
+    /// already `nil` must be suppressed.
+    @Test("dedup: nil transition writes once then suppresses")
+    func dedupHandlesNilTransition() {
+        let order: [Equipment] = [.barbell, .dumbbell]
+        var writeCount = 0
+
+        var current: Equipment? = .barbell
+        current = ExercisePickerView.applyVisibleIds([], in: order, current: current) {
+            current = $0; writeCount += 1
+        }
+        #expect(current == nil)
+        #expect(writeCount == 1)
+
+        // Already nil — another empty frame must not write.
+        _ = ExercisePickerView.applyVisibleIds([], in: order, current: current) {
+            current = $0; writeCount += 1
+        }
+        #expect(writeCount == 1)
+    }
 }
