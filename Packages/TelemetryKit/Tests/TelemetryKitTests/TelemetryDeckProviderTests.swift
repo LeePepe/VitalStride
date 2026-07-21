@@ -1,19 +1,20 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import TelemetryKit
 
 /// Fake sink capturing signals for assertions — stands in for the real
 /// TelemetryDeck SDK adapter (ADR-0012 path B).
-final class FakeSignalSink: TelemetryDeckSignalSink, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _signals: [TelemetryDeckSignal] = []
+///
+/// Uses `Mutex` (Swift 6 `Synchronization`) for checked `Sendable` conformance —
+/// no `@unchecked` (Constitution §II: strict concurrency, no bypass).
+final class FakeSignalSink: TelemetryDeckSignalSink {
+    private let storage = Mutex<[TelemetryDeckSignal]>([])
     var signals: [TelemetryDeckSignal] {
-        lock.lock(); defer { lock.unlock() }
-        return _signals
+        storage.withLock { $0 }
     }
     func send(_ signal: TelemetryDeckSignal) {
-        lock.lock(); defer { lock.unlock() }
-        _signals.append(signal)
+        storage.withLock { $0.append(signal) }
     }
 }
 
