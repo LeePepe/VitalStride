@@ -88,7 +88,7 @@ targets:
         Release:
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: Apple Distribution
-          PROVISIONING_PROFILE_SPECIFIER: VitalStride App Store
+          PROVISIONING_PROFILE_SPECIFIER: com.leepepe.vitalstride AppStore
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride
         PRODUCT_NAME: VitalStride
@@ -265,7 +265,7 @@ targets:
         Release:
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: Apple Distribution
-          PROVISIONING_PROFILE_SPECIFIER: VitalStride Widgets App Store
+          PROVISIONING_PROFILE_SPECIFIER: com.leepepe.vitalstride.widgets AppStore
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride.widgets
         PRODUCT_NAME: VitalStrideWidgets

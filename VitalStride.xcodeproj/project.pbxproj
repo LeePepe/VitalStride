@@ -1769,7 +1769,7 @@
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride;
 				PRODUCT_NAME = VitalStride;
-				PROVISIONING_PROFILE_SPECIFIER = "VitalStride App Store";
+				PROVISIONING_PROFILE_SPECIFIER = "com.leepepe.vitalstride AppStore";
 				SDKROOT = iphoneos;
 				SUPPORTED_INTERFACE_ORIENTATIONS = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				"SUPPORTED_INTERFACE_ORIENTATIONS~ipad" = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -1899,7 +1899,7 @@
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.widgets;
 				PRODUCT_NAME = VitalStrideWidgets;
-				PROVISIONING_PROFILE_SPECIFIER = "VitalStride Widgets App Store";
+				PROVISIONING_PROFILE_SPECIFIER = "com.leepepe.vitalstride.widgets AppStore";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
