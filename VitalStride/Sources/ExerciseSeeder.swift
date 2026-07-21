@@ -159,10 +159,12 @@ enum ExerciseSeeder {
         }
     }
 
-    /// Backfill defaultWeight* on existing preset Exercises when advancing to
-    /// catalog version 2. Only writes fields that are currently nil — never
-    /// overwrites user-modified values (isCustom exercises are excluded via
-    /// the presetId predicate).
+    /// Backfill preset Exercise fields when advancing to a newer catalog
+    /// version. `defaultWeight*` / `mediaKey` are written only when currently
+    /// nil (never overwrites user-modified values). `nameZh` is backfilled only
+    /// when the stored value was never translated (still equals `nameEn`) —
+    /// catalog v4 added Chinese names for ~1135 previously-English presets.
+    /// `isCustom` exercises are excluded via the presetId predicate.
     static func backfillDefaults(context: ModelContext, dtos: [ExerciseDTO]) throws {
         let descriptor = FetchDescriptor<Exercise>(
             predicate: #Predicate { $0.presetId != nil }
@@ -188,6 +190,13 @@ enum ExerciseSeeder {
             }
             if exercise.mediaKey == nil {
                 exercise.mediaKey = dto.mediaKey
+            }
+            // Catalog v4: backfill Chinese names for preset exercises whose
+            // stored `nameZh` was never translated (still equal to `nameEn`).
+            // Guard on that equality so we never clobber a name a user may have
+            // customized, nor an already-good translation from a later catalog.
+            if exercise.nameZh == exercise.nameEn, dto.nameZh != dto.nameEn {
+                exercise.nameZh = dto.nameZh
             }
         }
     }

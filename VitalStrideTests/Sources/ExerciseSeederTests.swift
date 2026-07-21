@@ -314,6 +314,57 @@ struct ExerciseSeederTests {
 
     // MARK: - Migration
 
+    @Test("Catalog v4 backfills nameZh for presets whose Chinese name was never translated")
+    func backfillsUntranslatedChineseName() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        // v3: a preset whose nameZh was never translated (equals nameEn), plus
+        // one that already has a Chinese name (nameZh differs).
+        let catalogV3 = makeCatalogData(version: "3", exercises: [
+            makeExerciseJSON(id: "ex-en", nameEn: "Air Bike", nameZh: "Air Bike"),
+            makeExerciseJSON(id: "ex-zh", nameEn: "Bench Press", nameZh: "卧推"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV3)
+
+        // v4: the untranslated one now has a Chinese name; the other unchanged.
+        let catalogV4 = makeCatalogData(version: "4", exercises: [
+            makeExerciseJSON(id: "ex-en", nameEn: "Air Bike", nameZh: "空中蹬车卷腹"),
+            makeExerciseJSON(id: "ex-zh", nameEn: "Bench Press", nameZh: "卧推"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV4)
+
+        let all = try context.fetch(FetchDescriptor<Exercise>())
+        let byId = Dictionary(uniqueKeysWithValues: all.compactMap { ex in ex.presetId.map { ($0, ex) } })
+        #expect(byId["ex-en"]?.nameZh == "空中蹬车卷腹")  // untranslated → backfilled
+        #expect(byId["ex-zh"]?.nameZh == "卧推")           // already translated → untouched
+    }
+
+    @Test("Catalog v4 does not clobber an already-translated preset name")
+    func backfillSkipsAlreadyTranslated() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let catalogV3 = makeCatalogData(version: "3", exercises: [
+            makeExerciseJSON(id: "ex-1", nameEn: "Squat", nameZh: "深蹲"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV3)
+
+        // v4 changes the catalog nameZh — backfill must NOT overwrite, because
+        // the stored value was already translated (nameZh != nameEn).
+        let catalogV4 = makeCatalogData(version: "4", exercises: [
+            makeExerciseJSON(id: "ex-1", nameEn: "Squat", nameZh: "杠铃深蹲"),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV4)
+
+        let all = try context.fetch(FetchDescriptor<Exercise>())
+        #expect(all.first?.nameZh == "深蹲")  // unchanged
+    }
+
     @Test("Migration backfills presetId on existing preset exercises")
     func migrationBackfillsPresetId() throws {
         let container = try ModelContainerConfiguration.makeTestContainer()
