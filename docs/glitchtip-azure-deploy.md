@@ -66,7 +66,7 @@ az containerapp create -n glitchtip-redis -g rg-vitalstride-glitchtip \
 
 # 6. Web（external）— DBURL/REDISURL 见下
 DBURL="postgres://gtadmin:${PGPASS}@vitalstride-glitchtip-pg.postgres.database.azure.com:5432/glitchtip?sslmode=require"
-REDISURL="redis://glitchtip-redis.internal.<defaultDomain>:6379/0"
+REDISURL="redis://glitchtip-redis:6379/0"   # 短名！完整 internal FQDN 会 TCP 超时（见坑 #1）
 WEBFQDN="glitchtip-web.<defaultDomain>"
 az containerapp create -n glitchtip-web -g rg-vitalstride-glitchtip \
   --environment vitalstride-glitchtip-env --image glitchtip/glitchtip:latest \
@@ -89,16 +89,51 @@ az containerapp create -n glitchtip-worker -g rg-vitalstride-glitchtip \
     GLITCHTIP_MAX_EVENT_LIFE_DAYS=90
 ```
 
-DB migration 由 web 镜像启动时自动执行（返回 200 即完成）。
+DB migration **不会**由 web 镜像自动执行（web 返回 200 只是登录页；空库时事件接收会 500）。必须手动跑 migrate + 处理下面的 Azure 特有坑。
 
-## 拿 DSN（需手动，一次性）
+## ⚠️ Azure 特有坑（部署时踩过，务必照做）
 
-1. 浏览器打开 `https://glitchtip-web.wonderfulriver-644a3e45.eastasia.azurecontainerapps.io`
-2. **Register** 注册第一个账号（这是管理员）。邮箱 + 密码自定。
-3. 建 **Organization**（如 `VitalStride`）→ 建 **Project**，Platform 选 **Apple / iOS**。
-4. Project → Settings → **Client Keys (DSN)** → 复制 DSN，形如:
-   `https://<publicKey>@glitchtip-web.wonderfulriver-644a3e45.eastasia.azurecontainerapps.io/<projectId>`
-5. **注册后建议关闭开放注册**（防陌生人注册）:
+GlitchTip v6 用自研 Rust DB 后端（`gt_rust.django_backend`）+ 声明式分区表，与 Azure PostgreSQL Flexible 有几处不兼容，按序解决:
+
+### 1. Redis 地址必须用短名（否则事件接收 500）
+
+Container Apps 同环境内部 TCP 服务互访**只能用短服务名**，完整 `*.internal.<domain>` FQDN 对 TCP 连接超时。`REDIS_URL` 必须是:
+```
+redis://glitchtip-redis:6379/0        ✅ 通（PONG）
+redis://glitchtip-redis.internal.<domain>:6379/0   ❌ timed out → envelope 500
+```
+web + worker 的 `REDIS_URL` 都要用短名。
+
+### 2. PostgreSQL 扩展 allowlist（migrate 卡 issue_events）
+
+GlitchTip 的 `TrigramExtension` 要 `CREATE EXTENSION pg_trgm`，Azure PG 默认禁扩展，且**扩展名要小写**:
+```bash
+az postgres flexible-server parameter set \
+  -g rg-vitalstride-glitchtip -s vitalstride-glitchtip-pg \
+  --name azure.extensions --value "pg_trgm,btree_gin,btree_gist,citext,hstore,uuid-ossp,pgcrypto"
+```
+
+### 3. migrate 需手动跑，且 fake 掉分区+tsvector 那条
+
+Rust 后端执行 `issue_events.0001_squashed_0006_replace_tsvector_function`（分区表 + tsvector function）时 ConnectionError。手动装扩展后，用一次性 Container App Job 跑:
+```
+python manage.py migrate issue_events 0001_squashed_0006_replace_tsvector_function --fake \
+  && python manage.py migrate --no-input
+```
+（该 migration 的 DDL——UUIDv7 RANGE 分区表 + `append_and_limit_tsvector` function——在正常 PostgreSQL 上能建；fake 后其余 163 个 migration 正常应用，共 339 表。）
+
+### 4. superuser + org + project 用 psql 直建
+
+Rust 后端在 `manage.py shell` 里 sync/async ORM 都 ConnectionError。绕开 Django，用 psycopg 直接 INSERT `users_user`（Django pbkdf2_sha256 密码哈希可纯 Python 算）+ `organizations_ext_organization` + `organizations_ext_organizationuser`(role=4=owner) + `organizations_ext_organizationowner` + `teams_team` + `projects_project` + `projects_projectkey`。DSN = `https://<projectkey.public_key去连字符>@<web-fqdn>/<project.id>`。
+
+> **本次已建**: 管理员 `admin@vitalstride.local`（密码在部署机 `/tmp/glitchtip-secrets/admin_pass.txt`）、org `VitalStride`、project `VitalStride-iOS`(id=1)。事件接收已验证 HTTP 200，worker 正常消费。
+
+## 拿 DSN
+
+DSN 已生成（见上「本次已建」+ 部署机 `/tmp/glitchtip-secrets/dsn.txt`）。若需重建 project key，用坑 #4 的 psql 方式。DSN 形如:
+   `https://<publicKey>@glitchtip-web.wonderfulriver-644a3e45.eastasia.azurecontainerapps.io/1`
+
+**建议关闭开放注册**（本次用 psql 直建管理员，无需开放注册）:
    ```bash
    az containerapp update -g rg-vitalstride-glitchtip -n glitchtip-web \
      --set-env-vars ENABLE_OPEN_USER_REGISTRATION=False
