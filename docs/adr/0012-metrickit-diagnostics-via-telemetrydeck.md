@@ -1,6 +1,6 @@
 # ADR-0012: MetricKit Crash/Hang Diagnostics via the TelemetryDeck Channel
 
-**Status**: Accepted
+**Status**: Accepted — **crash/hang transport superseded by [ADR-0013](0013-self-hosted-glitchtip-sentry-cocoa.md)** (self-hosted GlitchTip via sentry-cocoa). The typed-diagnostic types and §I sanitizer discipline documented here remain valid; only the TelemetryDeck-channel transport for crashes is replaced.
 **Date**: 2026-07-21
 **Deciders**: tianpli (project owner)
 
