@@ -124,9 +124,37 @@ python manage.py migrate issue_events 0001_squashed_0006_replace_tsvector_functi
 
 ### 4. superuser + org + project 用 psql 直建
 
-Rust 后端在 `manage.py shell` 里 sync/async ORM 都 ConnectionError。绕开 Django，用 psycopg 直接 INSERT `users_user`（Django pbkdf2_sha256 密码哈希可纯 Python 算）+ `organizations_ext_organization` + `organizations_ext_organizationuser`(role=4=owner) + `organizations_ext_organizationowner` + `teams_team` + `projects_project` + `projects_projectkey`。DSN = `https://<projectkey.public_key去连字符>@<web-fqdn>/<project.id>`。
+Rust 后端在 `manage.py shell` 里 sync/async ORM 都 ConnectionError。绕开 Django，用 psycopg 直接 INSERT `users_user`（Django pbkdf2_sha256 密码哈希可纯 Python 算）+ `organizations_ext_organization` + `organizations_ext_organizationuser`(**role=3=owner**，见下方警告) + `organizations_ext_organizationowner` + `teams_team` + `projects_project` + `projects_projectkey`。DSN = `https://<projectkey.public_key去连字符>@<web-fqdn>/<project.id>`。
 
-> **本次已建**: 管理员 `admin@vitalstride.local`（密码在部署机 `/tmp/glitchtip-secrets/admin_pass.txt`）、org `VitalStride`、project `VitalStride-iOS`(id=1)。事件接收已验证 HTTP 200，worker 正常消费。
+> ⚠️ **两个手填值必须正确，否则 web 后台整站 500（事件接收正常但 dashboard 打不开）——见坑 #5。**
+> - `organizations_ext_organizationuser.role` = **3**（`OWNER`）。`OrganizationUserRole` 是 `IntegerChoices`：`MEMBER=0 / ADMIN=1 / MANAGER=2 / OWNER=3`。role 被当**下标**索引 `ROLES` 元组，填 4 会越界 → `/api/0/organizations/<slug>/` 抛 `IndexError: tuple index out of range`。
+> - `users_user.email` 用**合法邮箱**，**不要用 `.local` / `.internal` 等保留 TLD**。新版 GlitchTip 用 pydantic 校验响应里的 email，保留 TLD 直接被判非法 → `/api/0/users/me/` 抛 `value is not a valid email address`。
+
+> **本次已建**: 管理员 `tianpli@outlook.com`（密码在部署机 `/tmp/glitchtip-secrets/admin_pass.txt`）、org `VitalStride`、project `VitalStride-iOS`(id=1)、`organizationuser.role=3`。事件接收已验证 HTTP 200，worker 正常消费，web dashboard 登录正常。
+
+### 5. web 后台整站 500 = 坑 #4 手填值非法（事件接收却正常）
+
+**症状**: 浏览器打开 GlitchTip web 后台，静态页能加载（HTTP 200）但整站不可用——每个 API 调用
+（`/api/0/users/me/`、`/api/0/organizations/<slug>/`）都 500。控制台还会刷一堆 `Applying inline
+style … Content Security Policy` 告警——**那是无害噪音，不是根因**，别被带偏。
+
+**根因**: 坑 #4 用 psql 直建 admin/org 时两个手填值非法（新版 GlitchTip 用 pydantic 校验 API 响应）：
+- `organizationuser.role=4` → 越界 → org 接口 `IndexError: tuple index out of range`（正确 `OWNER=3`）。
+- admin email 用 `.local` 保留 TLD → users/me 接口 `value is not a valid email address`。
+
+**定位**: 拉 web 日志看真实堆栈（CSP 告警在浏览器控制台，500 堆栈在容器日志）：
+```bash
+az account set --subscription 5983a176-1117-4840-82c5-49677d8a09aa   # 先切订阅，az 上下文常漂
+az containerapp logs show -g rg-vitalstride-glitchtip -n glitchtip-web --tail 60
+```
+
+**修复**: 两条 DB UPDATE（web 镜像自带 psycopg，起一次性 Container App Job 跑，复用 web 的 db-url secret）：
+```python
+cur.execute("UPDATE users_user SET email=%s WHERE email=%s", (NEW_EMAIL, "admin@vitalstride.local"))
+cur.execute("UPDATE organizations_ext_organizationuser SET email=%s WHERE email='admin@vitalstride.local'", (NEW_EMAIL,))
+cur.execute("UPDATE organizations_ext_organizationuser SET role=3 WHERE role=4")
+```
+改 email 会改变**登录名**（密码不变）。修后匿名打两个接口应从 500 变 401（未授权，即后端不再崩）。
 
 ## 拿 DSN
 
