@@ -257,6 +257,12 @@ When you receive an issue with state `in_review` and an FS comment reporting a P
 > scan 要捞（`gh pr list --state merged --search "<issue-key> in:body"`）。`enable-auto-merge` step
 > 已加 retry 消化 GitHub 5xx（避免 504 卡死已通过 review 的 PR）。
 
+> **派 FS 用 assign+todo，不靠裸 @mention（CRITICAL, ADR-0014 Decision 6）**：TL 派实现给
+> Fullstack Engineer 时，裸 @mention 而 `assignee_type=none` **不会 enqueue FS run**（issue 停
+> `todo`、零 run）。可靠派发 = `multica issue assign <key> --to "Dev Team"` + `multica issue status
+> <key> todo`，再 `multica issue runs <uuid>` 验证有 queued/running，零 run 则 `rerun` 兜底。裸
+> @mention 只作人读备注，不是触发器。
+
 ### Common pitfalls
 
 - **Never push `main` directly** — branch protection (`enforce_admins=true`) rejects it even for
