@@ -155,7 +155,10 @@ count is **0** — single-owner repo, see ADR-0009 Amendment 2026-07-04). See
 > 补全后，下游 stage 派发前须 **AI Reviewer + Team Lead 两方都批准**（同 code review 的
 > ✅ APPROVED / 🟡 CHANGES REQUESTED verdict）。任一方 CHANGES REQUESTED → 回 Planner 修订。
 > 批准后由 **TL 派发**（Planner/Reviewer 不自行派发）。bug-fix fast-path（TL 直接拆）不走此门。
-> 详见 Constitution §Issue Tracker、`docs/adr/0014-restore-planner-review-dual-approval.md`。
+> **谁触发 Planner**：spec-driven issue 缺 spec/plan/tasks 或跨 layer 需拆分时，**TL @mention
+> Planner Lead** 去做 speckit 拆分——不升级给 human owner、不 @Hermes（本 workspace 无 Hermes）。
+> 只有本质需要人的任务（如物理设备验证）才升级 human。详见 Constitution §Issue Tracker、
+> `docs/adr/0014-restore-planner-review-dual-approval.md`。
 
 > `main` cannot be pushed to directly (branch protection + `pre-commit` block). The only path to
 > `main` is a merged PR whose required checks are green.

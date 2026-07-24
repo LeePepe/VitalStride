@@ -39,6 +39,15 @@ Decomposition Review 已移除，不再有 Planner Lead 产出规划可审」—
 3. **设计期防腐机制保留**：`check-tasks-fresh` 防腐 check + TL sync-check 仍生效；规划审是**在其
    之上的额外质量 pass**，不是替代。
 
+4. **TL 遇「缺可执行拆分」自动触发 Planner，不升级 human**（2026-07-24 补丁）。当一个 spec-driven
+   issue 缺少可执行的 spec/plan/tasks，或有跨 layer scope 需要拆分时，Team Lead 的动作是
+   **@mention Planner Lead** 产出 speckit 拆分 + DoR，而**不是**升级给 owner、也**不是** @Hermes
+   （Hermes 不是本 workspace 成员）。Planner 产出再走 Decision 2 的双批准门。
+   - **根因**：修复前 TL / AI Reviewer 的 agent prompt 都写死了「Planner Lead has been removed /
+     no planner to @mention / @Hermes to re-run tasks」，导致缺 spec 的 issue（MY-1301 停滞 4 天、
+     MY-1311）只能反复升级给 owner、pipeline 无法自主收口。此补丁把这三处反转为「@Planner Lead」。
+   - 唯一仍需 human 的是**本质需要人的任务**（如 MY-1284 CloudKit 双设备物理验证），非「缺拆分」。
+
 ## Consequences
 
 **正面**：
