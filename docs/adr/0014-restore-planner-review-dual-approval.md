@@ -62,6 +62,12 @@ Decomposition Review 已移除，不再有 Planner Lead 产出规划可审」—
    （MY-1314 裸 @mention 后跨 3 轮 sweep 零 run）。可靠派发 = `multica issue assign <key> --to "Dev
    Team"`（或 Fullstack Engineer）+ `multica issue status <key> todo`，再 `issue runs` 验证有
    queued/running，零 run 则 `rerun` 兜底。裸 @mention 只作人读备注，不是触发器。
+   - **全局铁律（2026-07-24 强化）**：此规则**适用所有分支**——普通 stage、repair/follow-up、
+     re-dispatch。MY-1330（review 后 P0 补救 issue）暴露 TL 的 repair 分支仍走裸 @mention，导致
+     FS 跨 3+ 次 TL 尝试零 run、反复升级 owner。TL prompt 已在 §Agent Identity 顶部加**全局派发铁律**
+     覆盖所有 "@mention Fullstack Engineer" 场景：一律 assign+todo+验证 runs，未见 queued/running
+     不算派发成功、不得因此升级 owner。（实测：owner 直接 assign FS→FS 秒起，证明 FS 可触发，卡点
+     纯粹是 TL 用了不 enqueue 的裸 @mention。）
 
 ## Consequences
 
