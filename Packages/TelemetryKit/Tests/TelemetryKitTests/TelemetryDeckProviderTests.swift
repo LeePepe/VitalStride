@@ -88,8 +88,8 @@ struct TelemetryDeckProviderTests {
         #expect(sink.signals.first?.parameters["source"] == "watch")
     }
 
-    @Test("record forwards a mapped diagnostic signal to the sink")
-    func recordForwardsDiagnostic() {
+    @Test("record does NOT forward a diagnostic to the sink — ADR-0013 separates crash/hang transport to sentry-cocoa")
+    func recordDoesNotForwardDiagnostic() {
         let sink = FakeSignalSink()
         let provider = TelemetryDeckProvider(sink: sink)
 
@@ -97,11 +97,15 @@ struct TelemetryDeckProviderTests {
             TelemetryDiagnostic(kind: .hang, osVersion: "26.5", appBuild: "5", frames: ["A +0"])
         )
 
-        #expect(sink.signals.count == 1)
-        #expect(sink.signals.first?.signalType == "diagnostic_hang")
+        // ADR-0013 §Decision.2 + §Decision.5: crash/hang transport is exclusive
+        // to the self-hosted GlitchTip / sentry-cocoa path. TelemetryDeckProvider
+        // must inherit the protocol's default no-op for `record(_:)` so that
+        // registering it into `TelemetryService` cannot leak diagnostics into
+        // the product-analytics channel.
+        #expect(sink.signals.isEmpty)
     }
 
-    @Test("provider integrates through TelemetryService for both event and diagnostic")
+    @Test("through TelemetryService: event reaches sink, diagnostic does not (crash/hang stays off analytics channel)")
     func integratesThroughService() async {
         let sink = FakeSignalSink()
         let service = TelemetryService()
@@ -114,7 +118,8 @@ struct TelemetryDeckProviderTests {
         )
 
         let types = sink.signals.map(\.signalType)
-        #expect(types.contains("ai_chat_message_sent"))
-        #expect(types.contains("diagnostic_crash"))
+        #expect(types == ["ai_chat_message_sent"])
+        #expect(!types.contains("diagnostic_crash"))
+        #expect(!types.contains("diagnostic_hang"))
     }
 }

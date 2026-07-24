@@ -9,13 +9,24 @@ public protocol TelemetryDeckSignalSink: Sendable {
     func send(_ signal: TelemetryDeckSignal)
 }
 
-/// `TelemetryProvider` that forwards VitalStride's typed telemetry to
-/// TelemetryDeck (ADR-0011 for events, ADR-0012 for diagnostics).
+/// `TelemetryProvider` that forwards VitalStride's typed **product-analytics**
+/// events to TelemetryDeck (ADR-0011 §V narrow exception).
 ///
-/// It performs only the pure mapping to ``TelemetryDeckSignal`` and delegates
-/// transport to an injected ``TelemetryDeckSignalSink``. Both product events and
-/// MetricKit diagnostics ride the same single third-party channel — no second
-/// SDK (ADR-0012 §Decision.5).
+/// It performs only the pure mapping of `TelemetryEvent` to
+/// ``TelemetryDeckSignal`` and delegates transport to an injected
+/// ``TelemetryDeckSignalSink``.
+///
+/// **Crash/hang diagnostics do NOT travel through this provider.** ADR-0013
+/// makes the self-hosted GlitchTip / sentry-cocoa channel the **exclusive**
+/// transport for MetricKit crash + hang payloads (§Decision.2 replaces the
+/// ADR-0012 hand-rolled path; §Decision.5 keeps product analytics off this
+/// crash-reporting channel). To make that architectural separation
+/// non-bypassable at the source, this provider **does not override**
+/// `record(_ diagnostic:)` and therefore inherits the protocol's default
+/// no-op. Registering the TelemetryDeck provider into `TelemetryService`
+/// cannot leak `TelemetryDiagnostic` into the product-analytics backend even
+/// if a caller (e.g. `MetricKitDiagnosticCollector`) still fans a diagnostic
+/// out to every registered provider.
 public struct TelemetryDeckProvider: TelemetryProvider {
     private let sink: any TelemetryDeckSignalSink
 
@@ -27,7 +38,6 @@ public struct TelemetryDeckProvider: TelemetryProvider {
         sink.send(TelemetryDeckSignal(event: event))
     }
 
-    public func record(_ diagnostic: TelemetryDiagnostic) {
-        sink.send(TelemetryDeckSignal(diagnostic: diagnostic))
-    }
+    // `record(_:)` intentionally omitted — inherits protocol default no-op.
+    // See doc-comment above and ADR-0013 §Decision.2 / §Decision.5.
 }
