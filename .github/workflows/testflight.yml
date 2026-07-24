@@ -117,7 +117,13 @@ jobs:
           # 默认 3s 超时（重试到 24s 仍不够）导致 build_app 直接放弃。放宽超时/重试。
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
           FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "6"
-        run: fastlane ios beta
+          GLITCHTIP_DSN: ${{ secrets.GLITCHTIP_DSN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GLITCHTIP_DSN:-}" ]; then
+            echo "::error::GLITCHTIP_DSN secret 未设置" ; exit 1
+          fi
+          fastlane ios beta
 
       - name: Move last-released tag
         if: steps.gate.outputs.release == 'true'

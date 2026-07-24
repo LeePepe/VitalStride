@@ -169,6 +169,23 @@ DSN 已生成（见上「本次已建」+ 部署机 `/tmp/glitchtip-secrets/dsn.
 
 DSN 的 public key 可公开（不是密钥），但仍走配置注入 iOS，不硬编码进 git。
 
+## 配置 CI Secrets
+
+TestFlight workflow（`.github/workflows/testflight.yml` 的 `fastlane beta` step）依赖以下 GitHub Secret 才能把 DSN 注入 xcodebuild → Info.plist（`INFOPLIST_KEY_GlitchTipDSN`，具体注入由 MY-1314 完成）。owner 侧必须在 workflow 首次跑之前配置，否则 fail-fast 会拦下 build。
+
+### GLITCHTIP_DSN
+
+值 = 上文「拿 DSN」段生成的完整 GlitchTip Sentry DSN（形如 `https://<publicKey>@<host>/<project-id>`；权威定义见 `specs/015-glitchtip-crash-reporting/spec.md` FR-4）。**不复制明文到本文件或 git 任何位置。**
+
+```bash
+# 从 /tmp/glitchtip-secrets/dsn.txt 读回明文并注入 owner repo secret
+gh secret set GLITCHTIP_DSN --repo LeePepe/VitalStride < /tmp/glitchtip-secrets/dsn.txt
+```
+
+- 缺失时 workflow 里的 fail-fast（`GLITCHTIP_DSN secret 未设置`）会立即失败，不会浪费一整轮 build/上传。
+- 轮换：重跑上面这条 `gh secret set` 命令（GitHub 会覆盖旧值），下一次 TestFlight schedule 自动取新值。
+- 责权隔离：本 secret 仅供 `fastlane beta` step 消费；`GLITCHTIP_AUTH_TOKEN` / `GLITCHTIP_URL` 由 dSYM 上传链路使用，TODO: MY-1315 补。
+
 ## 运维
 
 - **日志**: `az containerapp logs show -g rg-vitalstride-glitchtip -n glitchtip-web --tail 50`
