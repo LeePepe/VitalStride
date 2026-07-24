@@ -1,4 +1,5 @@
 @testable import TelemetryDeckAdapter
+import os
 import TelemetryKit
 import XCTest
 
@@ -11,24 +12,27 @@ import XCTest
 ///   default init forwards to whatever closure it was constructed with.
 /// - A-T4 exercises the production facade end-to-end (real SDK sink) to
 ///   catch a `track(_:)` crash after SDK initialization.
+///
+/// Concurrency: all mutable test doubles wrap their state in
+/// `OSAllocatedUnfairLock`, which is `Sendable` by construction — no
+/// unchecked-Sendable escapes needed (Constitution §II).
 final class TelemetryDeckAdapterTests: XCTestCase {
     // MARK: - Fake sink
 
     /// Test fake — captures every signal the provider hands us.
-    final class FakeSink: TelemetryDeckSignalSink, @unchecked Sendable {
-        private let lock = NSLock()
-        private var storage: [TelemetryDeckSignal] = []
+    ///
+    /// `OSAllocatedUnfairLock` is a value type that owns and gates access to
+    /// the underlying storage; it's `Sendable`, so wrapping it in a `struct`
+    /// gives us a fully concurrency-safe sink with no unchecked escape.
+    struct FakeSink: TelemetryDeckSignalSink {
+        private let storage = OSAllocatedUnfairLock<[TelemetryDeckSignal]>(initialState: [])
 
         var signals: [TelemetryDeckSignal] {
-            lock.lock()
-            defer { lock.unlock() }
-            return storage
+            storage.withLock { $0 }
         }
 
         func send(_ signal: TelemetryDeckSignal) {
-            lock.lock()
-            storage.append(signal)
-            lock.unlock()
+            storage.withLock { $0.append(signal) }
         }
     }
 
@@ -68,23 +72,15 @@ final class TelemetryDeckAdapterTests: XCTestCase {
     // MARK: - A-T3 dispatch seam
 
     func test_sdkSink_dispatchSeam_forwardsSignalTypeAndParameters() {
-        final class Capture: @unchecked Sendable {
-            var value: (String, [String: String])?
-        }
-        let capture = Capture()
-        let lock = NSLock()
+        let capture = OSAllocatedUnfairLock<(String, [String: String])?>(initialState: nil)
 
         let sink = TelemetryDeckSDKSink { signalType, parameters in
-            lock.lock()
-            capture.value = (signalType, parameters)
-            lock.unlock()
+            capture.withLock { $0 = (signalType, parameters) }
         }
 
         sink.send(TelemetryDeckSignal(signalType: "workout_started", parameters: ["source": "unit"]))
 
-        lock.lock()
-        let captured = capture.value
-        lock.unlock()
+        let captured = capture.withLock { $0 }
         XCTAssertEqual(captured?.0, "workout_started")
         XCTAssertEqual(captured?.1, ["source": "unit"])
     }
