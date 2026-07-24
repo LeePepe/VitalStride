@@ -146,9 +146,16 @@ count is **0** — single-owner repo, see ADR-0009 Amendment 2026-07-04). See
 
 | Role | What they do | Where they push |
 |------|--------------|-----------------|
+| **Planner Lead** | spec-driven feature 拆分 / DoR 补全（不写代码，读码用 `git show`/`grep`） | 不 push；产出 sub-issue + @mention 交回 |
 | **Fullstack Engineer (FS)** | implement code + commit + open PR | `github` remote `agent/<issue-key>-<task-id-short>`, then `gh pr create` |
-| **Team Lead (TL)** | ensure CI green + review, merge PR, resolve trivial rebase conflicts | merges via `gh pr merge` (never pushes `main` directly) |
-| **AI Reviewer** | review the PR | (approves/comments on the PR) |
+| **Team Lead (TL)** | ensure CI green + review, merge PR, resolve trivial rebase conflicts；规划审是双批准的一方 | merges via `gh pr merge` (never pushes `main` directly) |
+| **AI Reviewer** | **code review**（PR）+ **planning / DoR review**（Planner 产出，ADR-0014） | (approves/comments on PR or planning) |
+
+> **Planning Review / 双批准门（ADR-0014）**：Planner Lead 对 spec-driven feature 做拆分 / DoR
+> 补全后，下游 stage 派发前须 **AI Reviewer + Team Lead 两方都批准**（同 code review 的
+> ✅ APPROVED / 🟡 CHANGES REQUESTED verdict）。任一方 CHANGES REQUESTED → 回 Planner 修订。
+> 批准后由 **TL 派发**（Planner/Reviewer 不自行派发）。bug-fix fast-path（TL 直接拆）不走此门。
+> 详见 Constitution §Issue Tracker、`docs/adr/0014-restore-planner-review-dual-approval.md`。
 
 > `main` cannot be pushed to directly (branch protection + `pre-commit` block). The only path to
 > `main` is a merged PR whose required checks are green.

@@ -172,8 +172,20 @@ main；`pre-push` 本地跑全量 build/test + lint 作为 PR 前的快速门。
 
 - **Multica** 项目 UUID `7adf8b88`，issue prefix `MY-*`
 - 每个 issue 标题 `[T###] [Story] Brief description`（spec-kit handoff 约定）
-- Hermes 端写 spec/plan/tasks，**`/speckit-implement` 不使用**——tasks.md 通过 `multica-quick-issue` 批量入 Multica，TL → Planner → FS → Reviewer pipeline 执行
+- Hermes 端写 spec/plan/tasks，**`/speckit-implement` 不使用**——tasks.md 通过 `multica-quick-issue` 批量入 Multica，`TL → Planner → FS → Reviewer` pipeline 执行
 - 每 feature 一个 Multica project（不要 phase 多项目）
+
+### Planning Review / Dual-Approval Gate（ADR-0014）
+
+- **Planner Lead** 对 spec-driven feature 做拆分 / DoR 补全后，**下游 stage 派发前**须过
+  **AI Reviewer + Team Lead 双批准门**：两方都 ✅ 才派发；任一方 🟡 CHANGES REQUESTED → 回 Planner
+  Lead 修订。批准后由 **TL** 派发（Planner / Reviewer 均不自行派发）。
+- AI Reviewer 承担两类 review：**code review**（PR）+ **planning / DoR review**（Planner 产出）。
+  规划审的 finding 源同为 §Cross-Cutting Quality Bars。
+- DoR 硬合同（派发前必备）：`Files in scope` / `Files NOT to touch` / `Public signatures` /
+  `Functional acceptance criteria`（≥3 可验证）/ `Verification command`（精确 + 工作目录）。
+- 设计期 `check-tasks-fresh` 防腐 + TL sync-check 仍生效；规划审是其上的额外质量 pass，非替代。
+- bug-fix fast-path（TL 直接拆，无 Planner 产出）不强制走规划审。详见 [ADR-0014](../../docs/adr/0014-restore-planner-review-dual-approval.md)。
 
 ---
 
@@ -264,7 +276,14 @@ TL 每次 pipeline 起手前必须扫描：
   - MAJOR — 删除/反转原则；MINOR — 新增原则/新 Quality Bar；PATCH — 文字澄清不改语义
 - 与本宪法相关：AGENTS.md（agent 操作手册）、CONTEXT.md（数据架构细节）、`docs/adr/`（决策档案）、`scripts/hooks/`（强制规则机器实现）。
 
-**Version**: 2.4.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-22
+**Version**: 2.5.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-24
+
+> 2.5.0（MINOR，新增 pipeline stage）：恢复 **Planner Lead 规划 / DoR 复审** + 建立
+> **AI Reviewer + Team Lead 双批准门**——spec-driven feature 的拆分 / DoR 补全在下游派发前须两方都
+> 批准。修正此前 AI Reviewer prompt 单方写入的「Plan/Decomposition Review removed」与宪法
+> pipeline 描述的冲突。AI Reviewer 承担 code review + planning/DoR review 两类，finding 源同为
+> §Cross-Cutting Quality Bars；设计期 `check-tasks-fresh` + TL sync-check 仍生效
+> （[ADR-0014](../../docs/adr/0014-restore-planner-review-dual-approval.md)）。
 
 > 2.4.0（MINOR，§V 增第二个 narrow 例外）：崩溃/hang 诊断改用**自建 GlitchTip**（部署在所有者掌控的 Azure，数据不离自有基础设施）+ 官方 **sentry-cocoa**（`enableMetricKit=true`），取代 ADR-0012 的自研 TelemetryDeck 通道。narrow 例外仅限 sentry-cocoa、仅崩溃/hang、仅上报自建 GlitchTip；§I 由**强制 `beforeSend` 钩子**守门（纯函数配单测）；DEBUG 不发。触发自 ADR-0011 revisit trigger「data-never-leaves-own-infra → self-hosted backend」（[ADR-0013](../../docs/adr/0013-self-hosted-glitchtip-sentry-cocoa.md) supersede ADR-0012 崩溃通道）。产品分析路径不变。
 
