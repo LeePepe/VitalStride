@@ -48,6 +48,15 @@ Decomposition Review 已移除，不再有 Planner Lead 产出规划可审」—
      MY-1311）只能反复升级给 owner、pipeline 无法自主收口。此补丁把这三处反转为「@Planner Lead」。
    - 唯一仍需 human 的是**本质需要人的任务**（如 MY-1284 CloudKit 双设备物理验证），非「缺拆分」。
 
+5. **auto-merge 收尾盲区：TL 在 review PASS 后主动检查 PR 是否已被机器合并并收尾**（2026-07-24 补丁）。
+   本 repo 用 GitHub auto-merge，PR 由**机器**在 required check 全绿后自动合并——**没有 agent 被这个
+   merge 事件触发**。TL 的旧逻辑假设"自己 `gh pr merge`"，于是 review PASS 后干等、PR 被 auto-merge
+   悄悄合掉、issue 永远卡 `in_review`（MY-1316 卡 55min、MY-1327 同病）。修复：TL 在 🟢 PASS 后
+   **主动**执行：`gh pr view <PR#> --json state` → 若 `MERGED` 则立即收尾（issue 转 `done` + promote
+   下一 stage backlog→todo），不等自己 merge；startup scan 也要捞"PR 已 merged 但 issue 仍 in_review"
+   的收尾遗漏。配套 `.github/workflows/auto-merge.yml` 的 `enable-auto-merge` step 加 retry 消化
+   GitHub 5xx 瞬时故障（504 曾让 PR #334 卡 43min）。
+
 ## Consequences
 
 **正面**：

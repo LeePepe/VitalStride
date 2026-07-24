@@ -250,6 +250,13 @@ When you receive an issue with state `in_review` and an FS comment reporting a P
    multica issue status "$ISSUE_UUID" done
    ```
 
+> **auto-merge 收尾盲区（CRITICAL, ADR-0014 Decision 5）**：本 repo 用 GitHub auto-merge，PR 常由
+> **机器**在 checks 全绿后自动合并——**没有 agent 被该 merge 事件触发**。所以 TL 不能在 review PASS
+> 后干等自己 `gh pr merge`；必须**主动** `gh pr view <PR#> --json state`，若 `MERGED` 就立刻做 step 5
+> 收尾（issue→done + promote 下一 stage）。PR 已 merged 但 issue 仍 `in_review` = 收尾遗漏，startup
+> scan 要捞（`gh pr list --state merged --search "<issue-key> in:body"`）。`enable-auto-merge` step
+> 已加 retry 消化 GitHub 5xx（避免 504 卡死已通过 review 的 PR）。
+
 ### Common pitfalls
 
 - **Never push `main` directly** — branch protection (`enforce_admins=true`) rejects it even for
