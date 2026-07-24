@@ -125,6 +125,28 @@ jobs:
           fi
           fastlane ios beta
 
+      - name: Install sentry-cli
+        if: steps.gate.outputs.release == 'true'
+        continue-on-error: true
+        run: brew list sentry-cli >/dev/null 2>&1 || brew install getsentry/tools/sentry-cli
+
+      - name: Upload dSYMs to GlitchTip
+        if: steps.gate.outputs.release == 'true'
+        continue-on-error: true
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.GLITCHTIP_AUTH_TOKEN }}
+          SENTRY_URL: ${{ secrets.GLITCHTIP_URL }}
+          SENTRY_ORG: vitalstride
+          SENTRY_PROJECT: vitalstride-ios
+        run: |
+          set -euo pipefail
+          DSYM_ZIP="$RUNNER_TEMP/VitalStride.app.dSYM.zip"
+          if [ ! -f "$DSYM_ZIP" ]; then
+            echo "::warning::dSYM zip not found at $DSYM_ZIP; skipping upload"
+            exit 0
+          fi
+          sentry-cli debug-files upload --include-sources "$DSYM_ZIP"
+
       - name: Move last-released tag
         if: steps.gate.outputs.release == 'true'
         env:

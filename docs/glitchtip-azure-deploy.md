@@ -184,7 +184,36 @@ gh secret set GLITCHTIP_DSN --repo LeePepe/VitalStride < /tmp/glitchtip-secrets/
 
 - 缺失时 workflow 里的 fail-fast（`GLITCHTIP_DSN secret 未设置`）会立即失败，不会浪费一整轮 build/上传。
 - 轮换：重跑上面这条 `gh secret set` 命令（GitHub 会覆盖旧值），下一次 TestFlight schedule 自动取新值。
-- 责权隔离：本 secret 仅供 `fastlane beta` step 消费；`GLITCHTIP_AUTH_TOKEN` / `GLITCHTIP_URL` 由 dSYM 上传链路使用，TODO: MY-1315 补。
+- 责权隔离：本 secret 仅供 `fastlane beta` step 消费；`GLITCHTIP_AUTH_TOKEN` / `GLITCHTIP_URL` 由 dSYM 上传链路使用（见下两段）。
+
+### GLITCHTIP_AUTH_TOKEN
+
+值 = GlitchTip UI 生成的个人 auth token，`Upload dSYMs to GlitchTip` step 用它向自建 GlitchTip 后端上传 dSYM。生成方式：
+
+1. 登录 GlitchTip web（`$GLITCHTIP_URL`，见下一段）。
+2. 右上头像 → **Profile** → **Auth Tokens** → **New Auth Token**。
+3. 勾选 scope **`project:releases`**（至少），命名如 `vitalstride-ci-dsym`。
+4. 复制生成的 token（形如 `glp_...` 或 `sntrys_...`；只显示一次）。
+
+```bash
+# 复制到剪贴板后管道进 gh secret（不落地明文到 repo / shell 历史）
+pbpaste | gh secret set GLITCHTIP_AUTH_TOKEN --repo LeePepe/VitalStride
+```
+
+- 缺失时 `Upload dSYMs to GlitchTip` step 会因 auth 失败 exit 非零，但 `continue-on-error: true` 保证不阻塞发版；owner 完成 `gh secret set` 后下次发版自动生效。
+- 轮换：GlitchTip UI Revoke 旧 token → 重复上述流程 → 重跑 `gh secret set` 命令。
+
+### GLITCHTIP_URL
+
+值 = GlitchTip web 服务 base URL（含协议、带尾斜杠），供 sentry-cli `SENTRY_URL` 消费。权威值见文首「部署概览 > 服务 URL」段（当前 `https://glitchtip-web.wonderfulriver-644a3e45.eastasia.azurecontainerapps.io/`）。
+
+```bash
+gh secret set GLITCHTIP_URL --repo LeePepe/VitalStride \
+  --body "https://glitchtip-web.wonderfulriver-644a3e45.eastasia.azurecontainerapps.io/"
+```
+
+- 该值与 `GLITCHTIP_DSN` 主机同源，非机密（DSN 已含相同 host）；仍走 secret 以便未来自定义域名切换时无需改 workflow。
+- 轮换：更换域名后重跑上面这条 `gh secret set` 命令即可。
 
 ## 运维
 
@@ -192,7 +221,22 @@ gh secret set GLITCHTIP_DSN --repo LeePepe/VitalStride < /tmp/glitchtip-secrets/
 - **重启**: `az containerapp revision restart ...`
 - **删全部**（清账单）: `az group delete -n rg-vitalstride-glitchtip --yes`
 - **备份**: PG Flexible 默认 7 天自动备份。
-- **dSYM 上传**（符号化崩溃栈）: 发版后 `sentry-cli upload-dif --url https://<web>/ --auth-token <token> <dSYM路径>`。CI testflight.yml 可加此步骤。
+- **dSYM 上传（符号化崩溃栈）**：
+  - **CI 自动**：`.github/workflows/testflight.yml` 的 `Install sentry-cli` + `Upload dSYMs to GlitchTip`
+    两 step 在 `fastlane beta` 成功后自动上传 `$RUNNER_TEMP/VitalStride.app.dSYM.zip`（gym 默认输出）。
+    两步均 `continue-on-error: true`——符号化增强路径，dSYM 缺失或上传失败不阻塞 TestFlight 发版。
+    依赖 GitHub Secret `GLITCHTIP_AUTH_TOKEN` / `GLITCHTIP_URL`（见「配置 CI Secrets」段），
+    隐含固定 `SENTRY_ORG=vitalstride` / `SENTRY_PROJECT=vitalstride-ios`。
+  - **本地手动兜底**（CI 失败或历史 build 补传时用；`<dSYM 路径>` 换成本地 gym/xcodebuild 输出的
+    `*.dSYM.zip`，例如 `$HOME/Library/Developer/Xcode/DerivedData/VitalStride-*/Build/Products/*/VitalStride.app.dSYM.zip`
+    或 fastlane `dsym_paths` 输出）：
+    ```bash
+    sentry-cli debug-files upload \
+      --url "$GLITCHTIP_URL" \
+      --auth-token "$GLITCHTIP_AUTH_TOKEN" \
+      --org vitalstride --project vitalstride-ios \
+      --include-sources <dSYM 路径>
+    ```
 
 ## 待办
 
