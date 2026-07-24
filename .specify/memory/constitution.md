@@ -142,9 +142,12 @@ HealthKitService ┘
 | Team Lead (TL) | `github` remote | 审 CI 绿 + review 后 `gh pr merge` |
 | AI Reviewer | （在 PR 上 review） | review PR commits |
 
-所有代码只能经 PR 进 `main`。`main` 受 branch protection 保护：**6 个 required status
-check**（`Lint & policy` + 5× `SPM …`）+ **1 个 review** + **enforce_admins=true** —— 红的 CI
-或未 review 的改动进不了 main，admin 也不例外。`scripts/hooks/pre-commit` 禁止直接 commit 到
+所有代码只能经 PR 进 `main`。`main` 受 **ruleset**（`main protection`，active）保护：**required status
+checks** = `Lint & policy` + 6× `SPM …` + `App target` + **`claude-review` + `codex-review`（两个
+review 机器人都 required）** —— 任一 CI 红或**任一 review 机器人判 FAIL** 的改动进不了 main，admin
+也不例外。**两个 review check 都必须 required**：曾因 `codex-review` 漏配为非 required，auto-merge
+无视其 FAIL 直接合并、P0 缺陷进 main（MY-1314/PR #342，2026-07-24）；根治=把 codex-review 加入
+ruleset required checks。`scripts/hooks/pre-commit` 禁止直接 commit 到
 main；`pre-push` 本地跑全量 build/test + lint 作为 PR 前的快速门。详见 [ADR-0009](../../docs/adr/0009-pr-required-workflow.md)、AGENTS.md §Git Workflow。
 
 ### Commit Message 约定
