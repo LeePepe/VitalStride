@@ -4,7 +4,7 @@
 Downloads the structured JSON (no images/GIFs), maps MIT enums to the project
 schema (MuscleGroup / Equipment), deduplicates against the existing catalog by
 normalized nameEn, assigns deterministic UUID presetIds to net-new entries, and
-merges the result into VitalStride/Resources/exercises.json (version bumped 2 -> 3).
+merges the result into VitalStride/Resources/exercises.json (version envelope "4").
 
 Design mirrors scripts/backfill_exercise_defaults.py: deterministic, idempotent,
 stderr-logged, root-relative paths.
@@ -17,9 +17,19 @@ Rules (T001 acceptance):
 - New presetIds are UUIDv5 over a fixed namespace + MIT id, so rerunning yields
   the same UUIDs; the script asserts none collide with the existing 300.
 - Deduplicate by normalized nameEn across (existing catalog ∪ MIT rows).
-- Version envelope becomes "3".
+- Version envelope stays "4".
 
-Related: MY-1235 / specs/014-exercise-library-expansion/tasks.md T001.
+Muscle-mapping precedence (MY-1326 fix):
+- primaryMuscles[0] uses MIT `target` (true prime mover — e.g. lats for pulldowns,
+  pectorals for bench press) rather than `muscle_group`. The MIT `muscle_group`
+  field encodes the grip / dominant synergist for many pull-type movements
+  (biceps/forearms) and mis-labeling from that field caused the systemic bug
+  described in MY-1325.
+- secondaryMuscles is filtered to exclude any muscle already present in
+  primaryMuscles (case-sensitive exact string match), preserving order and
+  deduplicating internal repeats.
+
+Related: MY-1235 / specs/014-exercise-library-expansion/tasks.md T001; MY-1325 / MY-1326.
 
 Usage:
     python3 scripts/import_mit_exercises.py               # download + write
@@ -45,7 +55,7 @@ MIT_URL = "https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/
 # Deterministic UUIDv5 namespace so reruns produce the same presetId per MIT id.
 MIT_NAMESPACE = uuid.UUID("5e2a1f2c-8b3d-4d67-9a2c-1e8f4b5c9a11")
 
-TARGET_VERSION = "3"
+TARGET_VERSION = "4"
 NEW_NET_MIN = 600
 
 # MIT equipment string -> project Equipment enum.
@@ -205,6 +215,84 @@ def fetch_mit_dataset(source: str | None) -> list[dict[str, Any]]:
         return json.loads(resp.read().decode("utf-8"))
 
 
+def compute_muscles(
+    row: dict[str, Any],
+) -> tuple[list[str], list[str]] | None:
+    """Derive (primaryMuscles, secondaryMuscles) from an MIT row.
+
+    Returns None if the row cannot be mapped (empty target and empty
+    muscle_group AND unmappable body_part). Applies the MY-1326 precedence:
+    primary = target > muscle_group > body-part-derived project MuscleGroup,
+    with secondary filtered to exclude any muscle in primary.
+    """
+    body_part: str = row.get("body_part", "")
+    target: str = row.get("target", "")
+    muscle_group_raw: str = row.get("muscle_group", "")
+    secondary_muscles_raw = row.get("secondary_muscles", []) or []
+
+    muscle_group = body_part_to_muscle_group(body_part, target)
+    if muscle_group is None:
+        return None
+
+    primary_muscles = (
+        [target] if target
+        else [muscle_group_raw] if muscle_group_raw
+        else [muscle_group]
+    )
+    primary_set = set(primary_muscles)
+    secondary_muscles: list[str] = []
+    seen_secondary: set[str] = set()
+    for m in secondary_muscles_raw:
+        if not isinstance(m, str) or not m:
+            continue
+        if m in primary_set or m in seen_secondary:
+            continue
+        secondary_muscles.append(m)
+        seen_secondary.add(m)
+    return primary_muscles, secondary_muscles
+
+
+def refresh_mit_muscles(
+    existing: list[dict[str, Any]],
+    mit_rows: list[dict[str, Any]],
+) -> dict[str, int]:
+    """Refresh primary/secondary muscle fields for previously-imported MIT rows
+    (MY-1326).
+
+    Matches entries by deterministic UUIDv5 id → MIT row, then rewrites
+    primaryMuscles and secondaryMuscles in place. Preserves id, nameEn, nameZh,
+    muscleGroup, equipment, defaultWeight* (per parent-issue red-lines: the
+    hand-refined ~60 presets have UUIDv4 ids and are never touched here).
+
+    Returns a counter dict with keys: refreshed, unchanged, no_mit_row.
+    """
+    counters: Counter[str] = Counter()
+    mit_by_uuid: dict[str, dict[str, Any]] = {
+        new_preset_id(str(row["id"])): row for row in mit_rows if row.get("id") is not None
+    }
+    for entry in existing:
+        row = mit_by_uuid.get(entry.get("id", ""))
+        if row is None:
+            # UUIDv4 hand-refined preset OR unrecognized id — leave untouched.
+            counters["no_mit_row"] += 1
+            continue
+        derived = compute_muscles(row)
+        if derived is None:
+            # MIT row exists but cannot be muscle-mapped: leave entry alone.
+            counters["no_mit_row"] += 1
+            continue
+        new_primary, new_secondary = derived
+        old_primary = entry.get("primaryMuscles", []) or []
+        old_secondary = entry.get("secondaryMuscles", []) or []
+        if new_primary == old_primary and new_secondary == old_secondary:
+            counters["unchanged"] += 1
+            continue
+        entry["primaryMuscles"] = new_primary
+        entry["secondaryMuscles"] = new_secondary
+        counters["refreshed"] += 1
+    return dict(counters)
+
+
 def build_new_entries(
     mit_rows: list[dict[str, Any]],
     existing_norm_names: set[str],
@@ -227,8 +315,6 @@ def build_new_entries(
         body_part: str = row.get("body_part", "")
         equipment_raw: str = row.get("equipment", "")
         target: str = row.get("target", "")
-        muscle_group_raw: str = row.get("muscle_group", "")
-        secondary_muscles_raw = row.get("secondary_muscles", []) or []
 
         muscle_group = body_part_to_muscle_group(body_part, target)
         if muscle_group is None:
@@ -252,8 +338,12 @@ def build_new_entries(
             continue
         seen_this_run.add(norm)
 
-        primary_muscles = [muscle_group_raw] if muscle_group_raw else [target] if target else [muscle_group]
-        secondary_muscles = [str(m) for m in secondary_muscles_raw if isinstance(m, str) and m]
+        derived = compute_muscles(row)
+        # compute_muscles only returns None when muscle_group is unmappable,
+        # which we've already handled above; fall back defensively.
+        primary_muscles, secondary_muscles = (
+            derived if derived is not None else ([muscle_group], [])
+        )
 
         preset_id = new_preset_id(mit_id)
         if preset_id in existing_ids:
@@ -311,6 +401,18 @@ def main() -> int:
     mit_rows = fetch_mit_dataset(args.source)
     print(f"info: MIT dataset rows={len(mit_rows)}", file=sys.stderr)
 
+    # MY-1326: refresh muscle fields on already-imported MIT rows before we
+    # look for net-new additions. Matches by deterministic UUIDv5 id so the
+    # ~60 hand-refined presets (UUIDv4) are never touched.
+    refresh_counters = refresh_mit_muscles(existing, mit_rows)
+    print(
+        "info: MIT muscle refresh "
+        f"refreshed={refresh_counters.get('refreshed', 0)} "
+        f"unchanged={refresh_counters.get('unchanged', 0)} "
+        f"no_mit_row={refresh_counters.get('no_mit_row', 0)}",
+        file=sys.stderr,
+    )
+
     added, counters = build_new_entries(mit_rows, existing_norm_names, existing_ids)
     total_after = len(existing) + len(added)
     print(
@@ -325,22 +427,28 @@ def main() -> int:
     )
     print(f"info: total after merge = {len(existing)} + {len(added)} = {total_after}", file=sys.stderr)
 
-    # Idempotent rerun: if the on-disk catalog is already at TARGET_VERSION and
-    # a full mapping pass produces zero net-new rows (every MIT row is either
-    # already present by deterministic UUIDv5 or dedup-matched by nameEn against
-    # an existing entry), treat this as a verified no-op rerun and exit 0. The
-    # initial-import ≥600 guard still applies to any run where the catalog has
-    # not yet been bumped to TARGET_VERSION.
-    already_imported = catalog.get("version") == TARGET_VERSION and len(added) == 0
+    # Idempotent rerun: if the on-disk catalog is already at TARGET_VERSION,
+    # the MIT rerun yields zero net-new rows, AND the muscle refresh yielded
+    # zero refreshed rows, treat as a verified no-op. Any refresh delta must
+    # trigger a write so the JSON reflects the current mapping logic.
+    already_imported = (
+        catalog.get("version") == TARGET_VERSION
+        and len(added) == 0
+        and refresh_counters.get("refreshed", 0) == 0
+    )
     if already_imported:
         print(
             f"info: catalog already at version={TARGET_VERSION} and MIT rerun yields "
-            "no net-new rows; nothing to do (idempotent rerun)",
+            "no net-new rows or muscle refreshes; nothing to do (idempotent rerun)",
             file=sys.stderr,
         )
         return 0
 
-    if len(added) < NEW_NET_MIN:
+    # Initial-import ≥600 guard only applies when the catalog has not yet been
+    # bumped to TARGET_VERSION. After the first successful import, subsequent
+    # runs (including muscle-refresh reruns like MY-1326) must be allowed to
+    # write the delta without re-adding 600+ rows.
+    if catalog.get("version") != TARGET_VERSION and len(added) < NEW_NET_MIN:
         print(
             f"error: net-new count {len(added)} < required minimum {NEW_NET_MIN}",
             file=sys.stderr,
