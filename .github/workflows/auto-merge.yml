@@ -29,4 +29,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          gh pr merge "$PR_URL" --squash --auto
+          # GitHub 的 merge API 偶发 5xx（504 Gateway Timeout 等），单次调用失败会让
+          # 已通过 review + CI 的 PR 静默卡在 OPEN、等不到自动合并。重试消化瞬时故障。
+          for attempt in 1 2 3 4 5; do
+            if gh pr merge "$PR_URL" --squash --auto; then
+              echo "auto-merge enabled (attempt $attempt)"
+              exit 0
+            fi
+            echo "attempt $attempt failed (likely transient GitHub 5xx); retrying in $((attempt * 10))s" >&2
+            sleep $((attempt * 10))
+          done
+          echo "::error::failed to enable auto-merge after 5 attempts" >&2
+          exit 1
