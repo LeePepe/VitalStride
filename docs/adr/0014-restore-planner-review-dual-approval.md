@@ -57,6 +57,12 @@ Decomposition Review 已移除，不再有 Planner Lead 产出规划可审」—
    的收尾遗漏。配套 `.github/workflows/auto-merge.yml` 的 `enable-auto-merge` step 加 retry 消化
    GitHub 5xx 瞬时故障（504 曾让 PR #334 卡 43min）。
 
+6. **派发 FS 用 assign+todo，不靠裸 @mention**（2026-07-24 补丁）。TL 派实现给 Fullstack Engineer 时，
+   若只 @mention 而 issue `assignee_type=none`，**不会 enqueue FS run**——issue 停在 `todo`、零 run
+   （MY-1314 裸 @mention 后跨 3 轮 sweep 零 run）。可靠派发 = `multica issue assign <key> --to "Dev
+   Team"`（或 Fullstack Engineer）+ `multica issue status <key> todo`，再 `issue runs` 验证有
+   queued/running，零 run 则 `rerun` 兜底。裸 @mention 只作人读备注，不是触发器。
+
 ## Consequences
 
 **正面**：
