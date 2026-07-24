@@ -29,9 +29,30 @@
 
 ---
 
+## [T002a] [Story] CI DSN bootstrap: workflow env + Fastfile xcargs + docs runbook
+
+**Stage**: 2 · **Layer**: CI / fastlane / docs · **Blocked by**: T001 · **Multica**: MY-1316
+
+**What**: 在**只动 CI 侧**的前提下建立 `GLITCHTIP_DSN` 供值链路（Round 4 TL blocker 闭合——把
+原 T002 里的 CI/fastlane/docs 部分拆出，避免 app-target task 跨 layer）。GitHub secret →
+`testflight.yml` env（缺失 fail-fast）→ 扩展现有 `fastlane beta` 的 xcargs 把 `GLITCHTIP_DSN`
+注入 xcodebuild → `docs/glitchtip-azure-deploy.md` 增 DSN 配置 runbook。**不动 app 源码**，副作用
+为零（app 尚未读该变量）。
+
+**Acceptance**:
+- [ ] CI env 缺 `GLITCHTIP_DSN` 时 fail-fast（不静默禁用 crash reporting）
+- [ ] `fastlane beta` xcargs 注入 DSN，可验证
+- [ ] 部署文档有 DSN 配置 runbook；secret 不进 git
+
+**Constitution refs**: §I（token/secret 不进 git）、§IV XcodeGen、ADR-0013
+**Layer 约束**: CI / fastlane / docs（不属 Package layer）
+- test: workflow YAML 校验 + `fastlane beta` dry-run 供值链路检查
+
+---
+
 ## [T002] [Story] app: sentry-cocoa 接线 + DSN 注入 + 旧崩溃通道去重
 
-**Stage**: 2 · **Layer**: app target(VitalStride/) · **Blocked by**: T001
+**Stage**: 3 · **Layer**: app target(VitalStride/) · **Blocked by**: T002a（DSN 供值链路）
 
 **What**: iOS app target 接入 sentry-cocoa:`project.yml` 加远程 SPM 包 `Sentry`(`from: 8.0.0`,
 仅 iOS `VitalStride` target)→ `xcodegen generate` → commit `.xcodeproj`。新建
@@ -59,7 +80,7 @@
 
 ## [T003] [Story] ci: dSYM 上传符号化崩溃栈
 
-**Stage**: 3 · **Layer**: CI / docs · **Blocked by**: T002
+**Stage**: 4 · **Layer**: CI / docs · **Blocked by**: T002
 
 **What**: sentry-cocoa 上报的栈需 dSYM 符号化。在 `.github/workflows/testflight.yml` 加一步
 `sentry-cli upload-dif --url <GlitchTip host> --auth-token <CI secret> <dSYM 路径>`,或在
@@ -79,8 +100,11 @@ GlitchTip 生成,走 GitHub Actions secret,不进 repo。
 ## 依赖图
 
 ```
-T001 (Stage 1, TelemetryKit) ──▶ T002 (Stage 2, app) ──▶ T003 (Stage 3, ci)
-     独立可开始                    beforeSend 调 T001        符号化增强,收尾
+T001 (Stage 1, TelemetryKit) ──▶ T002a (Stage 2, CI DSN bootstrap) ──▶ T002 (Stage 3, app) ──▶ T003 (Stage 4, ci dSYM)
+     脱敏纯函数,独立可开始         CI 供值链路,不动 app 源码            beforeSend 调 T001      符号化增强,收尾
 ```
 
-parent = MY-1311(feature 总述,指向本 spec)。三个 sub-issue 按 stage 落,staged barrier 顺序唤醒。
+parent = MY-1311(feature 总述,指向本 spec)。四个 sub-issue 按 stage 落,staged barrier 顺序唤醒。
+Multica: T001=MY-1313 · T002a=MY-1316 · T002=MY-1314 · T003=MY-1315。
+Round 4 双批准复盘拆出 T002a（CI DSN bootstrap），把原 T002 的 CI/fastlane 部分分离，避免 app-target
+task 跨 layer——3-stage → 4-stage。
