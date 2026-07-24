@@ -116,6 +116,7 @@
 		5FE8A772B8B11B7699F05167 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 18AA3D0CBD054FC6EB8E6E36 /* InfoPlist.strings */; };
 		613159B4B0795DCD4501138F /* ExerciseSeederTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0157658A314DA1AC81783B49 /* ExerciseSeederTests.swift */; };
 		614503EFA888692CA1F1088D /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524E9CAE68FFB5B851E45752 /* ModelTests.swift */; };
+		62106A39D42AA5FD1E86E4A8 /* CrashReportingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B91E65D240F5E271386FC6D /* CrashReportingTests.swift */; };
 		63DFF2390FBFBA4AC154CEF0 /* DataImportExportSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC0E70D705A66E61C98F69 /* DataImportExportSection.swift */; };
 		63E739A5D206085086CE682A /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = 57B895D91910D9E2DC71130D /* exercises.json */; };
 		6461C38F32CD62EC3499A7AE /* RestTimerCancellationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E1AE320ABD22A1684FB38CC /* RestTimerCancellationTests.swift */; };
@@ -171,6 +172,7 @@
 		95A556276FFDA3A80E98E7E4 /* WatchWorkoutDisplayState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC81CF556640A9CDBF9F5A2E /* WatchWorkoutDisplayState.swift */; };
 		95BD2BAB0A95991802CF4662 /* OverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7130E924ED6698DC80DA5B73 /* OverviewView.swift */; };
 		9606DA1748FDD2B0CCE2EDFB /* CardVariantFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C67D5A895B49BE38D056DF75 /* CardVariantFactory.swift */; };
+		9706CEE2112B437E86DAF055 /* CrashReporting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 023C8133329F7429EB0673AD /* CrashReporting.swift */; };
 		98907DDA172D3879983E5C5C /* AIAnalysisPrompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13128EC936BE4F23254B44BB /* AIAnalysisPrompts.swift */; };
 		99CB7CC1AA03F3D18942C7C7 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDA307CA9D61759C0A1A4E6 /* WatchContentView.swift */; };
 		9B807F0DF9DE7F063646EF26 /* VitalModels in Frameworks */ = {isa = PBXBuildFile; productRef = 976C928F3ADA4DABCB394293 /* VitalModels */; };
@@ -266,6 +268,7 @@
 		F6DEBB93AB30796DDB87B899 /* WorkoutAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3274184F69678B14ACB647F8 /* WorkoutAggregator.swift */; };
 		F6F15DEB55614BC14A4EB593 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 18AA3D0CBD054FC6EB8E6E36 /* InfoPlist.strings */; };
 		F7AD09CAEFC12214943F80C8 /* ExerciseSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC41CBBB0306141FF6935C5 /* ExerciseSeeder.swift */; };
+		F810022E4E9D6AEF0C0E9A51 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = DDEE6750523EE6FA9F58D5D7 /* Sentry */; };
 		F852748AF1F5BE250B692B4D /* WatchWorkoutDisplayStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEFBCFADAEECB997C22D14EC /* WatchWorkoutDisplayStateTests.swift */; };
 		F94E4FA429B980CCAD4B88BB /* TrendCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E577C57CE59651FBE3466D /* TrendCardView.swift */; };
 		F9AC595F18F137D56D3BD66B /* WatchScreenSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F065D5046BB7DF2037C4C67 /* WatchScreenSettingsTests.swift */; };
@@ -318,6 +321,7 @@
 		0149590C35C78C4B2347A085 /* ActiveExerciseRowContextsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveExerciseRowContextsTests.swift; sourceTree = "<group>"; };
 		01517EF3D1E025ABF280B721 /* RelationshipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelationshipTests.swift; sourceTree = "<group>"; };
 		0157658A314DA1AC81783B49 /* ExerciseSeederTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSeederTests.swift; sourceTree = "<group>"; };
+		023C8133329F7429EB0673AD /* CrashReporting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReporting.swift; sourceTree = "<group>"; };
 		0378B7BEA27F039A09AE83A8 /* AIChatViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIChatViewTests.swift; sourceTree = "<group>"; };
 		03CB8FB08656578C03059E58 /* SmartProgressionAdvisor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartProgressionAdvisor.swift; sourceTree = "<group>"; };
 		03F786B391EDD7A38969A516 /* AISettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsSection.swift; sourceTree = "<group>"; };
@@ -445,6 +449,7 @@
 		9B383C57711C627D92F4DAD0 /* WorkoutHeartRateStatsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutHeartRateStatsTests.swift; sourceTree = "<group>"; };
 		9B6A0B6A42590D338CAC61A6 /* CardSystemModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardSystemModelTests.swift; sourceTree = "<group>"; };
 		9B6A2ADC2560DD705A3BDAF8 /* HealthSampleTypeInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSampleTypeInfo.swift; sourceTree = "<group>"; };
+		9B91E65D240F5E271386FC6D /* CrashReportingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReportingTests.swift; sourceTree = "<group>"; };
 		9B925AAAA9288232825D9FC9 /* RecentWorkoutsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentWorkoutsSection.swift; sourceTree = "<group>"; };
 		9B96A64C4A8D7C20014602DF /* VitalModels */ = {isa = PBXFileReference; lastKnownFileType = folder; name = VitalModels; path = Packages/VitalModels; sourceTree = SOURCE_ROOT; };
 		9BB4C9A242BEAD1E0445C937 /* VitalStrideApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalStrideApp.swift; sourceTree = "<group>"; };
@@ -577,6 +582,7 @@
 				F0F3FC5920CEDCB652729AC8 /* TelemetryKit in Frameworks */,
 				24049DC353AC862315CC94A8 /* TelemetryDeckAdapter in Frameworks */,
 				D48A4FF4C118D29D4DD86C26 /* DesignKit in Frameworks */,
+				F810022E4E9D6AEF0C0E9A51 /* Sentry in Frameworks */,
 				6DD9EA5894C16A881C94A162 /* HealthKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -621,6 +627,7 @@
 				25A4CD9CFE450104FA8D4F51 /* CardVariantTests.swift */,
 				5BDF89E8E3C53D5F9EAB725B /* CrashRecoveryNavigationTests.swift */,
 				E7DE063A8B4121131715ED6C /* CrashRecoveryServiceTests.swift */,
+				9B91E65D240F5E271386FC6D /* CrashReportingTests.swift */,
 				3A7664EB59C867B7F8FDAD25 /* DataViewTests.swift */,
 				D8B254B7B0D02CADEF442964 /* EnumTests.swift */,
 				572B0D6CBD4C809E1C0384C9 /* ExerciseDefaultsTests.swift */,
@@ -817,6 +824,7 @@
 				3FFE6FD111BCCB764102CEF5 /* ContentView.swift */,
 				FB0561577CD9C4C93B2A6615 /* CrashRecoveryModifier.swift */,
 				FDBA9FC9538E2252A4990875 /* CrashRecoveryService.swift */,
+				023C8133329F7429EB0673AD /* CrashReporting.swift */,
 				33CC0E70D705A66E61C98F69 /* DataImportExportSection.swift */,
 				4E4C9428C75CCA9843D6864F /* DataView.swift */,
 				D3AD223B725AFEBB33444035 /* ExercisePickerView.swift */,
@@ -1035,6 +1043,7 @@
 				45BB7EF4AA81DA202BAAD171 /* TelemetryKit */,
 				C368C89EF9B3DCC325AB4EEF /* TelemetryDeckAdapter */,
 				0296EF141386246700DAC8BE /* DesignKit */,
+				DDEE6750523EE6FA9F58D5D7 /* Sentry */,
 			);
 			productName = VitalStride;
 			productReference = 9D2F46A6B7B993E95FDAA5C5 /* VitalStride.app */;
@@ -1198,6 +1207,7 @@
 			mainGroup = DA9BBD3DA585F24745B41651;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				92AC3D6FFA2E40E352D2BB13 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 				7592CF6FAFA494CDFC151097 /* XCLocalSwiftPackageReference "Packages/AIService" */,
 				2972DA7A54C474330721E6CE /* XCLocalSwiftPackageReference "Packages/DesignKit" */,
 				B0A5FEAA6E86103280C3437A /* XCLocalSwiftPackageReference "Packages/HealthKitService" */,
@@ -1343,6 +1353,7 @@
 				DAED4935D4341258B4B8266D /* ContentView.swift in Sources */,
 				276B9F2FC52CDD29E977906B /* CrashRecoveryModifier.swift in Sources */,
 				DB03E220701C17EA7D4F03CE /* CrashRecoveryService.swift in Sources */,
+				9706CEE2112B437E86DAF055 /* CrashReporting.swift in Sources */,
 				473766D9F7CFC9E387FD8D27 /* DataAISummaryCard.swift in Sources */,
 				E47079373FE01E343CC40E80 /* DataAISummaryState.swift in Sources */,
 				63DFF2390FBFBA4AC154CEF0 /* DataImportExportSection.swift in Sources */,
@@ -1451,6 +1462,7 @@
 				523B44D4A5ACBB5A933D46AA /* CardVariantTests.swift in Sources */,
 				A17EC09ACC944A1E4D18A3E9 /* CrashRecoveryNavigationTests.swift in Sources */,
 				A03656DE3C2C3FBB1EDA2B3C /* CrashRecoveryServiceTests.swift in Sources */,
+				62106A39D42AA5FD1E86E4A8 /* CrashReportingTests.swift in Sources */,
 				C23F5779720EA5E1DBD23E29 /* DataViewTests.swift in Sources */,
 				12A433540C8B86B2F89298E5 /* EnumTests.swift in Sources */,
 				9C971EDC504956577317AAA3 /* ExerciseDefaultsTests.swift in Sources */,
@@ -1597,6 +1609,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
+				INFOPLIST_KEY_GlitchTipDSN = "$(GLITCHTIP_DSN)";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps.";
@@ -1769,6 +1782,7 @@
 				CODE_SIGN_STYLE = Manual;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
+				INFOPLIST_KEY_GlitchTipDSN = "$(GLITCHTIP_DSN)";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps.";
@@ -2058,6 +2072,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		92AC3D6FFA2E40E352D2BB13 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		025591A7DBDF37484A293198 /* VitalUI */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -2162,6 +2187,11 @@
 		CE27A93297D1F20EEE6B7557 /* DesignKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DesignKit;
+		};
+		DDEE6750523EE6FA9F58D5D7 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 92AC3D6FFA2E40E352D2BB13 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
 		};
 		E9FDBB39F3258B8EB6B2A9EF /* AIService */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -32,6 +32,14 @@ packages:
     path: Packages/TelemetryKit
   DesignKit:
     path: Packages/DesignKit
+  # spec 015-glitchtip-crash-reporting (MY-1311/T002). Remote SPM dependency,
+  # attached ONLY to the iOS `VitalStride` target — Mac / Watch / Widgets do
+  # not link Sentry (Constitution §VII, ADR-0013). The DSN itself is injected
+  # into the generated Info.plist via `INFOPLIST_KEY_GlitchTipDSN` below and
+  # read at runtime by `CrashReporting.start`.
+  Sentry:
+    url: https://github.com/getsentry/sentry-cocoa
+    from: "8.0.0"
 
 schemes:
   VitalStride:
@@ -81,6 +89,7 @@ targets:
       - package: TelemetryKit
         product: TelemetryDeckAdapter
       - package: DesignKit
+      - package: Sentry
       - sdk: HealthKit.framework
       - target: VitalStrideWidgets
     settings:
@@ -120,6 +129,12 @@ targets:
         # only uses HTTPS/standard OS crypto (exempt). See ci/testflight workflow.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: false
         INFOPLIST_KEY_TelemetryDeckAppID: "$(TELEMETRY_DECK_APP_ID)"
+        # spec 015-glitchtip-crash-reporting (MY-1311/T002). Literal Xcode
+        # build-setting variable reference — NOT a real DSN string. CI (MY-1316)
+        # supplies `$(GLITCHTIP_DSN)` via fastlane xcargs; local Debug builds
+        # leave it empty, and `CrashReporting.start` is a fail-safe no-op when
+        # the value is missing.
+        INFOPLIST_KEY_GlitchTipDSN: "$(GLITCHTIP_DSN)"
 
   VitalStrideMac:
     type: application

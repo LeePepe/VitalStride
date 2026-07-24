@@ -22,6 +22,11 @@ struct VitalStrideApp: App {
     #endif
 
     init() {
+        // spec 015-glitchtip-crash-reporting (MY-1311/T002): wire sentry-cocoa
+        // as early as possible so any subsequent init crash is captured. DEBUG
+        // + missing-DSN paths are fail-safe no-ops (see `CrashReporting`).
+        CrashReporting.start()
+
         let service = HealthKitService(deviceIdentifier: "ios-display")
         healthKitService = service
 

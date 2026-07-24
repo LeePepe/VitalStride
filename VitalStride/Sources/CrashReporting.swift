@@ -1,0 +1,290 @@
+import Foundation
+import os
+import Sentry
+import TelemetryKit
+
+/// App-side adapter that wires sentry-cocoa into the TelemetryKit
+/// `CrashEventSanitizer` chokepoint defined by T001 (MY-1313, ADR-0013).
+///
+/// spec: `specs/015-glitchtip-crash-reporting/`
+///
+/// # Layer boundary
+/// This file lives in the iOS `VitalStride` app target only (Mac/Watch/Widgets
+/// do NOT link Sentry — Constitution §VII). It is the **only** file allowed
+/// to `import Sentry`; TelemetryKit stays Sentry-free by design (T001).
+///
+/// # Privacy chokepoint (Constitution §I)
+/// `beforeSend` runs every outgoing event through ``sanitize(sentryEvent:)``,
+/// which converts the Sentry `Event` into TelemetryKit's ``RawCrashEvent``
+/// intermediate, calls ``CrashEventSanitizer/sanitize(_:)``, and — only if
+/// that returns non-nil AND the 1:1 frame gating holds — rebuilds a scrubbed
+/// event to hand back to the SDK. Any adversarial field (breadcrumb text,
+/// heart-rate in `extra`, PII in `user`, malformed frame address) causes the
+/// **whole event** to be dropped (integer rejection, per T001).
+///
+/// # Fail-safe no-op
+/// * DEBUG builds return before touching the SDK (ADR-0013 §Decision.4).
+/// * Missing / empty `GlitchTipDSN` Info.plist value returns before calling
+///   `SentrySDK.start(...)`. Nothing is ever transported without a DSN.
+///
+/// # Not a product-code capture surface
+/// Product code MUST NOT call `SentrySDK.capture(...)` directly (§V narrow
+/// exception: only the SDK's automatic MetricKit channel is allowed). Enforced
+/// by acceptance criterion #7.
+enum CrashReporting {
+    private static let logger = Logger(subsystem: "com.vitalstride", category: "CrashReporting")
+
+    /// Info.plist key populated by the `INFOPLIST_KEY_GlitchTipDSN` build
+    /// setting (see `project.yml`). Value is substituted from the
+    /// `$(GLITCHTIP_DSN)` build setting, which CI (MY-1316) supplies via
+    /// fastlane xcargs and local Debug builds leave empty.
+    static let dsnInfoPlistKey = "GlitchTipDSN"
+
+    /// Start crash reporting. Idempotent-safe: repeated calls without a DSN
+    /// stay no-ops; with a DSN the underlying SDK guards against double-start.
+    ///
+    /// - Parameter bundle: The bundle to read the DSN from. Defaults to
+    ///   `.main`; tests inject an empty bundle to exercise the fail-safe
+    ///   no-op path.
+    static func start(bundle: Bundle = .main) {
+        #if DEBUG
+        // ADR-0013 §Decision.4: DEBUG builds do not transport. Skip start()
+        // entirely so `SentrySDK.isEnabled` stays false and no `beforeSend`
+        // hook can accidentally fire in developer workflows.
+        _ = bundle  // keep parameter live under DEBUG (silence unused-arg)
+        return
+        #else
+        _startRelease(bundle: bundle)
+        #endif
+    }
+
+    /// Release-configuration start path, factored out so the fail-safe no-op
+    /// branch is unit-testable without a Release build. Not part of the
+    /// product API surface.
+    internal static func _startRelease(bundle: Bundle) {
+        guard let dsn = bundle.object(forInfoDictionaryKey: dsnInfoPlistKey) as? String,
+              !dsn.isEmpty else {
+            // fail-safe no-op: CI (MY-1316) has not yet supplied GLITCHTIP_DSN,
+            // or this is a local build. Do not start the SDK, do not transport.
+            logger.warning("GlitchTipDSN missing or empty — crash reporting disabled")
+            return
+        }
+        SentrySDK.start { options in
+            options.dsn = dsn
+            options.enableMetricKit = true
+            options.debug = false
+            options.beforeSend = { event in
+                CrashReporting.sanitize(sentryEvent: event)
+            }
+        }
+    }
+
+    // MARK: - Sanitize chokepoint (§I; T001 adapter)
+
+    /// The single Sentry-side adapter that converts a `SentryEvent` into
+    /// TelemetryKit's ``RawCrashEvent`` intermediate, runs it through
+    /// ``CrashEventSanitizer/sanitize(_:)``, and either returns a rebuilt
+    /// scrubbed event (all allow-listed fields cleared, frames rewritten
+    /// per §4.4) or `nil` to drop the whole event (integer rejection).
+    ///
+    /// Marked `internal` so unit tests can hit it directly without spinning
+    /// up the SDK; product code must never call it.
+    internal static func sanitize(sentryEvent event: Event) -> Event? {
+        // 1. Map frames from the first exception's stacktrace. Pair each
+        //    mapped IR string with its originating SentryFrame so that
+        //    invalid frames are structurally impossible to resurrect on the
+        //    output side (§4.5 唯一化输出规则).
+        guard let exception = event.exceptions?.first else { return nil }
+        guard let stacktrace = exception.stacktrace else { return nil }
+        let originalFrames = stacktrace.frames
+        let acceptedPairs: [AcceptedFrame] = originalFrames.compactMap(Self.mapFrame(_:))
+
+        // 2. Cap frames at TelemetryKit's `maxFrames` — only ever from the
+        //    accepted subset. Never slice the original array.
+        let cappedPairs = Array(acceptedPairs.prefix(DiagnosticSanitizer.maxFrames))
+
+        // 3. Build the intermediate representation. Every non-empty
+        //    allow-listed bag (extra/context/breadcrumbs/request/tags) makes
+        //    T001 reject the whole event; that is the point.
+        let raw = RawCrashEvent(
+            message: event.message?.formatted,
+            frames: cappedPairs.map(\.ir),
+            osVersion: "",
+            appBuild: "",
+            terminationReason: exception.value,
+            extra: stringifiedExtra(event.extra),
+            contexts: stringifiedContext(event.context),
+            breadcrumbs: breadcrumbMessages(event.breadcrumbs),
+            request: stringifiedRequest(event.request),
+            tags: event.tags ?? [:],
+            user: mappedUser(event.user)
+        )
+
+        // 4. Chokepoint. Any policy violation → nil → drop the whole event.
+        guard let sanitized = CrashEventSanitizer.sanitize(raw) else { return nil }
+
+        // 5. 1:1 gating (§4.5 唯一化输出规则): if T001 dropped any mapped
+        //    frame (byte allow-list / length / offset-suffix structure), the
+        //    accepted subset is no longer aligned — refuse to output a
+        //    partial event.
+        guard sanitized.frames.count == cappedPairs.count else { return nil }
+
+        // 6. Rebuild the outgoing event: clear every §4.1 "clear" field,
+        //    rewrite the exception's stacktrace using the accepted subset.
+        event.error = nil
+        event.logger = nil
+        event.serverName = nil
+        event.transaction = nil
+        event.tags = nil
+        event.extra = nil
+        event.fingerprint = nil
+        event.user = nil
+        event.context = nil
+        event.threads = nil
+        event.stacktrace = nil
+        event.breadcrumbs = nil
+        event.request = nil
+        event.message = nil
+
+        // Rebuild first exception. §4.4: clear mechanism/module; keep value/
+        // type (already checked as termination-token by T001 via
+        // `RawCrashEvent.terminationReason` normalization); keep threadId.
+        let cleanExc = Exception(value: exception.value, type: exception.type)
+        cleanExc.threadId = exception.threadId
+        cleanExc.mechanism = nil
+        cleanExc.module = nil
+
+        // Rebuild stacktrace ONLY from `cappedPairs.map(\.frame)` — never
+        // from the original array. Each retained SentryFrame is scrubbed
+        // per §4.4 (function/fileName/module/lineNumber/columnNumber cleared;
+        // package → basename; instruction/imageAddress/symbolAddress kept).
+        let scrubbedFrames: [Frame] = cappedPairs.map { pair in
+            let f = pair.frame
+            f.function = nil
+            f.fileName = nil
+            f.module = nil
+            f.lineNumber = nil
+            f.columnNumber = nil
+            if let pkg = f.package {
+                f.package = (pkg as NSString).lastPathComponent
+            }
+            return f
+        }
+        let cleanST = SentryStacktrace(frames: scrubbedFrames, registers: [:])
+        cleanExc.stacktrace = cleanST
+
+        event.exceptions = [cleanExc]
+        return event
+    }
+
+    // MARK: - §4.5 frame mapping
+
+    /// Paired mapped-IR + originating `SentryFrame`. Invariant: the frame
+    /// passed structural gating (parseable hex addresses, non-underflow
+    /// offset), and its IR string is safe to hand to T001. Frames that fail
+    /// gating never enter this collection.
+    fileprivate struct AcceptedFrame {
+        let ir: String
+        let frame: Frame
+    }
+
+    /// §4.5 (Round 4 P0 revision): map a raw `SentryFrame` into an IR string,
+    /// or `nil` if the frame fails any structural gate. No force-unwrap on
+    /// hex parsing, no `"unknown/+0"` fallback, no under-flow.
+    fileprivate static func mapFrame(_ frame: Frame) -> AcceptedFrame? {
+        // instructionAddress (required, hex, parseable)
+        guard let ip = parseHex(frame.instructionAddress) else { return nil }
+        // imageAddress (required, hex, parseable)
+        guard let ib = parseHex(frame.imageAddress) else { return nil }
+        // underflow guard: negative offset = structurally invalid
+        guard ip >= ib else { return nil }
+        // basename: keep only the binary filename, never the full path
+        let binary: String
+        if let pkg = frame.package {
+            binary = (pkg as NSString).lastPathComponent
+        } else {
+            binary = "unknown"
+        }
+        // Structural shape: "<binary> 0x<hex-ip> +<decimal-offset>". Uses
+        // hex ip (not `frame.function`) to avoid free-form symbol names
+        // passing the T001 offset-suffix check by accident.
+        let ir = "\(binary) 0x\(String(ip, radix: 16)) +\(ip - ib)"
+        return AcceptedFrame(ir: ir, frame: frame)
+    }
+
+    /// Parse a Sentry-style hex address string (with or without `0x` prefix)
+    /// into `UInt64`. Returns nil on malformed / empty / non-hex input; never
+    /// traps.
+    fileprivate static func parseHex(_ raw: String?) -> UInt64? {
+        guard let raw, !raw.isEmpty else { return nil }
+        let stripped: String
+        if raw.hasPrefix("0x") || raw.hasPrefix("0X") {
+            stripped = String(raw.dropFirst(2))
+        } else {
+            stripped = raw
+        }
+        guard !stripped.isEmpty else { return nil }
+        return UInt64(stripped, radix: 16)
+    }
+
+    // MARK: - allow-list mapping helpers (§4.1)
+
+    /// Flatten Sentry `[String: Any]?` extra bag into `[String: String]`.
+    /// Any populated key makes T001 reject the whole event; the flatten is
+    /// only there so that "populated" is faithfully surfaced to the check.
+    private static func stringifiedExtra(_ raw: [String: Any]?) -> [String: String] {
+        var out: [String: String] = [:]
+        for (k, v) in raw ?? [:] {
+            out[k] = String(describing: v)
+        }
+        return out
+    }
+
+    /// Flatten Sentry `[String: [String: Any]]?` context bag into strings.
+    private static func stringifiedContext(_ raw: [String: [String: Any]]?) -> [String: [String: String]] {
+        var out: [String: [String: String]] = [:]
+        for (k, sub) in raw ?? [:] {
+            var inner: [String: String] = [:]
+            for (ik, iv) in sub {
+                inner[ik] = String(describing: iv)
+            }
+            out[k] = inner
+        }
+        return out
+    }
+
+    /// Extract breadcrumb "message" text into a flat string list. T001's
+    /// contract is that this list must be empty; any breadcrumb (even with
+    /// an empty message) is captured here so an adversarial breadcrumb chain
+    /// still trips the reject.
+    private static func breadcrumbMessages(_ raw: [Breadcrumb]?) -> [String] {
+        (raw ?? []).map { $0.message ?? "" }
+    }
+
+    /// Project `SentryRequest` into a stringy bag so T001's "must-be-empty"
+    /// gate can trip on any populated field.
+    private static func stringifiedRequest(_ raw: SentryRequest?) -> [String: String] {
+        guard let raw else { return [:] }
+        var out: [String: String] = [:]
+        if let url = raw.url { out["url"] = url }
+        if let method = raw.method { out["method"] = method }
+        if let queryString = raw.queryString { out["queryString"] = queryString }
+        if let cookies = raw.cookies { out["cookies"] = cookies }
+        if let fragment = raw.fragment { out["fragment"] = fragment }
+        if let bodySize = raw.bodySize { out["bodySize"] = String(describing: bodySize) }
+        return out
+    }
+
+    /// Map `SentryUser` into T001's ``RawUser`` allow-list; ignore
+    /// `segment`/`geo`/`data` (never map non-crash PII paths). §4.3.
+    private static func mappedUser(_ raw: User?) -> RawUser? {
+        guard let raw else { return nil }
+        return RawUser(
+            id: raw.userId,
+            email: raw.email,
+            username: raw.username,
+            ipAddress: raw.ipAddress,
+            name: raw.name
+        )
+    }
+}

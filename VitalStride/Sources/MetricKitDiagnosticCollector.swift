@@ -87,7 +87,15 @@ final class MetricKitDiagnosticCollector: NSObject, MXMetricManagerSubscriber {
             "MetricKit \(kind.rawValue, privacy: .public) diagnostic captured (\(diagnostic.frames.count, privacy: .public) frames) — not sent in DEBUG"
         )
         #else
-        TelemetryService.shared.recordNonisolated(diagnostic)
+        // spec 015-glitchtip-crash-reporting (MY-1311/T002): sentry-cocoa
+        // subscribes to the same `MXDiagnosticPayload` stream via
+        // `options.enableMetricKit = true`, so forwarding the diagnostic
+        // through the telemetry channel here would double-report every
+        // crash / hang. Keep the collector's `start()` / `stop()` /
+        // `didReceive(_:)` seam intact so tests can still exercise the
+        // flattening logic; only the Release-branch business transport is
+        // removed. The `diagnostic` variable is intentionally unused below.
+        _ = diagnostic
         #endif
     }
 
