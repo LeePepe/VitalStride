@@ -2,6 +2,7 @@ import DesignKit
 import HealthKitService
 import SwiftData
 import SwiftUI
+import TelemetryDeckAdapter
 import TelemetryKit
 import VitalModels
 import VitalUI
@@ -27,6 +28,12 @@ struct VitalStrideApp: App {
         #if DEBUG
         Task {
             await TelemetryService.shared.register(ConsoleTelemetryProvider())
+        }
+        #else
+        if let appID = Bundle.main.object(forInfoDictionaryKey: "TelemetryDeckAppID") as? String,
+           !appID.isEmpty {
+            let provider = TelemetryDeckAdapter.makeProvider(appID: appID)
+            Task { await TelemetryService.shared.register(provider) }
         }
         #endif
 
