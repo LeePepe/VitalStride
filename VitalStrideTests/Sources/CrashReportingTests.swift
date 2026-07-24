@@ -138,6 +138,27 @@ struct CrashReportingTests {
         #expect(CrashReporting.sanitize(sentryEvent: event) == nil)
     }
 
+    // MARK: - §4.4 exception token gate (DiagnosticSanitizer.sanitizeTerminationReason)
+
+    @Test("exception.value: free-form text (spaces / punctuation) → drop whole event")
+    func sanitize_rejects_freeformExceptionValue() {
+        let event = makeCrashEvent()
+        // Replace with a valid frame + a value that fails byte allow-list.
+        let ex = Exception(value: "crashed while reading heart rate", type: "SIGSEGV")
+        ex.stacktrace = SentryStacktrace(frames: [defaultValidFrame()], registers: [:])
+        event.exceptions = [ex]
+        #expect(CrashReporting.sanitize(sentryEvent: event) == nil)
+    }
+
+    @Test("exception.type: free-form text → drop whole event")
+    func sanitize_rejects_freeformExceptionType() {
+        let event = makeCrashEvent()
+        let ex = Exception(value: "EXC_BAD_ACCESS", type: "signal from user 'lee pepe'")
+        ex.stacktrace = SentryStacktrace(frames: [defaultValidFrame()], registers: [:])
+        event.exceptions = [ex]
+        #expect(CrashReporting.sanitize(sentryEvent: event) == nil)
+    }
+
     // MARK: - Clean crash pass (acceptance #6 pass leg)
 
     @Test("clean crash event: allow-listed fields cleared, addresses retained")
@@ -171,6 +192,37 @@ struct CrashReportingTests {
         #expect(frame.lineNumber == nil)
         #expect(frame.columnNumber == nil)
         #expect(frame.package == "VitalStride")
+    }
+
+    // MARK: - debugMeta retention (acceptance #6 §4.1 保留 row)
+
+    @Test("clean crash: non-nil debugMeta retained (dSYM symbolication keys)")
+    func sanitize_retainsDebugMeta_whenPresent() throws {
+        let event = makeCrashEvent()
+        let dm = DebugMeta()
+        dm.type = "macho"
+        dm.debugID = "ABCDEF01-2345-6789-ABCD-EF0123456789"
+        dm.codeFile = "VitalStride"
+        dm.imageAddress = "0x0000000104200000"
+        event.debugMeta = [dm]
+
+        let out = try #require(CrashReporting.sanitize(sentryEvent: event))
+
+        let retained = try #require(out.debugMeta)
+        #expect(retained.count == 1)
+        #expect(retained.first?.debugID == "ABCDEF01-2345-6789-ABCD-EF0123456789")
+        #expect(retained.first?.type == "macho")
+        #expect(retained.first?.codeFile == "VitalStride")
+        #expect(retained.first?.imageAddress == "0x0000000104200000")
+    }
+
+    @Test("clean crash: nil debugMeta stays nil (no synthetic values injected)")
+    func sanitize_leavesNilDebugMeta_asNil() throws {
+        let event = makeCrashEvent()
+        event.debugMeta = nil
+
+        let out = try #require(CrashReporting.sanitize(sentryEvent: event))
+        #expect(out.debugMeta == nil)
     }
 
     // MARK: - §4.5 boundary tests (Round 4 P0 revision)

@@ -28,9 +28,9 @@ import TelemetryKit
 ///   `SentrySDK.start(...)`. Nothing is ever transported without a DSN.
 ///
 /// # Not a product-code capture surface
-/// Product code MUST NOT call `SentrySDK.capture(...)` directly (§V narrow
-/// exception: only the SDK's automatic MetricKit channel is allowed). Enforced
-/// by acceptance criterion #7.
+/// Product code MUST NOT invoke the SDK's manual event-capture API directly
+/// (§V narrow exception: only the SDK's automatic MetricKit channel is
+/// allowed). Enforced by acceptance criterion #7.
 enum CrashReporting {
     private static let logger = Logger(subsystem: "com.vitalstride", category: "CrashReporting")
 
@@ -123,6 +123,18 @@ enum CrashReporting {
         // 4. Chokepoint. Any policy violation → nil → drop the whole event.
         guard let sanitized = CrashEventSanitizer.sanitize(raw) else { return nil }
 
+        // 4a. §4.4 exception-token gate: both `value` and `type` must survive
+        //     `DiagnosticSanitizer.sanitizeTerminationReason` (byte allow-list
+        //     + ≤64 length). Either failure → drop the whole event; the
+        //     outbound exception is rebuilt from the sanitized values so any
+        //     out-of-band whitespace never reaches the wire.
+        guard let sanitizedValue = DiagnosticSanitizer.sanitizeTerminationReason(exception.value) else {
+            return nil
+        }
+        guard let sanitizedType = DiagnosticSanitizer.sanitizeTerminationReason(exception.type) else {
+            return nil
+        }
+
         // 5. 1:1 gating (§4.5 唯一化输出规则): if T001 dropped any mapped
         //    frame (byte allow-list / length / offset-suffix structure), the
         //    accepted subset is no longer aligned — refuse to output a
@@ -146,10 +158,10 @@ enum CrashReporting {
         event.request = nil
         event.message = nil
 
-        // Rebuild first exception. §4.4: clear mechanism/module; keep value/
-        // type (already checked as termination-token by T001 via
-        // `RawCrashEvent.terminationReason` normalization); keep threadId.
-        let cleanExc = Exception(value: exception.value, type: exception.type)
+        // Rebuild first exception. §4.4: clear mechanism/module; use the
+        // sanitized value/type tokens from step 4a (byte allow-list survivors
+        // only); keep threadId.
+        let cleanExc = Exception(value: sanitizedValue, type: sanitizedType)
         cleanExc.threadId = exception.threadId
         cleanExc.mechanism = nil
         cleanExc.module = nil
