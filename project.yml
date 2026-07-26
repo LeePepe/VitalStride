@@ -87,7 +87,7 @@ targets:
       - package: VitalUI
       - package: TelemetryKit
       - package: TelemetryKit
-        product: TelemetryDeckAdapter
+        product: AptabaseAdapter
       - package: DesignKit
       - package: Sentry
       - sdk: HealthKit.framework
@@ -128,7 +128,8 @@ targets:
         # so each build skips the manual export-compliance prompt. VitalStride
         # only uses HTTPS/standard OS crypto (exempt). See ci/testflight workflow.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: false
-        INFOPLIST_KEY_TelemetryDeckAppID: "$(TELEMETRY_DECK_APP_ID)"
+        INFOPLIST_KEY_AptabaseAppKey: "$(APTABASE_APP_KEY)"
+        INFOPLIST_KEY_AptabaseHost: "$(APTABASE_HOST)"
         # spec 015-glitchtip-crash-reporting (MY-1311/T002). Literal Xcode
         # build-setting variable reference — NOT a real DSN string. CI (MY-1316)
         # supplies `$(GLITCHTIP_DSN)` via fastlane xcargs; local Debug builds
@@ -170,7 +171,7 @@ targets:
       - package: VitalUI
       - package: TelemetryKit
       - package: TelemetryKit
-        product: TelemetryDeckAdapter
+        product: AptabaseAdapter
       - package: DesignKit
       - sdk: HealthKit.framework
     entitlements:
@@ -192,7 +193,8 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_NSHealthShareUsageDescription: "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations."
-        INFOPLIST_KEY_TelemetryDeckAppID: "$(TELEMETRY_DECK_APP_ID)"
+        INFOPLIST_KEY_AptabaseAppKey: "$(APTABASE_APP_KEY)"
+        INFOPLIST_KEY_AptabaseHost: "$(APTABASE_HOST)"
 
   VitalStrideTests:
     type: bundle.unit-test
@@ -242,7 +244,7 @@ targets:
       - package: VitalUI
       - package: TelemetryKit
       - package: TelemetryKit
-        product: TelemetryDeckAdapter
+        product: AptabaseAdapter
       - package: DesignKit
       - sdk: HealthKit.framework
     settings:
@@ -259,7 +261,8 @@ targets:
         INFOPLIST_KEY_NSHealthShareUsageDescription: "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations."
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps."
         INFOPLIST_KEY_UILaunchScreen_Generation: true
-        INFOPLIST_KEY_TelemetryDeckAppID: "$(TELEMETRY_DECK_APP_ID)"
+        INFOPLIST_KEY_AptabaseAppKey: "$(APTABASE_APP_KEY)"
+        INFOPLIST_KEY_AptabaseHost: "$(APTABASE_HOST)"
 
   VitalStrideWidgets:
     type: app-extension

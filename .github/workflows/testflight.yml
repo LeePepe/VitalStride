@@ -118,6 +118,11 @@ jobs:
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
           FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "6"
           GLITCHTIP_DSN: ${{ secrets.GLITCHTIP_DSN }}
+          # Aptabase self-hosted analytics (ADR-0015). Optional: when the secret
+          # is unset the build setting expands empty and the app skips analytics
+          # registration (fail-safe no-op) — analytics is not a release gate.
+          APTABASE_APP_KEY: ${{ secrets.APTABASE_APP_KEY }}
+          APTABASE_HOST: ${{ secrets.APTABASE_HOST }}
         run: |
           set -euo pipefail
           if [ -z "${GLITCHTIP_DSN:-}" ]; then

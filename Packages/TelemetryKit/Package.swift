@@ -6,18 +6,18 @@ let package = Package(
     platforms: [.iOS(.v18), .macOS(.v15), .watchOS(.v11)],
     products: [
         .library(name: "TelemetryKit", targets: ["TelemetryKit"]),
-        .library(name: "TelemetryDeckAdapter", targets: ["TelemetryDeckAdapter"]),
+        .library(name: "AptabaseAdapter", targets: ["AptabaseAdapter"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/TelemetryDeck/SwiftSDK", from: "2.0.0"),
+        .package(url: "https://github.com/aptabase/aptabase-swift", from: "0.3.11"),
     ],
     targets: [
         .target(name: "TelemetryKit"),
         .target(
-            name: "TelemetryDeckAdapter",
+            name: "AptabaseAdapter",
             dependencies: [
                 "TelemetryKit",
-                .product(name: "TelemetryDeck", package: "SwiftSDK"),
+                .product(name: "Aptabase", package: "aptabase-swift"),
             ]
         ),
         .testTarget(
@@ -25,8 +25,8 @@ let package = Package(
             dependencies: ["TelemetryKit"]
         ),
         .testTarget(
-            name: "TelemetryDeckAdapterTests",
-            dependencies: ["TelemetryDeckAdapter"]
+            name: "AptabaseAdapterTests",
+            dependencies: ["AptabaseAdapter"]
         ),
     ]
 )

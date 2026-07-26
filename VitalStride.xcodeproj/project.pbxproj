@@ -38,7 +38,7 @@
 		221FE0EF38B52019483DA001 /* WorkoutDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C5574C1FC8DDE5C487EE9D9 /* WorkoutDetailView.swift */; };
 		22916E76F6AEA8F39DF84E27 /* WorkoutHeartRateStatsHRRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 984C29E04C476D65CFDBF53D /* WorkoutHeartRateStatsHRRTests.swift */; };
 		22C19377FDFD5EA376D046E2 /* VitalStrideWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF086042D6EB5A13265C3488 /* VitalStrideWidgetsBundle.swift */; };
-		24049DC353AC862315CC94A8 /* TelemetryDeckAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = C368C89EF9B3DCC325AB4EEF /* TelemetryDeckAdapter */; };
+		24049DC353AC862315CC94A8 /* AptabaseAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = B431BD92DA1E40BA00DD0D98 /* AptabaseAdapter */; };
 		241C123020BB726A7BE4A7E3 /* VitalModels in Frameworks */ = {isa = PBXBuildFile; productRef = CB3E59DF5DD7171D458124F1 /* VitalModels */; };
 		245D15F1013471299B900C62 /* OverviewCardContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB2F07E07B3EAEAB86E0D94 /* OverviewCardContainer.swift */; };
 		24EAE5B84187FC3EA60DC015 /* GenericHealthDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78DCB0AB8EDE0CEE01A0C7A3 /* GenericHealthDetailView.swift */; };
@@ -79,7 +79,7 @@
 		475E831CA333AD5E120BDE00 /* HealthSampleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE09961F4651DB3AC057BA0E /* HealthSampleTests.swift */; };
 		47694A5E01EBFF21791E5292 /* SmartProgressionAdvisor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03CB8FB08656578C03059E58 /* SmartProgressionAdvisor.swift */; };
 		4894F1F94E8BFCDF0672C57F /* OverviewLayoutState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81EA85E25A4A8CF1692CB407 /* OverviewLayoutState.swift */; };
-		4DB9D7A57ECD542BCDB830F0 /* TelemetryDeckAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 186A4632DBF0C123AFE2C90C /* TelemetryDeckAdapter */; };
+		4DB9D7A57ECD542BCDB830F0 /* AptabaseAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 514B021800FA1A1E614309D5 /* AptabaseAdapter */; };
 		4DE7F4027037BB2150649A1E /* UserInterestTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AE17B68B9690E64E34762B /* UserInterestTracker.swift */; };
 		4E894B0F249EF8EBA16B3AF5 /* MuscleGroupFrequencyCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5F9807A864A73FB553CC29C /* MuscleGroupFrequencyCard.swift */; };
 		4EC5DC12E2E639E66CB22CD8 /* AIService in Frameworks */ = {isa = PBXBuildFile; productRef = E9FDBB39F3258B8EB6B2A9EF /* AIService */; };
@@ -221,7 +221,7 @@
 		C2D215940769A32199196721 /* WorkoutDetailDeletionRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3782E8E2A0520DF4B50D9E5 /* WorkoutDetailDeletionRegressionTests.swift */; };
 		C2D80D80EEBB56ED09746B83 /* UnifiedWorkoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0F2C179353A73AE3F6E0E8 /* UnifiedWorkoutTests.swift */; };
 		C39B2EE05488008CA3D203E9 /* WatchWorkoutViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D90AC17E2AA90E7393ABDB /* WatchWorkoutViewModelTests.swift */; };
-		C3F7804856CFE4D12794902A /* TelemetryDeckAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 55564B2C114422D56D25CBE0 /* TelemetryDeckAdapter */; };
+		C3F7804856CFE4D12794902A /* AptabaseAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 80383D401B57CC5FAB7B5D47 /* AptabaseAdapter */; };
 		C6542FA6257E8803078E471F /* CardVariant.swift in Sources */ = {isa = PBXBuildFile; fileRef = D32DBAED1356728A1F9461EE /* CardVariant.swift */; };
 		C91957186700998E3139316F /* VitalUI in Frameworks */ = {isa = PBXBuildFile; productRef = 025591A7DBDF37484A293198 /* VitalUI */; };
 		C98C828732E8FBBDACC9A07A /* SubSetRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FC78A4BC96AA8C88D7C809 /* SubSetRow.swift */; };
@@ -553,7 +553,7 @@
 				70E3C00479522CA7710199DB /* AIService in Frameworks */,
 				821982CDD01D5ED20EA41300 /* VitalUI in Frameworks */,
 				0273611783A76142F2691B5E /* TelemetryKit in Frameworks */,
-				C3F7804856CFE4D12794902A /* TelemetryDeckAdapter in Frameworks */,
+				C3F7804856CFE4D12794902A /* AptabaseAdapter in Frameworks */,
 				40AC439D2CCFC34C721BFBA4 /* DesignKit in Frameworks */,
 				7F4B229A477C6BE34A6DC29B /* HealthKit.framework in Frameworks */,
 			);
@@ -580,7 +580,7 @@
 				134E599765D647CC058A53BC /* AIService in Frameworks */,
 				A852815843A816E5EFC283BD /* VitalUI in Frameworks */,
 				F0F3FC5920CEDCB652729AC8 /* TelemetryKit in Frameworks */,
-				24049DC353AC862315CC94A8 /* TelemetryDeckAdapter in Frameworks */,
+				24049DC353AC862315CC94A8 /* AptabaseAdapter in Frameworks */,
 				D48A4FF4C118D29D4DD86C26 /* DesignKit in Frameworks */,
 				F810022E4E9D6AEF0C0E9A51 /* Sentry in Frameworks */,
 				6DD9EA5894C16A881C94A162 /* HealthKit.framework in Frameworks */,
@@ -596,7 +596,7 @@
 				4EC5DC12E2E639E66CB22CD8 /* AIService in Frameworks */,
 				C91957186700998E3139316F /* VitalUI in Frameworks */,
 				5D0BB215484E7A60F8B80315 /* TelemetryKit in Frameworks */,
-				4DB9D7A57ECD542BCDB830F0 /* TelemetryDeckAdapter in Frameworks */,
+				4DB9D7A57ECD542BCDB830F0 /* AptabaseAdapter in Frameworks */,
 				80F0D4E01E6D4CD06DE4C00F /* DesignKit in Frameworks */,
 				BE7FE5DFE1252469CEA058CF /* HealthKit.framework in Frameworks */,
 			);
@@ -1041,7 +1041,7 @@
 				15836A3AF17C4009DBCB9AC5 /* AIService */,
 				B1158D1F2C58CCE12B5E58B9 /* VitalUI */,
 				45BB7EF4AA81DA202BAAD171 /* TelemetryKit */,
-				C368C89EF9B3DCC325AB4EEF /* TelemetryDeckAdapter */,
+				B431BD92DA1E40BA00DD0D98 /* AptabaseAdapter */,
 				0296EF141386246700DAC8BE /* DesignKit */,
 				DDEE6750523EE6FA9F58D5D7 /* Sentry */,
 			);
@@ -1088,7 +1088,7 @@
 				E9FDBB39F3258B8EB6B2A9EF /* AIService */,
 				025591A7DBDF37484A293198 /* VitalUI */,
 				BF9DF2D70B7B69BCE90402AC /* TelemetryKit */,
-				186A4632DBF0C123AFE2C90C /* TelemetryDeckAdapter */,
+				514B021800FA1A1E614309D5 /* AptabaseAdapter */,
 				CE27A93297D1F20EEE6B7557 /* DesignKit */,
 			);
 			productName = "VitalStrideWatch Watch App";
@@ -1156,7 +1156,7 @@
 				B3562C046D2991E1019C1427 /* AIService */,
 				6F987A4D67E18D6C3093080D /* VitalUI */,
 				31A393B085E5BC456473AD7E /* TelemetryKit */,
-				55564B2C114422D56D25CBE0 /* TelemetryDeckAdapter */,
+				80383D401B57CC5FAB7B5D47 /* AptabaseAdapter */,
 				CC6A54D931703266EC568983 /* DesignKit */,
 			);
 			productName = VitalStrideMac;
@@ -1609,12 +1609,13 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
+				INFOPLIST_KEY_AptabaseAppKey = "$(APTABASE_APP_KEY)";
+				INFOPLIST_KEY_AptabaseHost = "$(APTABASE_HOST)";
 				INFOPLIST_KEY_GlitchTipDSN = "$(GLITCHTIP_DSN)";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
-				INFOPLIST_KEY_TelemetryDeckAppID = "$(TELEMETRY_DECK_APP_ID)";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -1641,9 +1642,10 @@
 				CODE_SIGN_ENTITLEMENTS = "VitalStrideWatch Watch App/VitalStrideWatch.entitlements";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
+				INFOPLIST_KEY_AptabaseAppKey = "$(APTABASE_APP_KEY)";
+				INFOPLIST_KEY_AptabaseHost = "$(APTABASE_HOST)";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps.";
-				INFOPLIST_KEY_TelemetryDeckAppID = "$(TELEMETRY_DECK_APP_ID)";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.watchos;
@@ -1782,12 +1784,13 @@
 				CODE_SIGN_STYLE = Manual;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
+				INFOPLIST_KEY_AptabaseAppKey = "$(APTABASE_APP_KEY)";
+				INFOPLIST_KEY_AptabaseHost = "$(APTABASE_HOST)";
 				INFOPLIST_KEY_GlitchTipDSN = "$(GLITCHTIP_DSN)";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
-				INFOPLIST_KEY_TelemetryDeckAppID = "$(TELEMETRY_DECK_APP_ID)";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -1815,9 +1818,10 @@
 				CODE_SIGN_ENTITLEMENTS = "VitalStrideWatch Watch App/VitalStrideWatch.entitlements";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
+				INFOPLIST_KEY_AptabaseAppKey = "$(APTABASE_APP_KEY)";
+				INFOPLIST_KEY_AptabaseHost = "$(APTABASE_HOST)";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps.";
-				INFOPLIST_KEY_TelemetryDeckAppID = "$(TELEMETRY_DECK_APP_ID)";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leepepe.vitalstride.watchos;
@@ -1906,8 +1910,9 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
+				INFOPLIST_KEY_AptabaseAppKey = "$(APTABASE_APP_KEY)";
+				INFOPLIST_KEY_AptabaseHost = "$(APTABASE_HOST)";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
-				INFOPLIST_KEY_TelemetryDeckAppID = "$(TELEMETRY_DECK_APP_ID)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1963,8 +1968,9 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_GENERATION_MODE = GeneratedByBuildSystem;
+				INFOPLIST_KEY_AptabaseAppKey = "$(APTABASE_APP_KEY)";
+				INFOPLIST_KEY_AptabaseHost = "$(APTABASE_HOST)";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations.";
-				INFOPLIST_KEY_TelemetryDeckAppID = "$(TELEMETRY_DECK_APP_ID)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -2108,10 +2114,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = HealthKitService;
 		};
-		186A4632DBF0C123AFE2C90C /* TelemetryDeckAdapter */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = TelemetryDeckAdapter;
-		};
 		31A393B085E5BC456473AD7E /* TelemetryKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TelemetryKit;
@@ -2120,9 +2122,9 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = TelemetryKit;
 		};
-		55564B2C114422D56D25CBE0 /* TelemetryDeckAdapter */ = {
+		514B021800FA1A1E614309D5 /* AptabaseAdapter */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = TelemetryDeckAdapter;
+			productName = AptabaseAdapter;
 		};
 		57DB9D0F7682D6A81573F062 /* HealthKitService */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -2139,6 +2141,10 @@
 		6F987A4D67E18D6C3093080D /* VitalUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = VitalUI;
+		};
+		80383D401B57CC5FAB7B5D47 /* AptabaseAdapter */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AptabaseAdapter;
 		};
 		976C928F3ADA4DABCB394293 /* VitalModels */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -2160,13 +2166,13 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = AIService;
 		};
+		B431BD92DA1E40BA00DD0D98 /* AptabaseAdapter */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AptabaseAdapter;
+		};
 		BF9DF2D70B7B69BCE90402AC /* TelemetryKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TelemetryKit;
-		};
-		C368C89EF9B3DCC325AB4EEF /* TelemetryDeckAdapter */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = TelemetryDeckAdapter;
 		};
 		C44380B390C4B9743AAB1053 /* VitalModels */ = {
 			isa = XCSwiftPackageProductDependency;

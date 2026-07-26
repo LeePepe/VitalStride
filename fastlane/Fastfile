@@ -90,7 +90,9 @@ platform :ios do
       # （全局 xcargs 无法按 target 区分 app/widget 的不同 profile）。
       xcargs: "CURRENT_PROJECT_VERSION=#{next_build} " \
               "DEVELOPMENT_TEAM=#{TEAM_ID} " \
-              "GLITCHTIP_DSN=#{ENV.fetch('GLITCHTIP_DSN')}",
+              "GLITCHTIP_DSN=#{ENV.fetch('GLITCHTIP_DSN')} " \
+              "APTABASE_APP_KEY=#{ENV.fetch('APTABASE_APP_KEY', '')} " \
+              "APTABASE_HOST=#{ENV.fetch('APTABASE_HOST', '')}",
       export_options: {
         manageAppVersionAndBuildNumber: false,
         signingStyle: "manual",
