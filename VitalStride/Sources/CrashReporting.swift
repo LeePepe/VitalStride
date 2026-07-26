@@ -104,8 +104,12 @@ enum CrashReporting {
         let cappedPairs = Array(acceptedPairs.prefix(DiagnosticSanitizer.maxFrames))
 
         // 3. Build the intermediate representation. Every non-empty
-        //    allow-listed bag (extra/context/breadcrumbs/request/tags) makes
-        //    T001 reject the whole event; that is the point.
+        //    allow-listed bag (extra/breadcrumbs/request/tags) — and any
+        //    *unexpected* (non-SDK) context key — makes T001 reject the whole
+        //    event; that is the point. SDK-auto-attached standard contexts are
+        //    excluded from the reject signal (see `unexpectedContext`); their
+        //    values are dropped wholesale on the rebuild path (step 6) and
+        //    never reach the wire.
         let raw = RawCrashEvent(
             message: event.message?.formatted,
             frames: cappedPairs.map(\.ir),
@@ -113,7 +117,7 @@ enum CrashReporting {
             appBuild: "",
             terminationReason: exception.value,
             extra: stringifiedExtra(event.extra),
-            contexts: stringifiedContext(event.context),
+            contexts: unexpectedContext(event.context),
             breadcrumbs: breadcrumbMessages(event.breadcrumbs),
             request: stringifiedRequest(event.request),
             tags: event.tags ?? [:],
@@ -151,6 +155,10 @@ enum CrashReporting {
         event.extra = nil
         event.fingerprint = nil
         event.user = nil
+        // Privacy anchor for the SDK-auto context whitelist: this
+        // unconditional clear is why `unexpectedContext` may safely exclude
+        // device/os/app from the reject signal — their nested values never
+        // reach the wire. Do not remove without reintroducing a per-key strip.
         event.context = nil
         event.threads = nil
         event.stacktrace = nil
@@ -252,32 +260,47 @@ enum CrashReporting {
         return out
     }
 
-    /// Sentry SDK-auto-attached context keys. sentry-cocoa populates these
-    /// on **every** event before `beforeSend` runs (device model, OS version,
-    /// app build, runtime, …) — they are SDK metadata, not app-supplied data.
+    /// Context keys that sentry-cocoa auto-attaches to **every** event before
+    /// `beforeSend` runs (device model, OS version, app build, runtime, …).
+    /// These are SDK-populated metadata, not app-supplied data.
+    ///
+    /// These keys are **never forwarded**: the rebuild path unconditionally
+    /// clears the whole context bag (`event.context = nil`, step 6) before the
+    /// event leaves `sanitize`. So the *only* thing this set controls is the
+    /// §I reject signal (see ``unexpectedContext(_:)``) — it is NOT an
+    /// allow-list of values permitted onto the wire.
     ///
     /// Production bug (2026-07-25): the §I chokepoint rejects any event whose
     /// `contexts` bag is non-empty. Because these standard keys are *always*
     /// present on a real crash, that gate silently dropped 100% of production
-    /// crashes. Coarse device metadata is intentionally allowed to leave the
-    /// device (ADR-0013 §Decision.3 — osVersion/appBuild), so filtering these
-    /// SDK-standard keys out of the "populated context" check restores crash
-    /// delivery without weakening the privacy boundary: any *non-standard*
-    /// (app-injected) context key still trips the whole-event reject.
-    private static let sdkStandardContextKeys: Set<String> = [
+    /// crashes. Excluding them from the "unexpected context" signal restores
+    /// crash delivery; the privacy boundary is unchanged because (a) their
+    /// nested values are still never transported (step 6 clears them), and
+    /// (b) any *non-standard* (app-injected) context key still trips the
+    /// whole-event reject.
+    private static let sdkAutoAttachedContextKeys: Set<String> = [
         "device", "os", "app", "runtime", "culture", "gpu", "trace",
     ]
 
-    /// Flatten Sentry `[String: [String: Any]]?` context bag into strings,
-    /// **excluding** SDK-auto-attached standard keys (see
-    /// ``sdkStandardContextKeys``). Only app-supplied / non-standard context
-    /// survives into the intermediate representation, so the §I chokepoint's
-    /// "context must be empty" gate trips on genuinely unexpected data — not
-    /// on the device/os/app metadata sentry-cocoa attaches to every event.
-    private static func stringifiedContext(_ raw: [String: [String: Any]]?) -> [String: [String: String]] {
+    /// Reduce Sentry's `contexts` bag to only the **unexpected** (non-SDK)
+    /// entries — the ones whose mere presence must reject the whole event at
+    /// the §I chokepoint. SDK-auto-attached standard contexts
+    /// (see ``sdkAutoAttachedContextKeys``) are dropped here: they are not a
+    /// policy violation and their values never reach the wire regardless (the
+    /// rebuild path clears `event.context` wholesale in step 6).
+    ///
+    /// Values are stringified only so the chokepoint's "must be empty" check
+    /// can observe *that* an unexpected key was populated; nothing returned
+    /// here is ever transported.
+    ///
+    /// - Important: The privacy guarantee for the whitelisted standard
+    ///   contexts rests on the unconditional `event.context = nil` in step 6.
+    ///   A future refactor that removes that clear would silently reopen a
+    ///   leak, so the two must stay coupled.
+    private static func unexpectedContext(_ raw: [String: [String: Any]]?) -> [String: [String: String]] {
         var out: [String: [String: String]] = [:]
         for (k, sub) in raw ?? [:] {
-            if sdkStandardContextKeys.contains(k) { continue }
+            if sdkAutoAttachedContextKeys.contains(k) { continue }
             var inner: [String: String] = [:]
             for (ik, iv) in sub {
                 inner[ik] = String(describing: iv)

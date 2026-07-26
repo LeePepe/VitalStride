@@ -106,6 +106,22 @@ struct CrashReportingTests {
         #expect(CrashReporting.sanitize(sentryEvent: event) == nil)
     }
 
+    @Test("regression: whitelisted context values NEVER reach output (no leak)")
+    func sanitize_outputHasNoContext_evenWithSensitiveNestedValue() throws {
+        // Directly refutes the concern that whitelisting a standard context
+        // key lets its nested values onto the wire. Even a sensitive-looking
+        // value under `device` must be absent from the sanitized OUTPUT: the
+        // rebuild path clears `event.context` wholesale. The whitelist only
+        // suppresses a *false reject*, it never forwards a value.
+        let event = makeCrashEvent()
+        event.context = [
+            "device": ["model": "iPhone16,1", "free_memory": "123456"],
+            "os": ["name": "iOS", "version": "26.5.2"],
+        ]
+        let out = try #require(CrashReporting.sanitize(sentryEvent: event))
+        #expect(out.context == nil)
+    }
+
     @Test("breadcrumbs: non-empty → drop whole event")
     func sanitize_rejects_populatedBreadcrumbs() {
         let event = makeCrashEvent()
