@@ -61,7 +61,7 @@ AI provider chain：**Apple Intelligence Foundation Models 优先**（On-device,
 - 禁止引入 OpenAI/Anthropic/Google **AI** SDK 等第三方包。
 - API key 仅存 Keychain，不得硬编码。
 - 新增 provider = 在 `AIService` 实现 `AIProvider` 协议接入 chain，不替换。
-- **Telemetry 例外（narrow）**：允许引入**隐私合规的第三方 telemetry SDK**，当前限 **TelemetryDeck**，且只能作为 `TelemetryProvider` 消费强类型 `TelemetryEvent`（DEBUG 不发、EU 托管、标识符发送前哈希）；§I 健康隐私红线对该 provider 全额适用，不得引入任何接受自由字符串 / 原始健康数值的 API。AI provider 的「无第三方 SDK」约束不变。详见 [ADR-0011](../../docs/adr/0011-telemetrydeck-first-production-provider.md)。
+- **Telemetry 例外（narrow）**：允许引入**隐私合规的第三方 telemetry SDK**，当前限**自建 Aptabase**（开源 aptabase-swift SDK，上报到项目所有者掌控的自建实例，数据不离自有基础设施），且只能作为 `TelemetryProvider` 消费强类型 `TelemetryEvent`（DEBUG 不发、self-hosted host 注入、只发 count/duration/标识符）；§I 健康隐私红线对该 provider 全额适用，不得引入任何接受自由字符串 / 原始健康数值的 API。AI provider 的「无第三方 SDK」约束不变。原 TelemetryDeck（EU 托管 SaaS）已被 ADR-0015 取代——自建 Aptabase 满足 ADR-0011 预留的「data-never-leaves-own-infra → 迁移自建后端」触发条件，实际**收紧**隐私姿态。详见 [ADR-0015](../../docs/adr/0015-aptabase-self-hosted-analytics.md)（supersede [ADR-0011](../../docs/adr/0011-telemetrydeck-first-production-provider.md)）。
 - **诊断通道例外（narrow）**：崩溃 / 挂起（hang）诊断由 **Apple MetricKit** 采集。原 ADR-0012 的「经 TelemetryDeck 通道自研上报」**已被 ADR-0013 取代**——改用**自建 GlitchTip**（部署在项目所有者掌控的 Azure，数据不离自有基础设施）+ 官方 **sentry-cocoa** SDK（`enableMetricKit=true`，GlitchTip 说 Sentry 协议）。此为对「AI 无第三方 SDK / telemetry 仅限 TelemetryDeck」的第二个 narrow 例外，**仅**允许 sentry-cocoa、**仅**用于崩溃/hang 诊断、**仅**上报到自建 GlitchTip。§I 健康隐私红线由**强制 `beforeSend` 钩子**守门（剥离/拒绝任何可能含健康数值或 PII 的字段，仅放行崩溃栈 + 粗粒度设备元数据），钩子过滤逻辑抽为纯函数配单测锁死。DEBUG 不发。产品分析（`TelemetryEvent`）路径不受影响、仍无生产 remote provider。详见 [ADR-0013](../../docs/adr/0013-self-hosted-glitchtip-sentry-cocoa.md)（supersede [ADR-0012](../../docs/adr/0012-metrickit-diagnostics-via-telemetrydeck.md) 崩溃通道）。
 
 参考：ADR-0005 (AI ProviderChain)、ADR-0011 (TelemetryDeck 首个生产 telemetry provider)、ADR-0012 (MetricKit 诊断 typed 通道)、ADR-0013 (自建 GlitchTip via sentry-cocoa)。
@@ -279,7 +279,9 @@ TL 每次 pipeline 起手前必须扫描：
   - MAJOR — 删除/反转原则；MINOR — 新增原则/新 Quality Bar；PATCH — 文字澄清不改语义
 - 与本宪法相关：AGENTS.md（agent 操作手册）、CONTEXT.md（数据架构细节）、`docs/adr/`（决策档案）、`scripts/hooks/`（强制规则机器实现）。
 
-**Version**: 2.5.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-24
+**Version**: 2.6.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-26
+
+> 2.6.0（MINOR，§V telemetry provider 换自建后端）：产品分析 provider 由 **TelemetryDeck**（EU 托管 SaaS）换为**自建 Aptabase**（开源 aptabase-swift SDK，上报到所有者掌控的自建实例，数据不离自有基础设施）。narrow 例外仍限一个隐私合规 SDK、只作 `TelemetryProvider` 消费强类型 `TelemetryEvent`、DEBUG 不发；§I 全额适用。触发自 ADR-0011 自列的 revisit trigger「data-never-leaves-own-infra → 迁移自建后端」，实际**收紧**隐私姿态（[ADR-0015](../../docs/adr/0015-aptabase-self-hosted-analytics.md) supersede [ADR-0011](../../docs/adr/0011-telemetrydeck-first-production-provider.md)）。诊断通道（GlitchTip/sentry-cocoa）不受影响。
 
 > 2.5.0（MINOR，新增 pipeline stage）：恢复 **Planner Lead 规划 / DoR 复审** + 建立
 > **AI Reviewer + Team Lead 双批准门**——spec-driven feature 的拆分 / DoR 补全在下游派发前须两方都

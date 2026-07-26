@@ -1,6 +1,6 @@
 # ADR-0011: TelemetryDeck as First Production Telemetry Provider
 
-**Status**: Accepted
+**Status**: Superseded by [ADR-0015](0015-aptabase-self-hosted-analytics.md) (self-hosted Aptabase)
 **Date**: 2026-07-20
 **Deciders**: tianpli (project owner)
 
