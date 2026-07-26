@@ -20,7 +20,16 @@ public struct AnalyticsSignal: Sendable, Equatable {
     /// Flat string parameters. Keys and values are canonical ASCII.
     public let parameters: [String: String]
 
-    public init(name: String, parameters: [String: String] = [:]) {
+    /// Internal-only designated initializer.
+    ///
+    /// Deliberately **not** `public`: Constitution §V forbids an analytics API
+    /// that accepts free-form event names / raw string values, because a caller
+    /// could otherwise construct a signal carrying a health value and hand it to
+    /// a sink, bypassing the §I chokepoint. External code can only obtain an
+    /// `AnalyticsSignal` via ``init(event:)`` (the closed `TelemetryEvent`
+    /// surface). The `name`/`parameters` seam stays reachable within the module
+    /// (and to `@testable` tests) for the pure event→signal mapping only.
+    init(name: String, parameters: [String: String] = [:]) {
         self.name = name
         self.parameters = parameters
     }

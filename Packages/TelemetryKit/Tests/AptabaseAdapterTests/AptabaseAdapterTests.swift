@@ -1,6 +1,6 @@
 @testable import AptabaseAdapter
 import os
-import TelemetryKit
+@testable import TelemetryKit
 import XCTest
 
 /// Facade round-trip + dispatch-seam tests for `AptabaseAdapter`.
