@@ -63,10 +63,46 @@ struct CrashReportingTests {
         #expect(CrashReporting.sanitize(sentryEvent: event) == nil)
     }
 
-    @Test("context: non-empty bag → drop whole event")
+    @Test("context: non-empty CUSTOM bag → drop whole event")
     func sanitize_rejects_populatedContext() {
         let event = makeCrashEvent()
         event.context = ["custom": ["weight": "70"]]
+        #expect(CrashReporting.sanitize(sentryEvent: event) == nil)
+    }
+
+    // MARK: - Regression: SDK-auto context must NOT drop real crashes
+    //
+    // Production bug (2026-07-25): every real TestFlight crash was silently
+    // dropped and never reached GlitchTip. Root cause — sentry-cocoa
+    // AUTOMATICALLY attaches `device` / `os` / `app` contexts to every event
+    // before `beforeSend` runs, so `event.context` is *never* empty on a real
+    // crash. The empty-context chokepoint (`CrashEventSanitizer` guard) then
+    // rejected the whole event. All prior unit tests used a hand-built
+    // `makeCrashEvent()` with NO context, so the gate looked correct while it
+    // dropped 100% of production crashes. These tests reproduce the real SDK
+    // shape: a valid crash event carrying only the standard SDK-attached
+    // contexts must survive sanitization (custom keys must still drop).
+
+    @Test("regression: SDK-auto device/os/app context → event SURVIVES sanitize")
+    func sanitize_passes_sdkStandardContext() {
+        let event = makeCrashEvent()
+        // Exactly what sentry-cocoa auto-attaches on a device crash.
+        event.context = [
+            "device": ["model": "iPhone16,1", "family": "iPhone"],
+            "os": ["name": "iOS", "version": "26.5.2"],
+            "app": ["app_build": "11", "app_version": "1.1"],
+        ]
+        #expect(CrashReporting.sanitize(sentryEvent: event) != nil)
+    }
+
+    @Test("regression: SDK-auto context + a custom key → still drops")
+    func sanitize_dropsWhenCustomKeyMixedWithStandard() {
+        let event = makeCrashEvent()
+        event.context = [
+            "device": ["model": "iPhone16,1"],
+            "os": ["name": "iOS", "version": "26.5.2"],
+            "custom": ["weight": "70"],
+        ]
         #expect(CrashReporting.sanitize(sentryEvent: event) == nil)
     }
 

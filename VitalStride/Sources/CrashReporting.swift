@@ -252,10 +252,32 @@ enum CrashReporting {
         return out
     }
 
-    /// Flatten Sentry `[String: [String: Any]]?` context bag into strings.
+    /// Sentry SDK-auto-attached context keys. sentry-cocoa populates these
+    /// on **every** event before `beforeSend` runs (device model, OS version,
+    /// app build, runtime, …) — they are SDK metadata, not app-supplied data.
+    ///
+    /// Production bug (2026-07-25): the §I chokepoint rejects any event whose
+    /// `contexts` bag is non-empty. Because these standard keys are *always*
+    /// present on a real crash, that gate silently dropped 100% of production
+    /// crashes. Coarse device metadata is intentionally allowed to leave the
+    /// device (ADR-0013 §Decision.3 — osVersion/appBuild), so filtering these
+    /// SDK-standard keys out of the "populated context" check restores crash
+    /// delivery without weakening the privacy boundary: any *non-standard*
+    /// (app-injected) context key still trips the whole-event reject.
+    private static let sdkStandardContextKeys: Set<String> = [
+        "device", "os", "app", "runtime", "culture", "gpu", "trace",
+    ]
+
+    /// Flatten Sentry `[String: [String: Any]]?` context bag into strings,
+    /// **excluding** SDK-auto-attached standard keys (see
+    /// ``sdkStandardContextKeys``). Only app-supplied / non-standard context
+    /// survives into the intermediate representation, so the §I chokepoint's
+    /// "context must be empty" gate trips on genuinely unexpected data — not
+    /// on the device/os/app metadata sentry-cocoa attaches to every event.
     private static func stringifiedContext(_ raw: [String: [String: Any]]?) -> [String: [String: String]] {
         var out: [String: [String: String]] = [:]
         for (k, sub) in raw ?? [:] {
+            if sdkStandardContextKeys.contains(k) { continue }
             var inner: [String: String] = [:]
             for (ik, iv) in sub {
                 inner[ik] = String(describing: iv)
