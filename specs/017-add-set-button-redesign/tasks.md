@@ -64,6 +64,8 @@ private struct AddSetButtonStyle: ButtonStyle {
 **必须使用**（不新增 / 不硬编码）：
 
 - **颜色**：`theme.primary.{primary, primaryHover, primaryActive, primarySubtle, primaryMuted, primaryBorder, primaryText, onPrimary, ring}` 或 `theme.neutrals.{text1, text2, bg}`
+  （来自 `Packages/DesignKit/Sources/DesignKit/Color/Theme.swift` /
+  `Packages/DesignKit/Sources/DesignKit/Color/ColorSystem.swift`——`Color/` 子目录是权威路径）
 - **圆角**：`Radius.inner`（10）或 `Radius.card`（14）
 - **间距**：`Space.gap`（12）/ `Space.cardPadding`（16）/ 常见 4/8/12/16pt 间距（`EdgeInsets`）
 - **字体**：`Font.system(.callout | .subheadline | .body).weight(.medium | .semibold)` 或 `LargeWorkoutFonts.*`
@@ -89,13 +91,15 @@ private struct AddSetButtonStyle: ButtonStyle {
 ### Functional Acceptance Criteria (Automatic — executable, workdir-root-relative)
 
 ```bash
-# A-1 iOS build (app target — 有源码改动)
-xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride \
-  -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
+# A-1 iOS app target test（AGENTS.md §82 强制门；build 已隐含）
+xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -skipPackagePluginValidation
 
-# A-2 macOS build (Mac Catalyst 共享此按钮)
-xcodebuild build -project VitalStride.xcodeproj -scheme VitalStrideMac \
-  -destination 'generic/platform=macOS' -skipPackagePluginValidation
+# A-2 (REMOVED) — VitalStrideMac scheme 的 sources: 列表不包含
+#     VitalStride/Sources/ActiveWorkout/，因此 xcodebuild build -scheme VitalStrideMac
+#     对本 patch 不构成验证信号。参见 plan.md §8。若需 macOS 验证需先在 project.yml 显式
+#     纳入 ActiveWorkout/，那是另一个 issue 的范围。
 
 # A-3 无并发规避
 ! grep -nE '@preconcurrency|@unchecked[[:space:]]+Sendable|nonisolated\(unsafe\)' \
@@ -111,28 +115,47 @@ git fetch github main
      VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift \
    | grep -E '^\+.*Font\.system\(size:'
 
-# A-6 交互契约防回归
-grep -q 'accessibilityLabel(String(localized: "添加一组"' \
+# A-6 交互契约防回归——断言字面精确匹配 addSetButton 的 a11y 契约与函数入口
+#     （非 exercise 菜单里的其它 accessibility label）
+grep -Fq '.accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))' \
      VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift
-grep -q 'accessibilityHint(String(localized: "在列表末尾插入新的一组"' \
+grep -Fq '.accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))' \
      VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift
-grep -q 'private func addSet' \
+grep -q 'private func addSet()' \
+     VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift
+grep -Fq 'private var addSetButton: some View' \
      VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift
 
-# A-7 hit target ≥ 44pt
-grep -qE 'minHeight:[[:space:]]*44' \
-     VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift
+# A-7 addSetButton hit target ≥ 44pt（提取 addSetButton 段而非全文件——
+#     避免误接收 exercise 菜单里已存在的 44pt frame，见评审 finding #3）
+awk '/private var addSetButton: some View \{/,/^    \}$/' \
+     VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift \
+  | grep -qE 'minHeight:[[:space:]]*44'
 
-# A-8 diff 范围硬限——只碰一个源文件（+ 可选 spec 三文件）
+# A-8 addSet() 函数体逐字冻结——checksum 锁定 main 上现有实现（SHA256）
+#     基线 = 15940bf62030ee382a5ff628460d1ecc517e19486758782eac0e0d2743f33b7c
+#     （14 行，包括 `weight/reps/setType/isUnilateral/weightRight` 沿用逻辑；见评审 finding #3）
+EXPECTED='15940bf62030ee382a5ff628460d1ecc517e19486758782eac0e0d2743f33b7c'
+ACTUAL=$(awk '/private func addSet\(\) \{/,/^    \}$/' \
+     VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift \
+   | shasum -a 256 | awk '{print $1}')
+[ "$ACTUAL" = "$EXPECTED" ]
+
+# A-9 diff 范围硬限——只碰一个源文件（+ 可选 spec 三文件）
 CHANGED=$(git diff --name-only github/main...HEAD)
 echo "$CHANGED" | grep -qxE 'VitalStride/Sources/ActiveWorkout/ActiveExerciseSection\.swift'
 [ "$(echo "$CHANGED" | grep -vE '^(VitalStride/Sources/ActiveWorkout/ActiveExerciseSection\.swift|specs/017-add-set-button-redesign/(spec|plan|tasks)\.md)$' | wc -l | tr -d ' ')" = "0" ]
 
-# A-9 spec 三文件到位
+# A-10 spec 三文件到位
 [ -f specs/017-add-set-button-redesign/spec.md ] \
   && [ -f specs/017-add-set-button-redesign/plan.md ] \
   && [ -f specs/017-add-set-button-redesign/tasks.md ]
 ```
+
+> **A-8 rationale**：AI Reviewer 发现原 A-6 的 `grep -q 'private func addSet'` 不能证明函数体
+> 未变——只要签名还在就通过。改用逐字 SHA256 checksum 锁定 `main` 上 14 行实现（含
+> `weight / reps / setType / isUnilateral / weightRight` 沿用逻辑），任一字节漂移即 fail。
+> 若未来 `addSet()` 出于其它任务合法演进，那次改动应同步更新此基线并显式解冻。
 
 ### Manual Acceptance (PR body 必须包含)
 
@@ -151,12 +174,16 @@ echo "$CHANGED" | grep -qxE 'VitalStride/Sources/ActiveWorkout/ActiveExerciseSec
 
 ### Verification Command (per `AGENTS.md`, layer = app target)
 
+`AGENTS.md` §82 强制 app target 改动走 `xcodebuild test`（pre-push hook 亦跑此命令）：
+
 ```bash
-xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride \
-  -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
+xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -skipPackagePluginValidation
 ```
 
-（`Packages/` 无改动，禁用 `swift build/test`；SPM-only hook 不触发。）
+（`Packages/` 无改动，禁用 `swift build/test`；SPM-only hook 不触发。`VitalStrideMac` scheme 的
+`sources:` 不含 `ActiveWorkout/`——见 plan.md §8——因此 macOS build 对本 patch 不构成验证。）
 
 ### Layer Red Lines
 
@@ -175,7 +202,9 @@ daemon 已在 `~/multica_workspaces/<workspace>/<task-id>/workdir/` 下建好隔
 
 - **绝对不要** `cd ~/Development/VitalStride`，绝对不要在用户主 checkout 里 `git checkout` / `git checkout -b` / `git fetch` / `git push`。
 - 分支操作（建分支、commit、push、开 PR）全部在 daemon 给的 workdir 内完成。
-- `git push` 用 `--no-verify`（pre-push hook 在 workdir 内会超时；服务端 required CI 是权威门）。
+- `git push` 走 **normal push**（`git push -u github HEAD:$BRANCH`）——**不加 `--no-verify`**，
+  让 `pre-push` hook 跑 `xcodebuild test` 本地权威门（`AGENTS.md` §182-200 强制）。若 hook 在
+  daemon workdir 内异常，先修 hook / 环境，不要绕过。
 
 ---
 

@@ -78,13 +78,17 @@
 
 ## 6. Acceptance / Verification
 
-### 6.1 Automatic (executable — 见 `tasks.md` A-1..A-9)
+### 6.1 Automatic (executable — 见 `tasks.md` A-1、A-3..A-10；A-2 已撤除，理由见 tasks.md)
 
-- iOS + macOS build 通过（`xcodebuild build ... -destination generic/...`）。
+- iOS app target `xcodebuild test` 通过（`platform=iOS Simulator,name=iPhone 16`——`AGENTS.md` §82 强制）。
 - 无并发规避（`@preconcurrency` / `@unchecked Sendable` / `nonisolated(unsafe)` 在改动文件中新增）。
 - 无硬编码颜色（`Color(red:` / `Color(hex:` / `#RRGGBB`）。
 - 无新增字体魔法数（diff 内新增行不得含 `Font.system(size:`）。
-- 交互契约防回归（`addSet` / a11y label / a11y hint / hit target ≥44 grep 断言）。
+- 交互契约防回归——精确字面匹配 addSetButton 的 a11y label / hint / `private func addSet()` 签名。
+- **addSet() 函数体逐字冻结**（SHA256 checksum 断言，见 `tasks.md` A-8——升级自原 grep 断言，
+  升级理由 = AI Reviewer finding #3：签名断言不能证明函数体未变）。
+- addSetButton hit target ≥44pt（从 `addSetButton` 段提取而非全文件——避免误接收 exercise 菜单
+  里已存在的 44pt frame）。
 - diff 范围硬限（只碰 `ActiveExerciseSection.swift` + 3 个 spec 文件）。
 - spec 三文件存在。
 
