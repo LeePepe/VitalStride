@@ -5,7 +5,9 @@
 //  1. Gated Liquid Glass backgrounds (`liquidGlassBar` / `liquidGlassCapsule`).
 //     `.glassEffect(...)` only exists on the iOS 26 / macOS 26 SDKs; the app
 //     deploys to iOS 18, so the API is availability-gated and falls back to the
-//     DesignKit flat card / inner fill below 26 so nothing breaks.
+//     DesignKit flat card / inner fill below 26 so nothing breaks. The glass
+//     panel must be attached to the grid via `.safeAreaBar`/`.overlay`, never
+//     `.safeAreaInset` — see `FloatingPanelAttachment` for why.
 //  2. `categoryColor(_:theme:)` — a SEED-hued categorical color family (a tight
 //     blue-ward hue fan at stepped brightness). Ported from the approved
 //     prototype's ProtoKit. Never green / amber / red so the semantic
@@ -16,8 +18,15 @@ import SwiftUI
 import VitalModels
 
 extension View {
-    /// Gated Liquid Glass surface for fixed bars (bottom filter bar, etc.).
-    /// Falls back to a flat DesignKit card + hairline below iOS 26 / macOS 26.
+    /// Gated Liquid Glass surface for the floating filter bar. Uses iOS 26
+    /// `.glassEffect`; falls back to a flat DesignKit card + hairline below 26.
+    ///
+    /// The panel is attached to the card grid with `.safeAreaBar` (iOS 26) /
+    /// non-layout `.overlay` (iOS 18) — see `FloatingPanelAttachment`. It must
+    /// NOT be attached with `.safeAreaInset`, whose inset resolves *inside* the
+    /// grid's lazy placement pass and never converges, pinning the main thread
+    /// at 100% CPU. With the bar/overlay attachment the glass surface is
+    /// layout-stable.
     @ViewBuilder
     func liquidGlassBar(theme: Theme, cornerRadius: CGFloat = 0) -> some View {
         if #available(iOS 26.0, macOS 26.0, *) {

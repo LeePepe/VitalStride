@@ -46,6 +46,18 @@ struct ExercisePickerView: View {
     // open whenever `searchText` is non-empty so we never orphan an
     // in-flight query behind a collapsed button.
     @State private var isSearchExpanded: Bool = false
+
+    // Measured height of the floating search+filter panel, used ONLY on the
+    // iOS 18 fallback path. There the panel is a non-layout `.overlay` (NOT
+    // `.safeAreaInset`) so it cannot feed back into the scroll grid's
+    // safe-area during placement — that feedback produced a non-convergent
+    // `LazyVGrid`/`SafeAreaInsets.resolve` relayout that pinned the main
+    // thread at 100% CPU. We instead reserve an equivalent STATIC bottom
+    // scroll margin from this measured height. The chain is convergent: panel
+    // height is intrinsic (does not depend on the margin it drives). On iOS 26
+    // the panel is a `.safeAreaBar` and this stays 0.
+    @State private var panelHeight: CGFloat = 0
+
     let selectionMode: SelectionMode
 
     private static let searchDebounceNanoseconds: UInt64 = 200_000_000
@@ -123,9 +135,12 @@ struct ExercisePickerView: View {
                 } else {
                     exerciseCardGrid
                         .frame(maxWidth: .infinity)
-                        .safeAreaInset(edge: .bottom, spacing: 0) {
-                            floatingSearchAndFilterPanel
-                        }
+                        .modifier(
+                            FloatingPanelAttachment(
+                                panelHeight: $panelHeight,
+                                panel: floatingSearchAndFilterPanel
+                            )
+                        )
                 }
             }
             .navigationTitle(String(localized: "选择动作", comment: "Exercise picker navigation title"))
@@ -579,7 +594,20 @@ struct ExercisePickerView: View {
             ScrollViewReader { gridProxy in
                 ZStack(alignment: .trailing) {
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 20) {
+                        // NOTE: this outer stack is eager `VStack`, NOT
+                        // `LazyVStack`. Each section already contains a
+                        // `LazyVGrid` (the layer that virtualizes the hundreds
+                        // of exercise cards). Nesting a lazy grid inside a lazy
+                        // stack is a pathological SwiftUI combination: the outer
+                        // lazy container cannot derive a stable intrinsic size
+                        // for the inner lazy grid, so every prefetch-phase
+                        // update (`LazyLayoutViewCache.updatePrefetchPhases`)
+                        // re-expands the inner grid in full, recursing through
+                        // `ModifiedViewList.applyNodes` and pinning the main
+                        // thread at 100% CPU. Section count is bounded (≤18
+                        // equipment kinds), so an eager outer stack is cheap and
+                        // leaves exactly one lazy layer doing the virtualization.
+                        VStack(alignment: .leading, spacing: 20) {
                             ForEach(equipmentGroups, id: \.0) { equipment, items in
                                 equipmentSection(equipment: equipment, exercises: items)
                                     .id(equipment)
@@ -590,6 +618,13 @@ struct ExercisePickerView: View {
                         .padding(.trailing, Self.cardGridTrailingInset(showsIndexBar: showsIndexBar))
                         .scrollTargetLayout()
                     }
+                    // iOS 18 fallback: the panel floats as an overlay, so
+                    // reserve matching bottom space with a STATIC margin driven
+                    // by the intrinsic `panelHeight`. On iOS 26 the panel is a
+                    // `.safeAreaBar` (see `FloatingPanelAttachment`) which
+                    // reserves its own space, so `panelHeight` stays 0 here and
+                    // this margin is an inert no-op.
+                    .contentMargins(.bottom, panelHeight, for: .scrollContent)
                     // MY-1272: dismiss the search keyboard as soon as the
                     // card grid scrolls. `.immediately` mirrors
                     // `ActiveWorkoutView`'s existing choice: any drag
@@ -671,8 +706,15 @@ struct ExercisePickerView: View {
             EquipmentIndexBar(
                 equipments: equipments,
                 activeEquipment: visibleEquipment ?? draggedEquipment,
-                onSelect: { equipment in
-                    withAnimation(.easeOut(duration: 0.2)) {
+                onSelect: { equipment, animated in
+                    if animated {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            gridProxy.scrollTo(equipment, anchor: .top)
+                        }
+                    } else {
+                        // Drag scrub: jump immediately with no per-frame
+                        // animation so rapid equipment changes don't stack
+                        // competing 0.2s scroll animations to tall sections.
                         gridProxy.scrollTo(equipment, anchor: .top)
                     }
                     visibleEquipment = equipment
@@ -895,6 +937,47 @@ struct ExercisePickerView: View {
     }
 }
 
+// MARK: - Floating Panel Attachment
+
+/// Attaches the floating search + filter panel to the card grid without letting
+/// it drive a layout-feedback loop.
+///
+/// The picker previously used `.safeAreaInset(edge: .bottom)`, whose resolved
+/// inset is recomputed *inside* the grid's `LazySubviewPlacements.placeSubviews`
+/// pass. Because the panel sits over that same lazy grid, its measured height
+/// and the grid's placement never reached a fixed point, and the main thread
+/// spun at 100% CPU in an endless `SafeAreaInsets.resolve` / `LazyVGridLayout`
+/// relayout.
+///
+/// - iOS 26+: use the purpose-built `.safeAreaBar`, which reserves space for a
+///   floating bar without the recursive inset resolution.
+/// - iOS 18: render the panel as a non-layout `.overlay` and reserve matching
+///   bottom space with a STATIC `contentMargins` driven by the panel's
+///   intrinsic height (measured via `onGeometryChange` into `panelHeight`).
+private struct FloatingPanelAttachment<Panel: View>: ViewModifier {
+    @Binding var panelHeight: CGFloat
+    let panel: Panel
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            content.safeAreaBar(edge: .bottom, spacing: 0) {
+                panel
+            }
+        } else {
+            content.overlay(alignment: .bottom) {
+                panel
+                    .onGeometryChange(for: CGFloat.self) { proxy in
+                        proxy.size.height
+                    } action: { newHeight in
+                        if abs(newHeight - panelHeight) > 0.5 {
+                            panelHeight = newHeight
+                        }
+                    }
+            }
+        }
+    }
+}
+
 // MARK: - Panel Surface Modifier
 
 /// Wraps the floating search + filter panel with the shared Liquid Glass
@@ -1043,7 +1126,12 @@ private struct EquipmentIndexBar: View {
     @Environment(\.theme) private var theme
     let equipments: [Equipment]
     let activeEquipment: Equipment?
-    let onSelect: (Equipment) -> Void
+    /// `animated == false` during a finger drag: the drag scrubs across many
+    /// equipments and each triggers a `scrollTo`, so stacking a 0.2s animated
+    /// scroll per frame to a tall section (e.g. 201-item machine) makes the
+    /// animations fight and spikes the main thread. A tap sets `animated ==
+    /// true` for a single smooth jump.
+    let onSelect: (_ equipment: Equipment, _ animated: Bool) -> Void
     let onDragChanged: (Equipment) -> Void
     let onDragEnded: () -> Void
 
@@ -1092,7 +1180,7 @@ private struct EquipmentIndexBar: View {
                         totalHeight: height
                     ) else { return }
                     if equipment != activeEquipment {
-                        onSelect(equipment)
+                        onSelect(equipment, false)
                         triggerSelectionHaptic()
                     }
                     onDragChanged(equipment)
