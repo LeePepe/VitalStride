@@ -128,6 +128,14 @@ struct ActiveWorkoutView: View {
                         showingDiscardAlert = true
                     }
                 }
+                // MY-1353: Reorder affordance. EditButton drives the existing
+                // List `.onMove` → moveExercises(from:to:) → WorkoutExercise.order.
+                // Only render when there is more than one exercise to reorder.
+                ToolbarItem(placement: .topBarTrailing) {
+                    if (workout?.exercises?.count ?? 0) > 1 {
+                        EditButton()
+                    }
+                }
                 // MY-1088: Large Mode toggle. Persisted via @AppStorage above.
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
