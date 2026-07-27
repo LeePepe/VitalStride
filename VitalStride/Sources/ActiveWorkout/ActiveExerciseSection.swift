@@ -218,25 +218,44 @@ struct ActiveExerciseSection: View {
         )
     }
 
+    // MY-1348 (spec 017): visual redesign — subtle-fill inline button.
+    // Direction (a) from the spec: `theme.primary.primarySubtle` background
+    // + `Radius.inner` (10pt) rounded corner + `theme.primary.primaryText`
+    // foreground + `plus.circle.fill` icon at `theme.primary.primary`.
+    // Frozen contract preserved: `addSet()` on tap, a11y label + hint
+    // strings unchanged, hit target raised 36 → 44pt (HIG floor).
+    // Interaction feedback delivered via `AddSetButtonStyle` (opacity +
+    // scale on press) since `.borderless` had no pressed state and read
+    // as flat/data-row.
     private var addSetButton: some View {
         Button {
             addSet()
         } label: {
-            HStack {
+            HStack(spacing: 8) {
                 Image(systemName: "plus.circle.fill")
                     .foregroundStyle(theme.primary.primary)
                 Text(String(localized: "添加一组", comment: ""))
+                    .foregroundStyle(theme.primary.primaryText)
             }
-            .font(.subheadline)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(minHeight: 36)
-            .contentShape(Rectangle())
+            .font(.callout.weight(.medium))
+            .frame(maxWidth: .infinity, alignment: .center)
+            .frame(minHeight: 44)
+            .padding(.horizontal, 12)
+            .padding(.vertical, largeMode ? 10 : 6)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.inner)
+                    .fill(theme.primary.primarySubtle)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: Radius.inner))
         }
-        .buttonStyle(.borderless)
-        // MY-1263 (D2): tighter list row insets in normal mode compact the
-        // "add set" row toward the ~36pt visual density target. Large Mode
-        // retains the pre-existing 2pt breathing room.
-        .listRowInsets(EdgeInsets(top: largeMode ? 2 : 1, leading: 16, bottom: largeMode ? 2 : 1, trailing: 16))
+        .buttonStyle(AddSetButtonStyle())
+        // MY-1348: subtle-fill chip needs its own visual band separated from
+        // SetRow data rows. Bump vertical padding slightly in Large Mode; in
+        // normal mode keep the row visually compact so the section rhythm
+        // established by MY-1263 (D2) is preserved.
+        .listRowInsets(EdgeInsets(top: largeMode ? 6 : 4, leading: 16, bottom: largeMode ? 6 : 4, trailing: 16))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
         .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
         .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
     }
@@ -342,4 +361,102 @@ struct ActiveExerciseSection: View {
             modelContext.insert(newSet)
         }
     }
+}
+
+// MARK: - Add-Set button style (MY-1348)
+
+/// MY-1348 (spec 017) — pressed-state feedback for `addSetButton`.
+///
+/// `.borderless` gives no visual acknowledgement on tap, which made the row
+/// read as another data cell. This style dims and slightly shrinks on press
+/// so the button feels like a real tappable control. `Sendable` is satisfied
+/// implicitly by the immutable `struct`. `private` scope keeps this style
+/// bound to `ActiveExerciseSection` — no exported API.
+private struct AddSetButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.7 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Previews (MY-1348 spec 017 — 4-state coverage)
+//
+// Preview matrix required by `tasks.md` §Preview Coverage: `{normal, large}
+// × {light, dark}`, each with ≥ 2 sets so the `addSetButton` sits next to
+// SetRows and its visual separation from data rows is directly comparable.
+// Uses the same in-memory `ModelContainerConfiguration.makeTestContainer()`
+// harness as `SetRow` previews.
+
+private struct AddSetButtonPreviewWrapper: View {
+    let largeMode: Bool
+
+    init(largeMode: Bool) {
+        self.largeMode = largeMode
+        UserDefaults.standard.set(largeMode, forKey: "activeWorkoutLargeMode")
+    }
+
+    var body: some View {
+        // swiftlint:disable:next force_try
+        let container = try! ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+
+        let exercise = Exercise(
+            nameEn: "Bench Press",
+            nameZh: String(localized: "卧推", comment: ""),
+            muscleGroup: .chest,
+            equipment: .barbell
+        )
+        context.insert(exercise)
+
+        let workout = Workout(type: .strength, startDate: Date())
+        context.insert(workout)
+
+        let workoutExercise = WorkoutExercise(order: 0, exercise: exercise)
+        workoutExercise.workout = workout
+        context.insert(workoutExercise)
+
+        let set1 = ExerciseSet(order: 0, weight: 60, reps: 10, setType: .working)
+        set1.workoutExercise = workoutExercise
+        context.insert(set1)
+
+        let set2 = ExerciseSet(order: 1, weight: 62.5, reps: 8, setType: .working)
+        set2.workoutExercise = workoutExercise
+        context.insert(set2)
+
+        return List {
+            ActiveExerciseSection(
+                workoutExercise: workoutExercise,
+                onSetCompleted: {},
+                onSetDeleted: {},
+                onReplace: {},
+                onSubstitute: {},
+                onDelete: {}
+            )
+        }
+        .listStyle(.plain)
+        .modelContainer(container)
+        .designThemePreview()
+    }
+}
+
+#Preview("AddSetButton - Normal Light") {
+    AddSetButtonPreviewWrapper(largeMode: false)
+        .preferredColorScheme(.light)
+}
+
+#Preview("AddSetButton - Normal Dark") {
+    AddSetButtonPreviewWrapper(largeMode: false)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("AddSetButton - Large Light") {
+    AddSetButtonPreviewWrapper(largeMode: true)
+        .preferredColorScheme(.light)
+}
+
+#Preview("AddSetButton - Large Dark") {
+    AddSetButtonPreviewWrapper(largeMode: true)
+        .preferredColorScheme(.dark)
 }
