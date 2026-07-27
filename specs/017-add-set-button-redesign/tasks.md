@@ -4,7 +4,7 @@
 **Plan**: `specs/017-add-set-button-redesign/plan.md`
 **Parent issue**: MY-1343 · **Implementation sub-issue**: MY-1348 · **Planning gate**: MY-1347
 
-> **Contract**: 本文件 §Acceptance/Verification 段落**逐字复制**到对应 sub-issue description（MY-1348）。任何漂移均视为 gate 失败。
+> **Contract**: 本文件 §Functional Acceptance Criteria 的 bash 代码块与 §Verification Command 的 bash 代码块**逐字节复制**（byte-for-byte）到对应 sub-issue description（MY-1348）。包裹用的 markdown 标题、引言 blockquote 可有小改（例如指向本文件的 back-reference），但 bash 内容——包括每一行注释、缩进、续行反斜杠、空行——必须与本文件完全一致。任一 bash 字节漂移视为 gate 失败。
 
 ---
 
