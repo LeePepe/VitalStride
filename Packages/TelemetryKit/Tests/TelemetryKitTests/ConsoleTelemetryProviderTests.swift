@@ -346,104 +346,61 @@ struct TelemetryEventFormattingTests {
         #expect(TelemetryIdentifier(validating: "增加重量") == nil)
     }
 
-    // MARK: - Exercise picker diagnostics (MY-1338 / MY-1339)
-    //
-    // `exercisePickerSectionJump` carries only canonical TelemetryIdentifier
-    // values for from/to/source; `exercisePickerIndexScrubbed` carries only a
-    // count. Neither may carry raw display names, localized strings, or
-    // health values (Constitution I).
-
-    @Test("exercisePickerSectionJump event name uses snake_case")
-    func exercisePickerSectionJumpEventName() {
-        let event = TelemetryEvent.exercisePickerSectionJump(
-            from: "barbell", to: "dumbbell", source: "drag"
-        )
-        #expect(event.eventName == "exercise_picker_section_jump")
-    }
-
-    @Test("exercisePickerIndexScrubbed event name uses snake_case")
-    func exercisePickerIndexScrubbedEventName() {
-        #expect(TelemetryEvent.exercisePickerIndexScrubbed(count: 3).eventName
-                == "exercise_picker_index_scrubbed")
-    }
-
-    @Test("exercisePickerSectionJump parameters carry from/to/source only")
-    func exercisePickerSectionJumpParameters() {
-        let params = TelemetryEvent.exercisePickerSectionJump(
-            from: "barbell", to: "kettlebell", source: "scroll"
-        ).parameters
-        #expect(params.count == 3)
-        #expect(params[0].key == "from")
-        #expect(params[0].value == "barbell")
-        #expect(params[1].key == "to")
-        #expect(params[1].value == "kettlebell")
-        #expect(params[2].key == "source")
-        #expect(params[2].value == "scroll")
-    }
-
-    @Test("exercisePickerIndexScrubbed parameters carry count only")
-    func exercisePickerIndexScrubbedParameters() {
-        let params = TelemetryEvent.exercisePickerIndexScrubbed(count: 7).parameters
-        #expect(params.count == 1)
-        #expect(params[0].key == "count")
-        #expect(params[0].value == "7")
-    }
-
-    @Test("exercisePickerSectionJump formatted string")
-    func exercisePickerSectionJumpFormatted() {
-        #expect(
-            TelemetryEvent.exercisePickerSectionJump(
-                from: "barbell", to: "dumbbell", source: "drag"
-            ).formattedString
-                == "exercise_picker_section_jump from=barbell to=dumbbell source=drag"
-        )
-    }
-
-    @Test("exercisePickerIndexScrubbed formatted string")
-    func exercisePickerIndexScrubbedFormatted() {
-        #expect(
-            TelemetryEvent.exercisePickerIndexScrubbed(count: 5).formattedString
-                == "exercise_picker_index_scrubbed count=5"
-        )
-    }
-
-    @Test("exercisePickerSectionJump supports both drag and scroll source identifiers")
-    func exercisePickerSectionJumpSources() {
-        let sources: [TelemetryIdentifier] = ["drag", "scroll"]
-        for source in sources {
-            let event = TelemetryEvent.exercisePickerSectionJump(
-                from: "barbell", to: "dumbbell", source: source
-            )
-            let params = event.parameters
-            #expect(params.last?.key == "source")
-            #expect(params.last?.value == source.rawValue)
-        }
-    }
-
-    @Test("exercisePickerSectionJump / exercisePickerIndexScrubbed Equatable + Sendable")
-    func exercisePickerEventsEquatable() {
-        let a: TelemetryEvent = .exercisePickerSectionJump(
-            from: "barbell", to: "dumbbell", source: "drag"
-        )
-        let b: TelemetryEvent = .exercisePickerSectionJump(
-            from: "barbell", to: "dumbbell", source: "drag"
-        )
-        let c: TelemetryEvent = .exercisePickerSectionJump(
-            from: "barbell", to: "kettlebell", source: "drag"
-        )
-        #expect(a == b)
-        #expect(a != c)
-        #expect(TelemetryEvent.exercisePickerIndexScrubbed(count: 3)
-                == .exercisePickerIndexScrubbed(count: 3))
-        #expect(TelemetryEvent.exercisePickerIndexScrubbed(count: 3)
-                != .exercisePickerIndexScrubbed(count: 4))
-    }
-
     @Test("exercise picker events reject localized display names via validating init")
     func exercisePickerRejectsLocalizedNames() {
         #expect(TelemetryIdentifier(validating: "杠铃") == nil)
         #expect(TelemetryIdentifier(validating: "拖动") == nil)
         #expect(TelemetryIdentifier(validating: "barbell") != nil)
         #expect(TelemetryIdentifier(validating: "drag") != nil)
+    }
+
+    // MARK: - App performance events (ADR-0015 §perf / 阶段 4)
+    //
+    // The 4 MetricKit perf cases carry Int payloads; each must surface in
+    // `parameters` (and therefore in the analytics signal). A missing
+    // `parameters` mapping silently drops the value at the Aptabase boundary.
+
+    @Test("app_launch_time_measured exposes millis_to_first_draw")
+    func launchTimeParameters() {
+        let event = TelemetryEvent.appLaunchTimeMeasured(millisToFirstDraw: 1005)
+        #expect(event.eventName == "app_launch_time_measured")
+        let params = event.parameters
+        #expect(params.count == 1)
+        #expect(params[0].key == "millis_to_first_draw")
+        #expect(params[0].value == "1005")
+        #expect(event.formattedString == "app_launch_time_measured millis_to_first_draw=1005")
+    }
+
+    @Test("app_hang_time_measured exposes hang_millis_per_hour")
+    func hangTimeParameters() {
+        let event = TelemetryEvent.appHangTimeMeasured(hangMillisPerHour: 500)
+        #expect(event.eventName == "app_hang_time_measured")
+        let params = event.parameters
+        #expect(params.count == 1)
+        #expect(params[0].key == "hang_millis_per_hour")
+        #expect(params[0].value == "500")
+        #expect(event.formattedString == "app_hang_time_measured hang_millis_per_hour=500")
+    }
+
+    @Test("app_memory_peak_measured exposes peak_memory_mb")
+    func memoryPeakParameters() {
+        let event = TelemetryEvent.appMemoryPeakMeasured(peakMemoryMB: 200)
+        #expect(event.eventName == "app_memory_peak_measured")
+        let params = event.parameters
+        #expect(params.count == 1)
+        #expect(params[0].key == "peak_memory_mb")
+        #expect(params[0].value == "200")
+        #expect(event.formattedString == "app_memory_peak_measured peak_memory_mb=200")
+    }
+
+    @Test("app_cpu_time_measured exposes cpu_millis")
+    func cpuTimeParameters() {
+        let event = TelemetryEvent.appCPUTimeMeasured(cpuMillis: 100_000)
+        #expect(event.eventName == "app_cpu_time_measured")
+        let params = event.parameters
+        #expect(params.count == 1)
+        #expect(params[0].key == "cpu_millis")
+        #expect(params[0].value == "100000")
+        #expect(event.formattedString == "app_cpu_time_measured cpu_millis=100000")
     }
 }

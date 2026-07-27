@@ -147,6 +147,28 @@ public enum TelemetryEvent: Sendable, Equatable {
     /// Privacy: `count` is a pure event counter; no equipment identifiers or
     /// health values are recorded here.
     case exercisePickerIndexScrubbed(count: Int)
+
+    // MARK: - App performance (MetricKit MXMetricPayload, ADR-0015 §perf)
+    //
+    // Coarse, already-aggregated performance histograms Apple delivers via
+    // MetricKit. All payloads are Ints (millis / MB / permille); no PII, no
+    // health values — §I holds by construction. Emitted by
+    // `MetricKitDiagnosticCollector.didReceive(_ payloads: [MXMetricPayload])`.
+
+    /// Time-to-first-draw at launch (`applicationLaunchMetrics`, average, ms).
+    case appLaunchTimeMeasured(millisToFirstDraw: Int)
+
+    /// Cumulative hang time per hour of foreground use
+    /// (`applicationResponsivenessMetrics` hang histogram → total ms, hourly).
+    case appHangTimeMeasured(hangMillisPerHour: Int)
+
+    /// Peak resident memory during the reporting window
+    /// (`memoryMetrics.peakMemoryUsage`, MB).
+    case appMemoryPeakMeasured(peakMemoryMB: Int)
+
+    /// Cumulative foreground CPU time in the reporting window
+    /// (`cpuMetrics.cumulativeCPUTime`, ms).
+    case appCPUTimeMeasured(cpuMillis: Int)
 }
 
 // MARK: - Console formatting
@@ -183,6 +205,10 @@ extension TelemetryEvent {
         case .suggestionOverridden: "suggestion_overridden"
         case .exercisePickerSectionJump: "exercise_picker_section_jump"
         case .exercisePickerIndexScrubbed: "exercise_picker_index_scrubbed"
+        case .appLaunchTimeMeasured: "app_launch_time_measured"
+        case .appHangTimeMeasured: "app_hang_time_measured"
+        case .appMemoryPeakMeasured: "app_memory_peak_measured"
+        case .appCPUTimeMeasured: "app_cpu_time_measured"
         }
     }
 
@@ -226,6 +252,14 @@ extension TelemetryEvent {
             [("from", from.rawValue), ("to", to.rawValue), ("source", source.rawValue)]
         case .exercisePickerIndexScrubbed(let count):
             [("count", "\(count)")]
+        case .appLaunchTimeMeasured(let millis):
+            [("millis_to_first_draw", "\(millis)")]
+        case .appHangTimeMeasured(let millis):
+            [("hang_millis_per_hour", "\(millis)")]
+        case .appMemoryPeakMeasured(let mb):
+            [("peak_memory_mb", "\(mb)")]
+        case .appCPUTimeMeasured(let millis):
+            [("cpu_millis", "\(millis)")]
         default:
             []
         }
