@@ -35,8 +35,13 @@ scripts/i18n_check_lproj_parity.report.md
 # i18n hardcoded-string snapshot — generated on demand by scripts/i18n_extract_hardcoded.py
 scripts/i18n_extract_hardcoded.report.md
 
-# Redesign dev-only prototype scaffolding (not shipped)
-Prototype/
+# Redesign dev-only prototype scaffolding — SPM package source is tracked
+# (see specs/017-workout-keyboard-redesign — the Prototype target holds the
+# frozen visual reference for the workout keyboard). Build artifacts stay
+# ignored via the top-level .build/ + Packages/*/.build/ rules.
+Prototype/.build/
+Prototype/.swiftpm/
+Prototype/*.xcodeproj/
 
 # Local dev-only scripts (personal device names / UDIDs — not shipped)
 local/

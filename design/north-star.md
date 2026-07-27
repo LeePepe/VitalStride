@@ -90,3 +90,89 @@ Header row: `StatusPill` (tone) + title (`TypeScale.title`) + timestamp (meta, t
 - [ ] Status as colored pills, not grey text
 - [ ] Token-only color (no hex in views)
 - [ ] One seed re-themes all; swapping seed proven in snapshots
+
+## 11. Workout Numeric Keyboard
+
+> Applies to the custom in-app numeric keyboard rendered inside the ActiveWorkout weight / reps
+> input (`VitalStride/Sources/WorkoutNumericKeyboard.swift` +
+> `VitalStride/Sources/NumericKeypad.swift`). Height budget: **iPhone ≤ 260pt, iPad ≤ 280pt**;
+> three columns (left function keys · center digit grid · right presets + Done). Every rule below
+> is checkable against `Prototype/Sources/Prototype/WorkoutKeyboardPrototype.swift` and the
+> exported shots in `design/prototype-shots/keyboard-{iphone,ipad}-{light,dark}.png`.
+
+### 11.1 Radius (three tiers)
+| Role | Token | Value |
+|---|---|---|
+| Done key | `Radius.inner` | 10pt (`.continuous`) |
+| Preset keys | `Radius.inner` | 10pt (`.continuous`) |
+| Function keys | `Radius.inner` | 10pt (`.continuous`) |
+| Digit keys | `Radius.inner` | 10pt (`.continuous`) |
+No hardcoded radius. All keys share `Radius.inner` for one coherent inner rhythm; the outer
+keyboard host has no card radius because it fills the inputView bounds.
+
+### 11.2 Spacing (all off the `Space.*` scale)
+| Role | Value | Notes |
+|---|---|---|
+| Outer padding (all sides) | `Space.cardPadding` (16) | keyboard-to-frame air |
+| Column gap (left ↔ center ↔ right) | `Space.gap` (12) | between the three logical columns |
+| Row spacing inside a column | 8 | scale value; sits between `Space.gap` (12) and 4 |
+| Digit grid column spacing | 8 | matches row spacing → square cell rhythm |
+| Function key `minHeight` | 44 | Apple ≥44pt hit target — red line |
+| Preset key `minHeight` | 44 | Apple ≥44pt hit target — red line |
+| Done key `minHeight` | 44 | Apple ≥44pt hit target — red line |
+| Digit key `minHeight` | 52 | 3×4 grid; larger for numeric primary focus |
+| Left / right column width | 76pt | ≤72–76 fits both iPhone and iPad within budget |
+
+### 11.3 Color — three-tier hierarchy (Done > preset > inner keys)
+| Role | Fill | Foreground | Rationale |
+|---|---|---|---|
+| **Done** (primary CTA) | `theme.primary.primary` | `theme.primary.onPrimary` | one seed-anchor per surface |
+| **Preset keys** (15-20 / 8-12 / 4-6) | `theme.primary.primarySubtle` | `theme.primary.primaryText` | seed family, subordinate to Done |
+| **Function keys** (pyramid / drop / uni / copy) | `theme.neutrals.inner` | enabled: `theme.neutrals.text2`; disabled: `theme.neutrals.text3` | recessed, non-primary |
+| **Digit keys** (0-9, decimal) | `theme.neutrals.inner` | `theme.neutrals.text1` **(RED LINE)** | numbers must never fall to text2/text3 — audit P0 must not recur |
+| **Delete key** (`⌫`) | `theme.neutrals.inner` | `theme.neutrals.text2` | destructive, softened one step |
+| **Keyboard background** | `theme.neutrals.bg` | — | matches page L0 luminance tier |
+
+The three-tier color scheme reads left-to-right: **primary → primarySubtle → inner**. No hex,
+no `Color.*`, no `.systemGray*`. Semantics fixed: never map preset to `primary` (they are not
+the final commit) and never map Done to `primarySubtle` (it is the sole commit).
+
+### 11.4 Typography
+| Role | Font | Notes |
+|---|---|---|
+| Digit key label | `TypeScale.title` (16, semibold) + `.monospacedDigit()` | numbers must be tabular |
+| Delete key label | `TypeScale.title` (16, semibold) | glyph, no digit alignment needed |
+| Preset key label | `TypeScale.body` (14, semibold) + `.monospacedDigit()` | range labels like "15-20" |
+| Done key label | `TypeScale.title` (16, semibold) | primary CTA |
+| Function key text label | `TypeScale.meta` (12, medium) + `.minimumScaleFactor(0.8)` + `.lineLimit(1)` | "Uni/Total" / "Copy" |
+| Function key symbol | `.title3` (system) + medium weight | SF Symbols for pyramid/drop |
+Every digit-containing key **must** call `.monospacedDigit()` — no exceptions.
+
+### 11.5 foregroundStyle — key-by-key token map (red line)
+- digit keys → `theme.neutrals.text1` **(RED LINE — audit P0: numbers must not fade to text2/text3)**
+- delete key → `theme.neutrals.text2`
+- function key (enabled) → `theme.neutrals.text2`
+- function key (disabled) → `theme.neutrals.text3`
+- preset key → `theme.primary.primaryText`
+- done key → `theme.primary.onPrimary`
+
+### 11.6 Reference screenshots
+- Light + iPhone: `design/prototype-shots/keyboard-iphone-light.png`
+- Dark + iPhone: `design/prototype-shots/keyboard-iphone-dark.png`
+- Light + iPad: `design/prototype-shots/keyboard-ipad-light.png`
+- Dark + iPad: `design/prototype-shots/keyboard-ipad-dark.png`
+Baseline (before) for the same three-column layout lives under
+`design/keyboard-current-shots/`.
+
+### 11.7 Non-visual constraints (context — do not "improve" in Stage 2)
+- **Interaction contract frozen** (audit + parent MY-1342): `SetField` / `LeftKeyAction` /
+  `PresetRepBucket` shapes and the four callback surfaces are red lines; visual redesign must
+  not change them.
+- **Detached UIKit `inputView`**: production keyboard is a `UIView` hosted via
+  `UIHostingController`; theme is injected explicitly by `WorkoutNumericKeyboard.resolveTheme(isDark:)`
+  because the SwiftUI `@Environment(\.theme)` does not propagate into the inputView tree. The
+  Prototype does not carry this UIKit bridge and does not need to — but the eventual production
+  port (Stage 4) does.
+- **≥44pt hit target** for every keyboard key, `.isKeyboardKey` a11y trait retained, per-key
+  a11y label retained.
+
