@@ -33,8 +33,9 @@ FS 在 Multica daemon 提供的 `~/multica_workspaces/<workspace>/<task-id>/work
 改动路径集合 = `{VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift, specs/017-add-set-button-redesign/{spec,plan,tasks}.md}`。
 
 - 无一路径匹配 `^Packages/` → **workspace guardrail rule #1（SPM-first）不适用**。
-- 有 app target 源码改动 → 正确验证 = `xcodebuild build ...`（app target 层）。
+- 有 app target 源码改动 → 正确验证 = `xcodebuild test -destination 'platform=iOS Simulator,name=iPhone 16' ...`（`AGENTS.md` §82 强制的 app target 门）。
 - `swift build / swift test` 在本任务下**不足以覆盖**（改的是 app target，不是 SPM 包）。
+- `xcodebuild build ...` 亦不足以覆盖——`AGENTS.md` §FS workflow 要求 app target 走 `xcodebuild test`。
 
 ## 4. Layer & Boundary
 
@@ -116,7 +117,7 @@ VitalStrideMac` 对本 patch **不构成验证信号**，此前 §A-2 的宣称�
 
 ## 10. Test Policy
 
-**Unit tests 免除**（本任务是纯视觉改动，无新增业务逻辑；`addSet()` 已冻结）。设计正确性由**手动 4 张截图 + design review** 承担；防回归由 `tasks.md` §A-6 grep 断言承担。
+**Unit tests 免除**（本任务是纯视觉改动，无新增业务逻辑；`addSet()` 已冻结）。设计正确性由**手动 4 张截图 + design review** 承担；防回归由 `tasks.md` §A-6（addSetButton 签名 + 完整 a11y label/hint 字面串 grep）、§A-7（addSetButton segment awk 提取后 `minHeight` ≥ 44 断言，不再被 exercise 菜单 line 189 冒充）与 §A-8（`addSet()` 函数体 SHA256 checksum `15940bf6…` 冻结）三层执行探针共同承担。
 
 若 FS 抽取任何纯函数（非本 spec 预期），须补相应 XCTest 到 `VitalStrideTests/`。
 
