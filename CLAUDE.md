@@ -54,3 +54,17 @@ xcodegen generate
 
 - HealthKit 健康数值禁止出现在任何日志中（隐私合规）
 - 详见 CONTEXT.md 的架构决策
+
+## PR 流程（提交后必须监督到 merge）
+
+**开完 PR 不是终点。** 本 repo 的 PR 走 auto-merge（squash）：CI 全绿 + required review 通过后自动合并。提交 PR 后 agent 必须监督直到 PR 真正 merge，不能开完就撒手。
+
+监督要求：
+
+1. **盯 CI 与 review 直到终态** — 用 `gh pr view <n> --json state,mergeStateStatus,statusCheckRollup,reviewDecision` 轮询，直到 `state == MERGED`（成功）或明确失败需要人工介入。
+2. **required checks**：`codex-review` 与 `claude-review` 是 required，二者 `critical/high` 结论会阻塞 auto-merge。CI job（App target / SPM / Lint & policy）任一失败也阻塞。
+3. **有问题直接修** — CI 失败或 reviewer 提出阻塞项时，直接在分支上改代码 → commit → push（改写已 push 的 commit 用 `git push --force-with-lease`），触发重跑，无需等人。修完继续监督。
+4. **常见阻塞项**：
+   - **XcodeGen drift（宪法 IV）**：不要手动提交 `VitalStride.xcodeproj/project.pbxproj`。它是 `xcodegen generate` 的生成产物；CI 会自己跑 xcodegen（`ci.yml`）从 `project.yml` 的目录源引用（`VitalStrideTests` 等）重新生成。新增测试文件**只提交 `.swift` 源文件**，还原 pbxproj 到 main 版本。
+5. **同步本地** — PR 合并后，把 merge 结果同步回本地（`git fetch github && git switch main && git pull`；worktree 场景收尾时同步主 checkout）。
+
