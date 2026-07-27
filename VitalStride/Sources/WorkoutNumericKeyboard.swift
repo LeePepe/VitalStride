@@ -79,18 +79,31 @@ struct WorkoutNumericKeyboardContentView: View {
     /// across taps so repeat presses walk through the cycle.
     @State private var lastRepsByBucket: [PresetRepBucket: Int] = [:]
 
+    // MARK: Visual constants (north-star §11)
+    // All values are hardcoded named constants (not magic numbers) per Stage 4
+    // spec §11.2. Radius / Space tokens come from DesignKit; the pt-level
+    // constants (row spacing, minHeights, side column width) are frozen in
+    // north-star §11 and duplicated here rather than added to DesignKit —
+    // they are keyboard-local rhythm, not global tokens.
+    private let columnSpacing: CGFloat = Space.gap      // 12
+    private let rowSpacing: CGFloat = 8
+    private let outerPadding: CGFloat = Space.cardPadding // 16
+    private let sideColumnWidth: CGFloat = 76
+    private let keyMinHeight: CGFloat = 44
+    private let digitMinHeight: CGFloat = 52
+    private let keyRadius: CGFloat = Radius.inner       // 10
+
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: columnSpacing) {
             leftColumn
-                .frame(maxWidth: 72)
+                .frame(width: sideColumnWidth)
             centerColumn
                 .frame(maxWidth: .infinity)
                 .layoutPriority(1)
             rightColumn
-                .frame(maxWidth: 72)
+                .frame(width: sideColumnWidth)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 8)
+        .padding(outerPadding)
         .background(theme.neutrals.bg)
         .environment(\.theme, theme)
         .accessibilityElement(children: .contain)
@@ -99,7 +112,7 @@ struct WorkoutNumericKeyboardContentView: View {
     // MARK: Left column — function keys
 
     private var leftColumn: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: rowSpacing) {
             functionKey(
                 .addPyramid,
                 content: .symbol("arrow.up.to.line"),
@@ -139,10 +152,10 @@ struct WorkoutNumericKeyboardContentView: View {
             onLeftAction(action)
         } label: {
             functionKeyLabel(content)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(maxWidth: .infinity, minHeight: keyMinHeight)
                 .foregroundStyle(enabled ? theme.neutrals.text2 : theme.neutrals.text3)
                 .background(theme.neutrals.inner)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: keyRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -156,7 +169,7 @@ struct WorkoutNumericKeyboardContentView: View {
         switch content {
         case .text(let text):
             Text(text)
-                .font(.footnote)
+                .font(TypeScale.meta)
                 .fontWeight(.medium)
                 .minimumScaleFactor(0.8)
                 .lineLimit(1)
@@ -177,7 +190,7 @@ struct WorkoutNumericKeyboardContentView: View {
     // MARK: Center column — digit grid + Done row
 
     private var centerColumn: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: rowSpacing) {
             NumericKeypad(mode: keypadMode, onKeyPress: onKeyPress)
         }
     }
@@ -189,7 +202,7 @@ struct WorkoutNumericKeyboardContentView: View {
     // MARK: Right column — preset reps + Done
 
     private var rightColumn: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: rowSpacing) {
             presetKey(
                 .high,
                 label: "15-20",
@@ -222,13 +235,13 @@ struct WorkoutNumericKeyboardContentView: View {
             onPresetReps(result.weightKg, result.reps)
         } label: {
             Text(label)
-                .font(.subheadline)
+                .font(TypeScale.body)
                 .fontWeight(.semibold)
                 .monospacedDigit()
                 .foregroundStyle(theme.primary.primaryText)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(maxWidth: .infinity, minHeight: keyMinHeight)
                 .background(theme.primary.primarySubtle)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: keyRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(a11y)
@@ -240,12 +253,12 @@ struct WorkoutNumericKeyboardContentView: View {
             onDone()
         } label: {
             Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Workout keyboard: Done key label"))
-                .font(.subheadline)
+                .font(TypeScale.title)
                 .fontWeight(.semibold)
                 .foregroundStyle(theme.primary.onPrimary)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(maxWidth: .infinity, minHeight: keyMinHeight)
                 .background(theme.primary.primary)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: keyRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(String(localized: "workout_keyboard.done_a11y", defaultValue: "Finish input", comment: "Workout keyboard: Done key a11y label"))
@@ -477,10 +490,17 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
 
     // MARK: Height policy
 
-    /// Preferred height per spec: iPad ≤ 280pt / iPhone ≤ 260pt.
+    /// Preferred height per spec: iPad ≤ 280pt / iPhone ≤ 260pt (north-star §11).
+    /// Named constants — not magic numbers. Both values are at the upper bound
+    /// so the digit column (4 rows × 52pt minHeight + 3 × 8pt row spacing +
+    /// 2 × 16pt outer padding = 264pt design height) has room to render
+    /// without SwiftUI softening `minHeight` more than ~1pt.
+    private static let iPhonePreferredHeight: CGFloat = 260
+    private static let iPadPreferredHeight: CGFloat = 280
+
     static func preferredHeight() -> CGFloat {
         let isPad = UIDevice.current.userInterfaceIdiom == .pad
-        return isPad ? 260 : 240
+        return isPad ? iPadPreferredHeight : iPhonePreferredHeight
     }
 }
 
@@ -498,7 +518,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         onPresetReps: { _, _ in },
         onDone: {}
     )
-    .frame(height: 240)
+    .frame(height: 260)
 }
 
 #Preview("Reps — warmup (function keys disabled)") {
@@ -513,7 +533,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         onPresetReps: { _, _ in },
         onDone: {}
     )
-    .frame(height: 240)
+    .frame(height: 260)
 }
 
 #endif
