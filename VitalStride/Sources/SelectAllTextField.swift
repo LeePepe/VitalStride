@@ -206,14 +206,48 @@ struct SelectAllTextField: UIViewRepresentable {
                 selection: selection,
                 mode: mode
             )
-            // No-op path (e.g. decimal press with duplicate `.` and no selection):
-            // avoid disturbing the text or the caret.
-            if result.text == current && result.cursor == selection.upperBound {
+            guard let effect = Self.computeEffect(current: current, selection: selection, result: result) else {
+                // True no-op: no live selection AND handler produced no change.
                 return
             }
-            textField.text = result.text
-            text.wrappedValue = result.text
-            setCaret(in: textField, atUTF16Offset: result.cursor)
+            if effect.shouldWriteText {
+                textField.text = effect.newText
+                text.wrappedValue = effect.newText
+            }
+            setCaret(in: textField, atUTF16Offset: effect.newCursor)
+        }
+
+        /// Decision output of the Coordinator's handle-key-press guard. `nil`
+        /// means "true no-op" — do not write text, do not touch the caret.
+        struct Effect: Equatable, Sendable {
+            var shouldWriteText: Bool
+            var newText: String
+            var newCursor: Int
+        }
+
+        /// Pure decision function extracted from `handleKeyPress(_:on:)` so
+        /// the guard can be unit-tested without a real `UITextField`.
+        ///
+        /// The critical invariant (regression: PR #353 P1): a non-empty live
+        /// selection must ALWAYS produce a non-nil `Effect` so the caller
+        /// collapses the highlight to `result.cursor` — even when the handler
+        /// left `text` unchanged and the returned `cursor` happens to equal
+        /// `selection.upperBound`. Only an empty selection with an unchanged
+        /// text + cursor is a true no-op.
+        static func computeEffect(
+            current: String,
+            selection: Range<Int>,
+            result: NumericKeypadInputHandler.Result
+        ) -> Effect? {
+            let hasSelection = selection.lowerBound < selection.upperBound
+            if !hasSelection && result.text == current && result.cursor == selection.upperBound {
+                return nil
+            }
+            return Effect(
+                shouldWriteText: result.text != current,
+                newText: result.text,
+                newCursor: result.cursor
+            )
         }
 
         /// UTF-16 offset range of `textField.selectedTextRange`, or an empty
