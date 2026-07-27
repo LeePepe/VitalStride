@@ -114,6 +114,39 @@ public enum TelemetryEvent: Sendable, Equatable {
     /// See ``suggestionAccepted(advice:)`` for the same privacy constraint on
     /// the `advice` parameter.
     case suggestionOverridden(advice: TelemetryIdentifier)
+
+    // MARK: - Exercise picker diagnostics (MY-1338)
+
+    /// The ExercisePicker's side index bar resolved a new highlight target for
+    /// a different equipment section. Emitted whenever the picker moves the
+    /// visible-highlight from one equipment `from` to another `to`, tagged
+    /// with the canonical `source` identifier (`"drag"` when the change came
+    /// from the side-bar drag gesture, `"scroll"` when it came from natural
+    /// scroll-target visibility).
+    ///
+    /// Used to diagnose the highlight-mismatch bug where drag `onSelect` and
+    /// `onScrollTargetVisibilityChange` race and produce a short-lived
+    /// intermediate highlight on the wrong equipment. Sampling `from → to`
+    /// transitions plus the source lets us see churn without needing raw
+    /// coordinates or timings.
+    ///
+    /// Privacy: `from` / `to` / `source` are all canonical `TelemetryIdentifier`
+    /// values — Constitution §I forbids raw display names, localized strings,
+    /// or health values in this payload.
+    case exercisePickerSectionJump(
+        from: TelemetryIdentifier,
+        to: TelemetryIdentifier,
+        source: TelemetryIdentifier
+    )
+
+    /// The user completed one side-bar index scrub gesture. `count` is the
+    /// number of distinct equipment sections the scrub visited within that
+    /// single gesture — a burst high-`count` value is the signal that the
+    /// highlight is racing / jumping through neighbors instead of settling.
+    ///
+    /// Privacy: `count` is a pure event counter; no equipment identifiers or
+    /// health values are recorded here.
+    case exercisePickerIndexScrubbed(count: Int)
 }
 
 // MARK: - Console formatting
@@ -148,6 +181,8 @@ extension TelemetryEvent {
         case .overviewFallbackTriggered: "overview_fallback_triggered"
         case .suggestionAccepted: "suggestion_accepted"
         case .suggestionOverridden: "suggestion_overridden"
+        case .exercisePickerSectionJump: "exercise_picker_section_jump"
+        case .exercisePickerIndexScrubbed: "exercise_picker_index_scrubbed"
         }
     }
 
@@ -187,6 +222,10 @@ extension TelemetryEvent {
             [("advice", advice.rawValue)]
         case .suggestionOverridden(let advice):
             [("advice", advice.rawValue)]
+        case .exercisePickerSectionJump(let from, let to, let source):
+            [("from", from.rawValue), ("to", to.rawValue), ("source", source.rawValue)]
+        case .exercisePickerIndexScrubbed(let count):
+            [("count", "\(count)")]
         default:
             []
         }

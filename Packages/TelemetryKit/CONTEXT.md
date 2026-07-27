@@ -5,7 +5,8 @@ depends_on: []
 depended_by: []
 red_lines:
   - Telemetry 仅记录计数 / 耗时 / 元数据；禁止上报实际健康数值（心率/体重/步数等）（宪法 I）
-  - 第三方 telemetry SDK 仅限隐私合规的 TelemetryDeck，且只能作为 provider 消费强类型 TelemetryEvent（宪法 V narrow 例外 / ADR-0011）；禁止 AI 第三方 SDK 与任何接受原始健康数值的 provider API
+  - 第三方 telemetry SDK 仅限自建 Aptabase，且只能作为 provider 消费强类型 TelemetryEvent（宪法 V narrow 例外 / ADR-0015 supersedes ADR-0011）；禁止 AI 第三方 SDK 与任何接受原始健康数值的 provider API
+  - DEBUG 构建不发送 analytics（ADR-0015 §Decision.3）
   - Swift 6 strict concurrency，Event/Provider 须 Sendable，分发走 actor（宪法 II）
 roles:
   Types:   [TelemetryEvent, TelemetryProvider]

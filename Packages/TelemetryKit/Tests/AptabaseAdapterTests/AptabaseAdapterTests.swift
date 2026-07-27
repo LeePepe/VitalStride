@@ -93,4 +93,44 @@ final class AptabaseAdapterTests: XCTestCase {
         )
         provider.track(.workoutDiscarded)
     }
+
+    // MARK: - MY-1339 exercise picker diagnostic events map through the facade
+
+    func test_facadeRoundTrip_exercisePickerSectionJump_emitsExpectedSignal() {
+        let fake = FakeSink()
+        let provider = AptabaseAdapter.makeProvider(appKey: "test", sink: fake)
+
+        provider.track(.exercisePickerSectionJump(from: "barbell", to: "dumbbell", source: "drag"))
+
+        XCTAssertEqual(
+            fake.signals,
+            [
+                AnalyticsSignal(
+                    name: "exercise_picker_section_jump",
+                    parameters: [
+                        "from": "barbell",
+                        "to": "dumbbell",
+                        "source": "drag",
+                    ]
+                ),
+            ]
+        )
+    }
+
+    func test_facadeRoundTrip_exercisePickerIndexScrubbed_emitsCountOnly() {
+        let fake = FakeSink()
+        let provider = AptabaseAdapter.makeProvider(appKey: "test", sink: fake)
+
+        provider.track(.exercisePickerIndexScrubbed(count: 4))
+
+        XCTAssertEqual(
+            fake.signals,
+            [
+                AnalyticsSignal(
+                    name: "exercise_picker_index_scrubbed",
+                    parameters: ["count": "4"]
+                ),
+            ]
+        )
+    }
 }
