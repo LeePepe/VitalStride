@@ -45,7 +45,7 @@
 ## T017-02b — Stage 2 post-merge doc alignment (recovery, v2 新增)
 
 **Stage**: 2 · **Status**: **TODO**（Fullstack 起手）
-**Sub-issue**: MY-XXXX（本 planner turn 创建）
+**Sub-issue**: MY-1354
 **Layer**: design docs
 
 ### Files in scope
