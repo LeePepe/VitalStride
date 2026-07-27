@@ -29,6 +29,17 @@ enum NumericKeypadKey: Equatable, Sendable {
 }
 
 enum NumericKeypadInputHandler {
+    /// Result of a selection-aware key press: the new text plus the caret
+    /// position (UTF-16 offset in `text`) where the cursor should land.
+    struct Result: Equatable, Sendable {
+        var text: String
+        var cursor: Int
+    }
+
+    /// Legacy append-at-end handler. Kept for callers / tests that don't yet
+    /// carry a selection range. Equivalent to
+    /// `handleKeyPress(_:currentText:selection:mode:)` with an empty selection
+    /// pinned at the end of `currentText`.
     static func handleKeyPress(
         _ key: NumericKeypadKey,
         currentText: String,
@@ -46,6 +57,94 @@ enum NumericKeypadInputHandler {
             guard !currentText.isEmpty else { return currentText }
             return String(currentText.dropLast())
         }
+    }
+
+    /// Selection-aware handler (MY-1341 / MY-1346).
+    ///
+    /// `selection` is expressed in UTF-16 offsets into `currentText` — the same
+    /// unit `UITextField.selectedTextRange` reports through
+    /// `textField.offset(from:to:)`. Semantics:
+    ///
+    /// - Non-empty selection + digit / decimal: replace the selected substring
+    ///   with the inserted character; caret lands after the insertion.
+    /// - Non-empty selection + delete: drop the selected substring; caret lands
+    ///   at the start of what used to be the selection.
+    /// - Decimal mode: decimal insert is a no-op when the *unselected* part of
+    ///   the text already contains a dot (avoids duplicate `.`); integer mode
+    ///   drops decimal presses entirely.
+    /// - Empty selection: preserves the legacy append-at-end / backspace-from-end
+    ///   behavior of `handleKeyPress(_:currentText:mode:)`; caret lands at the
+    ///   end of the new text.
+    static func handleKeyPress(
+        _ key: NumericKeypadKey,
+        currentText: String,
+        selection: Range<Int>,
+        mode: NumericKeypadMode
+    ) -> Result {
+        let length = currentText.utf16.count
+        let clampedLower = max(0, min(selection.lowerBound, length))
+        let clampedUpper = max(clampedLower, min(selection.upperBound, length))
+        let hasSelection = clampedLower < clampedUpper
+
+        guard hasSelection else {
+            let next = handleKeyPress(key, currentText: currentText, mode: mode)
+            return Result(text: next, cursor: next.utf16.count)
+        }
+
+        let (prefix, suffix) = splitByUTF16(
+            currentText,
+            lower: clampedLower,
+            upper: clampedUpper
+        )
+
+        switch key {
+        case .digit(let n):
+            let replacement = "\(n)"
+            let text = prefix + replacement + suffix
+            let cursor = prefix.utf16.count + replacement.utf16.count
+            return Result(text: text, cursor: cursor)
+        case .decimal:
+            guard mode == .decimal else {
+                // Integer mode: swallow the press but collapse selection to end
+                // of what was previously selected, matching legacy no-op feel.
+                return Result(text: currentText, cursor: clampedUpper)
+            }
+            let remaining = prefix + suffix
+            guard !remaining.contains(".") else {
+                return Result(text: currentText, cursor: clampedUpper)
+            }
+            let replacement = "."
+            let text = prefix + replacement + suffix
+            let cursor = prefix.utf16.count + replacement.utf16.count
+            return Result(text: text, cursor: cursor)
+        case .delete:
+            let text = prefix + suffix
+            let cursor = prefix.utf16.count
+            return Result(text: text, cursor: cursor)
+        }
+    }
+
+    /// Split `text` into (prefix, suffix) around a UTF-16 offset range. Inputs
+    /// to the custom keypad are ASCII digits + optional `.`, so UTF-16 offsets
+    /// always align with `String.Index` boundaries; the fallback still guards
+    /// against unexpected input.
+    private static func splitByUTF16(
+        _ text: String,
+        lower: Int,
+        upper: Int
+    ) -> (prefix: String, suffix: String) {
+        let utf16 = text.utf16
+        let lowerUTF16 = utf16.index(utf16.startIndex, offsetBy: lower)
+        let upperUTF16 = utf16.index(utf16.startIndex, offsetBy: upper)
+        guard
+            let startIdx = lowerUTF16.samePosition(in: text),
+            let endIdx = upperUTF16.samePosition(in: text)
+        else {
+            // Fallback: treat as no selection to avoid corrupting user text on
+            // an unexpected non-ASCII paste.
+            return (text, "")
+        }
+        return (String(text[text.startIndex..<startIdx]), String(text[endIdx..<text.endIndex]))
     }
 }
 
