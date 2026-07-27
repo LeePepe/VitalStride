@@ -4,15 +4,25 @@ import MetricKit
 import os
 import TelemetryKit
 
-/// Subscribes to MetricKit and forwards crash + hang diagnostics through the
-/// telemetry channel (ADR-0012). MetricKit delivers `MXDiagnosticPayload`s on
-/// the launch AFTER the crash/hang occurred; this collector extracts each
-/// diagnostic's call-stack into raw frame strings and hands them to the
-/// package-side, unit-tested `DiagnosticBuilder`, which enforces sanitization.
+/// Subscribes to MetricKit and forwards its two payload streams down two
+/// deliberately separate channels:
+///
+/// - **Diagnostics** (`MXDiagnosticPayload`: crash + hang) → the telemetry
+///   diagnostics channel via `DiagnosticBuilder` (ADR-0012 / ADR-0013). In
+///   Release this is owned by sentry-cocoa (see `emit(...)`).
+/// - **Performance metrics** (`MXMetricPayload`: launch / hang / memory / CPU)
+///   → the product-analytics channel (Aptabase, ADR-0015 §perf) via the
+///   unit-tested `MetricPayloadParser`.
+///
+/// MetricKit delivers payloads on the launch AFTER the event occurred. For the
+/// diagnostics path this collector extracts each diagnostic's call-stack into
+/// raw frame strings and hands them to the package-side, unit-tested
+/// `DiagnosticBuilder`, which enforces sanitization.
 ///
 /// The collector itself is deliberately thin: framework subscription + JSON
-/// flattening only. All privacy-critical assembly lives in `DiagnosticBuilder`
-/// / `DiagnosticSanitizer` (TelemetryKit), which are tested without MetricKit.
+/// hand-off only. All privacy-critical assembly and fragile parsing live in
+/// TelemetryKit (`DiagnosticBuilder` / `DiagnosticSanitizer` /
+/// `MetricPayloadParser`), which are tested without MetricKit.
 ///
 /// Not available on watchOS (MetricKit diagnostics are iOS/macOS).
 final class MetricKitDiagnosticCollector: NSObject, MXMetricManagerSubscriber {
@@ -31,8 +41,25 @@ final class MetricKitDiagnosticCollector: NSObject, MXMetricManagerSubscriber {
     // MARK: MXMetricManagerSubscriber
 
     func didReceive(_ payloads: [MXMetricPayload]) {
-        // Performance metrics are handled elsewhere (or not at all); this
-        // collector only cares about diagnostics.
+        // ADR-0015 §perf (阶段 4): performance metrics (launch / hang / memory /
+        // CPU) travel through the **analytics** channel (Aptabase), a channel
+        // entirely separate from the crash/hang **diagnostics** channel below
+        // (sentry-cocoa / GlitchTip, ADR-0013). All parsing + unit conversion +
+        // histogram aggregation lives in the unit-tested, MetricKit-free
+        // `MetricPayloadParser`; this seam stays thin.
+        for payload in payloads {
+            let events = MetricPayloadParser.events(fromPayloadJSON: payload.jsonRepresentation())
+            for event in events {
+                #if DEBUG
+                // §Decision.4 / SDK TrackingMode: DEBUG does not transport.
+                Self.logger.debug(
+                    "MetricKit perf \(event.eventName, privacy: .public) captured — not sent in DEBUG"
+                )
+                #else
+                TelemetryService.shared.trackNonisolated(event)
+                #endif
+            }
+        }
     }
 
     func didReceive(_ payloads: [MXDiagnosticPayload]) {
