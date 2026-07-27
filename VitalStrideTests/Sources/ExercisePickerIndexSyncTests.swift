@@ -1,4 +1,5 @@
 import Testing
+import TelemetryKit
 import VitalModels
 
 @testable import VitalStride
@@ -269,5 +270,193 @@ struct ExercisePickerIndexSyncTests {
             current = $0; writeCount += 1
         }
         #expect(writeCount == 1)
+    }
+
+    // MARK: - MY-1338: drag-vs-scroll race
+    //
+    // Root cause of the "highlight jumps to neighbour" glitch: the side index
+    // bar's drag `onSelect` calls `gridProxy.scrollTo(equipment, anchor: .top)`
+    // which triggers its own `onScrollTargetVisibilityChange` bursts. Those
+    // bursts arrive with a stale/out-of-order top-visible payload (the
+    // freshly-scrolled section is not yet at the top, so the previous section
+    // still qualifies as top-most), and if the scroll-callback overwrites
+    // `visibleEquipment` mid-drag, the highlight visibly jumps to the neighbour
+    // before snapping to the finger's actual target on the next frame. The
+    // fix makes the drag the sole authority: while `draggedEquipment != nil`
+    // the reducer ignores scroll-derived payloads and returns `current`
+    // unchanged. When the drag ends, the next scroll callback reconciles the
+    // highlight to whatever section is actually top-visible.
+
+    /// Ignoring scroll-derived visibility during drag is the crux of MY-1338.
+    /// The reducer must NOT invoke the setter with the racing payload while
+    /// `isDragging == true`, even when the payload's top-visible section
+    /// differs from `current` — otherwise the finger's target flickers
+    /// through the neighbour.
+    @Test("drag suppresses scroll-derived highlight write (MY-1338)")
+    func dragSuppressesScrollWrite() {
+        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        var writeCount = 0
+        var current: Equipment? = .machine // drag has scrubbed to machine
+
+        // Scroll callback fires mid-drag with an OLDER section (barbell)
+        // reported top-visible — this is the racing payload. Without the
+        // drag-owns-highlight rule, this would flip `current` back to barbell
+        // and the user would see the highlight jump.
+        let resolved = ExercisePickerView.applyVisibleIds(
+            [.barbell, .dumbbell],
+            in: order,
+            current: current,
+            isDragging: true
+        ) { current = $0; writeCount += 1 }
+
+        #expect(resolved == .machine, "drag target must be preserved during scrub")
+        #expect(current == .machine, "drag target must not be overwritten by scroll payload")
+        #expect(writeCount == 0, "no @State write allowed while drag owns the highlight")
+    }
+
+    /// A high-frequency scroll burst during a drag must produce zero writes —
+    /// the drag reducer is a hard mute on the scroll path.
+    @Test("drag suppresses 100 scroll frames without writing (MY-1338)")
+    func dragSuppressesHighFrequencyScroll() {
+        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        var writeCount = 0
+        var current: Equipment? = .cable
+
+        for _ in 0..<100 {
+            _ = ExercisePickerView.applyVisibleIds(
+                [.barbell, .dumbbell],
+                in: order,
+                current: current,
+                isDragging: true
+            ) { current = $0; writeCount += 1 }
+        }
+
+        #expect(writeCount == 0)
+        #expect(current == .cable)
+    }
+
+    /// After drag ends, the next scroll-callback frame MUST reconcile
+    /// `visibleEquipment` to the actual top-visible section reported by the
+    /// scroll view — otherwise the highlight would freeze on the drag target
+    /// even when the grid subsequently scrolls independently.
+    @Test("drag end reconciles highlight to actual top-visible section (MY-1338)")
+    func dragEndReconcilesToScroll() {
+        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        var writeCount = 0
+        var current: Equipment? = .machine // last drag target
+
+        // Drag has ended; scroll animations settle; the grid is actually
+        // top-anchored at `.dumbbell` (perhaps the animated scrollTo(.machine)
+        // did not fully reach the top before the finger lifted). The next
+        // callback MUST update the highlight.
+        _ = ExercisePickerView.applyVisibleIds(
+            [.dumbbell, .machine],
+            in: order,
+            current: current,
+            isDragging: false
+        ) { current = $0; writeCount += 1 }
+
+        #expect(current == .dumbbell)
+        #expect(writeCount == 1)
+    }
+
+    /// The non-drag reducer path must still dedup — the drag-aware overload
+    /// must not accidentally re-enable the per-frame `@State` churn that
+    /// MY-1249 fixed. Regression-guards the interaction between the two.
+    @Test("non-drag reducer still dedups unchanged frames (MY-1338)")
+    func nonDragReducerDedups() {
+        let order: [Equipment] = [.barbell, .dumbbell]
+        var writeCount = 0
+        var current: Equipment? = .dumbbell
+
+        _ = ExercisePickerView.applyVisibleIds(
+            [.dumbbell],
+            in: order,
+            current: current,
+            isDragging: false
+        ) { current = $0; writeCount += 1 }
+
+        #expect(writeCount == 0)
+        #expect(current == .dumbbell)
+    }
+
+    /// Existing 4-argument overload delegates to the drag-aware overload with
+    /// `isDragging: false` — regression cover so the pre-MY-1338 call sites
+    /// (and their tests above) keep the same contract.
+    @Test("legacy 4-arg overload delegates to non-drag path (MY-1338)")
+    func legacyOverloadDelegatesToNonDrag() {
+        let order: [Equipment] = [.barbell, .dumbbell, .machine]
+        var writeCount = 0
+        var current: Equipment? = .barbell
+
+        // Same payload as `dedupWritesOnGenuineChange` — legacy overload
+        // must write exactly once when the top-visible section changes.
+        let resolved = ExercisePickerView.applyVisibleIds(
+            [.dumbbell, .machine],
+            in: order,
+            current: current
+        ) { current = $0; writeCount += 1 }
+
+        #expect(resolved == .dumbbell)
+        #expect(current == .dumbbell)
+        #expect(writeCount == 1)
+    }
+
+    // MARK: - MY-1338: telemetry identifier canonicalisation
+    //
+    // The `exercisePickerSectionJump` event carries `from` / `to` / `source`
+    // as `TelemetryIdentifier`. `TelemetryIdentifier.init(validating:)` rejects
+    // non-canonical strings, which is how Constitution §V + §I keep raw
+    // display names and localized text out of telemetry. These tests lock the
+    // helper that maps `Equipment?` → `TelemetryIdentifier` so a future
+    // rename that introduces a non-ASCII case name fails here first, and so
+    // the two source-tag literals (`"scroll"` / `"drag"`) cannot silently
+    // become free-form strings.
+
+    @Test("equipment maps to canonical telemetry identifier (MY-1338)")
+    func equipmentMapsToCanonicalIdentifier() {
+        // Every Equipment case's rawValue is ASCII lowercase — passing
+        // TelemetryIdentifier.init(validating:) is a construction-time
+        // guarantee. Exercise all six explicitly so a future non-canonical
+        // rename fails here.
+        for equipment in Equipment.allCases {
+            let identifier = ExercisePickerView.telemetryIdentifier(for: equipment)
+            #expect(identifier.rawValue == equipment.rawValue)
+        }
+    }
+
+    @Test("nil equipment maps to canonical sentinel (MY-1338)")
+    func nilEquipmentMapsToSentinel() {
+        #expect(
+            ExercisePickerView.telemetryIdentifier(for: nil)
+                == ExercisePickerView.sectionJumpNone
+        )
+    }
+
+    @Test("section-jump source identifiers are canonical constants (MY-1338)")
+    func sourceIdentifiersAreCanonical() {
+        #expect(ExercisePickerView.sectionJumpSourceScroll.rawValue == "scroll")
+        #expect(ExercisePickerView.sectionJumpSourceDrag.rawValue == "drag")
+        #expect(ExercisePickerView.sectionJumpNone.rawValue == "none")
+    }
+
+    // MARK: - MY-1338: fixed-size section preview popup
+    //
+    // The section-preview popup (visible during scrub) previously grew
+    // horizontally with long equipment names via `minWidth: 140`, which made
+    // the surface visibly resize per scrub target and drift off centre. The
+    // fix locks a hard `width × height`; long names truncate/scale inside.
+
+    @Test("section preview popup dimensions are locked (MY-1338)")
+    func sectionPreviewPopupDimensionsAreLocked() {
+        // Any change here should be intentional and visible in a diff.
+        #expect(ExercisePickerView.sectionPreviewPopupWidth == 160)
+        #expect(ExercisePickerView.sectionPreviewPopupHeight == 160)
+        // Width and height must be equal so the popup is a stable square,
+        // not a rectangle that reads as "resized" between scrub frames.
+        #expect(
+            ExercisePickerView.sectionPreviewPopupWidth
+                == ExercisePickerView.sectionPreviewPopupHeight
+        )
     }
 }
