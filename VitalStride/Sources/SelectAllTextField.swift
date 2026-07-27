@@ -199,10 +199,48 @@ struct SelectAllTextField: UIViewRepresentable {
         private func handleKeyPress(_ key: NumericKeypadKey, on textField: UITextField) {
             let current = textField.text ?? ""
             let mode: NumericKeypadMode = field.isDecimalEnabled ? .decimal : .integer
-            let next = NumericKeypadInputHandler.handleKeyPress(key, currentText: current, mode: mode)
-            guard next != current else { return }
-            textField.text = next
-            text.wrappedValue = next
+            let selection = selectedUTF16Range(in: textField, textLength: current.utf16.count)
+            let result = NumericKeypadInputHandler.handleKeyPress(
+                key,
+                currentText: current,
+                selection: selection,
+                mode: mode
+            )
+            // No-op path (e.g. decimal press with duplicate `.` and no selection):
+            // avoid disturbing the text or the caret.
+            if result.text == current && result.cursor == selection.upperBound {
+                return
+            }
+            textField.text = result.text
+            text.wrappedValue = result.text
+            setCaret(in: textField, atUTF16Offset: result.cursor)
+        }
+
+        /// UTF-16 offset range of `textField.selectedTextRange`, or an empty
+        /// range at end-of-text if there is no selection. Falls back to
+        /// end-of-text on any unexpected nil so callers always get a
+        /// well-defined range.
+        private func selectedUTF16Range(
+            in textField: UITextField,
+            textLength: Int
+        ) -> Range<Int> {
+            guard let selectedRange = textField.selectedTextRange else {
+                return textLength..<textLength
+            }
+            let start = textField.offset(from: textField.beginningOfDocument, to: selectedRange.start)
+            let end = textField.offset(from: textField.beginningOfDocument, to: selectedRange.end)
+            let lower = max(0, min(start, textLength))
+            let upper = max(lower, min(end, textLength))
+            return lower..<upper
+        }
+
+        /// Place the caret at a UTF-16 offset. Clamped to text bounds.
+        private func setCaret(in textField: UITextField, atUTF16Offset offset: Int) {
+            let length = (textField.text ?? "").utf16.count
+            let clamped = max(0, min(offset, length))
+            if let position = textField.position(from: textField.beginningOfDocument, offset: clamped) {
+                textField.selectedTextRange = textField.textRange(from: position, to: position)
+            }
         }
     }
 }
