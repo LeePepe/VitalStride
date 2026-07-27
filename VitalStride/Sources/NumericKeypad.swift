@@ -156,23 +156,23 @@ struct NumericKeypad: View {
     let mode: NumericKeypadMode
     let onKeyPress: @MainActor (NumericKeypadKey) -> Void
 
-    private static let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
+    // Visual constants — north-star §11.
+    private static let gridSpacing: CGFloat = 8
+    private static let digitMinHeight: CGFloat = 52
+    private static let keyRadius: CGFloat = Radius.inner // 10
+
+    private static let columns = Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: 3)
 
     var body: some View {
-        VStack(spacing: 0) {
-            Divider()
-            LazyVGrid(columns: Self.columns, spacing: 8) {
-                ForEach(1...9, id: \.self) { digit in
-                    keyButton(.digit(digit))
-                }
-                decimalKeySlot
-                keyButton(.digit(0))
-                keyButton(.delete)
+        LazyVGrid(columns: Self.columns, spacing: Self.gridSpacing) {
+            ForEach(1...9, id: \.self) { digit in
+                keyButton(.digit(digit))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(theme.neutrals.bg)
+            decimalKeySlot
+            keyButton(.digit(0))
+            keyButton(.delete)
         }
+        .background(theme.neutrals.bg)
         .accessibilityElement(children: .contain)
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
@@ -184,7 +184,7 @@ struct NumericKeypad: View {
             keyButton(.decimal)
         case .integer:
             Color.clear
-                .frame(minHeight: 52)
+                .frame(minHeight: Self.digitMinHeight)
                 .accessibilityHidden(true)
         }
     }
@@ -195,31 +195,23 @@ struct NumericKeypad: View {
             onKeyPress(key)
         } label: {
             Text(key.label)
-                .font(.title2)
-                .fontWeight(.medium)
+                .font(TypeScale.title)
+                .fontWeight(.semibold)
+                .monospacedDigit()
                 .foregroundStyle(keyForeground(key))
-                .frame(maxWidth: .infinity, minHeight: 52)
-                .background(keyBackground(key))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(theme.neutrals.border, lineWidth: 1)
-                )
+                .frame(maxWidth: .infinity, minHeight: Self.digitMinHeight)
+                .background(theme.neutrals.inner)
+                .clipShape(RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(key.a11yLabel)
         .accessibilityAddTraits(.isKeyboardKey)
     }
 
-    private func keyBackground(_ key: NumericKeypadKey) -> Color {
-        switch key {
-        case .delete: theme.neutrals.inner
-        default: theme.neutrals.card
-        }
-    }
-
     private func keyForeground(_ key: NumericKeypadKey) -> Color {
         switch key {
+        // Red line (north-star §11.5): digit keys must never fade to text2/text3.
+        // Delete key softens one step to text2.
         case .delete: theme.neutrals.text2
         default: theme.neutrals.text1
         }
