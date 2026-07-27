@@ -276,3 +276,127 @@ struct NumericKeypadInputHandlerSelectionTests {
         #expect(result.cursor == 1)
     }
 }
+
+// MARK: - Coordinator guard regression (PR #353 P1 → MY-1346)
+
+#if canImport(UIKit) && !os(macOS)
+
+/// Regression coverage for the `SelectAllTextField.Coordinator` no-op guard.
+///
+/// The initial PR #353 short-circuited `handleKeyPress(_:on:)` whenever
+/// `result.text == current && result.cursor == selection.upperBound`. That
+/// condition is also true for a same-text press over a non-empty selection
+/// (e.g. `"12"` with `"2"` selected + digit `2` → handler returns
+/// `text=="12", cursor==2==selection.upperBound`), which meant the visual
+/// highlight was retained and the NEXT key press would replace unrelated
+/// content. Fix: only short-circuit on a truly empty selection.
+@Suite("SelectAllTextField.Coordinator effect guard (PR #353 P1)")
+@MainActor
+struct SelectAllTextFieldCoordinatorEffectTests {
+    typealias Coord = SelectAllTextField.Coordinator
+
+    // Regression: selecting "2" in "12" and pressing "2" must collapse the
+    // caret. Previously the guard returned early and the highlight persisted.
+    @Test("Same-text digit press over selection collapses caret (regression)")
+    func sameTextDigitOverSelectionCollapsesCaret() {
+        let current = "12"
+        let selection = 1..<2 // the trailing "2"
+        let result = NumericKeypadInputHandler.handleKeyPress(
+            .digit(2),
+            currentText: current,
+            selection: selection,
+            mode: .integer
+        )
+        // Handler is deterministic — same text, cursor at end of insertion.
+        #expect(result.text == "12")
+        #expect(result.cursor == 2)
+
+        let effect = Coord.computeEffect(current: current, selection: selection, result: result)
+        // Must produce an Effect (not nil) so the caller collapses the highlight.
+        #expect(effect != nil)
+        #expect(effect?.shouldWriteText == false) // text really is unchanged
+        #expect(effect?.newText == "12")
+        #expect(effect?.newCursor == 2) // caret collapsed to end of what was selected
+    }
+
+    // Same-text press over selection in decimal mode: same regression, decimal key.
+    @Test("Same-text decimal press over selection collapses caret (decimal mode)")
+    func sameTextDecimalOverSelectionCollapsesCaret() {
+        let current = "1.5"
+        let selection = 1..<2 // the "." character
+        let result = NumericKeypadInputHandler.handleKeyPress(
+            .decimal,
+            currentText: current,
+            selection: selection,
+            mode: .decimal
+        )
+        #expect(result.text == "1.5")
+        #expect(result.cursor == 2)
+
+        let effect = Coord.computeEffect(current: current, selection: selection, result: result)
+        #expect(effect != nil)
+        #expect(effect?.shouldWriteText == false)
+        #expect(effect?.newText == "1.5")
+        #expect(effect?.newCursor == 2)
+    }
+
+    // Integer-mode decimal press over selection: handler returns text unchanged
+    // with cursor at selection.upperBound. Must still collapse the highlight.
+    @Test("Integer-mode decimal press over selection still collapses caret")
+    func integerModeDecimalOverSelectionCollapsesCaret() {
+        let current = "60"
+        let selection = 0..<2
+        let result = NumericKeypadInputHandler.handleKeyPress(
+            .decimal,
+            currentText: current,
+            selection: selection,
+            mode: .integer
+        )
+        #expect(result.text == "60") // integer mode swallows decimal
+        #expect(result.cursor == 2)  // collapsed to end of previous selection
+
+        let effect = Coord.computeEffect(current: current, selection: selection, result: result)
+        #expect(effect != nil, "non-empty selection must never be a true no-op")
+        #expect(effect?.shouldWriteText == false)
+        #expect(effect?.newCursor == 2)
+    }
+
+    // Empty-selection duplicate-decimal press is still a genuine no-op — the
+    // guard should return nil here so we don't perturb the caret needlessly.
+    @Test("Empty selection duplicate decimal is a true no-op")
+    func emptySelectionDuplicateDecimalIsNoOp() {
+        let current = "12.5"
+        let selection = 4..<4
+        let result = NumericKeypadInputHandler.handleKeyPress(
+            .decimal,
+            currentText: current,
+            selection: selection,
+            mode: .decimal
+        )
+        #expect(result.text == "12.5")
+        #expect(result.cursor == 4)
+
+        let effect = Coord.computeEffect(current: current, selection: selection, result: result)
+        #expect(effect == nil)
+    }
+
+    // A normal text-changing press still produces an Effect and writes text.
+    @Test("Text-changing press produces write-text effect")
+    func textChangingPressWritesText() {
+        let current = "60"
+        let selection = 0..<2
+        let result = NumericKeypadInputHandler.handleKeyPress(
+            .digit(8),
+            currentText: current,
+            selection: selection,
+            mode: .decimal
+        )
+        let effect = Coord.computeEffect(current: current, selection: selection, result: result)
+        #expect(effect != nil)
+        #expect(effect?.shouldWriteText == true)
+        #expect(effect?.newText == "8")
+        #expect(effect?.newCursor == 1)
+    }
+}
+
+#endif
