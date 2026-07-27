@@ -7,9 +7,12 @@
 
 ---
 
-## 截图生成方法（可复现，真机 iOS Simulator）
+## 截图生成方法（可复现，真机 iOS Simulator + 生产 UITextField.inputView 路径）
 
-> **说明**：前一轮曾用 macOS `ImageRenderer` 光栅化"结构等价的复刻 view"作为替代，被 TL / AI Reviewer 判为 P0 blocker —— macOS 复刻会**掩盖真实设备布局回归**（见 N9）。本轮重写用真 iOS Simulator。
+> **前两轮 P0 修复历史**：
+> - **v1**: 用 macOS `ImageRenderer` 光栅化"结构等价的复刻 view" → P0 (非真机)
+> - **v2**: 用 iOS Simulator 但把 `WorkoutNumericKeyboardContentView` 直接挂到 `VStack + Spacer + .frame(...)` → P0 (真机但**不是生产 inputView 路径**)
+> - **v3（本次，此文档描述的方法）**: iOS Simulator + **真 `UITextField` 聚焦，其 `inputView` 是生产 `WorkoutNumericKeyboard` UIView 实例** → 与未来 Stage 3 `SelectAllTextField` / `SetRow` 的实际线路一致
 
 ### 1. 最小 iOS host（源码包含生产 view，零改动）
 
@@ -39,16 +42,35 @@ targets:
       base: { CODE_SIGNING_ALLOWED: NO, TARGETED_DEVICE_FAMILY: "1,2" }
 ```
 
-`App/KBHostApp.swift` 挂载 `WorkoutNumericKeyboardContentView`（**生产 view 本体，非复刻**）到 `VStack + Spacer + .frame(height: iPad ? 260 : 240)`（与 `WorkoutNumericKeyboard.preferredHeight()` 一致）；`App/WeightUnitShim.swift` 只声明 `enum WeightUnit { case kg, lb }` 用于 `ExerciseDefaults` 编译（`resolvePreset` 代码路径不触碰此类型）。启动参数 `--field weight|reps --set working|warmup --dark 0|1` 选定渲染上下文。
+`App/WeightUnitShim.swift` 只声明 `enum WeightUnit { case kg, lb }` 用于 `ExerciseDefaults` 编译（`resolvePreset` 代码路径不触碰此类型）。启动参数 `--field weight|reps --set working|warmup --dark 0|1` 选定渲染上下文。
 
-**约束满足**：`Files NOT to touch` 中的 `WorkoutNumericKeyboard.swift` / `NumericKeypad.swift` **零改动** —— host 用 `sources: [{ path: absolute }]` 引用它们的原文件。
+**关键：生产 inputView 路径**（`App/KBHostApp.swift`）：
+
+```swift
+// 1) 一个真 UIWindow + UIViewController，overrideUserInterfaceStyle 由 --dark 决定
+// 2) 一个真 UITextField 放在 safe-area 顶部（截图里能看到 "focus me" placeholder）
+// 3) 用生产的 WorkoutNumericKeyboard UIView init 构造实例：
+let keyboard = WorkoutNumericKeyboard(
+    field: HostConfig.field, setType: HostConfig.setType,
+    exercise: nil, recentWeightKg: nil,
+    onKeyPress: { _ in }, onLeftAction: { _ in },
+    onPresetReps: { _, _ in }, onDone: { }
+)
+// 4) 把它挂成 inputView（这就是 Stage 3 SelectAllTextField / SetRow 的做法）：
+textField.inputView = keyboard
+// 5) 让 textField 成为 firstResponder → UIKit 用标准 input-view slide-up 动画呈现
+textField.becomeFirstResponder()
+```
+
+这条链路和生产 Stage 3 wiring 完全一致 —— 键盘作为 `UITextField.inputView` 被 UIKit 呈现，宽度=容器宽度，高度=键盘自己的 `heightAnchor`（生产 `preferredHeight()`：iPhone 240 / iPad 260），slide-up 动画由 UIKit 提供。iPad 截图（S5–S8）在键盘上方能看到 iOS 系统 inputAssistant 条（undo / redo / paste 图标）—— 这条只有真 inputView 呈现时才会出现，本身就是"这是真的 UITextField.inputView 而非 substitute VStack"的额外证据。
+
+**约束满足**：`Files NOT to touch` 中的 `WorkoutNumericKeyboard.swift` / `NumericKeypad.swift` **零改动** —— host 用 `sources: [{ path: absolute }]` 引用原文件；`WorkoutNumericKeyboard` 内部是 `internal` 级别，但因为 xcodegen source-include 到 KBHost 目标本身，在 KBHost 模块作用域内可访问。
 
 ### 2. 捕获 8 张真设备截图
 
 ```bash
-IPHONE=99C94787-8EBC-4A57-94BE-89D4F6EF7414   # iPhone 16, 1179×2556 @3x
-IPAD=7693C4AB-5DEE-4785-BD7B-E17128734146     # iPad Pro 11" M4, 1668×2388 @2x
-BUNDLE=com.tianpli.kbhost
+IPHONE=99C94787-8EBC-4A57-94BE-89D4F6EF7414   # iPhone 16, 1179×2556 px
+IPAD=7693C4AB-5DEE-4785-BD7B-E17128734146     # iPad Pro 11" M4, 1668×2420 px
 
 capture () {
   local udid=$1 appearance=$2 field=$3 setType=$4 name=$5
@@ -56,29 +78,33 @@ capture () {
   xcrun simctl terminate "$udid" "$BUNDLE" 2>/dev/null || true
   xcrun simctl launch --terminate-running-process "$udid" "$BUNDLE" \
       --field "$field" --set "$setType" --dark "$([ $appearance = dark ] && echo 1 || echo 0)"
-  sleep 1.8
+  sleep 2.5   # 等 becomeFirstResponder + inputView slide-up + autolayout settle
   xcrun simctl io "$udid" screenshot --type=png "$OUT/$name.png"
 }
 
 # 8 张 = {iPhone 16, iPad Pro 11"} × {light, dark} × {working+weight, warmup+reps}
 ```
 
-**尺寸**：full-device 截图（未裁剪），iPhone = 1179×2556 px @3x，iPad = 1668×2388 px @2x。这样连**系统 status bar / home indicator / safe-area** 都在结果里 —— 恰好是"用户真正看到什么"的诊断素材，也让 N9（右列缺失）无法被裁剪掩盖。
+**尺寸**（`sips -g pixelWidth -g pixelHeight` 实测）：full-device 截图（未裁剪）
+- iPhone 16 = **1179 × 2556 px**
+- iPad Pro 11" M4 = **1668 × 2420 px**（注：不是 1668×2388；先前记录有误，本轮已按实测修正）
+
+这样连**系统 status bar / home indicator / iPad inputAssistant 条** 都在结果里 —— 恰好是"用户真正看到什么"的诊断素材，也让 N9（右列缺失）无法被裁剪掩盖。
 
 ---
 
 ## 截图清单
 
-| # | 文件 | 设备 | Field | SetType | Appearance | 原尺寸 |
+| # | 文件 | 设备 | Field | SetType | Appearance | 原尺寸 (px) |
 |---|------|------|-------|---------|-----------|-----|
 | S1 | `iphone16-working-weight-light.png` | iPhone 16       | weight | working | Light | 1179×2556 |
 | S2 | `iphone16-working-weight-dark.png`  | iPhone 16       | weight | working | Dark  | 1179×2556 |
 | S3 | `iphone16-warmup-reps-light.png`    | iPhone 16       | reps   | warmup  | Light | 1179×2556 |
 | S4 | `iphone16-warmup-reps-dark.png`     | iPhone 16       | reps   | warmup  | Dark  | 1179×2556 |
-| S5 | `ipadpro11-working-weight-light.png`| iPad Pro 11" M4 | weight | working | Light | 1668×2388 |
-| S6 | `ipadpro11-working-weight-dark.png` | iPad Pro 11" M4 | weight | working | Dark  | 1668×2388 |
-| S7 | `ipadpro11-warmup-reps-light.png`   | iPad Pro 11" M4 | reps   | warmup  | Light | 1668×2388 |
-| S8 | `ipadpro11-warmup-reps-dark.png`    | iPad Pro 11" M4 | reps   | warmup  | Dark  | 1668×2388 |
+| S5 | `ipadpro11-working-weight-light.png`| iPad Pro 11" M4 | weight | working | Light | 1668×2420 |
+| S6 | `ipadpro11-working-weight-dark.png` | iPad Pro 11" M4 | weight | working | Dark  | 1668×2420 |
+| S7 | `ipadpro11-warmup-reps-light.png`   | iPad Pro 11" M4 | reps   | warmup  | Light | 1668×2420 |
+| S8 | `ipadpro11-warmup-reps-dark.png`    | iPad Pro 11" M4 | reps   | warmup  | Dark  | 1668×2420 |
 
 ---
 
