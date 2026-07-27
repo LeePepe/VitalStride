@@ -22,7 +22,10 @@ FS 在 Multica daemon 提供的 `~/multica_workspaces/<workspace>/<task-id>/work
 
 - 权威 remote = `github`。
 - 用 `git fetch github main` + `git diff github/main...HEAD` 校验 diff。
-- `git push` 使用 `--no-verify`（daemon workdir 内 pre-push hook 可能超时；服务端 required CI 是权威门）。
+- `git push` 走 **normal push**（`git push -u github HEAD:$BRANCH`），让 `pre-push` hook 跑
+  `xcodebuild test` 本地门（`AGENTS.md` §FS workflow 强制）。**禁 `--no-verify`**——绕过 pre-push
+  等于放弃 AGENTS.md §182-200 定义的本地权威门。若 hook 因 daemon workdir 环境异常失败，先修
+  hook / 环境，不要绕过。
 - 目标 shell = macOS BSD grep + Swift 6 toolchain + Xcode。
 
 ## 3. SPM-only Hook 分析
@@ -49,7 +52,9 @@ FS 在 Multica daemon 提供的 `~/multica_workspaces/<workspace>/<task-id>/work
 
 ## 5. DesignKit Token Menu
 
-允许消费的现有 token（从 `Packages/DesignKit/Sources/DesignKit/Theme.swift` / `ColorSystem.swift` 提取）：
+允许消费的现有 token（从 `Packages/DesignKit/Sources/DesignKit/Color/Theme.swift` /
+`Packages/DesignKit/Sources/DesignKit/Color/ColorSystem.swift` 提取——AI Reviewer 修正：`Color/`
+子目录是权威路径）：
 
 - **颜色**：`theme.primary.{primary, primaryHover, primaryActive, primarySubtle, primaryMuted, primaryBorder, primaryText, onPrimary, ring}`；`theme.neutrals.{text1, text2, bg}`。
 - **圆角**：`Radius.inner`（10）或 `Radius.card`（14）。
@@ -63,7 +68,8 @@ FS 在 Multica daemon 提供的 `~/multica_workspaces/<workspace>/<task-id>/work
 - **Base**：`main` on `github` remote。
 - **Feature branch**：`agent/my-1348-<task-id-short>`（Multica daemon 自动生成）。
 - **Commit**：单 commit or 少量 logical commits；commit message 使用 conventional format。
-- **Push**：`git push -u github HEAD:$BRANCH --no-verify`。
+- **Push**：`git push -u github HEAD:$BRANCH`（**不加 `--no-verify`**——pre-push hook 是本地权威门，
+  `AGENTS.md` §182-200 强制）。
 - **PR**：`gh pr create --base main --head "$BRANCH" --title "refactor(active-workout): addSetButton 视觉重设计 (MY-1348)"`。
 - **Required CI**（服务端权威门）：`Lint & policy` + `SPM (6×)` + `App target` + `claude-review` + `codex-review` 全绿。
 - **Merge**：GitHub auto-merge (squash)。TL 在 review PASS + `gh pr view --json state` 见 `MERGED` 后收尾。
@@ -81,15 +87,23 @@ FS 在 Multica daemon 提供的 `~/multica_workspaces/<workspace>/<task-id>/work
 
 ## 8. Verification Command (per `AGENTS.md`, layer = app target)
 
-```bash
-# 主验证（iOS Simulator app target）
-xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride \
-  -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
+**主验证（app target = `AGENTS.md` §82 强制 `xcodebuild test` 到 iPhone 16 Simulator）**：
 
-# 补充验证（Mac Catalyst — addSetButton 在 Mac 上也渲染）
-xcodebuild build -project VitalStride.xcodeproj -scheme VitalStrideMac \
-  -destination 'generic/platform=macOS' -skipPackagePluginValidation
+```bash
+xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -skipPackagePluginValidation
 ```
+
+**补充构建冒烟（可选，非权威）**：`generic/iOS Simulator` build 可加速迭代反馈但不能替代 `test`。
+
+**关于 `VitalStrideMac`**：`project.yml:140-166` 显示 `VitalStrideMac` target 的 `sources:` 仅
+显式列出 `VitalStride/Sources/` 下少数根级文件（`ExerciseSeeder.swift` / `AIView.swift` /
+`OnboardingView.swift` 等），**未包含** `VitalStride/Sources/ActiveWorkout/` 目录，因此
+`ActiveExerciseSection.swift` **不在** `VitalStrideMac` 构建路径中。`xcodebuild build ... -scheme
+VitalStrideMac` 对本 patch **不构成验证信号**，此前 §A-2 的宣称是错误的，已在 `tasks.md` 中撤除。
+若未来 macOS 场景需真实验证，需先在 `project.yml` 显式添加 `ActiveWorkout/` 到 `VitalStrideMac.sources`
+——那是另一个 issue 的范围。
 
 （`Packages/` 无改动，禁用 `swift build/test`；SPM-only hook 不触发。）
 
