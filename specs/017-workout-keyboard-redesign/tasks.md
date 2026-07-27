@@ -2,253 +2,159 @@
 
 **Spec**: `specs/017-workout-keyboard-redesign/spec.md`
 **Plan**: `specs/017-workout-keyboard-redesign/plan.md`
-**Version**: v1 (2026-07-27)
-**Execution dir**: Multica daemon workdir 根（**禁 cd 用户主 checkout**）
+**Version**: v2 (2026-07-27) — retrofit for PR #362 post-merge reality
+**Execution dir**: Multica daemon workdir 根
 
 ---
 
 ## T017-01 — 现状截图诊断 + 归档 spec/plan/tasks
 
-**Stage**: 1（`--status todo` 立即开工）
+**Stage**: 1 · **Status**: **DONE** in commit `d8d526e` (PR #355)
+**Sub-issue**: MY-1349
 **Layer**: design assets + design docs
-**Depends on**: —
 
-### Files in scope
-
-- `design/keyboard-current-shots/*.png` (≥6 张，新增)
-- `design/keyboard-current-shots/diagnosis.md` (新增)
-- `specs/017-workout-keyboard-redesign/spec.md` (新增，内容 = 本 v1 附件)
-- `specs/017-workout-keyboard-redesign/plan.md` (新增，内容 = 本 v1 附件)
-- `specs/017-workout-keyboard-redesign/tasks.md` (新增，内容 = 本 v1 附件)
-
-### Files NOT to touch
-
-- `VitalStride/Sources/WorkoutNumericKeyboard.swift`（生产键盘，Stage 4）
-- `VitalStride/Sources/NumericKeypad.swift`（生产键盘，Stage 4）
-- `design/north-star.md`（Stage 2 追加 §11）
-- `design/keyboard-redesign-audit.md`（历史 audit，不动）
-- `Prototype/**`（Stage 2）
-- `design/prototype-shots/keyboard-*.png`（Stage 2）
-- `design/keyboard-review.md`（Stage 3）
-
-### Public signatures / API
-
-none — 纯 design assets + docs 产出，无代码 API 面变化
-
-### Functional acceptance criteria
-
-- 在 iOS Simulator（iPhone 16 + iPad Pro 11" 各一）以浅/深两种 appearance 打开当前生产键盘，覆盖 (working set + weight field) 和 (warmup + reps field) 两种上下文，共 ≥6 张截图落到 `design/keyboard-current-shots/`
-- `diagnosis.md` 逐图列出视觉问题，至少 3 项**新增**观察（不重复 `design/keyboard-redesign-audit.md` 已覆盖的 P0/P1）；引用 audit 编号（如 "P1-a"、"P2-b"）建立对应
-- `specs/017-workout-keyboard-redesign/{spec,plan,tasks}.md` 三文件按 handoff comment 附件内容落地
-- 提交时 commit message 引用 MY-1342
-
-### Verification command
-
-在 workdir 根：
-```
-[ "$(ls design/keyboard-current-shots/*.png 2>/dev/null | wc -l | tr -d ' ')" -ge "6" ] \
-  && [ -s design/keyboard-current-shots/diagnosis.md ] \
-  && grep -qE 'P[0-3]' design/keyboard-current-shots/diagnosis.md \
-  && [ -f specs/017-workout-keyboard-redesign/spec.md ] \
-  && [ -f specs/017-workout-keyboard-redesign/plan.md ] \
-  && [ -f specs/017-workout-keyboard-redesign/tasks.md ] \
-  && echo OK
-```
+已交付：`design/keyboard-current-shots/*.png` ≥6、`diagnosis.md`、`specs/017-workout-keyboard-redesign/{spec,plan,tasks}.md` v1（v1 内容将被 T017-02b 用 v2 替换）。
 
 ---
 
-## T017-02 — north-star §11 + Prototype + prototype 截图
+## T017-02a — north-star §11 + Prototype + PrototypeShotExporter + shots
 
-**Stage**: 2（初始 `--status backlog`；T017-01 完成后 TL 提升）
+**Stage**: 2 · **Status**: **DONE** in commit `25d95cd` (PR #362 merged 2026-07-27T15:56:04Z)
+**Sub-issue**: MY-1350（in_review，待关闭）
 **Layer**: design docs + Prototype SPM package + design assets
-**Depends on**: T017-01
+
+### Files delivered (all merged to main)
+
+- `design/north-star.md` (+86, appended §11 只追加，其余段一字不动)
+- `Prototype/Sources/Prototype/WorkoutKeyboardPrototype.swift` (+274, library target)
+- **`Prototype/Package.swift` (+43)** — 追加 `PrototypeShotExporter` executable target；library `Prototype` target 依赖冻结在 `[DesignKit]`（**v2 追认为 in-scope**）
+- **`Prototype/Sources/PrototypeShotExporter/main.swift` (+85, new)** — macOS-only CLI (`import AppKit`)；`swift run PrototypeShotExporter <output-dir>` 导出 4 PNG（**v2 追认为 in-scope**）
+- **`.gitignore` (+7 -2)** — 追加 `Prototype/.build/`、`Prototype/.swiftpm/` 忽略（**v2 追认为 in-scope**）
+- `design/prototype-shots/keyboard-{iphone,ipad}-{light,dark}.png` ×4
+
+### v2 keep/revert 决策（每一改动逐项）
+
+| File | 决策 | 理由 |
+|---|---|---|
+| `Prototype/Package.swift` | **KEEP** | 加法性改动；无 executable target 则 v1 verification 物理不可行；library target 依赖冻结 |
+| `Prototype/Sources/PrototypeShotExporter/main.swift` | **KEEP** | 设计工具；封装 SwiftUI→PNG 机制；不进 app target |
+| `.gitignore` (+7 -2) | **KEEP** | 只忽略 SPM 产物；生产零影响 |
+
+---
+
+## T017-02b — Stage 2 post-merge doc alignment (recovery, v2 新增)
+
+**Stage**: 2 · **Status**: **TODO**（Fullstack 起手）
+**Sub-issue**: MY-XXXX（本 planner turn 创建）
+**Layer**: design docs
 
 ### Files in scope
 
-- `design/north-star.md`（**追加** §11 「Workout Numeric Keyboard」子章节；其他段不动）
-- `Prototype/Sources/Prototype/WorkoutKeyboardPrototype.swift`（新增）
-- `design/prototype-shots/keyboard-iphone-light.png`
-- `design/prototype-shots/keyboard-iphone-dark.png`
-- `design/prototype-shots/keyboard-ipad-light.png`
-- `design/prototype-shots/keyboard-ipad-dark.png`
-- （可选）`design/prototype-shots/keyboard-iphone-warmup-dark.png` 等 disabled 态截图
+- `specs/017-workout-keyboard-redesign/spec.md` — 用 v2 版本**完整替换**
+- `specs/017-workout-keyboard-redesign/plan.md` — 用 v2 版本**完整替换**
+- `specs/017-workout-keyboard-redesign/tasks.md` — 用 v2 版本**完整替换**
 
 ### Files NOT to touch
 
-- `VitalStride/Sources/WorkoutNumericKeyboard.swift`（Stage 4）
-- `VitalStride/Sources/NumericKeypad.swift`（Stage 4）
-- `VitalStride/Sources/ActiveWorkout/**`（生产 wiring 不动）
-- `design/keyboard-redesign-audit.md`（历史 audit）
-- `design/keyboard-current-shots/**`（Stage 1 产出）
-- `Prototype/Package.swift`（现有 `swift build --package-path Prototype` 已够用，不加依赖）
-- `design/keyboard-review.md`（Stage 3）
-- `Packages/DesignKit/**`（token 只读，禁改）
+- `Prototype/**` — Stage 2a 已定型，不动
+- `.gitignore` — 已定型
+- `design/north-star.md` — Stage 2a 已定型
+- `design/prototype-shots/**` — Stage 2a 已定型
+- `design/keyboard-current-shots/**` — Stage 1 已定型
+- `design/keyboard-redesign-audit.md` — 历史 audit
+- `VitalStride/Sources/WorkoutNumericKeyboard.swift` / `NumericKeypad.swift` — Stage 4
+- `VitalStride/Sources/ActiveWorkout/**`
+- `Packages/**`（含 DesignKit token）
+- `project.yml` / `.xcodeproj`
+- `design/keyboard-review.md` — Stage 3
 
 ### Public signatures / API
 
-`Prototype/Sources/Prototype/WorkoutKeyboardPrototype.swift`：
-
-- 新增 `struct WorkoutKeyboardPrototype: View`——纯 view，构造参数与生产 `WorkoutNumericKeyboardContentView` 对齐但**用 mock 枚举**（在同文件顶部 `private enum PrototypeSetField / PrototypeLeftKeyAction / PrototypePresetBucket`）
-- 至少 4 个 `#Preview("iPhone Light" / "iPhone Dark" / "iPad Light" / "iPad Dark")`；每个 preview 设 `.frame(width: 393/1024, height: 240/260)` 和 `.environment(\.colorScheme, .light/.dark)`
-- **不 export、不桥 UIKit、不 import 生产模块**
-
-### Files NOT to introduce as dependencies
-
-Prototype 不允许新增以下 import：`VitalStride`、`VitalModels`、`SwiftData`、`HealthKitService`、`AIService`、`VitalUI`、`UIKit`（保持 SwiftUI-only + DesignKit）
+none — internal-only change (纯 spec/plan/tasks 文档更新)
 
 ### Functional acceptance criteria
 
-- `design/north-star.md` §11 覆盖 spec §4 全部可检查条目：圆角（三档 pt 值）、间距（scale + pt）、三档配色（token 路径）、字号（TypeScale 或 font）、每键 foregroundStyle token、深/浅色参考截图路径
-- north-star §11 明确写出「数字键必须 `.foregroundStyle(theme.neutrals.text1)`」（红线，禁 audit P0 复发）
-- `Prototype/Sources/Prototype/WorkoutKeyboardPrototype.swift` 至少 4 个 `#Preview`，视觉上覆盖三档层级（Done 实心 / preset subtle / 功能键 inner / 数字键 card）
-- `swift build --package-path Prototype` 通过（Prototype 自包含）
-- `design/prototype-shots/keyboard-*.png` ≥4 张，文件名遵循 `keyboard-{iphone|ipad}-{light|dark}[.-suffix].png`
+- `specs/017-workout-keyboard-redesign/spec.md` 首部含 `**Version**: v2`
+- `specs/017-workout-keyboard-redesign/plan.md` 首部含 `**Version**: v2`
+- `specs/017-workout-keyboard-redesign/tasks.md` 首部含 `**Version**: v2`
+- spec 显式声明 `PrototypeShotExporter` 是 v2 authorize 的 in-scope 文件（`grep -qE 'PrototypeShotExporter' spec.md`）
+- spec 显式声明 `.gitignore` v2 处置（`grep -qE '\.gitignore' spec.md`）
+- `PrototypeShotExporter` 未进 app target 依赖图（`grep` 反证）
+- `PrototypeShotExporter/main.swift` 不 import 生产模块（`VitalStride`/`VitalModels`/`SwiftData`/`HealthKitService`/`AIService`/`VitalUI`）
+- Prototype library target dependencies 恰为 `[DesignKit]`（`swift package dump-package | jq -e`）
+- `swift build --package-path Prototype` 仍绿
+- `swift run --package-path Prototype PrototypeShotExporter design/prototype-shots` 可复现 4 PNG（覆盖式；PNG 内容差异不影响本 stage 通过——只要能 run）
 
 ### Verification command
 
 在 workdir 根：
+
 ```
-swift build --package-path Prototype \
-  && [ "$(ls design/prototype-shots/keyboard-*.png 2>/dev/null | wc -l | tr -d ' ')" -ge "4" ] \
-  && grep -qE '^## 11\. Workout Numeric Keyboard|^## 11\. 训练页.*键盘' design/north-star.md \
-  && grep -qE 'Radius|圆角' design/north-star.md \
-  && grep -qE 'primary|primarySubtle|inner' design/north-star.md \
-  && grep -qE 'foregroundStyle|text1' design/north-star.md \
-  && [ "$(grep -c '#Preview' Prototype/Sources/Prototype/WorkoutKeyboardPrototype.swift)" -ge "4" ] \
-  && ! grep -E '^import (VitalStride|VitalModels|SwiftData|HealthKitService|AIService|VitalUI)' Prototype/Sources/Prototype/WorkoutKeyboardPrototype.swift \
-  && echo OK
+# S1: v2 版本号
+grep -q '^\*\*Version\*\*: v2' specs/017-workout-keyboard-redesign/spec.md
+grep -q '^\*\*Version\*\*: v2' specs/017-workout-keyboard-redesign/plan.md
+grep -q '^\*\*Version\*\*: v2' specs/017-workout-keyboard-redesign/tasks.md
+
+# S2: v2 显式声明已合入 out-of-scope 文件的处置
+grep -qE 'PrototypeShotExporter' specs/017-workout-keyboard-redesign/spec.md
+grep -qE '\.gitignore' specs/017-workout-keyboard-redesign/spec.md
+
+# S3: PrototypeShotExporter 未进 app target 依赖图
+! grep -rn 'PrototypeShotExporter' VitalStride/Sources VitalStrideMac/Sources 'VitalStrideWatch Watch App/Sources' project.yml 2>/dev/null
+
+# S4: PrototypeShotExporter 不 import 生产模块
+! grep -E '^import (VitalStride|VitalModels|SwiftData|HealthKitService|AIService|VitalUI)' \
+     Prototype/Sources/PrototypeShotExporter/main.swift
+
+# S5: Prototype library target dependencies 未污染
+swift package dump-package --package-path Prototype \
+  | jq -e '.targets[] | select(.name == "Prototype") | (.dependencies | length == 1) and (.dependencies[0].product[0] == "DesignKit")'
+
+# S6: Prototype 仍可 build + PNG 导出可复现
+swift build --package-path Prototype
+swift run --package-path Prototype PrototypeShotExporter design/prototype-shots
+
+echo OK
 ```
+
+### 依赖
+
+前置：T017-02a merged（`25d95cd`）。本 stage 不动任何 code，Fullstack 起手直接改文档。
+
+### Branch
+
+新 feature branch `docs/my1342-s2-alignment` (or 继承 parent branch)；PR 描述引用 T017-02a PR #362 + AI Reviewer FAIL findings 的 close-the-loop 关系。
+
+### Test 策略
+
+无代码变更；verification 六条 probe 全为文档 + `swift build`/`swift run` 复现。
 
 ---
 
 ## T017-03 — 客观 design review 报告
 
-**Stage**: 3（初始 `--status backlog`；T017-02 完成后 TL 提升）
-**Layer**: design docs
-**Depends on**: T017-02
+**Stage**: 3 · **Status**: **BACKLOG**（保持 gated；T017-02b 完成后 TL 提升）
+**Sub-issue**: MY-1351
 
-### Files in scope
+内容不变：`design/keyboard-review.md` 五段固定结构（vs north-star / vs audit / a11y / 高度实测 / 结论）；结论 = PASS 才允许交回请求提升 T017-04。
 
-- `design/keyboard-review.md`（新增）
-
-### Files NOT to touch
-
-- 生产键盘代码（Stage 4）
-- Prototype 代码（Stage 2 已定型；如 review 发现问题，回 Stage 2 补丁，不在本 stage 改）
-- north-star / audit / current-shots / prototype-shots（本 stage 只对照，不修改）
-
-### Public signatures / API
-
-none — 纯 review 报告
-
-### Functional acceptance criteria
-
-- `design/keyboard-review.md` 结构固定五段（spec §7 C-2）：
-  - `## vs north-star §11`——逐条打钩，每条对照具体 prototype 截图
-  - `## vs audit（2026-07-14）`——audit 每一条 P0/P1/P2/P3 回归验证，标注 fixed/pending/n-a
-  - `## a11y`——44pt hit target（每键实测 pt）/ VoiceOver 逐键 label / Dynamic Type xxxLarge 截断检查 / Reduce Motion 影响
-  - `## 高度实测`——iPhone/iPad 实际 preview 高度数字，vs ≤260/≤280 上限
-  - `## 结论`——`PASS` 或 `FAIL`；FAIL 需列具体不达标项和回到 Stage 2 的补丁范围
-- 结论 = PASS 才允许交回 TL 请求提升 T017-04；FAIL 需在同 comment 提出 Stage 2 补丁范围，TL 回退到 T017-02 补丁 loop
-
-### Verification command
-
-在 workdir 根：
-```
-[ -s design/keyboard-review.md ] \
-  && grep -qE '^## vs north-star' design/keyboard-review.md \
-  && grep -qE '^## vs audit' design/keyboard-review.md \
-  && grep -qE '^## a11y' design/keyboard-review.md \
-  && grep -qE '^## 高度实测' design/keyboard-review.md \
-  && grep -qE '^## 结论' design/keyboard-review.md \
-  && echo OK
-```
+**门禁强化**：T017-02b **未 done** 前，MY-1351 严禁提升 backlog→todo（避免 review 报告引用 v1 结构再次错位）。
 
 ---
 
-## T017-04 — 生产键盘迁移（**被 TL 门禁**）
+## T017-04 — 生产键盘迁移（TL 双门禁）
 
-**Stage**: 4（初始 `--status backlog`；T017-03 结论 PASS **且** TL 显式回执确认后才提升）
-**Layer**: app target
-**Depends on**: T017-03（含 review 结论 PASS）
+**Stage**: 4 · **Status**: **BACKLOG**（保持 gated；T017-03 结论 PASS + TL 显式回执才提升）
+**Sub-issue**: MY-1352
 
-### Files in scope
-
-- `VitalStride/Sources/WorkoutNumericKeyboard.swift`
-- `VitalStride/Sources/NumericKeypad.swift`
-
-### Files NOT to touch
-
-- `VitalStride/Sources/ActiveWorkout/SetRow.swift`（生产 wiring 不动——契约冻结）
-- `VitalStride/Sources/ActiveWorkout/ActiveWorkoutView.swift`
-- `VitalStride/Sources/SelectAllTextField.swift`（inputView 挂点不动）
-- `VitalModels/**`（`SetField` / `SetType` / `LeftKeyAction` / `PresetRepBucket` / `Exercise` / `ExerciseDefaults` 冻结）
-- `Packages/DesignKit/**`（token 只读，禁改）
-- `VitalStrideTests/Sources/WorkoutCopyToNextTests.swift`（覆盖 Copy 行为，禁改）
-- `VitalStrideTests/Sources/WorkoutNumericKeyboardThemeTests.swift`（如需补充测试，追加新文件）
-- `VitalStrideTests/Sources/NumericKeypadTests.swift`
-- `project.yml` / `.xcodeproj`（本 stage 无 xcodegen 变更）
-- `Prototype/**` / `design/**`（前 3 stage 产出，本 stage 只消费）
-
-### Public signatures / API
-
-**全部冻结（红线）**：
-
-- `WorkoutNumericKeyboardContentView` 构造签名（`field: SetField, setType: SetType, exercise: Exercise?, recentWeightKg: Double?, theme: Theme, onKeyPress: ..., onLeftAction: ..., onPresetReps: ..., onDone: ...`）
-- `WorkoutNumericKeyboard` UIView 构造签名与 `update(field:setType:exercise:recentWeightKg:)` 方法
-- `WorkoutNumericKeyboard.resolveTheme(isDark:) -> Theme` static
-- `WorkoutNumericKeyboard.preferredHeight() -> CGFloat` static
-- `WorkoutNumericKeyboard.enableInputClicksWhenVisible: Bool` (protocol 要求)
-- `enum LeftKeyAction` 全 case
-- `enum SetField` 全 case + `isDecimalEnabled` / `isWeightField`
-- `NumericKeypad` public 面（不改 mode/onKeyPress/`NumericKeypadKey`/`NumericKeypadMode`）
-- 内部实现（`leftColumn` / `centerColumn` / `rightColumn` / `functionKey` / `presetKey` / `doneKey` / `keypadMode`）可**改视觉细节**（padding/spacing/radius/foregroundStyle/background token），**不改行为**
-
-### Functional acceptance criteria
-
-- 视觉层严格按 `design/north-star.md` §11 落地——三档层级配色/圆角/间距/字号/foregroundStyle 全对齐 Stage 2 定型的 prototype
-- 所有硬编码颜色 / 系统色 / hex 清零（spec §7 D-4 grep 空）
-- 交互契约零回归：所有回调签名、`LeftKeyAction` 枚举、disabled 逻辑（`setType != .working` 时金字塔/递减 disabled）、preset cycling（`lastRepsByBucket`）、a11y label / `.isKeyboardKey` trait 保留
-- 高度约束不变：`preferredHeight()` 仍返回 iPad 260 / iPhone 240（或按 spec 允许 iPad ≤280 / iPhone ≤260 上限内的微调，但值必须硬编码常量非魔法数）
-- ≥44pt hit target 覆盖所有键（`.frame(..., minHeight: 44)` 或更大）
-- 深/浅色都需人工过一次真机（iPhone `deploy-to-phone.sh 陪陪`）——不做自动化门禁，但 PR 描述需附深/浅色截图对比 before/after
-- 三个现有测试全 pass（spec §7 D-2）
-- 无 Swift 6 并发规避（spec §7 D-5）
-- commit message 引用 MY-1342；PR 描述引用 spec/review 路径
-
-### Verification command
-
-在 workdir 根，按顺序：
-```
-# build
-xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride \
-  -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
-
-# 三个现有测试
-xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride \
-  -destination 'platform=iOS Simulator,name=iPhone 16' -skipPackagePluginValidation \
-  -only-testing:VitalStrideTests/WorkoutNumericKeyboardThemeTests \
-  -only-testing:VitalStrideTests/NumericKeypadTests \
-  -only-testing:VitalStrideTests/WorkoutCopyToNextTests
-
-# grep 门禁（全部为空）
-! grep -rnE 'Color\.(red|blue|green|orange|yellow|purple|pink|white|black|gray)|Color\(hex|#[0-9A-Fa-f]{6}|systemGroupedBackground|secondarySystemBackground|tertiarySystemBackground|accentColor' \
-     VitalStride/Sources/WorkoutNumericKeyboard.swift VitalStride/Sources/NumericKeypad.swift
-
-! grep -rnE '@preconcurrency|@unchecked[[:space:]]+Sendable|nonisolated\(unsafe\)' \
-     VitalStride/Sources/WorkoutNumericKeyboard.swift VitalStride/Sources/NumericKeypad.swift
-
-# 契约冻结：拉 github/main 比 diff
-git fetch github main
-! git diff github/main...HEAD -- VitalStride/Sources/WorkoutNumericKeyboard.swift \
-    | grep -E '^-.*(enum LeftKeyAction|case (addPyramid|addDropSet|toggleUnilateral|copyToNext)|static func resolveTheme|static func preferredHeight|enableInputClicksWhenVisible)'
-```
+内容不变（v1 版本沿用）。verification：`xcodebuild build` + 三个现有测试全 pass + grep 门禁清零（硬编码颜色/系统色/hex/并发规避）+ `git diff github/main...HEAD` 反证契约冻结（`enum LeftKeyAction`、全 case、`resolveTheme`、`preferredHeight`、`enableInputClicksWhenVisible`）+ `.isKeyboardKey` trait 数不减少。
 
 ---
 
 ## 汇总门禁
 
-- Stage 1 → 2：spec/plan/tasks 归位 + ≥6 张现状截图 + diagnosis.md
-- Stage 2 → 3：north-star §11 覆盖必检项 + Prototype 独立 build + ≥4 张 prototype 截图
-- Stage 3 → 4：**review 结论 PASS + TL 显式回执**
-- Stage 4 → done：build + 3 test + grep 门禁 + 真机双色截图对比 PR
+- Stage 1 → 2a：已达 (2026-07-27T13:xx merged)
+- Stage 2a → 2b：已达 (2026-07-27T15:56 merged)
+- **Stage 2b → 3：v2 spec/plan/tasks 落 main + T017-02b probe 全绿 + TL 验收**
+- Stage 3 → 4：review 结论 PASS + TL 显式回执
+- Stage 4 → done：build + 3 test + grep 门禁 + 真机双色截图 PR
