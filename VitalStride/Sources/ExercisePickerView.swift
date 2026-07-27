@@ -3,6 +3,7 @@ import DesignKit
 import os
 import SwiftData
 import SwiftUI
+import TelemetryKit
 import VitalModels
 #if canImport(UIKit)
 import UIKit
@@ -23,6 +24,12 @@ struct ExercisePickerView: View {
     @State private var selectedExercises: [Exercise] = []
     @State private var visibleEquipment: Equipment?
     @State private var draggedEquipment: Equipment?
+    /// MY-1338: number of distinct equipment sections the current drag
+    /// gesture has visited. Reset on drag start, reported via
+    /// `exercisePickerIndexScrubbed(count:)` on drag end, so we can watch
+    /// for high-count bursts that indicate the highlight is racing through
+    /// neighbours instead of settling on the finger's target.
+    @State private var dragScrubCount: Int = 0
     @State private var cachedEquipmentGroups: [(Equipment, [Exercise])]?
     @FocusState private var isSearchFocused: Bool
     // MY-1249 + MY-1250 reconciliation: MY-1250 previously reset the card-grid
@@ -654,6 +661,7 @@ struct ExercisePickerView: View {
                             visibleIds,
                             in: equipments,
                             current: visibleEquipment,
+                            isDragging: draggedEquipment != nil,
                             using: applyVisibleEquipment
                         )
                     }
@@ -705,7 +713,7 @@ struct ExercisePickerView: View {
             Spacer(minLength: 0)
             EquipmentIndexBar(
                 equipments: equipments,
-                activeEquipment: visibleEquipment ?? draggedEquipment,
+                activeEquipment: draggedEquipment ?? visibleEquipment,
                 onSelect: { equipment, animated in
                     if animated {
                         withAnimation(.easeOut(duration: 0.2)) {
@@ -717,13 +725,43 @@ struct ExercisePickerView: View {
                         // competing 0.2s scroll animations to tall sections.
                         gridProxy.scrollTo(equipment, anchor: .top)
                     }
-                    visibleEquipment = equipment
+                    // MY-1338: drag owns the highlight while
+                    // `draggedEquipment != nil` — the scroll-derived
+                    // callback path is suppressed via `isDragging: true`
+                    // in the reducer, and writing `visibleEquipment` here
+                    // (in addition to the drag overlay's own
+                    // `draggedEquipment` state) keeps the index-bar's
+                    // fallback source coherent for reconciliation on
+                    // drag-end.
+                    if visibleEquipment != equipment {
+                        emitSectionJumpTelemetry(
+                            from: visibleEquipment,
+                            to: equipment,
+                            source: Self.sectionJumpSourceDrag
+                        )
+                        visibleEquipment = equipment
+                    }
                 },
                 onDragChanged: { equipment in
+                    // MY-1338: count distinct sections visited within one
+                    // scrub gesture — reported on drag-end via
+                    // `exercisePickerIndexScrubbed(count:)`.
+                    if draggedEquipment != equipment {
+                        dragScrubCount &+= 1
+                    }
                     draggedEquipment = equipment
                 },
                 onDragEnded: {
+                    let count = dragScrubCount
+                    dragScrubCount = 0
                     draggedEquipment = nil
+                    // MY-1338: emit the scrub-count telemetry regardless of
+                    // whether the scrub visited any sections; a zero-count
+                    // scrub (drag started but never crossed a row boundary)
+                    // is itself a signal worth aggregating.
+                    TelemetryService.shared.trackNonisolated(
+                        .exercisePickerIndexScrubbed(count: count)
+                    )
                 }
             )
             .padding(.trailing, 4)
@@ -762,10 +800,65 @@ struct ExercisePickerView: View {
     /// forcing redundant SwiftUI re-evaluation of the whole grid and
     /// starving the main thread mid-scroll. Only writing on a genuine
     /// section change removes that per-frame churn.
+    ///
+    /// MY-1338: also emits `exercisePickerSectionJump` telemetry tagged
+    /// with the `"scroll"` source identifier so we can observe how often
+    /// the scroll-derived highlight jumps sections vs the drag-derived one.
     @MainActor
     private func applyVisibleEquipment(_ equipment: Equipment?) {
         guard visibleEquipment != equipment else { return }
+        emitSectionJumpTelemetry(
+            from: visibleEquipment,
+            to: equipment,
+            source: Self.sectionJumpSourceScroll
+        )
         visibleEquipment = equipment
+    }
+
+    /// MY-1338: canonical `TelemetryIdentifier` values for the
+    /// `exercisePickerSectionJump.source` field. `TelemetryIdentifier`
+    /// literals are validated at construction time (canonical ASCII), so
+    /// they cannot silently leak free-form strings into telemetry.
+    static let sectionJumpSourceScroll: TelemetryIdentifier = "scroll"
+    static let sectionJumpSourceDrag: TelemetryIdentifier = "drag"
+    /// Sentinel used when the pre-transition section is unknown (initial
+    /// mount, or after the grid cleared). Kept canonical for the same
+    /// aggregation-cleanliness reason as the two source identifiers.
+    static let sectionJumpNone: TelemetryIdentifier = "none"
+
+    /// MY-1338: send the strongly typed jump event through TelemetryKit.
+    /// Both endpoints are mapped to canonical `TelemetryIdentifier`
+    /// values — `Equipment.rawValue` is already ASCII lowercase (see
+    /// `VitalModels/Equipment.swift`) so it satisfies the identifier
+    /// character set by construction. Falls back to `sectionJumpNone`
+    /// when either endpoint is `nil`, which happens on the initial mount
+    /// and when the grid empties mid-scroll.
+    @MainActor
+    private func emitSectionJumpTelemetry(
+        from: Equipment?,
+        to: Equipment?,
+        source: TelemetryIdentifier
+    ) {
+        let fromID = Self.telemetryIdentifier(for: from)
+        let toID = Self.telemetryIdentifier(for: to)
+        TelemetryService.shared.trackNonisolated(
+            .exercisePickerSectionJump(from: fromID, to: toID, source: source)
+        )
+    }
+
+    /// Maps an optional `Equipment` to a canonical `TelemetryIdentifier`.
+    /// Non-nil equipments serialize via their raw case name (guaranteed
+    /// ASCII lowercase); nil serializes to `sectionJumpNone`. If a future
+    /// case somehow fails `TelemetryIdentifier.init(validating:)` (should
+    /// never happen for `Equipment` cases), we fall back to
+    /// `sectionJumpNone` rather than silently dropping the event.
+    static func telemetryIdentifier(for equipment: Equipment?) -> TelemetryIdentifier {
+        guard let raw = equipment?.rawValue,
+              let identifier = TelemetryIdentifier(validating: raw)
+        else {
+            return sectionJumpNone
+        }
+        return identifier
     }
 
     /// MY-1249: pure entry-point mirroring what
@@ -801,6 +894,46 @@ struct ExercisePickerView: View {
         current: Equipment?,
         using setter: (Equipment?) -> Void
     ) -> Equipment? {
+        applyVisibleIds(
+            visibleIds,
+            in: order,
+            current: current,
+            isDragging: false,
+            using: setter
+        )
+    }
+
+    /// MY-1338: drag-aware variant of the scroll-callback bridge. When the
+    /// side index bar is being scrubbed (`isDragging == true`), the drag
+    /// gesture owns the authoritative highlight — `scrollTo(_:anchor:.top)`
+    /// requests trigger their own `onScrollTargetVisibilityChange` bursts
+    /// with stale/out-of-order top-visible payloads that would overwrite
+    /// the finger's actual target with a neighbouring section mid-drag.
+    /// Ignoring those payloads while the drag is live eliminates the
+    /// "highlight jumps to neighbour then settles" glitch; the reducer
+    /// returns `current` unchanged so the caller's `visibleEquipment`
+    /// state stays pinned to the drag target. When the drag ends
+    /// (`isDragging == false`), the next callback reconciles the highlight
+    /// to whatever section is actually top-visible after all queued scroll
+    /// animations settle, matching the pre-fix contract.
+    ///
+    /// The dedup guard (skip write when resolved == current) is still
+    /// applied on non-drag frames — that behaviour is what the MY-1249
+    /// `dedupCollapsesHighFrequencyFrames` test locks in.
+    @discardableResult
+    static func applyVisibleIds(
+        _ visibleIds: [Equipment],
+        in order: [Equipment],
+        current: Equipment?,
+        isDragging: Bool,
+        using setter: (Equipment?) -> Void
+    ) -> Equipment? {
+        // Drag owns the highlight — ignore scroll-derived visibility during
+        // scrub. Return `current` so the caller keeps its pinned drag
+        // target rather than adopting the racing top-visible payload.
+        if isDragging {
+            return current
+        }
         let resolved = firstVisibleEquipment(from: visibleIds, in: order)
         if resolved != current {
             setter(resolved)
@@ -851,6 +984,15 @@ struct ExercisePickerView: View {
         newOrder.first
     }
 
+    /// MY-1338: fixed section-preview popup dimensions. The popup used to
+    /// grow horizontally with long equipment names (`minWidth: 140`), which
+    /// made the surface visibly resize per scrub target and drift off
+    /// centre. Locking a hard `width × height` means the layout is a
+    /// no-op on every drag frame — long names truncate/scale inside the
+    /// fixed frame instead of pushing the frame out.
+    static let sectionPreviewPopupWidth: CGFloat = 160
+    static let sectionPreviewPopupHeight: CGFloat = 160
+
     private func sectionPreviewPopup(equipment: Equipment) -> some View {
         VStack(spacing: 8) {
             Image(systemName: equipment.sfSymbol)
@@ -858,10 +1000,24 @@ struct ExercisePickerView: View {
             Text(equipment.localizedName)
                 .font(.title3)
                 .fontWeight(.medium)
+                // MY-1338: single-line + shrink-to-fit so long localized
+                // names (e.g. Chinese 3-4 chars, or long English words)
+                // stay inside the fixed popup frame instead of stretching
+                // it. `minimumScaleFactor(0.6)` keeps the text legible
+                // down to ~60% of the base title3 point size, then the
+                // trailing truncation kicks in if the string is still
+                // too long — the frame itself never resizes.
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity)
         }
         .foregroundStyle(.white)
         .padding(24)
-        .frame(minWidth: 140, minHeight: 140)
+        .frame(
+            width: Self.sectionPreviewPopupWidth,
+            height: Self.sectionPreviewPopupHeight
+        )
         .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 20))
         .accessibilityHidden(true)
     }
