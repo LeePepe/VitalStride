@@ -259,4 +259,19 @@ struct MetricPayloadParserTests {
         """
         #expect(event(named: "app_cpu_time_measured", in: events(json)) == nil)
     }
+
+    @Test("out-of-Int-range measurement is skipped, not trapped (codex #350 high)")
+    func outOfRangeSkipped() {
+        // "1e20 sec" × 1000 overflows Int; the parser must skip the metric
+        // rather than trap in Int(_:rounded()). Other metrics still survive.
+        let json = """
+        {
+          "cpuMetrics": { "cumulativeCPUTime": "1e20 sec" },
+          "memoryMetrics": { "peakMemoryUsage": "150,000 kB" }
+        }
+        """
+        let all = events(json)
+        #expect(event(named: "app_cpu_time_measured", in: all) == nil)
+        #expect(all.contains(.appMemoryPeakMeasured(peakMemoryMB: 150)))
+    }
 }

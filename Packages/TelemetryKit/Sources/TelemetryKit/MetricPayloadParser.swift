@@ -187,10 +187,13 @@ public enum MetricPayloadParser {
     }
 
     /// Round a non-negative, finite `Double` to `Int`. Rejects NaN / infinite /
-    /// negative values (defensive — perf measurements are never negative).
+    /// negative values (defensive — perf measurements are never negative), and
+    /// values outside `Int`'s range: `Int(exactly:)` returns `nil` instead of
+    /// trapping, so an out-of-range MetricKit value (e.g. `"1e20 sec"`) skips
+    /// the metric rather than crashing.
     private static func intValue(_ value: Double) -> Int? {
         guard value.isFinite, value >= 0 else { return nil }
-        return Int(value.rounded())
+        return Int(exactly: value.rounded())
     }
 
     /// First present, dictionary-typed value among a list of candidate keys.
