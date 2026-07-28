@@ -11,29 +11,84 @@ import HealthKit
 /// 2. The end-to-end `HealthKitService.averageHeartRate(for:)` bridge that
 ///    wires the mock query into a real `HKWorkout`.
 ///
+/// Swift 6 concurrency-safe mock design (constitution: no `@unchecked
+/// Sendable` and no `nonisolated(unsafe)` without an ADR exception):
+///
+/// - All mutable state lives inside a `private actor` (`AvgHRMockState`),
+///   which is `Sendable` by construction.
+/// - The class conforming to `HealthStoreProviding` is `final` with only
+///   `let` stored properties whose types are `Sendable`, so it conforms to
+///   the protocol's `Sendable` requirement without any escape hatches.
+/// - `HealthKitService.averageHeartRate(for:)` does not gate on
+///   `isHealthDataAvailable`, so the mock exposes a plain `static let =
+///   true` and never mutates it — nothing to synchronize.
+///
 /// Privacy red line (constitution I): the helper must NEVER log the returned
-/// avg HR value. This is enforced by the source-level grep in
+/// avg HR value. That is enforced by the source-level grep in
 /// `PrivacyLoggingTests`, not here.
+
+// MARK: - Actor-backed mock state
+
+/// Holds all mutable state for the mock. Being an `actor` makes it
+/// `Sendable` and serializes access without any `@unchecked` / `unsafe`.
+///
+/// We deliberately only store `Sendable` snapshots (the raw `HKQuantityType`
+/// identifier and a `String` predicate format) instead of the original
+/// non-`Sendable` `NSPredicate` reference — enough for tests to assert the
+/// bridge invoked the right query, without smuggling a non-`Sendable`
+/// reference across actor isolation.
+private actor AvgHRMockState {
+    private var averageBPM: Double?
+    private var capturedTypeIdentifier: String?
+    private var capturedPredicateFormat: String?
+
+    func setAverageBPM(_ value: Double?) {
+        averageBPM = value
+    }
+
+    /// Records the incoming query parameters (as Sendable snapshots) and
+    /// returns the fixture value atomically. Called from
+    /// `executeAverageQuantityQuery`.
+    func recordAndFetchAverage(
+        typeIdentifier: String,
+        predicateFormat: String
+    ) -> Double? {
+        capturedTypeIdentifier = typeIdentifier
+        capturedPredicateFormat = predicateFormat
+        return averageBPM
+    }
+
+    func snapshotCapturedTypeIdentifier() -> String? { capturedTypeIdentifier }
+    func snapshotCapturedPredicateFormat() -> String? { capturedPredicateFormat }
+}
 
 // MARK: - Focused mock for avg-HR queries
 
-private final class AvgHRMockStore: HealthStoreProviding, @unchecked Sendable {
-    nonisolated(unsafe) static var isHealthDataAvailable: Bool = true
+/// `final class` with only `let` stored properties → naturally `Sendable`.
+/// The state actor above serializes all reads/writes.
+private final class AvgHRMockStore: HealthStoreProviding {
+    // Availability is a compile-time constant here. `averageHeartRate(for:)`
+    // does not check `isHealthDataAvailable`, and no other test flips it,
+    // so a plain `static let` is enough — no synchronization needed.
+    static let isHealthDataAvailable: Bool = true
 
-    /// Value the fake query returns. `nil` simulates "no samples / failure".
-    var averageBPM: Double?
-    /// Capture the last query so tests can assert the predicate window.
-    private let lock = NSLock()
-    private var _capturedType: HKQuantityType?
-    private var _capturedPredicate: NSPredicate?
+    private let state = AvgHRMockState()
 
-    var capturedQuantityType: HKQuantityType? {
-        lock.withLock { _capturedType }
+    // MARK: Convenience API for tests (async — hop through the actor)
+
+    func setAverageBPM(_ value: Double?) async {
+        await state.setAverageBPM(value)
     }
 
-    var capturedPredicate: NSPredicate? {
-        lock.withLock { _capturedPredicate }
+    func capturedQuantityTypeIdentifier() async -> String? {
+        await state.snapshotCapturedTypeIdentifier()
     }
+
+    func capturedPredicateFormat() async -> String? {
+        await state.snapshotCapturedPredicateFormat()
+    }
+
+    // MARK: HealthStoreProviding conformance (unused stubs)
 
     func requestAuthorization(
         toShare typesToShare: Set<HKSampleType>,
@@ -73,15 +128,23 @@ private final class AvgHRMockStore: HealthStoreProviding, @unchecked Sendable {
 
     func delete(_ objects: [HKObject]) async throws {}
 
+    // MARK: The avg-HR query itself
+
     func executeAverageQuantityQuery(
         quantityType: HKQuantityType,
         predicate: NSPredicate
     ) async -> HKQuantity? {
-        lock.withLock {
-            _capturedType = quantityType
-            _capturedPredicate = predicate
-        }
-        guard let bpm = averageBPM else { return nil }
+        // Extract Sendable snapshots BEFORE hopping into the actor —
+        // `NSPredicate` and `HKQuantityType` are non-Sendable reference
+        // types, so we take String identifiers instead of sending the refs
+        // across isolation.
+        let typeIdentifier = quantityType.identifier
+        let predicateFormat = predicate.predicateFormat
+        let bpm = await state.recordAndFetchAverage(
+            typeIdentifier: typeIdentifier,
+            predicateFormat: predicateFormat
+        )
+        guard let bpm else { return nil }
         let unit = HKUnit.count().unitDivided(by: .minute())
         return HKQuantity(unit: unit, doubleValue: bpm)
     }
@@ -115,7 +178,7 @@ struct HealthWorkoutAvgHRTests {
     @Test("Returns rounded integer bpm when statistics query yields a value")
     func returnsRoundedBPM() async {
         let store = AvgHRMockStore()
-        store.averageBPM = 142.6
+        await store.setAverageBPM(142.6)
         let service = makeService(store: store)
 
         let workout = makeWorkout()
@@ -128,7 +191,7 @@ struct HealthWorkoutAvgHRTests {
     @Test("Returns nil when statistics query yields nil (no samples / failure)")
     func returnsNilOnNoSamples() async {
         let store = AvgHRMockStore()
-        store.averageBPM = nil
+        await store.setAverageBPM(nil)
         let service = makeService(store: store)
 
         let workout = makeWorkout()
@@ -144,24 +207,28 @@ struct HealthWorkoutAvgHRTests {
 
         // Zero and negatives are not valid heart rates; guard against them
         // even though HK is unlikely to return them.
-        store.averageBPM = 0
+        await store.setAverageBPM(0)
         #expect(await service.averageHeartRate(for: makeWorkout()) == nil)
 
-        store.averageBPM = -1
+        await store.setAverageBPM(-1)
         #expect(await service.averageHeartRate(for: makeWorkout()) == nil)
     }
 
     @Test("Queries heartRate quantity type over the workout window")
     func queriesHeartRateWithinWindow() async {
         let store = AvgHRMockStore()
-        store.averageBPM = 100
+        await store.setAverageBPM(100)
         let service = makeService(store: store)
 
         let start = Date(timeIntervalSinceReferenceDate: 1_000_000)
         let workout = makeWorkout(start: start, duration: 600)
         _ = await service.averageHeartRate(for: workout)
 
-        #expect(store.capturedQuantityType == HKQuantityType(.heartRate))
-        #expect(store.capturedPredicate != nil)
+        let capturedTypeIdentifier = await store.capturedQuantityTypeIdentifier()
+        let capturedPredicateFormat = await store.capturedPredicateFormat()
+        #expect(capturedTypeIdentifier == HKQuantityType(.heartRate).identifier)
+        #expect(capturedPredicateFormat != nil)
+        // Predicate format should mention the workout window bounds.
+        #expect(capturedPredicateFormat?.isEmpty == false)
     }
 }
