@@ -74,4 +74,16 @@ enum UnifiedWorkout: Identifiable {
             record.sourceName ?? String(localized: "HealthKit", comment: "Default source name for HealthKit workouts")
         }
     }
+
+    /// Coarse device kind the workout originated from. `.app` case returns
+    /// `nil` — App-authored workouts are surfaced with the "App" badge in UI,
+    /// not a device kind. HealthKit case returns whatever
+    /// `HealthWorkoutRecord.sourceDeviceKind` reported (may be `nil` for
+    /// pre-MY-1358 cached payloads).
+    var sourceDeviceKind: SourceDeviceKind? {
+        switch self {
+        case .app: nil
+        case .healthKit(let record): record.sourceDeviceKind
+        }
+    }
 }
