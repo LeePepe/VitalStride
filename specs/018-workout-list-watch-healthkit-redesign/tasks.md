@@ -172,4 +172,4 @@ design reviewer comment 表示通过。
 - [ ] hit target ≥44pt（H）
 - [ ] 装饰 icon `.accessibilityHidden(true)`，combined label 含关键 metric（I）
 - [ ] pbxproj 未手改（§IV）
-- [ ] `git push --no-verify`（daemon workdir pre-push 会超时）
+- [ ] pre-push hook 必须通过（禁 `--no-verify`；hook 超时/失败按 Constitution failure-classification 路径处理，先根因修复，不 bypass）

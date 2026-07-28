@@ -166,7 +166,8 @@ MY-1359 引入两个新 SwiftUI 视图 (`WorkoutSourceBadge`, `WorkoutListStateB
 - §V DesignKit token：配色/圆角/间距/字号走 token，禁 magic number 与 hex literal。
 - §IV pbxproj：不手改 `VitalStride.xcodeproj/project.pbxproj`；`project.yml` + `xcodegen generate`。
 - Swift 6 strict concurrency：新类型 `Sendable`；`@MainActor` 域清晰。
-- 不 checkout 主 repo；在 daemon workdir 内作业；`git push` 用 `--no-verify`（pre-push 会超时）。
+- 不 checkout 主 repo；在 daemon workdir 内作业。
+- **pre-push hook 必须跑**：`--no-verify` 不是允许的 workaround；hook 超时/失败按 Constitution failure-classification 路径处理（分层看 layer/path/kind，先在本地或 CI 里根因修复；不通过则 comment 升级到 planning gate，不 bypass）。
 
 ## 10. Open Questions — none
 
