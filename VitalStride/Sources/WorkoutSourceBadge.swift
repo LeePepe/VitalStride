@@ -29,23 +29,23 @@ struct WorkoutSourceBadge: View {
     let isApp: Bool
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Space.hair) {
             Image(systemName: glyphName)
-                .font(.system(size: 11, weight: .medium))
+                .font(TypeScale.meta.weight(.medium))
                 .accessibilityHidden(true)
             Text(label)
                 .font(TypeScale.meta)
                 .lineLimit(1)
         }
         .foregroundStyle(theme.neutrals.text2)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
+        .padding(.horizontal, Space.inline)
+        .padding(.vertical, Space.chipVertical)
         .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.badge, style: .continuous)
                 .fill(theme.neutrals.inner)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.badge, style: .continuous)
                 .stroke(theme.neutrals.border, lineWidth: 0.5)
         )
     }

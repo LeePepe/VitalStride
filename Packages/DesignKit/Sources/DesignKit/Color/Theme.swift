@@ -37,12 +37,22 @@ public struct Theme: Sendable {
 public enum Radius {
     public static let card: CGFloat = 14
     public static let inner: CGFloat = 10
+    /// Compact chip / badge corner radius (e.g. workout source badge).
+    public static let badge: CGFloat = 6
 }
 
 public enum Space {
     public static let cardPadding: CGFloat = 16
     public static let gap: CGFloat = 12
     public static let contentMaxWidth: CGFloat = 1200
+    /// 4pt — tightest inline gap (icon ↔ glyph inside a chip).
+    public static let hair: CGFloat = 4
+    /// 8pt — compact horizontal padding for chips / badges.
+    public static let inline: CGFloat = 8
+    /// 3pt — vertical padding for chips / badges.
+    public static let chipVertical: CGFloat = 3
+    /// Minimum tap-target size per Apple HIG.
+    public static let minTapTarget: CGFloat = 44
 }
 
 public enum TypeScale {
