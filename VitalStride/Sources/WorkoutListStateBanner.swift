@@ -161,6 +161,9 @@ struct WorkoutListStateBanner: View {
 extension WorkoutListStateBanner {
     /// Opens iOS Settings for VitalStride. Kept out of the view so tests can
     /// verify banner rendering without touching `UIApplication`.
+    /// `@MainActor` because `UIApplication.shared` is main-actor-isolated
+    /// under Swift 6 strict concurrency.
+    @MainActor
     static func openSettings() {
         #if canImport(UIKit) && !os(watchOS)
         if let url = URL(string: UIApplication.openSettingsURLString) {
