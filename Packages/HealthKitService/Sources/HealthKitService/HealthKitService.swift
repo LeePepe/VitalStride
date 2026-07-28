@@ -46,6 +46,14 @@ public protocol HealthStoreProviding: Sendable {
     ) async throws -> [HKSample]
 
     func delete(_ objects: [HKObject]) async throws
+
+    /// Execute a statistics query with `discreteAverage`. Returns `nil` when no
+    /// matching samples exist. Errors are NOT thrown — they surface as `nil`
+    /// (avg HR is optional metadata; it must never block workout record generation).
+    func executeAverageQuantityQuery(
+        quantityType: HKQuantityType,
+        predicate: NSPredicate
+    ) async -> HKQuantity?
 }
 
 public struct AnchoredQueryResult: Sendable {
@@ -57,6 +65,21 @@ public struct AnchoredQueryResult: Sendable {
         self.samples = samples
         self.deletedObjectUUIDs = deletedObjectUUIDs
         self.newAnchor = newAnchor
+    }
+}
+
+// MARK: - Default implementations
+
+extension HealthStoreProviding {
+    /// Default: no average available. HKHealthStore overrides this with the real
+    /// HKStatisticsQuery. Test mocks may override to inject fixture values, but
+    /// keeping a default here keeps the protocol source-compatible for existing
+    /// mocks that don't care about avg HR.
+    public func executeAverageQuantityQuery(
+        quantityType: HKQuantityType,
+        predicate: NSPredicate
+    ) async -> HKQuantity? {
+        nil
     }
 }
 
@@ -176,6 +199,25 @@ extension HKHealthStore: HealthStoreProviding {
                     continuation.resume()
                 }
             }
+        }
+    }
+
+    public func executeAverageQuantityQuery(
+        quantityType: HKQuantityType,
+        predicate: NSPredicate
+    ) async -> HKQuantity? {
+        await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(
+                quantityType: quantityType,
+                quantitySamplePredicate: predicate,
+                options: .discreteAverage
+            ) { _, statistics, _ in
+                // On error or no samples we return nil; avg HR is optional and
+                // must not fail the workout fetch. Per privacy red line we do
+                // NOT log the underlying error or the value here.
+                continuation.resume(returning: statistics?.averageQuantity())
+            }
+            self.execute(query)
         }
     }
 }
@@ -553,7 +595,13 @@ public final class HealthKitService: Sendable {
                 saveWorkoutAnchor(newAnchor)
             }
 
-            let workouts = result.samples.compactMap { convertToWorkoutRecord($0) }
+            var workouts: [HealthWorkoutRecord] = []
+            workouts.reserveCapacity(result.samples.count)
+            for sample in result.samples {
+                if let record = await convertToWorkoutRecord(sample) {
+                    workouts.append(record)
+                }
+            }
 
             logWorkoutQuery(count: workouts.count, start: start, isFirstSync: isFirstSync, error: nil)
             return WorkoutFetchResult(workouts: workouts, deletedObjectIDs: result.deletedObjectUUIDs)
@@ -681,7 +729,7 @@ public final class HealthKitService: Sendable {
         }
     }
 
-    private func convertToWorkoutRecord(_ sample: HKSample) -> HealthWorkoutRecord? {
+    private func convertToWorkoutRecord(_ sample: HKSample) async -> HealthWorkoutRecord? {
         guard let workout = sample as? HKWorkout else { return nil }
         let energyBurned = workout
             .statistics(for: HKQuantityType(.activeEnergyBurned))?
@@ -693,6 +741,11 @@ public final class HealthKitService: Sendable {
             .first?
             .doubleValue(for: .meter())
 
+        let productType = workout.sourceRevision.productType
+        let deviceKind = SourceDeviceKind.from(productType: productType)
+        let userEntered = healthWorkoutIsUserEntered(metadata: workout.metadata)
+        let avgHR = await averageHeartRate(for: workout)
+
         return HealthWorkoutRecord(
             id: workout.uuid,
             activityTypeRawValue: workout.workoutActivityType.rawValue,
@@ -701,8 +754,35 @@ public final class HealthKitService: Sendable {
             totalDistance: distance,
             startDate: workout.startDate,
             endDate: workout.endDate,
-            sourceName: workout.sourceRevision.source.name
+            sourceName: workout.sourceRevision.source.name,
+            averageHeartRate: avgHR,
+            sourceDeviceKind: deviceKind,
+            isUserEntered: userEntered
         )
+    }
+
+    /// Fetches average heart rate for the workout window via
+    /// `HKStatisticsQuery.discreteAverage`. `nil` when there are no samples or
+    /// the query fails — avg HR is optional metadata and MUST NOT block
+    /// workout record generation.
+    ///
+    /// Privacy red line: neither the returned value nor a failure reason is
+    /// ever logged (constitution I).
+    func averageHeartRate(for workout: HKWorkout) async -> Int? {
+        let predicate = HKQuery.predicateForSamples(
+            withStart: workout.startDate,
+            end: workout.endDate,
+            options: .strictStartDate
+        )
+        let quantity = await healthStore.executeAverageQuantityQuery(
+            quantityType: HKQuantityType(.heartRate),
+            predicate: predicate
+        )
+        guard let quantity else { return nil }
+        let unit = HKUnit.count().unitDivided(by: .minute())
+        let bpm = quantity.doubleValue(for: unit)
+        guard bpm.isFinite, bpm > 0 else { return nil }
+        return Int(bpm.rounded())
     }
 
     private func saveWorkoutAnchor(_ anchor: HKQueryAnchor) {

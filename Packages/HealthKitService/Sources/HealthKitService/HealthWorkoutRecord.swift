@@ -16,6 +16,29 @@ public enum WorkoutActivityType: UInt, Sendable, Codable, CaseIterable {
     case other = 3000
 }
 
+/// Coarse category of the device that authored a workout sample. Derived from
+/// `HKSourceRevision.productType` by prefix, so a single enum is stable across
+/// specific model identifiers (iPhone12,1 / Watch5,2 / etc.).
+public enum SourceDeviceKind: String, Sendable, Codable, CaseIterable {
+    case appleWatch
+    case iPhone
+    case iPad
+    case mac
+    case other
+
+    /// Map a raw `HKSourceRevision.productType` string to a coarse device kind.
+    /// Returns `nil` for a `nil` input; unknown / non-matching strings map to
+    /// `.other` (so they're still classified as "some Apple device").
+    public static func from(productType: String?) -> SourceDeviceKind? {
+        guard let productType, !productType.isEmpty else { return nil }
+        if productType.hasPrefix("Watch") { return .appleWatch }
+        if productType.hasPrefix("iPhone") { return .iPhone }
+        if productType.hasPrefix("iPad") { return .iPad }
+        if productType.hasPrefix("Mac") { return .mac }
+        return .other
+    }
+}
+
 public struct HealthWorkoutRecord: Sendable, Identifiable, Codable, Equatable {
     public let id: UUID
     public let activityTypeRawValue: UInt
@@ -25,6 +48,13 @@ public struct HealthWorkoutRecord: Sendable, Identifiable, Codable, Equatable {
     public let startDate: Date
     public let endDate: Date
     public let sourceName: String?
+    /// Average heart rate (bpm) computed over the workout window via
+    /// `HKStatisticsQuery.discreteAverage`. `nil` if no samples or query failed.
+    public let averageHeartRate: Int?
+    /// Coarse source device kind. `nil` when unknown.
+    public let sourceDeviceKind: SourceDeviceKind?
+    /// True when `HKMetadataKeyWasUserEntered == true`; false otherwise.
+    public let isUserEntered: Bool
 
     public var activityType: WorkoutActivityType {
         WorkoutActivityType(rawValue: activityTypeRawValue) ?? .other
@@ -38,7 +68,10 @@ public struct HealthWorkoutRecord: Sendable, Identifiable, Codable, Equatable {
         totalDistance: Double?,
         startDate: Date,
         endDate: Date,
-        sourceName: String?
+        sourceName: String?,
+        averageHeartRate: Int? = nil,
+        sourceDeviceKind: SourceDeviceKind? = nil,
+        isUserEntered: Bool = false
     ) {
         self.id = id
         self.activityTypeRawValue = activityTypeRawValue
@@ -48,6 +81,41 @@ public struct HealthWorkoutRecord: Sendable, Identifiable, Codable, Equatable {
         self.startDate = startDate
         self.endDate = endDate
         self.sourceName = sourceName
+        self.averageHeartRate = averageHeartRate
+        self.sourceDeviceKind = sourceDeviceKind
+        self.isUserEntered = isUserEntered
+    }
+
+    // MARK: - Codable (backward-compatible)
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case activityTypeRawValue
+        case duration
+        case totalEnergyBurned
+        case totalDistance
+        case startDate
+        case endDate
+        case sourceName
+        case averageHeartRate
+        case sourceDeviceKind
+        case isUserEntered
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.activityTypeRawValue = try container.decode(UInt.self, forKey: .activityTypeRawValue)
+        self.duration = try container.decode(TimeInterval.self, forKey: .duration)
+        self.totalEnergyBurned = try container.decodeIfPresent(Double.self, forKey: .totalEnergyBurned)
+        self.totalDistance = try container.decodeIfPresent(Double.self, forKey: .totalDistance)
+        self.startDate = try container.decode(Date.self, forKey: .startDate)
+        self.endDate = try container.decode(Date.self, forKey: .endDate)
+        self.sourceName = try container.decodeIfPresent(String.self, forKey: .sourceName)
+        // Backward-compat: older cached payloads pre-date these three fields.
+        self.averageHeartRate = try container.decodeIfPresent(Int.self, forKey: .averageHeartRate)
+        self.sourceDeviceKind = try container.decodeIfPresent(SourceDeviceKind.self, forKey: .sourceDeviceKind)
+        self.isUserEntered = try container.decodeIfPresent(Bool.self, forKey: .isUserEntered) ?? false
     }
 }
 
@@ -59,4 +127,23 @@ public struct WorkoutFetchResult: Sendable {
         self.workouts = workouts
         self.deletedObjectIDs = deletedObjectIDs
     }
+}
+
+// MARK: - Metadata helpers (pure, testable without HKObject)
+
+/// Pure helper: extracts `HKMetadataKeyWasUserEntered` from a metadata dict.
+/// Kept separate so it's unit-testable without instantiating an `HKObject`.
+///
+/// - Parameter metadata: The raw metadata dictionary from `HKObject.metadata`.
+/// - Returns: `true` when the key is present and set to `true`; `false` otherwise.
+public func healthWorkoutIsUserEntered(metadata: [String: Any]?) -> Bool {
+    guard let metadata else { return false }
+    // HKMetadataKeyWasUserEntered = "HKWasUserEntered"; we hardcode the string
+    // so this helper doesn't have to import HealthKit (keeps it testable on
+    // platforms where HealthKit tests would otherwise pull in the framework).
+    if let raw = metadata["HKWasUserEntered"] {
+        if let b = raw as? Bool { return b }
+        if let n = raw as? NSNumber { return n.boolValue }
+    }
+    return false
 }
