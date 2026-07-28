@@ -527,11 +527,13 @@ private struct WorkoutRowView: View {
         let exerciseCount = workout.exercises?.count ?? 0
         var parts: [String] = [
             workout.startDate.formatted(.dateTime.year().month().day()),
+            // swiftlint:disable:next no_hardcoded_chinese
             String(localized: "\(exerciseCount) 个动作", comment: "Exercise count label"),
             WorkoutSourceBadge.accessibilityLabel(kind: nil, sourceName: nil, isApp: true),
         ]
         if let endDate = workout.endDate {
             let minutes = Int(endDate.timeIntervalSince(workout.startDate)) / 60
+            // swiftlint:disable:next no_hardcoded_chinese
             parts.append(String(localized: "\(minutes) 分钟", comment: "Duration minutes only"))
         }
         return parts.joined(separator: "，")
