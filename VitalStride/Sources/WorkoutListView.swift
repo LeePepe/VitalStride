@@ -9,6 +9,9 @@ import SwiftData
 import SwiftUI
 import VitalModels
 import os
+#if canImport(UIKit)
+import UIKit
+#endif
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "WorkoutList")
 private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "WorkoutList")
@@ -55,6 +58,10 @@ struct WorkoutListView: View {
     @State private var healthKitRecords: [HealthWorkoutRecord] = []
     @State private var isLoadingHealthKit = false
     @State private var healthKitLoadFailed = false
+    /// Distinct from `healthKitLoadFailed`: raised when
+    /// `HealthKitServiceError.authorizationNotDetermined` bubbles out of the
+    /// cache fetch. Drives the "Grant HealthKit access" banner + deep-link.
+    @State private var healthKitUnauthorized = false
     // Persisted across scene restores so the user's chosen mode survives app
     // backgrounding. `@SceneStorage` for a `RawRepresentable` where `RawValue`
     // is `String` falls back to the default (`.list`) when no stored value
@@ -69,10 +76,10 @@ struct WorkoutListView: View {
 
     @ViewBuilder
     private func listContent(
-        visibleAppUnifiedWorkouts: [UnifiedWorkout],
-        healthKitUnifiedWorkouts: [UnifiedWorkout],
+        unifiedWorkouts: [UnifiedWorkout],
         shouldShowAdviceCard: Bool,
-        canLoadMore: Bool
+        canLoadMore: Bool,
+        bannerState: WorkoutListStateBanner.LoadState?
     ) -> some View {
         List {
             if shouldShowAdviceCard {
@@ -88,42 +95,22 @@ struct WorkoutListView: View {
                 .listRowBackground(Color.clear)
             }
 
-            if isLoadingHealthKit && healthKitUnifiedWorkouts.isEmpty {
+            if let bannerState {
                 Section {
-                    HStack {
-                        Spacer()
-                        ProgressView()
-                            .accessibilityLabel(
-                                // swiftlint:disable:next no_hardcoded_chinese
-                                String(localized: "正在加载更多训练数据", comment: "Loading HK workouts a11y")
-                            )
-                        Spacer()
-                    }
+                    WorkoutListStateBanner(
+                        state: bannerState,
+                        onOpenSettings: openSettings
+                    )
                 }
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                .listRowBackground(Color.clear)
             }
 
-            if healthKitLoadFailed && healthKitUnifiedWorkouts.isEmpty {
+            if !unifiedWorkouts.isEmpty {
                 Section {
-                    VStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.title3)
-                            .foregroundStyle(theme.neutrals.text2)
-                            .accessibilityHidden(true)
-                        Text(
-                            // swiftlint:disable:next no_hardcoded_chinese
-                            String(localized: "无法加载外部训练数据", comment: "HealthKit workout load error")
-                        )
-                            .font(.caption)
-                            .foregroundStyle(theme.neutrals.text2)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-
-            if !visibleAppUnifiedWorkouts.isEmpty {
-                Section {
-                    ForEach(visibleAppUnifiedWorkouts) { item in
-                        if case .app(let workout) = item {
+                    ForEach(unifiedWorkouts) { item in
+                        switch item {
+                        case .app(let workout):
                             NavigationLink {
                                 WorkoutDetailView(workout: workout)
                             } label: {
@@ -143,6 +130,12 @@ struct WorkoutListView: View {
                                     // swiftlint:disable:next no_hardcoded_chinese
                                     String(localized: "删除训练", comment: "Delete workout a11y")
                                 )
+                            }
+                        case .healthKit(let record):
+                            NavigationLink {
+                                HealthKitWorkoutDetailView(record: record)
+                            } label: {
+                                HealthKitWorkoutRowView(record: record)
                             }
                         }
                     }
@@ -167,32 +160,9 @@ struct WorkoutListView: View {
                     }
                 } header: {
                     Text(String(
-                        localized:
-                        // swiftlint:disable:next no_hardcoded_chinese
-                        "VitalStride 训练",
-                        comment: "Workout list section header for workouts recorded in this app"
-                    ))
-                    .accessibilityAddTraits(.isHeader)
-                }
-            }
-
-            if !healthKitUnifiedWorkouts.isEmpty {
-                Section {
-                    ForEach(healthKitUnifiedWorkouts) { item in
-                        if case .healthKit(let record) = item {
-                            NavigationLink {
-                                HealthKitWorkoutDetailView(record: record)
-                            } label: {
-                                HealthKitWorkoutRowView(record: record)
-                            }
-                        }
-                    }
-                } header: {
-                    Text(String(
-                        localized:
-                        // swiftlint:disable:next no_hardcoded_chinese
-                        "Apple 健康训练",
-                        comment: "Workout list section header for workouts from Apple HealthKit"
+                        localized: "workout_list.unified_section_header",
+                        defaultValue: "Workouts",
+                        comment: "Workout list unified section header (all sources combined)"
                     ))
                     .accessibilityAddTraits(.isHeader)
                 }
@@ -208,20 +178,33 @@ struct WorkoutListView: View {
         // Merge the *full* completed-workout set with the HealthKit records —
         // dedup (MY-1077 P0 regression fix) and calendar rendering both need
         // to see every VitalStride `healthKitUUID`, not just the loaded page.
-        let unifiedWorkouts = WorkoutListMerger.merge(
+        //
+        // MY-1359: List UI now consumes the merged `unified` array directly
+        // (single time-line, `startDate` descending). We no longer
+        // `partitionBySource` for list rendering — the calendar path keeps
+        // using `unifiedWorkouts` as before.
+        let mergeResult = WorkoutListMerger.merge(
             appWorkouts: workouts,
             healthKitRecords: healthKitRecords
-        ).unified
-        let partitioned = WorkoutListMerger.partitionBySource(unifiedWorkouts)
+        )
+        let unifiedWorkouts = mergeResult.unified
         let shouldShowAdviceCard = !unifiedWorkouts.isEmpty && privacyConsented
-        // Bound only the rows the list mode actually renders — that's where
-        // the per-row `workout.exercises` fault is expensive (MY-1077). The
-        // calendar view continues to see the full history via `unifiedWorkouts`.
-        let visibleApp = Array(partitioned.app.prefix(listDisplayLimit))
-        let canLoadMore = partitioned.app.count > visibleApp.count
+        // Bound only the App rows that hit the expensive `workout.exercises`
+        // fault (MY-1077). HealthKit rows carry no faulting cost so they
+        // stay fully rendered. We walk the unified stream once and keep every
+        // HK record, but cap the App-source stream at `listDisplayLimit`.
+        let (visible, totalAppCount) = Self.visibleWindow(
+            unified: unifiedWorkouts,
+            appLimit: listDisplayLimit
+        )
+        let canLoadMore = totalAppCount > min(totalAppCount, listDisplayLimit)
+        let bannerState = currentBannerState(hasAnyItems: !unifiedWorkouts.isEmpty)
         return NavigationStack {
             Group {
-                if !hasAnyWorkouts && !isLoadingHealthKit && !healthKitLoadFailed {
+                if !hasAnyWorkouts
+                    && !isLoadingHealthKit
+                    && !healthKitLoadFailed
+                    && !healthKitUnauthorized {
                     ContentUnavailableView(
                         String(localized: "暂无训练记录", comment: "No workouts empty state title"),
                         systemImage: "dumbbell",
@@ -231,10 +214,10 @@ struct WorkoutListView: View {
                     switch viewMode {
                     case .list:
                         listContent(
-                            visibleAppUnifiedWorkouts: visibleApp,
-                            healthKitUnifiedWorkouts: partitioned.healthKit,
+                            unifiedWorkouts: visible,
                             shouldShowAdviceCard: shouldShowAdviceCard,
-                            canLoadMore: canLoadMore
+                            canLoadMore: canLoadMore,
+                            bannerState: bannerState
                         )
                     case .calendar:
                         // T009: render the current-month LazyVGrid calendar.
@@ -338,9 +321,54 @@ struct WorkoutListView: View {
         navigation.crashRecoveryResume = nil
     }
 
+    /// Pure helper: builds the visible slice of the unified list, keeping
+    /// every HealthKit item and capping App items at `appLimit`. Returns the
+    /// slice + the total App count so the caller can compute the "Load more"
+    /// affordance. Exposed for tests.
+    static func visibleWindow(
+        unified: [UnifiedWorkout],
+        appLimit: Int
+    ) -> (visible: [UnifiedWorkout], totalAppCount: Int) {
+        var visible: [UnifiedWorkout] = []
+        visible.reserveCapacity(unified.count)
+        var appSeen = 0
+        var totalAppCount = 0
+        for item in unified {
+            switch item {
+            case .app:
+                totalAppCount += 1
+                if appSeen < appLimit {
+                    visible.append(item)
+                    appSeen += 1
+                }
+            case .healthKit:
+                visible.append(item)
+            }
+        }
+        return (visible, totalAppCount)
+    }
+
+    /// Resolves which banner (if any) should be shown above the unified list.
+    /// The unified list itself is separately gated by `unifiedWorkouts.isEmpty`
+    /// so passing `hasAnyItems` disambiguates loading-over-content from
+    /// loading-empty-state.
+    private func currentBannerState(
+        hasAnyItems: Bool
+    ) -> WorkoutListStateBanner.LoadState? {
+        if healthKitUnauthorized { return .unauthorized }
+        if healthKitLoadFailed { return .failed }
+        if isLoadingHealthKit && !hasAnyItems { return .loading }
+        return nil
+    }
+
+    private func openSettings() {
+        WorkoutListStateBanner.openSettings()
+    }
+
     private func loadHealthKitWorkouts() async {
         isLoadingHealthKit = true
         healthKitLoadFailed = false
+        healthKitUnauthorized = false
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("workout_list_hk_fetch", id: signpostID)
         let start = ContinuousClock.now
@@ -375,8 +403,17 @@ struct WorkoutListView: View {
             )
         } catch {
             guard !Task.isCancelled else { return }
-            logger.error("HealthKit workout load failed: \(error.localizedDescription)")
-            healthKitLoadFailed = true
+            // Split unauthorized from generic failure so the banner UI can
+            // route the user to Settings instead of showing an opaque error.
+            // Constitution §I: log only the branch label, never the record
+            // payload / HR / energy / distance values.
+            if case HealthKitServiceError.authorizationNotDetermined = error {
+                logger.info("workout_list_hk_fetch state=unauthorized")
+                healthKitUnauthorized = true
+            } else {
+                logger.error("HealthKit workout load failed: \(error.localizedDescription)")
+                healthKitLoadFailed = true
+            }
         }
     }
 
@@ -476,8 +513,28 @@ private struct WorkoutRowView: View {
                         .foregroundStyle(theme.neutrals.text2)
                 }
             }
+            HStack {
+                WorkoutSourceBadge(kind: nil, sourceName: nil, isApp: true)
+                Spacer()
+            }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(a11yLabel)
+    }
+
+    private var a11yLabel: String {
+        let exerciseCount = workout.exercises?.count ?? 0
+        var parts: [String] = [
+            workout.startDate.formatted(.dateTime.year().month().day()),
+            String(localized: "\(exerciseCount) 个动作", comment: "Exercise count label"),
+            WorkoutSourceBadge.accessibilityLabel(kind: nil, sourceName: nil, isApp: true),
+        ]
+        if let endDate = workout.endDate {
+            let minutes = Int(endDate.timeIntervalSince(workout.startDate)) / 60
+            parts.append(String(localized: "\(minutes) 分钟", comment: "Duration minutes only"))
+        }
+        return parts.joined(separator: "，")
     }
 }
 

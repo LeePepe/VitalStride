@@ -14,7 +14,7 @@ struct HealthKitWorkoutRowView: View {
                 .frame(width: 32)
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(record.activityType.localizedName)
                     .font(.body)
 
@@ -26,6 +26,17 @@ struct HealthKitWorkoutRowView: View {
                     Text(record.startDate, format: .dateTime.month().day().weekday())
                         .font(.caption)
                         .foregroundStyle(theme.neutrals.text2)
+                }
+
+                HStack(spacing: 8) {
+                    WorkoutSourceBadge(
+                        kind: record.sourceDeviceKind,
+                        sourceName: record.sourceName,
+                        isApp: false
+                    )
+                    if record.averageHeartRate != nil {
+                        avgHeartRateChip
+                    }
                 }
             }
 
@@ -54,11 +65,41 @@ struct HealthKitWorkoutRowView: View {
         .accessibilityLabel(accessibilityDescription)
     }
 
+    /// Small heart-icon + bpm chip. Rendered only when `averageHeartRate != nil`
+    /// so `nil` records reveal no extra visual noise. The exact numeric value is
+    /// intentionally NOT logged anywhere (Constitution §I privacy red line).
+    @ViewBuilder
+    private var avgHeartRateChip: some View {
+        if let hr = record.averageHeartRate {
+            HStack(spacing: 3) {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(theme.danger)
+                    .accessibilityHidden(true)
+                Text({
+                    let fmt = String(
+                        localized: "workout_list.row.avg_hr_bpm",
+                        defaultValue: "%lld bpm",
+                        comment: "Workout row: average heart rate in beats per minute"
+                    )
+                    return String(format: fmt, hr)
+                }())
+                .font(TypeScale.meta)
+                .foregroundStyle(theme.neutrals.text2)
+            }
+        }
+    }
+
     private var accessibilityDescription: String {
         var parts = [
             record.activityType.localizedName,
             Self.formattedDuration(record.duration),
             record.startDate.formatted(.dateTime.month().day()),
+            WorkoutSourceBadge.accessibilityLabel(
+                kind: record.sourceDeviceKind,
+                sourceName: record.sourceName,
+                isApp: false
+            ),
         ]
         if let energy = record.totalEnergyBurned {
             parts.append(String(
@@ -71,6 +112,14 @@ struct HealthKitWorkoutRowView: View {
                 localized: "\(Self.formattedDistance(distance)) 公里",
                 comment: "Workout distance a11y"
             ))
+        }
+        if let hr = record.averageHeartRate {
+            let fmt = String(
+                localized: "workout_list.row.avg_hr_a11y",
+                defaultValue: "Average heart rate %lld",
+                comment: "VoiceOver: average heart rate value"
+            )
+            parts.append(String(format: fmt, hr))
         }
         return parts.joined(separator: "，")
     }

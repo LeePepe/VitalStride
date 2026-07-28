@@ -10538,6 +10538,306 @@
           }
         }
       }
+    },
+    "workout_list.source_badge.app": {
+      "extractionState": "manual",
+      "comment": "Workout list source badge: recorded inside VitalStride (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "App" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "本应用" }
+        }
+      }
+    },
+    "workout_list.source_badge.apple_watch": {
+      "extractionState": "manual",
+      "comment": "Workout list source badge: workout came from Apple Watch (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Apple Watch" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "Apple Watch" }
+        }
+      }
+    },
+    "workout_list.source_badge.iphone": {
+      "extractionState": "manual",
+      "comment": "Workout list source badge: workout came from iPhone (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "iPhone" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "iPhone" }
+        }
+      }
+    },
+    "workout_list.source_badge.ipad": {
+      "extractionState": "manual",
+      "comment": "Workout list source badge: workout came from iPad (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "iPad" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "iPad" }
+        }
+      }
+    },
+    "workout_list.source_badge.mac": {
+      "extractionState": "manual",
+      "comment": "Workout list source badge: workout came from Mac (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Mac" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "Mac" }
+        }
+      }
+    },
+    "workout_list.source_badge.healthkit": {
+      "extractionState": "manual",
+      "comment": "Workout list source badge: workout came from HealthKit with unknown device (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "HealthKit" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "HealthKit" }
+        }
+      }
+    },
+    "workout_list.source_badge.app_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver: workout recorded in VitalStride app (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Recorded in VitalStride" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "在 VitalStride 中记录" }
+        }
+      }
+    },
+    "workout_list.source_badge.apple_watch_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver: workout came from Apple Watch (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Recorded on Apple Watch" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "来自 Apple Watch" }
+        }
+      }
+    },
+    "workout_list.source_badge.iphone_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver: workout came from iPhone (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Recorded on iPhone" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "来自 iPhone" }
+        }
+      }
+    },
+    "workout_list.source_badge.ipad_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver: workout came from iPad (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Recorded on iPad" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "来自 iPad" }
+        }
+      }
+    },
+    "workout_list.source_badge.mac_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver: workout came from Mac (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Recorded on Mac" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "来自 Mac" }
+        }
+      }
+    },
+    "workout_list.source_badge.healthkit_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver: workout came from HealthKit with unknown device (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Recorded via HealthKit" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "来自 HealthKit" }
+        }
+      }
+    },
+    "workout_list.source_badge.named_source_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver: workout came from a named source (MY-1359). %@ = source name.",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Source: %@" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "来源：%@" }
+        }
+      }
+    },
+    "workout_list.row.avg_hr_bpm": {
+      "extractionState": "manual",
+      "comment": "Workout row: average heart rate in beats per minute (MY-1359). %lld = bpm value.",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "%lld bpm" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "%lld bpm" }
+        }
+      }
+    },
+    "workout_list.row.avg_hr_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver: average heart rate value (MY-1359). %lld = bpm value.",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Average heart rate %lld" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "平均心率 %lld" }
+        }
+      }
+    },
+    "workout_list.state_banner.loading_title": {
+      "extractionState": "manual",
+      "comment": "Workout list loading banner title (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Loading workouts" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "正在加载训练" }
+        }
+      }
+    },
+    "workout_list.state_banner.loading_subtitle": {
+      "extractionState": "manual",
+      "comment": "Workout list loading banner subtitle (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Fetching your Apple Watch and Health data." }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "正在获取 Apple Watch 与 健康数据。" }
+        }
+      }
+    },
+    "workout_list.state_banner.failed_title": {
+      "extractionState": "manual",
+      "comment": "Workout list failure banner title (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Couldn't load Apple Health workouts" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "无法加载 Apple 健康训练" }
+        }
+      }
+    },
+    "workout_list.state_banner.failed_subtitle": {
+      "extractionState": "manual",
+      "comment": "Workout list failure banner subtitle (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Pull to refresh, or try again later." }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "下拉刷新，或稍后重试。" }
+        }
+      }
+    },
+    "workout_list.state_banner.unauthorized_title": {
+      "extractionState": "manual",
+      "comment": "Workout list unauthorized banner title (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Grant HealthKit access" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "开启 HealthKit 授权" }
+        }
+      }
+    },
+    "workout_list.state_banner.unauthorized_subtitle": {
+      "extractionState": "manual",
+      "comment": "Workout list unauthorized banner subtitle (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Enable Workouts in Settings to see Apple Watch training here." }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "在系统设置中开启训练权限，即可看到 Apple Watch 训练。" }
+        }
+      }
+    },
+    "workout_list.state_banner.open_settings": {
+      "extractionState": "manual",
+      "comment": "Workout list unauthorized banner CTA — jump to iOS Settings (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Open Settings" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "打开设置" }
+        }
+      }
+    },
+    "workout_list.state_banner.open_settings_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver label for the open-settings CTA (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Open Settings" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "打开系统设置" }
+        }
+      }
+    },
+    "workout_list.state_banner.open_settings_hint": {
+      "extractionState": "manual",
+      "comment": "VoiceOver hint for the open-settings CTA (MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Grants VitalStride access to HealthKit workouts" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "允许 VitalStride 读取 HealthKit 训练" }
+        }
+      }
+    },
+    "workout_list.unified_section_header": {
+      "extractionState": "manual",
+      "comment": "Workout list unified section header (all sources combined, MY-1359).",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Workouts" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "训练记录" }
+        }
+      }
     }
   },
   "version": "1.0"

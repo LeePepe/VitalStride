@@ -17,7 +17,9 @@ struct WorkoutListMergerTests {
         duration: TimeInterval = 1800,
         startDate: Date,
         endDate: Date? = nil,
-        sourceName: String? = "Apple Watch"
+        sourceName: String? = "Apple Watch",
+        sourceDeviceKind: SourceDeviceKind? = .appleWatch,
+        averageHeartRate: Int? = nil
     ) -> HealthWorkoutRecord {
         HealthWorkoutRecord(
             id: id,
@@ -27,7 +29,9 @@ struct WorkoutListMergerTests {
             totalDistance: 5000,
             startDate: startDate,
             endDate: endDate ?? startDate.addingTimeInterval(duration),
-            sourceName: sourceName
+            sourceName: sourceName,
+            averageHeartRate: averageHeartRate,
+            sourceDeviceKind: sourceDeviceKind
         )
     }
 
@@ -212,6 +216,66 @@ struct WorkoutListMergerTests {
 
         #expect(result.unified.count == 2)
         #expect(result.dedupCount == 0)
+    }
+
+    @Test("MY-1359 mixed fixture — dedup + sort + no source partition regression")
+    func mixedFixtureMY1359DedupSort() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+
+        let sharedUUID = UUID()
+        let appMirrored = Workout(
+            type: .strength,
+            startDate: Date(timeIntervalSince1970: 1_500_000),
+            endDate: Date(timeIntervalSince1970: 1_503_600)
+        )
+        appMirrored.healthKitUUID = sharedUUID.uuidString
+        let appOnly = Workout(
+            type: .strength,
+            startDate: Date(timeIntervalSince1970: 500_000),
+            endDate: Date(timeIntervalSince1970: 503_600)
+        )
+        context.insert(appMirrored)
+        context.insert(appOnly)
+        try context.save()
+
+        // Same-uuid HK record must be filtered (dedup) even though the
+        // list now renders in a single unified section — regression guard
+        // for MY-1359 unified timeline.
+        let hkDup = makeHealthKitRecord(
+            id: sharedUUID,
+            startDate: Date(timeIntervalSince1970: 1_500_000),
+            sourceDeviceKind: .appleWatch
+        )
+        let hkNewer = makeHealthKitRecord(
+            startDate: Date(timeIntervalSince1970: 2_000_000),
+            sourceDeviceKind: .iPhone
+        )
+        let hkOlder = makeHealthKitRecord(
+            startDate: Date(timeIntervalSince1970: 100_000),
+            sourceDeviceKind: nil,
+            averageHeartRate: 140
+        )
+
+        let result = WorkoutListMerger.merge(
+            appWorkouts: [appMirrored, appOnly],
+            healthKitRecords: [hkDup, hkNewer, hkOlder]
+        )
+
+        // Dedup filtered exactly one record; unified sees the rest.
+        #expect(result.dedupCount == 1)
+        #expect(result.unified.count == 4)
+        // Descending order across sources — interleave, not partitioned.
+        #expect(result.unified[0].startDate == Date(timeIntervalSince1970: 2_000_000))
+        #expect(result.unified[1].startDate == Date(timeIntervalSince1970: 1_500_000))
+        #expect(result.unified[2].startDate == Date(timeIntervalSince1970: 500_000))
+        #expect(result.unified[3].startDate == Date(timeIntervalSince1970: 100_000))
+        // The 1_500_000 slot belongs to the App workout, not the dedup'd HK record.
+        if case .app = result.unified[1] {
+            // expected
+        } else {
+            Issue.record("Expected App workout to occupy the deduped slot")
+        }
     }
 
     @Test("HealthKit empty graceful degradation — only app workouts shown")
