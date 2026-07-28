@@ -10719,6 +10719,90 @@
         }
       }
     },
+    "workout_list.row.exercise_count_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver: number of exercises in an App workout (MY-1359). %lld = exercise count.",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "%lld exercises" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "%lld 个动作" }
+        }
+      }
+    },
+    "workout_list.row.duration_minutes_a11y": {
+      "extractionState": "manual",
+      "comment": "VoiceOver: workout duration in minutes (MY-1359). %lld = minutes.",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "%lld minutes" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "%lld 分钟" }
+        }
+      }
+    },
+    "workout_list.preview.nav_title": {
+      "extractionState": "manual",
+      "comment": "Preview-only nav title for MY-1359 fixture previews.",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Workouts" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "训练" }
+        }
+      }
+    },
+    "workout_list.preview.fixture_app_title": {
+      "extractionState": "manual",
+      "comment": "Preview-only App row title for MY-1359 fixture previews.",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "VitalStride workout" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "VitalStride 训练" }
+        }
+      }
+    },
+    "workout_list.preview.fixture_app_subtitle": {
+      "extractionState": "manual",
+      "comment": "Preview-only App row subtitle for MY-1359 fixture previews.",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "6 exercises · 42 min" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "6 个动作 · 42 分钟" }
+        }
+      }
+    },
+    "workout_list.preview.empty_title": {
+      "extractionState": "manual",
+      "comment": "Preview-only empty state title for MY-1359 fixture previews.",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "No workouts yet" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "暂无训练记录" }
+        }
+      }
+    },
+    "workout_list.preview.empty_subtitle": {
+      "extractionState": "manual",
+      "comment": "Preview-only empty state subtitle for MY-1359 fixture previews.",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Tap + to start your first workout" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "点击 + 开始第一次训练" }
+        }
+      }
+    },
     "workout_list.state_banner.loading_title": {
       "extractionState": "manual",
       "comment": "Workout list loading banner title (MY-1359).",

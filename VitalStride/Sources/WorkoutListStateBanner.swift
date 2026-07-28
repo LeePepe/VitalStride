@@ -37,15 +37,15 @@ struct WorkoutListStateBanner: View {
     let onOpenSettings: () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: Space.gap) {
             iconView
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Space.hair) {
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(TypeScale.title)
                     .foregroundStyle(theme.neutrals.text1)
                 Text(subtitle)
-                    .font(.footnote)
+                    .font(TypeScale.body)
                     .foregroundStyle(theme.neutrals.text2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -62,9 +62,9 @@ struct WorkoutListStateBanner: View {
                             comment: "Workout list unauthorized banner CTA — jump to iOS Settings"
                         )
                     )
-                    .font(.subheadline.weight(.medium))
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: 44)
+                    .font(TypeScale.body.weight(.medium))
+                    .padding(.horizontal, Space.gap)
+                    .frame(minHeight: Space.minTapTarget)
                 }
                 .buttonStyle(.borderedProminent)
                 .accessibilityLabel(
@@ -83,9 +83,9 @@ struct WorkoutListStateBanner: View {
                 )
             }
         }
-        .padding(12)
+        .padding(Space.gap)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.inner, style: .continuous)
                 .fill(theme.neutrals.inner)
         )
     }
@@ -97,15 +97,15 @@ struct WorkoutListStateBanner: View {
             ProgressView()
                 .controlSize(.small)
                 .accessibilityHidden(true)
-                .frame(width: 22, height: 22)
+                .frame(width: Space.minTapTarget / 2, height: Space.minTapTarget / 2)
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.title3)
+                .font(TypeScale.title)
                 .foregroundStyle(theme.warning)
                 .accessibilityHidden(true)
         case .unauthorized:
             Image(systemName: "lock.shield")
-                .font(.title3)
+                .font(TypeScale.title)
                 .foregroundStyle(theme.primary.primary)
                 .accessibilityHidden(true)
         }
@@ -170,6 +170,75 @@ extension WorkoutListStateBanner {
             UIApplication.shared.open(url)
         }
         #endif
+    }
+
+    // MARK: - Test hooks (internal — surfaced for MY-1359 P1 fixture tests)
+
+    /// Localised title copy for a given state. Mirrors the private `title`
+    /// computed property so tests can assert copy without materialising the
+    /// full SwiftUI hierarchy.
+    static func testTitle(for state: LoadState) -> String {
+        switch state {
+        case .loading:
+            return String(
+                localized: "workout_list.state_banner.loading_title",
+                defaultValue: "Loading workouts",
+                comment: "Workout list loading banner title"
+            )
+        case .failed:
+            return String(
+                localized: "workout_list.state_banner.failed_title",
+                defaultValue: "Couldn't load Apple Health workouts",
+                comment: "Workout list failure banner title"
+            )
+        case .unauthorized:
+            return String(
+                localized: "workout_list.state_banner.unauthorized_title",
+                defaultValue: "Grant HealthKit access",
+                comment: "Workout list unauthorized banner title"
+            )
+        }
+    }
+
+    /// Localised subtitle copy for a given state — see `testTitle(for:)`.
+    static func testSubtitle(for state: LoadState) -> String {
+        switch state {
+        case .loading:
+            return String(
+                localized: "workout_list.state_banner.loading_subtitle",
+                defaultValue: "Fetching your Apple Watch and Health data.",
+                comment: "Workout list loading banner subtitle"
+            )
+        case .failed:
+            return String(
+                localized: "workout_list.state_banner.failed_subtitle",
+                defaultValue: "Pull to refresh, or try again later.",
+                comment: "Workout list failure banner subtitle"
+            )
+        case .unauthorized:
+            return String(
+                localized: "workout_list.state_banner.unauthorized_subtitle",
+                defaultValue: "Enable Workouts in Settings to see Apple Watch training here.",
+                comment: "Workout list unauthorized banner subtitle"
+            )
+        }
+    }
+
+    /// Localised CTA label + hint copy for the `.unauthorized` "Open
+    /// Settings" button. Returns the same strings the view attaches via
+    /// `.accessibilityLabel` / `.accessibilityHint`.
+    static func testOpenSettingsAccessibility() -> (label: String, hint: String) {
+        let label = String(
+            localized: "workout_list.state_banner.open_settings_a11y",
+            defaultValue: "Open Settings",
+            comment: "VoiceOver label for the open-settings CTA in the workout list banner"
+        )
+        let hint = String(
+            localized: "workout_list.state_banner.open_settings_hint",
+            defaultValue: "Grants VitalStride access to HealthKit workouts",
+            comment: "VoiceOver hint for the open-settings CTA"
+        )
+        return (label, hint)
     }
 }
 

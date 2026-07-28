@@ -52,25 +52,61 @@ supported. Fixture Preview set is defined in the `#Preview` blocks of
 
 ### Capture instructions (deterministic, no live HealthKit)
 
-1. Open `VitalStride.xcodeproj` in Xcode 26.
-2. Navigate to `VitalStride/Sources/WorkoutListView.swift` and enable canvas preview.
-3. For each `#Preview` block below, set the preview device to *iPhone 16* and toggle the
-   colour-scheme / Dynamic Type variant listed above.
-4. Use `⌘ + Shift + 4` to capture screenshots — one PNG per row of the comparison matrix.
-5. Store the captures beside this file:
-   ```
-   docs/reports/018-workout-list-redesign-screenshots/
-       01-list-mixed-light-large.png
-       02-list-mixed-dark-large.png
-       03-list-mixed-light-accessibility3.png
-       04-list-mixed-dark-accessibility3.png
-       05-banner-loading-light-large.png
-       06-banner-failed-light-large.png
-       07-banner-unauthorized-light-large.png
-       08-banner-unauthorized-dark-accessibility3.png
-   ```
-6. Link this report and folder from the PR body so the design reviewer can annotate directly on
-   the PR.
+The captures below are rendered from `Prototype/Sources/Prototype/WorkoutListPrototype.swift`
+via the `WorkoutListShotExporter` SPM executable, which uses SwiftUI `ImageRenderer` at 2× scale
+against a `Theme(seed: .teal, neutral: .slate, isDark: …)`. That path is deterministic (no
+simulator, no live HealthKit) and can be re-run any time to regenerate the fixtures.
+
+```bash
+swift run --package-path Prototype WorkoutListShotExporter \
+  docs/reports/018-workout-list-redesign-screenshots
+```
+
+The prototype target reconstructs the same visual composition as the production `WorkoutListView`
+using DesignKit tokens only (Space / Radius / TypeScale / Theme neutrals) — no hardcoded colours,
+radii, or font sizes. It deliberately does NOT import `VitalStride` / `VitalModels` /
+`HealthKitService` so the render loop stays isolated from SwiftData + HealthKit.
+
+### Captures (MY-1361 round-2 evidence)
+
+Rendered outputs live beside this file under
+`docs/reports/018-workout-list-redesign-screenshots/`.
+
+**Mixed App + HK (Apple Watch fixture)** — required ≥4 light/dark × normal/Large captures:
+
+| # | File | Scheme | Dynamic Type | Content |
+|---|------|--------|--------------|---------|
+| 1 | `01-list-mixed-light-large.png` | Light | `.large` | Apple Watch running row + iPhone walking row + App push-day row; avg HR chip on both HK rows. |
+| 2 | `02-list-mixed-dark-large.png` | Dark | `.large` | Same fixture — verifies `theme.neutrals.inner` + border tokens carry through dark mode. |
+| 3 | `03-list-mixed-light-accessibility.png` | Light | `.accessibility1` | Verifies Dynamic Type scaling — badge glyph, avg HR chip, and subtitle stay legible. |
+| 4 | `04-list-mixed-dark-accessibility.png` | Dark | `.accessibility1` | Dark + Large combined regression. |
+
+**Load-state banners + empty state**:
+
+| # | File | State | Notes |
+|---|------|-------|-------|
+| 5 | `05-banner-loading-light-large.png` | `.loading` | Spinner + "Loading workouts" subtitle. |
+| 6 | `06-banner-failed-light-large.png` | `.failed` | Warning glyph in `theme.warning`. |
+| 7 | `07-banner-unauthorized-light-large.png` | `.unauthorized` | Lock glyph + "Open Settings" button (≥ `Space.minTapTarget` = 44 pt). |
+| 8 | `08-banner-unauthorized-dark-accessibility.png` | `.unauthorized` | Dark + `.accessibility1` — subtitle wraps, CTA hit target holds. |
+| 9 | `09-empty-light-large.png` | (empty) | `ContentUnavailableView`-shaped empty state; owned by `WorkoutListView`, not the banner. |
+
+### Design-token compliance (MY-1361 P0 — DesignKit red line)
+
+Every metric in the captured views resolves to a DesignKit token. Concretely:
+
+- `WorkoutSourceBadge` badge chrome: `Space.hair` (icon↔text), `Space.inline` (horiz padding),
+  `Space.chipVertical` (vert padding), `Radius.badge` (corner), `TypeScale.meta` (label),
+  `theme.neutrals.text2` / `theme.neutrals.inner` / `theme.neutrals.border`.
+- `WorkoutListStateBanner`: `Space.gap` (outer padding + icon/text gap), `Space.hair` (title↔subtitle
+  gap), `Space.minTapTarget` (button min height), `Radius.inner` (banner corner), `TypeScale.title` /
+  `TypeScale.body` (title / subtitle / CTA font).
+- Icon container in `.loading`: `Space.minTapTarget / 2` (deliberately half of the tap-target token
+  to align with the ProgressView optical size).
+
+No literal `.padding(12)` / `.font(.subheadline)` / `RoundedRectangle(cornerRadius: 10, ...)` remain
+in either the badge or the banner. New DesignKit tokens introduced this round to close the gap:
+`Radius.badge`, `Space.hair`, `Space.inline`, `Space.chipVertical`, `Space.minTapTarget`.
 
 ## Design-review checklist (self)
 

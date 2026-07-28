@@ -525,16 +525,24 @@ private struct WorkoutRowView: View {
 
     private var a11yLabel: String {
         let exerciseCount = workout.exercises?.count ?? 0
+        let exercisesFmt = String(
+            localized: "workout_list.row.exercise_count_a11y",
+            defaultValue: "%lld exercises",
+            comment: "VoiceOver: number of exercises in an App workout (MY-1359)"
+        )
         var parts: [String] = [
             workout.startDate.formatted(.dateTime.year().month().day()),
-            // swiftlint:disable:next no_hardcoded_chinese
-            String(localized: "\(exerciseCount) 个动作", comment: "Exercise count label"),
+            String(format: exercisesFmt, exerciseCount),
             WorkoutSourceBadge.accessibilityLabel(kind: nil, sourceName: nil, isApp: true),
         ]
         if let endDate = workout.endDate {
             let minutes = Int(endDate.timeIntervalSince(workout.startDate)) / 60
-            // swiftlint:disable:next no_hardcoded_chinese
-            parts.append(String(localized: "\(minutes) 分钟", comment: "Duration minutes only"))
+            let minutesFmt = String(
+                localized: "workout_list.row.duration_minutes_a11y",
+                defaultValue: "%lld minutes",
+                comment: "VoiceOver: workout duration in minutes (MY-1359)"
+            )
+            parts.append(String(format: minutesFmt, minutes))
         }
         return parts.joined(separator: "，")
     }
@@ -545,5 +553,208 @@ private struct WorkoutRowView: View {
         // swiftlint:disable:next force_try
         .modelContainer(try! ModelContainerConfiguration.makeTestContainer())
         .environment(AppNavigation())
+        .designThemePreview()
+}
+
+// MARK: - Fixture Previews (MY-1359 P0)
+//
+// Preview-only, deterministic fixture that renders the same List content
+// `WorkoutListView` shows for each of the five documented states, without
+// touching HealthKit, SwiftData `@Query`, or `AppNavigation`. This gives
+// the design gate reproducible captures in Xcode Previews for the report.
+
+private struct WorkoutListPreviewFixture: View {
+    enum Scenario {
+        case loading
+        case empty
+        case failed
+        case unauthorized
+        case mixed
+    }
+
+    let scenario: Scenario
+
+    private var bannerState: WorkoutListStateBanner.LoadState? {
+        switch scenario {
+        case .loading: .loading
+        case .failed: .failed
+        case .unauthorized: .unauthorized
+        case .empty, .mixed: nil
+        }
+    }
+
+    private var showsList: Bool {
+        switch scenario {
+        case .empty: false
+        default: true
+        }
+    }
+
+    private static let referenceDate = Date(timeIntervalSince1970: 1_735_689_600) // 2025-01-01T00:00:00Z
+
+    private var healthKitRows: [HealthWorkoutRecord] {
+        switch scenario {
+        case .mixed:
+            return [
+                HealthWorkoutRecord(
+                    id: UUID(),
+                    activityTypeRawValue: 37, // running
+                    duration: 45 * 60,
+                    totalEnergyBurned: 420,
+                    totalDistance: 8000,
+                    startDate: Self.referenceDate.addingTimeInterval(-2 * 3600),
+                    endDate: Self.referenceDate.addingTimeInterval(-2 * 3600 + 45 * 60),
+                    sourceName: "Apple Watch",
+                    averageHeartRate: 142,
+                    sourceDeviceKind: .appleWatch,
+                    isUserEntered: false
+                ),
+                HealthWorkoutRecord(
+                    id: UUID(),
+                    activityTypeRawValue: 52, // walking
+                    duration: 25 * 60,
+                    totalEnergyBurned: 90,
+                    totalDistance: 2200,
+                    startDate: Self.referenceDate.addingTimeInterval(-4 * 3600),
+                    endDate: Self.referenceDate.addingTimeInterval(-4 * 3600 + 25 * 60),
+                    sourceName: "iPhone",
+                    averageHeartRate: 108,
+                    sourceDeviceKind: .iPhone,
+                    isUserEntered: false
+                ),
+            ]
+        default:
+            return []
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let bannerState {
+                    Section {
+                        WorkoutListStateBanner(state: bannerState, onOpenSettings: {})
+                    }
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowBackground(Color.clear)
+                }
+
+                if showsList {
+                    Section {
+                        if scenario == .mixed {
+                            // App row (fixture placeholder — badge only, since
+                            // faulting Workout objects into an in-memory
+                            // preview container is out of scope for the design
+                            // gate captures).
+                            FixtureAppRow(
+                                title: String(
+                                    localized: "workout_list.preview.fixture_app_title",
+                                    defaultValue: "VitalStride workout",
+                                    comment: "Preview-only App row title (MY-1359 fixtures)"
+                                ),
+                                subtitle: String(
+                                    localized: "workout_list.preview.fixture_app_subtitle",
+                                    defaultValue: "6 exercises · 42 min",
+                                    comment: "Preview-only App row subtitle (MY-1359 fixtures)"
+                                )
+                            )
+                            ForEach(healthKitRows) { record in
+                                HealthKitWorkoutRowView(record: record)
+                            }
+                        }
+                    } header: {
+                        Text(String(
+                            localized: "workout_list.unified_section_header",
+                            defaultValue: "Workouts",
+                            comment: "Workout list unified section header (all sources combined)"
+                        ))
+                        .accessibilityAddTraits(.isHeader)
+                    }
+                } else if scenario == .empty {
+                    Section {
+                        ContentUnavailableView(
+                            String(
+                                localized: "workout_list.preview.empty_title",
+                                defaultValue: "No workouts yet",
+                                comment: "Preview-only empty state title (MY-1359 fixtures)"
+                            ),
+                            systemImage: "dumbbell",
+                            description: Text(String(
+                                localized: "workout_list.preview.empty_subtitle",
+                                defaultValue: "Tap + to start your first workout",
+                                comment: "Preview-only empty state subtitle (MY-1359 fixtures)"
+                            ))
+                        )
+                    }
+                    .listRowBackground(Color.clear)
+                }
+            }
+            .navigationTitle(Text(String(
+                localized: "workout_list.preview.nav_title",
+                defaultValue: "Workouts",
+                comment: "Preview-only nav title (MY-1359 fixtures)"
+            )))
+        }
+    }
+}
+
+private struct FixtureAppRow: View {
+    @Environment(\.theme) private var theme
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(spacing: Space.gap) {
+            VStack(alignment: .leading, spacing: Space.hair) {
+                Text(title)
+                    .font(TypeScale.body.weight(.semibold))
+                    .foregroundStyle(theme.neutrals.text1)
+                Text(subtitle)
+                    .font(TypeScale.meta)
+                    .foregroundStyle(theme.neutrals.text2)
+            }
+            Spacer()
+            WorkoutSourceBadge(kind: nil, sourceName: nil, isApp: true)
+        }
+        .padding(.vertical, Space.hair)
+    }
+}
+
+#Preview("Fixture — loading (light)") {
+    WorkoutListPreviewFixture(scenario: .loading)
+        .designThemePreview()
+}
+
+#Preview("Fixture — empty (light)") {
+    WorkoutListPreviewFixture(scenario: .empty)
+        .designThemePreview()
+}
+
+#Preview("Fixture — failed (light)") {
+    WorkoutListPreviewFixture(scenario: .failed)
+        .designThemePreview()
+}
+
+#Preview("Fixture — unauthorized (light)") {
+    WorkoutListPreviewFixture(scenario: .unauthorized)
+        .designThemePreview()
+}
+
+#Preview("Fixture — mixed App+HK (light)") {
+    WorkoutListPreviewFixture(scenario: .mixed)
+        .designThemePreview()
+}
+
+#Preview("Fixture — mixed App+HK (dark, Large)") {
+    WorkoutListPreviewFixture(scenario: .mixed)
+        .preferredColorScheme(.dark)
+        .dynamicTypeSize(.large)
+        .designThemePreview()
+}
+
+#Preview("Fixture — unauthorized (dark, Large)") {
+    WorkoutListPreviewFixture(scenario: .unauthorized)
+        .preferredColorScheme(.dark)
+        .dynamicTypeSize(.large)
         .designThemePreview()
 }
