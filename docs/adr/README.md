@@ -41,6 +41,7 @@ Each ADR is its own file, numbered sequentially: `NNNN-kebab-case-title.md`.
 | [0012](0012-metrickit-diagnostics-via-telemetrydeck.md) | MetricKit Crash/Hang Diagnostics via the TelemetryDeck Channel | Crash channel superseded by [0013](0013-self-hosted-glitchtip-sentry-cocoa.md) | 2026-07-21 |
 | [0013](0013-self-hosted-glitchtip-sentry-cocoa.md) | Self-Hosted GlitchTip via sentry-cocoa for Crash/Hang Reporting | Accepted | 2026-07-22 |
 | [0015](0015-aptabase-self-hosted-analytics.md) | Self-Hosted Aptabase as Production Analytics Provider | Accepted | 2026-07-26 |
+| [0016](0016-task-kind-ai-routing-feedback-weights.md) | Task-Kind AI Routing with Feedback-Driven Weights | Proposed | 2026-07-29 |
 
 ## Writing a new ADR
 
