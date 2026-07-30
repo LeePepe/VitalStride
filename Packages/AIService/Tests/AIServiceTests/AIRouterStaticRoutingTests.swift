@@ -1,0 +1,207 @@
+import Foundation
+import Testing
+@testable import AIService
+
+@Suite("AIRouter Static Routing Tests", .serialized)
+struct AIRouterStaticRoutingTests {
+
+    // MARK: - Test helpers
+
+    private static func makeRouter(
+        tier: DeviceTier,
+        appleAvailable: Bool = true,
+        zhipuAvailable: Bool = true
+    ) -> AIRouter {
+        let providers: [AIRouter.RegisteredProvider] = [
+            .init(
+                name: "apple_intelligence",
+                isAvailable: { appleAvailable },
+                isOnDevice: true,
+                provider: MockRouterProvider(name: "apple_intelligence", response: "apple-out")
+            ),
+            .init(
+                name: "zhipu",
+                isAvailable: { zhipuAvailable },
+                isOnDevice: false,
+                provider: MockRouterProvider(name: "zhipu", response: "zhipu-out")
+            ),
+        ]
+        return AIRouter(providers: providers, deviceTier: { tier })
+    }
+
+    // MARK: - FR-005 / Independent Test: on-device arm probability = 0 on cloudOnly
+
+    @Test("cloudOnly device: on-device provider is filtered out for every kind")
+    func cloudOnlyDropsOnDeviceForEveryKind() {
+        let router = Self.makeRouter(tier: .cloudOnly)
+
+        for kind in AITaskKind.allCases {
+            let order = router.plannedProviderOrder(for: kind)
+            #expect(!order.contains("apple_intelligence"), "kind=\(kind.rawValue) leaked on-device on cloudOnly tier")
+            #expect(order == ["zhipu"], "kind=\(kind.rawValue) must resolve to zhipu-only on cloudOnly tier")
+        }
+    }
+
+    @Test("cloudOnly device: substitute (interactive+low) still stays cloud-only")
+    func cloudOnlySubstituteStaysCloudOnly() async throws {
+        let router = Self.makeRouter(tier: .cloudOnly)
+        let response = try await router.execute(kind: .substitute, messages: [ChatMessage(role: "user", content: "swap")], model: nil)
+        #expect(response.content == "zhipu-out")
+    }
+
+    // MARK: - Spec Acceptance Scenarios (US1)
+
+    @Test("appleIntelligenceCapable + substitute: routes on-device")
+    func substituteRoutesOnDevice() async throws {
+        // Spec §User Scenarios / Story 1 Scenario 1: "substitute → 端侧 AppleIntelligenceProvider"
+        let router = Self.makeRouter(tier: .appleIntelligenceCapable)
+        let response = try await router.execute(kind: .substitute, messages: [ChatMessage(role: "user", content: "swap")], model: nil)
+        #expect(response.content == "apple-out")
+    }
+
+    @Test("appleIntelligenceCapable + chat: on-device first, cloud fallback")
+    func chatRoutesOnDeviceFirstThenCloud() {
+        // Spec §User Scenarios / Story 1 Scenario 2: "chat → 云端质量档 (by capability, not fixed order)".
+        // Router MUST NOT reverse chain — on-device stays first when available; the
+        // fallback to cloud is what makes the "quality-tier" behavior land on Zhipu
+        // when Apple Intelligence is unavailable or fails at runtime.
+        let router = Self.makeRouter(tier: .appleIntelligenceCapable)
+        let order = router.plannedProviderOrder(for: .chat)
+        #expect(order == ["apple_intelligence", "zhipu"])
+    }
+
+    @Test("appleIntelligenceCapable but apple unavailable: falls back to cloud without reversing chain")
+    func fallsBackToCloudWhenAppleUnavailable() {
+        // Spec §Edge Cases: "旧设备 + 无云端 key → noProviderAvailable". Positive
+        // path: capable tier but runtime Apple unavailability (e.g. content
+        // filter) → cloud only, not by re-ordering, but by isAvailable filter.
+        let router = Self.makeRouter(tier: .appleIntelligenceCapable, appleAvailable: false)
+        let order = router.plannedProviderOrder(for: .chat)
+        #expect(order == ["zhipu"])
+    }
+
+    @Test("both providers unavailable throws noProviderAvailable")
+    func bothUnavailableThrows() async {
+        // Spec §Edge Cases: caller degrades gracefully via existing chain error.
+        let router = Self.makeRouter(tier: .appleIntelligenceCapable, appleAvailable: false, zhipuAvailable: false)
+        await #expect(throws: AIServiceError.self) {
+            try await router.execute(kind: .chat, messages: [ChatMessage(role: "user", content: "hi")], model: nil)
+        }
+    }
+
+    // MARK: - FR-003: central policy table drives requirements
+
+    @Test("policy table maps every AITaskKind to concrete requirements")
+    func policyCoversEveryKind() {
+        // FR-003: the policy table is the router's, not the caller's. Every kind
+        // MUST have a mapped `TaskRequirements` — otherwise callers implicitly rely
+        // on the safe default which is only meant for unmapped/new kinds.
+        for kind in AITaskKind.allCases {
+            #expect(AIRouter.defaultPolicy[kind] != nil, "policy missing for kind=\(kind.rawValue)")
+        }
+    }
+
+    @Test("policy table matches documented per-kind requirements")
+    func policyValuesMatchDocumented() {
+        // Regression guard: the router's policy is the single source of truth.
+        // If someone re-tunes it, this test forces an explicit review of every
+        // change, since caller behavior implicitly depends on these settings.
+        let policy = AIRouter.defaultPolicy
+        #expect(policy[.chat]?.latency == .interactive)
+        #expect(policy[.chat]?.quality == .high)
+        #expect(policy[.chat]?.structured == false)
+        #expect(policy[.overviewInsights]?.latency == .background)
+        #expect(policy[.overviewInsights]?.structured == true)
+        #expect(policy[.trainingAdvice]?.latency == .interactive)
+        #expect(policy[.trainingAdvice]?.structured == true)
+        #expect(policy[.dataTrend]?.structured == true)
+        #expect(policy[.substitute]?.latency == .interactive)
+        #expect(policy[.substitute]?.quality == .low)
+        #expect(policy[.substitute]?.carriesHealthData == false)
+    }
+
+    // MARK: - Edge Case: safe default for unknown/unmapped kinds
+
+    @Test("requirements(for:) returns safe default when policy has no entry")
+    func unknownKindReturnsSafeDefault() {
+        // Spec §Edge Cases: "未知/新增 kind 无策略条目 → 回退到一个安全默认画像
+        // (background + medium + 允许 fallback)，并记一条告警信号，不崩溃".
+        //
+        // We simulate an "unknown kind" by injecting an empty policy — this is
+        // the same code path a newly-added enum case with a missing table entry
+        // would traverse.
+        let router = AIRouter(
+            providers: [
+                .init(
+                    name: "zhipu",
+                    isAvailable: { true },
+                    isOnDevice: false,
+                    provider: MockRouterProvider(name: "zhipu", response: "zhipu-out")
+                ),
+            ],
+            policy: [:],
+            deviceTier: { .cloudOnly }
+        )
+        let requirements = router.requirements(for: .chat)
+        #expect(requirements == AIRouter.safeDefaultRequirements)
+        #expect(requirements.latency == .background)
+        #expect(requirements.quality == .medium)
+    }
+
+    @Test("execute(kind:) does not crash when policy is empty (safe default path)")
+    func executeUnknownKindDoesNotCrash() async throws {
+        let router = AIRouter(
+            providers: [
+                .init(
+                    name: "zhipu",
+                    isAvailable: { true },
+                    isOnDevice: false,
+                    provider: MockRouterProvider(name: "zhipu", response: "safe-default-ok")
+                ),
+            ],
+            policy: [:],
+            deviceTier: { .cloudOnly }
+        )
+        let response = try await router.execute(kind: .chat, messages: [ChatMessage(role: "user", content: "x")], model: nil)
+        #expect(response.content == "safe-default-ok")
+    }
+
+    // MARK: - FR-004: delegates to AIProviderChain (no chain reversal)
+
+    @Test("router preserves chain-order semantics: on-device first when eligible")
+    func chainOrderNotReversed() {
+        // FR-004 red line from AIService/CONTEXT.md: chain order MUST NOT be
+        // reversed. Every kind on a capable device MUST see on-device listed
+        // first — the router only prunes the on-device arm on cloudOnly.
+        let router = Self.makeRouter(tier: .appleIntelligenceCapable)
+        for kind in AITaskKind.allCases {
+            let order = router.plannedProviderOrder(for: kind)
+            #expect(order.first == "apple_intelligence", "kind=\(kind.rawValue) reversed chain (got \(order))")
+        }
+    }
+}
+
+// MARK: - Mock provider (test-only)
+
+private final class MockRouterProvider: AIProvider, @unchecked Sendable {
+    let name: String
+    let responseContent: String
+
+    init(name: String, response: String) {
+        self.name = name
+        self.responseContent = response
+    }
+
+    func chat(messages: [ChatMessage], model: String?) async throws -> ChatResponse {
+        ChatResponse(content: responseContent, model: name)
+    }
+
+    func chatStream(messages: [ChatMessage], model: String?) -> AsyncThrowingStream<ChatStreamChunk, Error> {
+        let content = responseContent
+        return AsyncThrowingStream { continuation in
+            continuation.yield(ChatStreamChunk(content: content))
+            continuation.yield(ChatStreamChunk(content: "", isFinished: true))
+            continuation.finish()
+        }
+    }
+}
