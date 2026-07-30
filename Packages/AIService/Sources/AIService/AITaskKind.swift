@@ -26,10 +26,25 @@ public enum LatencyClass: String, Sendable, CaseIterable, Codable {
 
 /// Coarse quality target for the response. `low` = short factual replacement suggestions;
 /// `medium` = general summaries; `high` = long-form advice / structured multi-field JSON.
-public enum QualityClass: String, Sendable, CaseIterable, Codable {
+public enum QualityClass: String, Sendable, CaseIterable, Codable, Comparable {
     case low
     case medium
     case high
+
+    /// Ordering used by `AIRouter` capability matching:
+    /// `low < medium < high`. A provider whose `maxQuality` is at least the
+    /// requirement's `quality` is eligible.
+    public static func < (lhs: QualityClass, rhs: QualityClass) -> Bool {
+        lhs.rank < rhs.rank
+    }
+
+    private var rank: Int {
+        switch self {
+        case .low: return 0
+        case .medium: return 1
+        case .high: return 2
+        }
+    }
 }
 
 // MARK: - TaskRequirements

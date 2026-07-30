@@ -10,20 +10,24 @@ struct AIRouterStaticRoutingTests {
     private static func makeRouter(
         tier: DeviceTier,
         appleAvailable: Bool = true,
-        zhipuAvailable: Bool = true
+        zhipuAvailable: Bool = true,
+        appleMaxQuality: QualityClass = .medium,
+        zhipuMaxQuality: QualityClass = .high
     ) -> AIRouter {
         let providers: [AIRouter.RegisteredProvider] = [
             .init(
                 name: "apple_intelligence",
                 isAvailable: { appleAvailable },
                 isOnDevice: true,
-                provider: MockRouterProvider(name: "apple_intelligence", response: "apple-out")
+                maxQuality: appleMaxQuality,
+                provider: MockRouterProvider(name: "apple_intelligence", responseContent: "apple-out")
             ),
             .init(
                 name: "zhipu",
                 isAvailable: { zhipuAvailable },
                 isOnDevice: false,
-                provider: MockRouterProvider(name: "zhipu", response: "zhipu-out")
+                maxQuality: zhipuMaxQuality,
+                provider: MockRouterProvider(name: "zhipu", responseContent: "zhipu-out")
             ),
         ]
         return AIRouter(providers: providers, deviceTier: { tier })
@@ -59,15 +63,22 @@ struct AIRouterStaticRoutingTests {
         #expect(response.content == "apple-out")
     }
 
-    @Test("appleIntelligenceCapable + chat: on-device first, cloud fallback")
-    func chatRoutesOnDeviceFirstThenCloud() {
-        // Spec §User Scenarios / Story 1 Scenario 2: "chat → 云端质量档 (by capability, not fixed order)".
-        // Router MUST NOT reverse chain — on-device stays first when available; the
-        // fallback to cloud is what makes the "quality-tier" behavior land on Zhipu
-        // when Apple Intelligence is unavailable or fails at runtime.
+    @Test("appleIntelligenceCapable + chat (high quality): capability match prunes on-device, cloud selected")
+    func chatSelectsCloudByCapability() async throws {
+        // Spec §User Scenarios / Story 1 Scenario 2: ".chat → 云端质量档 (by
+        // capability, not fixed order)".
+        //
+        // apple_intelligence.maxQuality = .medium, .chat requires .high, so the
+        // on-device arm is pruned by capability match — not by re-sorting the
+        // chain. `zhipu` (maxQuality=.high) becomes the primary. This is the
+        // FR-004-compliant way to route: prune ineligible arms, do not reverse
+        // surviving order.
         let router = Self.makeRouter(tier: .appleIntelligenceCapable)
         let order = router.plannedProviderOrder(for: .chat)
-        #expect(order == ["apple_intelligence", "zhipu"])
+        #expect(order == ["zhipu"])
+
+        let response = try await router.execute(kind: .chat, messages: [ChatMessage(role: "user", content: "hi")], model: nil)
+        #expect(response.content == "zhipu-out")
     }
 
     @Test("appleIntelligenceCapable but apple unavailable: falls back to cloud without reversing chain")
@@ -76,7 +87,7 @@ struct AIRouterStaticRoutingTests {
         // path: capable tier but runtime Apple unavailability (e.g. content
         // filter) → cloud only, not by re-ordering, but by isAvailable filter.
         let router = Self.makeRouter(tier: .appleIntelligenceCapable, appleAvailable: false)
-        let order = router.plannedProviderOrder(for: .chat)
+        let order = router.plannedProviderOrder(for: .substitute)
         #expect(order == ["zhipu"])
     }
 
@@ -85,7 +96,7 @@ struct AIRouterStaticRoutingTests {
         // Spec §Edge Cases: caller degrades gracefully via existing chain error.
         let router = Self.makeRouter(tier: .appleIntelligenceCapable, appleAvailable: false, zhipuAvailable: false)
         await #expect(throws: AIServiceError.self) {
-            try await router.execute(kind: .chat, messages: [ChatMessage(role: "user", content: "hi")], model: nil)
+            try await router.execute(kind: .substitute, messages: [ChatMessage(role: "user", content: "hi")], model: nil)
         }
     }
 
@@ -136,7 +147,8 @@ struct AIRouterStaticRoutingTests {
                     name: "zhipu",
                     isAvailable: { true },
                     isOnDevice: false,
-                    provider: MockRouterProvider(name: "zhipu", response: "zhipu-out")
+                    maxQuality: .high,
+                    provider: MockRouterProvider(name: "zhipu", responseContent: "zhipu-out")
                 ),
             ],
             policy: [:],
@@ -156,7 +168,8 @@ struct AIRouterStaticRoutingTests {
                     name: "zhipu",
                     isAvailable: { true },
                     isOnDevice: false,
-                    provider: MockRouterProvider(name: "zhipu", response: "safe-default-ok")
+                    maxQuality: .high,
+                    provider: MockRouterProvider(name: "zhipu", responseContent: "safe-default-ok")
                 ),
             ],
             policy: [:],
@@ -168,29 +181,55 @@ struct AIRouterStaticRoutingTests {
 
     // MARK: - FR-004: delegates to AIProviderChain (no chain reversal)
 
-    @Test("router preserves chain-order semantics: on-device first when eligible")
+    @Test("chain order not reversed: eligible on-device arm stays ahead of cloud")
     func chainOrderNotReversed() {
         // FR-004 red line from AIService/CONTEXT.md: chain order MUST NOT be
-        // reversed. Every kind on a capable device MUST see on-device listed
-        // first — the router only prunes the on-device arm on cloudOnly.
+        // reversed. Every kind on a capable device where the on-device arm is
+        // still eligible (i.e. its `maxQuality` meets the requirement) MUST
+        // see it ahead of cloud. Kinds where the on-device arm is pruned by
+        // capability match (e.g. `.chat` requires `.high` > apple's `.medium`)
+        // are NOT chain reversal — the on-device arm is not present in the
+        // surviving set at all.
         let router = Self.makeRouter(tier: .appleIntelligenceCapable)
         for kind in AITaskKind.allCases {
+            let requirements = router.requirements(for: kind)
             let order = router.plannedProviderOrder(for: kind)
-            #expect(order.first == "apple_intelligence", "kind=\(kind.rawValue) reversed chain (got \(order))")
+            let appleEligible = QualityClass.medium >= requirements.quality
+            if appleEligible {
+                #expect(order.first == "apple_intelligence", "kind=\(kind.rawValue): eligible on-device arm demoted (got \(order))")
+            } else {
+                #expect(!order.contains("apple_intelligence"), "kind=\(kind.rawValue): ineligible on-device arm leaked into order \(order)")
+            }
         }
+    }
+
+    // MARK: - FR-003: capability matching drives provider eligibility
+
+    @Test("capability match: provider whose maxQuality is below requirement is pruned")
+    func capabilityMatchPrunesUndercapableProvider() {
+        // Direct regression guard for the P0 review finding: TaskRequirements
+        // MUST drive eligibility, not just be looked up and discarded. A
+        // hypothetical on-device provider limited to `.low` MUST NOT be picked
+        // for a `.medium` request (`.dataTrend`), even on a capable tier.
+        let router = Self.makeRouter(tier: .appleIntelligenceCapable, appleMaxQuality: .low)
+        let dataTrendOrder = router.plannedProviderOrder(for: .dataTrend)
+        #expect(!dataTrendOrder.contains("apple_intelligence"))
+        #expect(dataTrendOrder == ["zhipu"])
+
+        // But a `.low` requirement (.substitute) still keeps it in the running.
+        let substituteOrder = router.plannedProviderOrder(for: .substitute)
+        #expect(substituteOrder == ["apple_intelligence", "zhipu"])
     }
 }
 
 // MARK: - Mock provider (test-only)
 
-private final class MockRouterProvider: AIProvider, @unchecked Sendable {
+/// Test-only immutable provider. Both stored properties are `let`, no mutable
+/// state, so a plain `Sendable` conformance is safe — no `@unchecked` needed
+/// (Constitution II / Quality Bar C).
+private struct MockRouterProvider: AIProvider, Sendable {
     let name: String
     let responseContent: String
-
-    init(name: String, response: String) {
-        self.name = name
-        self.responseContent = response
-    }
 
     func chat(messages: [ChatMessage], model: String?) async throws -> ChatResponse {
         ChatResponse(content: responseContent, model: name)

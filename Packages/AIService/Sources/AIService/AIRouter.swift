@@ -30,17 +30,26 @@ public struct AIRouter: Sendable {
         /// Whether this provider runs on-device (Apple Intelligence path). Used by
         /// the router to enforce FR-005 on `cloudOnly` devices.
         public let isOnDevice: Bool
+        /// Highest `QualityClass` this provider can plausibly satisfy. Used by the
+        /// central policy to match `TaskRequirements.quality` — a provider is only
+        /// eligible if `maxQuality >= requirements.quality`. This is what makes
+        /// `.chat` (quality=.high) skip the on-device arm (maxQuality=.medium) and
+        /// pick the cloud provider directly, without reversing chain order for
+        /// tasks that don't need it.
+        public let maxQuality: QualityClass
         public let provider: any AIProvider
 
         public init(
             name: String,
             isAvailable: @escaping @Sendable () -> Bool,
             isOnDevice: Bool,
+            maxQuality: QualityClass,
             provider: any AIProvider
         ) {
             self.name = name
             self.isAvailable = isAvailable
             self.isOnDevice = isOnDevice
+            self.maxQuality = maxQuality
             self.provider = provider
         }
     }
@@ -67,6 +76,12 @@ public struct AIRouter: Sendable {
     /// Apple Intelligence first, Zhipu as cloud fallback. Provided so caller
     /// migration in Stage 2 can drop `AIProviderChain.makeDefault` and use this
     /// factory directly.
+    ///
+    /// Capability metadata:
+    /// - `apple_intelligence.maxQuality = .medium` — on-device Foundation Model
+    ///   handles substitutions, short summaries, structured JSON well, but
+    ///   long-form high-quality chat is expected to be routed to the cloud tier.
+    /// - `zhipu.maxQuality = .high` — cloud GLM handles the full quality range.
     public static func makeDefault(zhipuAPIKey: String?) -> AIRouter {
         var providers: [RegisteredProvider] = []
 
@@ -74,6 +89,7 @@ public struct AIRouter: Sendable {
             name: "apple_intelligence",
             isAvailable: { AppleIntelligenceProvider.isAvailable },
             isOnDevice: true,
+            maxQuality: .medium,
             provider: AppleIntelligenceProvider()
         ))
 
@@ -82,6 +98,7 @@ public struct AIRouter: Sendable {
                 name: "zhipu",
                 isAvailable: { !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
                 isOnDevice: false,
+                maxQuality: .high,
                 provider: ZhipuProvider(apiKey: key)
             ))
         }
@@ -226,46 +243,53 @@ public struct AIRouter: Sendable {
 
     /// Core routing decision. Returns providers in try-order.
     ///
-    /// Rules:
+    /// Rules (in this exact order):
     /// 1. Look up `requirements(for: kind)` (safe default on miss).
-    /// 2. Read current `DeviceTier`.
-    /// 3. On `.cloudOnly`, drop every `isOnDevice` provider — enforces FR-005 that
-    ///    the on-device arm probability = 0 on incapable devices.
-    /// 4. If `latency == .interactive` or `quality == .high`, prefer on-device
-    ///    first (fastest / no network) then cloud. This matches the current
-    ///    `AIProviderChain.makeDefault` order and enforces FR-004 "chain order
-    ///    not reversed".
-    /// 5. For `.background + .low`, ordering also stays on-device first — spec
-    ///    never asks to reverse chain, so we don't; policy purely gates whether
-    ///    the on-device arm is even present via `carriesHealthData` / tier.
+    /// 2. Read current `DeviceTier`. On `.cloudOnly`, drop every `isOnDevice`
+    ///    provider — enforces FR-005 that the on-device arm probability = 0 on
+    ///    incapable devices.
+    /// 3. Capability match (FR-003): drop any provider whose `maxQuality` is
+    ///    below the requirement. `.chat` (quality=.high) prunes the on-device
+    ///    arm (maxQuality=.medium); `.substitute` (quality=.low) keeps both.
+    /// 4. Sort surviving providers **without reversing chain order** (FR-004):
+    ///    stable-preserve their original registration order, then move the
+    ///    on-device arm ahead of cloud when both are still present. That means
+    ///    `.substitute` on a capable device sees `[apple, zhipu]` — on-device
+    ///    first. `.chat` sees `[zhipu]` because apple was pruned by capability,
+    ///    not by re-sorting apple below zhipu.
     ///
-    /// The current provider set (`apple_intelligence`, `zhipu`) is small enough
-    /// that the ordering above collapses to "on-device first, then cloud" for every
-    /// kind on capable devices, and "cloud only" on incapable devices — exactly
-    /// what US1's Independent Test asserts.
+    /// This preserves the constitution red line "Apple Intelligence 本地优先 +
+    /// 智谱 GLM fallback 的 chain 顺序不得反转" — pruning an ineligible arm is
+    /// allowed; putting cloud ahead of an eligible on-device arm would not be.
     private func orderedProviders(for kind: AITaskKind) -> [RegisteredProvider] {
         let tier = deviceTierProvider()
         let requirements = requirements(for: kind)
 
-        let filtered: [RegisteredProvider]
+        // Step 2: device-tier filter (FR-005 on cloudOnly).
+        let tierFiltered: [RegisteredProvider]
         switch tier {
         case .cloudOnly:
-            // FR-005: on `cloudOnly`, the on-device arm MUST have zero probability.
-            filtered = providers.filter { !$0.isOnDevice }
+            tierFiltered = providers.filter { !$0.isOnDevice }
         case .appleIntelligenceCapable:
-            filtered = providers
+            tierFiltered = providers
         }
 
-        // Preserve chain order: on-device first, then cloud. FR-004 forbids
-        // reversing. `requirements` is consulted for future policy (e.g. skipping
-        // on-device for a task that demands a schema it cannot produce) but is a
-        // no-op at this stage — kept as a hook so US2/US3/US4 can extend without
-        // changing this shape.
-        _ = requirements
+        // Step 3: capability match — drop providers that cannot meet the
+        // requirement's quality bar. This is what makes `.chat` (`.high`) skip
+        // the on-device arm and pick the cloud provider directly.
+        let capable = tierFiltered.filter { $0.maxQuality >= requirements.quality }
 
-        return filtered.sorted { lhs, rhs in
-            if lhs.isOnDevice == rhs.isOnDevice { return false }
-            return lhs.isOnDevice && !rhs.isOnDevice
+        // Step 4: stable ordering — on-device first among the survivors.
+        // Uses `enumerated()` to keep a deterministic tiebreaker so registration
+        // order is preserved within the same tier bucket (Swift's `sorted` is
+        // not stable).
+        let indexed = capable.enumerated().map { (offset: $0.offset, provider: $0.element) }
+        let sorted = indexed.sorted { lhs, rhs in
+            if lhs.provider.isOnDevice != rhs.provider.isOnDevice {
+                return lhs.provider.isOnDevice && !rhs.provider.isOnDevice
+            }
+            return lhs.offset < rhs.offset
         }
+        return sorted.map { $0.provider }
     }
 }
