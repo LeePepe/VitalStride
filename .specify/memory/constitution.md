@@ -187,6 +187,14 @@ main；`pre-push` 本地跑全量 build/test + lint 作为 PR 前的快速门。
   规划审的 finding 源同为 §Cross-Cutting Quality Bars。
 - DoR 硬合同（派发前必备）：`Files in scope` / `Files NOT to touch` / `Public signatures` /
   `Functional acceptance criteria`（≥3 可验证）/ `Verification command`（精确 + 工作目录）。
+- **Planner 不内联实现级代码（红线）**：spec/plan/tasks 只写**契约级描述**（要 seed 什么、触发什么、断言什么），
+  **禁止**内联「必须能编译」的 Swift 片段（具体 `init` 标签、枚举 case、fixture 字面量等）。这类实现细节留给
+  GREEN 阶段由编译器兜底。理由：一旦计划写死可编译代码，规划审就被迫**当编译器**逐行验（错 `init` 标签、
+  不存在的枚举 case……），把本可一次自查的编译级事实拆成多轮递归 finding。若确需示意，用**非编译**伪码并显式标注
+  `// 示意，非最终签名`。
+- **写前核验源码（红线）**：Planner 引用任何具体符号（类型 / `init` 签名 / 枚举 case / 方法名）前，
+  必须先 `grep`/`git show` 对着真实源码确认存在，**不得凭记忆写**。规划审对「符号是否存在」应一次性全量核验，
+  不做增量式逐个抓（类比编译器一次列出所有 error，而非修一个报一个）。
 - 设计期 `check-tasks-fresh` 防腐 + TL sync-check 仍生效；规划审是其上的额外质量 pass，非替代。
 - bug-fix fast-path（TL 直接拆，无 Planner 产出）不强制走规划审。详见 [ADR-0014](../../docs/adr/0014-restore-planner-review-dual-approval.md)。
 
@@ -210,6 +218,12 @@ main；`pre-push` 本地跑全量 build/test + lint 作为 PR 前的快速门。
 - **G. I18n**：硬编码用户可见字符串（中/英）= P1。功能正确时 → 🟢 PASS WITH FOLLOW-UP + 拆 follow-up sub-issue。
 - **H. Accessibility**：Dynamic Type 支持、hit target ≥ 44pt、decorative icon hidden。
 - **I. Test Coverage**：新 public API 必须有 round-trip 测试；新 SwiftUI view 至少 2 个 Preview。
+- **K. 视觉验收用模拟器 snapshot，不写死真机**：纯视觉改动（token 迁移、配色 / 圆角 / 间距 / 字号、无逻辑变更）的
+  before/after 验收，**默认标准 = iPhone Simulator（如 iPhone 16）light/dark 截图或 SnapshotTesting 用例**，非真机。
+  验收门（spec/tasks 的 acceptance criteria）**禁止**对纯视觉改动写死 "real-device / 真机" 要求——runtime 无可达
+  物理设备时会造出「任何 agent 都过不去、只能永远升级 human」的死结（历史教训：MY-1352 键盘迁移卡在真机截图门，
+  PR 早已 green CI merge 仍无法收口）。真机验收仅保留给**模拟器测不了**的能力：触觉反馈、传感器、后台唤醒、
+  真机性能 / 热。先例：`specs/017-add-set-button-redesign` AC-M1 = iPhone 16 Simulator before/after，是纯视觉改动的正确模板。
 
 ### P2 — Nice to Have (ℹ️，never blocks merge)
 
@@ -279,7 +293,9 @@ TL 每次 pipeline 起手前必须扫描：
   - MAJOR — 删除/反转原则；MINOR — 新增原则/新 Quality Bar；PATCH — 文字澄清不改语义
 - 与本宪法相关：AGENTS.md（agent 操作手册）、CONTEXT.md（数据架构细节）、`docs/adr/`（决策档案）、`scripts/hooks/`（强制规则机器实现）。
 
-**Version**: 2.6.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-26
+**Version**: 2.7.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-31
+
+> 2.7.0（MINOR，新增 Quality Bar K + 收紧 DoR 硬合同）：两条 pipeline 质量改进，源自 MY-1369 规划递归与 MY-1352 真机门死结的复盘。(1) **DoR 硬合同**新增两条红线——Planner 不内联实现级可编译代码（只写契约级描述，实现细节留 GREEN 由编译器兜底）、引用符号前须 `grep`/`git show` 核验存在（规划审一次性全量核验，不做增量逐个抓）；修正 planner 把编译级自查外包给 reviewer、导致 R4/R5 逐轮抓 `init` 标签 / 枚举 case 的递归浪费。(2) **Quality Bar K**：纯视觉改动的 before/after 验收默认走 iPhone Simulator light/dark 截图或 SnapshotTesting，禁写死真机；修正 keyboard stage 因 runtime 无真机造出的「永远升级 human」死结。同步收紧 AGENTS.md 的 human 升级措辞与 Planner Lead 职责行（[ADR-0017](../../docs/adr/0017-planning-code-inlining-and-visual-acceptance-gates.md)）。
 
 > 2.6.0（MINOR，§V telemetry provider 换自建后端）：产品分析 provider 由 **TelemetryDeck**（EU 托管 SaaS）换为**自建 Aptabase**（开源 aptabase-swift SDK，上报到所有者掌控的自建实例，数据不离自有基础设施）。narrow 例外仍限一个隐私合规 SDK、只作 `TelemetryProvider` 消费强类型 `TelemetryEvent`、DEBUG 不发；§I 全额适用。触发自 ADR-0011 自列的 revisit trigger「data-never-leaves-own-infra → 迁移自建后端」，实际**收紧**隐私姿态（[ADR-0015](../../docs/adr/0015-aptabase-self-hosted-analytics.md) supersede [ADR-0011](../../docs/adr/0011-telemetrydeck-first-production-provider.md)）。诊断通道（GlitchTip/sentry-cocoa）不受影响。
 

@@ -41,7 +41,10 @@ Each ADR is its own file, numbered sequentially: `NNNN-kebab-case-title.md`.
 | [0012](0012-metrickit-diagnostics-via-telemetrydeck.md) | MetricKit Crash/Hang Diagnostics via the TelemetryDeck Channel | Crash channel superseded by [0013](0013-self-hosted-glitchtip-sentry-cocoa.md) | 2026-07-21 |
 | [0013](0013-self-hosted-glitchtip-sentry-cocoa.md) | Self-Hosted GlitchTip via sentry-cocoa for Crash/Hang Reporting | Accepted | 2026-07-22 |
 | [0015](0015-aptabase-self-hosted-analytics.md) | Self-Hosted Aptabase as Production Analytics Provider | Accepted | 2026-07-26 |
+| [0015](0015-aptabase-self-hosted-analytics.md) | Self-Hosted Aptabase as Production Analytics Provider | Accepted | 2026-07-26 |
 | [0016](0016-task-kind-ai-routing-feedback-weights.md) | Task-Kind AI Routing with Feedback-Driven Weights | Proposed | 2026-07-29 |
+| [0014](0014-restore-planner-review-dual-approval.md) | Restore Planner Lead Review + AI Reviewer/TL Dual-Approval Gate | Accepted | 2026-07-24 |
+| [0017](0017-planning-code-inlining-and-visual-acceptance-gates.md) | Planner No-Code-Inlining + Simulator Snapshot for Visual Acceptance | Accepted | 2026-07-31 |
 
 ## Writing a new ADR
 
