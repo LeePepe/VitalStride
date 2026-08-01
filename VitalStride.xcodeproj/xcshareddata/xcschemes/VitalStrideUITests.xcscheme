@@ -29,20 +29,6 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E43685623584B2F760F1AF45"
-               BuildableName = "VitalStrideTests.xctest"
-               BlueprintName = "VitalStrideTests"
-               ReferencedContainer = "container:VitalStride.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "NO"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
                BlueprintIdentifier = "7E05E33086E35D561622E7A5"
                BuildableName = "VitalStrideUITests.xctest"
                BlueprintName = "VitalStrideUITests"
@@ -67,17 +53,6 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E43685623584B2F760F1AF45"
-               BuildableName = "VitalStrideTests.xctest"
-               BlueprintName = "VitalStrideTests"
-               ReferencedContainer = "container:VitalStride.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
          <TestableReference
             skipped = "NO"
             parallelizable = "NO">

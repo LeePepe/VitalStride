@@ -47,9 +47,19 @@ schemes:
       targets:
         VitalStride: all
         VitalStrideTests: [test]
+        VitalStrideUITests: [test]
     test:
       targets:
         - VitalStrideTests
+        - VitalStrideUITests
+  VitalStrideUITests:
+    build:
+      targets:
+        VitalStride: all
+        VitalStrideUITests: [test]
+    test:
+      targets:
+        - VitalStrideUITests
   "VitalStrideWatch Watch App":
     build:
       targets:
@@ -214,6 +224,23 @@ targets:
         GENERATE_INFOPLIST_FILE: true
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/VitalStride.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VitalStride"
         BUNDLE_LOADER: "$(TEST_HOST)"
+
+  # UI test bundle for spec 020 (MY-1368/MY-1370). XCUITest verifies the
+  # ExercisePicker search field keeps `@FocusState` across debounced content
+  # changes and @Query refresh. Depends on the `VitalStride` iOS app target
+  # (bundle.ui-testing pattern — no TEST_HOST/BUNDLE_LOADER, uses TEST_TARGET_NAME).
+  VitalStrideUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: VitalStrideUITests
+    dependencies:
+      - target: VitalStride
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride.uitests
+        GENERATE_INFOPLIST_FILE: true
+        TEST_TARGET_NAME: VitalStride
 
   VitalStrideWatch Watch App:
     type: application
