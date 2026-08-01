@@ -165,20 +165,28 @@ private struct ExercisePickerTestHost: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
+        ZStack(alignment: .top) {
             picker
             if seedTriggerEnabled {
                 // round-4 R2: needs a hittable button (not
                 // `.accessibilityAction`) because XCUITest calls
                 // `app.buttons["ExercisePickerTestSeedTrigger"].tap()`.
-                // Visually hidden but retains accessibility hit shape.
+                // 44x44 hit target (Constitution §H), placed at the very
+                // top-left with 0.02 opacity — visible enough for the
+                // accessibility engine to consider hittable, invisible to
+                // the naked eye, and doesn't overlap the picker's
+                // navigation-bar cancel button which sits below the
+                // safe-area top inset.
                 Button(action: seedNow) {
                     Color.clear
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
-                .frame(width: 1, height: 1)
-                .opacity(0.001)
+                .buttonStyle(.plain)
+                .opacity(0.02)
                 .accessibilityIdentifier("ExercisePickerTestSeedTrigger")
                 .accessibilityLabel("Seed test exercise")
+                .zIndex(9999)
             }
         }
     }

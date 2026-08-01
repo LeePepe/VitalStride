@@ -333,15 +333,39 @@ struct ExercisePickerView: View {
 
     // MARK: Search surface (collapsible — circular button ↔ full field)
 
-    @ViewBuilder
+    /// Renders **both** collapsed and expanded search surfaces in the same
+    /// SwiftUI subtree simultaneously, toggling visibility with
+    /// `.opacity` + `.allowsHitTesting` per `isSearchExpanded`. This
+    /// preserves the `TextField` view identity across every state
+    /// transition — critical because the `@FocusState var
+    /// isSearchFocused` binding is tied to that specific TextField
+    /// instance. A prior `if isSearchExpanded { ... } else { ... }` diff
+    /// tore down and re-mounted the TextField whenever the underlying
+    /// `@Query` re-emitted (e.g. new Exercise inserted mid-typing) or
+    /// whenever any observable that touches this view churned during the
+    /// 200ms debounce, causing SwiftUI to invalidate the FocusState
+    /// binding and drop the keyboard (MY-1368).
+    ///
+    /// Both surfaces are always in the layout; the invisible one has
+    /// `.opacity(0)` and disables hit-testing so it can't accidentally
+    /// steal a tap. Because they are wrapped in a `ZStack`, the parent
+    /// panel's height is the maximum of the two — the expanded surface
+    /// is the taller of the pair, so the collapsed pill visually reads
+    /// the same as before (the outer `FloatingPanelAttachment` re-lays
+    /// out based on `.onGeometryChange` which still fires when the
+    /// visible content changes).
     private var searchSurface: some View {
-        if isSearchExpanded {
+        ZStack {
             expandedSearchSurface
-                .transition(.opacity)
-        } else {
+                .opacity(isSearchExpanded ? 1 : 0)
+                .allowsHitTesting(isSearchExpanded)
+                .accessibilityHidden(!isSearchExpanded)
             collapsedSearchSurface
-                .transition(.opacity)
+                .opacity(isSearchExpanded ? 0 : 1)
+                .allowsHitTesting(!isSearchExpanded)
+                .accessibilityHidden(isSearchExpanded)
         }
+        .animation(.easeOut(duration: 0.22), value: isSearchExpanded)
     }
 
     private var expandedSearchSurface: some View {
