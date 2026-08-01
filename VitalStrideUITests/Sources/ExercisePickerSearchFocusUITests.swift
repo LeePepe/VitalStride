@@ -111,10 +111,15 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         searchField.typeText("b")
         usleep(300_000)
 
-        // Cancel button — matches by label ("取消" / "Cancel") via a11y
-        // lookup on the first matching button in the nav bar.
-        let cancelButton = app.navigationBars.buttons.firstMatch
-        XCTAssertTrue(cancelButton.waitForExistence(timeout: 1.0))
+        // Cancel button — matches by label ("取消" / "Cancel") via a11y.
+        // firstMatch on nav-bar buttons is fragile across iOS versions
+        // (iOS 18 may include an implicit back/drag chevron ahead of the
+        // real cancel button), so match by label directly.
+        let cancelButton = app.navigationBars.buttons.matching(
+            NSPredicate(format: "label == %@ OR label == %@", "取消", "Cancel")
+        ).firstMatch
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: 1.0),
+                      "Cancel button not found in nav bar")
         cancelButton.tap()
 
         // Sheet dismissed → search field gone from hierarchy.
