@@ -149,7 +149,7 @@ required — a FAIL from either is a hard merge gate (fixes the MY-1314/PR #342 
 
 | Role | What they do | Where they push |
 |------|--------------|-----------------|
-| **Planner Lead** | spec-driven feature 拆分 / DoR 补全（不写代码，读码用 `git show`/`grep`） | 不 push；产出 sub-issue + @mention 交回 |
+| **Planner Lead** | spec-driven feature 拆分 / DoR 补全（**不写代码**：只写契约级描述，禁内联可编译 Swift 片段；引用符号前先 `git show`/`grep` 核验存在，见 Constitution §DoR 硬合同） | 不 push；产出 sub-issue + @mention 交回 |
 | **Fullstack Engineer (FS)** | implement code + commit + open PR | `github` remote `agent/<issue-key>-<task-id-short>`, then `gh pr create` |
 | **Team Lead (TL)** | ensure CI green + review, merge PR, resolve trivial rebase conflicts；规划审是双批准的一方 | merges via `gh pr merge` (never pushes `main` directly) |
 | **AI Reviewer** | **code review**（PR）+ **planning / DoR review**（Planner 产出，ADR-0014） | (approves/comments on PR or planning) |
@@ -160,8 +160,10 @@ required — a FAIL from either is a hard merge gate (fixes the MY-1314/PR #342 
 > 批准后由 **TL 派发**（Planner/Reviewer 不自行派发）。bug-fix fast-path（TL 直接拆）不走此门。
 > **谁触发 Planner**：spec-driven issue 缺 spec/plan/tasks 或跨 layer 需拆分时，**TL @mention
 > Planner Lead** 去做 speckit 拆分——不升级给 human owner、不 @Hermes（本 workspace 无 Hermes）。
-> 只有本质需要人的任务（如物理设备验证）才升级 human。详见 Constitution §Issue Tracker、
-> `docs/adr/0014-restore-planner-review-dual-approval.md`。
+> 只有本质需要人的任务才升级 human。**"物理设备验证" 不是纯视觉改动的默认门**：token 迁移 / 配色 / 圆角 / 间距
+> 等无逻辑变更，验收走**模拟器 light/dark 截图或 SnapshotTesting**（Constitution §Quality Bars K），不写死真机、不因
+> "无真机" 升级 human。真机升级仅限模拟器测不了的能力（触觉 / 传感器 / 后台唤醒 / 真机性能）。详见 Constitution
+> §Issue Tracker、`docs/adr/0014-restore-planner-review-dual-approval.md`。
 
 > `main` cannot be pushed to directly (branch protection + `pre-commit` block). The only path to
 > `main` is a merged PR whose required checks are green.

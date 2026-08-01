@@ -157,4 +157,4 @@ echo OK
 - Stage 2a → 2b：已达 (2026-07-27T15:56 merged)
 - **Stage 2b → 3：v2 spec/plan/tasks 落 main + T017-02b probe 全绿 + TL 验收**
 - Stage 3 → 4：review 结论 PASS + TL 显式回执
-- Stage 4 → done：build + 3 test + grep 门禁 + 真机双色截图 PR
+- Stage 4 → done：build + 3 test + grep 门禁 + 模拟器（iPhone 16 Simulator）light/dark before/after 截图 PR（纯视觉改动按 Constitution §Quality Bars K 走模拟器验收，非真机）
