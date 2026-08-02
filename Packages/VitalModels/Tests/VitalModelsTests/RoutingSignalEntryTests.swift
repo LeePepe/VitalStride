@@ -58,10 +58,13 @@ struct RoutingSignalEntryTests {
         #expect(matching.count == 1, "RoutingSignalEntry must live in exactly one configuration")
 
         guard let config = matching.first else { return }
-        // CloudKitDatabase is not Equatable — compare its string description against the
-        // known `.none` case rendering. `.private(...)` / `.automatic` render differently.
+        // CloudKitDatabase is not Equatable — compare its rendered description exactly
+        // against `String(describing: ModelConfiguration.CloudKitDatabase.none)`.
+        // Substring matches like `.contains("none")` would falsely accept `.automatic`
+        // and `.private(...)` because every case renders with the `_none` field label.
+        let expectedNone = String(describing: ModelConfiguration.CloudKitDatabase.none)
         let dbDescription = String(describing: config.cloudKitDatabase)
-        #expect(dbDescription.lowercased().contains("none"),
+        #expect(dbDescription == expectedNone,
                 "RoutingSignalEntry configuration must be cloudKitDatabase:.none (宪法 I); got \(dbDescription)")
 
         // Enforce isolation: this configuration cannot host training / health-cache entities.
