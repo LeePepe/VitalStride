@@ -8,6 +8,8 @@ red_lines:
   - AI 缓存模型（OverviewInsightCache / TrainingAdviceCache / DataAnalysisCache）必须 cloudKitDatabase:.none（宪法 I）
   - 仅训练数据（Workout/WorkoutExercise/ExerciseSet/Exercise/WorkoutTemplate/TemplateExercise/UserInterest）允许 CloudKit-synced
   - Swift 6 strict concurrency，禁止 @unchecked Sendable / nonisolated(unsafe) 绕过（宪法 II）
+  - RoutingSignalEntry 永久字段清单 = {kind, provider, deviceTier, latencyMs, schemaValid, accepted, timestamp}；rawPromptDebug/rawResponseDebug 为 TEMP-PRELAUNCH 例外，FR-017 上架前必须移除（宪法 I 永久态）
+  - BanditArmStateEntry 永久字段清单 = {kind, deviceTier, provider, count, rewardSum, updatedAt}；不得追加任何健康/训练数值字段（宪法 I 永久态）
 roles:
   Types:  [Enums, Models]
   Config: [Persistence]
