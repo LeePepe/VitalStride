@@ -66,6 +66,14 @@ public struct AIRouter: Sendable {
     private let rawDebugSink: (any LocalOnlyRawDebugSink)?
     private let schemaValidator: (@Sendable (AITaskKind, String) -> Bool)?
 
+    // MARK: - Shadow sampling (US3 / spec 019 Stage 4)
+    private let shadowSampler: any ShadowSampler
+    private let shadowSignalSink: any ShadowSignalSink
+    /// TEMP-PRELAUNCH: 上架前移除——原始候选响应仅供发布前单用户调试（宪法 I）
+    /// `nil` (default) means the router never even builds the raw candidate
+    /// response string when a shadow dual-run fires — mirrors `rawDebugSink`.
+    private let shadowPairSink: (any LocalOnlyShadowPairSink)?
+
     // MARK: - Init
 
     /// - Parameters:
@@ -86,13 +94,24 @@ public struct AIRouter: Sendable {
     ///     `nil` or `false` → `schemaValid=false` on the emitted signal. The
     ///     router does not decode — validation stays a caller concern (FR-003 /
     ///     constitution V: router doesn't replace provider semantics).
+    ///   - shadowSampler: decides per-call whether a shadow dual-run should
+    ///     fire (spec 019 US3 / FR-010). Default `NeverShadowSampler` = no
+    ///     dual-runs, preserving Stage 3 behavior.
+    ///   - shadowSignalSink: consumer for `ShadowSignal` values. Fire-and-forget
+    ///     just like `signalSink`. Default is a no-op.
+    ///   - shadowPairSink: TEMP-PRELAUNCH raw shadow-pair sink (FR-011 offline
+    ///     evaluation input). `nil` means the raw candidate response text is
+    ///     never even built. Explicit opt-in only, at the composition root.
     public init(
         providers: [RegisteredProvider],
         policy: [AITaskKind: TaskRequirements] = AIRouter.defaultPolicy,
         deviceTier: @escaping @Sendable () -> DeviceTier = { DeviceTier.detect() },
         signalSink: (any RoutingSignalSink)? = nil,
         rawDebugSink: (any LocalOnlyRawDebugSink)? = nil,
-        schemaValidator: (@Sendable (AITaskKind, String) -> Bool)? = nil
+        schemaValidator: (@Sendable (AITaskKind, String) -> Bool)? = nil,
+        shadowSampler: (any ShadowSampler)? = nil,
+        shadowSignalSink: (any ShadowSignalSink)? = nil,
+        shadowPairSink: (any LocalOnlyShadowPairSink)? = nil
     ) {
         self.providers = providers
         self.policy = policy
@@ -100,6 +119,9 @@ public struct AIRouter: Sendable {
         self.signalSink = signalSink ?? NoOpRoutingSignalSink()
         self.rawDebugSink = rawDebugSink
         self.schemaValidator = schemaValidator
+        self.shadowSampler = shadowSampler ?? NeverShadowSampler()
+        self.shadowSignalSink = shadowSignalSink ?? NoOpShadowSignalSink()
+        self.shadowPairSink = shadowPairSink
     }
 
     /// Build a default `AIRouter` mirroring `AIProviderChain.makeDefault`:
@@ -277,6 +299,23 @@ public struct AIRouter: Sendable {
             }
         }
 
+        // Shadow dual-run (spec 019 US3 / FR-010).
+        //
+        // Fires when (a) the sampler says yes for this kind AND (b) a second
+        // distinct eligible provider actually exists in `ordered`. The main
+        // result has already been captured — everything below happens off the
+        // caller's critical path and is best-effort.
+        maybeFireShadow(
+            kind: kind,
+            messages: messages,
+            model: model,
+            ordered: ordered,
+            mainProviderName: outcome.providerName,
+            mainLatencyMs: latencyMs,
+            mainResponse: response,
+            tier: tier
+        )
+
         return response
     }
 
@@ -385,5 +424,113 @@ public struct AIRouter: Sendable {
             return lhs.offset < rhs.offset
         }
         return sorted.map { $0.provider }
+    }
+
+    // MARK: - Shadow dual-run internals
+
+    /// Runs the shadow dual-run if the sampler says yes and a distinct
+    /// candidate provider actually exists. Everything below `Task.detached`
+    /// runs off the caller's critical path — the main result has already been
+    /// returned by `execute` before this fires.
+    ///
+    /// A distinct candidate is defined as: the first *available* provider in
+    /// `ordered` whose name differs from `mainProviderName`. Rationale — if the
+    /// only eligible provider IS the one that served, there's nothing to
+    /// compare, and running the same provider twice would only inflate cost
+    /// and pollute the signal.
+    private func maybeFireShadow(
+        kind: AITaskKind,
+        messages: [ChatMessage],
+        model: String?,
+        ordered: [RegisteredProvider],
+        mainProviderName: String,
+        mainLatencyMs: Int,
+        mainResponse: ChatResponse,
+        tier: DeviceTier
+    ) {
+        guard shadowSampler.shouldSample(kind: kind) else { return }
+
+        // Pick the first available provider that isn't the main one. If none,
+        // silently skip — no shadow signal for a call with no comparison.
+        guard let candidate = ordered.first(where: {
+            $0.name != mainProviderName && $0.isAvailable()
+        }) else {
+            return
+        }
+
+        let sink = shadowSignalSink
+        let pairSink = shadowPairSink
+        let candidateName = candidate.name
+        let candidateProvider = candidate.provider
+        let mainName = mainProviderName
+        let mainContent = mainResponse.content
+
+        Task.detached(priority: .background) {
+            let clock = ContinuousClock()
+            let start = clock.now
+            do {
+                let response = try await candidateProvider.chat(messages: messages, model: model)
+                let elapsed = clock.now - start
+                let candidateLatencyMs = Int(elapsed.components.seconds * 1_000
+                    + elapsed.components.attoseconds / 1_000_000_000_000_000)
+
+                let signal = ShadowSignal(
+                    kind: kind,
+                    mainProvider: mainName,
+                    candidateProvider: candidateName,
+                    deviceTier: tier,
+                    mainLatencyMs: mainLatencyMs,
+                    candidateLatencyMs: candidateLatencyMs,
+                    candidateSucceeded: true,
+                    candidateErrorCategory: nil,
+                    timestamp: Date()
+                )
+                try? await sink.recordShadow(signal)
+
+                // TEMP-PRELAUNCH: raw shadow-pair only handed to an explicit
+                // opt-in sink; never materialized otherwise.
+                if let pairSink {
+                    let payload = ShadowPairPayload(
+                        mainResponse: mainContent,
+                        candidateResponse: response.content
+                    )
+                    try? await pairSink.recordShadowPair(payload, for: signal)
+                }
+            } catch {
+                // FR-010 / spec edge case: candidate failure MUST NOT touch
+                // the already-returned main result. Record a shadowFailed
+                // signal and move on.
+                let signal = ShadowSignal(
+                    kind: kind,
+                    mainProvider: mainName,
+                    candidateProvider: candidateName,
+                    deviceTier: tier,
+                    mainLatencyMs: mainLatencyMs,
+                    candidateLatencyMs: nil,
+                    candidateSucceeded: false,
+                    candidateErrorCategory: AIRouter.errorCategory(error),
+                    timestamp: Date()
+                )
+                try? await sink.recordShadow(signal)
+            }
+        }
+    }
+
+    /// Coarse error classifier for shadow candidate failures. Mirrors the
+    /// private version in `AIProviderChain` — kept in sync intentionally so
+    /// downstream aggregation buckets stay comparable.
+    private static func errorCategory(_ error: Error) -> String {
+        if let aiError = error as? AIServiceError {
+            switch aiError {
+            case .noProviderAvailable: return "noProviderAvailable"
+            case .networkError: return "networkError"
+            case .httpError(let code): return "httpError(\(code))"
+            case .missingAPIKey: return "missingAPIKey"
+            case .responseParsingFailed: return "responseParsingFailed"
+            case .streamingInterrupted: return "streamingInterrupted"
+            }
+        }
+        if error is URLError { return "networkError" }
+        return "unknown"
     }
 }
