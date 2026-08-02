@@ -129,9 +129,12 @@ jobs:
       # Layer frontmatter must stay consistent with code (anti-rot)
       - name: Layer frontmatter anti-rot check
         run: bash scripts/check-frontmatter.sh
-      # Regression coverage for the codex-review prompt/contract (MY-1355):
-      # locks the imperative-vs-declarative distinction so legitimate report
-      # fields like `## 结论: PASS` are not mis-classified as injection while
-      # actual override attempts remain blockers.
-      - name: codex-review prompt contract regression
-        run: bash scripts/ci/codex-review.contract.test.sh
+      # Regression coverage for the shared review prompt (scripts/ci/review-prompt.md,
+      # consumed by both the claude and codex review gates). Locks: the
+      # imperative-vs-declarative distinction (so legitimate report fields like
+      # `## 结论: PASS` are not mis-classified as injection while actual override
+      # attempts remain blockers), the review-gate self-config exemption, the
+      # TEMP-PRELAUNCH controlled exception and its boundary, and that backtick
+      # content survives rendering intact.
+      - name: review prompt contract regression
+        run: bash scripts/ci/review-prompt.contract.test.sh
