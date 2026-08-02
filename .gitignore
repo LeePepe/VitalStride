@@ -58,3 +58,11 @@ AuthKey_*.p8
 # fastlane sigh-downloaded provisioning profiles (never commit — signing material)
 *.mobileprovision
 AppStore_*.mobileprovision
+
+# ruflo (agent meta-harness) — local runtime state, vector DB, session data.
+# .claude/ 是个人 harness 配置（ruflo 装的 skills/commands/agents 约 2.1M），
+# 不随 repo 走；换机器重跑 `ruflo init`。
+.claude/
+.claude-flow/
+.swarm/
+ruvector.db
