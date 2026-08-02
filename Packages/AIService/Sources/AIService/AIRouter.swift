@@ -115,11 +115,15 @@ public struct AIRouter: Sendable {
     /// - `.chat`: interactive UI, long-form quality, no strict schema, may echo user
     ///   text that includes health/training numbers.
     /// - `.overviewInsights`: background pre-warm on the Overview tab; multi-field
-    ///   structured JSON; carries health data.
+    ///   structured JSON; carries health data. `quality=.high` preserves the
+    ///   pre-migration cloud-GLM behavior (spec 019 Stage 2 acceptance SC-004) —
+    ///   the on-device Foundation Model's `maxQuality=.medium` isn't yet trusted
+    ///   for the multi-card synthesis this feature ships.
     /// - `.trainingAdvice`: interactive card in Training tab; structured JSON with
     ///   muscle groups & exercises; carries workout data.
     /// - `.dataTrend`: interactive on Data tab; structured JSON summarizing a sample
-    ///   type; carries health values.
+    ///   type; carries health values. `quality=.high` for the same reason as
+    ///   `.overviewInsights` — the pre-migration site always went to cloud GLM.
     /// - `.substitute`: mid-workout swap, interactive, short factual reply, no schema,
     ///   no raw health data (just exercise names).
     public static let defaultPolicy: [AITaskKind: TaskRequirements] = [
@@ -131,7 +135,7 @@ public struct AIRouter: Sendable {
         ),
         .overviewInsights: TaskRequirements(
             latency: .background,
-            quality: .medium,
+            quality: .high,
             structured: true,
             carriesHealthData: true
         ),
@@ -143,7 +147,7 @@ public struct AIRouter: Sendable {
         ),
         .dataTrend: TaskRequirements(
             latency: .interactive,
-            quality: .medium,
+            quality: .high,
             structured: true,
             carriesHealthData: true
         ),
