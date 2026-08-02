@@ -59,17 +59,34 @@ public struct AIRouter: Sendable {
     private let providers: [RegisteredProvider]
     private let policy: [AITaskKind: TaskRequirements]
     private let deviceTierProvider: @Sendable () -> DeviceTier
+    private let signalSink: any RoutingSignalSink
+    private let schemaValidator: (@Sendable (AITaskKind, String) -> Bool)?
 
     // MARK: - Init
 
+    /// - Parameters:
+    ///   - signalSink: consumer for the bypass `RoutingSignal` emitted after
+    ///     every `execute` call. `nil` (the default) installs a `NoOpRoutingSignalSink`
+    ///     — the router keeps the storage non-optional so the hot path avoids an
+    ///     optional check. Real sinks are wired at app-target composition (spec
+    ///     019 Stage 3c).
+    ///   - schemaValidator: optional per-response validator returning `true` iff
+    ///     the response content parses/validates against the caller's schema.
+    ///     `nil` or `false` → `schemaValid=false` on the emitted signal. The
+    ///     router does not decode — validation stays a caller concern (FR-003 /
+    ///     constitution V: router doesn't replace provider semantics).
     public init(
         providers: [RegisteredProvider],
         policy: [AITaskKind: TaskRequirements] = AIRouter.defaultPolicy,
-        deviceTier: @escaping @Sendable () -> DeviceTier = { DeviceTier.detect() }
+        deviceTier: @escaping @Sendable () -> DeviceTier = { DeviceTier.detect() },
+        signalSink: (any RoutingSignalSink)? = nil,
+        schemaValidator: (@Sendable (AITaskKind, String) -> Bool)? = nil
     ) {
         self.providers = providers
         self.policy = policy
         self.deviceTierProvider = deviceTier
+        self.signalSink = signalSink ?? NoOpRoutingSignalSink()
+        self.schemaValidator = schemaValidator
     }
 
     /// Build a default `AIRouter` mirroring `AIProviderChain.makeDefault`:
@@ -189,8 +206,50 @@ public struct AIRouter: Sendable {
         messages: [ChatMessage],
         model: String? = nil
     ) async throws -> ChatResponse {
-        let chain = buildChain(for: kind)
-        return try await chain.chat(messages: messages, model: model)
+        let ordered = orderedProviders(for: kind)
+        let chain = buildChain(from: ordered)
+        let primaryProviderName = ordered.first(where: { $0.isAvailable() })?.name ?? "none"
+        let tier = deviceTierProvider()
+        let clock = ContinuousClock()
+        let start = clock.now
+        let response = try await chain.chat(messages: messages, model: model)
+        let elapsed = clock.now - start
+        let latencyMs = Int(elapsed.components.seconds * 1_000
+            + elapsed.components.attoseconds / 1_000_000_000_000_000)
+
+        // FR-018: raw prompt/response are captured HERE and handed off ONLY to
+        // the injected sink via a detached Task. They MUST NOT be printed,
+        // logged via os_log / Logger, or forwarded to Aptabase/GlitchTip.
+        //
+        // TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
+        let rawPromptDebug = messages
+            .map { "\($0.role): \($0.content)" }
+            .joined(separator: "\n")
+        // TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
+        let rawResponseDebug = response.content
+
+        let schemaValid = schemaValidator?(kind, response.content) ?? false
+
+        let signal = RoutingSignal(
+            kind: kind,
+            provider: primaryProviderName,
+            deviceTier: tier,
+            latencyMs: latencyMs,
+            schemaValid: schemaValid,
+            accepted: nil,
+            timestamp: Date(),
+            rawPromptDebug: rawPromptDebug,
+            rawResponseDebug: rawResponseDebug
+        )
+
+        // FR-008 fire-and-forget: sink failures / delays MUST NOT block or
+        // change the user-facing return value. Detached Task + `try?` swallow.
+        let sink = signalSink
+        Task.detached(priority: .background) {
+            try? await sink.record(signal)
+        }
+
+        return response
     }
 
     /// Streaming counterpart of `execute`. Same routing rules; delegates to
@@ -234,7 +293,10 @@ public struct AIRouter: Sendable {
     /// unchanged — the router only decides which providers, in which order,
     /// participate for this `kind` on the current device tier.
     private func buildChain(for kind: AITaskKind) -> AIProviderChain {
-        let ordered = orderedProviders(for: kind)
+        buildChain(from: orderedProviders(for: kind))
+    }
+
+    private func buildChain(from ordered: [RegisteredProvider]) -> AIProviderChain {
         let entries = ordered.map { registered in
             AIProviderChain.ProviderEntry(
                 name: registered.name,
