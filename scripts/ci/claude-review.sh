@@ -109,7 +109,9 @@ PROMPT="你是 VitalStride 仓库的自动 code reviewer。只 review 下面的 
 6. **安全**：硬编码密钥、注入、未校验的外部输入、CI/workflow 的提权或可被 PR 篡改的信任边界。
 7. 改了 `Packages/<X>/` 源码却完全没有对应 `swift test` 测试改动（除非 commit message 显式说明豁免原因）。
 8. 公开 API / 行为的破坏性变更而无迁移说明。
-9. **XcodeGen（宪法 IV）**：改了 target 配置但只动 `.xcodeproj/project.pbxproj` 没同步 `project.yml` = blocker（project.yml 是真理之源）。
+9. **XcodeGen（宪法 IV）**：`project.yml` 是真理之源，`.xcodeproj/project.pbxproj` 是 CI 用 `xcodegen generate` 生成的产物。
+   - 改了 target 配置但只动 `.xcodeproj/project.pbxproj` 没同步 `project.yml` = blocker。
+   - **反方向不是问题**：只改 `project.yml` 而 diff 里没有 `project.pbxproj` 是本 repo 的**正确做法**，绝不可报为 blocker。CI（`.github/workflows/ci.yml`）自己会跑 `xcodegen generate`；手动提交 pbxproj 反而制造 drift。
 
 非阻塞(notes,不挡合并):命名、可读性、小的可维护性问题、可选优化。
 
