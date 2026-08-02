@@ -10,6 +10,8 @@ final class OverviewInsightsState {
     var insights: [OverviewInsight] = []
     var isLoading = false
     private var hasLoaded = false
+    // Spec 019 Stage 3c (T017): sink for the overviewInsights request.
+    var signalStore: RoutingSignalStore?
 
     private var loadTask: Task<Void, Never>?
     private let keychainHelper = KeychainHelper()
@@ -36,7 +38,7 @@ final class OverviewInsightsState {
 
         do {
             let apiKey = try keychainHelper.load(service: apiKeyService)
-            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+            let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let provider = RouterBackedProvider(router: router, kind: AICallSite.overviewInsights.kind)
             let container = modelContext.container
 
@@ -101,6 +103,7 @@ struct OverviewInsightsSection: View {
     ) private var recentWorkouts: [Workout]
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.routingSignalStore) private var signalStore
 
     var body: some View {
         Group {
@@ -118,6 +121,7 @@ struct OverviewInsightsSection: View {
             AdaptiveCardGrid(insights: state.insights)
         }
         .task {
+            state.signalStore = signalStore
             state.loadIfNeeded(
                 snapshot: snapshot,
                 workoutCount: recentWorkouts.count,

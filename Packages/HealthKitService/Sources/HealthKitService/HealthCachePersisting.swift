@@ -42,3 +42,26 @@ public protocol HealthCachePersisting: Sendable {
     func saveAvailableTypes(_ entry: PersistedAvailableTypes) async throws
     func deleteAvailableTypes() async throws
 }
+
+/// Cross-package purge hook invoked from `HealthDataCache.handleAuthorizationRevoked`
+/// (see MY-1381 追加需求 comment). HealthKitService owns HealthKit-derived
+/// caches; it does NOT know about `VitalModels.RoutingSignalEntry` (would
+/// invert the layer dependency: this package depends_on VitalModels but a
+/// `RoutingSignalEntry`-shaped API here would drag Telemetry-partition
+/// storage into HealthKit's domain). Instead the app target conforms an
+/// object to this protocol and injects it — spec 019 Stage 3c wires
+/// `RoutingSignalStore` as the conformer.
+///
+/// The revoke path (constitution I / HealthKitService red_line
+/// "权限撤销即完整清除") calls `purge()` best-effort. Implementations must
+/// throw on unrecoverable failure so the cache logger can record a
+/// category-only error (no health values, no signal payload — that's the
+/// same red_line).
+public protocol AuthorizationRevocationHandling: Sendable {
+    /// Purge any device-local data derived from HealthKit access. Called
+    /// exactly once per revoke event. MUST be idempotent (revoke may fire
+    /// repeatedly) and MUST NOT surface HealthKit values in its own log
+    /// output.
+    func purgeOnAuthorizationRevoked() async throws
+}
+

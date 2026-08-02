@@ -23,6 +23,8 @@ struct AIDataAnalysisSection: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthDataCache) private var healthDataCache
     @Environment(\.theme) private var theme
+    // Spec 019 Stage 3c (T017): sink for the data-trend request's signal.
+    @Environment(\.routingSignalStore) private var signalStore
 
     private let keychainHelper = KeychainHelper()
     private let apiKeyService = AISettingsSection.apiKeyKeychainService
@@ -184,7 +186,7 @@ struct AIDataAnalysisSection: View {
 
         do {
             let apiKey = try keychainHelper.load(service: apiKeyService)
-            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+            let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let provider = RouterBackedProvider(router: router, kind: AICallSite.dataTrend.kind)
             let service = AIAnalysisService(
                 modelContainer: container,
@@ -419,7 +421,8 @@ enum AIDataAnalysisPreloader {
 
     static func pregenerateTopInterestsIfConsented(
         modelContainer: ModelContainer,
-        healthDataCache: HealthDataCache
+        healthDataCache: HealthDataCache,
+        signalStore: RoutingSignalStore? = nil
     ) {
         let consented = UserDefaults.standard.bool(forKey: aiPrivacyConsentKey)
         guard consented else {
@@ -428,13 +431,15 @@ enum AIDataAnalysisPreloader {
         }
         pregenerateTopInterests(
             modelContainer: modelContainer,
-            healthDataCache: healthDataCache
+            healthDataCache: healthDataCache,
+            signalStore: signalStore
         )
     }
 
     static func pregenerateTopInterests(
         modelContainer: ModelContainer,
-        healthDataCache: HealthDataCache
+        healthDataCache: HealthDataCache,
+        signalStore: RoutingSignalStore? = nil
     ) {
         let context = ModelContext(modelContainer)
         let topTypes = UserInterestTracker.topInterests(limit: 3, in: context)
@@ -449,7 +454,7 @@ enum AIDataAnalysisPreloader {
             return
         }
 
-        let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+        let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
         let provider = RouterBackedProvider(router: router, kind: AICallSite.dataTrend.kind)
 
         for sampleType in topTypes {

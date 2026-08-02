@@ -172,6 +172,9 @@ targets:
       - path: VitalStride/Sources/AIAnalysisContext.swift
       - path: VitalStride/Sources/AIAnalysisPrompts.swift
       - path: VitalStride/Sources/RouterBackedProvider.swift
+      - path: VitalStride/Sources/AI/AIRouterFactory.swift
+      - path: VitalStride/Sources/AI/RoutingSignalStore.swift
+      - path: VitalStride/Sources/AI/RoutingSignalStoreEnvironment.swift
       - path: VitalStride/Sources/HealthDataCacheEnvironment.swift
       - path: VitalStride/Sources/OnboardingView.swift
       - path: VitalStride/Sources/WorkoutHeartRateStats.swift

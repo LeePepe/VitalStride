@@ -69,6 +69,9 @@ struct WorkoutListView: View {
     // preserving the original T007 default.
     @SceneStorage("workoutViewMode") private var viewMode: ViewMode = .list
     @Environment(\.theme) private var theme
+    // Spec 019 Stage 3c (T017): hand the app-installed sink to the
+    // training-advice VM in `onAppear`.
+    @Environment(\.routingSignalStore) private var signalStore
 
     private var hasAnyWorkouts: Bool {
         !workouts.isEmpty || !healthKitRecords.isEmpty
@@ -170,6 +173,7 @@ struct WorkoutListView: View {
         }
         .task {
             guard privacyConsented else { return }
+            adviceViewModel.signalStore = signalStore
             adviceViewModel.loadAdviceIfNeeded(modelContext: modelContext)
         }
     }

@@ -29,6 +29,9 @@ final class DataAISummaryState {
     private(set) var phase: Phase = .idle
     private(set) var results: [TypeResult] = []
     private(set) var earliestGeneratedAt: Date?
+    // Spec 019 Stage 3c (T017): sink for the parallel per-sampleType
+    // dataTrend requests. Set by the view before `loadIfNeeded`.
+    var signalStore: RoutingSignalStore?
 
     static let summaryTypes: [HealthSampleType] = [
         .stepCount, .heartRate, .sleepAnalysis, .bodyMass, .activeEnergyBurned,
@@ -83,7 +86,7 @@ final class DataAISummaryState {
             return
         }
 
-        let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+        let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
         let provider = RouterBackedProvider(router: router, kind: AICallSite.dataTrend.kind)
 
         var cacheHitCount = 0
