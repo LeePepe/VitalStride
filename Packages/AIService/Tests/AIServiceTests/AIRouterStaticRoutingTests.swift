@@ -122,9 +122,12 @@ struct AIRouterStaticRoutingTests {
         #expect(policy[.chat]?.quality == .high)
         #expect(policy[.chat]?.structured == false)
         #expect(policy[.overviewInsights]?.latency == .background)
+        #expect(policy[.overviewInsights]?.quality == .high)
         #expect(policy[.overviewInsights]?.structured == true)
         #expect(policy[.trainingAdvice]?.latency == .interactive)
+        #expect(policy[.trainingAdvice]?.quality == .high)
         #expect(policy[.trainingAdvice]?.structured == true)
+        #expect(policy[.dataTrend]?.quality == .high)
         #expect(policy[.dataTrend]?.structured == true)
         #expect(policy[.substitute]?.latency == .interactive)
         #expect(policy[.substitute]?.quality == .low)
@@ -210,7 +213,7 @@ struct AIRouterStaticRoutingTests {
         // Direct regression guard for the P0 review finding: TaskRequirements
         // MUST drive eligibility, not just be looked up and discarded. A
         // hypothetical on-device provider limited to `.low` MUST NOT be picked
-        // for a `.medium` request (`.dataTrend`), even on a capable tier.
+        // for a `.high` request (`.dataTrend`), even on a capable tier.
         let router = Self.makeRouter(tier: .appleIntelligenceCapable, appleMaxQuality: .low)
         let dataTrendOrder = router.plannedProviderOrder(for: .dataTrend)
         #expect(!dataTrendOrder.contains("apple_intelligence"))
@@ -219,6 +222,34 @@ struct AIRouterStaticRoutingTests {
         // But a `.low` requirement (.substitute) still keeps it in the running.
         let substituteOrder = router.plannedProviderOrder(for: .substitute)
         #expect(substituteOrder == ["apple_intelligence", "zhipu"])
+    }
+
+    // MARK: - Stage 2 acceptance: overviewInsights + dataTrend keep pre-migration cloud behavior
+
+    @Test(".overviewInsights on capable tier: on-device arm pruned by .high requirement (spec 019 SC-004)")
+    func overviewInsightsPrunesOnDeviceOnCapableTier() {
+        // Pre-migration, this call site instantiated ZhipuProvider directly.
+        // After Stage 2 the router must reproduce that: even on an Apple
+        // Intelligence-capable device, the on-device arm (maxQuality=.medium)
+        // is below the .overviewInsights requirement (quality=.high) and gets
+        // pruned by capability match. No chain reversal, just capability
+        // filtering. FR-004 preserved.
+        let router = Self.makeRouter(tier: .appleIntelligenceCapable)
+        let order = router.plannedProviderOrder(for: .overviewInsights)
+        #expect(!order.contains("apple_intelligence"))
+        #expect(order == ["zhipu"])
+    }
+
+    @Test(".dataTrend on capable tier: on-device arm pruned by .high requirement (spec 019 SC-004)")
+    func dataTrendPrunesOnDeviceOnCapableTier() {
+        // Same rationale as .overviewInsights: pre-migration this went to
+        // cloud GLM. The .high requirement prunes the on-device arm on a
+        // capable tier so the routed order is cloud-only, matching Stage 1
+        // behavior. FR-004 preserved.
+        let router = Self.makeRouter(tier: .appleIntelligenceCapable)
+        let order = router.plannedProviderOrder(for: .dataTrend)
+        #expect(!order.contains("apple_intelligence"))
+        #expect(order == ["zhipu"])
     }
 }
 

@@ -184,7 +184,8 @@ struct AIDataAnalysisSection: View {
 
         do {
             let apiKey = try keychainHelper.load(service: apiKeyService)
-            let provider = ZhipuProvider(apiKey: apiKey)
+            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+            let provider = RouterBackedProvider(router: router, kind: AICallSite.dataTrend.kind)
             let service = AIAnalysisService(
                 modelContainer: container,
                 provider: provider
@@ -448,7 +449,8 @@ enum AIDataAnalysisPreloader {
             return
         }
 
-        let provider = ZhipuProvider(apiKey: apiKey)
+        let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+        let provider = RouterBackedProvider(router: router, kind: AICallSite.dataTrend.kind)
 
         for sampleType in topTypes {
             nonisolated(unsafe) let sampleType = sampleType

@@ -130,7 +130,7 @@ final class AIChatViewModel {
 
         do {
             let apiKey = try keychainHelper.load(service: apiKeyService)
-            let provider = ZhipuProvider(apiKey: apiKey)
+            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
             let healthService = HealthKitService(deviceIdentifier: "ios-ai")
 
             let dateRange = DateInterval(
@@ -154,7 +154,7 @@ final class AIChatViewModel {
 
             let selectedModel = UserDefaults.standard.string(forKey: "aiModel")
                 ?? AIModel.glm4Flash.rawValue
-            let stream = provider.chatStream(messages: apiMessages, model: selectedModel)
+            let stream = router.executeStream(kind: AICallSite.chat.kind, messages: apiMessages, model: selectedModel)
 
             var contentBuffer = ""
             var lastUIUpdate = ContinuousClock.now
