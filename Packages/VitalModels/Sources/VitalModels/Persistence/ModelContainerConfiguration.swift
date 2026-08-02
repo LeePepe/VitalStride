@@ -22,8 +22,12 @@ public enum ModelContainerConfiguration {
         DataAnalysisCache.self,
     ]
 
+    public static let telemetryModelTypes: [any PersistentModel.Type] = [
+        RoutingSignalEntry.self,
+    ]
+
     public static let allModelTypes: [any PersistentModel.Type] =
-        trainingModelTypes + healthCacheModelTypes + aiCacheModelTypes
+        trainingModelTypes + healthCacheModelTypes + aiCacheModelTypes + telemetryModelTypes
 
     public static let cloudKitContainerIdentifier = "iCloud.com.leepepe.VitalStride"
 
@@ -48,10 +52,17 @@ public enum ModelContainerConfiguration {
             cloudKitDatabase: .none
         )
 
+        let telemetrySchema = Schema(telemetryModelTypes)
+        let telemetryConfig = ModelConfiguration(
+            "Telemetry",
+            schema: telemetrySchema,
+            cloudKitDatabase: .none
+        )
+
         let fullSchema = Schema(allModelTypes)
         return try ModelContainer(
             for: fullSchema,
-            configurations: [trainingConfig, healthCacheConfig, aiCacheConfig]
+            configurations: [trainingConfig, healthCacheConfig, aiCacheConfig, telemetryConfig]
         )
     }
 
@@ -80,10 +91,18 @@ public enum ModelContainerConfiguration {
             cloudKitDatabase: .none
         )
 
+        let telemetrySchema = Schema(telemetryModelTypes)
+        let telemetryConfig = ModelConfiguration(
+            "Telemetry",
+            schema: telemetrySchema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+
         let fullSchema = Schema(allModelTypes)
         return try ModelContainer(
             for: fullSchema,
-            configurations: [trainingConfig, healthCacheConfig, aiCacheConfig]
+            configurations: [trainingConfig, healthCacheConfig, aiCacheConfig, telemetryConfig]
         )
     }
 }
