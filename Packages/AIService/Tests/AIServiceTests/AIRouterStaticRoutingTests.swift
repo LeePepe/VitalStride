@@ -251,6 +251,233 @@ struct AIRouterStaticRoutingTests {
         #expect(!order.contains("apple_intelligence"))
         #expect(order == ["zhipu"])
     }
+
+    // MARK: - Stage 5b: bandit + prior mix, chain order not reversed
+
+    @Test("Stage 5b Day-1: router with bandit + empty repo picks Stage 1 primary (SC-006)")
+    func banditWithEmptyRepoMatchesStage1() async throws {
+        // With `NoOpBanditArmStateRepository` (default when no repo
+        // injected) `loadAll` returns []; the bandit falls back to the
+        // static prior's argmax, which is constructed from the Stage 1
+        // policy. So the executed provider MUST equal Stage 1's pick.
+        let prior = AIRoutingBandit.staticPriorFromRouterDefaults(providers: [
+            RegisteredProviderMeta(name: "apple_intelligence", isOnDevice: true, maxQuality: .medium),
+            RegisteredProviderMeta(name: "zhipu", isOnDevice: false, maxQuality: .high),
+        ])
+        let bandit = AIRoutingBandit(
+            explorationEpsilon: 0.5, // even a big ε shouldn't matter — Day-1 is deterministic
+            staticPrior: prior,
+            deterministicSampler: FixedSampler(value: 0.001) // would explore, but Day-1 skips sampler
+        )
+        let providers: [AIRouter.RegisteredProvider] = [
+            .init(
+                name: "apple_intelligence",
+                isAvailable: { true },
+                isOnDevice: true,
+                maxQuality: .medium,
+                provider: MockRouterProvider(name: "apple_intelligence", responseContent: "apple-out")
+            ),
+            .init(
+                name: "zhipu",
+                isAvailable: { true },
+                isOnDevice: false,
+                maxQuality: .high,
+                provider: MockRouterProvider(name: "zhipu", responseContent: "zhipu-out")
+            ),
+        ]
+        let router = AIRouter(
+            providers: providers,
+            deviceTier: { .appleIntelligenceCapable },
+            bandit: bandit
+        )
+
+        // .substitute (both eligible on capable) → Stage 1 picks apple.
+        let sub = try await router.execute(kind: .substitute, messages: [ChatMessage(role: "user", content: "swap")], model: nil)
+        #expect(sub.content == "apple-out",
+                "Day-1 bandit primary must match Stage 1's on-device pick for .substitute")
+
+        // .chat → Stage 1 prunes apple by capability → zhipu.
+        let chat = try await router.execute(kind: .chat, messages: [ChatMessage(role: "user", content: "hi")], model: nil)
+        #expect(chat.content == "zhipu-out",
+                "Day-1 bandit must respect capability filter: .chat still cloud-only")
+    }
+
+    @Test("Stage 5b: bandit-driven reorder still delegates to chain (constitution V: order not reversed)")
+    func banditPrimaryStillGoesThroughChain() async throws {
+        // Even when the bandit is on, execute() must still delegate to
+        // AIProviderChain — a failing primary MUST fall back to the next
+        // eligible provider, not throw. This is the guarantee that the
+        // "chain order not reversed" red line holds even in the bandit
+        // regime.
+        let prior = AIRoutingBandit.staticPriorFromRouterDefaults(providers: [
+            RegisteredProviderMeta(name: "apple_intelligence", isOnDevice: true, maxQuality: .medium),
+            RegisteredProviderMeta(name: "zhipu", isOnDevice: false, maxQuality: .high),
+        ])
+        let bandit = AIRoutingBandit(
+            explorationEpsilon: 0.0, staticPrior: prior,
+            deterministicSampler: FixedSampler(value: 0.5)
+        )
+        let providers: [AIRouter.RegisteredProvider] = [
+            .init(
+                name: "apple_intelligence",
+                isAvailable: { true }, isOnDevice: true, maxQuality: .medium,
+                provider: AlwaysFailProvider(name: "apple_intelligence")
+            ),
+            .init(
+                name: "zhipu",
+                isAvailable: { true }, isOnDevice: false, maxQuality: .high,
+                provider: MockRouterProvider(name: "zhipu", responseContent: "zhipu-fallback-out")
+            ),
+        ]
+        let router = AIRouter(
+            providers: providers,
+            deviceTier: { .appleIntelligenceCapable },
+            bandit: bandit
+        )
+        // Bandit's Day-1 primary for .substitute is apple; apple throws;
+        // chain must fall back to zhipu.
+        let response = try await router.execute(
+            kind: .substitute,
+            messages: [ChatMessage(role: "user", content: "swap")],
+            model: nil
+        )
+        #expect(response.content == "zhipu-fallback-out",
+                "chain fallback broken after bandit reorder — constitution V red line")
+    }
+
+    @Test("Stage 5b: nil bandit = Stage 1 exact routing (no repo call, no sampler use)")
+    func nilBanditPreservesStage1() async throws {
+        // Explicit nil-bandit path documented in the AIRouter init.
+        // Everything Stage 1 asserted about static routing must still hold
+        // when the bandit is not installed.
+        let router = Self.makeRouter(tier: .appleIntelligenceCapable)
+        #expect(router.plannedProviderOrder(for: .substitute) == ["apple_intelligence", "zhipu"])
+        let sub = try await router.execute(kind: .substitute, messages: [ChatMessage(role: "user", content: "swap")], model: nil)
+        #expect(sub.content == "apple-out")
+    }
+
+    @Test("Stage 5b: bandit with warm arms flips primary but chain still fallback-capable")
+    func banditWarmSelectionFlipsPrimary() async throws {
+        // Warm repo: strongly favor zhipu for .substitute. Bandit reorders
+        // the primary → zhipu wins even though apple is Stage 1's default.
+        // The point: the reorder is a bandit-driven policy change, not a
+        // chain reversal — apple was still eligible and would have been
+        // tried on fallback if zhipu had failed.
+        let prior = AIRoutingBandit.staticPriorFromRouterDefaults(providers: [
+            RegisteredProviderMeta(name: "apple_intelligence", isOnDevice: true, maxQuality: .medium),
+            RegisteredProviderMeta(name: "zhipu", isOnDevice: false, maxQuality: .high),
+        ])
+        let bandit = AIRoutingBandit(
+            explorationEpsilon: 0.0, staticPrior: prior,
+            deterministicSampler: FixedSampler(value: 0.99) // never explores
+        )
+        let repo = InMemoryBanditRepo(state: [
+            BanditArmState(
+                kind: .substitute, deviceTier: .appleIntelligenceCapable, provider: "apple_intelligence",
+                count: 20, rewardSum: 0.0, updatedAt: Date(timeIntervalSince1970: 0)
+            ),
+            BanditArmState(
+                kind: .substitute, deviceTier: .appleIntelligenceCapable, provider: "zhipu",
+                count: 20, rewardSum: 20.0, updatedAt: Date(timeIntervalSince1970: 0)
+            ),
+        ])
+        let providers: [AIRouter.RegisteredProvider] = [
+            .init(name: "apple_intelligence", isAvailable: { true }, isOnDevice: true, maxQuality: .medium,
+                  provider: MockRouterProvider(name: "apple_intelligence", responseContent: "apple-out")),
+            .init(name: "zhipu", isAvailable: { true }, isOnDevice: false, maxQuality: .high,
+                  provider: MockRouterProvider(name: "zhipu", responseContent: "zhipu-out")),
+        ]
+        let router = AIRouter(
+            providers: providers,
+            deviceTier: { .appleIntelligenceCapable },
+            bandit: bandit,
+            banditRepo: repo
+        )
+        let response = try await router.execute(kind: .substitute, messages: [ChatMessage(role: "user", content: "swap")], model: nil)
+        #expect(response.content == "zhipu-out",
+                "warm bandit failed to flip primary to the higher-reward arm")
+    }
+
+    @Test("Stage 5b: FR-008 — banditRepo write failure does not affect execute return value")
+    func banditRepoWriteFailureIsFireAndForget() async throws {
+        let prior = AIRoutingBandit.staticPriorFromRouterDefaults(providers: [
+            RegisteredProviderMeta(name: "apple_intelligence", isOnDevice: true, maxQuality: .medium),
+            RegisteredProviderMeta(name: "zhipu", isOnDevice: false, maxQuality: .high),
+        ])
+        let bandit = AIRoutingBandit(
+            explorationEpsilon: 0.0, staticPrior: prior,
+            deterministicSampler: FixedSampler(value: 0.5)
+        )
+        // ObservingThrowingBanditRepo records that upsert was called
+        // before it throws — so the test proves the throw path really
+        // executed (not a silent no-op) AND that the caller was
+        // unaffected. Anything less doesn't verify FR-008.
+        let repo = ObservingThrowingBanditRepo()
+        let providers: [AIRouter.RegisteredProvider] = [
+            .init(name: "apple_intelligence", isAvailable: { true }, isOnDevice: true, maxQuality: .medium,
+                  provider: MockRouterProvider(name: "apple_intelligence", responseContent: "apple-out")),
+            .init(name: "zhipu", isAvailable: { true }, isOnDevice: false, maxQuality: .high,
+                  provider: MockRouterProvider(name: "zhipu", responseContent: "zhipu-out")),
+        ]
+        let router = AIRouter(
+            providers: providers,
+            deviceTier: { .appleIntelligenceCapable },
+            bandit: bandit,
+            banditRepo: repo
+        )
+        // A throwing repo would break the caller if upsert were awaited on
+        // the hot path. FR-008 says it must not.
+        let response = try await router.execute(kind: .substitute, messages: [ChatMessage(role: "user", content: "swap")], model: nil)
+        #expect(response.content == "apple-out",
+                "throwing banditRepo affected user-visible return — FR-008 violated")
+        // Give the detached upsert task a bounded window to fire.
+        let start = ContinuousClock().now
+        while await repo.throwCount() == 0, ContinuousClock().now - start < .seconds(2) {
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+        let throwCount = await repo.throwCount()
+        #expect(throwCount >= 1,
+                "upsert never threw — the FR-008 fire-and-forget path wasn't exercised (\(throwCount))")
+    }
+
+    @Test("Stage 5b: FR-012/013 — cloudOnly tier + bandit never picks on-device arm")
+    func cloudOnlyBanditNeverPicksOnDevice() async throws {
+        // Feed the repo strong (but ineligible) apple_intelligence data
+        // for .cloudOnly. The router's tier filter drops apple before it
+        // reaches the bandit, so even a huge rewardSum can't lift it into
+        // the executed order. 1000 draws = 0 apple hits.
+        let prior = AIRoutingBandit.staticPriorFromRouterDefaults(providers: [
+            RegisteredProviderMeta(name: "apple_intelligence", isOnDevice: true, maxQuality: .medium),
+            RegisteredProviderMeta(name: "zhipu", isOnDevice: false, maxQuality: .high),
+        ])
+        let bandit = AIRoutingBandit(
+            explorationEpsilon: 0.5, staticPrior: prior,
+            deterministicSampler: FixedSampler(value: 0.1) // WOULD explore
+        )
+        let repo = InMemoryBanditRepo(state: [
+            BanditArmState(
+                kind: .substitute, deviceTier: .cloudOnly, provider: "apple_intelligence",
+                count: 100, rewardSum: 100.0, updatedAt: Date(timeIntervalSince1970: 0)
+            ),
+        ])
+        let providers: [AIRouter.RegisteredProvider] = [
+            .init(name: "apple_intelligence", isAvailable: { true }, isOnDevice: true, maxQuality: .medium,
+                  provider: MockRouterProvider(name: "apple_intelligence", responseContent: "apple-out")),
+            .init(name: "zhipu", isAvailable: { true }, isOnDevice: false, maxQuality: .high,
+                  provider: MockRouterProvider(name: "zhipu", responseContent: "zhipu-out")),
+        ]
+        let router = AIRouter(
+            providers: providers,
+            deviceTier: { .cloudOnly },
+            bandit: bandit,
+            banditRepo: repo
+        )
+        for _ in 0..<50 {
+            let response = try await router.execute(kind: .substitute, messages: [ChatMessage(role: "user", content: "swap")], model: nil)
+            #expect(response.content == "zhipu-out",
+                    "cloudOnly bandit leaked into on-device arm — FR-012/013 violated")
+        }
+    }
 }
 
 // MARK: - Mock provider (test-only)
@@ -274,4 +501,59 @@ private struct MockRouterProvider: AIProvider, Sendable {
             continuation.finish()
         }
     }
+}
+
+/// Provider that always throws — used to exercise chain fallback.
+private struct AlwaysFailProvider: AIProvider, Sendable {
+    let name: String
+    struct Boom: Error {}
+    func chat(messages: [ChatMessage], model: String?) async throws -> ChatResponse {
+        throw Boom()
+    }
+    func chatStream(messages: [ChatMessage], model: String?) -> AsyncThrowingStream<ChatStreamChunk, Error> {
+        AsyncThrowingStream { $0.finish(throwing: Boom()) }
+    }
+}
+
+/// Deterministic sampler returning a fixed value on every draw.
+private struct FixedSampler: DeterministicSampler {
+    let value: Double
+    func nextDouble() -> Double { value }
+}
+
+/// In-memory repo returning a fixed state snapshot; upsert is a no-op.
+private struct InMemoryBanditRepo: BanditArmStateRepository {
+    let state: [BanditArmState]
+    func loadAll() async -> [BanditArmState] { state }
+    func upsert(kind: AITaskKind, deviceTier: DeviceTier, provider: String, deltaCount: Int, deltaReward: Double) async throws {}
+}
+
+/// Repo whose `upsert` actually throws, so the FR-008 fire-and-forget
+/// guarantee is exercised at runtime (not just at the type level). The
+/// error is thrown from inside the `async throws` implementation; the
+/// detached `Task` in `AIRouter.execute` wraps the call in `try?`, so the
+/// caller must still see a normal return value.
+private struct ThrowingBanditRepo: BanditArmStateRepository {
+    struct UpsertFailure: Error {}
+    func loadAll() async -> [BanditArmState] { [] }
+    func upsert(kind: AITaskKind, deviceTier: DeviceTier, provider: String, deltaCount: Int, deltaReward: Double) async throws {
+        throw UpsertFailure()
+    }
+}
+
+/// Same as `ThrowingBanditRepo` but records how many times `upsert` was
+/// invoked before throwing. Actor conformance is inherently `Sendable`
+/// (Constitution II) — no `@unchecked`, no lock.
+private actor ObservingThrowingBanditRepo: BanditArmStateRepository {
+    struct UpsertFailure: Error {}
+    private var attemptCount: Int = 0
+
+    func loadAll() async -> [BanditArmState] { [] }
+
+    func upsert(kind: AITaskKind, deviceTier: DeviceTier, provider: String, deltaCount: Int, deltaReward: Double) async throws {
+        attemptCount += 1
+        throw UpsertFailure()
+    }
+
+    func throwCount() -> Int { attemptCount }
 }

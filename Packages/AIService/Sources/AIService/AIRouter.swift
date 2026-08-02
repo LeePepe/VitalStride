@@ -74,6 +74,16 @@ public struct AIRouter: Sendable {
     /// response string when a shadow dual-run fires — mirrors `rawDebugSink`.
     private let shadowPairSink: (any LocalOnlyShadowPairSink)?
 
+    // MARK: - Bandit routing (US4 / spec 019 Stage 5)
+    /// Optional bandit that picks the primary provider name for a given
+    /// `(kind, deviceTier)`. `nil` = Stage 1 static routing (Day-1 zero
+    /// regression is preserved without needing the bandit at all).
+    private let bandit: AIRoutingBandit?
+    /// Optional persistent store for bandit arm state. Written to
+    /// best-effort after every `execute` via a detached Task — writes never
+    /// block the caller or affect the returned response (FR-008 inherited).
+    private let banditRepo: any BanditArmStateRepository
+
     // MARK: - Init
 
     /// - Parameters:
@@ -102,6 +112,14 @@ public struct AIRouter: Sendable {
     ///   - shadowPairSink: TEMP-PRELAUNCH raw shadow-pair sink (FR-011 offline
     ///     evaluation input). `nil` means the raw candidate response text is
     ///     never even built. Explicit opt-in only, at the composition root.
+    ///   - bandit: optional `AIRoutingBandit` that picks the primary
+    ///     provider name for `(kind, deviceTier)`. `nil` (the default)
+    ///     preserves Stage 1 static routing exactly — Day-1 zero regression
+    ///     without needing bandit state at all (spec 019 SC-006, FR-013).
+    ///   - banditRepo: optional persistent store the router will `loadAll`
+    ///     before each pick and `upsert` (fire-and-forget) with the observed
+    ///     reward after each call. `nil` installs `NoOpBanditArmStateRepository`
+    ///     so `bandit` degrades gracefully to prior-only behavior.
     public init(
         providers: [RegisteredProvider],
         policy: [AITaskKind: TaskRequirements] = AIRouter.defaultPolicy,
@@ -111,7 +129,9 @@ public struct AIRouter: Sendable {
         schemaValidator: (@Sendable (AITaskKind, String) -> Bool)? = nil,
         shadowSampler: (any ShadowSampler)? = nil,
         shadowSignalSink: (any ShadowSignalSink)? = nil,
-        shadowPairSink: (any LocalOnlyShadowPairSink)? = nil
+        shadowPairSink: (any LocalOnlyShadowPairSink)? = nil,
+        bandit: AIRoutingBandit? = nil,
+        banditRepo: (any BanditArmStateRepository)? = nil
     ) {
         self.providers = providers
         self.policy = policy
@@ -122,6 +142,8 @@ public struct AIRouter: Sendable {
         self.shadowSampler = shadowSampler ?? NeverShadowSampler()
         self.shadowSignalSink = shadowSignalSink ?? NoOpShadowSignalSink()
         self.shadowPairSink = shadowPairSink
+        self.bandit = bandit
+        self.banditRepo = banditRepo ?? NoOpBanditArmStateRepository()
     }
 
     /// Build a default `AIRouter` mirroring `AIProviderChain.makeDefault`:
@@ -241,9 +263,31 @@ public struct AIRouter: Sendable {
         messages: [ChatMessage],
         model: String? = nil
     ) async throws -> ChatResponse {
-        let ordered = orderedProviders(for: kind)
-        let chain = buildChain(from: ordered)
+        let baseOrdered = orderedProviders(for: kind)
         let tier = deviceTierProvider()
+
+        // Bandit hook (spec 019 Stage 5 / FR-012–014). The bandit picks the
+        // PRIMARY provider name; the surviving order after capability filter
+        // is preserved for fallback. This preserves the constitution V red
+        // line "chain 顺序不得反转" — the chain still walks providers in
+        // order; the bandit only decides which of the still-eligible arms
+        // heads the list. Any arm the router already dropped (cloudOnly
+        // pruning, capability mismatch) is invisible to the bandit —
+        // FR-012/013's "cloudOnly on-device arm probability = 0" is
+        // enforced BEFORE `selectProvider` is called.
+        let arms: [BanditArmState]
+        if bandit != nil {
+            arms = await banditRepo.loadAll()
+        } else {
+            arms = []
+        }
+        let ordered = banditReorder(
+            base: baseOrdered,
+            kind: kind,
+            tier: tier,
+            arms: arms
+        )
+        let chain = buildChain(from: ordered)
         let clock = ContinuousClock()
         let start = clock.now
         // `chatWithOutcome` reports the provider that ACTUALLY served the call.
@@ -276,6 +320,38 @@ public struct AIRouter: Sendable {
         let sink = signalSink
         Task.detached(priority: .background) {
             try? await sink.record(signal)
+        }
+
+        // Bandit reward feedback (spec 019 FR-013 / Stage 5).
+        //
+        // Fire-and-forget: `banditRepo.upsert` inherits Stage 3 FR-008 —
+        // slow or failing writes never block the user-facing return path.
+        // The `accepted` signal is `nil` here on purpose; the Stage 3c
+        // `RoutingSignalSink` pipeline provides the acceptance channel
+        // separately. Bandit reward on this hot path uses only schema
+        // validity + optional offline score (offlineScore=nil unless a
+        // future Stage 4 hook feeds it in).
+        //
+        // Reward inputs are Bool + Bool? + Double? — no HealthKit values
+        // touch the bandit (constitution I). The `upsert` delta is the
+        // reward for a single observation; the repo accumulates.
+        if let bandit {
+            let reward = bandit.computeReward(
+                schemaValid: schemaValid,
+                accepted: nil,
+                offlineScore: nil
+            )
+            let repo = banditRepo
+            let servedProvider = outcome.providerName
+            Task.detached(priority: .background) {
+                try? await repo.upsert(
+                    kind: kind,
+                    deviceTier: tier,
+                    provider: servedProvider,
+                    deltaCount: 1,
+                    deltaReward: reward
+                )
+            }
         }
 
         // TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
@@ -426,7 +502,53 @@ public struct AIRouter: Sendable {
         return sorted.map { $0.provider }
     }
 
-    // MARK: - Shadow dual-run internals
+    // MARK: - Bandit-driven reorder (spec 019 Stage 5)
+
+    /// Given the base ordering produced by `orderedProviders(for:)`, ask the
+    /// bandit which of those still-eligible providers should be the primary,
+    /// and reorder `base` to put that provider first. If no bandit is
+    /// installed OR the base ordering has zero/one entries, returns `base`
+    /// unchanged — Stage 1 static routing is preserved.
+    ///
+    /// Reorder semantics:
+    /// - `available = base` (already tier + capability filtered).
+    /// - `pick = bandit.selectProvider(kind, tier, arms, available.map { $0.name })`.
+    /// - If `pick` matches a non-first entry in `base`, that entry is
+    ///   moved to the head; the rest keep their relative order (stable
+    ///   partition). This preserves chain fallback semantics — the pruned
+    ///   or reordered-below arms are still tried in their original order
+    ///   if the primary fails.
+    ///
+    /// Constitution V: this is NOT a chain reversal. Chain reversal would
+    /// put a low-quality/pruned arm ahead of an eligible one. The bandit
+    /// only reorders WITHIN the already-eligible set that `orderedProviders`
+    /// produced — every arm the bandit could pick was already going to run
+    /// in the chain.
+    private func banditReorder(
+        base: [RegisteredProvider],
+        kind: AITaskKind,
+        tier: DeviceTier,
+        arms: [BanditArmState]
+    ) -> [RegisteredProvider] {
+        guard let bandit else { return base }
+        guard base.count > 1 else { return base }
+        let available = base.map { $0.name }
+        let pick = bandit.selectProvider(
+            kind: kind,
+            deviceTier: tier,
+            arms: arms,
+            availableProviders: available
+        )
+        guard let idx = base.firstIndex(where: { $0.name == pick }), idx > 0 else {
+            return base
+        }
+        var reordered = base
+        let chosen = reordered.remove(at: idx)
+        reordered.insert(chosen, at: 0)
+        return reordered
+    }
+
+
 
     /// Runs the shadow dual-run if the sampler says yes and a distinct
     /// candidate provider actually exists. Everything below `Task.detached`
