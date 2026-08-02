@@ -235,6 +235,32 @@ for gate in claude-review.sh codex-review.sh; do
     fi
 done
 
+# --- Track 4: 自豁免的安全前提(checkout base,非 PR head) -------------------
+#
+# 模板里「对 review 门自身配置文件的改动不构成 injection blocker」这条豁免,其
+# 安全性**完全依赖**两个 review workflow checkout 的是 base 分支而非 PR head:
+# 规则文件来自 base ⇒ PR 改不动用来审自己的规则。若哪天有人把 checkout 改成
+# PR head,自豁免会**静默**变成可被 PR 利用的自审通道(PR 自己写一条"豁免我"
+# 的规则再自己 review 自己),而没有任何门会发现。这里把该前提钉死。
+
+WORKFLOW_DIR="$(cd "$SCRIPT_DIR/../../.github/workflows" && pwd)"
+for wf in claude-review.yml codex-review.yml; do
+    wf_path="$WORKFLOW_DIR/$wf"
+    if [ ! -f "$wf_path" ]; then
+        echo "[FAIL] review workflow not found: $wf_path"
+        fail=$((fail + 1))
+        continue
+    fi
+    # checkout 步骤不得把 PR head 的 ref/sha 取来跑评审脚本。
+    if grep -qE 'ref:[[:space:]]*\$\{\{[[:space:]]*github\.event\.pull_request\.head' "$wf_path"; then
+        echo "[FAIL] $wf checks out PR head — review-gate self-exemption becomes PR-exploitable"
+        fail=$((fail + 1))
+    else
+        echo "[PASS] $wf does not check out PR head (self-exemption premise holds)"
+        pass=$((pass + 1))
+    fi
+done
+
 # --- summary --------------------------------------------------------------
 echo
 echo "review-prompt.contract.test.sh: $pass passed, $fail failed"

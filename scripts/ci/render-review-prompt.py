@@ -11,7 +11,8 @@ quoting 事故在结构上不可能再发生 —— 因此模板里的反引号�
     CHANGED=... TRUNCATED=... DIFF=... \
         python3 scripts/ci/render-review-prompt.py scripts/ci/review-prompt.md
 
-渲染结果写 stdout。三个占位符缺任意一个环境变量时按空串处理(TRUNCATED 常为空)。
+渲染结果写 stdout。三个占位符缺任意一个环境变量时按空串处理(TRUNCATED 常为空);
+替换是单次扫描,注入值里的 {{...}} 字面量不会被二次替换。
 模板缺失、或模板里少了任一占位符,视为错误 → 非 0 退出,调用方 fail-closed。
 
 注意校验只针对**模板**:渲染后不再扫 `{{`,否则 PR diff 里任何合法的 mustache /
@@ -20,6 +21,7 @@ Jinja 文本都会把门弄红(fail-closed 的误报也是门失效)。
 
 import os
 import pathlib
+import re
 import sys
 
 PLACEHOLDERS = ("CHANGED", "TRUNCATED", "DIFF")
@@ -46,8 +48,15 @@ def main() -> int:
         )
         return 3
 
-    for name in PLACEHOLDERS:
-        rendered = rendered.replace("{{" + name + "}}", os.environ.get(name, ""))
+    values = {name: os.environ.get(name, "") for name in PLACEHOLDERS}
+    # 单次扫描替换,不做链式 str.replace:后者的结果依赖替换顺序 —— 先替入的内容
+    # 里若恰好含有后续占位符字面量(例如 PR 新增一个名叫 {{DIFF}} 的文件,进入
+    # CHANGED 列表),会被二次替换。一次性 re.sub 回调消除这个隐性顺序依赖。
+    rendered = re.sub(
+        r"\{\{(" + "|".join(PLACEHOLDERS) + r")\}\}",
+        lambda m: values[m.group(1)],
+        rendered,
+    )
 
     sys.stdout.write(rendered)
     return 0

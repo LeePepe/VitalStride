@@ -119,9 +119,25 @@ jobs:
           # Packages 源码。不扫 specs/ —— 那里的 TEMP-PRELAUNCH 是**规则文本本身**
           # (FR-016/017 的定义),不是待清除的代码点;也不扫本 workflow(它含该
           # 字面量做 grep pattern,自匹配会让门永远红)。
-          MATCHES=$(grep -rn 'TEMP-PRELAUNCH' --include='*.swift' \
-            VitalStride VitalStrideMac "VitalStrideWatch Watch App" Packages \
-            2>/dev/null || true)
+          SCAN_PATHS=(VitalStride VitalStrideMac "VitalStrideWatch Watch App" Packages)
+          # 先校验每个扫描路径都存在。这道门守的是宪法 I 的永久态,不能 fail-open:
+          # 若目录被改名/checkout 布局变化,grep 只会少扫一个目录并静默返回空,
+          # 门就变成「没扫到 = 通过」。路径缺失一律判失败。
+          for p in "${SCAN_PATHS[@]}"; do
+            if [ ! -d "$p" ]; then
+              echo "::error::ship-gate 扫描路径不存在: $p —— 拒绝在扫描范围残缺的情况下放行发布"
+              exit 1
+            fi
+          done
+          # 只对「无匹配」(rc=1) 容错;grep 真出错(rc>=2)一律判失败,同样不 fail-open。
+          set +e
+          MATCHES=$(grep -rn 'TEMP-PRELAUNCH' --include='*.swift' "${SCAN_PATHS[@]}")
+          GREP_RC=$?
+          set -e
+          if [ "$GREP_RC" -ge 2 ]; then
+            echo "::error::ship-gate grep 执行失败 (rc=$GREP_RC) —— 拒绝放行发布"
+            exit 1
+          fi
           if [ -n "$MATCHES" ]; then
             echo "::error::发布前必须移除受控临时例外（spec 019 FR-017 / SC-007）"
             echo "TEMP-PRELAUNCH 命中位置："
