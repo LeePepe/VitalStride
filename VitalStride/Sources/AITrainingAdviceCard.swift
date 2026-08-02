@@ -316,7 +316,7 @@ final class TrainingAdviceViewModel {
         do {
             let apiKey = try keychainHelper.load(service: apiKeyService)
             let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
-            let provider = RouterBackedProvider(router: router, kind: .trainingAdvice)
+            let provider = RouterBackedProvider(router: router, kind: AICallSite.trainingAdvice.kind)
             let container = modelContext.container
 
             let trainingContext = buildTrainingContext(modelContext: modelContext)

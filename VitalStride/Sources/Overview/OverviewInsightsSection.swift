@@ -37,7 +37,7 @@ final class OverviewInsightsState {
         do {
             let apiKey = try keychainHelper.load(service: apiKeyService)
             let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
-            let provider = RouterBackedProvider(router: router, kind: .overviewInsights)
+            let provider = RouterBackedProvider(router: router, kind: AICallSite.overviewInsights.kind)
             let container = modelContext.container
 
             let context = OverviewContext(

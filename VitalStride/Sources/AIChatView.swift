@@ -154,7 +154,7 @@ final class AIChatViewModel {
 
             let selectedModel = UserDefaults.standard.string(forKey: "aiModel")
                 ?? AIModel.glm4Flash.rawValue
-            let stream = router.executeStream(kind: .chat, messages: apiMessages, model: selectedModel)
+            let stream = router.executeStream(kind: AICallSite.chat.kind, messages: apiMessages, model: selectedModel)
 
             var contentBuffer = ""
             var lastUIUpdate = ContinuousClock.now

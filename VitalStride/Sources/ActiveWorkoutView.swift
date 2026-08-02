@@ -988,7 +988,7 @@ struct ActiveWorkoutView: View {
         let response: ChatResponse
         do {
             let selectedModel = UserDefaults.standard.string(forKey: "aiModel")
-            response = try await router.execute(kind: .substitute, messages: messages, model: selectedModel)
+            response = try await router.execute(kind: AICallSite.substitute.kind, messages: messages, model: selectedModel)
         } catch {
             logger.info("substitute AI request failed: category=\(Self.errorCategory(error))")
             return .error(

@@ -325,7 +325,7 @@ final class AIViewState {
             }
 
             let selectedModel = UserDefaults.standard.string(forKey: "aiModel") ?? AIModel.glm4Flash.rawValue
-            let response = try await router.execute(kind: .chat, messages: chatMessages, model: selectedModel)
+            let response = try await router.execute(kind: AICallSite.chat.kind, messages: chatMessages, model: selectedModel)
 
             guard !Task.isCancelled else {
                 cardStates[type] = .idle

@@ -84,7 +84,7 @@ final class DataAISummaryState {
         }
 
         let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
-        let provider = RouterBackedProvider(router: router, kind: .dataTrend)
+        let provider = RouterBackedProvider(router: router, kind: AICallSite.dataTrend.kind)
 
         var cacheHitCount = 0
         var collectedResults: [TypeResult] = []
