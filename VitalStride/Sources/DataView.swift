@@ -24,6 +24,7 @@ struct DataView: View {
     @Environment(\.healthKitService) private var healthKitService
     @Environment(\.healthDataCache) private var healthDataCache
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.routingSignalStore) private var signalStore
     #if os(iOS)
     @Environment(AppNavigation.self) private var navigation: AppNavigation?
     #endif
@@ -91,6 +92,7 @@ struct DataView: View {
             .task(id: authCheckToken) {
                 await checkAuthorizationStatus()
                 if aiPrivacyConsented, let types = availableTypes, !types.isEmpty {
+                    aiSummaryState.signalStore = signalStore
                     await aiSummaryState.loadIfNeeded(
                         availableTypes: types,
                         modelContainer: modelContext.container,

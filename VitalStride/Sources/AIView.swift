@@ -21,6 +21,9 @@ struct AIView: View {
     #if os(iOS)
     @Environment(AppNavigation.self) private var navigation: AppNavigation?
     #endif
+    // Spec 019 Stage 3c: hand the sink to both the Quick Analysis VM and
+    // the chat VM.
+    @Environment(\.routingSignalStore) private var signalStore
     @State private var viewModel = AIViewState()
     @State private var chatViewModel = AIChatViewModel()
     @State private var quickAnalysisCollapsed = false
@@ -41,6 +44,8 @@ struct AIView: View {
             .task {
                 viewModel.checkAPIKey()
                 viewModel.loadPrivacyConsent()
+                viewModel.signalStore = signalStore
+                chatViewModel.signalStore = signalStore
             }
             .onChange(of: privacyConsented) { _, newValue in
                 viewModel.privacyAccepted = newValue
@@ -254,6 +259,9 @@ final class AIViewState {
     var hasAPIKey = false
     var privacyAccepted = false
     var cardStates: [QuickAnalysisType: QuickAnalysisState] = [:]
+    // Spec 019 Stage 3c (T017): sink for the Quick Analysis Cards' `chat`
+    // calls. Set by the view via environment; VM stays nil-safe for previews.
+    var signalStore: RoutingSignalStore?
 
     private let keychainHelper = KeychainHelper()
     private let apiKeyService = AISettingsSection.apiKeyKeychainService
@@ -310,7 +318,7 @@ final class AIViewState {
 
         do {
             let apiKey = try keychainHelper.load(service: apiKeyService)
-            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+            let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let healthService = HealthKitService(deviceIdentifier: "ios-ai")
 
             let context = await AIPromptBuilder.buildContext(

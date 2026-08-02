@@ -17,6 +17,9 @@ final class OverviewDynamicState {
     private(set) var refreshErrorType: String?
     private(set) var recentMuscleGroupCounts: [MuscleGroup: Int] = [:]
     var showRefreshError = false
+    // Spec 019 Stage 3c (T017): sink for overviewInsights (initial /
+    // manual refresh / background refresh) — set by the view.
+    var signalStore: RoutingSignalStore?
 
     var pendingHeadline: String? {
         pendingResponse?.headline
@@ -58,7 +61,7 @@ final class OverviewDynamicState {
         do {
             let context = buildContext(snapshot: snapshot, workouts: workouts)
             let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
-            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+            let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let provider = RouterBackedProvider(router: router, kind: AICallSite.overviewInsights.kind)
             let service = AIAnalysisService(modelContainer: container, provider: provider)
             let response = try await service.generateInsights(context: context, forceRefresh: true)
@@ -123,7 +126,7 @@ final class OverviewDynamicState {
         do {
             let context = buildContext(snapshot: snapshot, workouts: workouts)
             let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
-            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+            let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let provider = RouterBackedProvider(router: router, kind: AICallSite.overviewInsights.kind)
             let service = AIAnalysisService(modelContainer: container, provider: provider)
             let response = try await service.generateInsights(context: context)
@@ -175,7 +178,7 @@ final class OverviewDynamicState {
         do {
             let context = buildContext(snapshot: snapshot, workouts: workouts)
             let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
-            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+            let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let provider = RouterBackedProvider(router: router, kind: AICallSite.overviewInsights.kind)
             let service = AIAnalysisService(modelContainer: container, provider: provider)
             let response = try await service.generateInsights(context: context, forceRefresh: true, skipCache: true)

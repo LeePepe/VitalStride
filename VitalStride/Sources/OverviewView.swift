@@ -22,6 +22,7 @@ struct OverviewView: View {
     @Environment(\.healthKitService) private var healthKitService
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.routingSignalStore) private var signalStore
 
     @Query private var recentWorkouts: [Workout]
 
@@ -70,6 +71,7 @@ struct OverviewView: View {
                 )
             }
             .task(id: authCheckToken) {
+                dynamicState.signalStore = signalStore
                 await snapshotState.load(cache: healthDataCache, service: healthKitService)
             }
             .task(id: snapshotState.isLoading) {

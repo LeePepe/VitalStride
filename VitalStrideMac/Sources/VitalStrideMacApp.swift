@@ -15,6 +15,9 @@ struct VitalStrideMacApp: App {
     private let containerError: String?
     private let healthKitService: HealthKitService
     private let healthDataCache: HealthDataCache
+    // Spec 019 Stage 3c (T017/T018): shared sink for `RoutingSignal`. Same
+    // wiring as `VitalStrideApp` on iOS.
+    private let routingSignalStore: RoutingSignalStore?
 
     init() {
         let service = HealthKitService(deviceIdentifier: "mac-display")
@@ -38,10 +41,13 @@ struct VitalStrideMacApp: App {
             containerError = nil
 
             let persistence = SwiftDataCachePersistence(modelContainer: modelContainer)
+            let store = RoutingSignalStore(container: modelContainer)
+            routingSignalStore = store
             healthDataCache = HealthDataCache(
                 dataProvider: service,
                 persistence: persistence,
-                typesProber: service
+                typesProber: service,
+                revocationHandlers: [store]
             )
 
             // Copy the stored property into a local before the escaping Task so
@@ -61,6 +67,7 @@ struct VitalStrideMacApp: App {
         } catch {
             container = nil
             containerError = error.localizedDescription
+            routingSignalStore = nil
             healthDataCache = HealthDataCache(dataProvider: service, typesProber: service)
         }
     }
@@ -74,6 +81,7 @@ struct VitalStrideMacApp: App {
                             .modelContainer(container)
                             .environment(\.healthDataCache, healthDataCache)
                             .environment(\.healthKitService, healthKitService)
+                            .environment(\.routingSignalStore, routingSignalStore)
                     } else {
                         OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
                     }

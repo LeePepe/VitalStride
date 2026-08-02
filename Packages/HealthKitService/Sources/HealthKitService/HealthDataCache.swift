@@ -77,6 +77,12 @@ public actor HealthDataCache {
     private var persistTasks: [HealthSampleType: Task<Void, Never>] = [:]
     private let dataProvider: any HealthDataProviding
     private let persistence: (any HealthCachePersisting)?
+    /// Optional cross-package revocation hooks. Each conformer is invoked
+    /// best-effort during `handleAuthorizationRevoked` — one failure does
+    /// not block the others. Populated by the app target (spec 019 Stage 3c
+    /// injects `RoutingSignalStore` here so the Telemetry `.none` partition
+    /// is purged on HealthKit revoke, per MY-1381 追加需求).
+    private let revocationHandlers: [any AuthorizationRevocationHandling]
     private let cacheTTL: TimeInterval
     private var generation: UInt64 = 0
     // Per-type explicit-refresh generation. Bumped on every refresh() and on
@@ -113,12 +119,14 @@ public actor HealthDataCache {
         workoutProvider: (any WorkoutDataProviding)? = nil,
         persistence: (any HealthCachePersisting)? = nil,
         typesProber: (any AvailableTypesProbing)? = nil,
+        revocationHandlers: [any AuthorizationRevocationHandling] = [],
         cacheTTL: TimeInterval = HealthDataCache.defaultTTL
     ) {
         self.dataProvider = dataProvider
         self.workoutProvider = workoutProvider
         self.persistence = persistence
         self.typesProber = typesProber
+        self.revocationHandlers = revocationHandlers
         self.cacheTTL = cacheTTL
     }
 
@@ -306,6 +314,18 @@ public actor HealthDataCache {
             }
         } else {
             logger.info("authorization revoked — cache cleared (no persistence)")
+        }
+        // 宪法 I / MY-1381 追加需求: purge cross-package Telemetry-partition
+        // rows (e.g. `RoutingSignalEntry`) whose values may derive from
+        // HealthKit. Each handler runs best-effort — one failure does not
+        // block the others, and errors are logged category-only so no
+        // health data or signal payload leaks into unified log.
+        for (index, handler) in revocationHandlers.enumerated() {
+            do {
+                try await handler.purgeOnAuthorizationRevoked()
+            } catch {
+                logger.error("authorization revoked — revocation handler #\(index) purge failed category=\(String(describing: type(of: error)), privacy: .public)")
+            }
         }
     }
 

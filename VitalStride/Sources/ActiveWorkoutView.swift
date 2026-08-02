@@ -25,6 +25,10 @@ struct ActiveWorkoutView: View {
     #if !os(macOS)
     @Environment(\.healthKitService) private var healthKitService
     #endif
+    // Spec 019 Stage 3c (T017/T018): sink for the substitute request's
+    // `RoutingSignal`, and the retro-write target for `accepted` after the
+    // user applies or cancels a suggestion.
+    @Environment(\.routingSignalStore) private var signalStore
     @State private var workout: Workout?
     @State private var showingExercisePicker = false
     @State private var showingFinishAlert = false
@@ -196,6 +200,14 @@ struct ActiveWorkoutView: View {
                         // AI sheet first, then present the picker on the next
                         // runloop tick so SwiftUI can finish the dismiss
                         // transition before starting a new presentation.
+                        //
+                        // Spec 019 Stage 3c (T018): user rejected the AI
+                        // suggestions and switched to manual — mark the
+                        // latest substitute signal accepted=false.
+                        signalStore?.updateLatestAccepted(
+                            kind: AICallSite.substitute.kind,
+                            accepted: false
+                        )
                         let target = workoutExercise
                         exerciseToSubstitute = nil
                         Task { @MainActor in
@@ -966,11 +978,16 @@ struct ActiveWorkoutView: View {
             context: modelContext
         ) else {
             logger.info("substitute apply skipped: reason=missingLocalExercise")
+            // Missing local exercise still means the user tried to apply the AI
+            // suggestion — mark accepted=true so the signal reflects intent, not
+            // whether the seeder found the row.
+            signalStore?.updateLatestAccepted(kind: AICallSite.substitute.kind, accepted: true)
             exerciseToSubstitute = nil
             return
         }
         workoutExercise.exercise = replacement
         HapticManager.trigger(.exerciseAdded)
+        signalStore?.updateLatestAccepted(kind: AICallSite.substitute.kind, accepted: true)
         exerciseToSubstitute = nil
     }
 
@@ -983,7 +1000,7 @@ struct ActiveWorkoutView: View {
     ) async -> ExerciseSubstituteSheet.ViewState {
         let messages = SubstitutePromptBuilder.build(for: request)
         let apiKey = try? KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
-        let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+        let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
 
         let response: ChatResponse
         do {

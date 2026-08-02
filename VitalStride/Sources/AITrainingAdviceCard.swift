@@ -275,6 +275,8 @@ struct AITrainingAdviceCard: View {
 final class TrainingAdviceViewModel {
     var state: TrainingAdviceState = .idle
     var isExpanded = false
+    // Spec 019 Stage 3c (T017): sink for trainingAdvice signal.
+    var signalStore: RoutingSignalStore?
 
     private var loadTask: Task<Void, Never>?
     private let keychainHelper = KeychainHelper()
@@ -315,7 +317,7 @@ final class TrainingAdviceViewModel {
 
         do {
             let apiKey = try keychainHelper.load(service: apiKeyService)
-            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+            let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let provider = RouterBackedProvider(router: router, kind: AICallSite.trainingAdvice.kind)
             let container = modelContext.container
 

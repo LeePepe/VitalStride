@@ -69,6 +69,13 @@ final class AIChatViewModel {
     private(set) var isStreaming = false
     private(set) var lastCompletedMessageId: UUID?
 
+    // Spec 019 Stage 3c (T017/T018): sink for `RoutingSignal` emitted by
+    // `AIRouter.execute`, and retro-write target for `accepted` when the
+    // user regenerates or completes a chat reply. Set by `AIChatView` in
+    // `onAppear` so this VM stays constructible from previews / non-app
+    // contexts where the environment is empty.
+    var signalStore: RoutingSignalStore?
+
     private var streamingTask: Task<Void, Never>?
     private let keychainHelper = KeychainHelper()
     private let apiKeyService = AISettingsSection.apiKeyKeychainService
@@ -91,6 +98,12 @@ final class AIChatViewModel {
 
     func retryLastMessage(modelContext: ModelContext) {
         guard !isStreaming else { return }
+        // Spec 019 Stage 3c (T018): a regenerate/retry is an implicit
+        // rejection of the just-completed assistant reply. Mark the last
+        // `chat` signal `accepted=false` BEFORE the new call fires so the
+        // ordering is unambiguous: "the previous reply was not accepted, a
+        // new one is now being requested".
+        signalStore?.updateLatestAccepted(kind: AICallSite.chat.kind, accepted: false)
         if let last = messages.last, last.role == .assistant, case .error = last.state {
             messages.removeLast()
         }
@@ -130,7 +143,7 @@ final class AIChatViewModel {
 
         do {
             let apiKey = try keychainHelper.load(service: apiKeyService)
-            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+            let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let healthService = HealthKitService(deviceIdentifier: "ios-ai")
 
             let dateRange = DateInterval(
@@ -185,6 +198,11 @@ final class AIChatViewModel {
                         timestamp: $0.timestamp, state: .complete
                     )
                 }
+                // Spec 019 Stage 3c (T018): user cancelled mid-stream (e.g.
+                // hit the send button again, dismissed the view, tapped the
+                // stop control). Treat cancellation the same as regenerate
+                // — the reply was NOT accepted.
+                signalStore?.updateLatestAccepted(kind: AICallSite.chat.kind, accepted: false)
                 let ms = elapsedMs(since: start)
                 logger.info("streaming_cancelled chunks=\(chunksReceived) ms=\(ms)")
             } else {
@@ -195,6 +213,11 @@ final class AIChatViewModel {
                     )
                 }
                 lastCompletedMessageId = assistantId
+                // Spec 019 Stage 3c (T018): reply streamed to completion
+                // without user cancel/retry — mark the latest chat signal
+                // accepted=true. Downstream regenerate/retry may flip this
+                // back to false; that's the intended sequential semantic.
+                signalStore?.updateLatestAccepted(kind: AICallSite.chat.kind, accepted: true)
                 let ms = elapsedMs(since: start)
                 logger.info("streaming_completed chunks=\(chunksReceived) ms=\(ms)")
             }
@@ -225,6 +248,7 @@ struct AIChatView<EmptyContent: View>: View {
     @Bindable var viewModel: AIChatViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.theme) private var theme
+    @Environment(\.routingSignalStore) private var signalStore
     let emptyContent: EmptyContent
 
     init(viewModel: AIChatViewModel, @ViewBuilder emptyContent: () -> EmptyContent) {
@@ -237,6 +261,13 @@ struct AIChatView<EmptyContent: View>: View {
             messageArea
             Divider()
             inputBar
+        }
+        .onAppear {
+            // Spec 019 Stage 3c (T017/T018): hand the app-installed sink
+            // to the streaming VM. Previews / test hosts don't install a
+            // store — VM's `signalStore` stays `nil` and every accepted
+            // retro-write becomes a no-op.
+            viewModel.signalStore = signalStore
         }
         #if canImport(UIKit)
         .onChange(of: viewModel.lastCompletedMessageId) { _, newId in

@@ -15,6 +15,11 @@ struct VitalStrideApp: App {
     private let containerError: String?
     private let healthKitService: HealthKitService
     private let healthDataCache: HealthDataCache
+    // Spec 019 Stage 3c (T017/T018): shared sink for `RoutingSignal` emitted
+    // by every `AIRouter.execute`. `nil` when the SwiftData container failed
+    // to build — the environment key resolves to `nil` and every AI call
+    // site falls back to the router's `NoOpRoutingSignalSink`.
+    private let routingSignalStore: RoutingSignalStore?
     #if canImport(MetricKit) && !os(watchOS)
     // Retained for the app's lifetime so it keeps receiving MetricKit
     // diagnostic payloads (crash + hang) delivered on subsequent launches.
@@ -56,11 +61,14 @@ struct VitalStrideApp: App {
             containerError = nil
 
             let persistence = SwiftDataCachePersistence(modelContainer: modelContainer)
+            let store = RoutingSignalStore(container: modelContainer)
+            routingSignalStore = store
             healthDataCache = HealthDataCache(
                 dataProvider: service,
                 workoutProvider: service,
                 persistence: persistence,
-                typesProber: service
+                typesProber: service,
+                revocationHandlers: [store]
             )
 
             let cache = healthDataCache
@@ -79,6 +87,7 @@ struct VitalStrideApp: App {
         } catch {
             container = nil
             containerError = error.localizedDescription
+            routingSignalStore = nil
             healthDataCache = HealthDataCache(dataProvider: service, workoutProvider: service, typesProber: service)
         }
     }
@@ -92,6 +101,7 @@ struct VitalStrideApp: App {
                             .modelContainer(container)
                             .environment(\.healthDataCache, healthDataCache)
                             .environment(\.healthKitService, healthKitService)
+                            .environment(\.routingSignalStore, routingSignalStore)
                     } else {
                         OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
                     }
