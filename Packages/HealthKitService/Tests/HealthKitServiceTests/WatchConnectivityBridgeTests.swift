@@ -353,6 +353,14 @@ final class FakeWCSession: WatchConnectivitySessionProviding, @unchecked Sendabl
     private(set) var sentMessages: [[String: Any]] = []
     private(set) var activateCallCount = 0
 
+    // Test observation point (§MY-1383): deterministic delivery counter.
+    // Incremented synchronously in `simulateIncomingMessage` after the
+    // delegate call returns, so tests can assert on delegate hand-off
+    // without a fixed sleep. Delegate hand-off is guaranteed serial with
+    // the caller because `sessionDidReceiveMessage` runs synchronously
+    // on the calling thread; this counter reflects that reality.
+    private var _deliveredMessageCount = 0
+
     var isSupported: Bool { lock.withLock { _isSupported } }
     var isPaired: Bool { lock.withLock { _isPaired } }
     var isWatchAppInstalled: Bool { lock.withLock { _isWatchAppInstalled } }
@@ -392,10 +400,19 @@ final class FakeWCSession: WatchConnectivitySessionProviding, @unchecked Sendabl
         lock.withLock { sentApplicationContexts.append(dictionary) }
     }
 
+    // Test observation: number of `simulateIncomingMessage` calls that have
+    // returned (i.e. handed the payload off to the delegate). This does NOT
+    // observe actor-side processing; it observes delegate handoff.
+    var deliveredMessageCount: Int { lock.withLock { _deliveredMessageCount } }
+
     // Test-only push helpers
     func simulateIncomingMessage(_ dictionary: [String: Any]) {
         let handler = lock.withLock { self.handler }
         handler?.sessionDidReceiveMessage(dictionary)
+        // Only credit delivery after the synchronous delegate call returns —
+        // that guarantees `Task { await handleIncomingMessage }` has been
+        // enqueued onto the actor before any observer sees the count go up.
+        lock.withLock { _deliveredMessageCount += 1 }
     }
 
     func simulateIncomingApplicationContext(_ dictionary: [String: Any]) {
@@ -720,14 +737,39 @@ struct PhoneHRBufferingTests {
 
         // Push several HR samples before consuming any. With
         // `.bufferingNewest(1)` only the last one survives.
+        //
+        // Deterministic drain strategy (§MY-1383):
+        //   1. Send each message synchronously (increments `deliveredMessageCount`
+        //      after the delegate returns → the actor-processing Task has been
+        //      created).
+        //   2. Between sends, `Task.yield()` lets the newly-created Task hop
+        //      onto the actor's mailbox.
+        //   3. `await manager.observeConnectionState()` is an actor-isolated
+        //      call: our call is enqueued to the actor mailbox AFTER the
+        //      just-hopped processing Task, so on FIFO scheduling the
+        //      processing Task runs first. That gives per-message serialisation
+        //      without a fixed sleep.
+        //
+        // This never blocks on `iterator.next()` and never wraps `next()` in a
+        // task-group timeout — both approaches were shown to hang (see
+        // parent MY-1382).
         let ts = Date(timeIntervalSince1970: 1_700_002_000)
-        for bpm in [70, 80, 90, 100, 110] as [Double] {
+        let sequence: [Double] = [70, 80, 90, 100, 110]
+        for bpm in sequence {
             let p = LiveHeartRatePayload(bpm: bpm, timestamp: ts, sourceName: nil)
             fake.simulateIncomingMessage(try WatchConnectivityCodec.encodeDictionary(.liveHeartRate(p)))
+            await Task.yield()
+            _ = await manager.observeConnectionState()
         }
-        // Give the actor a chance to drain the message queue before we read.
-        try await Task.sleep(nanoseconds: 50_000_000)
+        // Final barrier: the delivery counter must equal the number of sends.
+        // (This is a redundant check to catch a delegate wiring regression —
+        // it does not gate on anything time-based.)
+        #expect(fake.deliveredMessageCount == sequence.count)
 
+        // The buffer now contains the newest value (or a stale value in the
+        // regression case). Iterator.next() returns immediately because
+        // `.bufferingNewest(1)` guaranteed at least one value was buffered
+        // by the last handled message — no timeout needed.
         var iterator = stream.makeAsyncIterator()
         let first = await iterator.next()
         // The newest value (110) is what survives; older values were dropped
