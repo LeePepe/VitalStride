@@ -21,6 +21,25 @@ public struct AIProviderChain: AIProvider, Sendable {
 
     private let entries: [ProviderEntry]
 
+    /// A completed chain call plus the identity of the entry that actually
+    /// served it. Callers that record telemetry MUST use `providerName` rather
+    /// than guessing the first available entry — the chain skips past any
+    /// provider that throws, so the first-available guess is wrong in exactly
+    /// the fallback cases telemetry cares about.
+    ///
+    /// Note this is the *provider* identity (`"zhipu"`), not `response.model`
+    /// (`"glm-4"` / `"apple-intelligence"`) — the latter is a model ID and does
+    /// not identify the registered arm.
+    public struct ChatOutcome: Sendable {
+        public let response: ChatResponse
+        public let providerName: String
+
+        public init(response: ChatResponse, providerName: String) {
+            self.response = response
+            self.providerName = providerName
+        }
+    }
+
     public init(entries: [ProviderEntry]) {
         self.entries = entries
     }
@@ -46,6 +65,14 @@ public struct AIProviderChain: AIProvider, Sendable {
     }
 
     public func chat(messages: [ChatMessage], model: String?) async throws -> ChatResponse {
+        try await chatWithOutcome(messages: messages, model: model).response
+    }
+
+    /// Same semantics as `chat`, but also reports which provider actually
+    /// served the response. Used by `AIRouter` so emitted `RoutingSignal`s
+    /// attribute latency/schema results to the provider that really answered,
+    /// not to one that failed and was fallen back from.
+    public func chatWithOutcome(messages: [ChatMessage], model: String?) async throws -> ChatOutcome {
         let availableEntries = filterAvailable()
         guard !availableEntries.isEmpty else {
             logger.error("noProviderAvailable: all providers checked, none available")
@@ -59,7 +86,7 @@ public struct AIProviderChain: AIProvider, Sendable {
             do {
                 let response = try await entry.provider.chat(messages: messages, model: model)
                 signposter.endInterval("ai_provider_chat", state)
-                return response
+                return ChatOutcome(response: response, providerName: entry.name)
             } catch {
                 signposter.endInterval("ai_provider_chat", state)
                 let category = Self.errorCategory(error)

@@ -59,17 +59,47 @@ public struct AIRouter: Sendable {
     private let providers: [RegisteredProvider]
     private let policy: [AITaskKind: TaskRequirements]
     private let deviceTierProvider: @Sendable () -> DeviceTier
+    private let signalSink: any RoutingSignalSink
+    /// TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
+    /// Optional on purpose: `nil` means raw prompt/response text is never even
+    /// built, so the default router carries no health data anywhere (FR-018).
+    private let rawDebugSink: (any LocalOnlyRawDebugSink)?
+    private let schemaValidator: (@Sendable (AITaskKind, String) -> Bool)?
 
     // MARK: - Init
 
+    /// - Parameters:
+    ///   - signalSink: consumer for the bypass `RoutingSignal` emitted after
+    ///     every `execute` call. `nil` (the default) installs a `NoOpRoutingSignalSink`
+    ///     — the router keeps the storage non-optional so the hot path avoids an
+    ///     optional check. Real sinks are wired at app-target composition (spec
+    ///     019 Stage 3c).
+    ///   - rawDebugSink: TEMP-PRELAUNCH controlled exception (spec 019
+    ///     FR-015/016/018). `nil` (the default) means the router never builds
+    ///     the raw prompt/response strings at all. Supplying a sink is an
+    ///     explicit assertion that it writes only into the device-local
+    ///     `cloudKitDatabase: .none` store — see `LocalOnlyRawDebugSink`.
+    ///     MUST be removed together with the protocol before App Store
+    ///     submission (FR-017 / SC-007).
+    ///   - schemaValidator: optional per-response validator returning `true` iff
+    ///     the response content parses/validates against the caller's schema.
+    ///     `nil` or `false` → `schemaValid=false` on the emitted signal. The
+    ///     router does not decode — validation stays a caller concern (FR-003 /
+    ///     constitution V: router doesn't replace provider semantics).
     public init(
         providers: [RegisteredProvider],
         policy: [AITaskKind: TaskRequirements] = AIRouter.defaultPolicy,
-        deviceTier: @escaping @Sendable () -> DeviceTier = { DeviceTier.detect() }
+        deviceTier: @escaping @Sendable () -> DeviceTier = { DeviceTier.detect() },
+        signalSink: (any RoutingSignalSink)? = nil,
+        rawDebugSink: (any LocalOnlyRawDebugSink)? = nil,
+        schemaValidator: (@Sendable (AITaskKind, String) -> Bool)? = nil
     ) {
         self.providers = providers
         self.policy = policy
         self.deviceTierProvider = deviceTier
+        self.signalSink = signalSink ?? NoOpRoutingSignalSink()
+        self.rawDebugSink = rawDebugSink
+        self.schemaValidator = schemaValidator
     }
 
     /// Build a default `AIRouter` mirroring `AIProviderChain.makeDefault`:
@@ -189,8 +219,65 @@ public struct AIRouter: Sendable {
         messages: [ChatMessage],
         model: String? = nil
     ) async throws -> ChatResponse {
-        let chain = buildChain(for: kind)
-        return try await chain.chat(messages: messages, model: model)
+        let ordered = orderedProviders(for: kind)
+        let chain = buildChain(from: ordered)
+        let tier = deviceTierProvider()
+        let clock = ContinuousClock()
+        let start = clock.now
+        // `chatWithOutcome` reports the provider that ACTUALLY served the call.
+        // Guessing `ordered.first(where: { $0.isAvailable() })` here would be
+        // wrong whenever the chain falls back past a failing provider — it
+        // would pin this call's latency/schemaValid onto the arm that failed,
+        // corrupting exactly the fallback cases spec 019 wants to measure.
+        let outcome = try await chain.chatWithOutcome(messages: messages, model: model)
+        let response = outcome.response
+        let elapsed = clock.now - start
+        let latencyMs = Int(elapsed.components.seconds * 1_000
+            + elapsed.components.attoseconds / 1_000_000_000_000_000)
+
+        let schemaValid = schemaValidator?(kind, response.content) ?? false
+
+        let signal = RoutingSignal(
+            kind: kind,
+            provider: outcome.providerName,
+            deviceTier: tier,
+            latencyMs: latencyMs,
+            schemaValid: schemaValid,
+            accepted: nil,
+            timestamp: Date()
+        )
+
+        // FR-008 fire-and-forget: sink failures / delays MUST NOT block or
+        // change the user-facing return value. Detached Task + `try?` swallow.
+        // `signal` carries routing metadata only — no health data crosses this
+        // boundary, so an arbitrary conformer is safe here.
+        let sink = signalSink
+        Task.detached(priority: .background) {
+            try? await sink.record(signal)
+        }
+
+        // TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
+        //
+        // FR-018: the raw prompt/response may embed HealthKit-derived values.
+        // They are built ONLY when a `LocalOnlyRawDebugSink` was explicitly
+        // injected, and handed ONLY to that sink — whose contract is
+        // device-local `cloudKitDatabase: .none` storage. With no such sink
+        // (the default) this block does not execute and the raw strings are
+        // never materialized. They are never printed, never sent through
+        // os_log / Logger, never forwarded to Aptabase or GlitchTip.
+        if let rawDebugSink {
+            let payload = RawDebugPayload(
+                prompt: messages
+                    .map { "\($0.role): \($0.content)" }
+                    .joined(separator: "\n"),
+                response: response.content
+            )
+            Task.detached(priority: .background) {
+                try? await rawDebugSink.recordRawDebug(payload, for: signal)
+            }
+        }
+
+        return response
     }
 
     /// Streaming counterpart of `execute`. Same routing rules; delegates to
@@ -234,7 +321,10 @@ public struct AIRouter: Sendable {
     /// unchanged — the router only decides which providers, in which order,
     /// participate for this `kind` on the current device tier.
     private func buildChain(for kind: AITaskKind) -> AIProviderChain {
-        let ordered = orderedProviders(for: kind)
+        buildChain(from: orderedProviders(for: kind))
+    }
+
+    private func buildChain(from ordered: [RegisteredProvider]) -> AIProviderChain {
         let entries = ordered.map { registered in
             AIProviderChain.ProviderEntry(
                 name: registered.name,
