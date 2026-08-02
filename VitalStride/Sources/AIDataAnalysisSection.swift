@@ -453,7 +453,6 @@ enum AIDataAnalysisPreloader {
         let provider = RouterBackedProvider(router: router, kind: .dataTrend)
 
         for sampleType in topTypes {
-            nonisolated(unsafe) let sampleType = sampleType
             Task.detached {
                 let cacheContext = ModelContext(modelContainer)
                 let sampleTypeRaw = sampleType.rawValue
