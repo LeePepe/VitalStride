@@ -26,8 +26,12 @@ public enum ModelContainerConfiguration {
         RoutingSignalEntry.self,
     ]
 
+    public static let banditModelTypes: [any PersistentModel.Type] = [
+        BanditArmStateEntry.self,
+    ]
+
     public static let allModelTypes: [any PersistentModel.Type] =
-        trainingModelTypes + healthCacheModelTypes + aiCacheModelTypes + telemetryModelTypes
+        trainingModelTypes + healthCacheModelTypes + aiCacheModelTypes + telemetryModelTypes + banditModelTypes
 
     public static let cloudKitContainerIdentifier = "iCloud.com.leepepe.VitalStride"
 
@@ -59,10 +63,17 @@ public enum ModelContainerConfiguration {
             cloudKitDatabase: .none
         )
 
+        let banditSchema = Schema(banditModelTypes)
+        let banditConfig = ModelConfiguration(
+            "Bandit",
+            schema: banditSchema,
+            cloudKitDatabase: .none
+        )
+
         let fullSchema = Schema(allModelTypes)
         return try ModelContainer(
             for: fullSchema,
-            configurations: [trainingConfig, healthCacheConfig, aiCacheConfig, telemetryConfig]
+            configurations: [trainingConfig, healthCacheConfig, aiCacheConfig, telemetryConfig, banditConfig]
         )
     }
 
@@ -99,10 +110,18 @@ public enum ModelContainerConfiguration {
             cloudKitDatabase: .none
         )
 
+        let banditSchema = Schema(banditModelTypes)
+        let banditConfig = ModelConfiguration(
+            "Bandit",
+            schema: banditSchema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+
         let fullSchema = Schema(allModelTypes)
         return try ModelContainer(
             for: fullSchema,
-            configurations: [trainingConfig, healthCacheConfig, aiCacheConfig, telemetryConfig]
+            configurations: [trainingConfig, healthCacheConfig, aiCacheConfig, telemetryConfig, banditConfig]
         )
     }
 }
