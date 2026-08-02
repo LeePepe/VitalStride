@@ -106,6 +106,33 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$KEYCHAIN_PASSWORD" "$KC" >/dev/null 2>&1 || true
 
+      - name: Ship-gate — no TEMP-PRELAUNCH exceptions in release build
+        if: steps.gate.outputs.release == 'true'
+        # spec 019 FR-017 / SC-007:TEMP-PRELAUNCH 是**受控临时例外**(发布前
+        # 单用户调试用的原始健康值,只落本地 cloudKitDatabase: .none 分区)。
+        # 宪法 I 的永久生效状态要求上架前把标记的字段 + 写入点全部移除。
+        # 此前该 ship-gate 只是 tasks.md 里一个没人勾的复选框 —— 这里把它变成
+        # 发布路径上的硬门。**故意只挡发布、不挡 PR**:例外在开发期是合法的。
+        run: |
+          set -uo pipefail
+          # 扫描范围与 ci.yml 的「No HealthKit values in logs」一致:app targets +
+          # Packages 源码。不扫 specs/ —— 那里的 TEMP-PRELAUNCH 是**规则文本本身**
+          # (FR-016/017 的定义),不是待清除的代码点;也不扫本 workflow(它含该
+          # 字面量做 grep pattern,自匹配会让门永远红)。
+          MATCHES=$(grep -rn 'TEMP-PRELAUNCH' --include='*.swift' \
+            VitalStride VitalStrideMac "VitalStrideWatch Watch App" Packages \
+            2>/dev/null || true)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::发布前必须移除受控临时例外（spec 019 FR-017 / SC-007）"
+            echo "TEMP-PRELAUNCH 命中位置："
+            echo "$MATCHES"
+            echo ""
+            echo "要求：移除 RoutingSignalEntry 的 rawPromptDebug/rawResponseDebug 字段"
+            echo "      及所有 raw 写入点，恢复「只存 metadata + 分数」（宪法 I 永久态）。"
+            exit 1
+          fi
+          echo "OK: 无 TEMP-PRELAUNCH 残留，可以发布。"
+
       - name: fastlane beta
         if: steps.gate.outputs.release == 'true'
         env:
