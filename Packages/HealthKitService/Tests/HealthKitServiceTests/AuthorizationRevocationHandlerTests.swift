@@ -8,8 +8,7 @@ import Testing
 // Telemetry `.none` partition when HealthKit access is revoked (宪法 I).
 struct AuthorizationRevocationHandlerTests {
 
-    final class SpyHandler: AuthorizationRevocationHandling, @unchecked Sendable {
-        private let lock = NSLock()
+    actor SpyHandler: AuthorizationRevocationHandling {
         private var _callCount = 0
         private let shouldThrow: Bool
 
@@ -17,12 +16,10 @@ struct AuthorizationRevocationHandlerTests {
             self.shouldThrow = shouldThrow
         }
 
-        var callCount: Int {
-            lock.withLock { _callCount }
-        }
+        var callCount: Int { _callCount }
 
         func purgeOnAuthorizationRevoked() async throws {
-            lock.withLock { _callCount += 1 }
+            _callCount += 1
             if shouldThrow {
                 throw NSError(domain: "test", code: 1)
             }
@@ -41,8 +38,8 @@ struct AuthorizationRevocationHandlerTests {
 
         await cache.handleAuthorizationRevoked()
 
-        #expect(a.callCount == 1)
-        #expect(b.callCount == 1)
+        await #expect(a.callCount == 1)
+        await #expect(b.callCount == 1)
     }
 
     @Test("handleAuthorizationRevoked continues past a thrown handler error")
@@ -61,8 +58,8 @@ struct AuthorizationRevocationHandlerTests {
         // revoke path is best-effort per handler (宪法 I: full-clear on
         // revoke is required; a single subsystem failure MUST NOT block
         // the others).
-        #expect(thrower.callCount == 1)
-        #expect(survivor.callCount == 1)
+        await #expect(thrower.callCount == 1)
+        await #expect(survivor.callCount == 1)
     }
 
     @Test("Cache with no handlers registered behaves as before")
@@ -70,9 +67,8 @@ struct AuthorizationRevocationHandlerTests {
         let mock = MockHealthDataProvider()
         let cache = HealthDataCache(dataProvider: mock)
 
-        // Simply exercising the code path — no crash / assertion failure
-        // means the default empty handler list is respected.
+        // Exercising the code path — no crash / assertion failure means
+        // the default empty handler list is respected.
         await cache.handleAuthorizationRevoked()
-        #expect(true)
     }
 }

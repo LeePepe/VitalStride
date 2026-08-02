@@ -26,7 +26,7 @@ import VitalModels
 /// reply; workout finish etc.). Updating the latest row (rather than
 /// inserting a new one) keeps signal count == request count and avoids
 /// duplicate rows drifting the analysis downstream Stage 4/5 wants to run.
-public final class RoutingSignalStore: RoutingSignalSink, AuthorizationRevocationHandling, @unchecked Sendable {
+public final class RoutingSignalStore: RoutingSignalSink, AuthorizationRevocationHandling, Sendable {
 
     private static let logger = Logger(
         subsystem: "com.vitalstride",
