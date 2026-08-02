@@ -983,12 +983,12 @@ struct ActiveWorkoutView: View {
     ) async -> ExerciseSubstituteSheet.ViewState {
         let messages = SubstitutePromptBuilder.build(for: request)
         let apiKey = try? KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
-        let provider = AIProviderChain.makeDefault(zhipuAPIKey: apiKey)
+        let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
 
         let response: ChatResponse
         do {
             let selectedModel = UserDefaults.standard.string(forKey: "aiModel")
-            response = try await provider.chat(messages: messages, model: selectedModel)
+            response = try await router.execute(kind: .substitute, messages: messages, model: selectedModel)
         } catch {
             logger.info("substitute AI request failed: category=\(Self.errorCategory(error))")
             return .error(

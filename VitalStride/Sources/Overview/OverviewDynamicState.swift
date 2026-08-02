@@ -58,7 +58,8 @@ final class OverviewDynamicState {
         do {
             let context = buildContext(snapshot: snapshot, workouts: workouts)
             let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
-            let provider = ZhipuProvider(apiKey: apiKey)
+            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+            let provider = RouterBackedProvider(router: router, kind: .overviewInsights)
             let service = AIAnalysisService(modelContainer: container, provider: provider)
             let response = try await service.generateInsights(context: context, forceRefresh: true)
 
@@ -122,7 +123,8 @@ final class OverviewDynamicState {
         do {
             let context = buildContext(snapshot: snapshot, workouts: workouts)
             let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
-            let provider = ZhipuProvider(apiKey: apiKey)
+            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+            let provider = RouterBackedProvider(router: router, kind: .overviewInsights)
             let service = AIAnalysisService(modelContainer: container, provider: provider)
             let response = try await service.generateInsights(context: context)
 
@@ -173,7 +175,8 @@ final class OverviewDynamicState {
         do {
             let context = buildContext(snapshot: snapshot, workouts: workouts)
             let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
-            let provider = ZhipuProvider(apiKey: apiKey)
+            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
+            let provider = RouterBackedProvider(router: router, kind: .overviewInsights)
             let service = AIAnalysisService(modelContainer: container, provider: provider)
             let response = try await service.generateInsights(context: context, forceRefresh: true, skipCache: true)
 

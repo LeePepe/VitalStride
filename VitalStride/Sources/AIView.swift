@@ -310,7 +310,7 @@ final class AIViewState {
 
         do {
             let apiKey = try keychainHelper.load(service: apiKeyService)
-            let provider = ZhipuProvider(apiKey: apiKey)
+            let router = AIRouter.makeDefault(zhipuAPIKey: apiKey)
             let healthService = HealthKitService(deviceIdentifier: "ios-ai")
 
             let context = await AIPromptBuilder.buildContext(
@@ -325,7 +325,7 @@ final class AIViewState {
             }
 
             let selectedModel = UserDefaults.standard.string(forKey: "aiModel") ?? AIModel.glm4Flash.rawValue
-            let response = try await provider.chat(messages: chatMessages, model: selectedModel)
+            let response = try await router.execute(kind: .chat, messages: chatMessages, model: selectedModel)
 
             guard !Task.isCancelled else {
                 cardStates[type] = .idle
