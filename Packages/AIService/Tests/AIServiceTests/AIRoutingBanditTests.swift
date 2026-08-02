@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import AIService
 
@@ -7,39 +8,50 @@ import Testing
 /// Deterministic sampler backed by a fixed sequence. Consumes one Double
 /// per `nextDouble()` call. Loops if the caller drains it — makes long
 /// simulations succinct.
-private final class ScriptedSampler: DeterministicSampler, @unchecked Sendable {
+///
+/// Concurrency: state is protected by Swift 6 `Mutex` from the
+/// `Synchronization` module. No `@unchecked Sendable` — the compiler
+/// enforces Sendable safety (Constitution II / Quality Bar C).
+private final class ScriptedSampler: DeterministicSampler {
     private let values: [Double]
-    private let lock = NSLock()
-    private var idx: Int = 0
+    private let idx: Mutex<Int>
 
-    init(_ values: [Double]) { self.values = values }
+    init(_ values: [Double]) {
+        self.values = values
+        self.idx = Mutex(0)
+    }
 
     func nextDouble() -> Double {
-        lock.lock()
-        defer { lock.unlock() }
         guard !values.isEmpty else { return 0.0 }
-        let v = values[idx % values.count]
-        idx += 1
-        return v
+        return idx.withLock { current in
+            let v = values[current % values.count]
+            current += 1
+            return v
+        }
     }
 }
 
 /// A tiny LCG so tests can drive the ε-greedy branch deterministically
 /// across thousands of samples without hand-listing every value.
-private final class LCGSampler: DeterministicSampler, @unchecked Sendable {
-    private let lock = NSLock()
-    private var state: UInt64
+///
+/// Concurrency: state is protected by Swift 6 `Mutex` from the
+/// `Synchronization` module. No `@unchecked Sendable` — the compiler
+/// enforces Sendable safety (Constitution II / Quality Bar C).
+private final class LCGSampler: DeterministicSampler {
+    private let state: Mutex<UInt64>
 
-    init(seed: UInt64 = 0xDEADBEEF) { self.state = seed }
+    init(seed: UInt64 = 0xDEADBEEF) {
+        self.state = Mutex(seed)
+    }
 
     func nextDouble() -> Double {
-        lock.lock()
-        defer { lock.unlock() }
-        // Numerical Recipes LCG parameters — cheap, deterministic, good enough.
-        state = state &* 6364136223846793005 &+ 1442695040888963407
-        // Take top 53 bits → [0, 1).
-        let top = state >> 11
-        return Double(top) / Double(1 << 53)
+        state.withLock { s in
+            // Numerical Recipes LCG parameters — cheap, deterministic, good enough.
+            s = s &* 6364136223846793005 &+ 1442695040888963407
+            // Take top 53 bits → [0, 1).
+            let top = s >> 11
+            return Double(top) / Double(1 << 53)
+        }
     }
 }
 

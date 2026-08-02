@@ -408,7 +408,11 @@ struct AIRouterStaticRoutingTests {
             explorationEpsilon: 0.0, staticPrior: prior,
             deterministicSampler: FixedSampler(value: 0.5)
         )
-        let repo = ThrowingBanditRepo()
+        // ObservingThrowingBanditRepo records that upsert was called
+        // before it throws — so the test proves the throw path really
+        // executed (not a silent no-op) AND that the caller was
+        // unaffected. Anything less doesn't verify FR-008.
+        let repo = ObservingThrowingBanditRepo()
         let providers: [AIRouter.RegisteredProvider] = [
             .init(name: "apple_intelligence", isAvailable: { true }, isOnDevice: true, maxQuality: .medium,
                   provider: MockRouterProvider(name: "apple_intelligence", responseContent: "apple-out")),
@@ -426,6 +430,14 @@ struct AIRouterStaticRoutingTests {
         let response = try await router.execute(kind: .substitute, messages: [ChatMessage(role: "user", content: "swap")], model: nil)
         #expect(response.content == "apple-out",
                 "throwing banditRepo affected user-visible return — FR-008 violated")
+        // Give the detached upsert task a bounded window to fire.
+        let start = ContinuousClock().now
+        while await repo.throwCount() == 0, ContinuousClock().now - start < .seconds(2) {
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+        let throwCount = await repo.throwCount()
+        #expect(throwCount >= 1,
+                "upsert never threw — the FR-008 fire-and-forget path wasn't exercised (\(throwCount))")
     }
 
     @Test("Stage 5b: FR-012/013 — cloudOnly tier + bandit never picks on-device arm")
@@ -513,16 +525,35 @@ private struct FixedSampler: DeterministicSampler {
 private struct InMemoryBanditRepo: BanditArmStateRepository {
     let state: [BanditArmState]
     func loadAll() async -> [BanditArmState] { state }
-    func upsert(kind: AITaskKind, deviceTier: DeviceTier, provider: String, deltaCount: Int, deltaReward: Double) async {}
+    func upsert(kind: AITaskKind, deviceTier: DeviceTier, provider: String, deltaCount: Int, deltaReward: Double) async throws {}
 }
 
-/// Repo that throws in upsert to prove FR-008 fire-and-forget.
+/// Repo whose `upsert` actually throws, so the FR-008 fire-and-forget
+/// guarantee is exercised at runtime (not just at the type level). The
+/// error is thrown from inside the `async throws` implementation; the
+/// detached `Task` in `AIRouter.execute` wraps the call in `try?`, so the
+/// caller must still see a normal return value.
 private struct ThrowingBanditRepo: BanditArmStateRepository {
+    struct UpsertFailure: Error {}
     func loadAll() async -> [BanditArmState] { [] }
-    func upsert(kind: AITaskKind, deviceTier: DeviceTier, provider: String, deltaCount: Int, deltaReward: Double) async {
-        // async fn can't throw here since protocol is non-throwing; fatalError()
-        // would propagate through the detached Task and be swallowed by Task
-        // isolation. Simulate a slow/failed write instead — the test is that
-        // execute returns normally regardless.
+    func upsert(kind: AITaskKind, deviceTier: DeviceTier, provider: String, deltaCount: Int, deltaReward: Double) async throws {
+        throw UpsertFailure()
     }
+}
+
+/// Same as `ThrowingBanditRepo` but records how many times `upsert` was
+/// invoked before throwing. Actor conformance is inherently `Sendable`
+/// (Constitution II) — no `@unchecked`, no lock.
+private actor ObservingThrowingBanditRepo: BanditArmStateRepository {
+    struct UpsertFailure: Error {}
+    private var attemptCount: Int = 0
+
+    func loadAll() async -> [BanditArmState] { [] }
+
+    func upsert(kind: AITaskKind, deviceTier: DeviceTier, provider: String, deltaCount: Int, deltaReward: Double) async throws {
+        attemptCount += 1
+        throw UpsertFailure()
+    }
+
+    func throwCount() -> Int { attemptCount }
 }

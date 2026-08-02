@@ -344,7 +344,7 @@ public struct AIRouter: Sendable {
             let repo = banditRepo
             let servedProvider = outcome.providerName
             Task.detached(priority: .background) {
-                await repo.upsert(
+                try? await repo.upsert(
                     kind: kind,
                     deviceTier: tier,
                     provider: servedProvider,

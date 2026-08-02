@@ -42,9 +42,13 @@ public struct BanditArmState: Sendable, Equatable {
 /// the composition root.
 ///
 /// Constraints (mirror `RoutingSignalSink`, spec 019 FR-008):
-/// - `upsert` MUST NOT throw or block. `AIRouter` calls it through a
-///   detached fire-and-forget `Task`; slow or failing writes never affect
-///   the user-facing AI response or its latency.
+/// - `upsert` MAY throw. `AIRouter` calls it through a detached
+///   fire-and-forget `Task` wrapped in `try?`, so slow or failing writes
+///   never affect the user-facing AI response or its latency. The
+///   throwing signature is what lets a real conformer (SwiftData
+///   `ModelContext.save()` throws) participate without an internal
+///   swallow — and lets tests use a throwing double to actually exercise
+///   the fire-and-forget path.
 /// - `loadAll` is called on the AI hot path; concrete impls should keep
 ///   the returned set bounded (a few dozen rows — `AITaskKind` × `DeviceTier`
 ///   × provider).
@@ -56,7 +60,7 @@ public protocol BanditArmStateRepository: Sendable {
         provider: String,
         deltaCount: Int,
         deltaReward: Double
-    ) async
+    ) async throws
 }
 
 /// Deterministic uniform-in-[0,1) sampler. Injected into `AIRoutingBandit`
@@ -98,5 +102,5 @@ public struct NoOpBanditArmStateRepository: BanditArmStateRepository {
         provider: String,
         deltaCount: Int,
         deltaReward: Double
-    ) async {}
+    ) async throws {}
 }
