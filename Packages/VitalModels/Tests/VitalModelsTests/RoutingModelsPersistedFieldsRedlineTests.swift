@@ -68,11 +68,10 @@ struct RoutingModelsPersistedFieldsRedlineTests {
         #expect(permanent == Self.routingSignalPermanentWhitelist,
                 "RoutingSignalEntry 永久白名单红线（宪法 I / FR-017 前置护栏）被打破。期望永久: \(Self.routingSignalPermanentWhitelist)；实际去除 TEMP-PRELAUNCH 例外后: \(permanent)；实际全集: \(attrs)")
 
-        // 显式确认 TEMP-PRELAUNCH 字段仍在（本任务只审计，不删；删除留给 Stage 6e / FR-017）
-        for exception in Self.routingSignalTempPrelaunchExceptions {
-            #expect(attrs.contains(exception),
-                    "TEMP-PRELAUNCH 字段 \(exception) 已被移除？请同步更新本测试与 CONTEXT.md red_lines（FR-017 上架前须移除）")
-        }
+        // 注意：不断言 TEMP-PRELAUNCH 字段仍在。这些字段（rawPromptDebug/rawResponseDebug）
+        // 由 Stage 6e / FR-017 移除；一旦移除，`nonTempPermanentAttributes(...)` 会得到相同的
+        // 永久白名单集合，本测试仍然通过 —— 这是「永久态红线」的正确形状：只锁永久字段清单，
+        // 对 TEMP-PRELAUNCH 例外只做集合减法，不做存在性断言。
     }
 
     @Test("BanditArmStateEntry 与 RoutingSignalEntry 均不含任何健康/训练数值字段")
