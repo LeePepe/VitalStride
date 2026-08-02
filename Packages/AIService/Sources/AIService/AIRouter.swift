@@ -221,11 +221,16 @@ public struct AIRouter: Sendable {
     ) async throws -> ChatResponse {
         let ordered = orderedProviders(for: kind)
         let chain = buildChain(from: ordered)
-        let primaryProviderName = ordered.first(where: { $0.isAvailable() })?.name ?? "none"
         let tier = deviceTierProvider()
         let clock = ContinuousClock()
         let start = clock.now
-        let response = try await chain.chat(messages: messages, model: model)
+        // `chatWithOutcome` reports the provider that ACTUALLY served the call.
+        // Guessing `ordered.first(where: { $0.isAvailable() })` here would be
+        // wrong whenever the chain falls back past a failing provider — it
+        // would pin this call's latency/schemaValid onto the arm that failed,
+        // corrupting exactly the fallback cases spec 019 wants to measure.
+        let outcome = try await chain.chatWithOutcome(messages: messages, model: model)
+        let response = outcome.response
         let elapsed = clock.now - start
         let latencyMs = Int(elapsed.components.seconds * 1_000
             + elapsed.components.attoseconds / 1_000_000_000_000_000)
@@ -234,7 +239,7 @@ public struct AIRouter: Sendable {
 
         let signal = RoutingSignal(
             kind: kind,
-            provider: primaryProviderName,
+            provider: outcome.providerName,
             deviceTier: tier,
             latencyMs: latencyMs,
             schemaValid: schemaValid,

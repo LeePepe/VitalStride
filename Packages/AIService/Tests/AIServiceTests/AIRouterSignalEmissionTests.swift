@@ -67,6 +67,21 @@ private struct SpyProvider: AIProvider, Sendable {
     }
 }
 
+/// Provider that always fails, to force chain fallback.
+private struct FailingProvider: AIProvider, Sendable {
+    let name: String
+
+    struct Boom: Error {}
+
+    func chat(messages: [ChatMessage], model: String?) async throws -> ChatResponse {
+        throw Boom()
+    }
+
+    func chatStream(messages: [ChatMessage], model: String?) -> AsyncThrowingStream<ChatStreamChunk, Error> {
+        AsyncThrowingStream { $0.finish(throwing: Boom()) }
+    }
+}
+
 private func makeRouter(
     sink: (any RoutingSignalSink)? = nil,
     rawDebugSink: (any LocalOnlyRawDebugSink)? = nil,
@@ -195,24 +210,101 @@ struct AIRouterSignalEmissionTests {
     @Test("FR-008: slow sink does not delay execute return")
     func slowSinkDoesNotDelayReturn() async throws {
         // Sink sleeps 500ms per record. Fire-and-forget means execute must
-        // return well before that.
+        // return before the sink has recorded anything. Asserting on the
+        // sink's state at return time is deterministic; asserting on
+        // wall-clock elapsed would flake on loaded CI runners.
         let sinkDelayNs: UInt64 = 500_000_000
         let sink = SpyRoutingSignalSink(recordDelayNs: sinkDelayNs)
         let router = makeRouter(sink: sink)
 
-        let clock = ContinuousClock()
-        let start = clock.now
         _ = try await router.execute(
             kind: .substitute,
             messages: [ChatMessage(role: "user", content: "swap")],
             model: nil
         )
-        let elapsed = clock.now - start
 
-        // execute must return without waiting for the 500ms sink sleep.
-        // We give a very generous 200ms upper bound to cover CI jitter, still
-        // clearly under the 500ms sink delay.
-        #expect(elapsed < .milliseconds(200), "execute returned in \(elapsed) but sink delay is 500ms — fire-and-forget violated")
+        let atReturn = await sink.snapshot()
+        #expect(atReturn.isEmpty,
+                "execute waited for the 500ms sink before returning — fire-and-forget violated")
+
+        // And the emission does still land, just off the caller's critical path.
+        let eventual = await waitForSignals(sink, count: 1)
+        #expect(eventual.count == 1)
+    }
+
+    // MARK: - Provider attribution under fallback
+
+    @Test("signal reports the provider that ACTUALLY served, not the failed primary")
+    func signalAttributesServingProviderAfterFallback() async throws {
+        let sink = SpyRoutingSignalSink()
+        // apple is available and preferred for `.substitute`, but throws at
+        // runtime → chain falls back to zhipu, which answers.
+        let providers: [AIRouter.RegisteredProvider] = [
+            .init(
+                name: "apple_intelligence",
+                isAvailable: { true },
+                isOnDevice: true,
+                maxQuality: .medium,
+                provider: FailingProvider(name: "apple_intelligence")
+            ),
+            .init(
+                name: "zhipu",
+                isAvailable: { true },
+                isOnDevice: false,
+                maxQuality: .high,
+                provider: SpyProvider(name: "zhipu", responseContent: "zhipu-out")
+            ),
+        ]
+        let router = AIRouter(
+            providers: providers,
+            deviceTier: { .appleIntelligenceCapable },
+            signalSink: sink
+        )
+
+        // Sanity: apple IS the planned primary, so a "first available" guess
+        // would have said apple.
+        #expect(router.plannedProviderOrder(for: .substitute).first == "apple_intelligence")
+
+        let response = try await router.execute(
+            kind: .substitute,
+            messages: [ChatMessage(role: "user", content: "x")],
+            model: nil
+        )
+        #expect(response.content == "zhipu-out")
+
+        let signals = await waitForSignals(sink, count: 1)
+        #expect(signals.first?.provider == "zhipu",
+                "signal blamed the failed primary instead of the provider that served the response")
+    }
+
+    @Test("no signal emitted when every provider fails (execute throws)")
+    func noSignalWhenAllProvidersFail() async throws {
+        let sink = SpyRoutingSignalSink()
+        let providers: [AIRouter.RegisteredProvider] = [
+            .init(
+                name: "zhipu",
+                isAvailable: { true },
+                isOnDevice: false,
+                maxQuality: .high,
+                provider: FailingProvider(name: "zhipu")
+            ),
+        ]
+        let router = AIRouter(
+            providers: providers,
+            deviceTier: { .cloudOnly },
+            signalSink: sink
+        )
+
+        await #expect(throws: (any Error).self) {
+            _ = try await router.execute(
+                kind: .chat,
+                messages: [ChatMessage(role: "user", content: "x")],
+                model: nil
+            )
+        }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        let signals = await sink.snapshot()
+        #expect(signals.isEmpty, "emitted a signal for a call that never produced a response")
     }
 
     // MARK: - FR-018: raw text is opt-in only, and off the general sink
