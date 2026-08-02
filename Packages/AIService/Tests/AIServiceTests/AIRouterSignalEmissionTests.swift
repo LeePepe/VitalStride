@@ -37,6 +37,18 @@ private actor SpyRoutingSignalSink: RoutingSignalSink {
     func snapshot() -> [RoutingSignal] { signals }
 }
 
+/// Spy for the TEMP-PRELAUNCH raw-debug channel. Separate from the metadata
+/// sink on purpose — mirrors the production split.
+private actor SpyRawDebugSink: LocalOnlyRawDebugSink {
+    private(set) var payloads: [RawDebugPayload] = []
+
+    func recordRawDebug(_ payload: RawDebugPayload, for signal: RoutingSignal) async throws {
+        payloads.append(payload)
+    }
+
+    func snapshot() -> [RawDebugPayload] { payloads }
+}
+
 private struct SpyProvider: AIProvider, Sendable {
     let name: String
     let responseContent: String
@@ -57,6 +69,7 @@ private struct SpyProvider: AIProvider, Sendable {
 
 private func makeRouter(
     sink: (any RoutingSignalSink)? = nil,
+    rawDebugSink: (any LocalOnlyRawDebugSink)? = nil,
     schemaValidator: (@Sendable (AITaskKind, String) -> Bool)? = nil,
     tier: DeviceTier = .appleIntelligenceCapable
 ) -> AIRouter {
@@ -80,6 +93,7 @@ private func makeRouter(
         providers: providers,
         deviceTier: { tier },
         signalSink: sink,
+        rawDebugSink: rawDebugSink,
         schemaValidator: schemaValidator
     )
 }
@@ -201,12 +215,55 @@ struct AIRouterSignalEmissionTests {
         #expect(elapsed < .milliseconds(200), "execute returned in \(elapsed) but sink delay is 500ms — fire-and-forget violated")
     }
 
-    // MARK: - FR-018: raw fields captured, sink is the ONLY sink
+    // MARK: - FR-018: raw text is opt-in only, and off the general sink
 
-    @Test("FR-018: rawPromptDebug + rawResponseDebug captured on the signal")
-    func rawFieldsCapturedOnSignal() async throws {
+    @Test("FR-018: RoutingSignal carries NO raw prompt/response — general sink never sees health data")
+    func generalSinkNeverCarriesRawText() async throws {
         let sink = SpyRoutingSignalSink()
+        // No rawDebugSink injected — the default composition.
         let router = makeRouter(sink: sink)
+
+        let messages: [ChatMessage] = [
+            ChatMessage(role: "system", content: "sys"),
+            ChatMessage(role: "user", content: "resting HR 47 bpm"),
+        ]
+        _ = try await router.execute(kind: .substitute, messages: messages, model: nil)
+
+        let signals = await waitForSignals(sink, count: 1)
+        let signal = try #require(signals.first)
+        // The whole point of the split: a conformer of the general-purpose
+        // RoutingSignalSink cannot reach raw text even if it wanted to. This is
+        // enforced by the type — RoutingSignal has no raw members at all —
+        // so assert the metadata it DOES carry is intact and health-free.
+        #expect(signal.kind == .substitute)
+        #expect(signal.provider == "apple_intelligence")
+        #expect(signal.latencyMs >= 0)
+    }
+
+    @Test("FR-018: no rawDebugSink injected → raw payload never produced")
+    func rawTextNotMaterializedWithoutOptIn() async throws {
+        let rawSink = SpyRawDebugSink()
+        let sink = SpyRoutingSignalSink()
+        // Router built WITHOUT the raw sink, though one exists in the test.
+        let router = makeRouter(sink: sink)
+
+        _ = try await router.execute(
+            kind: .substitute,
+            messages: [ChatMessage(role: "user", content: "resting HR 47 bpm")],
+            model: nil
+        )
+        _ = await waitForSignals(sink, count: 1)
+        // Give any (incorrectly) detached raw task a window to land.
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        let payloads = await rawSink.snapshot()
+        #expect(payloads.isEmpty, "raw payload reached a sink that was never injected — FR-018 violation")
+    }
+
+    @Test("FR-018 TEMP-PRELAUNCH: raw payload delivered ONLY to an explicitly injected LocalOnlyRawDebugSink")
+    func rawPayloadDeliveredToOptInSink() async throws {
+        let rawSink = SpyRawDebugSink()
+        let router = makeRouter(rawDebugSink: rawSink)
 
         let messages: [ChatMessage] = [
             ChatMessage(role: "system", content: "sys"),
@@ -214,20 +271,43 @@ struct AIRouterSignalEmissionTests {
         ]
         _ = try await router.execute(kind: .substitute, messages: messages, model: nil)
 
-        let signals = await waitForSignals(sink, count: 1)
-        let signal = try #require(signals.first)
-        let prompt = try #require(signal.rawPromptDebug)
-        #expect(prompt.contains("system: sys"))
-        #expect(prompt.contains("user: hello"))
-        #expect(signal.rawResponseDebug == "apple-out")
+        var payloads = await rawSink.snapshot()
+        let start = ContinuousClock().now
+        while payloads.isEmpty, ContinuousClock().now - start < .seconds(2) {
+            try? await Task.sleep(nanoseconds: 5_000_000)
+            payloads = await rawSink.snapshot()
+        }
+
+        let payload = try #require(payloads.first)
+        #expect(payload.prompt.contains("system: sys"))
+        #expect(payload.prompt.contains("user: hello"))
+        #expect(payload.response == "apple-out")
     }
 
-    @Test("FR-018 static assertion: raw fields never emitted via print / os_log / Aptabase / GlitchTip")
+    @Test("FR-008: raw sink failure does not affect execute return value")
+    func rawSinkIsAlsoFireAndForget() async throws {
+        struct ThrowingRawSink: LocalOnlyRawDebugSink {
+            func recordRawDebug(_ payload: RawDebugPayload, for signal: RoutingSignal) async throws {
+                struct Boom: Error {}
+                throw Boom()
+            }
+        }
+        let router = makeRouter(rawDebugSink: ThrowingRawSink())
+        let response = try await router.execute(
+            kind: .substitute,
+            messages: [ChatMessage(role: "user", content: "x")],
+            model: nil
+        )
+        #expect(response.content == "apple-out")
+    }
+
+    @Test("FR-018 static assertion: raw text never emitted via print / os_log / Aptabase / GlitchTip")
     func rawFieldsHaveNoAlternateEmission() throws {
         // Grep AIRouter + RoutingSignal source for suspicious emitters near
-        // the raw-field context. The invariant: rawPromptDebug/rawResponseDebug
-        // ONLY appear in-package as (a) property declarations on RoutingSignal,
-        // and (b) as let-bindings that get handed to the injected sink.
+        // the raw-payload context. The invariant: the raw prompt/response text
+        // ONLY appears in-package as (a) the `RawDebugPayload` members, and
+        // (b) the single construction site in `AIRouter.execute` that hands it
+        // to the injected `LocalOnlyRawDebugSink`.
         // If ANY of these tokens appear in the same source as CODE (not
         // documentation): fail loud.
         let root = URL(fileURLWithPath: #filePath)
@@ -262,19 +342,20 @@ struct AIRouterSignalEmissionTests {
                     "\(name): code references Aptabase — leaks PHI off-device (FR-018)")
             #expect(!codeOnly.contains("GlitchTip"),
                     "\(name): code references GlitchTip — leaks PHI off-device (FR-018)")
-            #expect(!codeOnly.contains("print(rawPromptDebug"),
-                    "\(name): print()s rawPromptDebug — FR-018 violation")
-            #expect(!codeOnly.contains("print(rawResponseDebug"),
-                    "\(name): print()s rawResponseDebug — FR-018 violation")
-            #expect(!codeOnly.contains("os_log(rawPrompt"),
-                    "\(name): emits rawPrompt via os_log — FR-018 violation")
-            #expect(!codeOnly.contains("os_log(rawResponse"),
-                    "\(name): emits rawResponse via os_log — FR-018 violation")
-            #expect(!codeOnly.contains("logger.log(rawPrompt"),
-                    "\(name): logs rawPrompt via logger — FR-018 violation")
-            #expect(!codeOnly.contains("logger.log(rawResponse"),
-                    "\(name): logs rawResponse via logger — FR-018 violation")
+            for token in ["payload.prompt", "payload.response", "rawDebug"] {
+                for emitter in ["print(", "os_log(", "logger.log(", "logger.debug(", "logger.info("] {
+                    #expect(!codeOnly.contains("\(emitter)\(token)"),
+                            "\(name): emits \(token) via \(emitter) — FR-018 violation")
+                }
+            }
         }
+
+        // Structural assertion: `RoutingSignal` — the type handed to the
+        // unconstrained, general-purpose sink — must never regrow raw members.
+        #expect(!signalSource.contains("public let rawPromptDebug"),
+                "RoutingSignal regrew a raw field — PHI back on the unconstrained sink boundary (FR-018)")
+        #expect(!signalSource.contains("public let rawResponseDebug"),
+                "RoutingSignal regrew a raw field — PHI back on the unconstrained sink boundary (FR-018)")
     }
 
     // MARK: - FR-019: Apple LanguageModelFeedback API MUST NOT be imported

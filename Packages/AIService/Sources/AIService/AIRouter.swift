@@ -60,6 +60,10 @@ public struct AIRouter: Sendable {
     private let policy: [AITaskKind: TaskRequirements]
     private let deviceTierProvider: @Sendable () -> DeviceTier
     private let signalSink: any RoutingSignalSink
+    /// TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
+    /// Optional on purpose: `nil` means raw prompt/response text is never even
+    /// built, so the default router carries no health data anywhere (FR-018).
+    private let rawDebugSink: (any LocalOnlyRawDebugSink)?
     private let schemaValidator: (@Sendable (AITaskKind, String) -> Bool)?
 
     // MARK: - Init
@@ -70,6 +74,13 @@ public struct AIRouter: Sendable {
     ///     — the router keeps the storage non-optional so the hot path avoids an
     ///     optional check. Real sinks are wired at app-target composition (spec
     ///     019 Stage 3c).
+    ///   - rawDebugSink: TEMP-PRELAUNCH controlled exception (spec 019
+    ///     FR-015/016/018). `nil` (the default) means the router never builds
+    ///     the raw prompt/response strings at all. Supplying a sink is an
+    ///     explicit assertion that it writes only into the device-local
+    ///     `cloudKitDatabase: .none` store — see `LocalOnlyRawDebugSink`.
+    ///     MUST be removed together with the protocol before App Store
+    ///     submission (FR-017 / SC-007).
     ///   - schemaValidator: optional per-response validator returning `true` iff
     ///     the response content parses/validates against the caller's schema.
     ///     `nil` or `false` → `schemaValid=false` on the emitted signal. The
@@ -80,12 +91,14 @@ public struct AIRouter: Sendable {
         policy: [AITaskKind: TaskRequirements] = AIRouter.defaultPolicy,
         deviceTier: @escaping @Sendable () -> DeviceTier = { DeviceTier.detect() },
         signalSink: (any RoutingSignalSink)? = nil,
+        rawDebugSink: (any LocalOnlyRawDebugSink)? = nil,
         schemaValidator: (@Sendable (AITaskKind, String) -> Bool)? = nil
     ) {
         self.providers = providers
         self.policy = policy
         self.deviceTierProvider = deviceTier
         self.signalSink = signalSink ?? NoOpRoutingSignalSink()
+        self.rawDebugSink = rawDebugSink
         self.schemaValidator = schemaValidator
     }
 
@@ -217,17 +230,6 @@ public struct AIRouter: Sendable {
         let latencyMs = Int(elapsed.components.seconds * 1_000
             + elapsed.components.attoseconds / 1_000_000_000_000_000)
 
-        // FR-018: raw prompt/response are captured HERE and handed off ONLY to
-        // the injected sink via a detached Task. They MUST NOT be printed,
-        // logged via os_log / Logger, or forwarded to Aptabase/GlitchTip.
-        //
-        // TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
-        let rawPromptDebug = messages
-            .map { "\($0.role): \($0.content)" }
-            .joined(separator: "\n")
-        // TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
-        let rawResponseDebug = response.content
-
         let schemaValid = schemaValidator?(kind, response.content) ?? false
 
         let signal = RoutingSignal(
@@ -237,16 +239,37 @@ public struct AIRouter: Sendable {
             latencyMs: latencyMs,
             schemaValid: schemaValid,
             accepted: nil,
-            timestamp: Date(),
-            rawPromptDebug: rawPromptDebug,
-            rawResponseDebug: rawResponseDebug
+            timestamp: Date()
         )
 
         // FR-008 fire-and-forget: sink failures / delays MUST NOT block or
         // change the user-facing return value. Detached Task + `try?` swallow.
+        // `signal` carries routing metadata only — no health data crosses this
+        // boundary, so an arbitrary conformer is safe here.
         let sink = signalSink
         Task.detached(priority: .background) {
             try? await sink.record(signal)
+        }
+
+        // TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
+        //
+        // FR-018: the raw prompt/response may embed HealthKit-derived values.
+        // They are built ONLY when a `LocalOnlyRawDebugSink` was explicitly
+        // injected, and handed ONLY to that sink — whose contract is
+        // device-local `cloudKitDatabase: .none` storage. With no such sink
+        // (the default) this block does not execute and the raw strings are
+        // never materialized. They are never printed, never sent through
+        // os_log / Logger, never forwarded to Aptabase or GlitchTip.
+        if let rawDebugSink {
+            let payload = RawDebugPayload(
+                prompt: messages
+                    .map { "\($0.role): \($0.content)" }
+                    .joined(separator: "\n"),
+                response: response.content
+            )
+            Task.detached(priority: .background) {
+                try? await rawDebugSink.recordRawDebug(payload, for: signal)
+            }
         }
 
         return response
