@@ -33,7 +33,12 @@ jobs:
   codex-review:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, vitalstride-mac]
-    timeout-minutes: 20
+    # 必须 > 脚本自己的看门狗预算(GATE_TIMEOUT_SECONDS,默认 600s)+ checkout/
+    # fetch/贴评论的开销,否则外层先到点,又会退回到「静默 cancelled、零证据」的
+    # 老失败模式(MY-1415 连烧三次 CI 才定位)。这里留足余量:让**脚本**先超时收口,
+    # 它能给出退出码、卡住的阶段名和一条说明性的 sticky comment;job 的 timeout
+    # 只作最后兜底。这个大小关系由 scripts/ci/review-cli-stdin.contract.test.sh 锁定。
+    timeout-minutes: 25
     steps:
       # 安全:checkout **base 分支**(可信),而非 PR head。评审脚本必须来自 base,
       # 否则同仓库分支 PR 能改 scripts/ci/codex-review.sh 在维护者机器上跑任意
