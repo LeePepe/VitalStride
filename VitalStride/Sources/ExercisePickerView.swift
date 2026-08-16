@@ -615,16 +615,37 @@ struct ExercisePickerView: View {
         return max(0, containerWidth - used)
     }
 
+    /// MY-1418/MY-1419: the grid keeps a SINGLE `ScrollView` mounted for both
+    /// the populated and the zero-result state; only the *content* inside it
+    /// swaps. Previously this was an
+    /// `if equipmentGroups.isEmpty { emptyState } else { ScrollView { … } }`
+    /// pair of mutually exclusive subtrees, so filtering the search down to
+    /// zero matches tore the whole `ScrollView` — and with it the
+    /// `.scrollDismissesKeyboard(.immediately)` modifier below — out of the
+    /// hierarchy. UIKit resigned the search field's first responder as part
+    /// of that teardown, dismissing the keyboard without the user ever
+    /// making a drag gesture. Keeping the container stable means
+    /// `.scrollDismissesKeyboard` only ever fires for its documented reason
+    /// (a user drag), so a query that matches nothing now leaves the search
+    /// field focused and the keyboard up while the user keeps editing.
     @ViewBuilder
     private var exerciseCardGrid: some View {
-        if equipmentGroups.isEmpty {
-            emptyState
-        } else {
-            let equipments = equipmentGroups.map { $0.0 }
-            let showsIndexBar = equipments.count >= 2
-            ScrollViewReader { gridProxy in
-                ZStack(alignment: .trailing) {
-                    ScrollView {
+        let groups = equipmentGroups
+        let equipments = groups.map { $0.0 }
+        let showsIndexBar = equipments.count >= 2
+        ScrollViewReader { gridProxy in
+            ZStack(alignment: .trailing) {
+                ScrollView {
+                    if groups.isEmpty {
+                        // Sized to the scroll container so the placeholder
+                        // stays vertically centred exactly as it did when
+                        // it was the grid's direct child, while remaining
+                        // a scrollable target — a user drag over the empty
+                        // state still dismisses the keyboard.
+                        emptyState
+                            .frame(maxWidth: .infinity)
+                            .containerRelativeFrame(.vertical)
+                    } else {
                         // NOTE: this outer stack is eager `VStack`, NOT
                         // `LazyVStack`. Each section already contains a
                         // `LazyVGrid` (the layer that virtualizes the hundreds
@@ -639,7 +660,7 @@ struct ExercisePickerView: View {
                         // equipment kinds), so an eager outer stack is cheap and
                         // leaves exactly one lazy layer doing the virtualization.
                         VStack(alignment: .leading, spacing: 20) {
-                            ForEach(equipmentGroups, id: \.0) { equipment, items in
+                            ForEach(groups, id: \.0) { equipment, items in
                                 equipmentSection(equipment: equipment, exercises: items)
                                     .id(equipment)
                             }
@@ -649,79 +670,85 @@ struct ExercisePickerView: View {
                         .padding(.trailing, Self.cardGridTrailingInset(showsIndexBar: showsIndexBar))
                         .scrollTargetLayout()
                     }
-                    // iOS 18 fallback: the panel floats as an overlay, so
-                    // reserve matching bottom space with a STATIC margin driven
-                    // by the intrinsic `panelHeight`. On iOS 26 the panel is a
-                    // `.safeAreaBar` (see `FloatingPanelAttachment`) which
-                    // reserves its own space, so `panelHeight` stays 0 here and
-                    // this margin is an inert no-op.
-                    .contentMargins(.bottom, panelHeight, for: .scrollContent)
-                    // MY-1272: dismiss the search keyboard as soon as the
-                    // card grid scrolls. `.immediately` mirrors
-                    // `ActiveWorkoutView`'s existing choice: any drag
-                    // gesture on the grid dismisses the keyboard, and the
-                    // subsequent `isSearchFocused == false` transition
-                    // collapses the search control back to its magnifier
-                    // pill when `searchText` is empty (see
-                    // `.onChange(of: isSearchFocused)` below).
-                    .scrollDismissesKeyboard(.immediately)
-                    // MY-1249: use onScrollTargetVisibilityChange (iOS 18) instead
-                    // of .scrollPosition(id:anchor:.top) — the latter's binding
-                    // updates lagged during finger scroll with lazy sections, so
-                    // the right-side index bar highlight fell out of sync.
-                    //
-                    // Threshold MUST stay low (see `visibilityThreshold`). Each
-                    // scroll target is a whole equipment section, and sections
-                    // can be viewport-taller (dumbbell alone has ≥200 exercises);
-                    // the default 0.5 threshold would omit any section that never
-                    // reaches 50% visibility, hiding the actual top-visible
-                    // section from `visibleIds`. Locked by
-                    // `ExercisePickerIndexSyncTests.visibilityThresholdIsLowEnoughForTallSections`.
-                    .onScrollTargetVisibilityChange(
-                        idType: Equipment.self,
-                        threshold: Self.visibilityThreshold
-                    ) { visibleIds in
-                        Self.applyVisibleIds(
-                            visibleIds,
-                            in: equipments,
-                            current: visibleEquipment,
-                            isDragging: draggedEquipment != nil,
-                            using: applyVisibleEquipment
-                        )
-                    }
+                }
+                // The empty state is exactly as tall as the container, so
+                // without an explicit always-bounce it would refuse the
+                // drag and `.scrollDismissesKeyboard` could never fire
+                // there. The populated path keeps the default
+                // (`.automatic`) physics untouched.
+                .scrollBounceBehavior(groups.isEmpty ? .always : .automatic, axes: .vertical)
+                // iOS 18 fallback: the panel floats as an overlay, so
+                // reserve matching bottom space with a STATIC margin driven
+                // by the intrinsic `panelHeight`. On iOS 26 the panel is a
+                // `.safeAreaBar` (see `FloatingPanelAttachment`) which
+                // reserves its own space, so `panelHeight` stays 0 here and
+                // this margin is an inert no-op.
+                .contentMargins(.bottom, panelHeight, for: .scrollContent)
+                // MY-1272: dismiss the search keyboard as soon as the
+                // card grid scrolls. `.immediately` mirrors
+                // `ActiveWorkoutView`'s existing choice: any drag
+                // gesture on the grid dismisses the keyboard, and the
+                // subsequent `isSearchFocused == false` transition
+                // collapses the search control back to its magnifier
+                // pill when `searchText` is empty (see
+                // `.onChange(of: isSearchFocused)` below).
+                .scrollDismissesKeyboard(.immediately)
+                // MY-1249: use onScrollTargetVisibilityChange (iOS 18) instead
+                // of .scrollPosition(id:anchor:.top) — the latter's binding
+                // updates lagged during finger scroll with lazy sections, so
+                // the right-side index bar highlight fell out of sync.
+                //
+                // Threshold MUST stay low (see `visibilityThreshold`). Each
+                // scroll target is a whole equipment section, and sections
+                // can be viewport-taller (dumbbell alone has ≥200 exercises);
+                // the default 0.5 threshold would omit any section that never
+                // reaches 50% visibility, hiding the actual top-visible
+                // section from `visibleIds`. Locked by
+                // `ExercisePickerIndexSyncTests.visibilityThresholdIsLowEnoughForTallSections`.
+                .onScrollTargetVisibilityChange(
+                    idType: Equipment.self,
+                    threshold: Self.visibilityThreshold
+                ) { visibleIds in
+                    Self.applyVisibleIds(
+                        visibleIds,
+                        in: equipments,
+                        current: visibleEquipment,
+                        isDragging: draggedEquipment != nil,
+                        using: applyVisibleEquipment
+                    )
+                }
 
-                    if showsIndexBar {
-                        indexBarSlot(equipments: equipments, gridProxy: gridProxy)
-                    }
+                if showsIndexBar {
+                    indexBarSlot(equipments: equipments, gridProxy: gridProxy)
                 }
-                .overlay(alignment: .center) {
-                    if let dragged = draggedEquipment {
-                        sectionPreviewPopup(equipment: dragged)
-                            .transition(.opacity.combined(with: .scale(scale: 0.85)))
-                            .allowsHitTesting(false)
-                    }
+            }
+            .overlay(alignment: .center) {
+                if let dragged = draggedEquipment {
+                    sectionPreviewPopup(equipment: dragged)
+                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                        .allowsHitTesting(false)
                 }
-                .animation(.easeOut(duration: 0.18), value: draggedEquipment)
-                .onChange(of: equipmentGroups.map(\.0)) { _, newEquipments in
-                    if let current = visibleEquipment, !newEquipments.contains(current) {
-                        visibleEquipment = newEquipments.first
-                    } else if visibleEquipment == nil {
-                        visibleEquipment = newEquipments.first
-                    }
+            }
+            .animation(.easeOut(duration: 0.18), value: draggedEquipment)
+            .onChange(of: equipments) { _, newEquipments in
+                if let current = visibleEquipment, !newEquipments.contains(current) {
+                    visibleEquipment = newEquipments.first
+                } else if visibleEquipment == nil {
+                    visibleEquipment = newEquipments.first
                 }
-                // MY-1250 reconciliation: filter/search change bumps
-                // `scrollResetToken`; here we imperatively scroll the grid to
-                // the top of the resolved anchor section. MY-1272 refined
-                // "anchor" to `pendingScrollAnchor` so muscle-group changes
-                // can target the current `visibleEquipment` when it
-                // survives (see `resolveMuscleGroupScrollAnchor`), while
-                // search resets still fall back to the first section.
-                .onChange(of: scrollResetToken) { _, _ in
-                    let target = pendingScrollAnchor ?? equipmentGroups.first?.0
-                    guard let anchor = target else { return }
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        gridProxy.scrollTo(anchor, anchor: .top)
-                    }
+            }
+            // MY-1250 reconciliation: filter/search change bumps
+            // `scrollResetToken`; here we imperatively scroll the grid to
+            // the top of the resolved anchor section. MY-1272 refined
+            // "anchor" to `pendingScrollAnchor` so muscle-group changes
+            // can target the current `visibleEquipment` when it
+            // survives (see `resolveMuscleGroupScrollAnchor`), while
+            // search resets still fall back to the first section.
+            .onChange(of: scrollResetToken) { _, _ in
+                let target = pendingScrollAnchor ?? groups.first?.0
+                guard let anchor = target else { return }
+                withAnimation(.easeOut(duration: 0.2)) {
+                    gridProxy.scrollTo(anchor, anchor: .top)
                 }
             }
         }
