@@ -1,7 +1,8 @@
 // swiftlint:disable no_hardcoded_chinese
 // spec 020 (MY-1368/MY-1370): XCUITest suite guarding the ExercisePicker
 // search-field focus state against debounced content changes and @Query
-// refresh. The 5 tests (T1-T5) implement spec §4.1. Test host launches the
+// refresh. The 5 tests (T1-T5) implement spec §4.1. T6 (MY-1418/MY-1419)
+// extends the same contract to zero-result transitions. Test host launches the
 // app with `-ExercisePickerTestMode single|multi` (see VitalStrideApp.swift
 // `#if DEBUG` block) so the picker is presented as a modal sheet without
 // requiring onboarding to complete.
@@ -99,6 +100,88 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
                       "Keyboard dismissed after @Query refresh — CORE BUG")
         XCTAssertTrue(searchField.hasKeyboardFocus,
                       "Search field lost focus after @Query refresh — CORE BUG")
+    }
+
+    // MARK: T6 — zero-result transitions (MY-1418 / MY-1419)
+
+    /// T6a: Filtering the picker down to ZERO results must not dismiss the
+    /// keyboard or drop search focus. `exerciseCardGrid` used to be an
+    /// `if equipmentGroups.isEmpty { emptyState } else { ScrollView { … } }`
+    /// pair of mutually exclusive subtrees, so a query that matched nothing
+    /// tore the `ScrollView` — and with it the
+    /// `.scrollDismissesKeyboard(.immediately)` modifier — out of the
+    /// hierarchy. UIKit resigned first responder as part of that teardown
+    /// even though the user never made a drag gesture. The user must be able
+    /// to keep editing (e.g. backspace a typo) without re-tapping the field.
+    @MainActor
+    func test_searchFocus_persistsWhenSearchYieldsNoResults() throws {
+        let app = launchPicker(mode: "single")
+
+        let searchField = openSearchField(in: app)
+        // `zzzzz` matches no seeded exercise in either nameEn or nameZh, so
+        // `computeEquipmentGroups` returns [] and the grid flips to its
+        // empty state.
+        typeAndAssertKeyboardStaysUp(app: app, searchField: searchField, text: "zzzzz")
+    }
+
+    /// T6b: Same contract on the multi-select entry point.
+    @MainActor
+    func test_searchFocus_persistsWhenSearchYieldsNoResultsInMultiSelect() throws {
+        let app = launchPicker(mode: "multi")
+
+        let searchField = openSearchField(in: app)
+        typeAndAssertKeyboardStaysUp(app: app, searchField: searchField, text: "zzzzz")
+    }
+
+    /// T6c: Editing back OUT of the zero-result state must keep focus too —
+    /// the round trip non-empty → empty → non-empty crosses the grid's
+    /// content/empty boundary twice, and focus must survive both crossings
+    /// so the user never has to re-tap the field mid-correction.
+    @MainActor
+    func test_searchFocus_persistsWhenEditingBackFromNoResults() throws {
+        let app = launchPicker(mode: "single")
+
+        let searchField = openSearchField(in: app)
+        // "bench" matches; appending "zzz" drops the result set to zero.
+        typeAndAssertKeyboardStaysUp(app: app, searchField: searchField, text: "benchzzz")
+
+        // Backspace out of the zero-result state one char at a time. Focus
+        // and keyboard must hold across the empty → populated crossing.
+        for index in 0..<3 {
+            searchField.typeText(XCUIKeyboardKey.delete.rawValue)
+            usleep(300_000) // > 200ms debounce
+            XCTAssertTrue(app.keyboards.firstMatch.exists,
+                          "Keyboard dismissed while deleting char index \(index)")
+            XCTAssertTrue(searchField.hasKeyboardFocus,
+                          "Search field lost focus while deleting char index \(index)")
+        }
+    }
+
+    /// T6d: The empty state must stay scrollable so a user drag over it
+    /// still dismisses the keyboard — the fix keeps the `ScrollView`
+    /// mounted, so `.scrollDismissesKeyboard(.immediately)` must remain
+    /// live in the zero-result state exactly as it is with results (T5c).
+    @MainActor
+    func test_scrollDismissesKeyboard_onEmptyState() throws {
+        let app = launchPicker(mode: "single",
+                               extraArgs: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryM"])
+        let searchField = openSearchField(in: app)
+        searchField.typeText("zzzzz")
+        usleep(400_000) // > 200ms debounce → grid is now in the empty state
+        XCTAssertTrue(app.keyboards.firstMatch.exists,
+                      "Keyboard missing before swipe on empty state")
+
+        // Same coordinate-based drag as T5c — top ~40% of the window, well
+        // clear of both the keyboard and the floating panel.
+        let window = app.windows.firstMatch
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15))
+        start.press(forDuration: 0.05, thenDragTo: end)
+
+        let noKeyboard = expectation(for: NSPredicate(format: "exists == false"),
+                                    evaluatedWith: app.keyboards.firstMatch,
+                                    handler: nil)
+        wait(for: [noKeyboard], timeout: 2.0)
     }
 
     // MARK: T5 — explicit dismiss paths (regression guard)
