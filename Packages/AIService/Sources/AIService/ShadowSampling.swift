@@ -36,8 +36,8 @@ public struct NeverShadowSampler: ShadowSampler {
 /// `Task` wrapped in `try?`. Implementers MUST NOT block or throw in a way that
 /// would matter to the router.
 ///
-/// This sink is safe for any conformer: `ShadowSignal` contains no health data.
-/// Anything raw-content-bearing goes through `LocalOnlyShadowPairSink`.
+/// This sink is safe for any conformer: `ShadowSignal` contains no health
+/// data, and the router captures no raw output text to hand anywhere else.
 public protocol ShadowSignalSink: Sendable {
     func recordShadow(_ signal: ShadowSignal) async throws
 }
@@ -45,37 +45,4 @@ public protocol ShadowSignalSink: Sendable {
 /// No-op default so `AIRouter` storage stays non-optional on the hot path.
 struct NoOpShadowSignalSink: ShadowSignalSink {
     func recordShadow(_ signal: ShadowSignal) async throws {}
-}
-
-// MARK: - TEMP-PRELAUNCH shadow-pair raw sink
-
-/// TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
-///
-/// A single `(main, candidate)` output pair from a shadow run. This is what
-/// Apple Evaluations (US3 T023) grades offline. The response text may embed
-/// HealthKit-derived values verbatim, so this payload is kept OFF
-/// `ShadowSignal` and off the general `ShadowSignalSink` boundary — a type
-/// only ever sees it by explicitly conforming to `LocalOnlyShadowPairSink`.
-public struct ShadowPairPayload: Sendable {
-    public let mainResponse: String
-    public let candidateResponse: String
-
-    public init(mainResponse: String, candidateResponse: String) {
-        self.mainResponse = mainResponse
-        self.candidateResponse = candidateResponse
-    }
-}
-
-/// TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
-///
-/// The ONLY channel through which `AIRouter` will hand out raw shadow-pair
-/// output text. Same contract as `LocalOnlyRawDebugSink`: conforming asserts
-/// the payload lands only in the device-local SwiftData store configured with
-/// `cloudKitDatabase: .none`.
-///
-/// When no sink is injected, the router never even builds these strings for
-/// the candidate — the raw pair is not captured. This is opt-in at the
-/// composition root only.
-public protocol LocalOnlyShadowPairSink: Sendable {
-    func recordShadowPair(_ payload: ShadowPairPayload, for signal: ShadowSignal) async throws
 }

@@ -14,16 +14,6 @@ private actor SpyShadowSink: ShadowSignalSink {
     func snapshot() -> [ShadowSignal] { signals }
 }
 
-private actor SpyShadowPairSink: LocalOnlyShadowPairSink {
-    private(set) var payloads: [ShadowPairPayload] = []
-
-    func recordShadowPair(_ payload: ShadowPairPayload, for signal: ShadowSignal) async throws {
-        payloads.append(payload)
-    }
-
-    func snapshot() -> [ShadowPairPayload] { payloads }
-}
-
 private struct FastSpyProvider: AIProvider, Sendable {
     let name: String
     let responseContent: String
@@ -84,8 +74,7 @@ private func makeShadowRouter(
     candidateDelayNs: UInt64 = 0,
     candidateThrows: Bool = false,
     sampler: any ShadowSampler,
-    sink: any ShadowSignalSink,
-    pairSink: (any LocalOnlyShadowPairSink)? = nil
+    sink: any ShadowSignalSink
 ) -> AIRouter {
     let candidate: any AIProvider
     if candidateThrows {
@@ -116,8 +105,7 @@ private func makeShadowRouter(
         providers: providers,
         deviceTier: { .appleIntelligenceCapable },
         shadowSampler: sampler,
-        shadowSignalSink: sink,
-        shadowPairSink: pairSink
+        shadowSignalSink: sink
     )
 }
 
@@ -336,78 +324,54 @@ struct ShadowSamplingTests {
         #expect(signals.isEmpty, "shadow fired with no distinct candidate — no comparison possible")
     }
 
-    // MARK: - TEMP-PRELAUNCH raw pair sink
+    // MARK: - FR-018 ship-gate: shadow runs carry no output text
 
-    @Test("TEMP-PRELAUNCH: raw shadow pair delivered ONLY to explicit LocalOnlyShadowPairSink")
-    func rawPairDeliveredToOptInSink() async throws {
-        let sink = SpyShadowSink()
-        let pairSink = SpyShadowPairSink()
-        let router = makeShadowRouter(
-            sampler: AlwaysShadowSampler(),
-            sink: sink,
-            pairSink: pairSink
+    @Test("ShadowSignal exposes only routing metadata — no response text member")
+    func shadowSignalHasNoRawMembers() throws {
+        let source = try String(
+            contentsOf: Self.sourcesRoot.appendingPathComponent("ShadowSignal.swift"),
+            encoding: .utf8
         )
-
-        _ = try await router.execute(
-            kind: .substitute,
-            messages: [ChatMessage(role: "user", content: "swap")],
-            model: nil
-        )
-
-        _ = await waitForShadow(sink, count: 1)
-
-        var payloads = await pairSink.snapshot()
-        let start = ContinuousClock().now
-        while payloads.isEmpty, ContinuousClock().now - start < .seconds(2) {
-            try? await Task.sleep(nanoseconds: 5_000_000)
-            payloads = await pairSink.snapshot()
+        // Scan declared members only — the doc prose legitimately says the type
+        // carries "no raw prompt/response text".
+        let members = source
+            .split(separator: "\n")
+            .compactMap { line -> String? in
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("public let ") else { return nil }
+                return trimmed
+                    .dropFirst("public let ".count)
+                    .prefix(while: { $0 != ":" })
+                    .trimmingCharacters(in: .whitespaces)
+            }
+        #expect(!members.isEmpty, "parsed no ShadowSignal members — the assertion below would be vacuous")
+        for forbidden in ["mainResponse", "candidateResponse", "responseContent", "prompt"] {
+            #expect(!members.contains(forbidden),
+                    "ShadowSignal regrew member '\(forbidden)' — raw output text is back in the routing layer (FR-018)")
         }
-        let payload = try #require(payloads.first)
-        #expect(payload.mainResponse == "apple-out")
-        #expect(payload.candidateResponse == "zhipu-out")
     }
 
-    @Test("no pair sink injected → raw pair never materialized")
-    func rawPairNotMaterializedWithoutOptIn() async throws {
-        let pairSink = SpyShadowPairSink()
-        let sink = SpyShadowSink()
-        // Router built WITHOUT the pair sink, though one exists in the test.
-        let router = makeShadowRouter(
-            sampler: AlwaysShadowSampler(),
-            sink: sink
+    @Test("shadow dual-run never binds the candidate response text")
+    func shadowRunDiscardsCandidateOutput() throws {
+        let source = try String(
+            contentsOf: Self.sourcesRoot.appendingPathComponent("AIRouter.swift"),
+            encoding: .utf8
         )
-
-        _ = try await router.execute(
-            kind: .substitute,
-            messages: [ChatMessage(role: "user", content: "swap")],
-            model: nil
-        )
-
-        _ = await waitForShadow(sink, count: 1)
-        try? await Task.sleep(nanoseconds: 200_000_000)
-        let payloads = await pairSink.snapshot()
-        #expect(payloads.isEmpty, "raw pair reached a sink that was never injected")
+        // The candidate call must discard its result: `_ = try await ...chat`.
+        // Binding it (`let response = try await candidateProvider.chat`) is how
+        // the deleted raw-pair capture started.
+        #expect(source.contains("_ = try await candidateProvider.chat("),
+                "shadow dual-run binds the candidate response instead of discarding it — raw output re-entered the layer (FR-018)")
+        #expect(!source.contains("let mainContent = mainResponse.content"),
+                "AIRouter captured the main response text for shadow comparison — deleted in Stage 6d (FR-018)")
     }
 
-    @Test("candidate failure → no raw pair recorded")
-    func failedCandidateNoRawPair() async throws {
-        let sink = SpyShadowSink()
-        let pairSink = SpyShadowPairSink()
-        let router = makeShadowRouter(
-            candidateThrows: true,
-            sampler: AlwaysShadowSampler(),
-            sink: sink,
-            pairSink: pairSink
-        )
-
-        _ = try await router.execute(
-            kind: .substitute,
-            messages: [ChatMessage(role: "user", content: "swap")],
-            model: nil
-        )
-        _ = await waitForShadow(sink, count: 1)
-        try? await Task.sleep(nanoseconds: 200_000_000)
-        let payloads = await pairSink.snapshot()
-        #expect(payloads.isEmpty, "recorded a pair for a failed candidate")
+    /// `Packages/AIService/Sources/AIService`, resolved from this test file.
+    private static var sourcesRoot: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent() // AIServiceTests
+            .deletingLastPathComponent() // Tests
+            .deletingLastPathComponent() // AIService (package root)
+            .appendingPathComponent("Sources/AIService")
     }
 }

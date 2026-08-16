@@ -60,19 +60,11 @@ public struct AIRouter: Sendable {
     private let policy: [AITaskKind: TaskRequirements]
     private let deviceTierProvider: @Sendable () -> DeviceTier
     private let signalSink: any RoutingSignalSink
-    /// TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
-    /// Optional on purpose: `nil` means raw prompt/response text is never even
-    /// built, so the default router carries no health data anywhere (FR-018).
-    private let rawDebugSink: (any LocalOnlyRawDebugSink)?
     private let schemaValidator: (@Sendable (AITaskKind, String) -> Bool)?
 
     // MARK: - Shadow sampling (US3 / spec 019 Stage 4)
     private let shadowSampler: any ShadowSampler
     private let shadowSignalSink: any ShadowSignalSink
-    /// TEMP-PRELAUNCH: 上架前移除——原始候选响应仅供发布前单用户调试（宪法 I）
-    /// `nil` (default) means the router never even builds the raw candidate
-    /// response string when a shadow dual-run fires — mirrors `rawDebugSink`.
-    private let shadowPairSink: (any LocalOnlyShadowPairSink)?
 
     // MARK: - Bandit routing (US4 / spec 019 Stage 5)
     /// Optional bandit that picks the primary provider name for a given
@@ -92,13 +84,6 @@ public struct AIRouter: Sendable {
     ///     — the router keeps the storage non-optional so the hot path avoids an
     ///     optional check. Real sinks are wired at app-target composition (spec
     ///     019 Stage 3c).
-    ///   - rawDebugSink: TEMP-PRELAUNCH controlled exception (spec 019
-    ///     FR-015/016/018). `nil` (the default) means the router never builds
-    ///     the raw prompt/response strings at all. Supplying a sink is an
-    ///     explicit assertion that it writes only into the device-local
-    ///     `cloudKitDatabase: .none` store — see `LocalOnlyRawDebugSink`.
-    ///     MUST be removed together with the protocol before App Store
-    ///     submission (FR-017 / SC-007).
     ///   - schemaValidator: optional per-response validator returning `true` iff
     ///     the response content parses/validates against the caller's schema.
     ///     `nil` or `false` → `schemaValid=false` on the emitted signal. The
@@ -109,9 +94,6 @@ public struct AIRouter: Sendable {
     ///     dual-runs, preserving Stage 3 behavior.
     ///   - shadowSignalSink: consumer for `ShadowSignal` values. Fire-and-forget
     ///     just like `signalSink`. Default is a no-op.
-    ///   - shadowPairSink: TEMP-PRELAUNCH raw shadow-pair sink (FR-011 offline
-    ///     evaluation input). `nil` means the raw candidate response text is
-    ///     never even built. Explicit opt-in only, at the composition root.
     ///   - bandit: optional `AIRoutingBandit` that picks the primary
     ///     provider name for `(kind, deviceTier)`. `nil` (the default)
     ///     preserves Stage 1 static routing exactly — Day-1 zero regression
@@ -125,11 +107,9 @@ public struct AIRouter: Sendable {
         policy: [AITaskKind: TaskRequirements] = AIRouter.defaultPolicy,
         deviceTier: @escaping @Sendable () -> DeviceTier = { DeviceTier.detect() },
         signalSink: (any RoutingSignalSink)? = nil,
-        rawDebugSink: (any LocalOnlyRawDebugSink)? = nil,
         schemaValidator: (@Sendable (AITaskKind, String) -> Bool)? = nil,
         shadowSampler: (any ShadowSampler)? = nil,
         shadowSignalSink: (any ShadowSignalSink)? = nil,
-        shadowPairSink: (any LocalOnlyShadowPairSink)? = nil,
         bandit: AIRoutingBandit? = nil,
         banditRepo: (any BanditArmStateRepository)? = nil
     ) {
@@ -137,11 +117,9 @@ public struct AIRouter: Sendable {
         self.policy = policy
         self.deviceTierProvider = deviceTier
         self.signalSink = signalSink ?? NoOpRoutingSignalSink()
-        self.rawDebugSink = rawDebugSink
         self.schemaValidator = schemaValidator
         self.shadowSampler = shadowSampler ?? NeverShadowSampler()
         self.shadowSignalSink = shadowSignalSink ?? NoOpShadowSignalSink()
-        self.shadowPairSink = shadowPairSink
         self.bandit = bandit
         self.banditRepo = banditRepo ?? NoOpBanditArmStateRepository()
     }
@@ -354,26 +332,11 @@ public struct AIRouter: Sendable {
             }
         }
 
-        // TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
-        //
-        // FR-018: the raw prompt/response may embed HealthKit-derived values.
-        // They are built ONLY when a `LocalOnlyRawDebugSink` was explicitly
-        // injected, and handed ONLY to that sink — whose contract is
-        // device-local `cloudKitDatabase: .none` storage. With no such sink
-        // (the default) this block does not execute and the raw strings are
-        // never materialized. They are never printed, never sent through
-        // os_log / Logger, never forwarded to Aptabase or GlitchTip.
-        if let rawDebugSink {
-            let payload = RawDebugPayload(
-                prompt: messages
-                    .map { "\($0.role): \($0.content)" }
-                    .joined(separator: "\n"),
-                response: response.content
-            )
-            Task.detached(priority: .background) {
-                try? await rawDebugSink.recordRawDebug(payload, for: signal)
-            }
-        }
+        // FR-018: the raw prompt/response may embed HealthKit-derived values,
+        // so this layer never captures them at all. `execute` holds the
+        // response only long enough to return it to the caller; nothing below
+        // materializes prompt or response text into a payload, and there is no
+        // sink type in this package that could receive one.
 
         // Shadow dual-run (spec 019 US3 / FR-010).
         //
@@ -388,7 +351,6 @@ public struct AIRouter: Sendable {
             ordered: ordered,
             mainProviderName: outcome.providerName,
             mainLatencyMs: latencyMs,
-            mainResponse: response,
             tier: tier
         )
 
@@ -560,6 +522,10 @@ public struct AIRouter: Sendable {
     /// only eligible provider IS the one that served, there's nothing to
     /// compare, and running the same provider twice would only inflate cost
     /// and pollute the signal.
+    ///
+    /// Only the candidate's *timing and outcome* are observed. Neither the main
+    /// nor the candidate response text is captured here — `ShadowSignal` is
+    /// pure routing metadata (FR-018 / 宪法 I).
     private func maybeFireShadow(
         kind: AITaskKind,
         messages: [ChatMessage],
@@ -567,7 +533,6 @@ public struct AIRouter: Sendable {
         ordered: [RegisteredProvider],
         mainProviderName: String,
         mainLatencyMs: Int,
-        mainResponse: ChatResponse,
         tier: DeviceTier
     ) {
         guard shadowSampler.shouldSample(kind: kind) else { return }
@@ -581,17 +546,17 @@ public struct AIRouter: Sendable {
         }
 
         let sink = shadowSignalSink
-        let pairSink = shadowPairSink
         let candidateName = candidate.name
         let candidateProvider = candidate.provider
         let mainName = mainProviderName
-        let mainContent = mainResponse.content
 
         Task.detached(priority: .background) {
             let clock = ContinuousClock()
             let start = clock.now
             do {
-                let response = try await candidateProvider.chat(messages: messages, model: model)
+                // Response value is deliberately discarded: the dual-run exists
+                // to time the candidate, not to collect its output.
+                _ = try await candidateProvider.chat(messages: messages, model: model)
                 let elapsed = clock.now - start
                 let candidateLatencyMs = Int(elapsed.components.seconds * 1_000
                     + elapsed.components.attoseconds / 1_000_000_000_000_000)
@@ -608,16 +573,6 @@ public struct AIRouter: Sendable {
                     timestamp: Date()
                 )
                 try? await sink.recordShadow(signal)
-
-                // TEMP-PRELAUNCH: raw shadow-pair only handed to an explicit
-                // opt-in sink; never materialized otherwise.
-                if let pairSink {
-                    let payload = ShadowPairPayload(
-                        mainResponse: mainContent,
-                        candidateResponse: response.content
-                    )
-                    try? await pairSink.recordShadowPair(payload, for: signal)
-                }
             } catch {
                 // FR-010 / spec edge case: candidate failure MUST NOT touch
                 // the already-returned main result. Record a shadowFailed

@@ -10,11 +10,11 @@ red_lines:
   - Apple Intelligence 本地优先 + 智谱 GLM fallback 的 chain 顺序不得反转（宪法 V）
   - Swift 6 strict concurrency，provider 须 Sendable（宪法 II）
 roles:
-  Types:   [Models, AIProvider, AIAnalysisResponse, DataAnalysis, TrainingRecommendation, OverviewInsight, AIServiceError, AITaskKind, RoutingSignal, ShadowSignal, AIRoutingEvaluationSample]
+  Types:   [Models, AIProvider, AIAnalysisResponse, DataAnalysis, TrainingRecommendation, OverviewInsight, AIServiceError, AITaskKind, RoutingSignal, ShadowSignal]
   Repo:    [KeychainHelper]
-  Service: [AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler, AIRoutingEvaluator]
+  Service: [AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler]
 test: swift test --package-path Packages/AIService
-owns: [AIProvider, AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler, AIRoutingEvaluator]
+owns: [AIProvider, AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler]
 ---
 
 # AIService Context
