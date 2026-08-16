@@ -98,10 +98,13 @@ struct BanditArmStateEntryTests {
                 "BanditArmStateEntry attribute set must be exactly \(expected) (宪法 I 红线); got \(attributeNames)")
 
         // Explicit forbid-list — any health / training numeric leaks trip this.
+        // (Redundant belt-and-suspenders: the exact set-equality assertion above
+        // already fails on ANY extra attribute. MY-1390 dropped the removed raw
+        // debug identifiers from this list — those fields no longer exist.)
         let forbiddenAttributeNames: Set<String> = [
             "weight", "reps", "heartRate", "hrv", "steps", "distance",
             "calories", "workoutId", "exerciseId", "userId", "workout",
-            "exercise", "rawPromptDebug", "rawResponseDebug", "prompt",
+            "exercise", "prompt",
             "response", "latencyMs", "schemaValid", "accepted",
         ]
         for attr in attributeNames {

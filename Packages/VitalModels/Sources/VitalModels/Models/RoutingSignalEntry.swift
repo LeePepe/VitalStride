@@ -11,11 +11,6 @@ public final class RoutingSignalEntry {
     public var accepted: Bool?
     public var timestamp: Date = Date()
 
-    // TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
-    public var rawPromptDebug: String?
-    // TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
-    public var rawResponseDebug: String?
-
     public init(
         kind: String,
         provider: String,
@@ -23,9 +18,7 @@ public final class RoutingSignalEntry {
         latencyMs: Int,
         schemaValid: Bool,
         accepted: Bool? = nil,
-        timestamp: Date = Date(),
-        rawPromptDebug: String? = nil,
-        rawResponseDebug: String? = nil
+        timestamp: Date = Date()
     ) {
         self.kind = kind
         self.provider = provider
@@ -34,7 +27,5 @@ public final class RoutingSignalEntry {
         self.schemaValid = schemaValid
         self.accepted = accepted
         self.timestamp = timestamp
-        self.rawPromptDebug = rawPromptDebug
-        self.rawResponseDebug = rawResponseDebug
     }
 }

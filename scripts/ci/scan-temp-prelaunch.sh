@@ -15,8 +15,10 @@
 #     warning，让残留始终可见，不会悄悄堆积。
 #
 #   enforce —— 命中即失败（exit 1）。
-#     用于 App Store 提交路径（FR-017 的「上架」）。这是红线真正生效的地方。
-#     目前 fastlane 只有 beta lane，尚无提交 lane；等提交路径落地时用本模式接上。
+#     用于 PR 门（ci.yml「Lint & policy」，2026-08-16 起）与将来的 App Store 提交
+#     路径（FR-017 的「上架」）。Stage 6e 已把受控例外清零，例外窗口就此关闭 ——
+#     清零之后任何新命中都只可能是回归，所以这道门现在每个 PR 都跑。
+#     fastlane 目前只有 beta lane，尚无提交 lane；提交路径落地时同样接本模式。
 #
 # 无论哪种模式，扫描范围缺失或 grep 执行出错一律 exit 1 —— 这道门不能 fail-open。
 set -uo pipefail
