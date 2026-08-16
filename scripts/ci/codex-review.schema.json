@@ -1,0 +1,15 @@
+{
+  "type":"object","additionalProperties":false,
+  "required":["verdict","summary","blockers","notes"],
+  "properties":{
+    "verdict":{"type":"string","enum":["pass","changes"]},
+    "summary":{"type":"string"},
+    "blockers":{"type":"array","items":{"type":"object","additionalProperties":false,
+      "required":["file","line","severity","why"],
+      "properties":{"file":{"type":"string"},"line":{"type":["integer","null"]},
+        "severity":{"type":"string","enum":["critical","high"]},"why":{"type":"string"}}}},
+    "notes":{"type":"array","items":{"type":"object","additionalProperties":false,
+      "required":["file","line","note"],
+      "properties":{"file":{"type":"string"},"line":{"type":["integer","null"]},"note":{"type":"string"}}}}
+  }
+}
