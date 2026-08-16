@@ -23,7 +23,7 @@
 | 自动 review | `.github/workflows/codex-review.yml` + `scripts/ci/codex-review.sh` | PR | 否 |
 | review prompt(数据) | `scripts/ci/review-prompt.md` + `scripts/ci/render-review-prompt.py` | 被上面两门读取 | — |
 | prompt 契约回归 | `scripts/ci/review-prompt.contract.test.sh`(ci.yml「Lint & policy」) | PR | 否 |
-| TEMP-PRELAUNCH 扫描 | `scripts/ci/scan-temp-prelaunch.sh`(testflight.yml 用 `audit`;上架路径待接 `enforce`) | 发布 | — |
+| TEMP-PRELAUNCH 扫描 | `scripts/ci/scan-temp-prelaunch.sh`(ci.yml「Lint & policy」用 `enforce`;testflight.yml 用 `audit`) | PR + 发布 | 否 |
 | 自动合并 | `.github/workflows/auto-merge.yml` | PR | — |
 | ruleset(硬门) | `scripts/rulesets/main-protection.json` | 默认分支 | admin 可 bypass |
 
@@ -71,18 +71,30 @@ grep 命中数 = 0。此前这只是 `tasks.md` 里一个没人勾的复选框 �
 | 模式 | 命中时行为 | 用在哪 |
 |---|---|---|
 | `audit`(默认) | 打印清单 + workflow warning,**exit 0** | `testflight.yml`(内测分发) |
-| `enforce` | 打印清单 + **exit 1** | App Store 提交路径(待落地) |
+| `enforce` | 打印清单 + **exit 1** | `ci.yml`「Lint & policy」(每个 PR,2026-08-16 起) |
 
 TestFlight 内测跑 `audit`:spec.md:144 界定例外成立的前提是「未发布、单用户(项目
 owner 自用)」,而 **TestFlight 内测就是该阶段的分发方式**。在内测路径上硬阻塞等于
 在例外窗口内禁止一切分发,恰好废掉例外本身的用途。命中仍然全量打印,不会悄悄堆积。
 
-FR-017 说的「上架」= App Store 提交。目前 `fastlane/Fastfile` 只有 `beta` lane
-(`upload_to_testflight`),没有提交 lane;**等提交 lane 落地时,必须在其之前接上
-`scan-temp-prelaunch.sh enforce`** —— 那才是红线真正生效的地方。
+### 2026-08-16:PR 路径由 audit 升为 enforce(MY-1390 / Stage 6e)
 
-**同样不挡 PR**:受控例外在开发期是合法的(spec 逐字批准),挡 PR 会立刻拦住正在
-合入的 raw 字段。
+升级依据:Stage 6c-6e 已把受控例外**清零** —— `RoutingSignalEntry` 的 raw 调试字段
+连同 AIService 侧全部 raw 承载类型与写入点一并移除,`SCAN_PATHS` 内 `TEMP-PRELAUNCH`
+命中数 = 0,FR-018 永久态达成。**例外窗口关闭之后,「不挡 PR」的理由随之消失**:此前
+挡 PR 会拦住正在合入的、spec 逐字批准的 raw 字段;现在没有合法的待合入例外了,任何
+新出现的命中都只可能是回归。
+
+因此 `ci.yml` 的「Lint & policy」job 新增一个 `enforce` step,**每个 PR 都跑**。这是
+清零之后唯一的防回归护栏 —— 否则红线只剩文档,下一个 PR 就能悄悄把 raw 字段加回来。
+
+`testflight.yml` 第 122 行**保持 `audit` 不变**:内测分发路径的语义没有变,那里的
+阻塞代价与本门无关(且真有残留时 PR 门早就先红了)。同一脚本、两种模式、两条路径,
+不要合并。
+
+FR-017 说的「上架」= App Store 提交。`fastlane/Fastfile` 目前只有 `beta` lane
+(`upload_to_testflight`),没有提交 lane;提交 lane 落地时同样要在其之前接上
+`enforce`,与 PR 门形成前后两道。
 
 两种模式都**不 fail-open**:扫描路径缺失(目录改名 / checkout 布局变化)或 grep
 执行出错(rc >= 2)一律 `exit 1`,拒绝在扫描范围残缺的情况下继续。

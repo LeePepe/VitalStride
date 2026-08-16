@@ -4,11 +4,12 @@ import Testing
 @testable import VitalModels
 
 // MY-1387 / Stage6b — 永久态字段白名单红线测试（宪法 I）
+// MY-1390 / Stage6e — ship-gate 收窄：受控临时例外已随 raw 字段一并移除，
+// 白名单断言现在直接比对全字段集，不再做集合减法。
 //
 // 本 suite 是 `RoutingSignalEntry` 与 `BanditArmStateEntry` 的永久态字段清单机械化护栏：
 //   - 若有人给这两个 entry 追加新健康数值字段（例如 heartRate、steps、weight），白名单断言 FAIL
-//   - 若 Stage 6c-e ship-gate 把 `RoutingSignalEntry` 的 TEMP-PRELAUNCH raw 字段真正移除，
-//     本文件的 `nonTempPermanentAttributes(...)` 已排除它们，永久白名单断言仍成立，无需改测试
+//   - 若有人重新引入已被 FR-017 移除的 raw 调试字段，全字段集比对同样 FAIL
 //
 // 依赖：SwiftData 反射 —— `ModelConfiguration.schema.entities` 只暴露 `@Attribute` 持久化字段，
 // 所以断言的是「实际会被写盘的字段清单」，比 Mirror(reflecting:) 更贴近红线本意。
@@ -17,20 +18,15 @@ struct RoutingModelsPersistedFieldsRedlineTests {
 
     // MARK: - White lists (永久态字段，宪法 I)
 
-    /// `BanditArmStateEntry` 永久白名单 —— 该 entry 无 TEMP-PRELAUNCH 例外
+    /// `BanditArmStateEntry` 永久白名单
     private static let banditPermanentWhitelist: Set<String> = [
         "kind", "deviceTier", "provider", "count", "rewardSum", "updatedAt",
     ]
 
-    /// `RoutingSignalEntry` 永久白名单 —— 不含 TEMP-PRELAUNCH `rawPromptDebug` / `rawResponseDebug`
-    /// FR-017 上架前须由 Stage 6e 移除 raw 字段；见 CONTEXT.md red_lines
+    /// `RoutingSignalEntry` 永久白名单 —— FR-017 收窄后的完整持久化字段集（7 个）
+    /// 见 CONTEXT.md red_lines
     private static let routingSignalPermanentWhitelist: Set<String> = [
         "kind", "provider", "deviceTier", "latencyMs", "schemaValid", "accepted", "timestamp",
-    ]
-
-    /// TEMP-PRELAUNCH 例外字段，本任务不删，只显式排除
-    private static let routingSignalTempPrelaunchExceptions: Set<String> = [
-        "rawPromptDebug", "rawResponseDebug",
     ]
 
     // MARK: - Helpers
@@ -45,12 +41,6 @@ struct RoutingModelsPersistedFieldsRedlineTests {
         return Set(entity.attributes.map(\.name))
     }
 
-    /// 排除 TEMP-PRELAUNCH 例外后的永久字段集，用于永久白名单比对
-    private static func nonTempPermanentAttributes(_ attrs: Set<String>,
-                                                   exceptions: Set<String>) -> Set<String> {
-        attrs.subtracting(exceptions)
-    }
-
     // MARK: - Tests
 
     @Test("BanditArmStateEntry 持久化字段 == 永久白名单（多一个少一个都 FAIL）")
@@ -60,18 +50,11 @@ struct RoutingModelsPersistedFieldsRedlineTests {
                 "BanditArmStateEntry 永久白名单红线（宪法 I）被打破。期望: \(Self.banditPermanentWhitelist)；实际: \(attrs)")
     }
 
-    @Test("RoutingSignalEntry 永久字段（排除 TEMP-PRELAUNCH）== 永久白名单")
+    @Test("RoutingSignalEntry 持久化字段 == 永久白名单（多一个少一个都 FAIL）")
     func routingSignalEntryPermanentFieldsMatchWhitelist() throws {
         let attrs = try Self.attributes(for: "RoutingSignalEntry")
-        let permanent = Self.nonTempPermanentAttributes(attrs,
-                                                       exceptions: Self.routingSignalTempPrelaunchExceptions)
-        #expect(permanent == Self.routingSignalPermanentWhitelist,
-                "RoutingSignalEntry 永久白名单红线（宪法 I / FR-017 前置护栏）被打破。期望永久: \(Self.routingSignalPermanentWhitelist)；实际去除 TEMP-PRELAUNCH 例外后: \(permanent)；实际全集: \(attrs)")
-
-        // 注意：不断言 TEMP-PRELAUNCH 字段仍在。这些字段（rawPromptDebug/rawResponseDebug）
-        // 由 Stage 6e / FR-017 移除；一旦移除，`nonTempPermanentAttributes(...)` 会得到相同的
-        // 永久白名单集合，本测试仍然通过 —— 这是「永久态红线」的正确形状：只锁永久字段清单，
-        // 对 TEMP-PRELAUNCH 例外只做集合减法，不做存在性断言。
+        #expect(attrs == Self.routingSignalPermanentWhitelist,
+                "RoutingSignalEntry 永久白名单红线（宪法 I / FR-017 永久态）被打破。期望: \(Self.routingSignalPermanentWhitelist)；实际: \(attrs)")
     }
 
     @Test("BanditArmStateEntry 与 RoutingSignalEntry 均不含任何健康/训练数值字段")

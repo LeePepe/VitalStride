@@ -95,9 +95,7 @@ struct RoutingSignalEntryTests {
             latencyMs: 1234,
             schemaValid: true,
             accepted: true,
-            timestamp: now,
-            rawPromptDebug: "prompt",
-            rawResponseDebug: "response"
+            timestamp: now
         )
         context.insert(entry)
         try context.save()
@@ -112,8 +110,6 @@ struct RoutingSignalEntryTests {
         #expect(fetched.schemaValid == true)
         #expect(fetched.accepted == true)
         #expect(fetched.timestamp == now)
-        #expect(fetched.rawPromptDebug == "prompt")
-        #expect(fetched.rawResponseDebug == "response")
     }
 
     @Test("insert with nil optional fields round-trips as nil")
@@ -128,9 +124,7 @@ struct RoutingSignalEntryTests {
             latencyMs: 42,
             schemaValid: false,
             accepted: nil,
-            timestamp: Date(),
-            rawPromptDebug: nil,
-            rawResponseDebug: nil
+            timestamp: Date()
         )
         context.insert(entry)
         try context.save()
@@ -139,8 +133,6 @@ struct RoutingSignalEntryTests {
         #expect(results.count == 1)
         let fetched = try #require(results.first)
         #expect(fetched.accepted == nil)
-        #expect(fetched.rawPromptDebug == nil)
-        #expect(fetched.rawResponseDebug == nil)
         #expect(fetched.schemaValid == false)
     }
 
@@ -208,8 +200,6 @@ struct RoutingSignalEntryTests {
             timestamp: now
         )
         #expect(entry.accepted == nil)
-        #expect(entry.rawPromptDebug == nil)
-        #expect(entry.rawResponseDebug == nil)
         #expect(entry.timestamp == now)
     }
 }
