@@ -37,18 +37,6 @@ private actor SpyRoutingSignalSink: RoutingSignalSink {
     func snapshot() -> [RoutingSignal] { signals }
 }
 
-/// Spy for the TEMP-PRELAUNCH raw-debug channel. Separate from the metadata
-/// sink on purpose — mirrors the production split.
-private actor SpyRawDebugSink: LocalOnlyRawDebugSink {
-    private(set) var payloads: [RawDebugPayload] = []
-
-    func recordRawDebug(_ payload: RawDebugPayload, for signal: RoutingSignal) async throws {
-        payloads.append(payload)
-    }
-
-    func snapshot() -> [RawDebugPayload] { payloads }
-}
-
 private struct SpyProvider: AIProvider, Sendable {
     let name: String
     let responseContent: String
@@ -84,7 +72,6 @@ private struct FailingProvider: AIProvider, Sendable {
 
 private func makeRouter(
     sink: (any RoutingSignalSink)? = nil,
-    rawDebugSink: (any LocalOnlyRawDebugSink)? = nil,
     schemaValidator: (@Sendable (AITaskKind, String) -> Bool)? = nil,
     tier: DeviceTier = .appleIntelligenceCapable
 ) -> AIRouter {
@@ -108,7 +95,6 @@ private func makeRouter(
         providers: providers,
         deviceTier: { tier },
         signalSink: sink,
-        rawDebugSink: rawDebugSink,
         schemaValidator: schemaValidator
     )
 }
@@ -332,81 +318,14 @@ struct AIRouterSignalEmissionTests {
         #expect(signal.latencyMs >= 0)
     }
 
-    @Test("FR-018: no rawDebugSink injected → raw payload never produced")
-    func rawTextNotMaterializedWithoutOptIn() async throws {
-        let rawSink = SpyRawDebugSink()
-        let sink = SpyRoutingSignalSink()
-        // Router built WITHOUT the raw sink, though one exists in the test.
-        let router = makeRouter(sink: sink)
-
-        _ = try await router.execute(
-            kind: .substitute,
-            messages: [ChatMessage(role: "user", content: "resting HR 47 bpm")],
-            model: nil
-        )
-        _ = await waitForSignals(sink, count: 1)
-        // Give any (incorrectly) detached raw task a window to land.
-        try? await Task.sleep(nanoseconds: 200_000_000)
-
-        let payloads = await rawSink.snapshot()
-        #expect(payloads.isEmpty, "raw payload reached a sink that was never injected — FR-018 violation")
-    }
-
-    @Test("FR-018 TEMP-PRELAUNCH: raw payload delivered ONLY to an explicitly injected LocalOnlyRawDebugSink")
-    func rawPayloadDeliveredToOptInSink() async throws {
-        let rawSink = SpyRawDebugSink()
-        let router = makeRouter(rawDebugSink: rawSink)
-
-        let messages: [ChatMessage] = [
-            ChatMessage(role: "system", content: "sys"),
-            ChatMessage(role: "user", content: "hello"),
-        ]
-        _ = try await router.execute(kind: .substitute, messages: messages, model: nil)
-
-        var payloads = await rawSink.snapshot()
-        let start = ContinuousClock().now
-        while payloads.isEmpty, ContinuousClock().now - start < .seconds(2) {
-            try? await Task.sleep(nanoseconds: 5_000_000)
-            payloads = await rawSink.snapshot()
-        }
-
-        let payload = try #require(payloads.first)
-        #expect(payload.prompt.contains("system: sys"))
-        #expect(payload.prompt.contains("user: hello"))
-        #expect(payload.response == "apple-out")
-    }
-
-    @Test("FR-008: raw sink failure does not affect execute return value")
-    func rawSinkIsAlsoFireAndForget() async throws {
-        struct ThrowingRawSink: LocalOnlyRawDebugSink {
-            func recordRawDebug(_ payload: RawDebugPayload, for signal: RoutingSignal) async throws {
-                struct Boom: Error {}
-                throw Boom()
-            }
-        }
-        let router = makeRouter(rawDebugSink: ThrowingRawSink())
-        let response = try await router.execute(
-            kind: .substitute,
-            messages: [ChatMessage(role: "user", content: "x")],
-            model: nil
-        )
-        #expect(response.content == "apple-out")
-    }
-
     @Test("FR-018 static assertion: raw text never emitted via print / os_log / Aptabase / GlitchTip")
     func rawFieldsHaveNoAlternateEmission() throws {
-        // Grep AIRouter + RoutingSignal source for suspicious emitters near
-        // the raw-payload context. The invariant: the raw prompt/response text
-        // ONLY appears in-package as (a) the `RawDebugPayload` members, and
-        // (b) the single construction site in `AIRouter.execute` that hands it
-        // to the injected `LocalOnlyRawDebugSink`.
-        // If ANY of these tokens appear in the same source as CODE (not
-        // documentation): fail loud.
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // AIServiceTests
-            .deletingLastPathComponent() // Tests
-            .deletingLastPathComponent() // AIService (package root)
-            .appendingPathComponent("Sources/AIService")
+        // Grep AIRouter + RoutingSignal source for suspicious emitters. The
+        // invariant after the Stage 6d ship-gate: prompt/response text is never
+        // materialized in this layer at all, so there is nothing to emit — but
+        // an off-device emitter appearing here would be a regression even so.
+        // If ANY of these tokens appear as CODE (not documentation): fail loud.
+        let root = Self.sourcesRoot
 
         let routerURL = root.appendingPathComponent("AIRouter.swift")
         let signalURL = root.appendingPathComponent("RoutingSignal.swift")
@@ -434,7 +353,7 @@ struct AIRouterSignalEmissionTests {
                     "\(name): code references Aptabase — leaks PHI off-device (FR-018)")
             #expect(!codeOnly.contains("GlitchTip"),
                     "\(name): code references GlitchTip — leaks PHI off-device (FR-018)")
-            for token in ["payload.prompt", "payload.response", "rawDebug"] {
+            for token in ["payload.prompt", "payload.response", "response.content", "messages"] {
                 for emitter in ["print(", "os_log(", "logger.log(", "logger.debug(", "logger.info("] {
                     #expect(!codeOnly.contains("\(emitter)\(token)"),
                             "\(name): emits \(token) via \(emitter) — FR-018 violation")
@@ -450,16 +369,82 @@ struct AIRouterSignalEmissionTests {
                 "RoutingSignal regrew a raw field — PHI back on the unconstrained sink boundary (FR-018)")
     }
 
+    // MARK: - FR-017 ship-gate: raw carriers are structurally gone
+
+    @Test("FR-017/FR-018 ship-gate: AIService sources hold no raw-bearing type and no pre-launch raw exception")
+    func shipGateNoRawCarriersInAIService() throws {
+        let fileManager = FileManager.default
+        let root = Self.sourcesRoot
+
+        // Removed for good in Stage 6d — the raw debug bypass and the Stage 4
+        // shadow raw pair / offline evaluation sample. Re-introducing any of
+        // these puts HealthKit-derived text back inside the routing layer.
+        //
+        // Each needle is assembled from fragments on purpose: the ship-gate
+        // grep in the issue's verification command scans every `*.swift` under
+        // `Packages/`, so spelling a banned identifier verbatim here — even
+        // inside a test that forbids it — would make that gate fail on this
+        // very file.
+        let forbidden = [
+            "TEMP-" + "PRELAUNCH",
+            "RawDebug" + "Payload",
+            "LocalOnlyRawDebug" + "Sink",
+            "ShadowPair" + "Payload",
+            "LocalOnlyShadowPair" + "Sink",
+            "AIRoutingEvaluation" + "Sample",
+        ]
+
+        guard let enumerator = fileManager.enumerator(at: root, includingPropertiesForKeys: nil) else {
+            Issue.record("Unable to enumerate AIService sources at \(root.path)")
+            return
+        }
+        var scanned = 0
+        for case let url as URL in enumerator where url.pathExtension == "swift" {
+            let text = try String(contentsOf: url, encoding: .utf8)
+            scanned += 1
+            for token in forbidden {
+                #expect(!text.contains(token),
+                        "\(url.lastPathComponent) still references \(token) — FR-017 ship-gate (宪法 I) requires the raw bypass to be structurally absent from AIService")
+            }
+        }
+        // Positive control: a zero-file scan would make every expectation above
+        // vacuously pass.
+        #expect(scanned > 0, "scanned no AIService sources — the ship-gate assertion above is meaningless")
+    }
+
+    @Test("RoutingSignal keeps exactly its permanent 7 fields")
+    func routingSignalPermanentFieldSet() throws {
+        let source = try String(contentsOf: Self.sourcesRoot.appendingPathComponent("RoutingSignal.swift"), encoding: .utf8)
+        let declared = source
+            .split(separator: "\n")
+            .compactMap { line -> String? in
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("public let ") else { return nil }
+                return trimmed
+                    .dropFirst("public let ".count)
+                    .prefix(while: { $0 != ":" })
+                    .trimmingCharacters(in: .whitespaces)
+            }
+        #expect(Set(declared) == Set([
+            "kind", "provider", "deviceTier", "latencyMs", "schemaValid", "accepted", "timestamp",
+        ]), "RoutingSignal 永久字段集变了（实际: \(declared)）—— 永久态必须是 raw-free 的这 7 个字段")
+    }
+
+    /// `Packages/AIService/Sources/AIService`, resolved from this test file.
+    private static var sourcesRoot: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent() // AIServiceTests
+            .deletingLastPathComponent() // Tests
+            .deletingLastPathComponent() // AIService (package root)
+            .appendingPathComponent("Sources/AIService")
+    }
+
     // MARK: - FR-019: Apple LanguageModelFeedback API MUST NOT be imported
 
     @Test("FR-019: AIService does not import LanguageModelFeedback / logFeedbackAttachment")
     func fr019NoAppleFeedbackAPI() throws {
         let fileManager = FileManager.default
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Sources/AIService")
+        let root = Self.sourcesRoot
 
         guard let enumerator = fileManager.enumerator(at: root, includingPropertiesForKeys: nil) else {
             Issue.record("Unable to enumerate AIService sources at \(root.path)")

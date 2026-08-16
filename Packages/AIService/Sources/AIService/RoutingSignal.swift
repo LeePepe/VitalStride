@@ -8,8 +8,8 @@ import Foundation
 ///
 /// **Carries no health data.** Every field here is routing metadata (which
 /// provider, how fast, did the schema parse). Raw prompt/response text — which
-/// may embed HealthKit-derived values — deliberately does NOT live on this type;
-/// see `RawDebugPayload` + `LocalOnlyRawDebugSink` below. That split is what
+/// may embed HealthKit-derived values — does not exist anywhere in this layer:
+/// the router never captures it and no type here can carry it. That is what
 /// keeps the general-purpose sink boundary safe for any conformer.
 ///
 /// AIService intentionally does NOT depend on VitalModels here — the sink
@@ -48,8 +48,8 @@ public struct RoutingSignal: Sendable {
 /// through a detached fire-and-forget `Task` wrapped in `try?`.
 ///
 /// This protocol is safe to conform to from anywhere: the values it receives
-/// contain no health data. Anything PHI-bearing goes through
-/// `LocalOnlyRawDebugSink` instead, which carries a much stricter contract.
+/// contain no health data, and the routing layer has no other channel that
+/// could hand PHI to a conformer.
 public protocol RoutingSignalSink: Sendable {
     func record(_ signal: RoutingSignal) async throws
 }
@@ -59,48 +59,4 @@ public protocol RoutingSignalSink: Sendable {
 /// storage non-optional so hot paths avoid an optional check per call.
 struct NoOpRoutingSignalSink: RoutingSignalSink {
     func record(_ signal: RoutingSignal) async throws {}
-}
-
-// MARK: - TEMP-PRELAUNCH controlled exception
-
-/// TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
-///
-/// Raw prompt/response text for a single routing call. This text MAY embed
-/// HealthKit-derived values verbatim, so it is deliberately kept OFF
-/// `RoutingSignal` and off the general `RoutingSignalSink` boundary: a type
-/// only ever sees this payload by explicitly conforming to
-/// `LocalOnlyRawDebugSink`, which is a documented, auditable opt-in rather than
-/// an incidental consequence of consuming routing telemetry.
-///
-/// FR-017 removal is then a three-line delete: this type, the protocol below,
-/// and `AIRouter.rawDebugSink`. `RoutingSignal` needs no change — its permanent
-/// shape is already raw-free (plan.md: 永久态 **无** raw 字段).
-public struct RawDebugPayload: Sendable {
-    public let prompt: String
-    public let response: String
-
-    public init(prompt: String, response: String) {
-        self.prompt = prompt
-        self.response = response
-    }
-}
-
-/// TEMP-PRELAUNCH: 上架前移除——原始健康值仅供发布前单用户调试（宪法 I）
-///
-/// The ONLY channel through which `AIRouter` will hand out raw, potentially
-/// health-bearing prompt/response text.
-///
-/// FR-018 (spec 019) — conforming to this protocol is an assertion by the
-/// conformer that it writes the payload **only** into the device-local SwiftData
-/// store configured with `cloudKitDatabase: .none`, and nowhere else. A
-/// conformer MUST NOT `print` it, emit it via `os_log` / `Logger`, upload it to
-/// Aptabase or GlitchTip, sync it through CloudKit, or otherwise let it leave
-/// the device.
-///
-/// The router does not inject a default: when no `LocalOnlyRawDebugSink` is
-/// supplied, the raw text is **never materialized at all** (see
-/// `AIRouter.execute`) — not captured, not held, not passed. The exception is
-/// opt-in at the composition root, not on by default.
-public protocol LocalOnlyRawDebugSink: Sendable {
-    func recordRawDebug(_ payload: RawDebugPayload, for signal: RoutingSignal) async throws
 }

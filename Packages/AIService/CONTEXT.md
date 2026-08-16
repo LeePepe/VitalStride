@@ -10,11 +10,11 @@ red_lines:
   - Apple Intelligence 本地优先 + 智谱 GLM fallback 的 chain 顺序不得反转（宪法 V）
   - Swift 6 strict concurrency，provider 须 Sendable（宪法 II）
 roles:
-  Types:   [Models, AIProvider, AIAnalysisResponse, DataAnalysis, TrainingRecommendation, OverviewInsight, AIServiceError, AITaskKind, RoutingSignal, ShadowSignal, AIRoutingEvaluationSample]
+  Types:   [Models, AIProvider, AIAnalysisResponse, DataAnalysis, TrainingRecommendation, OverviewInsight, AIServiceError, AITaskKind, RoutingSignal, ShadowSignal]
   Repo:    [KeychainHelper]
-  Service: [AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler, AIRoutingEvaluator]
+  Service: [AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler]
 test: swift test --package-path Packages/AIService
-owns: [AIProvider, AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler, AIRoutingEvaluator]
+owns: [AIProvider, AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler]
 ---
 
 # AIService Context
@@ -76,6 +76,61 @@ public protocol AIProvider: Sendable {
 | `DataAnalysis` | 数据 Tab 趋势分析 | sampleType, summary, trend, suggestion? |
 
 这些结构是 `Codable + Sendable`，AI 返回 JSON → decode 为对应类型。
+
+## 已移除的 public API —— Stage 6d ship-gate 迁移说明（FR-017 / FR-018，宪法 I）
+
+Stage 6d（PR #391）从本层**永久移除**下列 public API。它们的共同点是**承载原始
+prompt / response 文本**（HealthKit 派生的健康数值会出现在其中），与 spec 019
+FR-017 的上架红线直接冲突。本节是这批破坏性变更的常驻迁移说明。
+
+### 被移除的符号
+
+| 符号 | 原位置 | 原用途 |
+|------|--------|--------|
+| `AIRouter.init(rawDebugSink:)`（初始化器参数） | `AIRouter.swift` | 注入 raw debug 旁路 |
+| `AIRouter.init(shadowPairSink:)`（初始化器参数） | `AIRouter.swift` | 注入 shadow raw pair 旁路 |
+| `RawDebugPayload` | `RoutingSignal.swift` | 承载单次调用的 prompt / response 原文 |
+| `LocalOnlyRawDebugSink` | `RoutingSignal.swift` | 接收 raw payload 的本地 sink 协议 |
+| `ShadowPairPayload` | `ShadowSampling.swift` | 承载 shadow 双跑的 main / candidate 响应原文 |
+| `LocalOnlyShadowPairSink` | `ShadowSampling.swift` | 接收 shadow pair 的本地 sink 协议 |
+| `AIRoutingEvaluationSample` | `AIRoutingEvaluationSample.swift`（整文件删除） | 离线评分输入样本，含响应原文 |
+| `AIRoutingEvaluationScore` | 同上 | 离线评分输出 |
+| `AIRoutingGrader` | 同上 | 评分器协议 |
+| `HeuristicAIRoutingGrader` | 同上 | 启发式评分器实现 |
+| `AIRoutingEvaluator` | `AIRoutingEvaluator.swift`（整文件删除） | 批量评分入口 |
+| `AppleEvaluationsGrader` | 同上 | Apple Evaluations 评分器（Stage 4，从未接入） |
+
+### 无 deprecated shim，无等价替代
+
+**刻意不提供 `@available(*, deprecated)` 过渡层。** 这些类型存在的唯一意义就是持有
+原始健康值文本；保留任何形式的兼容 shim 等于保留 raw 承载者，ship-gate
+（`scripts/ci/scan-temp-prelaunch.sh enforce`）照样红，与移除目的自相矛盾。
+
+- **raw prompt / response 持久化**：由 FR-017 / FR-018 **永久退役**，无替代。原始
+  文本此后不在本层被物化，因此既没有可注入的 sink，也没有可落盘的 payload。
+- **离线评分（Stage 4 Apple Evaluations）**：整体退役，无替代。该能力从未接入任何
+  调用方（无接入点），owner 于 2026-08-16 决策放弃。
+
+### 调用方迁移
+
+| 原写法 | 迁移后 |
+|--------|--------|
+| `AIRouter(..., rawDebugSink: mySink, ...)` | 删掉该实参；其余参数与语义不变 |
+| `AIRouter(..., shadowPairSink: myPairSink, ...)` | 删掉该实参。**shadow 双跑本身保留**（FR-010），只是不再捕获原始输出文本 |
+| 从 shadow pair 读取 main / candidate 响应原文 | 改用 `ShadowSignal` 的路由 metadata（provider、latency、成败、错误类别）。原始输出文本不再对外提供 |
+| 构造评估样本送离线评分器打分 | 无迁移路径。将来若要恢复离线评估，MUST 新设计一个**不承载原始 prompt / response** 的样本 schema（只存 schema 校验结果、分数、路由 metadata），不得复活上表类型 |
+
+两个初始化器参数原本都是 `= nil` 默认值，因此**未显式传参的调用点无需任何改动**。
+
+### 影响面证据（PR #391，HEAD `fc64f20`）
+
+- **本包外引用为 0**：以上全部符号名做全仓 `git grep`，排除 `Packages/AIService`
+  后零命中。正对照（同一批搜索词在 base `423108c` 的 `Packages/AIService` 内）命中
+  4 个文件，证明搜索词有效 —— 零命中不是搜索写错导致的假阴性。
+- 本 SPM 包**不对外分发**，唯一消费者是本 repo 的 app target；PR #391 的
+  `App target` CI check（xcodebuild 全量编译）为 SUCCESS，即 app 层确实不依赖这些
+  API。
+- 六个 SPM 包的 `swift build` / `swift test` CI check 全部 SUCCESS。
 
 ## 不在此 package 的内容
 
