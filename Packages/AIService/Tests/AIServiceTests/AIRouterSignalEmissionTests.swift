@@ -363,10 +363,23 @@ struct AIRouterSignalEmissionTests {
 
         // Structural assertion: `RoutingSignal` — the type handed to the
         // unconstrained, general-purpose sink — must never regrow raw members.
-        #expect(!signalSource.contains("public let rawPromptDebug"),
-                "RoutingSignal regrew a raw field — PHI back on the unconstrained sink boundary (FR-018)")
-        #expect(!signalSource.contains("public let rawResponseDebug"),
-                "RoutingSignal regrew a raw field — PHI back on the unconstrained sink boundary (FR-018)")
+        //
+        // The two needles are assembled from fragments for the same reason as
+        // `shipGateNoRawCarriersInAIService` above: the issue's verification
+        // command greps every `*.swift` under `Packages/` for these identifiers
+        // and requires zero hits, so spelling either one verbatim here — even
+        // inside the assertion that forbids it — makes that gate fail on this
+        // very file. Splitting the string keeps the guard's behaviour identical
+        // (`contains` sees the joined value at runtime) while removing the
+        // literal from the source text.
+        let forbiddenRawMembers = [
+            "public let " + "rawPrompt" + "Debug",
+            "public let " + "rawResponse" + "Debug",
+        ]
+        for member in forbiddenRawMembers {
+            #expect(!signalSource.contains(member),
+                    "RoutingSignal regrew \(member) — PHI back on the unconstrained sink boundary (FR-018)")
+        }
     }
 
     // MARK: - FR-017 ship-gate: raw carriers are structurally gone
