@@ -138,13 +138,23 @@ echo "[codex-review] running codex on PR #$PR_NUMBER ($(printf '%s\n' "$CHANGED"
 # --skip-git-repo-check：checkout 目录是 detached HEAD，跳过 git 仓库信任检查。
 # hooks / MCP / 沙箱 / effort 均由独立 CODEX_HOME 的 config.toml 固定；这里只
 # 再显式钉一遍关键项，防 config 缺失时回退到危险默认。
+#
+# `</dev/null` 是必需的，不是保险起见：即使 prompt 已作为位置参数传入，codex
+# 仍会尝试从 stdin 读「additional input」。CI step 没有交互式 stdin 也没有 EOF，
+# 于是它无限期阻塞，直到 job 的 timeout-minutes 把整个 step kill 掉 —— 表现为
+# conclusion=cancelled、stderr 只有一行 "Reading additional input from stdin..."、
+# 且脚本此前的 echo 一个都没 flush 出来，看起来极像「codex 在慢慢审」而不是挂死。
+# 显式喂 EOF 才能让它立刻开始处理 prompt。
+#
+# 姊妹脚本 claude-review.sh 没有这个问题：它用 `printf %s "$PROMPT" | claude -p`，
+# stdin 被管道占着，天然有 EOF。改这里时别把 stdin 重定向删掉。
 "$CODEX_BIN" exec \
     --output-schema "$SCHEMA_FILE" \
     -o "$OUT_FILE" \
     --skip-git-repo-check \
     -c sandbox_mode=read-only \
     -c approval_policy=never \
-    "$PROMPT" >/dev/null 2>"$ERR_FILE"
+    "$PROMPT" >/dev/null 2>"$ERR_FILE" </dev/null
 CLI_RC=$?
 
 RAW="$(cat "$OUT_FILE" 2>/dev/null)"
