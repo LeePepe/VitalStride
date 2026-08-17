@@ -10,6 +10,18 @@ import SwiftUI
 import VitalModels
 import VitalUI
 
+/// MY-1420: a main-set delete parked behind the cascade confirmation, carrying
+/// the resolved child count / kind so the dialog message can name exactly what
+/// disappears alongside the row the user acted on.
+struct CascadeDeletionRequest: Identifiable {
+    let exerciseSet: ExerciseSet
+    let setNumber: Int
+    let childCount: Int
+    let childKind: SubSetChildKind
+
+    var id: PersistentIdentifier { exerciseSet.persistentModelID }
+}
+
 struct ActiveExerciseSection: View {
     @Environment(\.theme) private var theme
     let workoutExercise: WorkoutExercise
@@ -20,12 +32,23 @@ struct ActiveExerciseSection: View {
     /// to open `ExerciseSubstituteSheet` for the selected workout exercise.
     let onSubstitute: () -> Void
     let onDelete: () -> Void
+    /// MY-1420: shared undo state. Owned by `ActiveWorkoutView` so a single
+    /// snackbar arbitrates across every exercise section — a delete in one
+    /// section must replace (not stack on) a pending undo from another.
+    let undoController: SetDeletionUndoController
     @Environment(\.modelContext) private var modelContext
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     // MY-1091: header font ramps up in Large Mode (`.title2` vs `.headline`)
     // so the currently-worked exercise name is legible from a rack step away.
     @AppStorage("activeWorkoutLargeMode") private var largeMode = false
     @State private var showingDeleteConfirmation = false
+    /// MY-1420: the main set awaiting cascade confirmation, plus the resolved
+    /// child count / kind so the message names the real consequence.
+    @State private var pendingCascadeDeletion: CascadeDeletionRequest?
+    /// MY-1420: VoiceOver focus target. Deleting the focused row drops focus
+    /// silently, so it is moved explicitly to the parent main set (for a
+    /// sub-set) or the nearest surviving row.
+    @AccessibilityFocusState private var focusedRowID: PersistentIdentifier?
 
     private var sortedSets: [ExerciseSet] {
         (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
@@ -86,9 +109,26 @@ struct ActiveExerciseSection: View {
                         parentSetNumber: ctx.mainSetNumber,
                         onToggleCompleted: { wasCompleted in
                             if !wasCompleted { onSetCompleted() }
+                        },
+                        onDelete: {
+                            requestDelete(exerciseSet)
                         }
                     )
                     .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
+                    // MY-1420: sub-sets get the same trailing full swipe as
+                    // main sets. Sub-sets are always deletable — removing one
+                    // can never empty the exercise (a sub-set only exists
+                    // after a main set), and `WorkoutSetManager.deleteSet`'s
+                    // guard stays the single source of that rule, so no count
+                    // logic is duplicated here.
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            requestDelete(exerciseSet)
+                        } label: {
+                            Label(String(localized: "删除", comment: ""), systemImage: "trash")
+                        }
+                    }
                 } else {
                     SetRow(
                         index: ctx.mainSetNumber,
@@ -102,7 +142,7 @@ struct ActiveExerciseSection: View {
                             if !wasCompleted { onSetCompleted() }
                         },
                         onDelete: {
-                            deleteSet(exerciseSet)
+                            requestDelete(exerciseSet)
                         },
                         onAddSubSet: { type in
                             addSubSet(after: exerciseSet, type: type)
@@ -116,10 +156,11 @@ struct ActiveExerciseSection: View {
                     // preserving Large Mode's existing 2pt breathing room and
                     // the row-internal ≥44pt hit targets defined by SetRow.
                     .listRowInsets(EdgeInsets(top: largeMode ? 2 : 1, leading: 16, bottom: largeMode ? 2 : 1, trailing: 16))
+                    .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if canDelete {
                             Button(role: .destructive) {
-                                deleteSet(exerciseSet)
+                                requestDelete(exerciseSet)
                             } label: {
                                 Label(String(localized: "删除", comment: ""), systemImage: "trash")
                             }
@@ -202,7 +243,44 @@ struct ActiveExerciseSection: View {
             } message: {
                 Text(String(localized: "该动作及所有已录入的组数据将被删除", comment: "Delete exercise confirmation message"))
             }
+            // MY-1420: cascade confirmation for a main set that owns sub-sets.
+            // The swiped row says "第 3 组" but the delete also consumes the
+            // sub-set run beneath it — a consequence the row cannot show, so
+            // it is the one single-set deletion that earns a dialog. Main sets
+            // without children keep deleting straight through (no regression
+            // on the fast path).
+            .confirmationDialog(
+                pendingCascadeDeletion.map { SetDeletionPolicy.confirmTitle(setNumber: $0.setNumber) } ?? "",
+                isPresented: cascadeConfirmationPresented,
+                titleVisibility: .visible,
+                presenting: pendingCascadeDeletion
+            ) { request in
+                Button(
+                    String(localized: "删除", comment: "Delete confirmation button"),
+                    role: .destructive
+                ) {
+                    performDelete(request.exerciseSet)
+                }
+                Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {}
+            } message: { request in
+                Text(SetDeletionPolicy.confirmMessage(
+                    childCount: request.childCount,
+                    kind: request.childKind
+                ))
+            }
         }
+    }
+
+    /// MY-1420: `confirmationDialog(_:isPresented:presenting:)` needs a Bool
+    /// binding; the request itself is the source of truth so dismissing the
+    /// dialog (cancel, swipe-away) clears it.
+    private var cascadeConfirmationPresented: Binding<Bool> {
+        Binding(
+            get: { pendingCascadeDeletion != nil },
+            set: { newValue in
+                if !newValue { pendingCascadeDeletion = nil }
+            }
+        )
     }
 
     /// MY-1169 (spec 004 T006): resolves the same-index main set from the most
@@ -311,10 +389,86 @@ struct ActiveExerciseSection: View {
         modelContext.insert(newSet)
     }
 
-    private func deleteSet(_ exerciseSet: ExerciseSet) {
+    /// MY-1420: entry point for every delete affordance (swipe + menu, main
+    /// row + sub-set row). Routes through `SetDeletionPolicy` so the confirm
+    /// vs delete-now decision lives in one testable place.
+    private func requestDelete(_ exerciseSet: ExerciseSet) {
+        switch SetDeletionPolicy.intent(for: exerciseSet, in: workoutExercise) {
+        case .confirm(let childCount, let kind):
+            pendingCascadeDeletion = CascadeDeletionRequest(
+                exerciseSet: exerciseSet,
+                setNumber: displaySetNumber(of: exerciseSet),
+                childCount: childCount,
+                childKind: kind
+            )
+        case .immediate:
+            performDelete(exerciseSet)
+        }
+    }
+
+    /// Deletes for real and arms the undo window.
+    ///
+    /// The snapshot is captured *before* `WorkoutSetManager.deleteSet` runs,
+    /// because the manager both deletes the rows and renumbers the survivors —
+    /// after it returns there is nothing left to read. The delete itself stays
+    /// entirely the manager's: the min-one-set guard and the parent→sub-set
+    /// cascade are never re-derived here, so the UI cannot drift from the data
+    /// layer's rules (it may legitimately refuse, hence the `didDelete` gate).
+    private func performDelete(_ exerciseSet: ExerciseSet) {
+        let contexts = rowContexts
+        let targets = WorkoutSetTree.deletionTargets(for: exerciseSet, in: workoutExercise)
+        let targetIDs = Set(targets.map(\.persistentModelID))
+        let snapshots = SetDeletionUndo.snapshots(for: targets)
+        let isSubSet = exerciseSet.setType.isSubSet
+        let setNumber = displaySetNumber(of: exerciseSet)
+        let setType = exerciseSet.setType
+
+        let deletedIndices = Set(contexts.indices.filter {
+            targetIDs.contains(contexts[$0].exerciseSet.persistentModelID)
+        })
+        let focusTarget = WorkoutSetTree.focusIndexAfterDeletion(
+            deleting: deletedIndices,
+            isSubSet: contexts.map { $0.exerciseSet.setType.isSubSet }
+        ).map { contexts[$0].exerciseSet.persistentModelID }
+
         let didDelete = WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
         guard didDelete else { return }
+
+        pendingCascadeDeletion = nil
+        undoController.record(
+            snapshots: snapshots,
+            workoutExercise: workoutExercise,
+            message: SetDeletionPolicy.undoMessage(
+                setNumber: setNumber,
+                setType: setType,
+                isSubSet: isSubSet
+            ),
+            announcement: SetDeletionPolicy.deletionAnnouncement(
+                setNumber: setNumber,
+                setType: setType,
+                isSubSet: isSubSet
+            )
+        )
+        // VoiceOver focus is moved explicitly: the focused row just vanished,
+        // and left alone the system either drops focus or lands it somewhere
+        // unrelated.
+        focusedRowID = focusTarget
         onSetDeleted()
+    }
+
+    /// 1-based display number of the main set this row belongs to — the row's
+    /// own number for a main set, its parent's for a sub-set — so confirmation
+    /// and undo copy match what the user sees on screen.
+    ///
+    /// `RowContext.mainSetNumber` counts the main sets *before* a row, so a
+    /// main set needs +1 to become its displayed number (matching `SetRow`'s
+    /// `index + 1`), while a sub-set's value is already its parent's displayed
+    /// number (matching `SubSetRow`'s `parentSetNumber`).
+    private func displaySetNumber(of exerciseSet: ExerciseSet) -> Int {
+        guard let ctx = rowContexts.first(where: {
+            $0.exerciseSet.persistentModelID == exerciseSet.persistentModelID
+        }) else { return 1 }
+        return exerciseSet.setType.isSubSet ? ctx.mainSetNumber : ctx.mainSetNumber + 1
     }
 
     /// MY-1073 — Copy current set to next. If a next set exists (main or sub),
@@ -432,7 +586,8 @@ private struct AddSetButtonPreviewWrapper: View {
                 onSetDeleted: {},
                 onReplace: {},
                 onSubstitute: {},
-                onDelete: {}
+                onDelete: {},
+                undoController: SetDeletionUndoController()
             )
         }
         .listStyle(.plain)
