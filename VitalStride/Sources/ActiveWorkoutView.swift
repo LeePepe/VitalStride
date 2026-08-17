@@ -132,13 +132,14 @@ struct ActiveWorkoutView: View {
             // shifts when the snackbar appears or disappears.
             .safeAreaInset(edge: .bottom, alignment: .trailing, spacing: 0) {
                 if !isKeyboardVisible {
-                    addExerciseButton
-                        .offset(y: bottomSnackbarSlot != .none ? -ActiveWorkoutFABContainer.snackbarClearance : 0)
-                        .animation(
-                            .easeInOut(duration: 0.2),
-                            value: bottomSnackbarSlot != .none
-                        )
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
+                        addExerciseButton
+                    }
+                    .animation(
+                        .easeInOut(duration: 0.2),
+                        value: bottomSnackbarSlot != .none
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: isKeyboardVisible)

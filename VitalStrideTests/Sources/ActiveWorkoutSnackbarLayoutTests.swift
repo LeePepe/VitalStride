@@ -29,17 +29,23 @@ struct ActiveWorkoutSnackbarLayoutTests {
     @Test("FAB safeAreaInset height is constant regardless of snackbar state")
     func fabHeightConstantAcrossSnackbarStates() {
         // Measure FAB container height when snackbar is NOT visible (.none)
-        let fabNoSnackbar = ActiveWorkoutFABContainer.testView(snackbarSlot: .none)
+        let fabNoSnackbar = ActiveWorkoutFABContainer.body(snackbarSlot: .none) {
+            representativeFAB
+        }
         let hostNoSnackbar = UIHostingController(rootView: fabNoSnackbar)
         let sizeNoSnackbar = hostNoSnackbar.sizeThatFits(in: CGSize(width: 400, height: 0))
 
         // Measure FAB container height when snackbar IS visible (.rest)
-        let fabWithSnackbar = ActiveWorkoutFABContainer.testView(snackbarSlot: .rest)
+        let fabWithSnackbar = ActiveWorkoutFABContainer.body(snackbarSlot: .rest) {
+            representativeFAB
+        }
         let hostWithSnackbar = UIHostingController(rootView: fabWithSnackbar)
         let sizeWithSnackbar = hostWithSnackbar.sizeThatFits(in: CGSize(width: 400, height: 0))
 
         // Also measure with undo snackbar
-        let fabWithUndo = ActiveWorkoutFABContainer.testView(snackbarSlot: .undo)
+        let fabWithUndo = ActiveWorkoutFABContainer.body(snackbarSlot: .undo) {
+            representativeFAB
+        }
         let hostWithUndo = UIHostingController(rootView: fabWithUndo)
         let sizeWithUndo = hostWithUndo.sizeThatFits(in: CGSize(width: 400, height: 0))
 
@@ -54,6 +60,13 @@ struct ActiveWorkoutSnackbarLayoutTests {
             abs(sizeNoSnackbar.height - sizeWithUndo.height) <= tolerance,
             "FAB height shifted by \(abs(sizeNoSnackbar.height - sizeWithUndo.height))pt when undo snackbar appeared; must be within \(tolerance)pt. Heights: noSnackbar=\(sizeNoSnackbar.height), withUndo=\(sizeWithUndo.height)"
         )
+    }
+
+    @MainActor
+    private var representativeFAB: some View {
+        Color.clear
+            .frame(width: 60, height: 60)
+            .padding()
     }
     #endif
 

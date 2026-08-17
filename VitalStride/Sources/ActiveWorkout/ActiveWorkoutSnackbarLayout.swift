@@ -32,24 +32,17 @@ enum ActiveWorkoutFABContainer {
     static let snackbarClearance: CGFloat =
         Space.cardPadding + Space.gap + Space.minTapTarget + Space.gap + Space.cardPadding
 
-    /// Produces the FAB container view for a given snackbar state, suitable
-    /// for hosting in a `UIHostingController` during tests.
-    @MainActor
-    static func testView(snackbarSlot: BottomSnackbarSlot) -> some View {
-        fabBody(snackbarSlot: snackbarSlot)
-    }
-
-    /// The FAB layout body used both in production and tests.
+    /// The FAB layout body used by production and rendered directly in tests.
     /// `.offset(y:)` shifts the button visually without changing the
     /// container's measured size — so `safeAreaInset` always reserves the
     /// same scroll inset.
     @ViewBuilder
     @MainActor
-    static func fabBody(snackbarSlot: BottomSnackbarSlot) -> some View {
-        // A representative 60x60 circle matching the real FAB dimensions.
-        Color.clear
-            .frame(width: 60, height: 60)
-            .padding()
+    static func body<Content: View>(
+        snackbarSlot: BottomSnackbarSlot,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
             .offset(y: snackbarSlot != .none ? -snackbarClearance : 0)
     }
 }
