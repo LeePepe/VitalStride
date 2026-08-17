@@ -86,10 +86,23 @@ final class SetDeletionUndoController {
     }
 
     /// Re-inserts the pending snapshot. Returns false when nothing is pending
-    /// (double-tap, or the window closed between render and touch).
+    /// (double-tap, or the window closed between render and touch), or when
+    /// the snapshot's parent exercise no longer exists.
+    ///
+    /// The parent check is the second half of the fix for "delete a set, then
+    /// delete its whole exercise inside the undo window, then tap 撤销":
+    /// `ActiveWorkoutView.deleteExercise` proactively clears a matching undo,
+    /// and this guard makes the invariant hold even if some future caller
+    /// forgets to. Without it, `restore` would attach fresh `ExerciseSet`
+    /// rows to a deleted `WorkoutExercise` — orphaned data at best, a
+    /// SwiftData runtime failure at worst.
     @discardableResult
     func undo(using modelContext: ModelContext) -> Bool {
         guard let pending else { return false }
+        guard Self.canRestore(into: pending.workoutExercise) else {
+            clear()
+            return false
+        }
         SetDeletionUndo.restore(
             pending.snapshots,
             into: pending.workoutExercise,
@@ -97,6 +110,27 @@ final class SetDeletionUndoController {
         )
         clear()
         return true
+    }
+
+    /// Whether `workoutExercise` is still a live insertable parent.
+    ///
+    /// `isDeleted` covers a delete staged in the context; a nil `modelContext`
+    /// covers one already flushed, where the object is detached entirely.
+    /// Static + nonisolated so tests can assert the predicate directly.
+    nonisolated static func canRestore(into workoutExercise: WorkoutExercise) -> Bool {
+        !workoutExercise.isDeleted && workoutExercise.modelContext != nil
+    }
+
+    /// Drops a pending undo whose parent exercise is the one being deleted.
+    /// Called by `ActiveWorkoutView.deleteExercise` before the delete lands,
+    /// so the snackbar disappears together with the rows it refers to instead
+    /// of offering an undo that can no longer be honored.
+    func clearIfPending(for workoutExercise: WorkoutExercise) {
+        guard let pending else { return }
+        guard pending.workoutExercise.persistentModelID == workoutExercise.persistentModelID else {
+            return
+        }
+        clear()
     }
 
     /// Closes the window without restoring — expiry, manual dismissal, or the

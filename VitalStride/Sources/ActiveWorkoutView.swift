@@ -1202,6 +1202,13 @@ struct ActiveWorkoutView: View {
     }
 
     private func deleteExercise(_ workoutExercise: WorkoutExercise) {
+        // MY-1420: a set-delete undo pending against *this* exercise must go
+        // with it. Otherwise "delete a set → delete the whole exercise inside
+        // the 5s window → tap 撤销" would reinsert `ExerciseSet` rows against a
+        // deleted `WorkoutExercise`. `SetDeletionUndoController.undo` also
+        // refuses a dead parent, but clearing here is what makes the snackbar
+        // disappear along with the rows it refers to.
+        undoController.clearIfPending(for: workoutExercise)
         modelContext.delete(workoutExercise)
         let remaining = (workout?.exercises ?? [])
             .filter { $0.persistentModelID != workoutExercise.persistentModelID }

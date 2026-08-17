@@ -402,6 +402,121 @@ struct SubSetDeletionUndoTests {
         #expect(WorkoutSetTree.focusIndexAfterDeletion(deleting: [0], isSubSet: [false]) == nil)
     }
 
+    // MARK: - Parent exercise deleted inside the undo window
+    //
+    // Review finding on 2c2819b: deleting a whole exercise left its pending
+    // set-undo armed, so tapping 撤销 afterwards would reattach fresh
+    // `ExerciseSet` rows to a deleted `WorkoutExercise` — orphaned data, or a
+    // SwiftData runtime failure. Fixed on both sides: `deleteExercise` clears
+    // a matching undo up front, and `undo` refuses a dead parent regardless.
+
+    @MainActor
+    @Test("Deleting the parent exercise clears its pending set undo")
+    func deletingExerciseClearsPendingUndo() throws {
+        let context = ModelContext(container)
+        let (workoutExercise, sets) = makeExercise(
+            context: context,
+            sets: [(.working, 80), (.dropSet, 68), (.working, 85)]
+        )
+        let controller = SetDeletionUndoController(window: 60)
+
+        let snapshots = SetDeletionUndo.snapshots(for: [sets[1]])
+        WorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
+        try context.save()
+        controller.record(
+            snapshots: snapshots,
+            workoutExercise: workoutExercise,
+            message: "deleted",
+            announcement: "deleted"
+        )
+        #expect(controller.hasPendingUndo)
+
+        // Mirrors `ActiveWorkoutView.deleteExercise`.
+        controller.clearIfPending(for: workoutExercise)
+        context.delete(workoutExercise)
+        try context.save()
+
+        // The snackbar must go with the rows it refers to.
+        #expect(!controller.hasPendingUndo)
+        #expect(controller.slot(restPhase: .idle) == .none)
+    }
+
+    @MainActor
+    @Test("Undo refuses to reinsert into a deleted parent exercise")
+    func undoRefusesDeletedParent() throws {
+        let context = ModelContext(container)
+        let (workoutExercise, sets) = makeExercise(
+            context: context,
+            sets: [(.working, 80), (.dropSet, 68), (.working, 85)]
+        )
+        let controller = SetDeletionUndoController(window: 60)
+
+        let snapshots = SetDeletionUndo.snapshots(for: [sets[1]])
+        WorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
+        try context.save()
+        controller.record(
+            snapshots: snapshots,
+            workoutExercise: workoutExercise,
+            message: "deleted",
+            announcement: "deleted"
+        )
+
+        // Deliberately skip `clearIfPending` — this asserts the controller's
+        // own guard, so a future caller that forgets it still can't produce
+        // orphaned sets.
+        context.delete(workoutExercise)
+        try context.save()
+
+        #expect(!controller.undo(using: context))
+        #expect(!controller.hasPendingUndo)
+
+        // Nothing was reattached to the dead parent.
+        let orphans = try context.fetch(FetchDescriptor<ExerciseSet>())
+            .filter { $0.workoutExercise?.persistentModelID == workoutExercise.persistentModelID }
+        #expect(orphans.isEmpty)
+    }
+
+    @MainActor
+    @Test("Deleting a different exercise leaves an unrelated undo intact")
+    func deletingOtherExerciseKeepsUndo() throws {
+        let context = ModelContext(container)
+        let (first, sets) = makeExercise(
+            context: context,
+            sets: [(.working, 80), (.dropSet, 68), (.working, 85)]
+        )
+        let (second, _) = makeExercise(context: context, sets: [(.working, 60), (.working, 65)])
+        let controller = SetDeletionUndoController(window: 60)
+
+        controller.record(
+            snapshots: SetDeletionUndo.snapshots(for: [sets[1]]),
+            workoutExercise: first,
+            message: "deleted",
+            announcement: "deleted"
+        )
+
+        controller.clearIfPending(for: second)
+
+        // Scoped by parent identity — an unrelated deletion must not silently
+        // swallow the user's undo window.
+        #expect(controller.hasPendingUndo)
+    }
+
+    @Test("A live exercise is restorable; a deleted one is not")
+    func canRestorePredicateTracksParentLifetime() throws {
+        let context = ModelContext(container)
+        let (workoutExercise, _) = makeExercise(
+            context: context,
+            sets: [(.working, 80), (.working, 85)]
+        )
+
+        #expect(SetDeletionUndoController.canRestore(into: workoutExercise))
+
+        context.delete(workoutExercise)
+        try context.save()
+
+        #expect(!SetDeletionUndoController.canRestore(into: workoutExercise))
+    }
+
     // MARK: - Helpers
 
     private func sorted(_ workoutExercise: WorkoutExercise) -> [ExerciseSet] {
