@@ -7,6 +7,29 @@
   "licensePath": "docs/licenses/hasaneyldrm-exercises-dataset-LICENSE",
   "noticePath": "docs/licenses/hasaneyldrm-exercises-dataset-NOTICE.md",
   "upstreamRowCount": 1324,
+  "legacyNamesBySourceId": {
+    "0027": [
+      "Barbell Bent-Over Row"
+    ],
+    "0238": [
+      "Cable Straight-Arm Pulldown"
+    ],
+    "0438": [
+      "Dumbbell W Press"
+    ],
+    "0631": [
+      "Muscle-Up"
+    ],
+    "1273": [
+      "Clap Push-Up"
+    ],
+    "1429": [
+      "Wide-Grip Pull-Up"
+    ],
+    "3294": [
+      "Archer Push-Up"
+    ]
+  },
   "legacyImportedSourceIds": [
     "0001",
     "0002",

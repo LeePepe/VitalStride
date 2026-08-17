@@ -7578,6 +7578,57 @@
       "nameEn": "Barbell Landmine Row"
     }
   ],
+  "legacyAliases": [
+    {
+      "sourceId": "3294",
+      "catalogId": "550e8400-e29b-41d4-a716-446655440105",
+      "legacyNames": [
+        "Archer Push-Up"
+      ]
+    },
+    {
+      "sourceId": "0027",
+      "catalogId": "550e8400-e29b-41d4-a716-446655440011",
+      "legacyNames": [
+        "Barbell Bent-Over Row"
+      ]
+    },
+    {
+      "sourceId": "0238",
+      "catalogId": "550e8400-e29b-41d4-a716-446655440141",
+      "legacyNames": [
+        "Cable Straight-Arm Pulldown"
+      ]
+    },
+    {
+      "sourceId": "1273",
+      "catalogId": "550e8400-e29b-41d4-a716-446655440104",
+      "legacyNames": [
+        "Clap Push-Up"
+      ]
+    },
+    {
+      "sourceId": "0438",
+      "catalogId": "550e8400-e29b-41d4-a716-446655440163",
+      "legacyNames": [
+        "Dumbbell W Press"
+      ]
+    },
+    {
+      "sourceId": "0631",
+      "catalogId": "550e8400-e29b-41d4-a716-446655440275",
+      "legacyNames": [
+        "Muscle-Up"
+      ]
+    },
+    {
+      "sourceId": "1429",
+      "catalogId": "550e8400-e29b-41d4-a716-446655440156",
+      "legacyNames": [
+        "Wide-Grip Pull-Up"
+      ]
+    }
+  ],
   "duplicateNameGroups": [
     {
       "normalizedName": "barbell seated calf raise",

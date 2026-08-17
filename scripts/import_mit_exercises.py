@@ -250,6 +250,7 @@ def build_upstream_row(
     existing_row: dict[str, Any] | None,
     source_row: dict[str, Any],
     row_id: str,
+    pinned_legacy_names: list[str] | None = None,
 ) -> dict[str, Any]:
     muscle_group, primary_muscles, secondary_muscles = derive_muscles(source_row)
     equipment = map_equipment(source_row.get("equipment", ""))
@@ -275,6 +276,21 @@ def build_upstream_row(
         for field in PRESERVED_OPTIONAL_FIELDS:
             if field in existing_row:
                 row[field] = existing_row[field]
+
+    legacy_names: list[str] = []
+    candidates = list(pinned_legacy_names or [])
+    if existing_row:
+        candidates.extend(existing_row.get("legacyNames", []))
+        candidates.append(existing_row.get("nameEn"))
+    for candidate in candidates:
+        if not isinstance(candidate, str) or not candidate.strip():
+            continue
+        if candidate == name_en or candidate in legacy_names:
+            continue
+        legacy_names.append(candidate)
+    if legacy_names:
+        row["legacyNames"] = legacy_names
+
     row["source"] = SOURCE_NAME
     row["sourceData"] = source_data_for_row(source_row)
     return row
@@ -339,6 +355,7 @@ def reconcile_catalog(
         raise ValueError("Existing catalog must contain an exercises array")
 
     legacy_imported_source_ids = set(provenance.get("legacyImportedSourceIds", []))
+    legacy_names_by_source_id = provenance.get("legacyNamesBySourceId", {})
     source_id_by_derived_id = {new_preset_id(row["id"]): row["id"] for row in verified_rows}
     validate_existing_catalog(existing_rows, source_id_by_derived_id, legacy_imported_source_ids)
 
@@ -364,7 +381,12 @@ def reconcile_catalog(
 
         if source_id in legacy_imported_source_ids:
             existing_row = existing_by_id.get(derived_id)
-            upstream_row = build_upstream_row(existing_row, source_row, derived_id)
+            upstream_row = build_upstream_row(
+                existing_row,
+                source_row,
+                derived_id,
+                legacy_names_by_source_id.get(source_id),
+            )
             matched_by_existing_uuid.append(
                 {
                     "sourceId": source_id,
@@ -389,7 +411,12 @@ def reconcile_catalog(
                 if not candidates:
                     remaining_by_normalized_name.pop(normalized_name, None)
                 consumed_original_ids.add(existing_row["id"])
-                upstream_row = build_upstream_row(existing_row, source_row, existing_row["id"])
+                upstream_row = build_upstream_row(
+                    existing_row,
+                    source_row,
+                    existing_row["id"],
+                    legacy_names_by_source_id.get(source_id),
+                )
                 matched_by_original_name.append(
                     {
                         "sourceId": source_id,
@@ -398,7 +425,12 @@ def reconcile_catalog(
                     }
                 )
             else:
-                upstream_row = build_upstream_row(None, source_row, derived_id)
+                upstream_row = build_upstream_row(
+                    None,
+                    source_row,
+                    derived_id,
+                    legacy_names_by_source_id.get(source_id),
+                )
                 new_upstream.append(
                     {
                         "sourceId": source_id,
@@ -461,6 +493,15 @@ def reconcile_catalog(
                 "nameEn": row["nameEn"],
             }
             for row in vitalstride_only_rows
+        ],
+        "legacyAliases": [
+            {
+                "sourceId": row["sourceData"]["id"],
+                "catalogId": row["id"],
+                "legacyNames": row["legacyNames"],
+            }
+            for row in upstream_rows
+            if "legacyNames" in row
         ],
         "duplicateNameGroups": duplicate_name_groups(verified_rows),
         "ambiguities": [],

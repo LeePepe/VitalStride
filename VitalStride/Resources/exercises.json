@@ -970,6 +970,9 @@
       "defaultWeightLow": null,
       "defaultWeightMid": null,
       "defaultWeightHigh": null,
+      "legacyNames": [
+        "Archer Push-Up"
+      ],
       "source": "hasaneyldrm/exercises-dataset",
       "sourceData": {
         "id": "3294",
@@ -12813,6 +12816,9 @@
       "defaultWeightLow": 80.0,
       "defaultWeightMid": 60.0,
       "defaultWeightHigh": 40.0,
+      "legacyNames": [
+        "Barbell Bent-Over Row"
+      ],
       "source": "hasaneyldrm/exercises-dataset",
       "sourceData": {
         "id": "0027",
@@ -52438,6 +52444,9 @@
       "defaultWeightLow": 60.0,
       "defaultWeightMid": 45.0,
       "defaultWeightHigh": 30.0,
+      "legacyNames": [
+        "Cable Straight-Arm Pulldown"
+      ],
       "source": "hasaneyldrm/exercises-dataset",
       "sourceData": {
         "id": "0238",
@@ -56882,6 +56891,9 @@
       "defaultWeightLow": null,
       "defaultWeightMid": null,
       "defaultWeightHigh": null,
+      "legacyNames": [
+        "Clap Push-Up"
+      ],
       "source": "hasaneyldrm/exercises-dataset",
       "sourceData": {
         "id": "1273",
@@ -95124,6 +95136,9 @@
       "defaultWeightLow": 18.0,
       "defaultWeightMid": 14.0,
       "defaultWeightHigh": 9.0,
+      "legacyNames": [
+        "Dumbbell W Press"
+      ],
       "source": "hasaneyldrm/exercises-dataset",
       "sourceData": {
         "id": "0438",
@@ -130996,6 +131011,9 @@
       "defaultWeightLow": null,
       "defaultWeightMid": null,
       "defaultWeightHigh": null,
+      "legacyNames": [
+        "Muscle-Up"
+      ],
       "source": "hasaneyldrm/exercises-dataset",
       "sourceData": {
         "id": "0631",
@@ -168686,6 +168704,9 @@
       "defaultWeightLow": null,
       "defaultWeightMid": null,
       "defaultWeightHigh": null,
+      "legacyNames": [
+        "Wide-Grip Pull-Up"
+      ],
       "source": "hasaneyldrm/exercises-dataset",
       "sourceData": {
         "id": "1429",

@@ -75,6 +75,7 @@ struct ExerciseSeederTests {
         defaultWeightMid: Double? = nil,
         defaultWeightHigh: Double? = nil,
         mediaKey: String? = nil,
+        legacyNames: [String]? = nil,
         source: String? = nil,
         sourceData: [String: Any]? = nil
     ) -> [String: Any] {
@@ -91,6 +92,7 @@ struct ExerciseSeederTests {
         if let mid = defaultWeightMid { payload["defaultWeightMid"] = mid }
         if let high = defaultWeightHigh { payload["defaultWeightHigh"] = high }
         if let mediaKey { payload["mediaKey"] = mediaKey }
+        if let legacyNames { payload["legacyNames"] = legacyNames }
         if let source { payload["source"] = source }
         if let sourceData { payload["sourceData"] = sourceData }
         return payload
@@ -550,10 +552,10 @@ struct ExerciseSeederTests {
             primaryMuscles: ["pectoralis major"],
             secondaryMuscles: ["triceps"],
             isCustom: false,
-            mediaKey: "legacy-media",
-            defaultWeightLow: 80,
-            defaultWeightMid: 95,
-            defaultWeightHigh: 120,
+            mediaKey: "user-media",
+            defaultWeightLow: 81,
+            defaultWeightMid: 96,
+            defaultWeightHigh: 121,
             defaultRepsLow: 6,
             defaultRepsMid: 10,
             defaultRepsHigh: 14
@@ -584,10 +586,11 @@ struct ExerciseSeederTests {
                 equipment: "dumbbell",
                 primaryMuscles: ["upper chest"],
                 secondaryMuscles: ["front delts", "triceps"],
-                defaultWeightLow: 80,
-                defaultWeightMid: 95,
-                defaultWeightHigh: 120,
-                mediaKey: "legacy-media",
+                defaultWeightLow: 10,
+                defaultWeightMid: 20,
+                defaultWeightHigh: 30,
+                mediaKey: "catalog-media",
+                legacyNames: ["Legacy Bench Press"],
                 source: "hasaneyldrm/exercises-dataset",
                 sourceData: makeSourceDataJSON(
                     id: "source-0001",
@@ -610,10 +613,10 @@ struct ExerciseSeederTests {
         #expect(migrated.equipment == .dumbbell)
         #expect(migrated.primaryMuscles == ["upper chest"])
         #expect(migrated.secondaryMuscles == ["front delts", "triceps"])
-        #expect(migrated.mediaKey == "legacy-media")
-        #expect(migrated.defaultWeightLow == 80)
-        #expect(migrated.defaultWeightMid == 95)
-        #expect(migrated.defaultWeightHigh == 120)
+        #expect(migrated.mediaKey == "user-media")
+        #expect(migrated.defaultWeightLow == 81)
+        #expect(migrated.defaultWeightMid == 96)
+        #expect(migrated.defaultWeightHigh == 121)
         #expect(migrated.defaultRepsLow == 6)
         #expect(migrated.defaultRepsMid == 10)
         #expect(migrated.defaultRepsHigh == 14)
@@ -623,6 +626,76 @@ struct ExerciseSeederTests {
         #expect(migrated.templateExercises?.first?.template?.persistentModelID == template.persistentModelID)
         #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 1)
         #expect(try context.fetch(FetchDescriptor<Exercise>(predicate: #Predicate { $0.presetId == nil })).isEmpty)
+    }
+
+    @Test("Migration does not guess when a legacy English alias is ambiguous")
+    func migrationDoesNotGuessAmbiguousLegacyAlias() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let legacy = Exercise(
+            nameEn: "Shared Legacy Name",
+            nameZh: "旧动作一",
+            muscleGroup: .chest,
+            equipment: .barbell,
+            isCustom: false,
+            mediaKey: "catalog-media-1",
+            defaultWeightLow: 10,
+            defaultWeightMid: 20,
+            defaultWeightHigh: 30
+        )
+        context.insert(legacy)
+        try context.save()
+
+        let catalogV5 = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "upstream-1",
+                nameEn: "Canonical Move One",
+                nameZh: "旧动作一",
+                primaryMuscles: ["pectoralis major"],
+                secondaryMuscles: ["triceps"],
+                defaultWeightLow: 10,
+                defaultWeightMid: 20,
+                defaultWeightHigh: 30,
+                mediaKey: "catalog-media-1",
+                legacyNames: ["Shared Legacy Name"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "source-1",
+                    name: "canonical move one",
+                    target: "pectoralis major",
+                    secondaryMuscles: ["triceps"]
+                )
+            ),
+            makeExerciseJSON(
+                id: "upstream-2",
+                nameEn: "Canonical Move Two",
+                nameZh: "旧动作二",
+                muscleGroup: "back",
+                equipment: "cable",
+                primaryMuscles: ["lats"],
+                secondaryMuscles: ["biceps"],
+                legacyNames: ["Shared Legacy Name"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "source-2",
+                    name: "canonical move two",
+                    equipment: "cable",
+                    target: "lats",
+                    muscleGroup: "biceps",
+                    secondaryMuscles: ["biceps"]
+                )
+            ),
+        ])
+
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV5)
+
+        #expect(legacy.presetId == nil)
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 3)
+        #expect(try fetchExercise(presetId: "upstream-1", context: context) != nil)
+        #expect(try fetchExercise(presetId: "upstream-2", context: context) != nil)
     }
 
     @Test("Custom exercises not affected by migration or incremental seed")
