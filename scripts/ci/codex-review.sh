@@ -138,10 +138,16 @@ if [ -z "$DIFF" ]; then
 fi
 
 # diff 过大时截断(保护 CLI 上下文;截断本身在 prompt 里声明)。
+# 必须按字符边界截断:head -c 是字节切,会切裂 UTF-8 多字节字符(中文 3 字节),
+# 产生孤立代理字符 → 渲染器 UnicodeEncodeError → 门 fail-closed(MY-1430)。
 MAX_BYTES=200000
 TRUNCATED=""
 if [ "$(printf %s "$DIFF" | wc -c)" -gt "$MAX_BYTES" ]; then
-    DIFF="$(printf %s "$DIFF" | head -c "$MAX_BYTES")"
+    DIFF="$(printf %s "$DIFF" | python3 -c "
+import sys
+b = sys.stdin.buffer.read($MAX_BYTES)
+sys.stdout.write(b.decode('utf-8', 'ignore'))
+")"
     TRUNCATED="（diff 已截断至 ${MAX_BYTES} 字节；未覆盖部分请人工留意）"
 fi
 
