@@ -88,8 +88,8 @@ private struct ExerciseCatalogTestEnvelope: Decodable {
 
 @Suite("Exercises JSON")
 struct ExercisesJSONTests {
-    let version: String
-    let exercises: [PresetExercise]
+    private let version: String
+    private let exercises: [PresetExercise]
 
     init() throws {
         let url = Bundle.main.url(forResource: "exercises", withExtension: "json")!

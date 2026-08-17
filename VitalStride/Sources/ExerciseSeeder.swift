@@ -11,7 +11,7 @@ enum ExerciseSeeder {
 
     static let seedVersionKey = "com.vitalstride.exerciseSeedVersion"
 
-    enum SeedError: Error {
+    enum SeedError: Error, Equatable {
         case duplicateExerciseID(String)
         case duplicateUpstreamSourceID(String)
         case missingSource(String)
@@ -23,6 +23,14 @@ enum ExerciseSeeder {
         case emptyInstructionSteps(String)
         case invalidPrimaryMuscles(String)
         case invalidSecondaryMuscles(String)
+    }
+
+    private struct LegacyUpstreamMatchKey: Hashable {
+        let nameZh: String
+        let mediaKey: String?
+        let defaultWeightLow: Double?
+        let defaultWeightMid: Double?
+        let defaultWeightHigh: Double?
     }
 
     struct ExerciseCatalog: Decodable {
@@ -174,16 +182,73 @@ enum ExerciseSeeder {
         let existingPresets = try context.fetch(descriptor)
         guard !existingPresets.isEmpty else { return }
 
-        let nameToDTO = Dictionary(
-            dtos.map { ($0.nameEn, $0) },
-            uniquingKeysWith: { first, _ in first }
+        let dtosByName = Dictionary(
+            grouping: dtos,
+            by: \ExerciseDTO.nameEn
+        )
+        let upstreamDTOsByLegacyKey = Dictionary(
+            grouping: dtos.filter { $0.source == upstreamSource },
+            by: legacyUpstreamMatchKey(for:)
+        )
+        var remainingDTOsByID = Dictionary(
+            uniqueKeysWithValues: dtos.map { ($0.id, $0) }
         )
 
         for exercise in existingPresets {
-            if let dto = nameToDTO[exercise.nameEn] {
+            if let dto = uniqueRemainingNameMatch(
+                for: exercise,
+                dtosByName: dtosByName,
+                remainingDTOsByID: remainingDTOsByID
+            ) {
                 exercise.presetId = dto.id
+                remainingDTOsByID.removeValue(forKey: dto.id)
+                continue
+            }
+
+            let fallbackCandidates = upstreamDTOsByLegacyKey[legacyUpstreamMatchKey(for: exercise)]?
+                .filter { remainingDTOsByID[$0.id] != nil }
+
+            if let dto = onlyElement(from: fallbackCandidates) {
+                exercise.presetId = dto.id
+                remainingDTOsByID.removeValue(forKey: dto.id)
             }
         }
+    }
+
+    private static func uniqueRemainingNameMatch(
+        for exercise: Exercise,
+        dtosByName: [String: [ExerciseDTO]],
+        remainingDTOsByID: [String: ExerciseDTO]
+    ) -> ExerciseDTO? {
+        onlyElement(
+            from: dtosByName[exercise.nameEn]?
+                .filter { remainingDTOsByID[$0.id] != nil }
+        )
+    }
+
+    private static func legacyUpstreamMatchKey(for dto: ExerciseDTO) -> LegacyUpstreamMatchKey {
+        LegacyUpstreamMatchKey(
+            nameZh: dto.nameZh,
+            mediaKey: dto.mediaKey,
+            defaultWeightLow: dto.defaultWeightLow,
+            defaultWeightMid: dto.defaultWeightMid,
+            defaultWeightHigh: dto.defaultWeightHigh
+        )
+    }
+
+    private static func legacyUpstreamMatchKey(for exercise: Exercise) -> LegacyUpstreamMatchKey {
+        LegacyUpstreamMatchKey(
+            nameZh: exercise.nameZh,
+            mediaKey: exercise.mediaKey,
+            defaultWeightLow: exercise.defaultWeightLow,
+            defaultWeightMid: exercise.defaultWeightMid,
+            defaultWeightHigh: exercise.defaultWeightHigh
+        )
+    }
+
+    private static func onlyElement<T>(from values: [T]?) -> T? {
+        guard let values, values.count == 1 else { return nil }
+        return values[0]
     }
 
     private static func updateExistingUpstreamExercises(
