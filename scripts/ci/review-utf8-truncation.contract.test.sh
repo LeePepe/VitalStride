@@ -154,6 +154,15 @@ for gate in claude-review.sh codex-review.sh; do
     fi
 done
 
+# --- Track 5: Required CI executes this regression contract -----------------------
+
+CI_WORKFLOW="$SCRIPT_DIR/../../.github/workflows/ci.yml"
+if [ -f "$CI_WORKFLOW" ] && grep -qF 'bash scripts/ci/review-utf8-truncation.contract.test.sh' "$CI_WORKFLOW"; then
+    assert_pass "Lint & policy executes the UTF-8 truncation regression contract"
+else
+    assert_fail "Lint & policy does not execute review-utf8-truncation.contract.test.sh"
+fi
+
 # --- Summary ---
 echo
 echo "review-utf8-truncation.contract.test.sh: $pass passed, $fail failed"
