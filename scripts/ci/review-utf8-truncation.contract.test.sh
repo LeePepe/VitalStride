@@ -46,6 +46,14 @@ for gate in claude-review.sh codex-review.sh; do
     else
         assert_fail "$gate missing python3 UTF-8-safe truncation"
     fi
+
+    # Python must consume stdin before slicing so the upstream shell builtin
+    # never writes into a closed pipe and emits the Broken pipe seen in MY-1430.
+    if grep -qF 'sys.stdin.buffer.read()[:' "$target"; then
+        assert_pass "$gate consumes the full diff before truncating"
+    else
+        assert_fail "$gate can still close the diff pipe early (SIGPIPE risk)"
+    fi
 done
 
 # --- Track 2: Renderer defense-in-depth against surrogates ----------------------
@@ -135,8 +143,8 @@ raw = ('这是中文测试内容 abc ' * 20000).encode('utf-8')
 cut = raw[:200000]
 try:
     cut.decode('utf-8', 'strict')
-    # Cut happened to land on boundary — test is still valid but note it
-    import sys; sys.exit(0)
+    # A boundary-aligned fixture would not reproduce the old bug.
+    import sys; sys.exit(1)
 except UnicodeDecodeError:
     # Expected: proves head -c would have produced invalid UTF-8
     import sys; sys.exit(0)

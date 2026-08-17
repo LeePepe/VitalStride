@@ -77,7 +77,7 @@ TRUNCATED=""
 if [ "$(printf %s "$DIFF" | wc -c)" -gt "$MAX_BYTES" ]; then
     DIFF="$(printf %s "$DIFF" | python3 -c "
 import sys
-b = sys.stdin.buffer.read($MAX_BYTES)
+b = sys.stdin.buffer.read()[:$MAX_BYTES]
 sys.stdout.write(b.decode('utf-8', 'ignore'))
 ")"
     TRUNCATED="（diff 已截断至 ${MAX_BYTES} 字节；未覆盖部分请人工留意）"
