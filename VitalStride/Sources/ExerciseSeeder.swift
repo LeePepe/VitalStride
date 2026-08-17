@@ -5,7 +5,25 @@ import VitalModels
 
 enum ExerciseSeeder {
     private static let logger = Logger(subsystem: "com.vitalstride", category: "ExerciseSeeder")
+    private static let upstreamSource = "hasaneyldrm/exercises-dataset"
+    private static let vitalStrideSource = "vitalstride"
+    private static let requiredInstructionLanguages: Set<String> = ["en", "es", "fr", "hi", "it", "ko", "pl", "ru", "tr", "zh"]
+
     static let seedVersionKey = "com.vitalstride.exerciseSeedVersion"
+
+    enum SeedError: Error {
+        case duplicateExerciseID(String)
+        case duplicateUpstreamSourceID(String)
+        case missingSource(String)
+        case unknownSource(String)
+        case missingSourceData(String)
+        case invalidInstructionLanguages(String)
+        case invalidInstructionSteps(String)
+        case emptyInstruction(String)
+        case emptyInstructionSteps(String)
+        case invalidPrimaryMuscles(String)
+        case invalidSecondaryMuscles(String)
+    }
 
     struct ExerciseCatalog: Decodable {
         let version: String
@@ -24,6 +42,44 @@ enum ExerciseSeeder {
         let defaultWeightMid: Double?
         let defaultWeightHigh: Double?
         let mediaKey: String?
+        let source: String?
+        let sourceData: ExerciseSourceDTO?
+    }
+
+    struct ExerciseSourceDTO: Decodable {
+        let id: String
+        let name: String
+        let category: String
+        let bodyPart: String
+        let equipment: String
+        let target: String
+        let muscleGroup: String
+        let secondaryMuscles: [String]
+        let instructions: [String: String]
+        let instructionSteps: [String: [String]]
+        let mediaID: String
+        let image: String
+        let gifURL: String
+        let attribution: String
+        let createdAt: String
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case name
+            case category
+            case bodyPart = "body_part"
+            case equipment
+            case target
+            case muscleGroup = "muscle_group"
+            case secondaryMuscles = "secondary_muscles"
+            case instructions
+            case instructionSteps = "instruction_steps"
+            case mediaID = "media_id"
+            case image
+            case gifURL = "gif_url"
+            case attribution
+            case createdAt = "created_at"
+        }
     }
 
     static func seedIfNeeded(
@@ -48,42 +104,64 @@ enum ExerciseSeeder {
         userDefaults: UserDefaults,
         catalogData: Data
     ) throws {
-        let catalog = try JSONDecoder().decode(ExerciseCatalog.self, from: catalogData)
+        try seed(
+            context: context,
+            userDefaults: userDefaults,
+            catalogData: catalogData,
+            save: { try $0.save() }
+        )
+    }
 
+    static func seed(
+        context: ModelContext,
+        userDefaults: UserDefaults,
+        catalogData: Data,
+        save: (ModelContext) throws -> Void
+    ) throws {
         let storedVersion = userDefaults.string(forKey: seedVersionKey)
 
-        if storedVersion == catalog.version {
-            let presetDescriptor = FetchDescriptor<Exercise>(
-                predicate: #Predicate { $0.presetId != nil }
-            )
-            let presetCount = try context.fetchCount(presetDescriptor)
-            if presetCount > 0 {
-                logger.debug("Seed skipped: version \(catalog.version) unchanged")
-                return
+        do {
+            let catalog = try JSONDecoder().decode(ExerciseCatalog.self, from: catalogData)
+            try validateCatalogIfNeeded(catalog)
+
+            let catalogIDs = Set(catalog.exercises.map(\.id))
+
+            if storedVersion == catalog.version {
+                let presetDescriptor = FetchDescriptor<Exercise>(
+                    predicate: #Predicate { $0.presetId != nil }
+                )
+                let existingPresets = try context.fetch(presetDescriptor)
+                let existingIDs = Set(existingPresets.compactMap(\.presetId))
+                if existingPresets.count == catalogIDs.count, existingIDs == catalogIDs {
+                    logger.debug("Seed skipped: version \(catalog.version) unchanged")
+                    return
+                }
             }
+
+            if storedVersion == nil {
+                try migrateExistingPresets(context: context, dtos: catalog.exercises)
+            }
+
+            if catalog.version == "5" {
+                try updateExistingUpstreamExercises(context: context, dtos: catalog.exercises)
+            }
+
+            let insertedCount = try insertNewExercises(context: context, dtos: catalog.exercises)
+
+            // Legacy catalogs use nil-only backfill semantics on upgrade. V5
+            // preserves all non-canonical fields exactly and skips this phase.
+            if storedVersion != catalog.version, catalog.version != "5" {
+                try backfillDefaults(context: context, dtos: catalog.exercises)
+            }
+
+            try save(context)
+            userDefaults.set(catalog.version, forKey: seedVersionKey)
+
+            logger.info("Seed completed: version \(catalog.version), inserted \(insertedCount) exercises")
+        } catch {
+            context.rollback()
+            throw error
         }
-
-        if storedVersion == nil {
-            try migrateExistingPresets(context: context, dtos: catalog.exercises)
-        }
-
-        let insertedCount = try insertNewExercises(context: context, dtos: catalog.exercises)
-
-        // Backfill defaults for existing preset exercises when advancing to a
-        // new catalog version. Nil-only writes so any user-modified value is
-        // preserved. Runs both on fresh installs (harmless — no-op) and on
-        // upgrades from v1 (or an empty storedVersion with legacy presets).
-        if storedVersion != catalog.version {
-            try backfillDefaults(context: context, dtos: catalog.exercises)
-        }
-
-        if insertedCount > 0 || storedVersion != catalog.version {
-            try context.save()
-        }
-
-        userDefaults.set(catalog.version, forKey: seedVersionKey)
-
-        logger.info("Seed completed: version \(catalog.version), inserted \(insertedCount) exercises")
     }
 
     private static func migrateExistingPresets(
@@ -106,8 +184,33 @@ enum ExerciseSeeder {
                 exercise.presetId = dto.id
             }
         }
+    }
 
-        try context.save()
+    private static func updateExistingUpstreamExercises(
+        context: ModelContext,
+        dtos: [ExerciseDTO]
+    ) throws {
+        let descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.presetId != nil && $0.isCustom == false }
+        )
+        let existing = try context.fetch(descriptor)
+        guard !existing.isEmpty else { return }
+
+        let existingByID = Dictionary(
+            existing.compactMap { exercise in
+                exercise.presetId.map { ($0, exercise) }
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        for dto in dtos where dto.source == upstreamSource {
+            guard let exercise = existingByID[dto.id] else { continue }
+            exercise.nameEn = dto.nameEn
+            exercise.muscleGroup = dto.muscleGroup
+            exercise.equipment = dto.equipment
+            exercise.primaryMuscles = dto.primaryMuscles
+            exercise.secondaryMuscles = dto.secondaryMuscles
+        }
     }
 
     private static func insertNewExercises(
@@ -118,10 +221,10 @@ enum ExerciseSeeder {
             predicate: #Predicate { $0.presetId != nil }
         )
         let existingPresets = try context.fetch(descriptor)
-        let existingIds = Set(existingPresets.compactMap(\.presetId))
+        var existingIDs = Set(existingPresets.compactMap(\.presetId))
 
         var insertedCount = 0
-        for dto in dtos where !existingIds.contains(dto.id) {
+        for dto in dtos where !existingIDs.contains(dto.id) {
             let exercise = Exercise(
                 nameEn: dto.nameEn,
                 nameZh: dto.nameZh,
@@ -137,10 +240,70 @@ enum ExerciseSeeder {
                 defaultWeightHigh: dto.defaultWeightHigh
             )
             context.insert(exercise)
+            existingIDs.insert(dto.id)
             insertedCount += 1
         }
 
         return insertedCount
+    }
+
+    private static func validateCatalogIfNeeded(_ catalog: ExerciseCatalog) throws {
+        guard catalog.version == "5" else { return }
+
+        var seenExerciseIDs = Set<String>()
+        var seenSourceIDs = Set<String>()
+
+        for dto in catalog.exercises {
+            guard seenExerciseIDs.insert(dto.id).inserted else {
+                throw SeedError.duplicateExerciseID(dto.id)
+            }
+
+            guard let source = dto.source else {
+                throw SeedError.missingSource(dto.id)
+            }
+
+            switch source {
+            case upstreamSource:
+                guard let sourceData = dto.sourceData else {
+                    throw SeedError.missingSourceData(dto.id)
+                }
+
+                guard seenSourceIDs.insert(sourceData.id).inserted else {
+                    throw SeedError.duplicateUpstreamSourceID(sourceData.id)
+                }
+
+                guard Set(sourceData.instructions.keys) == requiredInstructionLanguages else {
+                    throw SeedError.invalidInstructionLanguages(dto.id)
+                }
+                guard Set(sourceData.instructionSteps.keys) == requiredInstructionLanguages else {
+                    throw SeedError.invalidInstructionSteps(dto.id)
+                }
+
+                for language in requiredInstructionLanguages {
+                    guard let instruction = sourceData.instructions[language], !instruction.isEmpty else {
+                        throw SeedError.emptyInstruction(dto.id)
+                    }
+                    guard let steps = sourceData.instructionSteps[language], !steps.isEmpty else {
+                        throw SeedError.emptyInstructionSteps(dto.id)
+                    }
+                }
+
+                guard dto.primaryMuscles == [sourceData.target] else {
+                    throw SeedError.invalidPrimaryMuscles(dto.id)
+                }
+
+                let expectedSecondary = sourceData.secondaryMuscles.filter { $0 != dto.primaryMuscles.first }
+                guard dto.secondaryMuscles == expectedSecondary else {
+                    throw SeedError.invalidSecondaryMuscles(dto.id)
+                }
+
+            case vitalStrideSource:
+                break
+
+            default:
+                throw SeedError.unknownSource(source)
+            }
+        }
     }
 
     /// Look up a preset `Exercise` by its exact `presetId`. Returns `nil` when
