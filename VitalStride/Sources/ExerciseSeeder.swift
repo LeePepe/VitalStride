@@ -127,25 +127,23 @@ enum ExerciseSeeder {
         save: (ModelContext) throws -> Void
     ) throws {
         let storedVersion = userDefaults.string(forKey: seedVersionKey)
+        let catalog = try JSONDecoder().decode(ExerciseCatalog.self, from: catalogData)
+        try validateCatalogIfNeeded(catalog)
+        let catalogIDs = Set(catalog.exercises.map(\.id))
+
+        if storedVersion == catalog.version {
+            let presetDescriptor = FetchDescriptor<Exercise>(
+                predicate: #Predicate { $0.presetId != nil }
+            )
+            let existingPresets = try context.fetch(presetDescriptor)
+            let existingIDs = Set(existingPresets.compactMap(\.presetId))
+            if existingPresets.count == catalogIDs.count, existingIDs == catalogIDs {
+                logger.debug("Seed skipped: version \(catalog.version) unchanged")
+                return
+            }
+        }
 
         do {
-            let catalog = try JSONDecoder().decode(ExerciseCatalog.self, from: catalogData)
-            try validateCatalogIfNeeded(catalog)
-
-            let catalogIDs = Set(catalog.exercises.map(\.id))
-
-            if storedVersion == catalog.version {
-                let presetDescriptor = FetchDescriptor<Exercise>(
-                    predicate: #Predicate { $0.presetId != nil }
-                )
-                let existingPresets = try context.fetch(presetDescriptor)
-                let existingIDs = Set(existingPresets.compactMap(\.presetId))
-                if existingPresets.count == catalogIDs.count, existingIDs == catalogIDs {
-                    logger.debug("Seed skipped: version \(catalog.version) unchanged")
-                    return
-                }
-            }
-
             if storedVersion == nil {
                 try migrateExistingPresets(context: context, dtos: catalog.exercises)
             }

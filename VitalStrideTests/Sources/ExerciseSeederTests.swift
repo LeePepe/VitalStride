@@ -1615,4 +1615,45 @@ struct ExerciseSeederTests {
         #expect(try fetchExercise(presetId: "vital-1", context: context) == nil)
         #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == "4")
     }
+
+    @Test("Pre-mutation decode failure preserves unrelated caller pending changes")
+    func preMutationDecodeFailurePreservesUnrelatedPendingChanges() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let unrelated = Exercise(
+            nameEn: "Caller Exercise",
+            nameZh: "调用方动作",
+            muscleGroup: .back,
+            equipment: .barbell,
+            primaryMuscles: ["lats"],
+            secondaryMuscles: ["biceps"],
+            isCustom: false,
+            presetId: "caller-owned"
+        )
+        context.insert(unrelated)
+        try context.save()
+
+        unrelated.nameEn = "Caller Exercise Pending Rename"
+        unrelated.defaultWeightMid = 52.5
+        unrelated.secondaryMuscles = ["biceps", "rear delts"]
+        let pendingSnapshot = ExerciseSnapshot(unrelated)
+
+        let invalidJSON = Data("{".utf8)
+
+        do {
+            try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: invalidJSON)
+            Issue.record("Expected invalid JSON to throw a DecodingError")
+        } catch is DecodingError {
+            // Expected: decoding fails before the seeder mutates the context.
+        } catch {
+            Issue.record("Expected DecodingError, got \(error)")
+        }
+
+        let unrelatedAfter = try #require(try fetchExercise(presetId: "caller-owned", context: context))
+        #expect(ExerciseSnapshot(unrelatedAfter) == pendingSnapshot)
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == nil)
+    }
 }
