@@ -14,8 +14,8 @@
 // the first one's countdown.
 
 import Foundation
+import Observation
 import SwiftData
-import SwiftUI
 import VitalModels
 
 /// A delete that is still reversible.
@@ -45,6 +45,17 @@ enum BottomSnackbarSlot: Equatable {
     }
 }
 
+/// A VoiceOver announcement paired with a unique identity.
+///
+/// The message alone cannot drive `onChange`: deleting two drop-set sub-sets
+/// of set 2 in a row produces byte-identical text, so the second assignment
+/// would not register as a change and the second delete would go unannounced.
+/// `id` makes every announcement distinct even when the words repeat.
+struct SetDeletionAnnouncement: Equatable {
+    let id: Int
+    let message: String
+}
+
 @MainActor
 @Observable
 final class SetDeletionUndoController {
@@ -52,10 +63,12 @@ final class SetDeletionUndoController {
     /// Posted for VoiceOver after a delete; the deleted row took focus with it
     /// and the snackbar is deliberately non-modal, so the announcement is the
     /// only channel that tells a screen-reader user undo exists.
-    private(set) var lastAnnouncement: String?
+    private(set) var lastAnnouncement: SetDeletionAnnouncement?
 
     private let window: TimeInterval
     private var expiryTask: Task<Void, Never>?
+    /// Monotonic counter backing `SetDeletionAnnouncement.id`.
+    private var announcementCounter = 0
 
     init(window: TimeInterval = SetUndoTiming.window) {
         self.window = window
@@ -81,7 +94,8 @@ final class SetDeletionUndoController {
             workoutExercise: workoutExercise,
             message: message
         )
-        lastAnnouncement = announcement
+        announcementCounter += 1
+        lastAnnouncement = SetDeletionAnnouncement(id: announcementCounter, message: announcement)
         startExpiry()
     }
 
@@ -135,23 +149,18 @@ final class SetDeletionUndoController {
 
     /// Closes the window without restoring — expiry, manual dismissal, or the
     /// workout ending.
+    ///
+    /// Note there is deliberately no `isPresented` binding on this type: the
+    /// bottom snackbar is shared with the rest timer, so presentation is
+    /// arbitrated in one place (`ActiveWorkoutView.bottomSnackbarPresented`).
+    /// A second binding here would be an entry point that bypasses that
+    /// arbitration and could dismiss the undo while the rest snackbar is the
+    /// one actually on screen.
     func clear() {
         expiryTask?.cancel()
         expiryTask = nil
         pending = nil
         lastAnnouncement = nil
-    }
-
-    /// Binding for `.snackbar(isPresented:)`. Setting it false (swipe / auto
-    /// dismiss) finalizes the delete.
-    var isPresentedBinding: Binding<Bool> {
-        Binding(
-            get: { [weak self] in self?.hasPendingUndo ?? false },
-            set: { [weak self] newValue in
-                guard !newValue else { return }
-                self?.clear()
-            }
-        )
     }
 
     private func startExpiry() {

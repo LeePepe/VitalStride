@@ -280,10 +280,12 @@ struct ActiveWorkoutView: View {
             // MY-1420: the deleted row took VoiceOver focus with it, and the
             // undo snackbar is deliberately non-modal (it must not block the
             // list), so an announcement is the only way a screen-reader user
-            // learns the delete happened and is reversible.
+            // learns the delete happened and is reversible. Keyed on the
+            // announcement's identity, not its text — two identical deletions
+            // in a row produce the same words and would otherwise announce once.
             .onChange(of: undoController.lastAnnouncement) { _, announcement in
                 guard let announcement else { return }
-                AccessibilityNotification.Announcement(announcement).post()
+                AccessibilityNotification.Announcement(announcement.message).post()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .background else { return }
@@ -676,14 +678,22 @@ struct ActiveWorkoutView: View {
                 Button {
                     undoController.undo(using: modelContext)
                 } label: {
-                    Text(String(localized: "撤销", comment: "Undo a set deletion snackbar action"))
+                    Text(String(
+                        localized: "撤销",
+                        defaultValue: "Undo",
+                        comment: "Undo a set deletion snackbar action"
+                    ))
                         .font(TypeScale.body.weight(.semibold))
                         .foregroundStyle(theme.primary.primary)
                         .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "撤销删除", comment: "Undo set deletion a11y label"))
+                .accessibilityLabel(String(
+                    localized: "撤销删除",
+                    defaultValue: "Undo deletion",
+                    comment: "Undo set deletion a11y label"
+                ))
             }
         }
     }

@@ -418,7 +418,7 @@ struct ActiveExerciseSection: View {
         let contexts = rowContexts
         let targets = WorkoutSetTree.deletionTargets(for: exerciseSet, in: workoutExercise)
         let targetIDs = Set(targets.map(\.persistentModelID))
-        let snapshots = SetDeletionUndo.snapshots(for: targets)
+        let snapshots = SetDeletionUndo.snapshots(for: targets, in: workoutExercise)
         let isSubSet = exerciseSet.setType.isSubSet
         let setNumber = displaySetNumber(of: exerciseSet)
         let setType = exerciseSet.setType

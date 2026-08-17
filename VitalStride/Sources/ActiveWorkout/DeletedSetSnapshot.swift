@@ -25,13 +25,22 @@ enum SetUndoTiming {
     static let window: TimeInterval = 5
 }
 
-/// Immutable capture of every persisted `ExerciseSet` field plus the `order`
-/// slot the set occupied at delete time.
+/// Immutable capture of every persisted `ExerciseSet` field plus a stable
+/// anchor describing where the set sat at delete time.
 ///
 /// Value-typed on purpose: the SwiftData object it came from is deleted
 /// immediately, so nothing here may reference it. Restoring produces a *new*
 /// `ExerciseSet` with an equal field set — `persistentModelID` is necessarily
 /// new, which is invisible in the UI because rows are keyed off the live model.
+///
+/// Position is remembered as `predecessorIDs` (the identities of every row
+/// that preceded this one) rather than the raw `order` integer. `order` is an
+/// absolute index into a list that keeps moving: deleting a row *before* the
+/// snapshot inside the undo window shifts everything down, so replaying the
+/// old number lands in the wrong slot. Concretely `[A,B,C,D]` → delete `C`
+/// (order 2) → delete `A` → `[B,D]`; inserting at index 2 yields `[B,D,C]`
+/// instead of the survivor-relative `[B,C,D]`. Anchoring to "the nearest
+/// predecessor still alive" is stable under any amount of concurrent editing.
 struct DeletedSetSnapshot: Sendable, Equatable {
     let order: Int
     let weight: Double
@@ -42,8 +51,15 @@ struct DeletedSetSnapshot: Sendable, Equatable {
     let isUnilateral: Bool
     let weightRight: Double?
     let rpe: Int?
+    /// Rows that preceded this one at delete time, nearest last. Includes rows
+    /// deleted in the same batch — those are restored first (ascending order),
+    /// so a parent is available as its children's anchor.
+    let predecessorIDs: [PersistentIdentifier]
+    /// Identity of the row this snapshot came from, so siblings restored in
+    /// the same batch can anchor to it once it is back in the list.
+    let originalID: PersistentIdentifier
 
-    init(_ exerciseSet: ExerciseSet) {
+    init(_ exerciseSet: ExerciseSet, predecessorIDs: [PersistentIdentifier] = []) {
         order = exerciseSet.order
         weight = exerciseSet.weight
         reps = exerciseSet.reps
@@ -53,6 +69,8 @@ struct DeletedSetSnapshot: Sendable, Equatable {
         isUnilateral = exerciseSet.isUnilateral
         weightRight = exerciseSet.weightRight
         rpe = exerciseSet.rpe
+        self.predecessorIDs = predecessorIDs
+        originalID = exerciseSet.persistentModelID
     }
 
     /// Rebuilds an unattached `ExerciseSet` carrying every captured field.
@@ -74,19 +92,39 @@ struct DeletedSetSnapshot: Sendable, Equatable {
 }
 
 enum SetDeletionUndo {
-    static func snapshots(for sets: [ExerciseSet]) -> [DeletedSetSnapshot] {
-        sets.map(DeletedSetSnapshot.init)
+    /// Captures `sets` (which must be in ascending `order`) together with the
+    /// predecessor chain each one had inside `workoutExercise`, so restore can
+    /// place them survivor-relative rather than by absolute index.
+    nonisolated static func snapshots(
+        for sets: [ExerciseSet],
+        in workoutExercise: WorkoutExercise
+    ) -> [DeletedSetSnapshot] {
+        let ordered = WorkoutSetTree.sortedSets(of: workoutExercise)
+        return sets.map { set in
+            let precedingIDs: [PersistentIdentifier]
+            if let index = ordered.firstIndex(where: {
+                $0.persistentModelID == set.persistentModelID
+            }) {
+                precedingIDs = ordered[..<index].map(\.persistentModelID)
+            } else {
+                precedingIDs = []
+            }
+            return DeletedSetSnapshot(set, predecessorIDs: precedingIDs)
+        }
     }
 
-    /// Re-inserts `snapshots` into `workoutExercise` at their original relative
-    /// positions and renumbers the whole sequence so `order` stays continuous
-    /// (0..<n) and duplicate-free.
+    /// Re-inserts `snapshots` at their original *survivor-relative* positions
+    /// and renumbers the whole sequence so `order` stays continuous (0..<n)
+    /// and duplicate-free.
     ///
-    /// Snapshots are applied in ascending `order` so a multi-row capture (a
-    /// main set plus its sub-sets) lands back in its original run. Positions
-    /// are clamped to the current bounds: if the user deleted other sets during
-    /// the undo window the recorded slot may now be past the end, in which case
-    /// the set is appended rather than dropped.
+    /// Each snapshot lands directly after the nearest of its recorded
+    /// predecessors that is still present — including one restored earlier in
+    /// this same batch, which is what keeps a parent main set and its sub-set
+    /// run together. When no predecessor survives, the set was at the head of
+    /// the list and goes back to the head.
+    ///
+    /// Snapshots are applied in ascending `order` so a multi-row capture is
+    /// rebuilt front to back.
     ///
     /// Nonisolated so tests can drive it with a bare `ModelContext` without
     /// hopping through `@MainActor` — matching `ActiveExerciseSection.copyToNext`.
@@ -99,6 +137,9 @@ enum SetDeletionUndo {
         guard !snapshots.isEmpty else { return [] }
 
         var ordered = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
+        // Maps an original identity to the live row now standing in for it, so
+        // siblings from the same batch can anchor to an already-restored row.
+        var restoredByOriginalID: [PersistentIdentifier: ExerciseSet] = [:]
         var restored: [ExerciseSet] = []
         restored.reserveCapacity(snapshots.count)
 
@@ -107,8 +148,13 @@ enum SetDeletionUndo {
             newSet.workoutExercise = workoutExercise
             modelContext.insert(newSet)
 
-            let insertIndex = min(max(0, snapshot.order), ordered.count)
+            let insertIndex = insertionIndex(
+                for: snapshot,
+                in: ordered,
+                restoredByOriginalID: restoredByOriginalID
+            )
             ordered.insert(newSet, at: insertIndex)
+            restoredByOriginalID[snapshot.originalID] = newSet
             restored.append(newSet)
         }
 
@@ -116,5 +162,23 @@ enum SetDeletionUndo {
             set.order = newOrder
         }
         return restored
+    }
+
+    /// Slot just after the nearest surviving predecessor, or the head of the
+    /// list when none of them are left.
+    private nonisolated static func insertionIndex(
+        for snapshot: DeletedSetSnapshot,
+        in ordered: [ExerciseSet],
+        restoredByOriginalID: [PersistentIdentifier: ExerciseSet]
+    ) -> Int {
+        for predecessorID in snapshot.predecessorIDs.reversed() {
+            // A predecessor deleted in the same batch is represented by the
+            // row that replaced it.
+            let liveID = restoredByOriginalID[predecessorID]?.persistentModelID ?? predecessorID
+            if let index = ordered.firstIndex(where: { $0.persistentModelID == liveID }) {
+                return index + 1
+            }
+        }
+        return 0
     }
 }

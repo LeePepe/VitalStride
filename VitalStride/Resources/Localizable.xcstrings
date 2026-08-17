@@ -10922,6 +10922,186 @@
           "stringUnit": { "state": "translated", "value": "训练记录" }
         }
       }
+    },
+    "active_workout.set_delete.child_kind_pyramid": {
+      "extractionState": "manual",
+      "comment": "Noun phrase naming a run of pyramid sub-sets inside the delete-confirmation message (MY-1420). Substituted into active_workout.set_delete.confirm_message.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pyramid sub-sets"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "递增组子组"
+          }
+        }
+      }
+    },
+    "active_workout.set_delete.child_kind_drop": {
+      "extractionState": "manual",
+      "comment": "Noun phrase naming a run of drop-set sub-sets inside the delete-confirmation message (MY-1420). Substituted into active_workout.set_delete.confirm_message.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "drop-set sub-sets"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "递减组子组"
+          }
+        }
+      }
+    },
+    "active_workout.set_delete.child_kind_mixed": {
+      "extractionState": "manual",
+      "comment": "Generic noun phrase used when a set's sub-set run mixes pyramid and drop-set rows, so naming one type would mislead (MY-1420).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sub-sets"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "子组"
+          }
+        }
+      }
+    },
+    "active_workout.set_delete.confirm_title": {
+      "extractionState": "manual",
+      "comment": "Title of the confirmation shown when deleting a main set that owns sub-sets (MY-1420). %lld is the 1-based displayed set number.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete set %lld?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除第 %lld 组？"
+          }
+        }
+      }
+    },
+    "active_workout.set_delete.confirm_message": {
+      "extractionState": "manual",
+      "comment": "Body of the delete confirmation, spelling out the cascade the swiped row cannot show (MY-1420). %1$lld is how many sub-sets are removed alongside the set; %2$@ is the localized sub-set kind (active_workout.set_delete.child_kind_*).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This set and its %1$lld %2$@ will be deleted"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该组及其下 %1$lld 个%2$@将一并删除"
+          }
+        }
+      }
+    },
+    "active_workout.set_delete.undo_message_sub": {
+      "extractionState": "manual",
+      "comment": "Undo-snackbar text after deleting a sub-set row (MY-1420). %1$@ is the localized set type (e.g. Drop Set); %2$lld is the parent set's 1-based displayed number.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deleted %1$@ sub-set of set %2$lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已删除第 %2$lld 组%1$@子组"
+          }
+        }
+      }
+    },
+    "active_workout.set_delete.undo_message_main": {
+      "extractionState": "manual",
+      "comment": "Undo-snackbar text after deleting a main set row (MY-1420). %1$lld is the 1-based displayed set number; %2$@ is the localized set type.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deleted set %1$lld (%2$@)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已删除第 %1$lld 组%2$@"
+          }
+        }
+      }
+    },
+    "active_workout.set_delete.announcement": {
+      "extractionState": "manual",
+      "comment": "VoiceOver announcement posted right after a set is deleted, telling the user an undo action is available (MY-1420). The deleted row took focus with it and the snackbar is non-modal, so this is the only screen-reader channel. %@ is the corresponding undo-snackbar message.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, undo available"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@，可撤销"
+          }
+        }
+      }
+    },
+    "撤销": {
+      "extractionState": "manual",
+      "comment": "Trailing action button in the undo snackbar shown after deleting a set (MY-1420).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撤销"
+          }
+        }
+      }
+    },
+    "撤销删除": {
+      "extractionState": "manual",
+      "comment": "VoiceOver label for the undo button in the set-deletion snackbar (MY-1420).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo deletion"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撤销删除"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
