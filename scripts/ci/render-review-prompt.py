@@ -58,6 +58,13 @@ def main() -> int:
         rendered,
     )
 
+    # Defense-in-depth (MY-1430): if upstream somehow passes surrogate characters
+    # (e.g. from surrogateescape os.environ decoding of truncated UTF-8 bytes),
+    # encode→decode with 'replace' to eliminate lone surrogates before writing.
+    # This prevents UnicodeEncodeError on sys.stdout.write without masking real
+    # render failures (template missing, placeholder missing still fail above).
+    rendered = rendered.encode("utf-8", "replace").decode("utf-8")
+
     sys.stdout.write(rendered)
     return 0
 
