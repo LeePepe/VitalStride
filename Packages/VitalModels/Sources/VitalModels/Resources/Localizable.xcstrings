@@ -103,6 +103,167 @@
         }
       }
     },
+    "equipment.assisted": {
+      "comment": "Equipment: assisted",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Assisted" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "辅助器械" } }
+      }
+    },
+    "equipment.band": {
+      "comment": "Equipment: band",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Band" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "弹力带" } }
+      }
+    },
+    "equipment.bosu_ball": {
+      "comment": "Equipment: BOSU ball",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "BOSU Ball" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "BOSU 平衡球" } }
+      }
+    },
+    "equipment.elliptical_machine": {
+      "comment": "Equipment: elliptical machine",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Elliptical Machine" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "椭圆机" } }
+      }
+    },
+    "equipment.ez_barbell": {
+      "comment": "Equipment: EZ barbell",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "EZ Barbell" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "EZ 曲杆" } }
+      }
+    },
+    "equipment.hammer": {
+      "comment": "Equipment: hammer",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Hammer" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "锤" } }
+      }
+    },
+    "equipment.leverage_machine": {
+      "comment": "Equipment: leverage machine",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Leverage Machine" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "杠杆器械" } }
+      }
+    },
+    "equipment.medicine_ball": {
+      "comment": "Equipment: medicine ball",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Medicine Ball" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "药球" } }
+      }
+    },
+    "equipment.olympic_barbell": {
+      "comment": "Equipment: Olympic barbell",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Olympic Barbell" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "奥林匹克杠铃" } }
+      }
+    },
+    "equipment.resistance_band": {
+      "comment": "Equipment: resistance band",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Resistance Band" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "阻力带" } }
+      }
+    },
+    "equipment.roller": {
+      "comment": "Equipment: roller",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Roller" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "滚筒" } }
+      }
+    },
+    "equipment.rope": {
+      "comment": "Equipment: rope",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Rope" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "训练绳" } }
+      }
+    },
+    "equipment.skierg_machine": {
+      "comment": "Equipment: SkiErg machine",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "SkiErg Machine" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "滑雪测功机" } }
+      }
+    },
+    "equipment.sled_machine": {
+      "comment": "Equipment: sled machine",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Sled Machine" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "雪橇机" } }
+      }
+    },
+    "equipment.smith_machine": {
+      "comment": "Equipment: Smith machine",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Smith Machine" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "史密斯机" } }
+      }
+    },
+    "equipment.stability_ball": {
+      "comment": "Equipment: stability ball",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Stability Ball" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "健身球" } }
+      }
+    },
+    "equipment.stationary_bike": {
+      "comment": "Equipment: stationary bike",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Stationary Bike" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "固定自行车" } }
+      }
+    },
+    "equipment.stepmill_machine": {
+      "comment": "Equipment: stepmill machine",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Stepmill Machine" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "踏步机" } }
+      }
+    },
+    "equipment.tire": {
+      "comment": "Equipment: tire",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Tire" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "轮胎" } }
+      }
+    },
+    "equipment.trap_bar": {
+      "comment": "Equipment: trap bar",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Trap Bar" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "六角杠铃" } }
+      }
+    },
+    "equipment.upper_body_ergometer": {
+      "comment": "Equipment: upper body ergometer",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Upper Body Ergometer" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "上肢测功机" } }
+      }
+    },
+    "equipment.weighted": {
+      "comment": "Equipment: weighted",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Weighted" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "负重" } }
+      }
+    },
+    "equipment.wheel_roller": {
+      "comment": "Equipment: wheel roller",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Wheel Roller" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "健腹轮" } }
+      }
+    },
     "muscle.arms": {
       "comment": "MuscleGroup: arms",
       "localizations": {

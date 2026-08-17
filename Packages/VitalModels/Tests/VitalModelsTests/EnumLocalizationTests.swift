@@ -13,6 +13,14 @@ private func zh(_ key: String) -> String {
     return NSLocalizedString(key, tableName: nil, bundle: zhBundle, comment: "")
 }
 
+private func en(_ key: String) -> String {
+    guard let enURL = Bundle.module.url(forResource: "en", withExtension: "lproj"),
+          let enBundle = Bundle(url: enURL) else {
+        return key
+    }
+    return NSLocalizedString(key, tableName: nil, bundle: enBundle, comment: "")
+}
+
 @Suite("MuscleGroup")
 struct MuscleGroupTests {
     @Test("All cases have non-empty localizedName")
@@ -43,6 +51,44 @@ struct MuscleGroupTests {
 
 @Suite("Equipment")
 struct EquipmentTests {
+    private static let expectedRawValues: Set<String> = [
+        "assisted", "band", "barbell", "bodyweight", "bosu_ball", "cable",
+        "dumbbell", "elliptical_machine", "ez_barbell", "hammer", "kettlebell",
+        "leverage_machine", "machine", "medicine_ball", "olympic_barbell",
+        "resistance_band", "roller", "rope", "skierg_machine", "sled_machine",
+        "smith_machine", "stability_ball", "stationary_bike", "stepmill_machine",
+        "tire", "trap_bar", "upper_body_ergometer", "weighted", "wheel_roller",
+    ]
+
+    @Test("All 29 canonical raw values are represented")
+    func canonicalRawValues() {
+        #expect(Equipment.allCases.count == 29)
+        #expect(Set(Equipment.allCases.map(\.rawValue)) == EquipmentTests.expectedRawValues)
+    }
+
+    @Test("Every case round-trips through Codable")
+    func codableRoundTrip() throws {
+        let encoder = JSONEncoder()
+        let decoder = JSONDecoder()
+
+        for equipment in Equipment.allCases {
+            let data = try encoder.encode(equipment)
+            #expect(try decoder.decode(Equipment.self, from: data) == equipment)
+        }
+    }
+
+    @Test("Legacy raw values remain decodable")
+    func legacyRawValuesDecode() throws {
+        let encoder = JSONEncoder()
+        let decoder = JSONDecoder()
+        let legacyRawValues = ["barbell", "dumbbell", "machine", "bodyweight", "cable", "kettlebell"]
+
+        for rawValue in legacyRawValues {
+            let data = try encoder.encode(rawValue)
+            #expect(try decoder.decode(Equipment.self, from: data).rawValue == rawValue)
+        }
+    }
+
     @Test("All cases have non-empty localizedName")
     func localizedNameNotEmpty() {
         for equipment in Equipment.allCases {
@@ -65,6 +111,40 @@ struct EquipmentTests {
         #expect(zh("equipment.bodyweight") == "自重")
         #expect(zh("equipment.cable") == "绳索")
         #expect(zh("equipment.kettlebell") == "壶铃")
+    }
+
+    @Test("All new equipment keys have English and Simplified Chinese translations")
+    func expandedTaxonomyTranslations() {
+        let expected: [(key: String, english: String, chinese: String)] = [
+            ("equipment.assisted", "Assisted", "辅助器械"),
+            ("equipment.band", "Band", "弹力带"),
+            ("equipment.bosu_ball", "BOSU Ball", "BOSU 平衡球"),
+            ("equipment.elliptical_machine", "Elliptical Machine", "椭圆机"),
+            ("equipment.ez_barbell", "EZ Barbell", "EZ 曲杆"),
+            ("equipment.hammer", "Hammer", "锤"),
+            ("equipment.leverage_machine", "Leverage Machine", "杠杆器械"),
+            ("equipment.medicine_ball", "Medicine Ball", "药球"),
+            ("equipment.olympic_barbell", "Olympic Barbell", "奥林匹克杠铃"),
+            ("equipment.resistance_band", "Resistance Band", "阻力带"),
+            ("equipment.roller", "Roller", "滚筒"),
+            ("equipment.rope", "Rope", "训练绳"),
+            ("equipment.skierg_machine", "SkiErg Machine", "滑雪测功机"),
+            ("equipment.sled_machine", "Sled Machine", "雪橇机"),
+            ("equipment.smith_machine", "Smith Machine", "史密斯机"),
+            ("equipment.stability_ball", "Stability Ball", "健身球"),
+            ("equipment.stationary_bike", "Stationary Bike", "固定自行车"),
+            ("equipment.stepmill_machine", "Stepmill Machine", "踏步机"),
+            ("equipment.tire", "Tire", "轮胎"),
+            ("equipment.trap_bar", "Trap Bar", "六角杠铃"),
+            ("equipment.upper_body_ergometer", "Upper Body Ergometer", "上肢测功机"),
+            ("equipment.weighted", "Weighted", "负重"),
+            ("equipment.wheel_roller", "Wheel Roller", "健腹轮"),
+        ]
+
+        for translation in expected {
+            #expect(en(translation.key) == translation.english)
+            #expect(zh(translation.key) == translation.chinese)
+        }
     }
 }
 
@@ -121,4 +201,3 @@ struct MuscleTranslationTests {
         #expect(zh("muscle_trans.triceps") == "肱三头肌")
     }
 }
-
