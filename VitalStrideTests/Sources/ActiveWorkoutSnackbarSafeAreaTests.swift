@@ -65,11 +65,14 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
 
     /// Exercises the production bottom layout through an actual
     /// `.safeAreaInset(edge: .bottom)` host within a UIWindow that has a non-zero
-    /// bottom inset (simulating iPhone home indicator). Resolves the rendered
-    /// snackbar frame and asserts it is fully contained by the safeAreaLayoutFrame.
+    /// bottom inset (simulating iPhone home indicator). Uses a UIViewRepresentable
+    /// frame probe to capture the rendered snackbar frame and asserts it is fully
+    /// contained by the safeAreaLayoutGuide.layoutFrame.
     @MainActor
     @Test("Bottom snackbar rendered frame is contained by safeAreaLayoutFrame (real safeAreaInset)")
     func bottomSnackbarContainedBySafeArea() {
+        let frameBox = FrameBox()
+
         // Create a scrollable content view with the production safeAreaInset
         let content = ScrollView {
             Color.clear.frame(height: 1000)
@@ -81,12 +84,7 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
                 restContent: { productionRestContent(completed: false) },
                 fab: { fabPlaceholder }
             )
-            .background(GeometryReader { geo in
-                Color.clear.preference(
-                    key: FramePreferenceKey.self,
-                    value: geo.frame(in: .global)
-                )
-            })
+            .background(FrameProbe(box: frameBox))
         }
 
         let host = UIHostingController(rootView: content)
@@ -100,25 +98,36 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         host.view.setNeedsLayout()
         host.view.layoutIfNeeded()
 
-        // The safe area layout frame excludes the 34pt bottom region
-        let safeFrame = host.view.safeAreaLayoutGuide.layoutFrame
-        #expect(safeFrame.height > 0, "Safe area frame must have positive height")
-        #expect(safeFrame.height < 852, "Safe area should exclude bottom inset")
+        // Force a second layout pass to ensure the frame probe fires
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        host.view.setNeedsLayout()
+        host.view.layoutIfNeeded()
 
-        // Verify the bottom inset was applied
+        // Verify safe area insets were applied
         let bottomInset = host.view.safeAreaInsets.bottom
         #expect(bottomInset >= 34, "Bottom safe area inset must be >= 34pt")
 
-        // The content height including the safe area inset should fit the window
-        let contentSize = host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity))
-        let availableHeight = 852.0 - bottomInset
-        #expect(contentSize.height <= 852 + 100, "Content should be reasonably sized")
+        let safeFrame = host.view.safeAreaLayoutGuide.layoutFrame
+        #expect(safeFrame.height > 0, "Safe area frame must have positive height")
 
-        // The safe area inset content (our bottom layout) should be positioned
-        // ABOVE the unsafe region (above the 34pt home indicator zone)
-        let safeBottom = window.frame.height - bottomInset
-        let layoutHeight = host.sizeThatFits(in: CGSize(width: 393, height: availableHeight)).height
-        #expect(layoutHeight > 0, "Layout must have positive height within safe area")
+        // The snackbar content frame (captured by the probe in window coordinates)
+        // must be entirely above the unsafe bottom region.
+        let snackbarFrame = frameBox.frame
+        #expect(snackbarFrame.height > 0, "Snackbar must have positive rendered height")
+
+        // Convert safe area layout guide frame to window coordinates
+        let safeFrameInWindow = host.view.convert(safeFrame, to: nil)
+
+        // The snackbar's bottom edge must not extend below the safe area bottom
+        let snackbarBottom = snackbarFrame.maxY
+        let safeBottom = safeFrameInWindow.maxY
+        #expect(
+            snackbarBottom <= safeBottom + 1,
+            "Snackbar bottom (\(snackbarBottom)) must be at or above safe area bottom (\(safeBottom))"
+        )
+
+        // The snackbar must have positive width within the window
+        #expect(snackbarFrame.width > 0, "Snackbar must have positive rendered width")
 
         window.isHidden = true
     }
@@ -250,12 +259,12 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     // MARK: - Test 8: P1-5 — Inactive VoiceOver semantics (accessibilityHidden)
 
     /// Regression test: `slotEnvelope` must mark inactive branches as
-    /// `accessibilityHidden(true)`. If this modifier is removed, the test fails
-    /// because VoiceOver would announce invisible content.
+    /// `accessibilityHidden(true)`. Validates using the accessibility container
+    /// protocol: only the active slot's content labels should appear in the
+    /// accessibility elements exposed by the hosting controller.
     ///
-    /// We verify by rendering the slot envelope in a UIHostingController and
-    /// inspecting the accessibility elements — only the active slot's content
-    /// should be accessible.
+    /// This approach uses `UIAccessibility` element enumeration rather than
+    /// UIKit subview identifier traversal, which is unreliable for SwiftUI views.
     @MainActor
     @Test("Inactive slotEnvelope branches are accessibilityHidden (VoiceOver regression)")
     func inactiveSlotBranchesAreAccessibilityHidden() {
@@ -264,11 +273,11 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             snackbarSlot: .undo,
             undoContent: {
                 Text("Deleted set 1")
-                    .accessibilityIdentifier("undo_message")
+                    .accessibilityLabel("undo_active_label")
             },
             restContent: {
                 Text("Rest timer running")
-                    .accessibilityIdentifier("rest_message")
+                    .accessibilityLabel("rest_inactive_label")
             }
         )
         let undoHost = UIHostingController(rootView: undoSlot)
@@ -276,12 +285,11 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         undoWindow.rootViewController = undoHost
         undoWindow.makeKeyAndVisible()
         undoHost.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
 
-        // Find accessibility elements
-        let undoElements = gatherAccessibilityIdentifiers(from: undoHost.view)
-        // The undo message should be accessible, rest should be hidden
-        #expect(undoElements.contains("undo_message"), "Active undo content must be accessible")
-        #expect(!undoElements.contains("rest_message"), "Inactive rest content must be accessibilityHidden")
+        let undoLabels = gatherAccessibilityLabels(from: undoHost.view)
+        #expect(undoLabels.contains("undo_active_label"), "Active undo content must be accessible")
+        #expect(!undoLabels.contains("rest_inactive_label"), "Inactive rest content must be accessibilityHidden")
 
         undoWindow.isHidden = true
 
@@ -290,11 +298,11 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             snackbarSlot: .rest,
             undoContent: {
                 Text("Deleted set 1")
-                    .accessibilityIdentifier("undo_message_2")
+                    .accessibilityLabel("undo_inactive_label")
             },
             restContent: {
                 Text("Rest timer running")
-                    .accessibilityIdentifier("rest_message_2")
+                    .accessibilityLabel("rest_active_label")
             }
         )
         let restHost = UIHostingController(rootView: restSlot)
@@ -302,10 +310,11 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         restWindow.rootViewController = restHost
         restWindow.makeKeyAndVisible()
         restHost.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
 
-        let restElements = gatherAccessibilityIdentifiers(from: restHost.view)
-        #expect(restElements.contains("rest_message_2"), "Active rest content must be accessible")
-        #expect(!restElements.contains("undo_message_2"), "Inactive undo content must be accessibilityHidden")
+        let restLabels = gatherAccessibilityLabels(from: restHost.view)
+        #expect(restLabels.contains("rest_active_label"), "Active rest content must be accessible")
+        #expect(!restLabels.contains("undo_inactive_label"), "Inactive undo content must be accessibilityHidden")
 
         restWindow.isHidden = true
     }
@@ -493,23 +502,48 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
 
     // MARK: - Accessibility helpers
 
-    /// Recursively gathers all `accessibilityIdentifier` values from the view
-    /// hierarchy, filtering out views whose parent has `accessibilityElementsHidden`.
+    /// Gathers all accessibility labels from the view hierarchy by walking the
+    /// accessibility container protocol. This is more reliable on CI than
+    /// UIKit subview identifier traversal, which SwiftUI does not guarantee.
     @MainActor
-    private func gatherAccessibilityIdentifiers(from view: UIView) -> Set<String> {
-        var identifiers = Set<String>()
-        gatherIdentifiers(from: view, hidden: false, into: &identifiers)
-        return identifiers
+    private func gatherAccessibilityLabels(from view: UIView) -> Set<String> {
+        var labels = Set<String>()
+        collectAccessibilityLabels(from: view, parentHidden: false, into: &labels)
+        return labels
     }
 
     @MainActor
-    private func gatherIdentifiers(from view: UIView, hidden: Bool, into set: inout Set<String>) {
-        let isHidden = hidden || !view.isAccessibilityElement && view.accessibilityElementsHidden
-        if !isHidden, let id = view.accessibilityIdentifier, !id.isEmpty {
-            set.insert(id)
-        }
-        for subview in view.subviews {
-            gatherIdentifiers(from: subview, hidden: isHidden || view.accessibilityElementsHidden, into: &set)
+    private func collectAccessibilityLabels(
+        from element: Any,
+        parentHidden: Bool,
+        into labels: inout Set<String>
+    ) {
+        if let view = element as? UIView {
+            let isHidden = parentHidden || view.accessibilityElementsHidden
+
+            // Check the view itself
+            if !isHidden, view.isAccessibilityElement,
+               let label = view.accessibilityLabel, !label.isEmpty {
+                labels.insert(label)
+            }
+
+            // Walk accessibility elements if the view is a container
+            if let accessibilityElements = view.accessibilityElements {
+                for child in accessibilityElements {
+                    collectAccessibilityLabels(from: child, parentHidden: isHidden, into: &labels)
+                }
+            }
+
+            // Also walk subviews
+            for subview in view.subviews {
+                collectAccessibilityLabels(from: subview, parentHidden: isHidden, into: &labels)
+            }
+        } else if let element = element as? NSObject {
+            // Non-UIView accessibility element
+            if !parentHidden, element.isAccessibilityElement,
+               let label = element.accessibilityLabel, !label.isEmpty {
+                labels.insert(label)
+            }
         }
     }
 
@@ -615,12 +649,39 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     #endif
 }
 
-// MARK: - Preference key for frame capture
+// MARK: - Frame probe for deterministic safe-area containment test
 
-private struct FramePreferenceKey: PreferenceKey {
-    static let defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
+/// Thread-safe box to capture a rendered frame from a UIViewRepresentable probe.
+@MainActor
+private final class FrameBox {
+    var frame: CGRect = .zero
+}
+
+/// A UIViewRepresentable that reports its own frame in window coordinates
+/// after layout. More reliable than SwiftUI GeometryReader preferences for
+/// capturing frames in test hosting controllers.
+private struct FrameProbe: UIViewRepresentable {
+    let box: FrameBox
+
+    func makeUIView(context: Context) -> FrameProbeView {
+        let view = FrameProbeView()
+        view.box = box
+        return view
+    }
+
+    func updateUIView(_ uiView: FrameProbeView, context: Context) {
+        uiView.box = box
+    }
+}
+
+private final class FrameProbeView: UIView {
+    var box: FrameBox?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard let window else { return }
+        let frameInWindow = convert(bounds, to: window)
+        box?.frame = frameInWindow
     }
 }
 
