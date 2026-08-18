@@ -108,8 +108,12 @@ struct ActiveWorkoutView: View {
             // time once the undo window closes. Both go through the shared
             // `.snackbar` so a second bottom-overlay visual language is never
             // introduced.
+            // MY-1421: snackbar switches to top edge while keyboard is
+            // visible so it never overlaps the numeric keyboard and remains
+            // fully visible. Animated with the existing 0.2s ease-in-out.
             .snackbar(
                 isPresented: bottomSnackbarPresented,
+                edge: ActiveWorkoutSnackbarLayout.resolveEdge(isKeyboardVisible: isKeyboardVisible),
                 mode: bottomSnackbarMode
             ) {
                 bottomSnackbarContent
@@ -121,15 +125,21 @@ struct ActiveWorkoutView: View {
             // and positions the button in the trailing corner. Hides the FAB
             // when the custom numeric keyboard is on screen so it can't cover
             // any input row or row-inline control (Acceptance criterion #3).
+            //
+            // MY-1421: FAB uses `.offset(y:)` for visual clearance above the
+            // snackbar instead of `.padding(.bottom:)`. Offset does NOT change
+            // the safeAreaInset's measured height, so the workout list never
+            // shifts when the snackbar appears or disappears.
             .safeAreaInset(edge: .bottom, alignment: .trailing, spacing: 0) {
                 if !isKeyboardVisible {
-                    addExerciseButton
-                        .padding(.bottom, restTimer.phase != .idle ? 100 : 0)
-                        .animation(
-                            .spring(duration: 0.35, bounce: 0.2),
-                            value: restTimer.phase != .idle
-                        )
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
+                        addExerciseButton
+                    }
+                    .animation(
+                        .easeInOut(duration: 0.2),
+                        value: bottomSnackbarSlot != .none
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: isKeyboardVisible)

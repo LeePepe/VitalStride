@@ -8,6 +8,22 @@
 // requiring onboarding to complete.
 import XCTest
 
+// MARK: - Timeout Constants
+// XCUITest predicate waits return immediately once satisfied — a generous
+// budget does NOT slow down green runs, it only prevents false-red on loaded
+// CI machines where simulator animations / keyboard transitions take longer
+// than on a developer's desktop.
+private enum UITestTimeout {
+    /// Standard wait for UI state to settle (keyboard appear/dismiss,
+    /// text field value change, animation completion). 10s is generous
+    /// enough for a loaded CI runner while still catching true hangs.
+    static let uiSettle: TimeInterval = 10.0
+
+    /// Longer budget for operations that include app/host seeding or
+    /// SwiftData writes that must propagate before UI is ready.
+    static let appSeed: TimeInterval = 15.0
+}
+
 final class ExercisePickerSearchFocusUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -82,7 +98,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         // Trigger SwiftData insert of `TestSeedExercise`. The seed button
         // is visually hidden but hittable.
         let seedTrigger = app.buttons["ExercisePickerTestSeedTrigger"]
-        XCTAssertTrue(seedTrigger.waitForExistence(timeout: 2.0),
+        XCTAssertTrue(seedTrigger.waitForExistence(timeout: UITestTimeout.appSeed),
                       "Seed trigger button not found")
         seedTrigger.tap()
 
@@ -181,7 +197,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         let noKeyboard = expectation(for: NSPredicate(format: "exists == false"),
                                     evaluatedWith: app.keyboards.firstMatch,
                                     handler: nil)
-        wait(for: [noKeyboard], timeout: 2.0)
+        wait(for: [noKeyboard], timeout: UITestTimeout.uiSettle)
     }
 
     // MARK: T5 — explicit dismiss paths (regression guard)
@@ -242,7 +258,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         let emptyField = expectation(for: NSPredicate(format: "value == %@ OR value == nil OR value == %@", "", "Search exercises"),
                                     evaluatedWith: searchField,
                                     handler: nil)
-        wait(for: [emptyField], timeout: 2.0)
+        wait(for: [emptyField], timeout: UITestTimeout.uiSettle)
     }
 
     /// T5c: Non-empty search + user swipe on the grid dismisses keyboard
@@ -270,7 +286,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         let noKeyboard = expectation(for: NSPredicate(format: "exists == false"),
                                     evaluatedWith: app.keyboards.firstMatch,
                                     handler: nil)
-        wait(for: [noKeyboard], timeout: 2.0)
+        wait(for: [noKeyboard], timeout: UITestTimeout.uiSettle)
     }
 
     /// T5d: Keyboard return key dismisses focus via platform default (single
@@ -297,7 +313,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         let noKeyboard = expectation(for: NSPredicate(format: "exists == false"),
                                     evaluatedWith: app.keyboards.firstMatch,
                                     handler: nil)
-        wait(for: [noKeyboard], timeout: 2.0)
+        wait(for: [noKeyboard], timeout: UITestTimeout.uiSettle)
     }
 
     // MARK: helpers
@@ -335,7 +351,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
                 magnifier.tap()
             }
             field = app.textFields.firstMatch
-            XCTAssertTrue(field.waitForExistence(timeout: 2.0),
+            XCTAssertTrue(field.waitForExistence(timeout: UITestTimeout.uiSettle),
                           "Search text field never appeared")
         }
 
@@ -343,7 +359,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         if !field.hasKeyboardFocus {
             field.tap()
         }
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 2.0),
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
                       "Keyboard did not appear after focusing search field")
         return field
     }
