@@ -282,7 +282,7 @@ struct ExercisePickerView: View {
     // Debounce + `debouncedSearchText` (`.task(id: searchText)`) is
     // preserved verbatim — only the outer chrome changes.
 
-    private static let panelHorizontalInset: CGFloat = 12
+    static let panelHorizontalInset: CGFloat = 12
     private static let panelBottomInset: CGFloat = 8
     private static let panelInnerHPadding: CGFloat = 14
     private static let panelInnerVPadding: CGFloat = 10
@@ -290,6 +290,19 @@ struct ExercisePickerView: View {
     /// Diameter of the collapsed search pill. Satisfies Constitution §H
     /// (≥44pt) directly — the visual pill itself is the hit target.
     static let collapsedSearchDiameter: CGFloat = 44
+
+    /// MY-1445: max width of the search surface ZStack in collapsed state.
+    /// Equals `collapsedSearchDiameter` so the hidden expanded surface does
+    /// not force a full-width ZStack layout contribution.
+    static let collapsedSearchMaxWidth: CGFloat = collapsedSearchDiameter
+
+    /// MY-1445: max width of the search surface in expanded state. `nil`
+    /// represents `.infinity` (the expanded surface fills available width).
+    static let expandedSearchMaxWidth: CGFloat? = nil
+
+    /// MY-1445: alignment applied to the searchSurface frame so the
+    /// collapsed pill aligns to the panel trailing edge.
+    static let searchSurfaceCollapsedAlignment: HorizontalAlignment = .trailing
 
     private var floatingSearchAndFilterPanel: some View {
         // MY-1277: search on TOP, chips on BOTTOM (user preference — reversed
@@ -365,6 +378,19 @@ struct ExercisePickerView: View {
                 .allowsHitTesting(!isSearchExpanded)
                 .accessibilityHidden(isSearchExpanded)
         }
+        // MY-1445: constrain the ZStack width in collapsed state so the
+        // hidden expanded surface (which uses `maxWidth: .infinity`) does
+        // not force the ZStack to full panel width. In expanded state
+        // `.infinity` lets the search field fill the available width.
+        // `.trailing` alignment keeps the collapsed pill flush to the
+        // panel trailing edge (matching the parent VStack alignment).
+        .frame(
+            maxWidth: isSearchExpanded ? .infinity : Self.collapsedSearchMaxWidth,
+            alignment: Alignment(
+                horizontal: Self.searchSurfaceCollapsedAlignment,
+                vertical: .center
+            )
+        )
         .animation(.easeOut(duration: 0.22), value: isSearchExpanded)
     }
 
