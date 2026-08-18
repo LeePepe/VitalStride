@@ -50,78 +50,66 @@ struct ExercisePickerSearchLayoutTests {
         )
     }
 
-    // MARK: - Trailing alignment (bitmap-verified)
+    // MARK: - Trailing alignment (geometry-verified)
 
     /// The collapsed `SearchSurfaceContainer`, placed inside a trailing-aligned
-    /// VStack (matching production `floatingSearchAndFilterPanel`), must render
-    /// content at the trailing edge and NOT at the leading edge. Verified by
-    /// rendering to a 1× bitmap and checking pixel occupancy at specific positions.
-    @Test("Collapsed SearchSurfaceContainer renders at trailing edge (bitmap verified)")
+    /// frame (matching production `floatingSearchAndFilterPanel`), must position
+    /// its content at the trailing edge. Verified by measuring the collapsed
+    /// content's frame via a GeometryReader in a named coordinate space.
+    @Test("Collapsed SearchSurfaceContainer renders at trailing edge (geometry verified)")
     @MainActor
     func collapsedMaxX_alignsToTrailingEdge() {
         let containerWidth: CGFloat = 393
         let panelInset = ExercisePickerView.panelHorizontalInset
         let availableWidth = containerWidth - panelInset * 2
-        let pillWidth = ExercisePickerView.collapsedSearchMaxWidth
 
-        // Trailing-aligned (production layout) — pill must be at trailing edge
-        let trailingResult = renderAndSamplePillPosition(
-            alignment: .trailing,
-            availableWidth: availableWidth,
-            pillWidth: pillWidth
-        )
+        let frame = measureCollapsedFrame(alignment: .trailing, availableWidth: availableWidth)
 
-        // Trailing position must have the red pill: red channel dominant over green and blue
+        // The collapsed pill's maxX must align to the container's trailing edge
         #expect(
-            trailingResult.trailingPixel.r > 150 && trailingResult.trailingPixel.r > trailingResult.trailingPixel.g * 2 && trailingResult.trailingPixel.r > trailingResult.trailingPixel.b * 2,
+            abs(frame.maxX - availableWidth) <= 1,
             """
-            Trailing edge pixel must be red-dominant (pill present). \
-            Got RGBA(\(trailingResult.trailingPixel.r),\(trailingResult.trailingPixel.g),\(trailingResult.trailingPixel.b),\(trailingResult.trailingPixel.a)).
+            Collapsed pill maxX (\(frame.maxX)pt) must align to trailing edge \
+            (\(availableWidth)pt). Delta: \(abs(frame.maxX - availableWidth))pt.
             """
         )
 
-        // Leading position must be white (no pill): all channels high and similar
+        // The collapsed pill's width must be approximately 44pt
         #expect(
-            trailingResult.leadingPixel.r > 200 && trailingResult.leadingPixel.g > 200 && trailingResult.leadingPixel.b > 200,
+            abs(frame.width - ExercisePickerView.collapsedSearchMaxWidth) <= 1,
             """
-            Leading edge pixel must be white (no pill). \
-            Got RGBA(\(trailingResult.leadingPixel.r),\(trailingResult.leadingPixel.g),\(trailingResult.leadingPixel.b),\(trailingResult.leadingPixel.a)).
+            Collapsed pill width (\(frame.width)pt) must be approximately \
+            \(ExercisePickerView.collapsedSearchMaxWidth)pt.
             """
         )
     }
 
-    /// Proves the bitmap test is not a false positive: when the VStack uses
-    /// leading alignment, the red pill appears at the leading edge instead.
-    @Test("Leading-aligned container renders pill at leading edge (bitmap control)")
+    /// Proves the geometry test is not a false positive: when the container uses
+    /// leading alignment, the collapsed pill appears at the leading edge instead.
+    @Test("Leading-aligned container renders pill at leading edge (geometry control)")
     @MainActor
     func leadingAligned_pillAtLeadingEdge() {
         let containerWidth: CGFloat = 393
         let panelInset = ExercisePickerView.panelHorizontalInset
         let availableWidth = containerWidth - panelInset * 2
-        let pillWidth = ExercisePickerView.collapsedSearchMaxWidth
 
-        // Leading-aligned — pill must be at leading edge
-        let leadingResult = renderAndSamplePillPosition(
-            alignment: .leading,
-            availableWidth: availableWidth,
-            pillWidth: pillWidth
-        )
+        let frame = measureCollapsedFrame(alignment: .leading, availableWidth: availableWidth)
 
-        // Leading position must have the red pill
+        // The collapsed pill's minX must align to the container's leading edge
         #expect(
-            leadingResult.leadingPixel.r > 150 && leadingResult.leadingPixel.r > leadingResult.leadingPixel.g * 2 && leadingResult.leadingPixel.r > leadingResult.leadingPixel.b * 2,
+            abs(frame.minX) <= 1,
             """
-            Leading edge pixel must be red-dominant (pill present in leading-aligned layout). \
-            Got RGBA(\(leadingResult.leadingPixel.r),\(leadingResult.leadingPixel.g),\(leadingResult.leadingPixel.b),\(leadingResult.leadingPixel.a)).
+            Collapsed pill minX (\(frame.minX)pt) must align to leading edge (0pt). \
+            Delta: \(abs(frame.minX))pt.
             """
         )
 
-        // Trailing position must be white (no pill)
+        // The collapsed pill's width must be approximately 44pt
         #expect(
-            leadingResult.trailingPixel.r > 200 && leadingResult.trailingPixel.g > 200 && leadingResult.trailingPixel.b > 200,
+            abs(frame.width - ExercisePickerView.collapsedSearchMaxWidth) <= 1,
             """
-            Trailing edge pixel must be white (no pill in leading-aligned layout). \
-            Got RGBA(\(leadingResult.trailingPixel.r),\(leadingResult.trailingPixel.g),\(leadingResult.trailingPixel.b),\(leadingResult.trailingPixel.a)).
+            Collapsed pill width (\(frame.width)pt) must be approximately \
+            \(ExercisePickerView.collapsedSearchMaxWidth)pt.
             """
         )
     }
@@ -197,90 +185,51 @@ struct ExercisePickerSearchLayoutTests {
         return hc.sizeThatFits(in: CGSize(width: proposedWidth, height: .infinity))
     }
 
-    // MARK: - Bitmap alignment helpers
+    // MARK: - Geometry-based alignment measurement
 
-    private struct BitmapSample {
-        let trailingPixel: PixelColor
-        let leadingPixel: PixelColor
-    }
-
-    /// Renders the collapsed `SearchSurfaceContainer` inside a VStack with the
-    /// given horizontal alignment, captures a 1× bitmap, and samples pixels at
-    /// the pill center positions (leading and trailing edges).
-    ///
-    /// The hosting controller is added to a `UIWindow` to ensure SwiftUI fully
-    /// resolves layout even in headless CI environments.
+    /// Measures the collapsed `SearchSurfaceContainer`'s frame within a container
+    /// that applies the given horizontal alignment. Uses a GeometryReader in a
+    /// named coordinate space to deterministically report the content's position
+    /// after SwiftUI layout completes — no bitmap rendering required.
     @MainActor
-    private func renderAndSamplePillPosition(
+    private func measureCollapsedFrame(
         alignment: HorizontalAlignment,
-        availableWidth: CGFloat,
-        pillWidth: CGFloat
-    ) -> BitmapSample {
+        availableWidth: CGFloat
+    ) -> CGRect {
         let renderHeight: CGFloat = 60
+        let capture = FrameCapture()
+        let pillWidth = ExercisePickerView.collapsedSearchDiameter
 
-        let probe = VStack(alignment: alignment) {
-            SearchSurfaceContainer(
-                isExpanded: false,
-                expanded: Color.clear
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44),
-                collapsed: Circle()
-                    .fill(Color(red: 1, green: 0, blue: 0))
-                    .frame(
-                        width: ExercisePickerView.collapsedSearchDiameter,
-                        height: ExercisePickerView.collapsedSearchDiameter
-                    )
-            )
-        }
-        .frame(width: availableWidth, height: renderHeight, alignment: Alignment(horizontal: alignment, vertical: .center))
-        .background(Color(red: 1, green: 1, blue: 1))
+        let probe = AlignmentProbeView(
+            alignment: alignment,
+            availableWidth: availableWidth,
+            renderHeight: renderHeight,
+            pillWidth: pillWidth,
+            capture: capture
+        )
 
         let hc = UIHostingController(rootView: probe)
         hc.view.frame = CGRect(x: 0, y: 0, width: availableWidth, height: renderHeight)
-        hc.view.backgroundColor = UIColor(red: 1, green: 1, blue: 1, alpha: 1)
 
-        // Attach to a UIWindow so SwiftUI resolves layout in headless CI
+        // Attach to a UIWindow so SwiftUI fully resolves layout in headless CI
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: availableWidth, height: renderHeight))
         window.rootViewController = hc
         window.isHidden = false
         hc.view.setNeedsLayout()
         hc.view.layoutIfNeeded()
 
-        // Ensure SwiftUI's async layout pass completes
-        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+        // Allow SwiftUI's layout pass and preference propagation to complete
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
         hc.view.setNeedsLayout()
         hc.view.layoutIfNeeded()
 
-        // Use scale=1 so CGImage pixel coordinates match point coordinates
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        let renderer = UIGraphicsImageRenderer(
-            size: CGSize(width: availableWidth, height: renderHeight),
-            format: format
-        )
-        let image = renderer.image { ctx in
-            hc.view.layer.render(in: ctx.cgContext)
-        }
+        // Second tick to ensure onPreferenceChange fires
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
 
         // Detach from window
         window.rootViewController = nil
 
-        guard let cgImage = image.cgImage else {
-            return BitmapSample(
-                trailingPixel: PixelColor(r: 0, g: 0, b: 0, a: 0),
-                leadingPixel: PixelColor(r: 0, g: 0, b: 0, a: 0)
-            )
-        }
-
-        let centerY = Int(renderHeight / 2)
-        // Sample at pill center positions
-        let trailingX = Int(availableWidth - pillWidth / 2)
-        let leadingX = Int(pillWidth / 2)
-
-        return BitmapSample(
-            trailingPixel: pixelColor(in: cgImage, x: trailingX, y: centerY),
-            leadingPixel: pixelColor(in: cgImage, x: leadingX, y: centerY)
-        )
+        return capture.frame
     }
 
     // MARK: - Screenshot evidence (Quality Bar K)
@@ -365,7 +314,6 @@ struct ExercisePickerSearchLayoutTests {
         hc.view.frame = CGRect(x: 0, y: 0, width: width, height: height)
         hc.view.backgroundColor = .white
 
-        // Attach to a UIWindow so SwiftUI resolves layout in headless CI
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: height))
         window.rootViewController = hc
         window.isHidden = false
@@ -389,49 +337,6 @@ struct ExercisePickerSearchLayoutTests {
         return result
     }
 
-    private struct PixelColor {
-        let r: UInt8, g: UInt8, b: UInt8, a: UInt8
-    }
-
-    private func pixelColor(in image: CGImage, x: Int, y: Int) -> PixelColor {
-        let width = image.width
-        let height = image.height
-        guard x >= 0, x < width, y >= 0, y < height else {
-            return PixelColor(r: 0, g: 0, b: 0, a: 0)
-        }
-        let bytesPerPixel = 4
-        let bytesPerRow = width * bytesPerPixel
-        let totalBytes = bytesPerRow * height
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
-        guard let context = CGContext(
-            data: nil,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: bytesPerRow,
-            space: colorSpace,
-            bitmapInfo: bitmapInfo
-        ) else {
-            return PixelColor(r: 0, g: 0, b: 0, a: 0)
-        }
-        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-        guard let data = context.data else {
-            return PixelColor(r: 0, g: 0, b: 0, a: 0)
-        }
-        let buffer = data.assumingMemoryBound(to: UInt8.self)
-        let offset = y * bytesPerRow + x * bytesPerPixel
-        guard offset + 3 < totalBytes else {
-            return PixelColor(r: 0, g: 0, b: 0, a: 0)
-        }
-        return PixelColor(
-            r: buffer[offset],
-            g: buffer[offset + 1],
-            b: buffer[offset + 2],
-            a: buffer[offset + 3]
-        )
-    }
-
     #endif
 
     // MARK: - Static invariant (Constitution §H hit target)
@@ -442,3 +347,67 @@ struct ExercisePickerSearchLayoutTests {
         #expect(ExercisePickerView.collapsedSearchMaxWidth == ExercisePickerView.collapsedSearchDiameter)
     }
 }
+
+// MARK: - Geometry measurement support types
+
+#if canImport(UIKit)
+
+/// Captures a CGRect frame from a geometry measurement. Used as a reference
+/// type so the test can read the value after SwiftUI layout completes.
+@MainActor
+private final class FrameCapture {
+    var frame: CGRect = .zero
+}
+
+/// Preference key for propagating a measured frame up the view tree.
+private struct CollapsedFramePreferenceKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
+}
+
+/// A test-only probe view that places `SearchSurfaceContainer` in a container
+/// with the given alignment, then uses a GeometryReader + preference key in a
+/// named coordinate space to deterministically measure where the collapsed pill
+/// renders — without relying on bitmap capture.
+private struct AlignmentProbeView: View {
+    let alignment: HorizontalAlignment
+    let availableWidth: CGFloat
+    let renderHeight: CGFloat
+    let pillWidth: CGFloat
+    let capture: FrameCapture
+
+    var body: some View {
+        VStack(alignment: alignment) {
+            SearchSurfaceContainer(
+                isExpanded: false,
+                expanded: Color.clear
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44),
+                collapsed: Circle()
+                    .frame(width: pillWidth, height: pillWidth)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear
+                                .preference(
+                                    key: CollapsedFramePreferenceKey.self,
+                                    value: geo.frame(in: .named("alignmentContainer"))
+                                )
+                        }
+                    )
+            )
+        }
+        .frame(
+            width: availableWidth,
+            height: renderHeight,
+            alignment: Alignment(horizontal: alignment, vertical: .center)
+        )
+        .coordinateSpace(name: "alignmentContainer")
+        .onPreferenceChange(CollapsedFramePreferenceKey.self) { frame in
+            capture.frame = frame
+        }
+    }
+}
+
+#endif
