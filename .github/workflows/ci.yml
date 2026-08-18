@@ -148,6 +148,10 @@ jobs:
       # PR #391 因此连挂两次、白等 40 分钟才定位。
       - name: review CLI stdin contract regression
         run: bash scripts/ci/review-cli-stdin.contract.test.sh
+      # Large diffs containing multi-byte text must be truncated on a valid
+      # UTF-8 boundary so both required review gates can render their prompt.
+      - name: review UTF-8 truncation contract regression
+        run: bash scripts/ci/review-utf8-truncation.contract.test.sh
       # spec 019 FR-017 / SC-007 ship-gate。Stage 6e 已把 RoutingSignalEntry 的
       # raw 调试字段与全部写入点清零,受控临时例外窗口就此关闭 —— 这道 enforce
       # 门是清零之后唯一的防回归护栏:任何 PR 重新引入 `TEMP-PRELAUNCH` 直接红。

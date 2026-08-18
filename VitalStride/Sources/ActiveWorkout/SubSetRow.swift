@@ -1,9 +1,16 @@
 // swiftlint:disable no_hardcoded_chinese
-// Sub-Set Row (Compact, Indented, Read-Only — see MY-875).
+// Sub-Set Row (Compact, Indented, Read-Only except delete — see MY-875 / MY-1420).
 // Extracted verbatim from ActiveWorkoutView.swift (MY-874). The pre-existing
 // `no_hardcoded_chinese` literals move with the code and stay silenced at file
 // scope until the dedicated i18n cleanup (MY-1065) migrates them. This split
 // does not change localization semantics.
+//
+// MY-1420 partially reopens MY-875's read-only decision: sub-sets had no
+// delete affordance at all, so a stray pyramid / drop-set row could only be
+// removed by deleting its parent — which cascades and takes the freshly
+// entered main-set data with it. Exactly one destructive action is opened up
+// (delete); weight / reps / type / RPE stay read-only here and remain the
+// parent `SetRow`'s job.
 
 import DesignKit
 import SwiftUI
@@ -17,6 +24,11 @@ struct SubSetRow: View {
     let isLast: Bool
     let parentSetNumber: Int
     let onToggleCompleted: (_ wasCompleted: Bool) -> Void
+    /// MY-1420: inline delete. Mirrors `SetRow`'s menu entry so the two row
+    /// kinds in the same list share one mental model; the trailing full swipe
+    /// (attached in `ActiveExerciseSection`) is the fast path for the same
+    /// action, and the menu is the discoverable one.
+    let onDelete: () -> Void
 
     var body: some View {
         HStack(spacing: 6) {
@@ -102,6 +114,8 @@ struct SubSetRow: View {
 
             Spacer()
 
+            deleteMenu
+
             Button {
                 let wasCompleted = exerciseSet.isCompleted
                 exerciseSet.isCompleted = !wasCompleted
@@ -127,6 +141,43 @@ struct SubSetRow: View {
             .accessibilityLabel(String(localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? String(localized: "已完成", comment: "Set completion status: completed") : String(localized: "未完成", comment: "Set completion status: incomplete"))", comment: "A11y label composing parent set index and completion status"))
             .accessibilityHint(String(localized: "双击切换完成状态", comment: "A11y hint"))
         }
+    }
+
+    /// MY-1420: inline delete affordance.
+    ///
+    /// A bare `ellipsis` rather than `SetRow`'s `ellipsis.circle`: a sub-set is
+    /// a secondary row, and dropping the ring keeps its visual weight below the
+    /// main set it hangs under. `text3` for the same reason — this is a meta
+    /// affordance, not row content. The menu carries exactly one item; the
+    /// type / RPE pickers stay on `SetRow` (MY-875 read-only decision holds
+    /// for everything but delete).
+    ///
+    /// Hit geometry follows MY-1013: the 44pt frame is a hit-test claim only,
+    /// and row height stays compact via `ActiveExerciseSection`'s
+    /// `listRowInsets` — no padding is added here that could inflate the row.
+    private var deleteMenu: some View {
+        Menu {
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label(
+                    String(localized: "删除", comment: "Delete sub-set menu item"),
+                    systemImage: "trash"
+                )
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.caption)
+                .foregroundStyle(theme.neutrals.text3)
+                .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(String(
+            localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组操作菜单",
+            comment: "Sub-set action menu a11y label"
+        ))
+        .accessibilityHint(String(localized: "双击打开菜单", comment: "Sub-set action menu a11y hint"))
     }
 
     private var treeLine: some View {

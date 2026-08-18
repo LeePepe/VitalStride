@@ -39,6 +39,11 @@ struct ActiveWorkoutView: View {
     @State private var substituteSheetState: ExerciseSubstituteSheet.ViewState = .loading
     @State private var substituteLoadTask: Task<Void, Never>?
     @State private var restTimer = RestTimerController()
+    /// MY-1420: owns the 5s undo window for set deletion. Held at view level
+    /// (not per section) so one delete anywhere in the workout replaces any
+    /// other pending undo — undos never stack — and so a single bottom
+    /// snackbar can arbitrate against the rest timer.
+    @State private var undoController = SetDeletionUndoController()
     // MY-1283: three-state HR model (T003). `hrConnectionState` reflects the
     // WatchConnectivity link driven by T001 (unpaired/unreachable → not
     // connected); `hrLastValue` + `heartRateReceivedAt` gate the `awaiting`
@@ -96,11 +101,22 @@ struct ActiveWorkoutView: View {
                 }
                 exerciseList
             }
+            // MY-1420: one bottom snackbar, arbitrated between undo and rest.
+            // Undo wins while it is pending — it is the only one with a
+            // deadline the user can't recover from — and the rest timer is
+            // paused, not cancelled, so it returns with its true remaining
+            // time once the undo window closes. Both go through the shared
+            // `.snackbar` so a second bottom-overlay visual language is never
+            // introduced.
+            // MY-1421: snackbar switches to top edge while keyboard is
+            // visible so it never overlaps the numeric keyboard and remains
+            // fully visible. Animated with the existing 0.2s ease-in-out.
             .snackbar(
-                isPresented: restSnackbarPresented,
-                mode: restTimer.phase == .completed ? .autoDismiss(duration: 2) : .persistent
+                isPresented: bottomSnackbarPresented,
+                edge: ActiveWorkoutSnackbarLayout.resolveEdge(isKeyboardVisible: isKeyboardVisible),
+                mode: bottomSnackbarMode
             ) {
-                restSnackbarContent
+                bottomSnackbarContent
             }
             // MY-1245: place the FAB via `safeAreaInset` instead of a
             // bottom-trailing ZStack overlay. `safeAreaInset` both **reserves
@@ -109,15 +125,21 @@ struct ActiveWorkoutView: View {
             // and positions the button in the trailing corner. Hides the FAB
             // when the custom numeric keyboard is on screen so it can't cover
             // any input row or row-inline control (Acceptance criterion #3).
+            //
+            // MY-1421: FAB uses `.offset(y:)` for visual clearance above the
+            // snackbar instead of `.padding(.bottom:)`. Offset does NOT change
+            // the safeAreaInset's measured height, so the workout list never
+            // shifts when the snackbar appears or disappears.
             .safeAreaInset(edge: .bottom, alignment: .trailing, spacing: 0) {
                 if !isKeyboardVisible {
-                    addExerciseButton
-                        .padding(.bottom, restTimer.phase != .idle ? 100 : 0)
-                        .animation(
-                            .spring(duration: 0.35, bounce: 0.2),
-                            value: restTimer.phase != .idle
-                        )
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
+                        addExerciseButton
+                    }
+                    .animation(
+                        .easeInOut(duration: 0.2),
+                        value: bottomSnackbarSlot != .none
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: isKeyboardVisible)
@@ -264,6 +286,16 @@ struct ActiveWorkoutView: View {
                 if newPhase == .completed {
                     HapticManager.trigger(.restCompleted)
                 }
+            }
+            // MY-1420: the deleted row took VoiceOver focus with it, and the
+            // undo snackbar is deliberately non-modal (it must not block the
+            // list), so an announcement is the only way a screen-reader user
+            // learns the delete happened and is reversible. Keyed on the
+            // announcement's identity, not its text — two identical deletions
+            // in a row produce the same words and would otherwise announce once.
+            .onChange(of: undoController.lastAnnouncement) { _, announcement in
+                guard let announcement else { return }
+                AccessibilityNotification.Announcement(announcement.message).post()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .background else { return }
@@ -598,18 +630,90 @@ struct ActiveWorkoutView: View {
     }
     #endif
 
-    private var restSnackbarPresented: Binding<Bool> {
+    // MARK: - Bottom snackbar arbitration (MY-1420)
+
+    /// Which of the two competing bottom snackbars is showing right now.
+    private var bottomSnackbarSlot: BottomSnackbarSlot {
+        undoController.slot(restPhase: restTimer.phase)
+    }
+
+    private var bottomSnackbarPresented: Binding<Bool> {
         Binding(
-            get: { restTimer.phase != .idle },
+            get: { bottomSnackbarSlot != .none },
             set: { newValue in
                 guard !newValue else { return }
-                switch restTimer.phase {
-                case .resting: restTimer.skipRest()
-                case .completed: restTimer.dismissCompleted()
-                case .idle: break
+                // Dismissal applies to whichever snackbar is actually on
+                // screen; dismissing the undo must not skip the rest timer
+                // hiding behind it.
+                switch bottomSnackbarSlot {
+                case .undo: undoController.clear()
+                case .rest: dismissRestSnackbar()
+                case .none: break
                 }
             }
         )
+    }
+
+    /// Undo runs `.persistent` here: its 5s countdown belongs to
+    /// `SetDeletionUndoController` so a replacing delete restarts the full
+    /// window. `.autoDismiss` only re-arms when `isPresented`/`mode` flips,
+    /// neither of which changes when one pending delete supplants another —
+    /// the second undo would inherit the first's leftover time.
+    private var bottomSnackbarMode: SnackbarMode {
+        switch bottomSnackbarSlot {
+        case .undo: .persistent
+        case .rest: restTimer.phase == .completed ? .autoDismiss(duration: 2) : .persistent
+        case .none: .persistent
+        }
+    }
+
+    @ViewBuilder
+    private var bottomSnackbarContent: some View {
+        switch bottomSnackbarSlot {
+        case .undo:
+            undoSnackbarContent
+        case .rest, .none:
+            restSnackbarContent
+        }
+    }
+
+    @ViewBuilder
+    private var undoSnackbarContent: some View {
+        if let pending = undoController.pending {
+            HStack(spacing: Space.gap) {
+                Text(pending.message)
+                    .font(TypeScale.body)
+                    .foregroundStyle(theme.neutrals.text1)
+                Spacer()
+                Button {
+                    undoController.undo(using: modelContext)
+                } label: {
+                    Text(String(
+                        localized: "撤销",
+                        defaultValue: "Undo",
+                        comment: "Undo a set deletion snackbar action"
+                    ))
+                        .font(TypeScale.body.weight(.semibold))
+                        .foregroundStyle(theme.primary.primary)
+                        .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(
+                    localized: "撤销删除",
+                    defaultValue: "Undo deletion",
+                    comment: "Undo set deletion a11y label"
+                ))
+            }
+        }
+    }
+
+    private func dismissRestSnackbar() {
+        switch restTimer.phase {
+        case .resting: restTimer.skipRest()
+        case .completed: restTimer.dismissCompleted()
+        case .idle: break
+        }
     }
 
     @ViewBuilder
@@ -736,7 +840,8 @@ struct ActiveWorkoutView: View {
                         },
                         onDelete: {
                             deleteExercise(workoutExercise)
-                        }
+                        },
+                        undoController: undoController
                     )
                 }
                 .onMove { source, destination in
@@ -1117,6 +1222,13 @@ struct ActiveWorkoutView: View {
     }
 
     private func deleteExercise(_ workoutExercise: WorkoutExercise) {
+        // MY-1420: a set-delete undo pending against *this* exercise must go
+        // with it. Otherwise "delete a set → delete the whole exercise inside
+        // the 5s window → tap 撤销" would reinsert `ExerciseSet` rows against a
+        // deleted `WorkoutExercise`. `SetDeletionUndoController.undo` also
+        // refuses a dead parent, but clearing here is what makes the snackbar
+        // disappear along with the rows it refers to.
+        undoController.clearIfPending(for: workoutExercise)
         modelContext.delete(workoutExercise)
         let remaining = (workout?.exercises ?? [])
             .filter { $0.persistentModelID != workoutExercise.persistentModelID }
@@ -1129,6 +1241,9 @@ struct ActiveWorkoutView: View {
     private func finishWorkout() {
         guard let workout else { return }
         restTimer.cancelRestForWorkoutEnd()
+        // MY-1420: an undo pending at finish would try to reinsert into a
+        // workout that is already closed out — close the window instead.
+        undoController.clear()
         workout.finish()
         HapticManager.trigger(.workoutFinished)
         // MY-1088: pre-existing behavior, tracked separately from this issue.
@@ -1164,6 +1279,9 @@ struct ActiveWorkoutView: View {
 
     private func discardWorkout() {
         restTimer.cancelRestForWorkoutEnd()
+        // MY-1420: same reasoning as `finishWorkout` — the workout the
+        // snapshot belongs to is about to be deleted.
+        undoController.clear()
         #if !os(macOS)
         if let manager = sessionManager {
             Task { await manager.endSession(save: false) }
