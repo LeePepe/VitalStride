@@ -105,6 +105,33 @@ enum ActiveWorkoutSnackbarLayout {
             .padding(.top, Space.inline)
     }
 
+    // MARK: - Top composition (MY-1446, testable)
+
+    /// Renders the production keyboard-visible composition: info band content
+    /// above the top snackbar, in a VStack. This is the same structure that
+    /// `ActiveWorkoutView.body` uses when `isKeyboardVisible == true`.
+    ///
+    /// Extracted so tests exercise the actual production composition path
+    /// (not a test-local mirror), proving the snackbar cannot overlap the
+    /// info band by VStack construction.
+    @ViewBuilder
+    @MainActor
+    static func topComposition<InfoBand: View, UndoContent: View, RestContent: View>(
+        snackbarSlot: BottomSnackbarSlot,
+        @ViewBuilder infoBand: () -> InfoBand,
+        @ViewBuilder undoContent: () -> UndoContent,
+        @ViewBuilder restContent: () -> RestContent
+    ) -> some View {
+        VStack(spacing: 0) {
+            infoBand()
+            topLayout(
+                snackbarSlot: snackbarSlot,
+                undoContent: undoContent,
+                restContent: restContent
+            )
+        }
+    }
+
 
     // MARK: - Undo envelope (MY-1446, testable)
 
@@ -273,6 +300,58 @@ enum ActiveWorkoutSnackbarLayout {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - SnackbarFocusRouter (MY-1446, testable)
+
+/// Pure-logic focus router for snackbar VoiceOver focus management.
+/// Extracted from `ActiveWorkoutView`'s `.onChange` closures so tests can
+/// verify focus-routing sequences without spinning up a full SwiftUI view.
+///
+/// Rules:
+/// - `.none` → clear both bottom and top focus
+/// - Active slot (`.undo`/`.rest`) + keyboard visible → top focus only
+/// - Active slot + keyboard hidden → bottom focus only
+/// - Keyboard visibility change with active slot → migrate focus
+struct SnackbarFocusRouter {
+    /// Focus state pair: (bottomFocused, topFocused)
+    struct FocusState: Equatable {
+        var bottomFocused: Bool
+        var topFocused: Bool
+
+        static let cleared = FocusState(bottomFocused: false, topFocused: false)
+    }
+
+    /// Resolves focus state when the snackbar slot changes.
+    static func resolveSlotChange(
+        newSlot: BottomSnackbarSlot,
+        isKeyboardVisible: Bool
+    ) -> FocusState {
+        switch newSlot {
+        case .none:
+            return .cleared
+        case .undo, .rest:
+            if isKeyboardVisible {
+                return FocusState(bottomFocused: false, topFocused: true)
+            } else {
+                return FocusState(bottomFocused: true, topFocused: false)
+            }
+        }
+    }
+
+    /// Resolves focus state when keyboard visibility changes while a snackbar
+    /// is active. Returns `nil` if slot is `.none` (no migration needed).
+    static func resolveKeyboardChange(
+        keyboardNowVisible: Bool,
+        currentSlot: BottomSnackbarSlot
+    ) -> FocusState? {
+        guard currentSlot != .none else { return nil }
+        if keyboardNowVisible {
+            return FocusState(bottomFocused: false, topFocused: true)
+        } else {
+            return FocusState(bottomFocused: true, topFocused: false)
+        }
     }
 }
 

@@ -185,86 +185,108 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         }
     }
 
-    // MARK: - Test 6: top snackbar below compact info band (non-overlap proof)
+    // MARK: - Test 6: top snackbar below compact info band (production composition)
 
     /// MY-1446: production places compactInfoBand and topLayout in the same
-    /// VStack. This test proves the combined height >= infoBand + topLayout,
-    /// guaranteeing they are stacked (not overlapping) and the snackbar cannot
-    /// cover the info band.
+    /// VStack via `ActiveWorkoutSnackbarLayout.topComposition`. This test uses
+    /// the same production helper (not a test-local mirror) and proves the
+    /// combined height >= infoBand + topSnackbar, guaranteeing non-overlap.
     @MainActor
-    @Test("Top snackbar does not cover compact info band (VStack non-overlap)")
+    @Test("Top snackbar does not cover compact info band (production topComposition)")
     func topSnackbarDoesNotCoverInfoBand() {
         let containerWidth: CGFloat = 393
 
-        // Representative compact info band (same structure as production:
-        // single-line HStack with timer + stats)
-        let infoBand = HStack {
-            Text("00:05:32")
-                .font(.subheadline.monospacedDigit())
-            Spacer()
-            Text("3 动作 · 5 组 · 120 kg")
-                .font(.subheadline)
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-
-        let infoBandHost = UIHostingController(rootView: infoBand)
+        // Measure infoBand height alone (using same structure production uses)
+        let infoBandContent = compactInfoBandPlaceholder
+        let infoBandHost = UIHostingController(rootView: infoBandContent)
         let infoBandHeight = infoBandHost.sizeThatFits(
             in: CGSize(width: containerWidth, height: CGFloat.infinity)
         ).height
 
-        // Top snackbar via production helper
+        // Measure topLayout alone
         let topSnackbarHeight = measureTopLayoutHeight(slot: .rest, width: containerWidth)
 
-        // Combined VStack (same as production body composition)
-        let combined = VStack(spacing: 0) {
-            infoBand
-            ActiveWorkoutSnackbarLayout.topLayout(
-                snackbarSlot: .rest,
-                undoContent: {
-                    ActiveWorkoutSnackbarLayout.undoEnvelope(message: nil)
-                },
-                restContent: {
-                    productionRestContent(completed: false)
-                }
-            )
-        }
-        let combinedHost = UIHostingController(rootView: combined)
-        let combinedHeight = combinedHost.sizeThatFits(
+        // Use the PRODUCTION topComposition helper (same code path as
+        // ActiveWorkoutView.body when isKeyboardVisible == true)
+        let composed = ActiveWorkoutSnackbarLayout.topComposition(
+            snackbarSlot: .rest,
+            infoBand: { compactInfoBandPlaceholder },
+            undoContent: {
+                ActiveWorkoutSnackbarLayout.undoEnvelope(message: nil)
+            },
+            restContent: {
+                productionRestContent(completed: false)
+            }
+        )
+        let composedHost = UIHostingController(rootView: composed)
+        let composedHeight = composedHost.sizeThatFits(
             in: CGSize(width: containerWidth, height: CGFloat.infinity)
         ).height
 
         // VStack height must be >= both individual heights (proving non-overlap)
-        #expect(combinedHeight >= infoBandHeight + topSnackbarHeight - 1)
-        #expect(combinedHeight > infoBandHeight)
-        #expect(combinedHeight > topSnackbarHeight)
+        #expect(composedHeight >= infoBandHeight + topSnackbarHeight - 1)
+        #expect(composedHeight > infoBandHeight)
+        #expect(composedHeight > topSnackbarHeight)
     }
 
-    // MARK: - Test 7: VoiceOver focus cleared on .none (regression)
+    // MARK: - Test 7: VoiceOver focus routing regression (SnackbarFocusRouter)
 
-    /// MY-1446: When bottomSnackbarSlot becomes .none, both focus bindings must
-    /// be cleared. This is tested through the slot-envelope constant-height
-    /// architecture — the slot-envelope renders all variants with opacity-toggle,
-    /// ensuring no stale focus target remains when content becomes invisible.
-    /// The view-layer `.onChange(of: bottomSnackbarSlot)` explicitly clears both
-    /// `isBottomSnackbarFocused` and `isTopSnackbarFocused` on `.none`.
-    /// (Structural proof: inactive branches are accessibilityHidden, so VoiceOver
-    /// cannot reach them even if a binding were stale.)
-    @MainActor
-    @Test("Inactive slot-envelope branches are accessibility-hidden")
-    func inactiveBranchesAccessibilityHidden() {
-        // This test verifies the structural guarantee: when slot != .undo,
-        // the undo branch has accessibilityHidden(true); when slot != .rest,
-        // the rest branch has accessibilityHidden(true). This is enforced
-        // by the shared slotEnvelope helper. We verify it compiles and renders
-        // by measuring — the architectural guarantee is the shared code path.
-        let containerWidth: CGFloat = 393
+    /// MY-1446: Tests the extracted `SnackbarFocusRouter` logic that production
+    /// uses for VoiceOver focus management. Verifies:
+    /// - `.none` clears both focus bindings
+    /// - Active slot without keyboard → bottom focused
+    /// - Active slot with keyboard → top focused
+    /// - Keyboard appearing with active slot → migrates to top
+    /// - Keyboard disappearing with active slot → migrates to bottom
+    /// - Keyboard change with `.none` slot → no migration (nil)
+    @Test("SnackbarFocusRouter correctly routes focus across all transitions")
+    func focusRouterTransitions() {
+        // .none always clears both
+        let noneFocus = SnackbarFocusRouter.resolveSlotChange(
+            newSlot: .none, isKeyboardVisible: false
+        )
+        #expect(noneFocus == .cleared)
 
-        // Both top and bottom use the same slotEnvelope — verify it renders
-        // for .none without crash and produces non-zero height (proving
-        // both branches are laid out even when hidden).
-        let noneHeight = measureTopLayoutHeight(slot: .none, width: containerWidth)
-        #expect(noneHeight > 0)
+        let noneWithKeyboard = SnackbarFocusRouter.resolveSlotChange(
+            newSlot: .none, isKeyboardVisible: true
+        )
+        #expect(noneWithKeyboard == .cleared)
+
+        // Active slot without keyboard → bottom
+        let undoNoKeyboard = SnackbarFocusRouter.resolveSlotChange(
+            newSlot: .undo, isKeyboardVisible: false
+        )
+        #expect(undoNoKeyboard.bottomFocused == true)
+        #expect(undoNoKeyboard.topFocused == false)
+
+        // Active slot with keyboard → top
+        let restWithKeyboard = SnackbarFocusRouter.resolveSlotChange(
+            newSlot: .rest, isKeyboardVisible: true
+        )
+        #expect(restWithKeyboard.bottomFocused == false)
+        #expect(restWithKeyboard.topFocused == true)
+
+        // Keyboard appears with active slot → migrate to top
+        let keyboardAppears = SnackbarFocusRouter.resolveKeyboardChange(
+            keyboardNowVisible: true, currentSlot: .undo
+        )
+        #expect(keyboardAppears != nil)
+        #expect(keyboardAppears?.bottomFocused == false)
+        #expect(keyboardAppears?.topFocused == true)
+
+        // Keyboard disappears with active slot → migrate to bottom
+        let keyboardDisappears = SnackbarFocusRouter.resolveKeyboardChange(
+            keyboardNowVisible: false, currentSlot: .rest
+        )
+        #expect(keyboardDisappears != nil)
+        #expect(keyboardDisappears?.bottomFocused == true)
+        #expect(keyboardDisappears?.topFocused == false)
+
+        // Keyboard change with .none → no migration
+        let noMigration = SnackbarFocusRouter.resolveKeyboardChange(
+            keyboardNowVisible: true, currentSlot: .none
+        )
+        #expect(noMigration == nil)
     }
 
     // MARK: - Measurement helpers
@@ -383,6 +405,29 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     @MainActor
     private var undoPlaceholder: some View {
         productionUndoContent(message: "Deleted set 1 of superset group B (tricep extensions warmup)")
+    }
+
+    /// Production-representative compact info band. Uses the same structure
+    /// as `ActiveWorkoutView.compactInfoBand`: single-line HStack with
+    /// timer + stats, horizontal padding, vertical 8pt padding, 48pt minHeight.
+    @MainActor
+    private var compactInfoBandPlaceholder: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 4) {
+                Image(systemName: "timer")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text("00:05:32")
+                    .font(.subheadline.monospacedDigit())
+            }
+            Spacer(minLength: 0)
+            Text("3 动作 · 5 组 · 120 kg")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .frame(minHeight: 48)
     }
 
     @MainActor

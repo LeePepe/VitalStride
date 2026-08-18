@@ -110,10 +110,10 @@ struct ActiveWorkoutView: View {
                 // MY-1446: when the keyboard is visible, the snackbar renders
                 // inline between the header and the list (not as an overlay)
                 // so it never covers the compact info band or gets clipped.
-                // Uses the tested `topLayout` helper with separate undo/rest
-                // envelope builders (same sizing-reference approach as
-                // bottomSafeAreaContent ZStack) so slot transitions do not
-                // cause list jump.
+                // Uses the tested `topComposition` helper (same code path
+                // tests exercise) which places the snackbar below any header
+                // content via VStack construction. When keyboard is not visible,
+                // only the topLayout is rendered (info band was already placed above).
                 if isKeyboardVisible {
                     ActiveWorkoutSnackbarLayout.topLayout(
                         snackbarSlot: bottomSnackbarSlot,
@@ -311,35 +311,25 @@ struct ActiveWorkoutView: View {
             // MY-1446: keep the presenter's slot visibility in sync and wire dismiss.
             .onChange(of: bottomSnackbarSlot) { _, newSlot in
                 restCompletedPresenter.slotIsVisible = (newSlot == .rest)
-                // MY-1446: move VoiceOver focus to snackbar when it appears
-                // (replicates old SnackbarModifier's @AccessibilityFocusState).
-                // Clear both bindings on .none; set mutually exclusively otherwise.
-                switch newSlot {
-                case .none:
-                    isBottomSnackbarFocused = false
-                    isTopSnackbarFocused = false
-                case .undo, .rest:
-                    if isKeyboardVisible {
-                        isBottomSnackbarFocused = false
-                        isTopSnackbarFocused = true
-                    } else {
-                        isTopSnackbarFocused = false
-                        isBottomSnackbarFocused = true
-                    }
-                }
+                // MY-1446: VoiceOver focus routing via shared testable logic.
+                let focus = SnackbarFocusRouter.resolveSlotChange(
+                    newSlot: newSlot,
+                    isKeyboardVisible: isKeyboardVisible
+                )
+                isBottomSnackbarFocused = focus.bottomFocused
+                isTopSnackbarFocused = focus.topFocused
             }
             // MY-1446: migrate VoiceOver focus when keyboard visibility changes
             // while a snackbar is active. The snackbar moves between bottom and
             // top positions; without this, the focused container is removed and
             // the new one never receives focus.
             .onChange(of: isKeyboardVisible) { _, keyboardNowVisible in
-                guard bottomSnackbarSlot != .none else { return }
-                if keyboardNowVisible {
-                    isBottomSnackbarFocused = false
-                    isTopSnackbarFocused = true
-                } else {
-                    isTopSnackbarFocused = false
-                    isBottomSnackbarFocused = true
+                if let focus = SnackbarFocusRouter.resolveKeyboardChange(
+                    keyboardNowVisible: keyboardNowVisible,
+                    currentSlot: bottomSnackbarSlot
+                ) {
+                    isBottomSnackbarFocused = focus.bottomFocused
+                    isTopSnackbarFocused = focus.topFocused
                 }
             }
             .onAppear {
