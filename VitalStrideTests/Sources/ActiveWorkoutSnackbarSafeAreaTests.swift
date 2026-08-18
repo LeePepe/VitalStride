@@ -33,7 +33,8 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     func bottomSnackbarAndFABDoNotIntersect() {
         let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
             snackbarSlot: .rest,
-            snackbar: { snackbarPlaceholder },
+            undoContent: { undoPlaceholder },
+            restContent: { snackbarPlaceholder },
             fab: { fabPlaceholder }
         )
         let host = UIHostingController(rootView: layout)
@@ -75,7 +76,8 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     func bottomSnackbarWithinSafeArea() {
         let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
             snackbarSlot: .rest,
-            snackbar: { snackbarPlaceholder },
+            undoContent: { undoPlaceholder },
+            restContent: { snackbarPlaceholder },
             fab: { fabPlaceholder }
         )
         let host = UIHostingController(rootView: layout)
@@ -183,73 +185,98 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
 
     // MARK: - Test 5: No-list-jump — bottomSafeAreaContent height is constant (production content)
 
-    /// MY-1446 P0-1 regression: the production `bottomSafeAreaContent` must
-    /// reserve identical height across `.none`, `.undo`, and `.rest` slot states.
-    /// Uses per-slot content matching production behavior:
-    /// - `.none` → hidden rest timer buttons (production placeholder)
-    /// - `.undo` → undo text + button HStack
-    /// - `.rest` → rest timer with progress circle + adjust buttons
+    /// MY-1446 P0-1 regression: the production `bottomSafeAreaContent` uses a
+    /// ZStack envelope with both undo and rest content always laid out.
+    /// This test verifies the height is constant across all slot states using
+    /// real production-representative content:
+    /// - undo: single-line + multiline text variants with HStack + button
+    /// - rest: completed banner + resting progress + buttons
+    /// Tests at both default and large Dynamic Type sizes.
     @MainActor
     @Test("bottomSafeAreaContent height is constant across all slot states (no-list-jump)")
     func bottomSafeAreaContentHeightConstant() {
-        let slots: [BottomSnackbarSlot] = [.none, .undo, .rest]
-        var heights: [BottomSnackbarSlot: CGFloat] = [:]
+        let sizeCategories: [UIContentSizeCategory] = [.medium, .accessibilityExtraLarge]
 
-        for slot in slots {
-            let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
-                snackbarSlot: slot,
-                snackbar: { productionSnackbarContent(for: slot) },
-                fab: { fabPlaceholder }
+        for sizeCategory in sizeCategories {
+            let slots: [BottomSnackbarSlot] = [.none, .undo, .rest]
+            var heights: [BottomSnackbarSlot: CGFloat] = [:]
+
+            for slot in slots {
+                let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                    snackbarSlot: slot,
+                    undoContent: {
+                        productionUndoContent(
+                            multiline: true
+                        )
+                    },
+                    restContent: {
+                        productionRestContent(completed: slot == .rest)
+                    },
+                    fab: { fabPlaceholder }
+                )
+                let host = UIHostingController(rootView: layout)
+                host.overrideUserInterfaceStyle = .light
+
+                // Apply Dynamic Type size category via trait collection
+                let traits = UITraitCollection(preferredContentSizeCategory: sizeCategory)
+                host.setOverrideTraitCollection(traits, forChild: host)
+
+                let size = host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity))
+                heights[slot] = size.height
+            }
+
+            let tolerance: CGFloat = 1
+            let noneHeight = heights[.none]!
+            let undoHeight = heights[.undo]!
+            let restHeight = heights[.rest]!
+
+            #expect(
+                abs(noneHeight - undoHeight) <= tolerance,
+                "[\(sizeCategory.rawValue)] Height shifted by \(abs(noneHeight - undoHeight))pt between .none (\(noneHeight)) and .undo (\(undoHeight)); must be within \(tolerance)pt"
             )
-            let host = UIHostingController(rootView: layout)
-            let size = host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity))
-            heights[slot] = size.height
+            #expect(
+                abs(noneHeight - restHeight) <= tolerance,
+                "[\(sizeCategory.rawValue)] Height shifted by \(abs(noneHeight - restHeight))pt between .none (\(noneHeight)) and .rest (\(restHeight)); must be within \(tolerance)pt"
+            )
+            #expect(
+                abs(undoHeight - restHeight) <= tolerance,
+                "[\(sizeCategory.rawValue)] Height shifted by \(abs(undoHeight - restHeight))pt between .undo (\(undoHeight)) and .rest (\(restHeight)); must be within \(tolerance)pt"
+            )
         }
-
-        let tolerance: CGFloat = 1
-        let noneHeight = heights[.none]!
-        let undoHeight = heights[.undo]!
-        let restHeight = heights[.rest]!
-
-        #expect(
-            abs(noneHeight - undoHeight) <= tolerance,
-            "Height shifted by \(abs(noneHeight - undoHeight))pt between .none (\(noneHeight)) and .undo (\(undoHeight)); must be within \(tolerance)pt"
-        )
-        #expect(
-            abs(noneHeight - restHeight) <= tolerance,
-            "Height shifted by \(abs(noneHeight - restHeight))pt between .none (\(noneHeight)) and .rest (\(restHeight)); must be within \(tolerance)pt"
-        )
-        #expect(
-            abs(undoHeight - restHeight) <= tolerance,
-            "Height shifted by \(abs(undoHeight - restHeight))pt between .undo (\(undoHeight)) and .rest (\(restHeight)); must be within \(tolerance)pt"
-        )
     }
 
     // MARK: - Helpers
 
-    /// Per-slot content matching production `bottomSnackbarContent` in ActiveWorkoutView.
+    /// Production-representative undo content. Always renders the full HStack
+    /// structure regardless of pending state (mirrors `undoSnackbarEnvelope`).
+    /// When `multiline` is true, uses a longer message that wraps at narrow
+    /// widths / large Dynamic Type — the worst case for height stability.
     @MainActor
     @ViewBuilder
-    private func productionSnackbarContent(for slot: BottomSnackbarSlot) -> some View {
-        switch slot {
-        case .none:
-            // Production uses hidden restTimerButtons as placeholder
-            ActiveWorkoutSnackbarLayout.restTimerButtons(skipTitle: "跳过")
-                .hidden()
-        case .undo:
-            // Production renders undo text + button (approximate same height)
-            HStack(spacing: 8) {
-                Text("Deleted set 1")
-                    .font(.body)
-                Spacer()
-                Button("Undo") {}
-                    .font(.body.weight(.semibold))
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityIdentifier("snackbar_content")
-        case .rest:
-            // Production renders progress circle + restTimerButtons
+    private func productionUndoContent(multiline: Bool = false) -> some View {
+        let message = multiline
+            ? "Deleted Warmup sub-set of set 10"
+            : "Deleted set 1"
+        HStack(spacing: 8) {
+            Text(message)
+                .font(.body)
+            Spacer()
+            Button("Undo") {}
+                .font(.body.weight(.semibold))
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+    }
+
+    /// Production-representative rest content. Uses a ZStack with hidden sizing
+    /// reference (mirrors `restSnackbarEnvelope`). When `completed` is true,
+    /// shows the shorter completed banner; the sizing reference ensures height
+    /// stays stable regardless.
+    @MainActor
+    @ViewBuilder
+    private func productionRestContent(completed: Bool = false) -> some View {
+        ZStack(alignment: .leading) {
+            // Hidden sizing reference: progress circle + buttons
             HStack {
                 Circle()
                     .stroke(Color.gray, lineWidth: 3)
@@ -257,14 +284,36 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
                 Spacer()
                 ActiveWorkoutSnackbarLayout.restTimerButtons(skipTitle: "跳过")
             }
-            .accessibilityIdentifier("snackbar_content")
+            .hidden()
+
+            // Active content
+            if completed {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                    Text("休息结束")
+                    Spacer()
+                }
+            } else {
+                HStack {
+                    Circle()
+                        .stroke(Color.gray, lineWidth: 3)
+                        .frame(width: 32, height: 32)
+                    Spacer()
+                    ActiveWorkoutSnackbarLayout.restTimerButtons(skipTitle: "跳过")
+                }
+            }
         }
+    }
+
+    /// Placeholder for the undo variant in tests that don't exercise undo content.
+    @MainActor
+    private var undoPlaceholder: some View {
+        productionUndoContent(multiline: false)
     }
 
     @MainActor
     private var snackbarPlaceholder: some View {
-        Color.blue.opacity(0.3)
-            .frame(height: 68)
+        productionRestContent(completed: false)
             .accessibilityIdentifier("snackbar_content")
     }
 

@@ -127,7 +127,8 @@ struct ActiveWorkoutView: View {
                 if !isKeyboardVisible {
                     ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
                         snackbarSlot: bottomSnackbarSlot,
-                        snackbar: { bottomSnackbarContent },
+                        undoContent: { undoSnackbarEnvelope },
+                        restContent: { restSnackbarEnvelope },
                         fab: {
                             HStack {
                                 Spacer()
@@ -678,13 +679,75 @@ struct ActiveWorkoutView: View {
         case .rest:
             restSnackbarContent
         case .none:
-            // MY-1446: placeholder for the always-reserved snackbar area.
-            // Uses the same rest timer buttons layout so the intrinsic height
-            // matches the active states, preventing any layout shift.
-            ActiveWorkoutSnackbarLayout.restTimerButtons(
-                skipTitle: String(localized: "跳过", comment: "Skip rest button visible title")
-            )
-            .hidden()
+            EmptyView()
+        }
+    }
+
+    // MARK: - Envelope content for ZStack-based stable height (MY-1446 P0-1)
+
+    /// Always renders the undo layout structure regardless of whether an undo
+    /// is pending. When no undo exists, a placeholder with the same typography
+    /// and structure fills the layout so the ZStack height stays stable.
+    /// The ZStack parent controls opacity/hitTesting per slot.
+    @ViewBuilder
+    private var undoSnackbarEnvelope: some View {
+        HStack(spacing: Space.gap) {
+            Text(undoController.pending?.message ?? String(
+                localized: "active_workout.set_delete.undo_message_placeholder",
+                defaultValue: "Deleted set",
+                comment: "Invisible placeholder to size the undo snackbar envelope (MY-1446)"
+            ))
+                .font(TypeScale.body)
+                .foregroundStyle(theme.neutrals.text1)
+            Spacer()
+            Button {
+                undoController.undo(using: modelContext)
+            } label: {
+                Text(String(
+                    localized: "active_workout.set_delete.undo_action",
+                    defaultValue: "Undo",
+                    comment: "Undo a set deletion snackbar action"
+                ))
+                    .font(TypeScale.body.weight(.semibold))
+                    .foregroundStyle(theme.primary.primary)
+                    .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(
+                localized: "active_workout.set_delete.undo_action_a11y",
+                defaultValue: "Undo deletion",
+                comment: "Undo set deletion a11y label"
+            ))
+        }
+    }
+
+    /// Always renders the rest layout structure regardless of rest timer state.
+    /// Uses a ZStack internally with a hidden sizing reference (progress circle
+    /// + adjust buttons) so the completed banner variant doesn't shrink the
+    /// envelope height. The ZStack parent controls opacity/hitTesting per slot.
+    @ViewBuilder
+    private var restSnackbarEnvelope: some View {
+        ZStack(alignment: .leading) {
+            // Hidden sizing reference: always present, guarantees the envelope
+            // height matches the tallest rest variant (progress + buttons).
+            restSizingReference
+                .hidden()
+
+            // Active rest content (same as topLayout path)
+            restSnackbarContent
+        }
+    }
+
+    /// Hidden sizing reference for the rest snackbar — matches the tallest
+    /// rest variant (progress circle + adjust buttons).
+    private var restSizingReference: some View {
+        HStack {
+            Circle()
+                .stroke(Color.clear, lineWidth: 3)
+                .frame(width: 32, height: 32)
+            Spacer()
+            restAdjustButtons
         }
     }
 

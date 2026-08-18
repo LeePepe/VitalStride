@@ -23,34 +23,42 @@ enum ActiveWorkoutSnackbarLayout {
     /// Uses a VStack to guarantee the FAB and snackbar never overlap by
     /// construction: FAB is above, snackbar is below.
     ///
-    /// MY-1446 P0-1 (no-list-jump): The snackbar area is ALWAYS rendered
-    /// regardless of slot state. When `.none`, the area is invisible and
-    /// non-interactive but still contributes its intrinsic height to the safe
-    /// area inset. This guarantees the reserved height is constant across all
-    /// slot transitions, preserving the MY-1421 no-list-jump invariant.
+    /// MY-1446 P0-1 (no-list-jump): Both undo and rest content are ALWAYS
+    /// laid out in a ZStack. Only the active variant has opacity and hit
+    /// testing; the inactive variant is invisible but still contributes its
+    /// intrinsic height. The ZStack height = max(undo, rest), which is
+    /// constant across `.none`, `.undo`, and `.rest` slot transitions. This
+    /// guarantees the reserved safe-area inset never changes, preserving the
+    /// MY-1421 no-list-jump invariant without any magic-number clearance.
     @ViewBuilder
     @MainActor
-    static func bottomSafeAreaContent<Snackbar: View, FAB: View>(
+    static func bottomSafeAreaContent<UndoContent: View, RestContent: View, FAB: View>(
         snackbarSlot: BottomSnackbarSlot,
-        @ViewBuilder snackbar: () -> Snackbar,
+        @ViewBuilder undoContent: () -> UndoContent,
+        @ViewBuilder restContent: () -> RestContent,
         @ViewBuilder fab: () -> FAB
     ) -> some View {
         VStack(spacing: 0) {
             fab()
-            snackbar()
-                .padding(.horizontal, Space.cardPadding)
-                .padding(.vertical, Space.gap)
-                .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
-                .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(
-                    color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
-                    radius: 8, y: 4
-                )
-                .padding(.horizontal, Space.cardPadding)
-                .padding(.bottom, Space.cardPadding)
-                .opacity(snackbarSlot != .none ? 1 : 0)
-                .allowsHitTesting(snackbarSlot != .none)
+            ZStack(alignment: .leading) {
+                undoContent()
+                    .opacity(snackbarSlot == .undo ? 1 : 0)
+                    .allowsHitTesting(snackbarSlot == .undo)
+                restContent()
+                    .opacity(snackbarSlot == .rest ? 1 : 0)
+                    .allowsHitTesting(snackbarSlot == .rest)
+            }
+            .padding(.horizontal, Space.cardPadding)
+            .padding(.vertical, Space.gap)
+            .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+            .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .shadow(
+                color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
+                radius: 8, y: 4
+            )
+            .padding(.horizontal, Space.cardPadding)
+            .padding(.bottom, Space.cardPadding)
         }
     }
 
