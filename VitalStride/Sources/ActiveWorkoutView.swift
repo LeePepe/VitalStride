@@ -99,50 +99,59 @@ struct ActiveWorkoutView: View {
                 } else {
                     compactInfoBand
                 }
+                // MY-1446: when the keyboard is visible, the snackbar renders
+                // inline between the header and the list (not as an overlay)
+                // so it never covers the compact info band or gets clipped.
+                if isKeyboardVisible && bottomSnackbarSlot != .none {
+                    bottomSnackbarContent
+                        .padding(.horizontal, Space.cardPadding)
+                        .padding(.vertical, Space.gap)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(snackbarCardBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .shadow(color: .black.opacity(0.15), radius: 8, y: -4)
+                        .padding(.horizontal, Space.cardPadding)
+                        .padding(.vertical, Space.inline)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
                 exerciseList
             }
-            // MY-1420: one bottom snackbar, arbitrated between undo and rest.
-            // Undo wins while it is pending — it is the only one with a
-            // deadline the user can't recover from — and the rest timer is
-            // paused, not cancelled, so it returns with its true remaining
-            // time once the undo window closes. Both go through the shared
-            // `.snackbar` so a second bottom-overlay visual language is never
-            // introduced.
-            // MY-1421: snackbar switches to top edge while keyboard is
-            // visible so it never overlaps the numeric keyboard and remains
-            // fully visible. Animated with the existing 0.2s ease-in-out.
-            .snackbar(
-                isPresented: bottomSnackbarPresented,
-                edge: ActiveWorkoutSnackbarLayout.resolveEdge(isKeyboardVisible: isKeyboardVisible),
-                mode: bottomSnackbarMode
-            ) {
-                bottomSnackbarContent
-            }
-            // MY-1245: place the FAB via `safeAreaInset` instead of a
-            // bottom-trailing ZStack overlay. `safeAreaInset` both **reserves
-            // bottom scroll content inset** equal to the FAB footprint (so the
-            // last set row's `⋯` menu and completion ring are never obscured)
-            // and positions the button in the trailing corner. Hides the FAB
-            // when the custom numeric keyboard is on screen so it can't cover
-            // any input row or row-inline control (Acceptance criterion #3).
-            //
-            // MY-1421: FAB uses `.offset(y:)` for visual clearance above the
-            // snackbar instead of `.padding(.bottom:)`. Offset does NOT change
-            // the safeAreaInset's measured height, so the workout list never
-            // shifts when the snackbar appears or disappears.
-            .safeAreaInset(edge: .bottom, alignment: .trailing, spacing: 0) {
+            // MY-1446: unified bottom safe area — FAB above, snackbar below.
+            // Uses VStack so non-overlap is guaranteed by construction. The
+            // snackbar is fully within the safe area (never clipped by the
+            // screen edge). Replaces the old overlay-based `.snackbar()`
+            // modifier + offset workaround that caused touch-blocking and
+            // top-edge overlap. The list's scroll inset adjusts smoothly via
+            // animation when the snackbar appears/disappears.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 if !isKeyboardVisible {
-                    ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
-                        addExerciseButton
+                    VStack(spacing: 0) {
+                        // FAB: trailing-aligned, constant height
+                        HStack {
+                            Spacer()
+                            ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
+                                addExerciseButton
+                            }
+                        }
+                        // Snackbar: full-width, below FAB
+                        if bottomSnackbarSlot != .none {
+                            bottomSnackbarContent
+                                .padding(.horizontal, Space.cardPadding)
+                                .padding(.vertical, Space.gap)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(snackbarCardBackground)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+                                .padding(.horizontal, Space.cardPadding)
+                                .padding(.bottom, Space.cardPadding)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
                     }
-                    .animation(
-                        .easeInOut(duration: 0.2),
-                        value: bottomSnackbarSlot != .none
-                    )
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: isKeyboardVisible)
+            .animation(.easeInOut(duration: 0.2), value: bottomSnackbarSlot)
             .navigationTitle(String(localized: "训练中", comment: "Active workout navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -286,6 +295,15 @@ struct ActiveWorkoutView: View {
                 if newPhase == .completed {
                     HapticManager.trigger(.restCompleted)
                 }
+            }
+            // MY-1446: auto-dismiss the "rest completed" snackbar after 2s.
+            // Previously handled by SnackbarMode.autoDismiss; now managed
+            // directly since the overlay modifier was removed.
+            .task(id: restTimer.phase) {
+                guard restTimer.phase == .completed else { return }
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                restTimer.dismissCompleted()
             }
             // MY-1420: the deleted row took VoiceOver focus with it, and the
             // undo snackbar is deliberately non-modal (it must not block the
@@ -637,34 +655,15 @@ struct ActiveWorkoutView: View {
         undoController.slot(restPhase: restTimer.phase)
     }
 
-    private var bottomSnackbarPresented: Binding<Bool> {
-        Binding(
-            get: { bottomSnackbarSlot != .none },
-            set: { newValue in
-                guard !newValue else { return }
-                // Dismissal applies to whichever snackbar is actually on
-                // screen; dismissing the undo must not skip the rest timer
-                // hiding behind it.
-                switch bottomSnackbarSlot {
-                case .undo: undoController.clear()
-                case .rest: dismissRestSnackbar()
-                case .none: break
-                }
-            }
-        )
-    }
-
-    /// Undo runs `.persistent` here: its 5s countdown belongs to
-    /// `SetDeletionUndoController` so a replacing delete restarts the full
-    /// window. `.autoDismiss` only re-arms when `isPresented`/`mode` flips,
-    /// neither of which changes when one pending delete supplants another —
-    /// the second undo would inherit the first's leftover time.
-    private var bottomSnackbarMode: SnackbarMode {
-        switch bottomSnackbarSlot {
-        case .undo: .persistent
-        case .rest: restTimer.phase == .completed ? .autoDismiss(duration: 2) : .persistent
-        case .none: .persistent
-        }
+    /// MY-1446: the visual background for snackbar cards. Matches the
+    /// SnackbarModifier's `.bar` material styling.
+    @ViewBuilder
+    private var snackbarCardBackground: some View {
+        #if os(watchOS)
+        Color.gray.opacity(0.25)
+        #else
+        Color.clear.background(.bar)
+        #endif
     }
 
     @ViewBuilder
