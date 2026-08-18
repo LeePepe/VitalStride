@@ -33,14 +33,33 @@ enum ActiveWorkoutSnackbarLayout {
         @ViewBuilder restContent: () -> RestContent
     ) -> some View {
         ZStack(alignment: .leading) {
-            undoContent()
-                .opacity(snackbarSlot == .undo ? 1 : 0)
-                .allowsHitTesting(snackbarSlot == .undo)
-                .accessibilityHidden(snackbarSlot != .undo)
-            restContent()
-                .opacity(snackbarSlot == .rest ? 1 : 0)
-                .allowsHitTesting(snackbarSlot == .rest)
-                .accessibilityHidden(snackbarSlot != .rest)
+            slotBranch(isActive: snackbarSlot == .undo, content: undoContent())
+            slotBranch(isActive: snackbarSlot == .rest, content: restContent())
+        }
+    }
+
+    /// Keeps an inactive branch in layout for the constant-height contract,
+    /// while removing its descendants from the semantic tree. On iOS 26,
+    /// `accessibilityHidden(true)` alone does not suppress descendants of an
+    /// always-mounted transparent ZStack branch; `.ignore` plus an empty label
+    /// prevents those stale child labels from being announced or queried.
+    @ViewBuilder
+    @MainActor
+    private static func slotBranch<Content: View>(
+        isActive: Bool,
+        content: Content
+    ) -> some View {
+        if isActive {
+            content
+                .opacity(1)
+                .allowsHitTesting(true)
+        } else {
+            content
+                .opacity(0)
+                .allowsHitTesting(false)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(verbatim: ""))
+                .accessibilityHidden(true)
         }
     }
 
