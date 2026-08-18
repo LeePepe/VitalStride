@@ -17,66 +17,17 @@ enum ActiveWorkoutSnackbarLayout {
         isKeyboardVisible ? .top : .bottom
     }
 
-    // MARK: - Bottom safe-area content (MY-1446)
+    // MARK: - Shared slot envelope (MY-1446)
 
-    /// Renders the combined bottom layout for the `safeAreaInset(edge: .bottom)`.
-    /// Uses a VStack to guarantee the FAB and snackbar never overlap by
-    /// construction: FAB is above, snackbar is below.
-    ///
-    /// MY-1446 P0-1 (no-list-jump): Both undo and rest content are ALWAYS
-    /// laid out in a ZStack. Only the active variant has opacity and hit
-    /// testing; the inactive variant is invisible but still contributes its
-    /// intrinsic height. The ZStack height = max(undo, rest), which is
-    /// constant across `.none`, `.undo`, and `.rest` slot transitions. This
-    /// guarantees the reserved safe-area inset never changes, preserving the
-    /// MY-1421 no-list-jump invariant without any magic-number clearance.
+    /// Shared constant-height envelope used by both bottom and top snackbar
+    /// layouts. Both undo and rest content are ALWAYS laid out in a ZStack.
+    /// Only the active variant has opacity and hit testing; the inactive variant
+    /// is invisible but still contributes its intrinsic height. The ZStack
+    /// height = max(undo, rest), constant across `.none`/`.undo`/`.rest`
+    /// transitions — preserving the MY-1421 no-list-jump invariant.
     @ViewBuilder
     @MainActor
-    static func bottomSafeAreaContent<UndoContent: View, RestContent: View, FAB: View>(
-        snackbarSlot: BottomSnackbarSlot,
-        @ViewBuilder undoContent: () -> UndoContent,
-        @ViewBuilder restContent: () -> RestContent,
-        @ViewBuilder fab: () -> FAB
-    ) -> some View {
-        VStack(spacing: 0) {
-            fab()
-            ZStack(alignment: .leading) {
-                undoContent()
-                    .opacity(snackbarSlot == .undo ? 1 : 0)
-                    .allowsHitTesting(snackbarSlot == .undo)
-                    .accessibilityHidden(snackbarSlot != .undo)
-                restContent()
-                    .opacity(snackbarSlot == .rest ? 1 : 0)
-                    .allowsHitTesting(snackbarSlot == .rest)
-                    .accessibilityHidden(snackbarSlot != .rest)
-            }
-            .padding(.horizontal, Space.cardPadding)
-            .padding(.vertical, Space.gap)
-            .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
-            .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .shadow(
-                color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
-                radius: 8, y: 4
-            )
-            .padding(.horizontal, Space.cardPadding)
-            .padding(.bottom, Space.cardPadding)
-        }
-    }
-
-    // MARK: - Top layout (MY-1446)
-
-    /// Renders the top snackbar with constant-height envelope. Both undo and
-    /// rest content are ALWAYS laid out in a ZStack (opacity/hit-testing toggled
-    /// per slot), so the height does not change when the slot transitions between
-    /// `.none`, `.undo`, and `.rest` — preserving the MY-1421 no-list-jump
-    /// invariant for the keyboard path.
-    ///
-    /// Used when the keyboard is visible and the snackbar must render inline
-    /// below the compact info band without covering it or causing list jump.
-    @ViewBuilder
-    @MainActor
-    static func topLayout<UndoContent: View, RestContent: View>(
+    static func slotEnvelope<UndoContent: View, RestContent: View>(
         snackbarSlot: BottomSnackbarSlot,
         @ViewBuilder undoContent: () -> UndoContent,
         @ViewBuilder restContent: () -> RestContent
@@ -91,17 +42,67 @@ enum ActiveWorkoutSnackbarLayout {
                 .allowsHitTesting(snackbarSlot == .rest)
                 .accessibilityHidden(snackbarSlot != .rest)
         }
-        .padding(.horizontal, Space.cardPadding)
-        .padding(.vertical, Space.gap)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(
-            color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
-            radius: 8, y: -4
-        )
-        .padding(.horizontal, Space.cardPadding)
-        .padding(.top, Space.inline)
+    }
+
+    // MARK: - Bottom safe-area content (MY-1446)
+
+    /// Renders the combined bottom layout for the `safeAreaInset(edge: .bottom)`.
+    /// Uses a VStack to guarantee the FAB and snackbar never overlap by
+    /// construction: FAB is above, snackbar is below.
+    ///
+    /// MY-1446 P0-1 (no-list-jump): delegates to `slotEnvelope` for the
+    /// constant-height ZStack contract.
+    @ViewBuilder
+    @MainActor
+    static func bottomSafeAreaContent<UndoContent: View, RestContent: View, FAB: View>(
+        snackbarSlot: BottomSnackbarSlot,
+        @ViewBuilder undoContent: () -> UndoContent,
+        @ViewBuilder restContent: () -> RestContent,
+        @ViewBuilder fab: () -> FAB
+    ) -> some View {
+        VStack(spacing: 0) {
+            fab()
+            slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
+                .padding(.horizontal, Space.cardPadding)
+                .padding(.vertical, Space.gap)
+                .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(
+                    color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
+                    radius: 8, y: 4
+                )
+                .padding(.horizontal, Space.cardPadding)
+                .padding(.bottom, Space.cardPadding)
+        }
+    }
+
+    // MARK: - Top layout (MY-1446)
+
+    /// Renders the top snackbar with constant-height envelope. Delegates to
+    /// `slotEnvelope` so undo/rest height is constant across slot transitions.
+    ///
+    /// Used when the keyboard is visible and the snackbar must render inline
+    /// below the compact info band without covering it or causing list jump.
+    @ViewBuilder
+    @MainActor
+    static func topLayout<UndoContent: View, RestContent: View>(
+        snackbarSlot: BottomSnackbarSlot,
+        @ViewBuilder undoContent: () -> UndoContent,
+        @ViewBuilder restContent: () -> RestContent
+    ) -> some View {
+        slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
+            .padding(.horizontal, Space.cardPadding)
+            .padding(.vertical, Space.gap)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .shadow(
+                color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
+                radius: 8, y: -4
+            )
+            .padding(.horizontal, Space.cardPadding)
+            .padding(.top, Space.inline)
     }
 
 
@@ -158,6 +159,44 @@ enum ActiveWorkoutSnackbarLayout {
                     .accessibilityLabel(undoAccessibilityLabel)
                 }
             }
+        }
+    }
+
+    // MARK: - Rest envelope (MY-1446, testable)
+
+    /// Renders the rest snackbar envelope with a ZStack-based stable-height
+    /// contract. A hidden sizing reference (progress circle + buttons) is
+    /// always laid out, guaranteeing the envelope height matches the tallest
+    /// variant regardless of whether "completed" or "resting" is displayed.
+    ///
+    /// Production `ActiveWorkoutView.restSnackbarEnvelope` delegates here so
+    /// tests exercise the actual delivered code path.
+    @ViewBuilder
+    @MainActor
+    static func restEnvelope<Content: View>(
+        skipTitle: String,
+        neutralBackground: Color = Color.gray.opacity(0.15),
+        skipBackground: Color = Color.blue.opacity(0.15),
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        ZStack(alignment: .leading) {
+            // Hidden sizing reference: always present, guarantees the envelope
+            // height matches the tallest rest variant (progress circle + buttons).
+            HStack {
+                Circle()
+                    .stroke(Color.clear, lineWidth: 3)
+                    .frame(width: 32, height: 32)
+                Spacer()
+                restTimerButtons(
+                    skipTitle: skipTitle,
+                    neutralBackground: neutralBackground,
+                    skipBackground: skipBackground
+                )
+            }
+            .hidden()
+
+            // Active rest content
+            content()
         }
     }
 

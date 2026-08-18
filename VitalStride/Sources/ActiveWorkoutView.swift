@@ -313,10 +313,17 @@ struct ActiveWorkoutView: View {
                 restCompletedPresenter.slotIsVisible = (newSlot == .rest)
                 // MY-1446: move VoiceOver focus to snackbar when it appears
                 // (replicates old SnackbarModifier's @AccessibilityFocusState).
-                if newSlot != .none {
+                // Clear both bindings on .none; set mutually exclusively otherwise.
+                switch newSlot {
+                case .none:
+                    isBottomSnackbarFocused = false
+                    isTopSnackbarFocused = false
+                case .undo, .rest:
                     if isKeyboardVisible {
+                        isBottomSnackbarFocused = false
                         isTopSnackbarFocused = true
                     } else {
+                        isTopSnackbarFocused = false
                         isBottomSnackbarFocused = true
                     }
                 }
@@ -746,31 +753,17 @@ struct ActiveWorkoutView: View {
     }
 
     /// Always renders the rest layout structure regardless of rest timer state.
-    /// Uses a ZStack internally with a hidden sizing reference (progress circle
-    /// + adjust buttons) so the completed banner variant doesn't shrink the
-    /// envelope height. The ZStack parent controls opacity/hitTesting per slot.
+    /// Delegates to `ActiveWorkoutSnackbarLayout.restEnvelope` (the production
+    /// helper exercised by tests) so the hidden sizing reference guarantees
+    /// stable height across completed/resting variants.
     @ViewBuilder
     private var restSnackbarEnvelope: some View {
-        ZStack(alignment: .leading) {
-            // Hidden sizing reference: always present, guarantees the envelope
-            // height matches the tallest rest variant (progress + buttons).
-            restSizingReference
-                .hidden()
-
-            // Active rest content (same as topLayout path)
+        ActiveWorkoutSnackbarLayout.restEnvelope(
+            skipTitle: String(localized: "跳过", comment: "Skip rest button visible title"),
+            neutralBackground: theme.neutrals.inner,
+            skipBackground: theme.primary.primary.opacity(0.15)
+        ) {
             restSnackbarContent
-        }
-    }
-
-    /// Hidden sizing reference for the rest snackbar — matches the tallest
-    /// rest variant (progress circle + adjust buttons).
-    private var restSizingReference: some View {
-        HStack {
-            Circle()
-                .stroke(Color.clear, lineWidth: 3)
-                .frame(width: 32, height: 32)
-            Spacer()
-            restAdjustButtons
         }
     }
 
