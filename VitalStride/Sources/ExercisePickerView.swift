@@ -381,18 +381,18 @@ struct ExercisePickerView: View {
         }
         // MY-1445: the `.animation` modifier is placed BEFORE `.frame` so
         // that opacity transitions inside the ZStack are animated, but the
-        // frame width change (44pt ↔ .infinity) is applied instantaneously.
-        // This prevents the accessibility system from seeing a stale
-        // zero-width frame during a SwiftUI animation transaction, which
-        // would make the TextField un-hittable to XCUITest.
+        // frame width change (44pt ↔ .infinity) bypasses animation. Without
+        // this ordering, the frame might animate through intermediate widths
+        // where the accessibility hit target is too narrow for XCUITest taps.
         .animation(.easeOut(duration: 0.22), value: isSearchExpanded)
         // MY-1445: constrain the ZStack width in collapsed state so the
         // hidden expanded surface (which uses `maxWidth: .infinity`) does
         // not force the ZStack to full panel width. In expanded state
         // `.infinity` lets the search field fill the available width.
-        // The parent VStack's `.trailing` alignment positions this narrower
-        // frame flush to the trailing edge; the frame alignment here governs
-        // child placement within the ZStack bounds.
+        // Positioning: the parent VStack(alignment: .trailing) places this
+        // constrained ZStack at the trailing edge of the panel. The frame's
+        // alignment parameter governs where children inside the ZStack are
+        // positioned within its (now 44pt) bounds.
         .frame(
             maxWidth: isSearchExpanded ? .infinity : Self.collapsedSearchMaxWidth,
             alignment: Alignment(

@@ -11,160 +11,173 @@ import UIKit
 /// exactly `collapsedSearchDiameter` (44pt) wide and trailing-aligned with
 /// the panel content edge.
 ///
-/// Uses `UIHostingController.sizeThatFits(in:)` to measure actual rendered
-/// layout geometry after the hosting controller performs a full layout pass.
-/// The probe views mirror the production searchSurface ZStack pattern.
+/// These tests use `UIHostingController` to perform a real layout pass and
+/// measure actual rendered geometry via a `GeometryReader` preference key.
+/// The "Unfixed" probes reproduce the pre-fix layout (no maxWidth constraint)
+/// to demonstrate the RED failure; the "Fixed" probes use the production
+/// `.frame(maxWidth:)` pattern to demonstrate GREEN.
 @Suite("ExercisePicker collapsed search layout (MY-1445)")
 struct ExercisePickerSearchLayoutTests {
 
-    // MARK: - Behavior tests: rendered geometry via UIHostingController
-
     #if canImport(UIKit)
 
-    /// GREEN: With the production fix (`.frame(maxWidth: 44)` in collapsed
-    /// state), the ZStack's fitting width must be ≈ 44pt — not the full
-    /// container width.
-    @Test("GREEN: Collapsed search ZStack fitting width ≈ 44pt (with fix)")
+    // MARK: - RED: unfixed layout claims full container width
+
+    /// RED evidence: without the production fix, the ZStack containing both
+    /// search surfaces claims full container width because the hidden expanded
+    /// surface uses `.frame(maxWidth: .infinity)`. The 44pt assertion FAILS.
+    @Test("RED: Unfixed collapsed ZStack width is full container (bug proof)")
     @MainActor
-    func collapsedSearchFittingWidth_withFix_is44pt() {
-        let containerWidth: CGFloat = 393 // iPhone 16 width
-        let panelInset = ExercisePickerView.panelHorizontalInset
-        let availableWidth = containerWidth - panelInset * 2
-
-        // Mirror production: ZStack with both surfaces + frame(maxWidth: 44)
-        let probeView = FixedSearchSurfaceProbe(isExpanded: false)
-
-        let hc = UIHostingController(rootView: probeView)
-        hc.view.frame = CGRect(x: 0, y: 0, width: availableWidth, height: 200)
-        hc.view.layoutIfNeeded()
-
-        let fittingSize = hc.sizeThatFits(in: CGSize(width: availableWidth, height: 200))
-
-        // With the fix, the ZStack requests only 44pt width
-        let expectedWidth = ExercisePickerView.collapsedSearchMaxWidth
-        #expect(
-            fittingSize.width <= expectedWidth + 1,
-            "GREEN: collapsed ZStack fitting width (\(fittingSize.width)pt) must be ≤ \(expectedWidth + 1)pt, not full container (\(availableWidth)pt)"
-        )
-        #expect(
-            fittingSize.width < availableWidth * 0.5,
-            "GREEN: collapsed ZStack must be significantly narrower than container (\(availableWidth)pt), got \(fittingSize.width)pt"
-        )
-    }
-
-    /// RED: Without the maxWidth constraint, the hidden expanded surface
-    /// (`.frame(maxWidth: .infinity)`) forces the ZStack to claim full
-    /// container width — the exact bug MY-1445 fixes.
-    @Test("RED: Without maxWidth constraint, ZStack takes full container width")
-    @MainActor
-    func unfixedLayout_zstackTakesFullWidth() {
+    func red_unfixedCollapsedWidth_isFullContainer() {
         let containerWidth: CGFloat = 393
         let panelInset = ExercisePickerView.panelHorizontalInset
         let availableWidth = containerWidth - panelInset * 2
 
-        // Mirror the UNFIXED layout: no maxWidth constraint on ZStack
-        let probeView = UnfixedSearchSurfaceProbe()
+        let frame = renderAndMeasureChildFrame(
+            probe: UnfixedSearchSurfaceProbe(),
+            containerWidth: availableWidth
+        )
 
-        let hc = UIHostingController(rootView: probeView)
-        hc.view.frame = CGRect(x: 0, y: 0, width: availableWidth, height: 200)
-        hc.view.layoutIfNeeded()
-
-        let fittingSize = hc.sizeThatFits(in: CGSize(width: availableWidth, height: 200))
-
-        // Without the fix, the ZStack takes the full proposed width
+        // The unfixed ZStack takes the full proposed width — this IS the bug.
+        // If this ever changes to < 50% width, the bug is already fixed and
+        // the RED characterization no longer holds.
         #expect(
-            fittingSize.width > availableWidth * 0.9,
-            "RED: without maxWidth constraint, ZStack width (\(fittingSize.width)pt) should be ≈ full container (\(availableWidth)pt) — this is the bug"
+            frame.width > availableWidth * 0.9,
+            "RED characterization: unfixed ZStack (\(frame.width)pt) should claim ≈ full container (\(availableWidth)pt)"
+        )
+        // The 44pt assertion would FAIL here — proving the need for the fix:
+        #expect(
+            frame.width > ExercisePickerView.collapsedSearchMaxWidth + 1,
+            "RED: unfixed width (\(frame.width)pt) must exceed the 44pt target — this proves the bug exists"
         )
     }
+
+    // MARK: - GREEN: fixed layout constrains to 44pt
+
+    /// GREEN evidence: with the production fix (`.frame(maxWidth: 44)` in
+    /// collapsed state), the rendered ZStack width is ≈ 44pt.
+    @Test("GREEN: Fixed collapsed ZStack rendered width ≈ 44pt")
+    @MainActor
+    func green_fixedCollapsedWidth_is44pt() {
+        let containerWidth: CGFloat = 393
+        let panelInset = ExercisePickerView.panelHorizontalInset
+        let availableWidth = containerWidth - panelInset * 2
+
+        let frame = renderAndMeasureChildFrame(
+            probe: FixedSearchSurfaceProbe(isExpanded: false),
+            containerWidth: availableWidth
+        )
+
+        let expectedWidth = ExercisePickerView.collapsedSearchMaxWidth
+        #expect(
+            frame.width <= expectedWidth + 1,
+            "GREEN: collapsed rendered width (\(frame.width)pt) must be ≤ \(expectedWidth + 1)pt"
+        )
+        #expect(
+            frame.width >= expectedWidth - 1,
+            "GREEN: collapsed rendered width (\(frame.width)pt) must be ≈ \(expectedWidth)pt (tolerance ±1)"
+        )
+    }
+
+    // MARK: - GREEN: trailing alignment (measured maxX)
+
+    /// GREEN evidence: the collapsed ZStack's rendered maxX must equal the
+    /// container trailing edge (within 1pt tolerance). This uses the full
+    /// production pattern: a trailing-aligned VStack containing the constrained
+    /// ZStack, rendered via UIHostingController, with the child's actual frame
+    /// captured through a GeometryReader overlay.
+    @Test("GREEN: Collapsed ZStack maxX aligns to container trailing edge (measured)")
+    @MainActor
+    func green_collapsedMaxX_alignsToTrailingEdge() {
+        let containerWidth: CGFloat = 393
+        let panelInset = ExercisePickerView.panelHorizontalInset
+        let availableWidth = containerWidth - panelInset * 2
+
+        let frame = renderAndMeasureChildFrame(
+            probe: TrailingAlignedSearchProbe(containerWidth: availableWidth),
+            containerWidth: availableWidth
+        )
+
+        // The child's maxX (origin.x + width) must equal the container width
+        // (= trailing edge in the coordinate space of the hosting view).
+        let measuredMaxX = frame.origin.x + frame.width
+        #expect(
+            abs(measuredMaxX - availableWidth) <= 1,
+            "GREEN: measured maxX (\(measuredMaxX)pt) must equal container trailing edge (\(availableWidth)pt) ±1pt"
+        )
+        // Also verify the child width is 44pt (not full-width)
+        #expect(
+            frame.width <= ExercisePickerView.collapsedSearchMaxWidth + 1,
+            "GREEN: trailing-aligned child width (\(frame.width)pt) must be ≈ 44pt"
+        )
+    }
+
+    // MARK: - GREEN: expanded state fills container
 
     /// GREEN: In expanded state, the ZStack fills the container width.
     @Test("GREEN: Expanded search ZStack fills container width")
     @MainActor
-    func expandedSearchFittingWidth_fillsContainer() {
+    func green_expandedWidth_fillsContainer() {
         let containerWidth: CGFloat = 393
         let panelInset = ExercisePickerView.panelHorizontalInset
         let availableWidth = containerWidth - panelInset * 2
 
-        let probeView = FixedSearchSurfaceProbe(isExpanded: true)
-
-        let hc = UIHostingController(rootView: probeView)
-        hc.view.frame = CGRect(x: 0, y: 0, width: availableWidth, height: 200)
-        hc.view.layoutIfNeeded()
-
-        let fittingSize = hc.sizeThatFits(in: CGSize(width: availableWidth, height: 200))
+        let frame = renderAndMeasureChildFrame(
+            probe: FixedSearchSurfaceProbe(isExpanded: true),
+            containerWidth: availableWidth
+        )
 
         #expect(
-            fittingSize.width > availableWidth * 0.9,
-            "Expanded ZStack must fill container (\(availableWidth)pt), got \(fittingSize.width)pt"
+            frame.width > availableWidth * 0.9,
+            "Expanded ZStack must fill container (\(availableWidth)pt), got \(frame.width)pt"
         )
     }
 
-    /// Verifies trailing alignment: the parent VStack takes full container
-    /// width while the collapsed ZStack is only 44pt. Combined with the
-    /// VStack's `.trailing` alignment, this geometrically proves the 44pt
-    /// pill is positioned at the trailing edge (leading = containerWidth - 44).
-    @Test("GREEN: Trailing VStack takes full width while collapsed ZStack is 44pt (trailing alignment proof)")
-    @MainActor
-    func collapsedSearchTrailingAlignment() {
-        let containerWidth: CGFloat = 393
-        let panelInset = ExercisePickerView.panelHorizontalInset
-        let availableWidth = containerWidth - panelInset * 2
+    // MARK: - Both surfaces mounted (TextField identity preservation)
 
-        // Full production pattern: trailing VStack containing the constrained ZStack
-        let probeView = TrailingAlignedSearchProbe(containerWidth: availableWidth)
-
-        let hc = UIHostingController(rootView: probeView)
-        hc.view.frame = CGRect(x: 0, y: 0, width: availableWidth, height: 200)
-        hc.view.layoutIfNeeded()
-
-        let parentFitting = hc.sizeThatFits(in: CGSize(width: availableWidth, height: 200))
-
-        // The parent VStack takes full container width (its frame is set to
-        // containerWidth). The child ZStack is constrained to 44pt.
-        // With `.trailing` alignment on the VStack, the child is positioned
-        // at x = parentWidth - childWidth = availableWidth - 44.
-        // Proof: parent width = container, child width = 44, alignment = trailing.
-        #expect(
-            parentFitting.width >= availableWidth - 1,
-            "Trailing VStack must take full container width (\(availableWidth)pt), got \(parentFitting.width)pt"
-        )
-
-        // Verify the alignment constant is .trailing (the actual production value)
-        #expect(
-            ExercisePickerView.searchSurfaceCollapsedAlignment == .trailing,
-            "Production alignment must be .trailing for trailing-edge positioning"
-        )
-
-        // Geometric proof: given parent width W, child width 44, alignment .trailing:
-        // child.origin.x = W - 44; child.maxX = W. QED.
-        let childMaxX = availableWidth
-        let childOriginX = availableWidth - ExercisePickerView.collapsedSearchMaxWidth
-        #expect(childOriginX > 0, "Child must not start at leading edge")
-        #expect(childMaxX == availableWidth, "Child maxX equals container trailing edge")
-    }
-
-    /// Both surfaces remain mounted in collapsed and expanded states
-    /// (TextField identity preservation).
+    /// Both surfaces remain mounted in collapsed and expanded states.
     @Test("Both search surfaces produce non-zero layout in both states")
     @MainActor
     func bothSurfacesProduceLayout() {
         for isExpanded in [true, false] {
-            let probeView = FixedSearchSurfaceProbe(isExpanded: isExpanded)
-            let hc = UIHostingController(rootView: probeView)
-            hc.view.frame = CGRect(x: 0, y: 0, width: 393, height: 200)
-            hc.view.layoutIfNeeded()
-
-            let fittingSize = hc.sizeThatFits(in: CGSize(width: 393, height: 200))
+            let frame = renderAndMeasureChildFrame(
+                probe: FixedSearchSurfaceProbe(isExpanded: isExpanded),
+                containerWidth: 369
+            )
             #expect(
-                fittingSize.height > 0,
+                frame.height > 0,
                 "ZStack must produce non-zero height in \(isExpanded ? "expanded" : "collapsed") state"
             )
             #expect(
-                fittingSize.width > 0,
+                frame.width > 0,
                 "ZStack must produce non-zero width in \(isExpanded ? "expanded" : "collapsed") state"
             )
         }
+    }
+
+    // MARK: - Layout measurement helper
+
+    /// Renders a probe view inside a `UIHostingController`, performs a full
+    /// layout pass, then reads the child's actual rendered frame from a
+    /// `GeometryReader` background preference that reports coordinates in the
+    /// hosting view's coordinate space.
+    @MainActor
+    private func renderAndMeasureChildFrame<V: View>(
+        probe: V,
+        containerWidth: CGFloat
+    ) -> CGRect {
+        let wrapper = FrameMeasuringWrapper(content: probe)
+        let hc = UIHostingController(rootView: wrapper)
+        hc.view.frame = CGRect(x: 0, y: 0, width: containerWidth, height: 300)
+        hc.view.setNeedsLayout()
+        hc.view.layoutIfNeeded()
+
+        // Force a second pass to ensure SwiftUI preferences have propagated
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        hc.view.setNeedsLayout()
+        hc.view.layoutIfNeeded()
+
+        return wrapper.measuredFrame
     }
 
     #endif
@@ -178,9 +191,53 @@ struct ExercisePickerSearchLayoutTests {
     }
 }
 
-// MARK: - Test Probe Views
+// MARK: - Frame Measurement Infrastructure
 
 #if canImport(UIKit)
+
+/// Preference key that captures the child's frame in the global coordinate space.
+private struct ChildFramePreferenceKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
+}
+
+/// Wraps a probe view and captures its rendered frame via a background
+/// `GeometryReader`. The measured frame is stored in a class-based reference
+/// so the test can read it after the layout pass.
+@MainActor
+private struct FrameMeasuringWrapper<Content: View>: View {
+    let content: Content
+    @State private var frame: CGRect = .zero
+
+    /// Class-based storage so the test can access the measured frame after layout.
+    private let storage = FrameStorage()
+
+    var measuredFrame: CGRect { storage.frame }
+
+    var body: some View {
+        content
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: ChildFramePreferenceKey.self,
+                        value: geo.frame(in: .global)
+                    )
+                }
+            )
+            .onPreferenceChange(ChildFramePreferenceKey.self) { newFrame in
+                storage.frame = newFrame
+            }
+    }
+}
+
+@MainActor
+private final class FrameStorage {
+    var frame: CGRect = .zero
+}
+
+// MARK: - Test Probe Views
 
 /// Mirrors the production searchSurface WITH the MY-1445 fix applied.
 /// Contains both expanded and collapsed surfaces; applies `.frame(maxWidth:)`
@@ -233,6 +290,7 @@ private struct UnfixedSearchSurfaceProbe: View {
 }
 
 /// Full trailing-aligned production layout for verifying positional alignment.
+/// Uses the same VStack(alignment: .trailing) + constrained ZStack pattern.
 private struct TrailingAlignedSearchProbe: View {
     let containerWidth: CGFloat
 

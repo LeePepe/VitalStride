@@ -316,6 +316,46 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         wait(for: [noKeyboard], timeout: UITestTimeout.uiSettle)
     }
 
+    // MARK: T7 — MY-1445 screenshot evidence (collapsed + expanded)
+
+    /// Captures iPhone 16 screenshots of both collapsed and expanded search
+    /// states as XCTest attachments. These serve as the required Quality Bar K
+    /// visual evidence for MY-1445.
+    @MainActor
+    func test_MY1445_captureSearchStateScreenshots() throws {
+        let app = launchPicker(mode: "single")
+
+        // Wait for the picker sheet to appear
+        _ = app.navigationBars.firstMatch.waitForExistence(timeout: 5.0)
+
+        // 1. Collapsed state screenshot — the search pill should be visible
+        //    as a 44pt trailing-aligned magnifier button.
+        usleep(500_000) // allow layout to settle
+        let collapsedScreenshot = XCUIScreen.main.screenshot()
+        let collapsedAttachment = XCTAttachment(screenshot: collapsedScreenshot)
+        collapsedAttachment.name = "MY-1445_collapsed_search_iPhone16"
+        collapsedAttachment.lifetime = .keepAlways
+        add(collapsedAttachment)
+
+        // 2. Expand the search field
+        let searchField = openSearchField(in: app)
+        searchField.typeText("bench")
+        usleep(500_000) // allow debounce + layout
+
+        // 3. Expanded state screenshot — the search field should span full width
+        let expandedScreenshot = XCUIScreen.main.screenshot()
+        let expandedAttachment = XCTAttachment(screenshot: expandedScreenshot)
+        expandedAttachment.name = "MY-1445_expanded_search_iPhone16"
+        expandedAttachment.lifetime = .keepAlways
+        add(expandedAttachment)
+
+        // Assert both states are functional
+        XCTAssertTrue(app.keyboards.firstMatch.exists,
+                      "Keyboard should be visible in expanded state")
+        XCTAssertTrue(searchField.hasKeyboardFocus,
+                      "Search field should have focus in expanded state")
+    }
+
     // MARK: helpers
 
     @MainActor
@@ -331,18 +371,19 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
     /// Locates the search text field within the presented picker sheet.
     /// The picker mounts a collapsed magnifier button first; tapping it
     /// expands to the full `searchRow` with the TextField. MY-1445: in
-    /// collapsed state the expanded surface is constrained to 44pt width
-    /// (its TextField may exist in the accessibility tree but with a
-    /// zero-width frame and thus not hittable), so we check `isHittable`
-    /// rather than just `exists` to decide whether expansion is needed.
+    /// collapsed state the ZStack is constrained to 44pt and the expanded
+    /// TextField surface has hit-testing disabled (opacity 0 +
+    /// allowsHitTesting(false)), so it may not be hittable. We check
+    /// `isHittable` rather than just `exists` to decide whether the
+    /// magnifier button tap is needed to expand.
     @MainActor
     private func openSearchField(in app: XCUIApplication) -> XCUIElement {
         // Wait for the picker sheet to appear (navigation title present).
         _ = app.navigationBars.firstMatch.waitForExistence(timeout: 5.0)
 
         // Try the expanded field directly first — must both exist AND be
-        // hittable (non-zero frame). MY-1445: the TextField is always
-        // mounted but has a zero-width frame when collapsed.
+        // hittable. MY-1445: the TextField is always mounted but is not
+        // hittable when collapsed (hit-testing disabled + opacity 0).
         var field = app.textFields.firstMatch
         let fieldReady = field.waitForExistence(timeout: 1.0) && field.isHittable
         if !fieldReady {
