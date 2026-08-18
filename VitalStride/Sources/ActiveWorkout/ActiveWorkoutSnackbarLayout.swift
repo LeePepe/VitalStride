@@ -66,46 +66,37 @@ enum ActiveWorkoutSnackbarLayout {
 
     // MARK: - Top layout (MY-1446)
 
-    /// Renders the info band + top snackbar stacked vertically. The snackbar
-    /// appears BELOW the info band, guaranteeing non-overlap by construction.
-    /// Used when the keyboard is visible and the snackbar must be at the top
-    /// edge without covering the persistent info band.
+    /// Renders the top snackbar with constant-height envelope. The snackbar
+    /// area is ALWAYS laid out (opacity/hit-testing toggled) so the VStack
+    /// height does not change when the slot transitions between `.none`,
+    /// `.undo`, and `.rest` — preserving the MY-1421 no-list-jump invariant
+    /// for the keyboard path.
+    ///
+    /// Used when the keyboard is visible and the snackbar must render inline
+    /// below the compact info band without covering it or causing list jump.
     @ViewBuilder
     @MainActor
-    static func topLayout<InfoBand: View, Snackbar: View>(
+    static func topLayout<Snackbar: View>(
         snackbarSlot: BottomSnackbarSlot,
-        @ViewBuilder infoBand: () -> InfoBand,
         @ViewBuilder snackbar: () -> Snackbar
     ) -> some View {
-        VStack(spacing: 0) {
-            infoBand()
-            if snackbarSlot != .none {
-                snackbar()
-                    .padding(.horizontal, Space.cardPadding)
-                    .padding(.vertical, Space.gap)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(snackbarCardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(color: .black.opacity(0.15), radius: 8, y: -4)
-                    .padding(.horizontal, Space.cardPadding)
-                    .padding(.top, Space.inline)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-        }
+        snackbar()
+            .padding(.horizontal, Space.cardPadding)
+            .padding(.vertical, Space.gap)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .shadow(
+                color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
+                radius: 8, y: -4
+            )
+            .padding(.horizontal, Space.cardPadding)
+            .padding(.top, Space.inline)
+            .opacity(snackbarSlot != .none ? 1 : 0)
+            .allowsHitTesting(snackbarSlot != .none)
+            .accessibilityHidden(snackbarSlot == .none)
     }
 
-    /// The visual background for the snackbar card. Uses the system `.bar`
-    /// material on supported platforms. Used by topLayout (where the card is
-    /// conditionally rendered, so the old pattern is fine).
-    @ViewBuilder
-    @MainActor
-    private static var snackbarCardBackground: some View {
-        #if os(watchOS)
-        Color.gray.opacity(0.25)
-        #else
-        Color.clear.background(.bar)
-        #endif
-    }
 
     // MARK: - Undo envelope (MY-1446, testable)
 
@@ -165,6 +156,31 @@ enum ActiveWorkoutSnackbarLayout {
 
     // MARK: - Rest timer button layout (MY-1446, testable)
 
+    /// A single rest timer button with production sizing constraints.
+    /// Extracted so tests can measure individual buttons without relying on
+    /// SwiftUI→UIView identifier propagation.
+    @ViewBuilder
+    @MainActor
+    static func restTimerButton(
+        title: String,
+        isBold: Bool = false,
+        background: Color = Color.gray.opacity(0.15),
+        accessibilityIdentifier: String,
+        accessibilityLabel: String,
+        action: @escaping () -> Void = {}
+    ) -> some View {
+        Button(title, action: action)
+            .font(.caption)
+            .fontWeight(isBold ? .semibold : .regular)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(background, in: Capsule())
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Capsule())
+            .accessibilityIdentifier(accessibilityIdentifier)
+            .accessibilityLabel(accessibilityLabel)
+    }
+
     /// Renders the rest timer adjust buttons (-10s, +10s, Skip) with the
     /// production layout (including `.frame(minWidth: 44, minHeight: 44)` and
     /// accessibility identifiers). Extracted as a static helper so tests can
@@ -187,34 +203,28 @@ enum ActiveWorkoutSnackbarLayout {
         onSkip: @escaping () -> Void = {}
     ) -> some View {
         HStack(spacing: 8) {
-            Button("-10s", action: onMinus10)
-                .font(.caption)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(neutralBackground, in: Capsule())
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Capsule())
-                .accessibilityIdentifier("rest_button_minus10")
-                .accessibilityLabel(minus10AccessibilityLabel)
-            Button("+10s", action: onPlus10)
-                .font(.caption)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(neutralBackground, in: Capsule())
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Capsule())
-                .accessibilityIdentifier("rest_button_plus10")
-                .accessibilityLabel(plus10AccessibilityLabel)
-            Button(skipTitle, action: onSkip)
-                .font(.caption)
-                .fontWeight(.semibold)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(skipBackground, in: Capsule())
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Capsule())
-                .accessibilityIdentifier("rest_button_skip")
-                .accessibilityLabel(skipAccessibilityLabel)
+            restTimerButton(
+                title: "-10s",
+                background: neutralBackground,
+                accessibilityIdentifier: "rest_button_minus10",
+                accessibilityLabel: minus10AccessibilityLabel,
+                action: onMinus10
+            )
+            restTimerButton(
+                title: "+10s",
+                background: neutralBackground,
+                accessibilityIdentifier: "rest_button_plus10",
+                accessibilityLabel: plus10AccessibilityLabel,
+                action: onPlus10
+            )
+            restTimerButton(
+                title: skipTitle,
+                isBold: true,
+                background: skipBackground,
+                accessibilityIdentifier: "rest_button_skip",
+                accessibilityLabel: skipAccessibilityLabel,
+                action: onSkip
+            )
         }
         .buttonStyle(.plain)
     }

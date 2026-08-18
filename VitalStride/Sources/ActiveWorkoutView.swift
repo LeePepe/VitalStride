@@ -59,6 +59,10 @@ struct ActiveWorkoutView: View {
     // through iOS input system, so a simple notification observer is enough
     // and avoids adding a bespoke publisher inside the input view.
     @State private var isKeyboardVisible = false
+    // MY-1446: VoiceOver focus moves to snackbar when it appears (replicates
+    // the old SnackbarModifier's @AccessibilityFocusState behavior).
+    @AccessibilityFocusState private var isBottomSnackbarFocused: Bool
+    @AccessibilityFocusState private var isTopSnackbarFocused: Bool
     // MY-1446 P0-1: buffered rest-completed presentation. Extracted to a
     // testable presenter so lifecycle (buffer capture, controller clear survival,
     // undo interruption, fresh 2s countdown) can be verified deterministically.
@@ -106,13 +110,16 @@ struct ActiveWorkoutView: View {
                 // MY-1446: when the keyboard is visible, the snackbar renders
                 // inline between the header and the list (not as an overlay)
                 // so it never covers the compact info band or gets clipped.
-                // Uses the tested `topLayout` helper for guaranteed non-overlap.
+                // Uses the tested `topLayout` helper with a constant-height
+                // ZStack envelope (same approach as bottomSafeAreaContent) so
+                // the slot transition does not cause list jump.
                 if isKeyboardVisible {
                     ActiveWorkoutSnackbarLayout.topLayout(
                         snackbarSlot: bottomSnackbarSlot,
-                        infoBand: { EmptyView() },
-                        snackbar: { bottomSnackbarContent }
+                        snackbar: { topSnackbarEnvelope }
                     )
+                    .accessibilityElement(children: .contain)
+                    .accessibilityFocused($isTopSnackbarFocused)
                 }
                 exerciseList
             }
@@ -138,6 +145,8 @@ struct ActiveWorkoutView: View {
                             }
                         }
                     )
+                    .accessibilityElement(children: .contain)
+                    .accessibilityFocused($isBottomSnackbarFocused)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
@@ -300,6 +309,15 @@ struct ActiveWorkoutView: View {
             // MY-1446: keep the presenter's slot visibility in sync and wire dismiss.
             .onChange(of: bottomSnackbarSlot) { _, newSlot in
                 restCompletedPresenter.slotIsVisible = (newSlot == .rest)
+                // MY-1446: move VoiceOver focus to snackbar when it appears
+                // (replicates old SnackbarModifier's @AccessibilityFocusState).
+                if newSlot != .none {
+                    if isKeyboardVisible {
+                        isTopSnackbarFocused = true
+                    } else {
+                        isBottomSnackbarFocused = true
+                    }
+                }
             }
             .onAppear {
                 restCompletedPresenter.onDismiss = { [restTimer] in
@@ -680,6 +698,23 @@ struct ActiveWorkoutView: View {
             restSnackbarContent
         case .none:
             EmptyView()
+        }
+    }
+
+    /// MY-1446: constant-height ZStack envelope for the top/keyboard snackbar
+    /// path. Both undo and rest content are always laid out (opacity-toggled),
+    /// so the list does not jump when the snackbar slot transitions.
+    @ViewBuilder
+    private var topSnackbarEnvelope: some View {
+        ZStack(alignment: .leading) {
+            undoSnackbarContent
+                .opacity(bottomSnackbarSlot == .undo ? 1 : 0)
+                .allowsHitTesting(bottomSnackbarSlot == .undo)
+                .accessibilityHidden(bottomSnackbarSlot != .undo)
+            restSnackbarContent
+                .opacity(bottomSnackbarSlot == .rest ? 1 : 0)
+                .allowsHitTesting(bottomSnackbarSlot == .rest)
+                .accessibilityHidden(bottomSnackbarSlot != .rest)
         }
     }
 

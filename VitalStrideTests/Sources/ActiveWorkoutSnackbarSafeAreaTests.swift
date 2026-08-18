@@ -14,8 +14,9 @@ import UIKit
 /// 2. The bottom snackbar must be fully contained within the safe area
 ///    (not clipped by the home indicator region).
 /// 3. When the snackbar is at the top edge (keyboard visible), it must not
-///    overlap the persistent compact info band (VStack proof).
-/// 4. Each rest timer button (Skip, -10s, +10s) has a hit target >= 44×44pt.
+///    cause a list jump (constant-height proof via topLayout).
+/// 4. Each rest timer button (Skip, -10s, +10s) has a hit target >= 44×44pt
+///    verified on the production `restTimerButton` helper.
 /// 5. The bottom safe-area content reserved height is constant across all slot
 ///    states (preserves MY-1421 no-list-jump invariant on the production path).
 ///
@@ -30,19 +31,15 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     @MainActor
     @Test("Bottom snackbar and FAB frames do not intersect (VStack construction)")
     func bottomSnackbarAndFABDoNotIntersect() {
-        // The combined layout uses VStack(fab, snackbar), so non-overlap is
-        // guaranteed by construction. We verify the composite height exceeds
-        // both individual components, proving both are laid out.
-
         let containerWidth: CGFloat = 393
 
         // Measure FAB alone
         let fabHost = UIHostingController(rootView: fabPlaceholder)
-        let fabSize = fabHost.sizeThatFits(in: CGSize(width: containerWidth, height: CGFloat.infinity))
+        let fabSize = fabHost.sizeThatFits(in: CGSize(width: containerWidth, height: .infinity))
 
         // Measure snackbar envelope alone (rest slot content)
         let snackbarHost = UIHostingController(rootView: productionRestContent(completed: false))
-        let snackbarSize = snackbarHost.sizeThatFits(in: CGSize(width: containerWidth, height: CGFloat.infinity))
+        let snackbarSize = snackbarHost.sizeThatFits(in: CGSize(width: containerWidth, height: .infinity))
 
         // Measure combined bottomSafeAreaContent
         let combined = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
@@ -52,26 +49,14 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             fab: { fabPlaceholder }
         )
         let combinedHost = UIHostingController(rootView: combined)
-        let combinedSize = combinedHost.sizeThatFits(in: CGSize(width: containerWidth, height: CGFloat.infinity))
+        let combinedSize = combinedHost.sizeThatFits(in: CGSize(width: containerWidth, height: .infinity))
 
         // VStack height must be >= both individual heights (proving both render
-        // and are stacked, not overlapping). Accounting for VStack padding.
-        #expect(
-            combinedSize.height > fabSize.height,
-            "Combined height (\(combinedSize.height)) must exceed FAB height (\(fabSize.height)); "
-            + "VStack must contain both FAB and snackbar"
-        )
-        #expect(
-            combinedSize.height > snackbarSize.height,
-            "Combined height (\(combinedSize.height)) must exceed snackbar height (\(snackbarSize.height)); "
-            + "VStack must contain both FAB and snackbar"
-        )
+        // and are stacked, not overlapping).
+        #expect(combinedSize.height > fabSize.height)
+        #expect(combinedSize.height > snackbarSize.height)
         // Combined >= fab + snackbar (they share no space in VStack)
-        #expect(
-            combinedSize.height >= fabSize.height + snackbarSize.height - 1,
-            "Combined height (\(combinedSize.height)) must be >= FAB (\(fabSize.height)) + snackbar (\(snackbarSize.height)); "
-            + "VStack guarantees non-overlap"
-        )
+        #expect(combinedSize.height >= fabSize.height + snackbarSize.height - 1)
     }
 
     // MARK: - Test 2: snackbar within safe area (non-zero inset)
@@ -99,117 +84,74 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         host.view.layoutIfNeeded()
 
         // The content should fit within the safe area (above the 34pt zone).
-        // sizeThatFits gives us the natural content height; the content's
-        // intrinsic size should not exceed the available safe area height.
-        let contentSize = host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity))
+        let contentSize = host.sizeThatFits(in: CGSize(width: 393, height: .infinity))
         let safeAreaHeight = 600.0 - 34.0
 
-        #expect(
-            contentSize.height <= safeAreaHeight + 1,
-            "Content height (\(contentSize.height)) exceeds available safe area (\(safeAreaHeight)); "
-            + "snackbar extends into home indicator region"
-        )
+        #expect(contentSize.height <= safeAreaHeight + 1)
 
         // Verify that safe area insets were actually applied
         let appliedInsets = host.view.safeAreaInsets
-        #expect(
-            appliedInsets.bottom >= 34,
-            "Safe area insets not propagated: bottom=\(appliedInsets.bottom), expected >= 34"
-        )
+        #expect(appliedInsets.bottom >= 34)
 
         window.isHidden = true
     }
 
-    // MARK: - Test 3: top snackbar does not cover info band
+    // MARK: - Test 3: top snackbar constant height (no-list-jump for keyboard path)
 
+    /// MY-1446 P0-2: The `topLayout` helper uses opacity to show/hide the
+    /// snackbar. The VStack height must be constant whether the slot is `.none`,
+    /// `.undo`, or `.rest`, proving the list does not jump when the snackbar
+    /// toggles during keyboard visibility.
     @MainActor
-    @Test("Top snackbar does not overlap compact info band (VStack construction)")
+    @Test("Top snackbar layout height is constant across slot states (no-list-jump)")
     func topSnackbarDoesNotCoverInfoBand() {
         let containerWidth: CGFloat = 393
 
-        // Measure info band alone
-        let infoBandHost = UIHostingController(rootView: infoBandPlaceholder)
-        let infoBandSize = infoBandHost.sizeThatFits(in: CGSize(width: containerWidth, height: CGFloat.infinity))
+        // Measure for each slot state using the production topLayout helper
+        // with the same content production uses (bottomSnackbarContent)
+        let noneHeight = measureTopLayoutHeight(slot: .none, width: containerWidth)
+        let undoHeight = measureTopLayoutHeight(slot: .undo, width: containerWidth)
+        let restHeight = measureTopLayoutHeight(slot: .rest, width: containerWidth)
 
-        // Measure snackbar content alone
-        let snackbarHost = UIHostingController(rootView: productionRestContent(completed: false))
-        let snackbarSize = snackbarHost.sizeThatFits(in: CGSize(width: containerWidth, height: CGFloat.infinity))
-
-        // Measure combined topLayout (VStack: infoBand then snackbar)
-        let combined = ActiveWorkoutSnackbarLayout.topLayout(
-            snackbarSlot: .rest,
-            infoBand: { infoBandPlaceholder },
-            snackbar: { productionRestContent(completed: false) }
-        )
-        let combinedHost = UIHostingController(rootView: combined)
-        let combinedSize = combinedHost.sizeThatFits(in: CGSize(width: containerWidth, height: CGFloat.infinity))
-
-        // VStack guarantees stacking: combined must be >= both parts
-        #expect(
-            combinedSize.height > infoBandSize.height,
-            "Combined height (\(combinedSize.height)) must exceed info band height (\(infoBandSize.height))"
-        )
-        #expect(
-            combinedSize.height > snackbarSize.height,
-            "Combined height (\(combinedSize.height)) must exceed snackbar height (\(snackbarSize.height))"
-        )
-
-        // No-overlap: combined >= infoBand + snackbar (accounting for padding)
-        #expect(
-            combinedSize.height >= infoBandSize.height + snackbarSize.height - 1,
-            "Combined height (\(combinedSize.height)) must be >= info band (\(infoBandSize.height)) + "
-            + "snackbar (\(snackbarSize.height)); VStack guarantees non-overlap"
-        )
+        let tolerance: CGFloat = 1
+        #expect(abs(noneHeight - undoHeight) <= tolerance)
+        #expect(abs(noneHeight - restHeight) <= tolerance)
+        #expect(abs(undoHeight - restHeight) <= tolerance)
     }
 
     // MARK: - Test 4: production rest timer buttons each >= 44pt in both dimensions
 
-    /// Tests the actual production `ActiveWorkoutSnackbarLayout.restTimerButtons`
-    /// helper and asserts the overall layout provides >= 44pt height and that
-    /// each button has adequate width from the HStack distribution.
+    /// Tests each production button individually using
+    /// `ActiveWorkoutSnackbarLayout.restTimerButton` — the same builder
+    /// that `restTimerButtons` uses internally. This covers the production
+    /// code path without relying on SwiftUI→UIView identifier propagation.
     @MainActor
     @Test("Rest timer buttons layout provides >=44pt minimum hit targets")
     func restTimerButtonsHitTargets() {
+        // Verify the composite HStack meets minimum requirements
         let content = ActiveWorkoutSnackbarLayout.restTimerButtons(skipTitle: "跳过")
         let host = UIHostingController(rootView: content)
-        // sizeThatFits measures the natural content size
-        let size = host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity))
+        let size = host.sizeThatFits(in: CGSize(width: 393, height: .infinity))
+        #expect(size.height >= 44)
+        #expect(size.width >= 44 * 3 + 8 * 2)
 
-        // The HStack contains 3 buttons each with minHeight: 44
-        #expect(
-            size.height >= 44,
-            "Button layout height (\(size.height)) must be >= 44pt"
-        )
-
-        // Each button has minWidth: 44 and the HStack spacing is 8.
-        // Total width must accommodate 3 × 44pt minimum + 2 × 8pt spacing = 148pt
-        #expect(
-            size.width >= 44 * 3 + 8 * 2,
-            "Button layout width (\(size.width)) must accommodate 3 buttons × 44pt min + spacing"
-        )
-
-        // Verify each button individually meets 44×44pt by rendering alone
-        let buttonSpecs: [(String, String)] = [
-            ("-10s", "rest_button_minus10"),
-            ("+10s", "rest_button_plus10"),
-            ("跳过", "rest_button_skip"),
+        // Verify each production button individually meets 44×44pt
+        let buttonSpecs: [(title: String, isBold: Bool, id: String, label: String)] = [
+            ("-10s", false, "rest_button_minus10", "-10s"),
+            ("+10s", false, "rest_button_plus10", "+10s"),
+            ("跳过", true, "rest_button_skip", "Skip"),
         ]
-        for (title, identifier) in buttonSpecs {
-            let button = Button(title, action: {})
-                .font(.caption)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .frame(minWidth: 44, minHeight: 44)
+        for spec in buttonSpecs {
+            let button = ActiveWorkoutSnackbarLayout.restTimerButton(
+                title: spec.title,
+                isBold: spec.isBold,
+                accessibilityIdentifier: spec.id,
+                accessibilityLabel: spec.label
+            )
             let buttonHost = UIHostingController(rootView: button)
-            let buttonSize = buttonHost.sizeThatFits(in: CGSize(width: 200, height: CGFloat.infinity))
-            #expect(
-                buttonSize.height >= 44,
-                "Button '\(identifier)' height (\(buttonSize.height)) must be >= 44pt"
-            )
-            #expect(
-                buttonSize.width >= 44,
-                "Button '\(identifier)' width (\(buttonSize.width)) must be >= 44pt"
-            )
+            let buttonSize = buttonHost.sizeThatFits(in: CGSize(width: 200, height: .infinity))
+            #expect(buttonSize.height >= 44)
+            #expect(buttonSize.width >= 44)
         }
     }
 
@@ -219,7 +161,8 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     /// ZStack envelope with both undo and rest content always laid out.
     /// This test verifies the height is constant across all slot states using
     /// real production-representative content:
-    /// - undo: ZStack with hidden sizing reference + real multiline message
+    /// - undo: uses `ActiveWorkoutSnackbarLayout.undoEnvelope` (the same helper
+    ///   production calls) with a long message that exceeds 2 lines at AX sizes
     /// - rest: completed banner + resting progress + buttons
     /// Tests at both default and large Dynamic Type sizes.
     @MainActor
@@ -228,26 +171,40 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         let sizeCategories: [UIContentSizeCategory] = [.medium, .accessibilityExtraLarge]
 
         for sizeCategory in sizeCategories {
-            // Measure each slot's height independently (BottomSnackbarSlot is not Hashable)
             let noneHeight = measureSlotHeight(slot: .none, sizeCategory: sizeCategory)
             let undoHeight = measureSlotHeight(slot: .undo, sizeCategory: sizeCategory)
             let restHeight = measureSlotHeight(slot: .rest, sizeCategory: sizeCategory)
 
             let tolerance: CGFloat = 1
-
-            #expect(
-                abs(noneHeight - undoHeight) <= tolerance,
-                "[\(sizeCategory.rawValue)] Height shifted by \(abs(noneHeight - undoHeight))pt between .none (\(noneHeight)) and .undo (\(undoHeight)); must be within \(tolerance)pt"
-            )
-            #expect(
-                abs(noneHeight - restHeight) <= tolerance,
-                "[\(sizeCategory.rawValue)] Height shifted by \(abs(noneHeight - restHeight))pt between .none (\(noneHeight)) and .rest (\(restHeight)); must be within \(tolerance)pt"
-            )
-            #expect(
-                abs(undoHeight - restHeight) <= tolerance,
-                "[\(sizeCategory.rawValue)] Height shifted by \(abs(undoHeight - restHeight))pt between .undo (\(undoHeight)) and .rest (\(restHeight)); must be within \(tolerance)pt"
-            )
+            #expect(abs(noneHeight - undoHeight) <= tolerance)
+            #expect(abs(noneHeight - restHeight) <= tolerance)
+            #expect(abs(undoHeight - restHeight) <= tolerance)
         }
+    }
+
+    // MARK: - Measurement helpers
+
+    /// Measures the height of `topLayout` for a given slot. Uses a ZStack
+    /// envelope with both undo and rest content always laid out (matching
+    /// production `topSnackbarEnvelope`), proving height is slot-independent.
+    @MainActor
+    private func measureTopLayoutHeight(slot: BottomSnackbarSlot, width: CGFloat) -> CGFloat {
+        // Mirror the production topSnackbarEnvelope: both variants always
+        // laid out, opacity-toggled by slot.
+        let envelope = ZStack(alignment: .leading) {
+            productionUndoContent(
+                message: "Deleted Warmup sub-set of set 10 in superset group A"
+            )
+            .opacity(slot == .undo ? 1 : 0)
+            productionRestContent(completed: false)
+                .opacity(slot == .rest ? 1 : 0)
+        }
+        let layout = ActiveWorkoutSnackbarLayout.topLayout(
+            snackbarSlot: slot,
+            snackbar: { envelope }
+        )
+        let host = UIHostingController(rootView: layout)
+        return host.sizeThatFits(in: CGSize(width: width, height: .infinity)).height
     }
 
     /// Measures the height of `bottomSafeAreaContent` for a given slot at a
@@ -285,7 +242,7 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         let traits = UITraitCollection(preferredContentSizeCategory: sizeCategory)
         parent.setOverrideTraitCollection(traits, forChild: host)
 
-        let size = host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity))
+        let size = host.sizeThatFits(in: CGSize(width: 393, height: .infinity))
 
         // Clean up
         host.willMove(toParent: nil)
@@ -299,8 +256,7 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
 
     /// Production-representative undo content. Uses the actual production
     /// `ActiveWorkoutSnackbarLayout.undoEnvelope` helper — the same code path
-    /// that `ActiveWorkoutView.undoSnackbarEnvelope` calls. This ensures tests
-    /// exercise the delivered code and will catch any drift.
+    /// that `ActiveWorkoutView.undoSnackbarEnvelope` calls.
     @MainActor
     @ViewBuilder
     private func productionUndoContent(message: String) -> some View {
@@ -358,12 +314,6 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             .fill(Color.green.opacity(0.3))
             .frame(width: 60, height: 60)
             .padding()
-    }
-
-    @MainActor
-    private var infoBandPlaceholder: some View {
-        Color.gray.opacity(0.3)
-            .frame(height: 48)
     }
     #endif
 }
