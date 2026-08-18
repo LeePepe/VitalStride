@@ -44,9 +44,11 @@ enum ActiveWorkoutSnackbarLayout {
                 undoContent()
                     .opacity(snackbarSlot == .undo ? 1 : 0)
                     .allowsHitTesting(snackbarSlot == .undo)
+                    .accessibilityHidden(snackbarSlot != .undo)
                 restContent()
                     .opacity(snackbarSlot == .rest ? 1 : 0)
                     .allowsHitTesting(snackbarSlot == .rest)
+                    .accessibilityHidden(snackbarSlot != .rest)
             }
             .padding(.horizontal, Space.cardPadding)
             .padding(.vertical, Space.gap)

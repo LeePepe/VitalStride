@@ -686,39 +686,65 @@ struct ActiveWorkoutView: View {
     // MARK: - Envelope content for ZStack-based stable height (MY-1446 P0-1)
 
     /// Always renders the undo layout structure regardless of whether an undo
-    /// is pending. When no undo exists, a placeholder with the same typography
-    /// and structure fills the layout so the ZStack height stays stable.
-    /// The ZStack parent controls opacity/hitTesting per slot.
+    /// is pending. Uses a ZStack with hidden sizing references for ALL
+    /// possible message lengths to guarantee stable height. The ZStack parent
+    /// controls opacity/hitTesting per slot. The actual message and the sizing
+    /// references share the same typography and layout, so the envelope height
+    /// is always max(real message, sizing refs) — stable across all states.
     @ViewBuilder
     private var undoSnackbarEnvelope: some View {
-        HStack(spacing: Space.gap) {
-            Text(undoController.pending?.message ?? String(
-                localized: "active_workout.set_delete.undo_message_placeholder",
-                defaultValue: "Deleted set",
-                comment: "Invisible placeholder to size the undo snackbar envelope (MY-1446)"
-            ))
-                .font(TypeScale.body)
-                .foregroundStyle(theme.neutrals.text1)
-            Spacer()
-            Button {
-                undoController.undo(using: modelContext)
-            } label: {
-                Text(String(
-                    localized: "active_workout.set_delete.undo_action",
-                    defaultValue: "Undo",
-                    comment: "Undo a set deletion snackbar action"
-                ))
-                    .font(TypeScale.body.weight(.semibold))
-                    .foregroundStyle(theme.primary.primary)
-                    .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
-                    .contentShape(Rectangle())
+        ZStack(alignment: .leading) {
+            // Hidden sizing reference: mirrors the undo HStack layout with
+            // the longest representative message so the envelope height is
+            // message-independent. Two lines of text at body scale cover
+            // typical undo messages at large Dynamic Type.
+            undoSizingReference
+                .hidden()
+
+            // Active undo content (or empty placeholder when no pending undo)
+            if let pending = undoController.pending {
+                HStack(spacing: Space.gap) {
+                    Text(pending.message)
+                        .font(TypeScale.body)
+                        .foregroundStyle(theme.neutrals.text1)
+                    Spacer()
+                    Button {
+                        undoController.undo(using: modelContext)
+                    } label: {
+                        Text(String(
+                            localized: "active_workout.set_delete.undo_action",
+                            defaultValue: "Undo",
+                            comment: "Undo a set deletion snackbar action"
+                        ))
+                            .font(TypeScale.body.weight(.semibold))
+                            .foregroundStyle(theme.primary.primary)
+                            .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(
+                        localized: "active_workout.set_delete.undo_action_a11y",
+                        defaultValue: "Undo deletion",
+                        comment: "Undo set deletion a11y label"
+                    ))
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(String(
-                localized: "active_workout.set_delete.undo_action_a11y",
-                defaultValue: "Undo deletion",
-                comment: "Undo set deletion a11y label"
-            ))
+        }
+    }
+
+    /// Hidden sizing reference for the undo snackbar — uses a two-line body
+    /// text + Undo button layout that represents the worst-case height.
+    /// This is always laid out (via `.hidden()`) so the ZStack never shrinks
+    /// below this height regardless of the actual message content.
+    private var undoSizingReference: some View {
+        HStack(spacing: Space.gap) {
+            Text(String(repeating: "M", count: 40))
+                .font(TypeScale.body)
+                .lineLimit(2)
+            Spacer()
+            Text("Undo")
+                .font(TypeScale.body.weight(.semibold))
+                .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
         }
     }
 

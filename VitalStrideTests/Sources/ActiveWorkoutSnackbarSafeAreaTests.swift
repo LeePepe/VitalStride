@@ -189,7 +189,7 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     /// ZStack envelope with both undo and rest content always laid out.
     /// This test verifies the height is constant across all slot states using
     /// real production-representative content:
-    /// - undo: single-line + multiline text variants with HStack + button
+    /// - undo: ZStack with hidden sizing reference + real multiline message
     /// - rest: completed banner + resting progress + buttons
     /// Tests at both default and large Dynamic Type sizes.
     @MainActor
@@ -198,37 +198,12 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         let sizeCategories: [UIContentSizeCategory] = [.medium, .accessibilityExtraLarge]
 
         for sizeCategory in sizeCategories {
-            let slots: [BottomSnackbarSlot] = [.none, .undo, .rest]
-            var heights: [BottomSnackbarSlot: CGFloat] = [:]
-
-            for slot in slots {
-                let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
-                    snackbarSlot: slot,
-                    undoContent: {
-                        productionUndoContent(
-                            multiline: true
-                        )
-                    },
-                    restContent: {
-                        productionRestContent(completed: slot == .rest)
-                    },
-                    fab: { fabPlaceholder }
-                )
-                let host = UIHostingController(rootView: layout)
-                host.overrideUserInterfaceStyle = .light
-
-                // Apply Dynamic Type size category via trait collection
-                let traits = UITraitCollection(preferredContentSizeCategory: sizeCategory)
-                host.setOverrideTraitCollection(traits, forChild: host)
-
-                let size = host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity))
-                heights[slot] = size.height
-            }
+            // Measure each slot's height independently (BottomSnackbarSlot is not Hashable)
+            let noneHeight = measureSlotHeight(slot: .none, sizeCategory: sizeCategory)
+            let undoHeight = measureSlotHeight(slot: .undo, sizeCategory: sizeCategory)
+            let restHeight = measureSlotHeight(slot: .rest, sizeCategory: sizeCategory)
 
             let tolerance: CGFloat = 1
-            let noneHeight = heights[.none]!
-            let undoHeight = heights[.undo]!
-            let restHeight = heights[.rest]!
 
             #expect(
                 abs(noneHeight - undoHeight) <= tolerance,
@@ -245,26 +220,82 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         }
     }
 
+    /// Measures the height of `bottomSafeAreaContent` for a given slot at a
+    /// specific Dynamic Type size. Uses a real parent/child controller
+    /// relationship so `setOverrideTraitCollection` actually propagates.
+    @MainActor
+    private func measureSlotHeight(
+        slot: BottomSnackbarSlot,
+        sizeCategory: UIContentSizeCategory
+    ) -> CGFloat {
+        let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+            snackbarSlot: slot,
+            undoContent: {
+                productionUndoContent(
+                    message: "Deleted Warmup sub-set of set 10"
+                )
+            },
+            restContent: {
+                productionRestContent(completed: slot == .rest)
+            },
+            fab: { fabPlaceholder }
+        )
+        let host = UIHostingController(rootView: layout)
+        host.overrideUserInterfaceStyle = .light
+
+        // Use a parent controller so setOverrideTraitCollection propagates
+        let parent = UIViewController()
+        parent.addChild(host)
+        parent.view.addSubview(host.view)
+        host.didMove(toParent: parent)
+
+        // Apply Dynamic Type size category via parent/child relationship
+        let traits = UITraitCollection(preferredContentSizeCategory: sizeCategory)
+        parent.setOverrideTraitCollection(traits, forChild: host)
+
+        let size = host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity))
+
+        // Clean up
+        host.willMove(toParent: nil)
+        host.view.removeFromSuperview()
+        host.removeFromParent()
+
+        return size.height
+    }
+
     // MARK: - Helpers
 
-    /// Production-representative undo content. Always renders the full HStack
-    /// structure regardless of pending state (mirrors `undoSnackbarEnvelope`).
-    /// When `multiline` is true, uses a longer message that wraps at narrow
-    /// widths / large Dynamic Type — the worst case for height stability.
+    /// Production-representative undo content. Uses a ZStack with hidden sizing
+    /// reference (mirrors `undoSnackbarEnvelope`). The sizing reference has a
+    /// two-line body text + button layout that represents worst-case height;
+    /// the actual message sits on top. This ensures height stability regardless
+    /// of message length.
     @MainActor
     @ViewBuilder
-    private func productionUndoContent(multiline: Bool = false) -> some View {
-        let message = multiline
-            ? "Deleted Warmup sub-set of set 10"
-            : "Deleted set 1"
-        HStack(spacing: 8) {
-            Text(message)
-                .font(.body)
-            Spacer()
-            Button("Undo") {}
-                .font(.body.weight(.semibold))
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
+    private func productionUndoContent(message: String) -> some View {
+        ZStack(alignment: .leading) {
+            // Hidden sizing reference (same approach as production undoSizingReference)
+            HStack(spacing: 8) {
+                Text(String(repeating: "M", count: 40))
+                    .font(.body)
+                    .lineLimit(2)
+                Spacer()
+                Text("Undo")
+                    .font(.body.weight(.semibold))
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .hidden()
+
+            // Active content
+            HStack(spacing: 8) {
+                Text(message)
+                    .font(.body)
+                Spacer()
+                Button("Undo") {}
+                    .font(.body.weight(.semibold))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
         }
     }
 
@@ -308,7 +339,7 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     /// Placeholder for the undo variant in tests that don't exercise undo content.
     @MainActor
     private var undoPlaceholder: some View {
-        productionUndoContent(multiline: false)
+        productionUndoContent(message: "Deleted set 1")
     }
 
     @MainActor
