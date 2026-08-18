@@ -6,6 +6,7 @@
 #   Track 2  The renderer does not crash on surrogate characters (defense-in-depth)
 #   Track 3  Truncation produces valid UTF-8 at or below MAX_BYTES
 #   Track 4  TRUNCATED disclosure still present after truncation
+#   Track 6  Claude gate cannot load tools or user-configured MCP servers
 #
 # Only does local assertions — no CLI spawn, no network.
 #
@@ -169,6 +170,18 @@ if [ -f "$CI_WORKFLOW" ] && grep -qF 'bash scripts/ci/review-utf8-truncation.con
     assert_pass "Lint & policy executes the UTF-8 truncation regression contract"
 else
     assert_fail "Lint & policy does not execute review-utf8-truncation.contract.test.sh"
+fi
+
+# --- Track 6: Claude review is isolated from tools and MCP servers ---------------
+
+CLAUDE_GATE="$SCRIPT_DIR/claude-review.sh"
+if grep -qF -- '--tools ""' "$CLAUDE_GATE" \
+    && grep -qF -- '--safe-mode' "$CLAUDE_GATE" \
+    && grep -qF -- '--strict-mcp-config' "$CLAUDE_GATE" \
+    && grep -qF -- '--mcp-config '\''{"mcpServers":{}}'\''' "$CLAUDE_GATE"; then
+    assert_pass "claude-review disables tools, plugins, and user-configured MCP servers"
+else
+    assert_fail "claude-review can still load tools, plugins, or user-configured MCP servers"
 fi
 
 # --- Summary ---
