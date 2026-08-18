@@ -465,19 +465,16 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         // Try the expanded field directly first — must both exist AND be
         // hittable. MY-1445: the TextField is always mounted but is not
         // hittable when collapsed (hit-testing disabled + opacity 0).
-        var field = app.textFields.firstMatch
+        var field = app.textFields["exercise_picker_search_field"]
         let fieldReady = field.waitForExistence(timeout: 1.0) && field.isHittable
         if !fieldReady {
             // Not expanded (or not hittable) — tap the collapsed magnifier
             // button by a11y label ("搜索动作" / "Search exercises").
-            let magnifier = app.buttons.matching(
-                NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@",
-                            "搜索", "Search")
-            ).firstMatch
+            let magnifier = app.buttons["exercise_picker_search_expand"]
             if magnifier.waitForExistence(timeout: UITestTimeout.uiSettle) {
                 magnifier.tap()
             }
-            field = app.textFields.firstMatch
+            field = app.textFields["exercise_picker_search_field"]
             let expanded = NSPredicate(format: "isHittable == true")
             let hittableExpectation = expectation(for: expanded,
                                                   evaluatedWith: field,

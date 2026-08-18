@@ -414,6 +414,7 @@ struct ExercisePickerView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("exercise_picker_search_expand")
         .background(
             CollapsedSearchPillSurface(theme: theme, opaque: reduceTransparency)
         )
@@ -435,6 +436,7 @@ struct ExercisePickerView: View {
                 String(localized: "搜索动作", comment: "Exercise search prompt"),
                 text: $searchText
             )
+            .accessibilityIdentifier("exercise_picker_search_field")
             // Use `.body` text style (dynamic-type scaled) instead of
             // `TypeScale.body` (fixed 14pt) so the search input honors the
             // user's preferred Content Size Category. This is the only

@@ -146,19 +146,23 @@ private struct ExercisePickerTestHarnessModifier: ViewModifier {
     let container: ModelContainer?
     @State private var testMode: ExercisePickerTestMode? = ExercisePickerTestMode.fromLaunchArguments()
     @State private var showsPicker: Bool = false
+    @State private var pickerTestContainer: ModelContainer?
 
     func body(content: Content) -> some View {
         content
             .onAppear {
-                if testMode != nil {
-                    seedMinimalCatalogIfNeeded()
-                    showsPicker = true
+                guard testMode != nil, container != nil else { return }
+                guard let isolatedContainer = try? ModelContainerConfiguration.makeTestContainer() else {
+                    return
                 }
+                seedMinimalCatalogIfNeeded(in: isolatedContainer)
+                pickerTestContainer = isolatedContainer
+                showsPicker = true
             }
             .sheet(isPresented: $showsPicker) {
-                if let container {
+                if let pickerTestContainer {
                     ExercisePickerTestHost(mode: testMode ?? .single)
-                        .modelContainer(container)
+                        .modelContainer(pickerTestContainer)
                 }
             }
     }
@@ -166,8 +170,8 @@ private struct ExercisePickerTestHarnessModifier: ViewModifier {
     /// The focus suite needs one known populated result ("bench") plus the
     /// ability to cross into the empty state. It does not need the production
     /// catalog migration, which is covered by `ExerciseSeederTests`.
-    private func seedMinimalCatalogIfNeeded() {
-        guard let context = container?.mainContext else { return }
+    private func seedMinimalCatalogIfNeeded(in isolatedContainer: ModelContainer) {
+        let context = isolatedContainer.mainContext
         let descriptor = FetchDescriptor<Exercise>(
             predicate: #Predicate { $0.nameEn == "Bench Press" }
         )
