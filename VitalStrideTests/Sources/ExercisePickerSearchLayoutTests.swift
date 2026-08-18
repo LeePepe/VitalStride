@@ -55,7 +55,7 @@ struct ExercisePickerSearchLayoutTests {
     /// The collapsed `SearchSurfaceContainer`, placed inside a trailing-aligned
     /// VStack (matching production `floatingSearchAndFilterPanel`), must render
     /// content at the trailing edge and NOT at the leading edge. Verified by
-    /// rendering to a bitmap and checking pixel occupancy at specific positions.
+    /// rendering to a 1× bitmap and checking pixel occupancy at specific positions.
     @Test("Collapsed SearchSurfaceContainer renders at trailing edge (bitmap verified)")
     @MainActor
     func collapsedMaxX_alignsToTrailingEdge() {
@@ -64,67 +64,64 @@ struct ExercisePickerSearchLayoutTests {
         let availableWidth = containerWidth - panelInset * 2
         let pillWidth = ExercisePickerView.collapsedSearchMaxWidth
 
-        // Use a visible colored circle as the collapsed child so we can
-        // detect its position in the rendered bitmap.
-        let probe = VStack(alignment: .trailing) {
-            SearchSurfaceContainer(
-                isExpanded: false,
-                expanded: Color.clear
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44),
-                collapsed: Circle()
-                    .fill(Color.red)
-                    .frame(
-                        width: ExercisePickerView.collapsedSearchDiameter,
-                        height: ExercisePickerView.collapsedSearchDiameter
-                    )
-            )
-        }
-        .frame(width: availableWidth, height: 60, alignment: .trailing)
-        .background(Color.white)
-
-        let hc = UIHostingController(rootView: probe)
-        hc.view.frame = CGRect(x: 0, y: 0, width: availableWidth, height: 60)
-        hc.view.backgroundColor = .white
-        hc.view.setNeedsLayout()
-        hc.view.layoutIfNeeded()
-
-        let renderer = UIGraphicsImageRenderer(
-            size: CGSize(width: availableWidth, height: 60)
+        // Trailing-aligned (production layout) — pill must be at trailing edge
+        let trailingResult = renderAndSamplePillPosition(
+            alignment: .trailing,
+            availableWidth: availableWidth,
+            pillWidth: pillWidth
         )
-        let image = renderer.image { ctx in
-            hc.view.layer.render(in: ctx.cgContext)
-        }
 
-        guard let cgImage = image.cgImage else {
-            Issue.record("Failed to create CGImage for bitmap verification")
-            return
-        }
-
-        let centerY = 30
-        // The pill should be at the trailing edge: center of pill near availableWidth - pillWidth/2
-        let trailingX = Int(availableWidth - pillWidth / 2)
-        let trailingPixel = pixelColor(in: cgImage, x: trailingX, y: centerY)
-
-        // Leading region should be white (no pill content)
-        let leadingX = Int(pillWidth / 2)
-        let leadingPixel = pixelColor(in: cgImage, x: leadingX, y: centerY)
-
-        // Trailing position must have the red pill
+        // Trailing position must have the red pill: high R, low G and B
         #expect(
-            trailingPixel.r > 200,
+            trailingResult.trailingPixel.r > 200 && trailingResult.trailingPixel.g < 50 && trailingResult.trailingPixel.b < 50,
             """
-            Trailing edge pixel at x=\(trailingX) must be red (pill present). \
-            Got RGBA(\(trailingPixel.r),\(trailingPixel.g),\(trailingPixel.b),\(trailingPixel.a)).
+            Trailing edge pixel must be red (pill present). \
+            Got RGBA(\(trailingResult.trailingPixel.r),\(trailingResult.trailingPixel.g),\(trailingResult.trailingPixel.b),\(trailingResult.trailingPixel.a)).
             """
         )
 
-        // Leading position must NOT have the red pill (white background: g > 200)
+        // Leading position must be white (no pill): all channels > 200
         #expect(
-            leadingPixel.g > 200,
+            trailingResult.leadingPixel.r > 200 && trailingResult.leadingPixel.g > 200 && trailingResult.leadingPixel.b > 200,
             """
-            Leading edge pixel at x=\(leadingX) must be white/clear (no pill). \
-            Got RGBA(\(leadingPixel.r),\(leadingPixel.g),\(leadingPixel.b),\(leadingPixel.a)).
+            Leading edge pixel must be white (no pill). \
+            Got RGBA(\(trailingResult.leadingPixel.r),\(trailingResult.leadingPixel.g),\(trailingResult.leadingPixel.b),\(trailingResult.leadingPixel.a)).
+            """
+        )
+    }
+
+    /// Proves the bitmap test is not a false positive: when the VStack uses
+    /// leading alignment, the red pill appears at the leading edge instead.
+    @Test("Leading-aligned container renders pill at leading edge (bitmap control)")
+    @MainActor
+    func leadingAligned_pillAtLeadingEdge() {
+        let containerWidth: CGFloat = 393
+        let panelInset = ExercisePickerView.panelHorizontalInset
+        let availableWidth = containerWidth - panelInset * 2
+        let pillWidth = ExercisePickerView.collapsedSearchMaxWidth
+
+        // Leading-aligned — pill must be at leading edge
+        let leadingResult = renderAndSamplePillPosition(
+            alignment: .leading,
+            availableWidth: availableWidth,
+            pillWidth: pillWidth
+        )
+
+        // Leading position must have the red pill
+        #expect(
+            leadingResult.leadingPixel.r > 200 && leadingResult.leadingPixel.g < 50 && leadingResult.leadingPixel.b < 50,
+            """
+            Leading edge pixel must be red (pill present in leading-aligned layout). \
+            Got RGBA(\(leadingResult.leadingPixel.r),\(leadingResult.leadingPixel.g),\(leadingResult.leadingPixel.b),\(leadingResult.leadingPixel.a)).
+            """
+        )
+
+        // Trailing position must be white (no pill)
+        #expect(
+            leadingResult.trailingPixel.r > 200 && leadingResult.trailingPixel.g > 200 && leadingResult.trailingPixel.b > 200,
+            """
+            Trailing edge pixel must be white (no pill in leading-aligned layout). \
+            Got RGBA(\(leadingResult.trailingPixel.r),\(leadingResult.trailingPixel.g),\(leadingResult.trailingPixel.b),\(leadingResult.trailingPixel.a)).
             """
         )
     }
@@ -198,6 +195,76 @@ struct ExercisePickerSearchLayoutTests {
         let hc = UIHostingController(rootView: view)
         hc.view.frame = CGRect(x: 0, y: 0, width: proposedWidth, height: 300)
         return hc.sizeThatFits(in: CGSize(width: proposedWidth, height: .infinity))
+    }
+
+    // MARK: - Bitmap alignment helpers
+
+    private struct BitmapSample {
+        let trailingPixel: PixelColor
+        let leadingPixel: PixelColor
+    }
+
+    /// Renders the collapsed `SearchSurfaceContainer` inside a VStack with the
+    /// given horizontal alignment, captures a 1× bitmap, and samples pixels at
+    /// the pill center positions (leading and trailing edges).
+    @MainActor
+    private func renderAndSamplePillPosition(
+        alignment: HorizontalAlignment,
+        availableWidth: CGFloat,
+        pillWidth: CGFloat
+    ) -> BitmapSample {
+        let renderHeight: CGFloat = 60
+
+        let probe = VStack(alignment: alignment) {
+            SearchSurfaceContainer(
+                isExpanded: false,
+                expanded: Color.clear
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44),
+                collapsed: Circle()
+                    .fill(Color.red)
+                    .frame(
+                        width: ExercisePickerView.collapsedSearchDiameter,
+                        height: ExercisePickerView.collapsedSearchDiameter
+                    )
+            )
+        }
+        .frame(width: availableWidth, height: renderHeight, alignment: Alignment(horizontal: alignment, vertical: .center))
+        .background(Color.white)
+
+        let hc = UIHostingController(rootView: probe)
+        hc.view.frame = CGRect(x: 0, y: 0, width: availableWidth, height: renderHeight)
+        hc.view.backgroundColor = .white
+        hc.view.setNeedsLayout()
+        hc.view.layoutIfNeeded()
+
+        // Use scale=1 so CGImage pixel coordinates match point coordinates
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(
+            size: CGSize(width: availableWidth, height: renderHeight),
+            format: format
+        )
+        let image = renderer.image { ctx in
+            hc.view.layer.render(in: ctx.cgContext)
+        }
+
+        guard let cgImage = image.cgImage else {
+            return BitmapSample(
+                trailingPixel: PixelColor(r: 0, g: 0, b: 0, a: 0),
+                leadingPixel: PixelColor(r: 0, g: 0, b: 0, a: 0)
+            )
+        }
+
+        let centerY = Int(renderHeight / 2)
+        // Sample at pill center positions
+        let trailingX = Int(availableWidth - pillWidth / 2)
+        let leadingX = Int(pillWidth / 2)
+
+        return BitmapSample(
+            trailingPixel: pixelColor(in: cgImage, x: trailingX, y: centerY),
+            leadingPixel: pixelColor(in: cgImage, x: leadingX, y: centerY)
+        )
     }
 
     // MARK: - Screenshot evidence (Quality Bar K)
@@ -284,8 +351,11 @@ struct ExercisePickerSearchLayoutTests {
         hc.view.setNeedsLayout()
         hc.view.layoutIfNeeded()
 
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
         let renderer = UIGraphicsImageRenderer(
-            size: CGSize(width: width, height: height)
+            size: CGSize(width: width, height: height),
+            format: format
         )
         return renderer.image { ctx in
             hc.view.layer.render(in: ctx.cgContext)
@@ -304,26 +374,34 @@ struct ExercisePickerSearchLayoutTests {
         }
         let bytesPerPixel = 4
         let bytesPerRow = width * bytesPerPixel
-        var pixelData = [UInt8](repeating: 0, count: bytesPerRow * height)
+        let totalBytes = bytesPerRow * height
         let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
         guard let context = CGContext(
-            data: &pixelData,
+            data: nil,
             width: width,
             height: height,
             bitsPerComponent: 8,
             bytesPerRow: bytesPerRow,
             space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            bitmapInfo: bitmapInfo
         ) else {
             return PixelColor(r: 0, g: 0, b: 0, a: 0)
         }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let data = context.data else {
+            return PixelColor(r: 0, g: 0, b: 0, a: 0)
+        }
+        let buffer = data.assumingMemoryBound(to: UInt8.self)
         let offset = y * bytesPerRow + x * bytesPerPixel
+        guard offset + 3 < totalBytes else {
+            return PixelColor(r: 0, g: 0, b: 0, a: 0)
+        }
         return PixelColor(
-            r: pixelData[offset],
-            g: pixelData[offset + 1],
-            b: pixelData[offset + 2],
-            a: pixelData[offset + 3]
+            r: buffer[offset],
+            g: buffer[offset + 1],
+            b: buffer[offset + 2],
+            a: buffer[offset + 3]
         )
     }
 
