@@ -13,8 +13,9 @@ red_lines:
 roles:
   Types:  [Enums, Models]
   Config: [Persistence]
+  Repo:   [Repo]
 test: swift test --package-path Packages/VitalModels
-owns: [Workout, Exercise, ExerciseSet, WorkoutTemplate, HealthCacheEntry, ModelContainerConfiguration]
+owns: [Workout, Exercise, ExerciseSet, WorkoutTemplate, HealthCacheEntry, ModelContainerConfiguration, WorkoutSetManager]
 ---
 
 # VitalModels Context

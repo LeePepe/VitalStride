@@ -5,6 +5,8 @@ import VitalModels
 
 @testable import VitalStride
 
+private typealias AppWorkoutSetManager = VitalStride.WorkoutSetManager
+
 /// MY-875 — SubSet 子组只读化与删除入口收敛
 ///
 /// UI invariants (no SelectAllTextField, no Menu, no swipeActions on sub-set rows)
@@ -39,7 +41,7 @@ struct SubSetReadOnlyTests {
         let child = sets[1]
         let unrelated = sets[2]
 
-        let deleted = WorkoutSetManager.deleteSet(parent, from: workoutExercise, using: context)
+        let deleted = AppWorkoutSetManager.deleteSet(parent, from: workoutExercise, using: context)
         try context.save()
 
         #expect(deleted)
@@ -66,7 +68,7 @@ struct SubSetReadOnlyTests {
         let parent = sets[0]
         let child = sets[1]
 
-        let deleted = WorkoutSetManager.deleteSet(parent, from: workoutExercise, using: context)
+        let deleted = AppWorkoutSetManager.deleteSet(parent, from: workoutExercise, using: context)
         try context.save()
 
         #expect(deleted)
@@ -94,7 +96,7 @@ struct SubSetReadOnlyTests {
         let unrelated = sets[4]
         let childIDs = Set(sets[1...3].map { $0.persistentModelID })
 
-        let deleted = WorkoutSetManager.deleteSet(parent, from: workoutExercise, using: context)
+        let deleted = AppWorkoutSetManager.deleteSet(parent, from: workoutExercise, using: context)
         try context.save()
 
         #expect(deleted)
@@ -121,7 +123,7 @@ struct SubSetReadOnlyTests {
         let secondMain = sets[2]
         let secondMainSubSet = sets[3]
 
-        let deleted = WorkoutSetManager.deleteSet(parent, from: workoutExercise, using: context)
+        let deleted = AppWorkoutSetManager.deleteSet(parent, from: workoutExercise, using: context)
         try context.save()
 
         #expect(deleted)

@@ -5,6 +5,10 @@ import VitalModels
 
 @testable import VitalStride
 
+private typealias AppWorkoutSetManager = VitalStride.WorkoutSetManager
+private typealias AppSetDeletionUndo = VitalStride.SetDeletionUndo
+private typealias AppWorkoutSetTree = VitalStride.WorkoutSetTree
+
 /// MY-1420 / MY-1422 — sub-set delete entry points, cascade confirmation, and
 /// the 5s undo window.
 ///
@@ -41,7 +45,7 @@ struct SubSetDeletionUndoTests {
         let victim = sets[1]
         let survivorIDs = [sets[0], sets[2], sets[3]].map(\.persistentModelID)
 
-        let deleted = WorkoutSetManager.deleteSet(victim, from: workoutExercise, using: context)
+        let deleted = AppWorkoutSetManager.deleteSet(victim, from: workoutExercise, using: context)
         try context.save()
 
         #expect(deleted)
@@ -59,13 +63,13 @@ struct SubSetDeletionUndoTests {
         )
         let parent = sets[0]
 
-        WorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
+        AppWorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
         try context.save()
 
         // The tree-line presentation is driven entirely by whether any sub-set
         // rows follow the parent, so a parent with no children can no longer
         // render a dangling connector.
-        #expect(WorkoutSetTree.subSetChildren(of: parent, in: workoutExercise).isEmpty)
+        #expect(AppWorkoutSetTree.subSetChildren(of: parent, in: workoutExercise).isEmpty)
         let ctxs = ActiveExerciseSection.rowContexts(from: sorted(workoutExercise))
         #expect(ctxs.allSatisfy { !$0.isLastSubSet })
     }
@@ -143,11 +147,11 @@ struct SubSetDeletionUndoTests {
         victim.restDuration = 45
         try context.save()
 
-        let snapshots = SetDeletionUndo.snapshots(for: [victim], in: workoutExercise)
-        WorkoutSetManager.deleteSet(victim, from: workoutExercise, using: context)
+        let snapshots = AppSetDeletionUndo.snapshots(for: [victim], in: workoutExercise)
+        AppWorkoutSetManager.deleteSet(victim, from: workoutExercise, using: context)
         try context.save()
 
-        SetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
+        AppSetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
         try context.save()
 
         let restored = sorted(workoutExercise)[1]
@@ -170,10 +174,10 @@ struct SubSetDeletionUndoTests {
         )
         let victim = sets[2]
 
-        let snapshots = SetDeletionUndo.snapshots(for: [victim], in: workoutExercise)
-        WorkoutSetManager.deleteSet(victim, from: workoutExercise, using: context)
+        let snapshots = AppSetDeletionUndo.snapshots(for: [victim], in: workoutExercise)
+        AppWorkoutSetManager.deleteSet(victim, from: workoutExercise, using: context)
         try context.save()
-        SetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
+        AppSetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
         try context.save()
 
         let weights = sorted(workoutExercise).map(\.weight)
@@ -190,15 +194,15 @@ struct SubSetDeletionUndoTests {
         )
         let parent = sets[0]
 
-        let targets = WorkoutSetTree.deletionTargets(for: parent, in: workoutExercise)
+        let targets = AppWorkoutSetTree.deletionTargets(for: parent, in: workoutExercise)
         #expect(targets.count == 3)
 
-        let snapshots = SetDeletionUndo.snapshots(for: targets, in: workoutExercise)
-        WorkoutSetManager.deleteSet(parent, from: workoutExercise, using: context)
+        let snapshots = AppSetDeletionUndo.snapshots(for: targets, in: workoutExercise)
+        AppWorkoutSetManager.deleteSet(parent, from: workoutExercise, using: context)
         try context.save()
         #expect(sorted(workoutExercise).count == 1)
 
-        SetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
+        AppSetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
         try context.save()
 
         #expect(sorted(workoutExercise).map(\.weight) == [80, 68, 58, 85])
@@ -219,8 +223,8 @@ struct SubSetDeletionUndoTests {
         )
         let victim = sets[1]
 
-        let snapshots = SetDeletionUndo.snapshots(for: [victim], in: workoutExercise)
-        WorkoutSetManager.deleteSet(victim, from: workoutExercise, using: context)
+        let snapshots = AppSetDeletionUndo.snapshots(for: [victim], in: workoutExercise)
+        AppWorkoutSetManager.deleteSet(victim, from: workoutExercise, using: context)
         try context.save()
 
         // Concurrent add inside the undo window, mirroring `addSet()`.
@@ -234,7 +238,7 @@ struct SubSetDeletionUndoTests {
         context.insert(added)
         try context.save()
 
-        SetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
+        AppSetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
         try context.save()
 
         let orders = sorted(workoutExercise).map(\.order)
@@ -258,7 +262,7 @@ struct SubSetDeletionUndoTests {
         let controller = SetDeletionUndoController(window: 60)
 
         controller.record(
-            snapshots: SetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise),
+            snapshots: AppSetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise),
             workoutExercise: workoutExercise,
             message: "first",
             announcement: "first"
@@ -266,7 +270,7 @@ struct SubSetDeletionUndoTests {
         let firstID = controller.pending?.id
 
         controller.record(
-            snapshots: SetDeletionUndo.snapshots(for: [sets[2]], in: workoutExercise),
+            snapshots: AppSetDeletionUndo.snapshots(for: [sets[2]], in: workoutExercise),
             workoutExercise: workoutExercise,
             message: "second",
             announcement: "second"
@@ -286,8 +290,8 @@ struct SubSetDeletionUndoTests {
         )
         let controller = SetDeletionUndoController(window: 60)
 
-        let snapshots = SetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise)
-        WorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
+        let snapshots = AppSetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise)
+        AppWorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
         try context.save()
         controller.record(
             snapshots: snapshots,
@@ -317,7 +321,7 @@ struct SubSetDeletionUndoTests {
         let controller = SetDeletionUndoController(window: 0.05)
 
         controller.record(
-            snapshots: SetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise),
+            snapshots: AppSetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise),
             workoutExercise: workoutExercise,
             message: "deleted",
             announcement: "deleted"
@@ -361,7 +365,7 @@ struct SubSetDeletionUndoTests {
         #expect(controller.slot(restPhase: .resting) == .rest)
 
         controller.record(
-            snapshots: SetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise),
+            snapshots: AppSetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise),
             workoutExercise: workoutExercise,
             message: "deleted",
             announcement: "deleted"
@@ -380,7 +384,7 @@ struct SubSetDeletionUndoTests {
     func focusMovesToParentAfterSubSetDeletion() {
         // rows: main, sub, sub, main — delete index 1
         let isSubSet = [false, true, true, false]
-        #expect(WorkoutSetTree.focusIndexAfterDeletion(deleting: [1], isSubSet: isSubSet) == 0)
+        #expect(AppWorkoutSetTree.focusIndexAfterDeletion(deleting: [1], isSubSet: isSubSet) == 0)
     }
 
     @Test("Deleting a main set moves focus to the next surviving row")
@@ -388,18 +392,18 @@ struct SubSetDeletionUndoTests {
         // rows: main, sub, main — deleting the first main also takes its sub,
         // so focus lands on the surviving main.
         let isSubSet = [false, true, false]
-        #expect(WorkoutSetTree.focusIndexAfterDeletion(deleting: [0, 1], isSubSet: isSubSet) == 2)
+        #expect(AppWorkoutSetTree.focusIndexAfterDeletion(deleting: [0, 1], isSubSet: isSubSet) == 2)
     }
 
     @Test("Deleting the last row falls back to the previous one")
     func focusFallsBackToPreviousRow() {
         let isSubSet = [false, false]
-        #expect(WorkoutSetTree.focusIndexAfterDeletion(deleting: [1], isSubSet: isSubSet) == 0)
+        #expect(AppWorkoutSetTree.focusIndexAfterDeletion(deleting: [1], isSubSet: isSubSet) == 0)
     }
 
     @Test("Focus target is nil only when nothing survives")
     func focusIsNilWhenNothingSurvives() {
-        #expect(WorkoutSetTree.focusIndexAfterDeletion(deleting: [0], isSubSet: [false]) == nil)
+        #expect(AppWorkoutSetTree.focusIndexAfterDeletion(deleting: [0], isSubSet: [false]) == nil)
     }
 
     // MARK: - Parent exercise deleted inside the undo window
@@ -420,8 +424,8 @@ struct SubSetDeletionUndoTests {
         )
         let controller = SetDeletionUndoController(window: 60)
 
-        let snapshots = SetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise)
-        WorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
+        let snapshots = AppSetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise)
+        AppWorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
         try context.save()
         controller.record(
             snapshots: snapshots,
@@ -451,8 +455,8 @@ struct SubSetDeletionUndoTests {
         )
         let controller = SetDeletionUndoController(window: 60)
 
-        let snapshots = SetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise)
-        WorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
+        let snapshots = AppSetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise)
+        AppWorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
         try context.save()
         controller.record(
             snapshots: snapshots,
@@ -488,7 +492,7 @@ struct SubSetDeletionUndoTests {
         let controller = SetDeletionUndoController(window: 60)
 
         controller.record(
-            snapshots: SetDeletionUndo.snapshots(for: [sets[1]], in: first),
+            snapshots: AppSetDeletionUndo.snapshots(for: [sets[1]], in: first),
             workoutExercise: first,
             message: "deleted",
             announcement: "deleted"
@@ -535,15 +539,15 @@ struct SubSetDeletionUndoTests {
             sets: [(.working, 10), (.working, 20), (.working, 30), (.working, 40)]
         )
 
-        let snapshots = SetDeletionUndo.snapshots(for: [sets[2]], in: workoutExercise)
-        WorkoutSetManager.deleteSet(sets[2], from: workoutExercise, using: context)
+        let snapshots = AppSetDeletionUndo.snapshots(for: [sets[2]], in: workoutExercise)
+        AppWorkoutSetManager.deleteSet(sets[2], from: workoutExercise, using: context)
         try context.save()
 
-        WorkoutSetManager.deleteSet(sets[0], from: workoutExercise, using: context)
+        AppWorkoutSetManager.deleteSet(sets[0], from: workoutExercise, using: context)
         try context.save()
         #expect(sorted(workoutExercise).map(\.weight) == [20, 40])
 
-        SetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
+        AppSetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
         try context.save()
 
         #expect(sorted(workoutExercise).map(\.weight) == [20, 30, 40])
@@ -564,17 +568,17 @@ struct SubSetDeletionUndoTests {
             ]
         )
 
-        let targets = WorkoutSetTree.deletionTargets(for: sets[1], in: workoutExercise)
+        let targets = AppWorkoutSetTree.deletionTargets(for: sets[1], in: workoutExercise)
         #expect(targets.count == 3)
-        let snapshots = SetDeletionUndo.snapshots(for: targets, in: workoutExercise)
-        WorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
+        let snapshots = AppSetDeletionUndo.snapshots(for: targets, in: workoutExercise)
+        AppWorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
         try context.save()
 
-        WorkoutSetManager.deleteSet(sets[0], from: workoutExercise, using: context)
+        AppWorkoutSetManager.deleteSet(sets[0], from: workoutExercise, using: context)
         try context.save()
         #expect(sorted(workoutExercise).map(\.weight) == [30])
 
-        SetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
+        AppSetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
         try context.save()
 
         // Children stay attached behind their parent, ahead of the survivor.
@@ -590,14 +594,14 @@ struct SubSetDeletionUndoTests {
             sets: [(.working, 10), (.working, 20), (.working, 30)]
         )
 
-        let snapshots = SetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise)
-        WorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
+        let snapshots = AppSetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise)
+        AppWorkoutSetManager.deleteSet(sets[1], from: workoutExercise, using: context)
         try context.save()
-        WorkoutSetManager.deleteSet(sets[0], from: workoutExercise, using: context)
+        AppWorkoutSetManager.deleteSet(sets[0], from: workoutExercise, using: context)
         try context.save()
         #expect(sorted(workoutExercise).map(\.weight) == [30])
 
-        SetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
+        AppSetDeletionUndo.restore(snapshots, into: workoutExercise, using: context)
         try context.save()
 
         // Its only predecessor (10) is gone, so it goes back to the head.
@@ -631,7 +635,7 @@ struct SubSetDeletionUndoTests {
         )
 
         controller.record(
-            snapshots: SetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise),
+            snapshots: AppSetDeletionUndo.snapshots(for: [sets[1]], in: workoutExercise),
             workoutExercise: workoutExercise,
             message: "deleted",
             announcement: message
@@ -639,7 +643,7 @@ struct SubSetDeletionUndoTests {
         let first = controller.lastAnnouncement
 
         controller.record(
-            snapshots: SetDeletionUndo.snapshots(for: [sets[2]], in: workoutExercise),
+            snapshots: AppSetDeletionUndo.snapshots(for: [sets[2]], in: workoutExercise),
             workoutExercise: workoutExercise,
             message: "deleted",
             announcement: message

@@ -5,6 +5,8 @@ import VitalModels
 
 @testable import VitalStride
 
+private typealias AppWorkoutSetManager = VitalStride.WorkoutSetManager
+
 @Suite("Min-One-Set Invariant Tests")
 struct MinOneSetInvariantTests {
     let container: ModelContainer
@@ -160,7 +162,7 @@ struct MinOneSetInvariantTests {
         context.insert(workout)
         try context.save()
 
-        let deleted = WorkoutSetManager.deleteSet(onlySet, from: workoutExercise, using: context)
+        let deleted = AppWorkoutSetManager.deleteSet(onlySet, from: workoutExercise, using: context)
         #expect(deleted == false)
 
         let remainingSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
@@ -191,7 +193,7 @@ struct MinOneSetInvariantTests {
         context.insert(workout)
         try context.save()
 
-        let deleted = WorkoutSetManager.deleteSet(set1, from: workoutExercise, using: context)
+        let deleted = AppWorkoutSetManager.deleteSet(set1, from: workoutExercise, using: context)
         #expect(deleted == true)
         try context.save()
 
@@ -226,7 +228,7 @@ struct MinOneSetInvariantTests {
         context.insert(workout)
         try context.save()
 
-        let deleted = WorkoutSetManager.deleteSet(mainSet, from: workoutExercise, using: context)
+        let deleted = AppWorkoutSetManager.deleteSet(mainSet, from: workoutExercise, using: context)
         #expect(deleted == false)
 
         let remainingSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
@@ -261,7 +263,7 @@ struct MinOneSetInvariantTests {
         context.insert(workout)
         try context.save()
 
-        let deleted = WorkoutSetManager.deleteSet(mainSet1, from: workoutExercise, using: context)
+        let deleted = AppWorkoutSetManager.deleteSet(mainSet1, from: workoutExercise, using: context)
         #expect(deleted == true)
         try context.save()
 
