@@ -330,29 +330,37 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
 
     /// Locates the search text field within the presented picker sheet.
     /// The picker mounts a collapsed magnifier button first; tapping it
-    /// expands to the full `searchRow` with the TextField. In case the
-    /// picker already renders expanded (some configurations), the tap is
-    /// a no-op we then re-query.
+    /// expands to the full `searchRow` with the TextField. MY-1445: in
+    /// collapsed state the expanded surface is constrained to 44pt width
+    /// (its TextField may exist in the accessibility tree but with a
+    /// zero-width frame and thus not hittable), so we check `isHittable`
+    /// rather than just `exists` to decide whether expansion is needed.
     @MainActor
     private func openSearchField(in app: XCUIApplication) -> XCUIElement {
         // Wait for the picker sheet to appear (navigation title present).
         _ = app.navigationBars.firstMatch.waitForExistence(timeout: 5.0)
 
-        // Try the expanded field directly first.
+        // Try the expanded field directly first — must both exist AND be
+        // hittable (non-zero frame). MY-1445: the TextField is always
+        // mounted but has a zero-width frame when collapsed.
         var field = app.textFields.firstMatch
-        if !field.waitForExistence(timeout: 1.0) {
-            // Not expanded — tap the collapsed magnifier button by a11y
-            // label ("搜索动作" / "Search exercises").
+        let fieldReady = field.waitForExistence(timeout: 1.0) && field.isHittable
+        if !fieldReady {
+            // Not expanded (or not hittable) — tap the collapsed magnifier
+            // button by a11y label ("搜索动作" / "Search exercises").
             let magnifier = app.buttons.matching(
                 NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@",
                             "搜索", "Search")
             ).firstMatch
-            if magnifier.exists {
+            if magnifier.waitForExistence(timeout: UITestTimeout.uiSettle) {
                 magnifier.tap()
             }
             field = app.textFields.firstMatch
-            XCTAssertTrue(field.waitForExistence(timeout: UITestTimeout.uiSettle),
-                          "Search text field never appeared")
+            let expanded = NSPredicate(format: "isHittable == true")
+            let hittableExpectation = expectation(for: expanded,
+                                                  evaluatedWith: field,
+                                                  handler: nil)
+            wait(for: [hittableExpectation], timeout: UITestTimeout.uiSettle)
         }
 
         // Ensure focus by tapping.

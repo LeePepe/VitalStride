@@ -296,12 +296,13 @@ struct ExercisePickerView: View {
     /// not force a full-width ZStack layout contribution.
     static let collapsedSearchMaxWidth: CGFloat = collapsedSearchDiameter
 
-    /// MY-1445: max width of the search surface in expanded state. `nil`
-    /// represents `.infinity` (the expanded surface fills available width).
-    static let expandedSearchMaxWidth: CGFloat? = nil
-
-    /// MY-1445: alignment applied to the searchSurface frame so the
-    /// collapsed pill aligns to the panel trailing edge.
+    /// MY-1445: alignment applied to the searchSurface frame. When the ZStack
+    /// is narrower than the parent's proposal (collapsed state), the parent
+    /// VStack's `.trailing` alignment positions the 44pt frame flush to the
+    /// trailing edge. This frame alignment governs content placement WITHIN
+    /// the ZStack (the collapsed pill centers vertically within its fixed
+    /// frame). Both work together: parent positions the frame, frame aligns
+    /// its children.
     static let searchSurfaceCollapsedAlignment: HorizontalAlignment = .trailing
 
     private var floatingSearchAndFilterPanel: some View {
@@ -361,12 +362,12 @@ struct ExercisePickerView: View {
     ///
     /// Both surfaces are always in the layout; the invisible one has
     /// `.opacity(0)` and disables hit-testing so it can't accidentally
-    /// steal a tap. Because they are wrapped in a `ZStack`, the parent
-    /// panel's height is the maximum of the two — the expanded surface
-    /// is the taller of the pair, so the collapsed pill visually reads
-    /// the same as before (the outer `FloatingPanelAttachment` re-lays
-    /// out based on `.onGeometryChange` which still fires when the
-    /// visible content changes).
+    /// steal a tap. MY-1445: the ZStack is constrained via
+    /// `.frame(maxWidth:)` to `collapsedSearchMaxWidth` (44pt) in
+    /// collapsed state, preventing the hidden expanded surface from
+    /// forcing a full-width layout contribution. The parent VStack's
+    /// `.trailing` alignment positions this narrower ZStack flush to
+    /// the panel trailing edge.
     private var searchSurface: some View {
         ZStack {
             expandedSearchSurface
@@ -378,12 +379,20 @@ struct ExercisePickerView: View {
                 .allowsHitTesting(!isSearchExpanded)
                 .accessibilityHidden(isSearchExpanded)
         }
+        // MY-1445: the `.animation` modifier is placed BEFORE `.frame` so
+        // that opacity transitions inside the ZStack are animated, but the
+        // frame width change (44pt ↔ .infinity) is applied instantaneously.
+        // This prevents the accessibility system from seeing a stale
+        // zero-width frame during a SwiftUI animation transaction, which
+        // would make the TextField un-hittable to XCUITest.
+        .animation(.easeOut(duration: 0.22), value: isSearchExpanded)
         // MY-1445: constrain the ZStack width in collapsed state so the
         // hidden expanded surface (which uses `maxWidth: .infinity`) does
         // not force the ZStack to full panel width. In expanded state
         // `.infinity` lets the search field fill the available width.
-        // `.trailing` alignment keeps the collapsed pill flush to the
-        // panel trailing edge (matching the parent VStack alignment).
+        // The parent VStack's `.trailing` alignment positions this narrower
+        // frame flush to the trailing edge; the frame alignment here governs
+        // child placement within the ZStack bounds.
         .frame(
             maxWidth: isSearchExpanded ? .infinity : Self.collapsedSearchMaxWidth,
             alignment: Alignment(
@@ -391,7 +400,6 @@ struct ExercisePickerView: View {
                 vertical: .center
             )
         )
-        .animation(.easeOut(duration: 0.22), value: isSearchExpanded)
     }
 
     private var expandedSearchSurface: some View {
