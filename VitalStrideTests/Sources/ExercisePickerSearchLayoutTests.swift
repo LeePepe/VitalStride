@@ -207,6 +207,9 @@ struct ExercisePickerSearchLayoutTests {
     /// Renders the collapsed `SearchSurfaceContainer` inside a VStack with the
     /// given horizontal alignment, captures a 1× bitmap, and samples pixels at
     /// the pill center positions (leading and trailing edges).
+    ///
+    /// The hosting controller is added to a `UIWindow` to ensure SwiftUI fully
+    /// resolves layout even in headless CI environments.
     @MainActor
     private func renderAndSamplePillPosition(
         alignment: HorizontalAlignment,
@@ -235,6 +238,16 @@ struct ExercisePickerSearchLayoutTests {
         let hc = UIHostingController(rootView: probe)
         hc.view.frame = CGRect(x: 0, y: 0, width: availableWidth, height: renderHeight)
         hc.view.backgroundColor = .white
+
+        // Attach to a UIWindow so SwiftUI resolves layout in headless CI
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: availableWidth, height: renderHeight))
+        window.rootViewController = hc
+        window.isHidden = false
+        hc.view.setNeedsLayout()
+        hc.view.layoutIfNeeded()
+
+        // Ensure SwiftUI's async layout pass completes
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
         hc.view.setNeedsLayout()
         hc.view.layoutIfNeeded()
 
@@ -248,6 +261,9 @@ struct ExercisePickerSearchLayoutTests {
         let image = renderer.image { ctx in
             hc.view.layer.render(in: ctx.cgContext)
         }
+
+        // Detach from window
+        window.rootViewController = nil
 
         guard let cgImage = image.cgImage else {
             return BitmapSample(
@@ -348,6 +364,15 @@ struct ExercisePickerSearchLayoutTests {
         let hc = UIHostingController(rootView: view)
         hc.view.frame = CGRect(x: 0, y: 0, width: width, height: height)
         hc.view.backgroundColor = .white
+
+        // Attach to a UIWindow so SwiftUI resolves layout in headless CI
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: height))
+        window.rootViewController = hc
+        window.isHidden = false
+        hc.view.setNeedsLayout()
+        hc.view.layoutIfNeeded()
+
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
         hc.view.setNeedsLayout()
         hc.view.layoutIfNeeded()
 
@@ -357,9 +382,11 @@ struct ExercisePickerSearchLayoutTests {
             size: CGSize(width: width, height: height),
             format: format
         )
-        return renderer.image { ctx in
+        let result = renderer.image { ctx in
             hc.view.layer.render(in: ctx.cgContext)
         }
+        window.rootViewController = nil
+        return result
     }
 
     private struct PixelColor {

@@ -1195,6 +1195,53 @@ internal struct SearchSurfaceContainer<Expanded: View, Collapsed: View>: View {
     }
 }
 
+#if DEBUG
+// MARK: - SearchSurfaceContainer Previews
+
+#Preview("SearchSurface — Collapsed") {
+    VStack(alignment: .trailing) {
+        SearchSurfaceContainer(
+            isExpanded: false,
+            expanded: RoundedRectangle(cornerRadius: 12)
+                .fill(Color.blue.opacity(0.15))
+                .frame(maxWidth: .infinity)
+                .frame(height: 44),
+            collapsed: Circle()
+                .fill(Color.blue)
+                .frame(width: 44, height: 44)
+        )
+    }
+    .frame(width: 369, height: 60, alignment: .trailing)
+    .background(Color(.systemGroupedBackground))
+}
+
+#Preview("SearchSurface — Expanded") {
+    VStack(alignment: .trailing) {
+        SearchSurfaceContainer(
+            isExpanded: true,
+            expanded: RoundedRectangle(cornerRadius: 12)
+                .fill(Color.blue.opacity(0.15))
+                .overlay(
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                        Text("bench press")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 14)
+                )
+                .frame(maxWidth: .infinity)
+                .frame(height: 44),
+            collapsed: Circle()
+                .fill(Color.blue)
+                .frame(width: 44, height: 44)
+        )
+    }
+    .frame(width: 369, height: 60, alignment: .trailing)
+    .background(Color(.systemGroupedBackground))
+}
+#endif
+
 // MARK: - Floating Panel Attachment
 
 /// Attaches the floating search + filter panel to the card grid without letting
