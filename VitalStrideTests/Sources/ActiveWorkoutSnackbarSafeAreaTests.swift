@@ -231,8 +231,10 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
             snackbarSlot: slot,
             undoContent: {
+                // Use a long multiline message that would exceed 2 lines at
+                // accessibility sizes if lineLimit were not enforced.
                 productionUndoContent(
-                    message: "Deleted Warmup sub-set of set 10"
+                    message: "Deleted Warmup sub-set of set 10 in superset group A (bicep curls)"
                 )
             },
             restContent: {
@@ -265,38 +267,16 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
 
     // MARK: - Helpers
 
-    /// Production-representative undo content. Uses a ZStack with hidden sizing
-    /// reference (mirrors `undoSnackbarEnvelope`). The sizing reference has a
-    /// two-line body text + button layout that represents worst-case height;
-    /// the actual message sits on top. This ensures height stability regardless
-    /// of message length.
+    /// Production-representative undo content. Uses the actual production
+    /// `ActiveWorkoutSnackbarLayout.undoEnvelope` helper — the same code path
+    /// that `ActiveWorkoutView.undoSnackbarEnvelope` calls. This ensures tests
+    /// exercise the delivered code and will catch any drift.
     @MainActor
     @ViewBuilder
     private func productionUndoContent(message: String) -> some View {
-        ZStack(alignment: .leading) {
-            // Hidden sizing reference (same approach as production undoSizingReference)
-            HStack(spacing: 8) {
-                Text(String(repeating: "M", count: 40))
-                    .font(.body)
-                    .lineLimit(2)
-                Spacer()
-                Text("Undo")
-                    .font(.body.weight(.semibold))
-                    .frame(minWidth: 44, minHeight: 44)
-            }
-            .hidden()
-
-            // Active content
-            HStack(spacing: 8) {
-                Text(message)
-                    .font(.body)
-                Spacer()
-                Button("Undo") {}
-                    .font(.body.weight(.semibold))
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(Rectangle())
-            }
-        }
+        ActiveWorkoutSnackbarLayout.undoEnvelope(
+            message: message
+        )
     }
 
     /// Production-representative rest content. Uses a ZStack with hidden sizing
@@ -339,7 +319,7 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     /// Placeholder for the undo variant in tests that don't exercise undo content.
     @MainActor
     private var undoPlaceholder: some View {
-        productionUndoContent(message: "Deleted set 1")
+        productionUndoContent(message: "Deleted set 1 of superset group B (tricep extensions warmup)")
     }
 
     @MainActor

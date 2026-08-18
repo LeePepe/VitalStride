@@ -107,6 +107,62 @@ enum ActiveWorkoutSnackbarLayout {
         #endif
     }
 
+    // MARK: - Undo envelope (MY-1446, testable)
+
+    /// Renders the undo snackbar envelope with a ZStack-based stable-height
+    /// contract. A hidden sizing reference (two-line text + button) is always
+    /// laid out, guaranteeing the envelope height is message-independent.
+    /// The real message text uses `.lineLimit(2)` matching the reference so
+    /// it can never exceed the reference height at any Dynamic Type size.
+    ///
+    /// Production `ActiveWorkoutView.undoSnackbarEnvelope` delegates here so
+    /// tests exercise the actual delivered code path.
+    @ViewBuilder
+    @MainActor
+    static func undoEnvelope(
+        message: String?,
+        undoTitle: String = "Undo",
+        messageColor: Color = .primary,
+        undoColor: Color = .blue,
+        undoAccessibilityLabel: String = "Undo deletion",
+        onUndo: @escaping () -> Void = {}
+    ) -> some View {
+        ZStack(alignment: .leading) {
+            // Hidden sizing reference: two-line body text + button at the
+            // same typography guarantees a stable worst-case height.
+            HStack(spacing: Space.gap) {
+                Text(String(repeating: "M", count: 40))
+                    .font(TypeScale.body)
+                    .lineLimit(2)
+                Spacer()
+                Text("Undo")
+                    .font(TypeScale.body.weight(.semibold))
+                    .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
+            }
+            .hidden()
+
+            // Active undo content (only when a message is provided)
+            if let message {
+                HStack(spacing: Space.gap) {
+                    Text(message)
+                        .font(TypeScale.body)
+                        .lineLimit(2)
+                        .foregroundStyle(messageColor)
+                    Spacer()
+                    Button(action: onUndo) {
+                        Text(undoTitle)
+                            .font(TypeScale.body.weight(.semibold))
+                            .foregroundStyle(undoColor)
+                            .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(undoAccessibilityLabel)
+                }
+            }
+        }
+    }
+
     // MARK: - Rest timer button layout (MY-1446, testable)
 
     /// Renders the rest timer adjust buttons (-10s, +10s, Skip) with the
