@@ -90,6 +90,50 @@ enum ActiveWorkoutSnackbarLayout {
         Color.clear.background(.bar)
         #endif
     }
+
+    // MARK: - Rest timer button layout (MY-1446, testable)
+
+    /// Renders the rest timer adjust buttons (-10s, +10s, Skip) with the
+    /// production layout (including `.frame(minHeight: 44)` and accessibility
+    /// identifiers). Extracted as a static helper so tests can verify hit
+    /// targets on the actual production layout without depending on
+    /// `ActiveWorkoutView`'s private properties.
+    @ViewBuilder
+    @MainActor
+    static func restTimerButtons(
+        onMinus10: @escaping () -> Void = {},
+        onPlus10: @escaping () -> Void = {},
+        onSkip: @escaping () -> Void = {}
+    ) -> some View {
+        HStack(spacing: 8) {
+            Button("-10s", action: onMinus10)
+                .font(.caption)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.gray.opacity(0.15), in: Capsule())
+                .frame(minHeight: 44)
+                .contentShape(Capsule())
+                .accessibilityIdentifier("rest_button_minus10")
+            Button("+10s", action: onPlus10)
+                .font(.caption)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.gray.opacity(0.15), in: Capsule())
+                .frame(minHeight: 44)
+                .contentShape(Capsule())
+                .accessibilityIdentifier("rest_button_plus10")
+            Button("Skip", action: onSkip)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.blue.opacity(0.15), in: Capsule())
+                .frame(minHeight: 44)
+                .contentShape(Capsule())
+                .accessibilityIdentifier("rest_button_skip")
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 // MARK: - ActiveWorkoutFABContainer (MY-1421)

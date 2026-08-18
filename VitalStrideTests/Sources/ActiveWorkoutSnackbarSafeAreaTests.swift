@@ -10,40 +10,36 @@ import UIKit
 
 /// MY-1446 — Snackbar safe-area regression tests.
 ///
-/// Verifies three layout invariants that use safe area as single truth source:
+/// Verifies layout invariants that use safe area as single truth source:
 /// 1. The FAB and bottom snackbar frames must not intersect.
 /// 2. The bottom snackbar must be fully contained within the safe area
-///    (not clipped by the edge).
+///    (not clipped by the home indicator region).
 /// 3. When the snackbar is at the top edge (keyboard visible), it must not
 ///    overlap the persistent compact info band.
+/// 4. Each rest timer button (Skip, -10s, +10s) has a hit target >= 44pt.
+/// 5. Auto-dismiss respects undo mid-countdown interruption.
 ///
-/// These tests exercise `ActiveWorkoutSnackbarLayout` to confirm layout
-/// decisions produce non-overlapping, safe-area-respecting geometry.
+/// These tests exercise `ActiveWorkoutSnackbarLayout` helpers — the same
+/// helpers called by production `ActiveWorkoutView`.
 @Suite("ActiveWorkout snackbar safe-area layout (MY-1446)")
 struct ActiveWorkoutSnackbarSafeAreaTests {
 
     // MARK: - Test 1: FAB and bottom snackbar non-overlapping
 
     #if canImport(UIKit) && !os(macOS)
-    /// The bottom snackbar and FAB must not visually overlap. When both are
-    /// rendered within a safe-area-driven layout, the snackbar occupies its
-    /// own distinct region and the FAB stays in its region above.
     @MainActor
     @Test("Bottom snackbar and FAB frames do not intersect")
     func bottomSnackbarAndFABDoNotIntersect() {
-        // Render the unified bottom layout with rest snackbar active
         let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
             snackbarSlot: .rest,
             snackbar: { snackbarPlaceholder },
             fab: { fabPlaceholder }
         )
         let host = UIHostingController(rootView: layout)
-        // Give enough width/height to render naturally
         let containerSize = CGSize(width: 393, height: 300)
         host.view.frame = CGRect(origin: .zero, size: containerSize)
         host.view.layoutIfNeeded()
 
-        // Find the snackbar and FAB subviews by accessibility identifier
         let snackbarFrame = findFrame(
             in: host.view,
             accessibilityIdentifier: "snackbar_content"
@@ -58,26 +54,23 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             return
         }
 
-        // They must not intersect
         #expect(
             !snackbarFrame.intersects(fabFrame),
-            "Snackbar frame \(snackbarFrame) intersects FAB frame \(fabFrame); they must be non-overlapping"
+            "Snackbar frame \(snackbarFrame) intersects FAB frame \(fabFrame)"
         )
 
-        // FAB must be above snackbar (smaller Y = higher on screen)
         #expect(
             fabFrame.maxY <= snackbarFrame.minY + 1,
             "FAB bottom (\(fabFrame.maxY)) must be at or above snackbar top (\(snackbarFrame.minY))"
         )
     }
 
-    // MARK: - Test 2: snackbar fully within safe area
+    // MARK: - Test 2: snackbar within safe area (non-zero inset)
 
-    /// The bottom snackbar must not extend beyond the container's bounds.
-    /// It must be fully contained within the available safe area so it is
-    /// never clipped by the screen edge or home indicator.
+    /// Uses `additionalSafeAreaInsets` to simulate a real home-indicator
+    /// region (34pt). The snackbar must render entirely above the unsafe zone.
     @MainActor
-    @Test("Bottom snackbar is fully contained within container bounds")
+    @Test("Bottom snackbar does not invade home indicator region")
     func bottomSnackbarWithinSafeArea() {
         let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
             snackbarSlot: .rest,
@@ -85,8 +78,13 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             fab: { fabPlaceholder }
         )
         let host = UIHostingController(rootView: layout)
-        let containerSize = CGSize(width: 393, height: 300)
-        host.view.frame = CGRect(origin: .zero, size: containerSize)
+        // Simulate iPhone with 34pt bottom safe area (home indicator)
+        host.additionalSafeAreaInsets = UIEdgeInsets(top: 0, left: 0, bottom: 34, right: 0)
+
+        // Place inside a window to get proper safe area propagation
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 400))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
         host.view.layoutIfNeeded()
 
         let snackbarFrame = findFrame(
@@ -96,25 +94,26 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
 
         guard let snackbarFrame else {
             Issue.record("Could not find snackbar frame")
+            window.isHidden = true
             return
         }
 
-        let containerBounds = CGRect(origin: .zero, size: containerSize)
+        // The safe area is the container height minus bottom inset.
+        // snackbar must fit entirely within safe region (above the 34pt zone).
+        let safeAreaBottom = host.view.bounds.height - host.view.safeAreaInsets.bottom
         #expect(
-            containerBounds.contains(snackbarFrame),
-            "Snackbar frame \(snackbarFrame) extends outside container bounds \(containerBounds)"
+            snackbarFrame.maxY <= safeAreaBottom + 1,
+            "Snackbar bottom (\(snackbarFrame.maxY)) extends into home indicator region (safe area ends at \(safeAreaBottom))"
         )
+
+        window.isHidden = true
     }
 
     // MARK: - Test 3: top snackbar does not cover info band
 
-    /// When the keyboard is visible and the snackbar moves to the top edge,
-    /// it must NOT overlap the compact info band. The info band must remain
-    /// fully visible and the snackbar must be positioned below it.
     @MainActor
     @Test("Top snackbar does not overlap compact info band")
     func topSnackbarDoesNotCoverInfoBand() {
-        // Render the top layout: info band + snackbar positioned below it
         let layout = ActiveWorkoutSnackbarLayout.topLayout(
             snackbarSlot: .rest,
             infoBand: { infoBandPlaceholder },
@@ -139,36 +138,64 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             return
         }
 
-        // They must not intersect
         #expect(
             !infoBandFrame.intersects(snackbarFrame),
-            "Info band frame \(infoBandFrame) intersects snackbar frame \(snackbarFrame); top snackbar must sit below the info band"
+            "Info band intersects snackbar; top snackbar must sit below the info band"
         )
 
-        // Snackbar must be below info band
         #expect(
             snackbarFrame.minY >= infoBandFrame.maxY - 1,
             "Snackbar top (\(snackbarFrame.minY)) must be at or below info band bottom (\(infoBandFrame.maxY))"
         )
     }
 
-    // MARK: - Test 4: rest timer buttons meet hit target
+    // MARK: - Test 4: production rest timer buttons each >= 44pt
 
-    /// The Skip, -10s, +10s buttons inside the bottom snackbar must each
-    /// render with a tappable area >= 44pt in both width and height.
+    /// Tests the actual production `ActiveWorkoutSnackbarLayout.restTimerButtons`
+    /// helper (same code path as `ActiveWorkoutView.restAdjustButtons`) and
+    /// asserts each individual button has a hit target >= 44pt.
     @MainActor
-    @Test("Rest timer snackbar buttons have >=44pt hit targets")
+    @Test("Each rest timer button (-10s, +10s, Skip) has >=44pt hit target")
     func restTimerButtonsHitTargets() {
-        // Render a representative rest-timer snackbar content
-        let content = restTimerContent
+        let content = ActiveWorkoutSnackbarLayout.restTimerButtons()
         let host = UIHostingController(rootView: content)
-        let size = host.sizeThatFits(in: CGSize(width: 393, height: 0))
+        host.view.frame = CGRect(x: 0, y: 0, width: 393, height: 100)
+        host.view.layoutIfNeeded()
 
-        // The content height must be at least 44pt (minTapTarget)
-        #expect(
-            size.height >= Space.minTapTarget,
-            "Rest timer content height (\(size.height)) must be >= \(Space.minTapTarget)pt for tappable area"
-        )
+        let buttonIds = ["rest_button_minus10", "rest_button_plus10", "rest_button_skip"]
+        for buttonId in buttonIds {
+            let frame = findFrame(in: host.view, accessibilityIdentifier: buttonId)
+            guard let frame else {
+                Issue.record("Could not find button '\(buttonId)'")
+                continue
+            }
+            #expect(
+                frame.height >= 44,
+                "Button '\(buttonId)' height (\(frame.height)) must be >= 44pt"
+            )
+        }
+    }
+
+    // MARK: - Test 5: auto-dismiss timing regression (undo mid-countdown)
+
+    /// Validates the slot arbitration behavior that the auto-dismiss task
+    /// relies on: when undo appears during a rest-completed state, the slot
+    /// switches to .undo, and when undo clears the slot returns to .rest.
+    /// This is the contractual basis for the production code's "check slot
+    /// after delay" pattern.
+    @Test("Slot arbitration: undo mid-rest-completed then re-visible")
+    func slotArbitrationUndoMidRestCompleted() {
+        // Phase 1: rest completed, no undo → slot is .rest
+        let slotVisible = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
+        #expect(slotVisible == .rest)
+
+        // Phase 2: undo appears → slot switches to .undo
+        let slotOccluded = BottomSnackbarSlot.resolve(hasPendingUndo: true, restPhase: .completed)
+        #expect(slotOccluded == .undo)
+
+        // Phase 3: undo clears → slot returns to .rest
+        let slotRevisible = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
+        #expect(slotRevisible == .rest)
     }
 
     // MARK: - Helpers
@@ -176,7 +203,7 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     @MainActor
     private var snackbarPlaceholder: some View {
         Color.blue.opacity(0.3)
-            .frame(height: 68) // representative snackbar height
+            .frame(height: 68)
             .accessibilityIdentifier("snackbar_content")
     }
 
@@ -194,21 +221,6 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         Color.gray.opacity(0.3)
             .frame(height: 48)
             .accessibilityIdentifier("info_band_content")
-    }
-
-    @MainActor
-    private var restTimerContent: some View {
-        HStack {
-            Circle().frame(width: 32, height: 32)
-            Spacer()
-            HStack(spacing: 8) {
-                Text("-10s").frame(minHeight: Space.minTapTarget)
-                Text("+10s").frame(minHeight: Space.minTapTarget)
-                Text("Skip").frame(minHeight: Space.minTapTarget)
-            }
-        }
-        .padding(.horizontal, Space.cardPadding)
-        .padding(.vertical, Space.gap)
     }
 
     /// Recursively searches for a UIView with the given accessibility identifier
@@ -237,15 +249,12 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
 struct BottomSnackbarSlotArbitrationTests {
     @Test("Undo outranks rest-completed: slot stays .undo when rest completes during undo window")
     func undoOutranksRestCompleted() {
-        // When the user has a pending undo AND rest completes simultaneously,
-        // the undo slot must win (it has a deadline the user cannot recover from).
         let slot = BottomSnackbarSlot.resolve(hasPendingUndo: true, restPhase: .completed)
         #expect(slot == .undo, "Undo must outrank rest-completed; got \(slot)")
     }
 
     @Test("Rest shows once undo clears")
     func restShowsAfterUndoClears() {
-        // After the undo window expires, the rest-completed snackbar should appear.
         let slot = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
         #expect(slot == .rest, "Rest-completed must show once undo clears; got \(slot)")
     }

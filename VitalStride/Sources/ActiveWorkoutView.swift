@@ -288,16 +288,43 @@ struct ActiveWorkoutView: View {
             // The countdown only starts once the rest snackbar is actually
             // visible (bottomSnackbarSlot == .rest), so an undo occupying
             // the slot does not silently clear the completed state.
+            // If undo appears mid-countdown, the countdown resets and waits
+            // for visibility again before restarting the full 2s window.
             .task(id: restTimer.phase) {
                 guard restTimer.phase == .completed else { return }
-                // Wait until the slot is actually showing rest (undo may be occupying it)
-                while bottomSnackbarSlot != .rest {
-                    guard !Task.isCancelled else { return }
-                    try? await Task.sleep(for: .milliseconds(100))
+                // Outer loop: each iteration represents one attempt at a full
+                // 2s visible countdown. If undo interrupts, we restart.
+                while !Task.isCancelled {
+                    // Wait until the slot is actually showing rest
+                    while bottomSnackbarSlot != .rest {
+                        guard !Task.isCancelled else { return }
+                        try? await Task.sleep(for: .milliseconds(100))
+                    }
+                    // Start the 2s countdown in small increments so we can
+                    // detect a mid-countdown undo interruption.
+                    var elapsed: Duration = .zero
+                    let target: Duration = .seconds(2)
+                    let tick: Duration = .milliseconds(100)
+                    var interrupted = false
+                    while elapsed < target {
+                        guard !Task.isCancelled else { return }
+                        try? await Task.sleep(for: tick)
+                        elapsed += tick
+                        // If undo took over the slot mid-countdown, break
+                        // and restart from the top (wait for visibility again).
+                        if bottomSnackbarSlot != .rest {
+                            interrupted = true
+                            break
+                        }
+                    }
+                    if !interrupted {
+                        // Full 2s elapsed while rest was visible — dismiss.
+                        guard !Task.isCancelled else { return }
+                        restTimer.dismissCompleted()
+                        return
+                    }
+                    // Undo interrupted — loop back and wait for slot to be .rest again.
                 }
-                try? await Task.sleep(for: .seconds(2))
-                guard !Task.isCancelled else { return }
-                restTimer.dismissCompleted()
             }
             // MY-1420: the deleted row took VoiceOver focus with it, and the
             // undo snackbar is deliberately non-modal (it must not block the
@@ -759,6 +786,7 @@ struct ActiveWorkoutView: View {
             .background(theme.neutrals.inner, in: Capsule())
             .frame(minHeight: 44)
             .contentShape(Capsule())
+            .accessibilityIdentifier("rest_button_minus10")
             .accessibilityLabel(String(localized: "缩短十秒", comment: "Subtract 10 seconds a11y label"))
             Button("+10s") {
                 restTimer.adjustRest(by: 10)
@@ -769,6 +797,7 @@ struct ActiveWorkoutView: View {
             .background(theme.neutrals.inner, in: Capsule())
             .frame(minHeight: 44)
             .contentShape(Capsule())
+            .accessibilityIdentifier("rest_button_plus10")
             .accessibilityLabel(String(localized: "延长十秒", comment: "Add 10 seconds a11y label"))
             Button(String(localized: "跳过", comment: "Skip rest button label")) {
                 restTimer.skipRest()
@@ -780,6 +809,7 @@ struct ActiveWorkoutView: View {
             .background(theme.primary.primary.opacity(0.15), in: Capsule())
             .frame(minHeight: 44)
             .contentShape(Capsule())
+            .accessibilityIdentifier("rest_button_skip")
             .accessibilityLabel(String(localized: "跳过休息", comment: "Skip rest a11y label"))
         }
         .buttonStyle(.plain)
