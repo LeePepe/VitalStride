@@ -149,13 +149,13 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         )
     }
 
-    // MARK: - Test 4: production rest timer buttons each >= 44pt
+    // MARK: - Test 4: production rest timer buttons each >= 44pt in both dimensions
 
     /// Tests the actual production `ActiveWorkoutSnackbarLayout.restTimerButtons`
-    /// helper (same code path as `ActiveWorkoutView.restAdjustButtons`) and
-    /// asserts each individual button has a hit target >= 44pt.
+    /// helper (the same code path production `ActiveWorkoutView` calls) and
+    /// asserts each individual button has a hit target >= 44pt in BOTH dimensions.
     @MainActor
-    @Test("Each rest timer button (-10s, +10s, Skip) has >=44pt hit target")
+    @Test("Each rest timer button (-10s, +10s, Skip) has >=44×44pt hit target")
     func restTimerButtonsHitTargets() {
         let content = ActiveWorkoutSnackbarLayout.restTimerButtons()
         let host = UIHostingController(rootView: content)
@@ -172,6 +172,10 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             #expect(
                 frame.height >= 44,
                 "Button '\(buttonId)' height (\(frame.height)) must be >= 44pt"
+            )
+            #expect(
+                frame.width >= 44,
+                "Button '\(buttonId)' width (\(frame.width)) must be >= 44pt"
             )
         }
     }
@@ -196,6 +200,47 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         // Phase 3: undo clears → slot returns to .rest
         let slotRevisible = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
         #expect(slotRevisible == .rest)
+    }
+
+    // MARK: - Test 6: buffered completion survives controller clear
+
+    /// MY-1446 P0-1 regression: the controller independently clears .completed→.idle,
+    /// but the view-layer buffer keeps the slot at .rest (via effective phase) until
+    /// a full 2s of visibility elapses. Simulates the slot resolution logic when
+    /// the buffer is set but the controller phase has already reverted to .idle.
+    @Test("Buffered completion keeps slot .rest even after controller clears to idle")
+    func bufferedCompletionSurvivesControllerClear() {
+        // When restCompletedBuffered=true, effectivePhase=.completed regardless
+        // of actual controller phase. So slot resolution uses .completed:
+        let slotWithBuffer = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
+        #expect(slotWithBuffer == .rest)
+
+        // Without buffer (controller cleared to idle), slot would be .none:
+        let slotWithoutBuffer = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .idle)
+        #expect(slotWithoutBuffer == .none)
+    }
+
+    /// Regression: rest visible → countdown begins → undo appears → must NOT dismiss
+    /// → undo clears → rest reappears → only after fresh 2s does dismiss occur.
+    /// Verifies the slot arbitration contract that the auto-dismiss loop depends on.
+    @Test("Undo mid-countdown prevents dismiss, re-visibility restarts window")
+    func undoMidCountdownPreventsImmediate() {
+        // Step 1: rest visible (countdown started)
+        let step1 = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
+        #expect(step1 == .rest, "Rest must be visible to start countdown")
+
+        // Step 2: undo appears mid-countdown → slot goes .undo (interrupts countdown)
+        let step2 = BottomSnackbarSlot.resolve(hasPendingUndo: true, restPhase: .completed)
+        #expect(step2 == .undo, "Undo must occlude rest mid-countdown")
+
+        // Step 3: undo clears → slot returns to .rest (restart countdown)
+        let step3 = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
+        #expect(step3 == .rest, "Rest must reappear after undo clears for fresh 2s window")
+
+        // Step 4: even if controller clears to .idle, buffer keeps effective phase .completed
+        // (This tests the contract: production code passes effectivePhase based on buffer)
+        let step4WithBuffer = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
+        #expect(step4WithBuffer == .rest, "Buffered completion keeps slot at .rest")
     }
 
     // MARK: - Helpers

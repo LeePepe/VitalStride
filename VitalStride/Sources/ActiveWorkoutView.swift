@@ -59,6 +59,12 @@ struct ActiveWorkoutView: View {
     // through iOS input system, so a simple notification observer is enough
     // and avoids adding a bespoke publisher inside the input view.
     @State private var isKeyboardVisible = false
+    // MY-1446 P0-1: buffered rest-completed presentation. When the controller
+    // transitions to .completed the view captures it here. Even if the controller
+    // independently clears phase→.idle (its own 2s sleep in handleTimerTask),
+    // this flag keeps the completed snackbar visible until a full uninterrupted
+    // 2s of actual visibility in the slot (not occluded by undo).
+    @State private var restCompletedBuffered = false
     #if !os(macOS)
     @State private var sessionManager: (any WorkoutSessionManaging)?
     #endif
@@ -280,18 +286,18 @@ struct ActiveWorkoutView: View {
             .onChange(of: restTimer.phase) { _, newPhase in
                 if newPhase == .completed {
                     HapticManager.trigger(.restCompleted)
+                    // MY-1446 P0-1: buffer the completion so the view layer
+                    // can manage the presentation independently of the
+                    // controller's own auto-clear sleep.
+                    restCompletedBuffered = true
                 }
             }
-            // MY-1446: auto-dismiss the "rest completed" snackbar after 2s.
-            // Previously handled by SnackbarMode.autoDismiss; now managed
-            // directly since the overlay modifier was removed.
-            // The countdown only starts once the rest snackbar is actually
-            // visible (bottomSnackbarSlot == .rest), so an undo occupying
-            // the slot does not silently clear the completed state.
-            // If undo appears mid-countdown, the countdown resets and waits
-            // for visibility again before restarting the full 2s window.
-            .task(id: restTimer.phase) {
-                guard restTimer.phase == .completed else { return }
+            // MY-1446: auto-dismiss the "rest completed" snackbar after 2s of
+            // uninterrupted visibility. Triggered by the view-layer buffer, NOT
+            // restTimer.phase, so even if the controller independently clears
+            // phase→.idle this task still runs until the user sees the full 2s.
+            .task(id: restCompletedBuffered) {
+                guard restCompletedBuffered else { return }
                 // Outer loop: each iteration represents one attempt at a full
                 // 2s visible countdown. If undo interrupts, we restart.
                 while !Task.isCancelled {
@@ -320,10 +326,11 @@ struct ActiveWorkoutView: View {
                     if !interrupted {
                         // Full 2s elapsed while rest was visible — dismiss.
                         guard !Task.isCancelled else { return }
+                        restCompletedBuffered = false
                         restTimer.dismissCompleted()
                         return
                     }
-                    // Undo interrupted — loop back and wait for slot to be .rest again.
+                    // interrupted — loop again and wait for visibility
                 }
             }
             // MY-1420: the deleted row took VoiceOver focus with it, and the
@@ -672,8 +679,12 @@ struct ActiveWorkoutView: View {
     // MARK: - Bottom snackbar arbitration (MY-1420)
 
     /// Which of the two competing bottom snackbars is showing right now.
+    /// MY-1446 P0-1: uses the buffered completion flag so that even after
+    /// the controller independently resets phase→.idle, the slot still
+    /// resolves to `.rest` while the presentation is pending.
     private var bottomSnackbarSlot: BottomSnackbarSlot {
-        undoController.slot(restPhase: restTimer.phase)
+        let effectivePhase: RestPhase = restCompletedBuffered ? .completed : restTimer.phase
+        return undoController.slot(restPhase: effectivePhase)
     }
 
     @ViewBuilder
@@ -720,15 +731,18 @@ struct ActiveWorkoutView: View {
     private func dismissRestSnackbar() {
         switch restTimer.phase {
         case .resting: restTimer.skipRest()
-        case .completed: restTimer.dismissCompleted()
-        case .idle: break
+        case .completed: restCompletedBuffered = false; restTimer.dismissCompleted()
+        case .idle:
+            // Controller may have cleared but buffer still showing
+            if restCompletedBuffered { restCompletedBuffered = false }
         }
     }
 
     @ViewBuilder
     private var restSnackbarContent: some View {
-        if restTimer.phase == .completed {
+        if restCompletedBuffered {
             Button {
+                restCompletedBuffered = false
                 restTimer.dismissCompleted()
             } label: {
                 HStack {
@@ -775,44 +789,18 @@ struct ActiveWorkoutView: View {
         }
     }
 
+    // MY-1446 P0-2: production now calls the same helper exercised by tests.
     private var restAdjustButtons: some View {
-        HStack(spacing: 8) {
-            Button("-10s") {
-                restTimer.adjustRest(by: -10)
-            }
-            .font(.caption)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(theme.neutrals.inner, in: Capsule())
-            .frame(minHeight: 44)
-            .contentShape(Capsule())
-            .accessibilityIdentifier("rest_button_minus10")
-            .accessibilityLabel(String(localized: "缩短十秒", comment: "Subtract 10 seconds a11y label"))
-            Button("+10s") {
-                restTimer.adjustRest(by: 10)
-            }
-            .font(.caption)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(theme.neutrals.inner, in: Capsule())
-            .frame(minHeight: 44)
-            .contentShape(Capsule())
-            .accessibilityIdentifier("rest_button_plus10")
-            .accessibilityLabel(String(localized: "延长十秒", comment: "Add 10 seconds a11y label"))
-            Button(String(localized: "跳过", comment: "Skip rest button label")) {
-                restTimer.skipRest()
-            }
-            .font(.caption)
-            .fontWeight(.semibold)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(theme.primary.primary.opacity(0.15), in: Capsule())
-            .frame(minHeight: 44)
-            .contentShape(Capsule())
-            .accessibilityIdentifier("rest_button_skip")
-            .accessibilityLabel(String(localized: "跳过休息", comment: "Skip rest a11y label"))
-        }
-        .buttonStyle(.plain)
+        ActiveWorkoutSnackbarLayout.restTimerButtons(
+            neutralBackground: theme.neutrals.inner,
+            skipBackground: theme.primary.primary.opacity(0.15),
+            minus10AccessibilityLabel: String(localized: "缩短十秒", comment: "Subtract 10 seconds a11y label"),
+            plus10AccessibilityLabel: String(localized: "延长十秒", comment: "Add 10 seconds a11y label"),
+            skipAccessibilityLabel: String(localized: "跳过休息", comment: "Skip rest a11y label"),
+            onMinus10: { restTimer.adjustRest(by: -10) },
+            onPlus10: { restTimer.adjustRest(by: 10) },
+            onSkip: { restTimer.skipRest() }
+        )
     }
 
     @ViewBuilder

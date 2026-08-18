@@ -94,13 +94,18 @@ enum ActiveWorkoutSnackbarLayout {
     // MARK: - Rest timer button layout (MY-1446, testable)
 
     /// Renders the rest timer adjust buttons (-10s, +10s, Skip) with the
-    /// production layout (including `.frame(minHeight: 44)` and accessibility
-    /// identifiers). Extracted as a static helper so tests can verify hit
-    /// targets on the actual production layout without depending on
-    /// `ActiveWorkoutView`'s private properties.
+    /// production layout (including `.frame(minWidth: 44, minHeight: 44)` and
+    /// accessibility identifiers). Extracted as a static helper so tests can
+    /// verify hit targets on the actual production layout. Production calls
+    /// this with themed colors and real actions.
     @ViewBuilder
     @MainActor
     static func restTimerButtons(
+        neutralBackground: Color = Color.gray.opacity(0.15),
+        skipBackground: Color = Color.blue.opacity(0.15),
+        minus10AccessibilityLabel: String = "-10s",
+        plus10AccessibilityLabel: String = "+10s",
+        skipAccessibilityLabel: String = "Skip",
         onMinus10: @escaping () -> Void = {},
         onPlus10: @escaping () -> Void = {},
         onSkip: @escaping () -> Void = {}
@@ -110,27 +115,30 @@ enum ActiveWorkoutSnackbarLayout {
                 .font(.caption)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color.gray.opacity(0.15), in: Capsule())
-                .frame(minHeight: 44)
+                .background(neutralBackground, in: Capsule())
+                .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Capsule())
                 .accessibilityIdentifier("rest_button_minus10")
+                .accessibilityLabel(minus10AccessibilityLabel)
             Button("+10s", action: onPlus10)
                 .font(.caption)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color.gray.opacity(0.15), in: Capsule())
-                .frame(minHeight: 44)
+                .background(neutralBackground, in: Capsule())
+                .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Capsule())
                 .accessibilityIdentifier("rest_button_plus10")
+                .accessibilityLabel(plus10AccessibilityLabel)
             Button("Skip", action: onSkip)
                 .font(.caption)
                 .fontWeight(.semibold)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color.blue.opacity(0.15), in: Capsule())
-                .frame(minHeight: 44)
+                .background(skipBackground, in: Capsule())
+                .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Capsule())
                 .accessibilityIdentifier("rest_button_skip")
+                .accessibilityLabel(skipAccessibilityLabel)
         }
         .buttonStyle(.plain)
     }
