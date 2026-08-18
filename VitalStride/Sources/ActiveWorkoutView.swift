@@ -689,7 +689,7 @@ struct ActiveWorkoutView: View {
                     undoController.undo(using: modelContext)
                 } label: {
                     Text(String(
-                        localized: "撤销",
+                        localized: "active_workout.set_delete.undo_action",
                         defaultValue: "Undo",
                         comment: "Undo a set deletion snackbar action"
                     ))
@@ -700,7 +700,7 @@ struct ActiveWorkoutView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(
-                    localized: "撤销删除",
+                    localized: "active_workout.set_delete.undo_action_a11y",
                     defaultValue: "Undo deletion",
                     comment: "Undo set deletion a11y label"
                 ))

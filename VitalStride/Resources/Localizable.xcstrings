@@ -11067,9 +11067,9 @@
         }
       }
     },
-    "撤销": {
+    "active_workout.set_delete.undo_action": {
       "extractionState": "manual",
-      "comment": "Trailing action button in the undo snackbar shown after deleting a set (MY-1420).",
+      "comment": "Trailing action button in the undo snackbar shown after deleting a set (MY-1420; namespaced in MY-1426).",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -11085,9 +11085,9 @@
         }
       }
     },
-    "撤销删除": {
+    "active_workout.set_delete.undo_action_a11y": {
       "extractionState": "manual",
-      "comment": "VoiceOver label for the undo button in the set-deletion snackbar (MY-1420).",
+      "comment": "VoiceOver label for the undo button in the set-deletion snackbar (MY-1420; namespaced in MY-1426).",
       "localizations": {
         "en": {
           "stringUnit": {
