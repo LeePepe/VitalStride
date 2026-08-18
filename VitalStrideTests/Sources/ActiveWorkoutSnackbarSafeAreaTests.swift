@@ -651,6 +651,7 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
 
 // MARK: - Frame probe for deterministic safe-area containment test
 
+#if canImport(UIKit) && !os(macOS)
 /// Thread-safe box to capture a rendered frame from a UIViewRepresentable probe.
 @MainActor
 private final class FrameBox {
@@ -684,6 +685,7 @@ private final class FrameProbeView: UIView {
         box?.frame = frameInWindow
     }
 }
+#endif
 
 // MARK: - Snackbar slot arbitration regression tests (MY-1446)
 
