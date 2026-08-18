@@ -316,6 +316,73 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         wait(for: [noKeyboard], timeout: UITestTimeout.uiSettle)
     }
 
+    // MARK: T5e — MY-1445 regression: clear while already unfocused collapses
+
+    /// T5e: Enter a query → dismiss focus (via return key) while preserving
+    /// the non-empty query and expanded surface → tap clear while focus is
+    /// already false → verify the search collapses to the compact 44pt
+    /// trailing button. This is the exact state path fixed by the
+    /// `onChange(of: searchText)` collapse branch added in MY-1445.
+    @MainActor
+    func test_searchFocus_clearWhileUnfocusedCollapsesSearch() throws {
+        let app = launchPicker(mode: "single")
+        let searchField = openSearchField(in: app)
+
+        // Step 1: Type a non-empty query.
+        searchField.typeText("bench")
+        usleep(300_000) // > debounce
+
+        // Step 2: Dismiss focus via the keyboard return/search key.
+        // The query remains, and the search stays expanded (non-empty query
+        // keeps isSearchExpanded = true even after blur).
+        let searchKey = app.keyboards.buttons["Search"]
+        if searchKey.exists {
+            searchKey.tap()
+        } else if app.keyboards.buttons["搜索"].exists {
+            app.keyboards.buttons["搜索"].tap()
+        } else {
+            searchField.typeText("\n")
+        }
+
+        // Wait for keyboard to disappear — confirms focus is dismissed.
+        let noKeyboard = expectation(for: NSPredicate(format: "exists == false"),
+                                    evaluatedWith: app.keyboards.firstMatch,
+                                    handler: nil)
+        wait(for: [noKeyboard], timeout: UITestTimeout.uiSettle)
+
+        // Confirm search is still expanded (field still hittable with query).
+        XCTAssertTrue(searchField.isHittable,
+                      "Search field should remain hittable (expanded) after blur with non-empty query")
+
+        // Step 3: Tap the clear button while focus is already false.
+        let clearButton = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR label CONTAINS[c] %@",
+                        "清除", "Clear", "xmark")
+        ).firstMatch
+        XCTAssertTrue(clearButton.waitForExistence(timeout: UITestTimeout.uiSettle),
+                      "Clear button not found while unfocused with non-empty query")
+        clearButton.tap()
+
+        // Step 4: Verify collapse — the TextField should no longer be hittable
+        // (collapsed state uses allowsHitTesting(false) + opacity 0), and the
+        // magnifier button should reappear.
+        let fieldNotHittable = expectation(
+            for: NSPredicate(format: "isHittable == false"),
+            evaluatedWith: searchField,
+            handler: nil)
+        wait(for: [fieldNotHittable], timeout: UITestTimeout.uiSettle)
+
+        // The collapsed magnifier button should be visible and hittable.
+        let magnifier = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@",
+                        "搜索", "Search")
+        ).firstMatch
+        XCTAssertTrue(magnifier.waitForExistence(timeout: UITestTimeout.uiSettle),
+                      "Collapsed magnifier button should reappear after clear-while-unfocused")
+        XCTAssertTrue(magnifier.isHittable,
+                      "Collapsed magnifier button should be hittable after collapse")
+    }
+
     // MARK: T7 — MY-1445 screenshot evidence (collapsed + expanded)
 
     /// Captures iPhone 16 screenshots of both collapsed and expanded search
