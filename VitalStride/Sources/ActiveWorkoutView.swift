@@ -97,31 +97,38 @@ struct ActiveWorkoutView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // MY-1262: default mode collapses the standalone timer and stats
-                // cards into a single ~48pt compact info band. Large Mode keeps
-                // its dual-card layout so its accessibility presentation stays
-                // intact.
-                if largeMode {
-                    workoutTimer
-                    sessionStatsCard
-                } else {
-                    compactInfoBand
-                }
                 // MY-1446: when the keyboard is visible, the snackbar renders
-                // inline between the header and the list (not as an overlay)
-                // so it never covers the compact info band or gets clipped.
-                // Uses the tested `topComposition` helper (same code path
-                // tests exercise) which places the snackbar below any header
-                // content via VStack construction. When keyboard is not visible,
-                // only the topLayout is rendered (info band was already placed above).
+                // inline between the header and the list via the production
+                // `topComposition` helper (same code path tests exercise).
+                // topComposition places info band above snackbar in a VStack,
+                // guaranteeing non-overlap by construction. When keyboard is
+                // not visible, the header is placed standalone (no top snackbar).
                 if isKeyboardVisible {
-                    ActiveWorkoutSnackbarLayout.topLayout(
+                    ActiveWorkoutSnackbarLayout.topComposition(
                         snackbarSlot: bottomSnackbarSlot,
+                        infoBand: {
+                            // MY-1262: default mode uses compact info band;
+                            // Large Mode keeps its dual-card layout.
+                            if largeMode {
+                                workoutTimer
+                                sessionStatsCard
+                            } else {
+                                compactInfoBand
+                            }
+                        },
                         undoContent: { undoSnackbarEnvelope },
                         restContent: { restSnackbarEnvelope }
                     )
                     .accessibilityElement(children: .contain)
                     .accessibilityFocused($isTopSnackbarFocused)
+                } else {
+                    // MY-1262: standalone header when keyboard is hidden.
+                    if largeMode {
+                        workoutTimer
+                        sessionStatsCard
+                    } else {
+                        compactInfoBand
+                    }
                 }
                 exerciseList
             }

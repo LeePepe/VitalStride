@@ -102,9 +102,9 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     /// envelopes always laid out (opacity-toggled by slot). The height must be
     /// constant across `.none`, `.undo`, and `.rest`, proving the list does not
     /// jump when the snackbar toggles during keyboard visibility.
-    /// Production calls `topLayout(undoContent: { undoSnackbarEnvelope },
-    /// restContent: { restSnackbarEnvelope })` — this test calls the same helper
-    /// with the same envelope content.
+    /// Production calls `topComposition` which internally delegates to
+    /// `topLayout` — this test calls `topLayout` directly to isolate the
+    /// constant-height invariant from the composition wrapper.
     @MainActor
     @Test("Top snackbar layout height is constant across slot states (no-list-jump)")
     func topSnackbarConstantHeight() {
