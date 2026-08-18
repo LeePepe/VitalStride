@@ -181,12 +181,14 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         }
     }
 
-    // MARK: - Test 5: No-list-jump — bottomSafeAreaContent height is constant
+    // MARK: - Test 5: No-list-jump — bottomSafeAreaContent height is constant (production content)
 
     /// MY-1446 P0-1 regression: the production `bottomSafeAreaContent` must
     /// reserve identical height across `.none`, `.undo`, and `.rest` slot states.
-    /// This is the real production path (not just FABContainer). Uses
-    /// `UIHostingController.sizeThatFits` to measure actual layout height.
+    /// Uses per-slot content matching production behavior:
+    /// - `.none` → hidden rest timer buttons (production placeholder)
+    /// - `.undo` → undo text + button HStack
+    /// - `.rest` → rest timer with progress circle + adjust buttons
     @MainActor
     @Test("bottomSafeAreaContent height is constant across all slot states (no-list-jump)")
     func bottomSafeAreaContentHeightConstant() {
@@ -196,11 +198,11 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         for slot in slots {
             let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
                 snackbarSlot: slot,
-                snackbar: { snackbarPlaceholder },
+                snackbar: { productionSnackbarContent(for: slot) },
                 fab: { fabPlaceholder }
             )
             let host = UIHostingController(rootView: layout)
-            let size = host.sizeThatFits(in: CGSize(width: 393, height: .infinity))
+            let size = host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity))
             heights[slot] = size.height
         }
 
@@ -224,6 +226,40 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     }
 
     // MARK: - Helpers
+
+    /// Per-slot content matching production `bottomSnackbarContent` in ActiveWorkoutView.
+    @MainActor
+    @ViewBuilder
+    private func productionSnackbarContent(for slot: BottomSnackbarSlot) -> some View {
+        switch slot {
+        case .none:
+            // Production uses hidden restTimerButtons as placeholder
+            ActiveWorkoutSnackbarLayout.restTimerButtons(skipTitle: "跳过")
+                .hidden()
+        case .undo:
+            // Production renders undo text + button (approximate same height)
+            HStack(spacing: 8) {
+                Text("Deleted set 1")
+                    .font(.body)
+                Spacer()
+                Button("Undo") {}
+                    .font(.body.weight(.semibold))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("snackbar_content")
+        case .rest:
+            // Production renders progress circle + restTimerButtons
+            HStack {
+                Circle()
+                    .stroke(Color.gray, lineWidth: 3)
+                    .frame(width: 32, height: 32)
+                Spacer()
+                ActiveWorkoutSnackbarLayout.restTimerButtons(skipTitle: "跳过")
+            }
+            .accessibilityIdentifier("snackbar_content")
+        }
+    }
 
     @MainActor
     private var snackbarPlaceholder: some View {

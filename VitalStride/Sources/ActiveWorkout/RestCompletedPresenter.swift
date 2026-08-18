@@ -62,8 +62,16 @@ final class RestCompletedPresenter {
     }
 
     /// Buffers the rest-completed event and starts the auto-dismiss countdown.
+    /// If a previous completion was already buffered, resets the countdown for
+    /// the new rest completion (prevents stale completions from reappearing).
     func captureCompleted() {
-        guard !isBuffered else { return }
+        if isBuffered {
+            // New rest completed while old one still showing — restart countdown
+            countdownTask?.cancel()
+            countdownTask = nil
+            startCountdown()
+            return
+        }
         isBuffered = true
         startCountdown()
     }
@@ -75,13 +83,19 @@ final class RestCompletedPresenter {
         countdownTask = nil
     }
 
+    /// Cancels any running countdown and releases resources.
+    /// Called by the view on disappear to prevent leaked tasks.
+    func cancel() {
+        countdownTask?.cancel()
+        countdownTask = nil
+    }
+
     /// Restarts the countdown (called when `isBuffered` becomes true or when
     /// external state changes require re-evaluation).
     func startCountdown() {
         countdownTask?.cancel()
         countdownTask = Task { [weak self] in
-            guard let self else { return }
-            await self.runCountdown()
+            await self?.runCountdown()
         }
     }
 
@@ -105,6 +119,7 @@ final class RestCompletedPresenter {
             while elapsed < displayDuration {
                 guard !Task.isCancelled, isBuffered else { return }
                 do { try await clock.sleep(for: tickInterval) } catch { return }
+                guard !Task.isCancelled else { return }
                 elapsed += tickInterval
 
                 // If undo took over the slot mid-countdown, restart

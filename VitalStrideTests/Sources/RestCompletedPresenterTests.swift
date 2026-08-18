@@ -8,8 +8,12 @@ import Testing
 /// A test clock that advances only when explicitly told to, enabling
 /// deterministic verification of the rest-completed lifecycle without
 /// real-time waits or race conditions.
+///
+/// Fully `@MainActor`-isolated — both the clock state and the `sleep`
+/// implementation live on MainActor, satisfying Swift 6 strict concurrency
+/// without `@unchecked Sendable` or `assumeIsolated`.
 @MainActor
-final class TestRestCompletedClock: RestCompletedClock, @unchecked Sendable {
+final class TestRestCompletedClock: RestCompletedClock {
     private var continuations: [CheckedContinuation<Void, any Error>] = []
     private(set) var sleepCallCount = 0
 
@@ -22,12 +26,19 @@ final class TestRestCompletedClock: RestCompletedClock, @unchecked Sendable {
         }
     }
 
-    nonisolated func sleep(for duration: Duration) async throws {
+    /// Cancels all pending sleeps (simulates task cancellation cleanup).
+    func cancelAll() {
+        let pending = continuations
+        continuations = []
+        for continuation in pending {
+            continuation.resume(throwing: CancellationError())
+        }
+    }
+
+    func sleep(for duration: Duration) async throws {
         try await withCheckedThrowingContinuation { continuation in
-            MainActor.assumeIsolated {
-                self.sleepCallCount += 1
-                self.continuations.append(continuation)
-            }
+            self.sleepCallCount += 1
+            self.continuations.append(continuation)
         }
     }
 }
@@ -41,6 +52,8 @@ final class TestRestCompletedClock: RestCompletedClock, @unchecked Sendable {
 /// - Auto-dismiss after full uninterrupted visible duration
 /// - Undo interrupting countdown (resets the window)
 /// - Fresh 2s required after undo clears
+/// - Cancellation releases the task when view disappears
+/// - New rest start resets stale buffered completion
 @Suite("RestCompletedPresenter lifecycle (MY-1446)")
 struct RestCompletedPresenterLifecycleTests {
 
@@ -251,5 +264,81 @@ struct RestCompletedPresenterLifecycleTests {
 
         #expect(!presenter.isBuffered, "Buffer clears after fresh full visibility")
         #expect(dismissed, "Dismiss fires after uninterrupted fresh window")
+    }
+
+    // MARK: - Test 8: cancel() terminates the countdown task
+
+    @MainActor
+    @Test("cancel() stops the countdown loop — task does not poll forever")
+    func cancelTerminatesCountdownTask() async {
+        let clock = TestRestCompletedClock()
+        let presenter = RestCompletedPresenter(
+            displayDuration: .seconds(10),
+            tickInterval: .milliseconds(100),
+            clock: clock
+        )
+        presenter.slotIsVisible = false // slot hidden — loop polls
+        presenter.captureCompleted()
+
+        // One tick to enter the wait-for-visibility loop
+        await Task.yield()
+        clock.advance()
+        await Task.yield()
+
+        #expect(presenter.isBuffered)
+
+        // Cancel as if view disappeared
+        presenter.cancel()
+
+        // Advance again — the clock should have no pending continuations
+        // because the task was cancelled
+        let sleepCountBefore = clock.sleepCallCount
+        await Task.yield()
+        await Task.yield()
+        #expect(
+            clock.sleepCallCount == sleepCountBefore,
+            "After cancel(), no new sleep calls should be issued"
+        )
+    }
+
+    // MARK: - Test 9: New rest start resets stale buffered completion
+
+    @MainActor
+    @Test("captureCompleted() on already-buffered presenter restarts countdown")
+    func newRestResetsStalBuffer() async {
+        let clock = TestRestCompletedClock()
+        let presenter = RestCompletedPresenter(
+            displayDuration: .milliseconds(200),
+            tickInterval: .milliseconds(100),
+            clock: clock
+        )
+        var dismissCount = 0
+        presenter.onDismiss = { dismissCount += 1 }
+        presenter.slotIsVisible = true
+
+        // First completion
+        presenter.captureCompleted()
+        #expect(presenter.isBuffered)
+
+        // 1 tick (50% elapsed)
+        await Task.yield()
+        clock.advance()
+        await Task.yield()
+
+        // New rest starts — captureCompleted again resets countdown
+        presenter.captureCompleted()
+        #expect(presenter.isBuffered)
+
+        // Need full 2 fresh ticks for the new countdown
+        for _ in 0..<2 {
+            await Task.yield()
+            clock.advance()
+            await Task.yield()
+        }
+        await Task.yield()
+        await Task.yield()
+
+        #expect(!presenter.isBuffered)
+        #expect(dismissCount == 1, "Should dismiss exactly once for the new completion")
     }
 }

@@ -288,6 +288,12 @@ struct ActiveWorkoutView: View {
                     // the view layer manages presentation independently of the
                     // controller's own auto-clear sleep.
                     restCompletedPresenter.captureCompleted()
+                } else if newPhase == .resting {
+                    // MY-1446 P0-5: a new rest started — clear any stale buffered
+                    // completion from the previous timer so it cannot reappear.
+                    if restCompletedPresenter.isBuffered {
+                        restCompletedPresenter.dismiss()
+                    }
                 }
             }
             // MY-1446: keep the presenter's slot visibility in sync and wire dismiss.
@@ -299,6 +305,11 @@ struct ActiveWorkoutView: View {
                     restTimer.dismissCompleted()
                 }
                 restCompletedPresenter.slotIsVisible = (bottomSnackbarSlot == .rest)
+            }
+            .onDisappear {
+                // MY-1446 P0-1: cancel the presenter's countdown task to prevent
+                // leaked polling loops when the view exits while slot is hidden.
+                restCompletedPresenter.cancel()
             }
             // MY-1420: the deleted row took VoiceOver focus with it, and the
             // undo snackbar is deliberately non-modal (it must not block the
@@ -700,16 +711,6 @@ struct ActiveWorkoutView: View {
                     comment: "Undo set deletion a11y label"
                 ))
             }
-        }
-    }
-
-    private func dismissRestSnackbar() {
-        switch restTimer.phase {
-        case .resting: restTimer.skipRest()
-        case .completed: restCompletedPresenter.dismiss(); restTimer.dismissCompleted()
-        case .idle:
-            // Controller may have cleared but buffer still showing
-            if restCompletedPresenter.isBuffered { restCompletedPresenter.dismiss() }
         }
     }
 
