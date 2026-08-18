@@ -363,42 +363,16 @@ struct ExercisePickerView: View {
     /// Both surfaces are always in the layout; the invisible one has
     /// `.opacity(0)` and disables hit-testing so it can't accidentally
     /// steal a tap. MY-1445: the ZStack is constrained via
-    /// `.frame(maxWidth:)` to `collapsedSearchMaxWidth` (44pt) in
+    /// `SearchSurfaceContainer` to `collapsedSearchMaxWidth` (44pt) in
     /// collapsed state, preventing the hidden expanded surface from
     /// forcing a full-width layout contribution. The parent VStack's
     /// `.trailing` alignment positions this narrower ZStack flush to
     /// the panel trailing edge.
     private var searchSurface: some View {
-        ZStack {
-            expandedSearchSurface
-                .opacity(isSearchExpanded ? 1 : 0)
-                .allowsHitTesting(isSearchExpanded)
-                .accessibilityHidden(!isSearchExpanded)
-            collapsedSearchSurface
-                .opacity(isSearchExpanded ? 0 : 1)
-                .allowsHitTesting(!isSearchExpanded)
-                .accessibilityHidden(isSearchExpanded)
-        }
-        // MY-1445: the `.animation` modifier is placed BEFORE `.frame` so
-        // that opacity transitions inside the ZStack are animated, but the
-        // frame width change (44pt ↔ .infinity) bypasses animation. Without
-        // this ordering, the frame might animate through intermediate widths
-        // where the accessibility hit target is too narrow for XCUITest taps.
-        .animation(.easeOut(duration: 0.22), value: isSearchExpanded)
-        // MY-1445: constrain the ZStack width in collapsed state so the
-        // hidden expanded surface (which uses `maxWidth: .infinity`) does
-        // not force the ZStack to full panel width. In expanded state
-        // `.infinity` lets the search field fill the available width.
-        // Positioning: the parent VStack(alignment: .trailing) places this
-        // constrained ZStack at the trailing edge of the panel. The frame's
-        // alignment parameter governs where children inside the ZStack are
-        // positioned within its (now 44pt) bounds.
-        .frame(
-            maxWidth: isSearchExpanded ? .infinity : Self.collapsedSearchMaxWidth,
-            alignment: Alignment(
-                horizontal: Self.searchSurfaceCollapsedAlignment,
-                vertical: .center
-            )
+        SearchSurfaceContainer(
+            isExpanded: isSearchExpanded,
+            expanded: expandedSearchSurface,
+            collapsed: collapsedSearchSurface
         )
     }
 
@@ -1175,6 +1149,49 @@ struct ExercisePickerView: View {
             selectedIDs.insert(id)
             selectedExercises.append(exercise)
         }
+    }
+}
+
+// MARK: - Search Surface Container (MY-1445)
+
+/// MY-1445: Shared container that applies the collapsed/expanded frame
+/// constraint to the search surface ZStack. Used by both production
+/// `ExercisePickerView.searchSurface` and layout regression tests so
+/// the tested code path is identical to the production path.
+///
+/// In collapsed state, constrains the ZStack to `collapsedSearchMaxWidth`
+/// (44pt) so the hidden expanded surface does not force a full-width
+/// layout contribution. In expanded state, `.infinity` lets the search
+/// field fill the available width.
+///
+/// The `.animation` modifier is placed BEFORE `.frame` so that opacity
+/// transitions inside the ZStack are animated, but the frame width change
+/// (44pt ↔ .infinity) bypasses animation — preventing intermediate widths
+/// where the accessibility hit target is too narrow for XCUITest taps.
+internal struct SearchSurfaceContainer<Expanded: View, Collapsed: View>: View {
+    let isExpanded: Bool
+    let expanded: Expanded
+    let collapsed: Collapsed
+
+    var body: some View {
+        ZStack {
+            expanded
+                .opacity(isExpanded ? 1 : 0)
+                .allowsHitTesting(isExpanded)
+                .accessibilityHidden(!isExpanded)
+            collapsed
+                .opacity(isExpanded ? 0 : 1)
+                .allowsHitTesting(!isExpanded)
+                .accessibilityHidden(isExpanded)
+        }
+        .animation(.easeOut(duration: 0.22), value: isExpanded)
+        .frame(
+            maxWidth: isExpanded ? .infinity : ExercisePickerView.collapsedSearchMaxWidth,
+            alignment: Alignment(
+                horizontal: ExercisePickerView.searchSurfaceCollapsedAlignment,
+                vertical: .center
+            )
+        )
     }
 }
 
