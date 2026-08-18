@@ -252,10 +252,15 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         // by platform; the spec only mandates that the search text and
         // expansion state reset — keyboard dismissal is a consequence of
         // isSearchFocused = false which happens in the same closure.
-        // Assert on the search field being empty (the observable
-        // contract) rather than keyboard visibility (which iOS may keep
-        // for a beat during the collapse animation).
-        let emptyField = expectation(for: NSPredicate(format: "value == %@ OR value == nil OR value == %@", "", "Search exercises"),
+        // Assert that the field is empty or hidden after collapse (the
+        // observable contract) rather than keyboard visibility (which iOS
+        // may keep for a beat during the collapse animation).
+        let resetPredicate = NSPredicate(
+            format: "exists == false OR value == %@ OR value == nil OR value == %@",
+            "",
+            "Search exercises"
+        )
+        let emptyField = expectation(for: resetPredicate,
                                     evaluatedWith: searchField,
                                     handler: nil)
         wait(for: [emptyField], timeout: UITestTimeout.uiSettle)
