@@ -110,13 +110,15 @@ struct ActiveWorkoutView: View {
                 // MY-1446: when the keyboard is visible, the snackbar renders
                 // inline between the header and the list (not as an overlay)
                 // so it never covers the compact info band or gets clipped.
-                // Uses the tested `topLayout` helper with a constant-height
-                // ZStack envelope (same approach as bottomSafeAreaContent) so
-                // the slot transition does not cause list jump.
+                // Uses the tested `topLayout` helper with separate undo/rest
+                // envelope builders (same sizing-reference approach as
+                // bottomSafeAreaContent ZStack) so slot transitions do not
+                // cause list jump.
                 if isKeyboardVisible {
                     ActiveWorkoutSnackbarLayout.topLayout(
                         snackbarSlot: bottomSnackbarSlot,
-                        snackbar: { topSnackbarEnvelope }
+                        undoContent: { undoSnackbarEnvelope },
+                        restContent: { restSnackbarEnvelope }
                     )
                     .accessibilityElement(children: .contain)
                     .accessibilityFocused($isTopSnackbarFocused)
@@ -317,6 +319,20 @@ struct ActiveWorkoutView: View {
                     } else {
                         isBottomSnackbarFocused = true
                     }
+                }
+            }
+            // MY-1446: migrate VoiceOver focus when keyboard visibility changes
+            // while a snackbar is active. The snackbar moves between bottom and
+            // top positions; without this, the focused container is removed and
+            // the new one never receives focus.
+            .onChange(of: isKeyboardVisible) { _, keyboardNowVisible in
+                guard bottomSnackbarSlot != .none else { return }
+                if keyboardNowVisible {
+                    isBottomSnackbarFocused = false
+                    isTopSnackbarFocused = true
+                } else {
+                    isTopSnackbarFocused = false
+                    isBottomSnackbarFocused = true
                 }
             }
             .onAppear {
@@ -698,23 +714,6 @@ struct ActiveWorkoutView: View {
             restSnackbarContent
         case .none:
             EmptyView()
-        }
-    }
-
-    /// MY-1446: constant-height ZStack envelope for the top/keyboard snackbar
-    /// path. Both undo and rest content are always laid out (opacity-toggled),
-    /// so the list does not jump when the snackbar slot transitions.
-    @ViewBuilder
-    private var topSnackbarEnvelope: some View {
-        ZStack(alignment: .leading) {
-            undoSnackbarContent
-                .opacity(bottomSnackbarSlot == .undo ? 1 : 0)
-                .allowsHitTesting(bottomSnackbarSlot == .undo)
-                .accessibilityHidden(bottomSnackbarSlot != .undo)
-            restSnackbarContent
-                .opacity(bottomSnackbarSlot == .rest ? 1 : 0)
-                .allowsHitTesting(bottomSnackbarSlot == .rest)
-                .accessibilityHidden(bottomSnackbarSlot != .rest)
         }
     }
 

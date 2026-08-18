@@ -98,17 +98,20 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
 
     // MARK: - Test 3: top snackbar constant height (no-list-jump for keyboard path)
 
-    /// MY-1446 P0-2: The `topLayout` helper uses opacity to show/hide the
-    /// snackbar. The VStack height must be constant whether the slot is `.none`,
-    /// `.undo`, or `.rest`, proving the list does not jump when the snackbar
-    /// toggles during keyboard visibility.
+    /// MY-1446: The `topLayout` helper uses a ZStack with both undo and rest
+    /// envelopes always laid out (opacity-toggled by slot). The height must be
+    /// constant across `.none`, `.undo`, and `.rest`, proving the list does not
+    /// jump when the snackbar toggles during keyboard visibility.
+    /// Production calls `topLayout(undoContent: { undoSnackbarEnvelope },
+    /// restContent: { restSnackbarEnvelope })` — this test calls the same helper
+    /// with the same envelope content.
     @MainActor
     @Test("Top snackbar layout height is constant across slot states (no-list-jump)")
-    func topSnackbarDoesNotCoverInfoBand() {
+    func topSnackbarConstantHeight() {
         let containerWidth: CGFloat = 393
 
         // Measure for each slot state using the production topLayout helper
-        // with the same content production uses (bottomSnackbarContent)
+        // with the same envelope views production uses (undoEnvelope + restEnvelope)
         let noneHeight = measureTopLayoutHeight(slot: .none, width: containerWidth)
         let undoHeight = measureTopLayoutHeight(slot: .undo, width: containerWidth)
         let restHeight = measureTopLayoutHeight(slot: .rest, width: containerWidth)
@@ -184,24 +187,27 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
 
     // MARK: - Measurement helpers
 
-    /// Measures the height of `topLayout` for a given slot. Uses a ZStack
-    /// envelope with both undo and rest content always laid out (matching
-    /// production `topSnackbarEnvelope`), proving height is slot-independent.
+    /// Measures the height of `topLayout` for a given slot. Calls the same
+    /// production helper with the same envelope views: `undoEnvelope` (which
+    /// always includes a sizing reference) and the rest ZStack envelope (which
+    /// always includes a hidden sizing reference). This matches how
+    /// `ActiveWorkoutView` calls `topLayout(undoContent:restContent:)`.
     @MainActor
     private func measureTopLayoutHeight(slot: BottomSnackbarSlot, width: CGFloat) -> CGFloat {
-        // Mirror the production topSnackbarEnvelope: both variants always
-        // laid out, opacity-toggled by slot.
-        let envelope = ZStack(alignment: .leading) {
-            productionUndoContent(
-                message: "Deleted Warmup sub-set of set 10 in superset group A"
-            )
-            .opacity(slot == .undo ? 1 : 0)
-            productionRestContent(completed: false)
-                .opacity(slot == .rest ? 1 : 0)
-        }
         let layout = ActiveWorkoutSnackbarLayout.topLayout(
             snackbarSlot: slot,
-            snackbar: { envelope }
+            undoContent: {
+                // Same helper production uses: always includes sizing reference
+                ActiveWorkoutSnackbarLayout.undoEnvelope(
+                    message: slot == .undo
+                        ? "Deleted Warmup sub-set of set 10 in superset group A"
+                        : nil
+                )
+            },
+            restContent: {
+                // Same envelope production uses: ZStack with hidden sizing ref
+                productionRestContent(completed: slot == .rest)
+            }
         )
         let host = UIHostingController(rootView: layout)
         return host.sizeThatFits(in: CGSize(width: width, height: .infinity)).height

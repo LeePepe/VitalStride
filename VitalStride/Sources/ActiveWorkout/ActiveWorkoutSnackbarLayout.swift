@@ -66,35 +66,42 @@ enum ActiveWorkoutSnackbarLayout {
 
     // MARK: - Top layout (MY-1446)
 
-    /// Renders the top snackbar with constant-height envelope. The snackbar
-    /// area is ALWAYS laid out (opacity/hit-testing toggled) so the VStack
-    /// height does not change when the slot transitions between `.none`,
-    /// `.undo`, and `.rest` — preserving the MY-1421 no-list-jump invariant
-    /// for the keyboard path.
+    /// Renders the top snackbar with constant-height envelope. Both undo and
+    /// rest content are ALWAYS laid out in a ZStack (opacity/hit-testing toggled
+    /// per slot), so the height does not change when the slot transitions between
+    /// `.none`, `.undo`, and `.rest` — preserving the MY-1421 no-list-jump
+    /// invariant for the keyboard path.
     ///
     /// Used when the keyboard is visible and the snackbar must render inline
     /// below the compact info band without covering it or causing list jump.
     @ViewBuilder
     @MainActor
-    static func topLayout<Snackbar: View>(
+    static func topLayout<UndoContent: View, RestContent: View>(
         snackbarSlot: BottomSnackbarSlot,
-        @ViewBuilder snackbar: () -> Snackbar
+        @ViewBuilder undoContent: () -> UndoContent,
+        @ViewBuilder restContent: () -> RestContent
     ) -> some View {
-        snackbar()
-            .padding(.horizontal, Space.cardPadding)
-            .padding(.vertical, Space.gap)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .shadow(
-                color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
-                radius: 8, y: -4
-            )
-            .padding(.horizontal, Space.cardPadding)
-            .padding(.top, Space.inline)
-            .opacity(snackbarSlot != .none ? 1 : 0)
-            .allowsHitTesting(snackbarSlot != .none)
-            .accessibilityHidden(snackbarSlot == .none)
+        ZStack(alignment: .leading) {
+            undoContent()
+                .opacity(snackbarSlot == .undo ? 1 : 0)
+                .allowsHitTesting(snackbarSlot == .undo)
+                .accessibilityHidden(snackbarSlot != .undo)
+            restContent()
+                .opacity(snackbarSlot == .rest ? 1 : 0)
+                .allowsHitTesting(snackbarSlot == .rest)
+                .accessibilityHidden(snackbarSlot != .rest)
+        }
+        .padding(.horizontal, Space.cardPadding)
+        .padding(.vertical, Space.gap)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(
+            color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
+            radius: 8, y: -4
+        )
+        .padding(.horizontal, Space.cardPadding)
+        .padding(.top, Space.inline)
     }
 
 
