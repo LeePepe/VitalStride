@@ -187,6 +187,10 @@ struct ExercisePickerView: View {
                     withAnimation(.easeOut(duration: 0.22)) {
                         isSearchExpanded = true
                     }
+                } else if newValue.isEmpty && !isSearchFocused && isSearchExpanded {
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        isSearchExpanded = false
+                    }
                 }
             }
             .onChange(of: exercises) { _, newExercises in

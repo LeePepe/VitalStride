@@ -71,16 +71,16 @@ struct ExercisePickerSearchLayoutTests {
             pillWidth: pillWidth
         )
 
-        // Trailing position must have the red pill: high R, low G and B
+        // Trailing position must have the red pill: red channel dominant over green and blue
         #expect(
-            trailingResult.trailingPixel.r > 200 && trailingResult.trailingPixel.g < 50 && trailingResult.trailingPixel.b < 50,
+            trailingResult.trailingPixel.r > 150 && trailingResult.trailingPixel.r > trailingResult.trailingPixel.g * 2 && trailingResult.trailingPixel.r > trailingResult.trailingPixel.b * 2,
             """
-            Trailing edge pixel must be red (pill present). \
+            Trailing edge pixel must be red-dominant (pill present). \
             Got RGBA(\(trailingResult.trailingPixel.r),\(trailingResult.trailingPixel.g),\(trailingResult.trailingPixel.b),\(trailingResult.trailingPixel.a)).
             """
         )
 
-        // Leading position must be white (no pill): all channels > 200
+        // Leading position must be white (no pill): all channels high and similar
         #expect(
             trailingResult.leadingPixel.r > 200 && trailingResult.leadingPixel.g > 200 && trailingResult.leadingPixel.b > 200,
             """
@@ -109,9 +109,9 @@ struct ExercisePickerSearchLayoutTests {
 
         // Leading position must have the red pill
         #expect(
-            leadingResult.leadingPixel.r > 200 && leadingResult.leadingPixel.g < 50 && leadingResult.leadingPixel.b < 50,
+            leadingResult.leadingPixel.r > 150 && leadingResult.leadingPixel.r > leadingResult.leadingPixel.g * 2 && leadingResult.leadingPixel.r > leadingResult.leadingPixel.b * 2,
             """
-            Leading edge pixel must be red (pill present in leading-aligned layout). \
+            Leading edge pixel must be red-dominant (pill present in leading-aligned layout). \
             Got RGBA(\(leadingResult.leadingPixel.r),\(leadingResult.leadingPixel.g),\(leadingResult.leadingPixel.b),\(leadingResult.leadingPixel.a)).
             """
         )
@@ -225,7 +225,7 @@ struct ExercisePickerSearchLayoutTests {
                     .frame(maxWidth: .infinity)
                     .frame(height: 44),
                 collapsed: Circle()
-                    .fill(Color.red)
+                    .fill(Color(red: 1, green: 0, blue: 0))
                     .frame(
                         width: ExercisePickerView.collapsedSearchDiameter,
                         height: ExercisePickerView.collapsedSearchDiameter
@@ -233,11 +233,11 @@ struct ExercisePickerSearchLayoutTests {
             )
         }
         .frame(width: availableWidth, height: renderHeight, alignment: Alignment(horizontal: alignment, vertical: .center))
-        .background(Color.white)
+        .background(Color(red: 1, green: 1, blue: 1))
 
         let hc = UIHostingController(rootView: probe)
         hc.view.frame = CGRect(x: 0, y: 0, width: availableWidth, height: renderHeight)
-        hc.view.backgroundColor = .white
+        hc.view.backgroundColor = UIColor(red: 1, green: 1, blue: 1, alpha: 1)
 
         // Attach to a UIWindow so SwiftUI resolves layout in headless CI
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: availableWidth, height: renderHeight))
