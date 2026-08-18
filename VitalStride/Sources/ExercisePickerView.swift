@@ -187,6 +187,10 @@ struct ExercisePickerView: View {
                     withAnimation(.easeOut(duration: 0.22)) {
                         isSearchExpanded = true
                     }
+                } else if newValue.isEmpty && !isSearchFocused && isSearchExpanded {
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        isSearchExpanded = false
+                    }
                 }
             }
             .onChange(of: exercises) { _, newExercises in
@@ -282,7 +286,7 @@ struct ExercisePickerView: View {
     // Debounce + `debouncedSearchText` (`.task(id: searchText)`) is
     // preserved verbatim — only the outer chrome changes.
 
-    private static let panelHorizontalInset: CGFloat = 12
+    static let panelHorizontalInset: CGFloat = 12
     private static let panelBottomInset: CGFloat = 8
     private static let panelInnerHPadding: CGFloat = 14
     private static let panelInnerVPadding: CGFloat = 10
@@ -290,6 +294,20 @@ struct ExercisePickerView: View {
     /// Diameter of the collapsed search pill. Satisfies Constitution §H
     /// (≥44pt) directly — the visual pill itself is the hit target.
     static let collapsedSearchDiameter: CGFloat = 44
+
+    /// MY-1445: max width of the search surface ZStack in collapsed state.
+    /// Equals `collapsedSearchDiameter` so the hidden expanded surface does
+    /// not force a full-width ZStack layout contribution.
+    static let collapsedSearchMaxWidth: CGFloat = collapsedSearchDiameter
+
+    /// MY-1445: alignment applied to the searchSurface frame. When the ZStack
+    /// is narrower than the parent's proposal (collapsed state), the parent
+    /// VStack's `.trailing` alignment positions the 44pt frame flush to the
+    /// trailing edge. This frame alignment governs content placement WITHIN
+    /// the ZStack (the collapsed pill centers vertically within its fixed
+    /// frame). Both work together: parent positions the frame, frame aligns
+    /// its children.
+    static let searchSurfaceCollapsedAlignment: HorizontalAlignment = .trailing
 
     private var floatingSearchAndFilterPanel: some View {
         // MY-1277: search on TOP, chips on BOTTOM (user preference — reversed
@@ -348,24 +366,18 @@ struct ExercisePickerView: View {
     ///
     /// Both surfaces are always in the layout; the invisible one has
     /// `.opacity(0)` and disables hit-testing so it can't accidentally
-    /// steal a tap. Because they are wrapped in a `ZStack`, the parent
-    /// panel's height is the maximum of the two — the expanded surface
-    /// is the taller of the pair, so the collapsed pill visually reads
-    /// the same as before (the outer `FloatingPanelAttachment` re-lays
-    /// out based on `.onGeometryChange` which still fires when the
-    /// visible content changes).
+    /// steal a tap. MY-1445: the ZStack is constrained via
+    /// `SearchSurfaceContainer` to `collapsedSearchMaxWidth` (44pt) in
+    /// collapsed state, preventing the hidden expanded surface from
+    /// forcing a full-width layout contribution. The parent VStack's
+    /// `.trailing` alignment positions this narrower ZStack flush to
+    /// the panel trailing edge.
     private var searchSurface: some View {
-        ZStack {
-            expandedSearchSurface
-                .opacity(isSearchExpanded ? 1 : 0)
-                .allowsHitTesting(isSearchExpanded)
-                .accessibilityHidden(!isSearchExpanded)
-            collapsedSearchSurface
-                .opacity(isSearchExpanded ? 0 : 1)
-                .allowsHitTesting(!isSearchExpanded)
-                .accessibilityHidden(isSearchExpanded)
-        }
-        .animation(.easeOut(duration: 0.22), value: isSearchExpanded)
+        SearchSurfaceContainer(
+            isExpanded: isSearchExpanded,
+            expanded: expandedSearchSurface,
+            collapsed: collapsedSearchSurface
+        )
     }
 
     private var expandedSearchSurface: some View {
@@ -1143,6 +1155,96 @@ struct ExercisePickerView: View {
         }
     }
 }
+
+// MARK: - Search Surface Container (MY-1445)
+
+/// MY-1445: Shared container that applies the collapsed/expanded frame
+/// constraint to the search surface ZStack. Used by both production
+/// `ExercisePickerView.searchSurface` and layout regression tests so
+/// the tested code path is identical to the production path.
+///
+/// In collapsed state, constrains the ZStack to `collapsedSearchMaxWidth`
+/// (44pt) so the hidden expanded surface does not force a full-width
+/// layout contribution. In expanded state, `.infinity` lets the search
+/// field fill the available width.
+///
+/// The `.animation` modifier is placed BEFORE `.frame` so that opacity
+/// transitions inside the ZStack are animated, but the frame width change
+/// (44pt ↔ .infinity) bypasses animation — preventing intermediate widths
+/// where the accessibility hit target is too narrow for XCUITest taps.
+internal struct SearchSurfaceContainer<Expanded: View, Collapsed: View>: View {
+    let isExpanded: Bool
+    let expanded: Expanded
+    let collapsed: Collapsed
+
+    var body: some View {
+        ZStack {
+            expanded
+                .opacity(isExpanded ? 1 : 0)
+                .allowsHitTesting(isExpanded)
+                .accessibilityHidden(!isExpanded)
+            collapsed
+                .opacity(isExpanded ? 0 : 1)
+                .allowsHitTesting(!isExpanded)
+                .accessibilityHidden(isExpanded)
+        }
+        .animation(.easeOut(duration: 0.22), value: isExpanded)
+        .frame(
+            maxWidth: isExpanded ? .infinity : ExercisePickerView.collapsedSearchMaxWidth,
+            alignment: Alignment(
+                horizontal: ExercisePickerView.searchSurfaceCollapsedAlignment,
+                vertical: .center
+            )
+        )
+    }
+}
+
+#if DEBUG
+// MARK: - SearchSurfaceContainer Previews
+
+#Preview("SearchSurface — Collapsed") {
+    VStack(alignment: .trailing) {
+        SearchSurfaceContainer(
+            isExpanded: false,
+            expanded: RoundedRectangle(cornerRadius: 12)
+                .fill(Color.blue.opacity(0.15))
+                .frame(maxWidth: .infinity)
+                .frame(height: 44),
+            collapsed: Circle()
+                .fill(Color.blue)
+                .frame(width: 44, height: 44)
+        )
+    }
+    .frame(width: 369, height: 60, alignment: .trailing)
+    .background(Color(.systemGroupedBackground))
+}
+
+#Preview("SearchSurface — Expanded") {
+    VStack(alignment: .trailing) {
+        SearchSurfaceContainer(
+            isExpanded: true,
+            expanded: RoundedRectangle(cornerRadius: 12)
+                .fill(Color.blue.opacity(0.15))
+                .overlay(
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                        Text("bench press")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 14)
+                )
+                .frame(maxWidth: .infinity)
+                .frame(height: 44),
+            collapsed: Circle()
+                .fill(Color.blue)
+                .frame(width: 44, height: 44)
+        )
+    }
+    .frame(width: 369, height: 60, alignment: .trailing)
+    .background(Color(.systemGroupedBackground))
+}
+#endif
 
 // MARK: - Floating Panel Attachment
 
