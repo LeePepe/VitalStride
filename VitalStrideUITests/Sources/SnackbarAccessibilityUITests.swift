@@ -30,14 +30,9 @@ final class SnackbarAccessibilityUITests: XCTestCase {
         app.launchArguments = ["-SnackbarA11yTestMode", "undo"]
         app.launch()
 
-        // Wait for test root to appear
-        let root = app.otherElements["SnackbarA11yTestRoot"]
-        XCTAssertTrue(
-            root.waitForExistence(timeout: A11yTestTimeout.render),
-            "Test harness root must appear"
-        )
-
-        // Active undo content must be in the accessibility tree
+        // The active element is also the render-ready signal. Do not first
+        // depend on a SwiftUI layout container projecting as a particular
+        // XCUI element type; only semantic content has a stable contract.
         let undoElement = app.staticTexts["snackbar_undo_content"]
         XCTAssertTrue(
             undoElement.waitForExistence(timeout: A11yTestTimeout.render),
@@ -62,14 +57,7 @@ final class SnackbarAccessibilityUITests: XCTestCase {
         app.launchArguments = ["-SnackbarA11yTestMode", "rest"]
         app.launch()
 
-        // Wait for test root to appear
-        let root = app.otherElements["SnackbarA11yTestRoot"]
-        XCTAssertTrue(
-            root.waitForExistence(timeout: A11yTestTimeout.render),
-            "Test harness root must appear"
-        )
-
-        // Active rest content must be in the accessibility tree
+        // The active semantic element is the render-ready signal.
         let restElement = app.staticTexts["snackbar_rest_content"]
         XCTAssertTrue(
             restElement.waitForExistence(timeout: A11yTestTimeout.render),

@@ -289,7 +289,6 @@ private struct SnackbarA11yTestHost: View {
             }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityIdentifier("SnackbarA11yTestRoot")
     }
 }
 #endif
