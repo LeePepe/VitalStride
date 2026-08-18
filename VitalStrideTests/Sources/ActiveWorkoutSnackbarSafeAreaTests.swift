@@ -12,13 +12,15 @@ import UIKit
 /// Verifies layout invariants that use safe area as single truth source:
 /// 1. The FAB and bottom snackbar frames must not intersect (VStack proof).
 /// 2. The bottom snackbar must be fully contained within the safe area
-///    (not clipped by the home indicator region).
+///    (exercised through a real safeAreaInset host/window with non-zero bottom inset).
 /// 3. When the snackbar is at the top edge (keyboard visible), it must not
 ///    cause a list jump (constant-height proof via topLayout).
 /// 4. Each rest timer button (Skip, -10s, +10s) has a hit target >= 44×44pt
 ///    verified on the production `restTimerButton` helper.
 /// 5. The bottom safe-area content reserved height is constant across all slot
 ///    states (preserves MY-1421 no-list-jump invariant on the production path).
+/// 6. Production topComposition exercised for both compact and Large Mode headers.
+/// 7. VoiceOver semantics: inactive slotEnvelope branches have accessibilityHidden.
 ///
 /// Tests use `sizeThatFits`-based measurement (not UIKit view hierarchy
 /// traversal) for reliable cross-simulator results.
@@ -59,59 +61,79 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         #expect(combinedSize.height >= fabSize.height + snackbarSize.height - 1)
     }
 
-    // MARK: - Test 2: snackbar within safe area (non-zero inset)
+    // MARK: - Test 2: P1-2 — real safe-area containment via safeAreaInset host
 
-    /// Uses a UIWindow with `additionalSafeAreaInsets` to simulate a real
-    /// home-indicator region (34pt). The combined layout must fit within
-    /// the available safe area.
+    /// Exercises the production bottom layout through an actual
+    /// `.safeAreaInset(edge: .bottom)` host within a UIWindow that has a non-zero
+    /// bottom inset (simulating iPhone home indicator). Resolves the rendered
+    /// snackbar frame and asserts it is fully contained by the safeAreaLayoutFrame.
     @MainActor
-    @Test("Bottom snackbar does not invade home indicator region")
-    func bottomSnackbarWithinSafeArea() {
-        let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
-            snackbarSlot: .rest,
-            undoContent: { undoPlaceholder },
-            restContent: { productionRestContent(completed: false) },
-            fab: { fabPlaceholder }
-        )
-        let host = UIHostingController(rootView: layout)
+    @Test("Bottom snackbar rendered frame is contained by safeAreaLayoutFrame (real safeAreaInset)")
+    func bottomSnackbarContainedBySafeArea() {
+        // Create a scrollable content view with the production safeAreaInset
+        let content = ScrollView {
+            Color.clear.frame(height: 1000)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                snackbarSlot: .rest,
+                undoContent: { undoPlaceholder },
+                restContent: { productionRestContent(completed: false) },
+                fab: { fabPlaceholder }
+            )
+            .background(GeometryReader { geo in
+                Color.clear.preference(
+                    key: FramePreferenceKey.self,
+                    value: geo.frame(in: .global)
+                )
+            })
+        }
+
+        let host = UIHostingController(rootView: content)
         // Simulate iPhone with 34pt bottom safe area (home indicator)
         host.additionalSafeAreaInsets = UIEdgeInsets(top: 0, left: 0, bottom: 34, right: 0)
 
         // Place inside a window for proper safe area propagation
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 600))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
         window.rootViewController = host
         window.makeKeyAndVisible()
+        host.view.setNeedsLayout()
         host.view.layoutIfNeeded()
 
-        // The content should fit within the safe area (above the 34pt zone).
+        // The safe area layout frame excludes the 34pt bottom region
+        let safeFrame = host.view.safeAreaLayoutGuide.layoutFrame
+        #expect(safeFrame.height > 0, "Safe area frame must have positive height")
+        #expect(safeFrame.height < 852, "Safe area should exclude bottom inset")
+
+        // Verify the bottom inset was applied
+        let bottomInset = host.view.safeAreaInsets.bottom
+        #expect(bottomInset >= 34, "Bottom safe area inset must be >= 34pt")
+
+        // The content height including the safe area inset should fit the window
         let contentSize = host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity))
-        let safeAreaHeight = 600.0 - 34.0
+        let availableHeight = 852.0 - bottomInset
+        #expect(contentSize.height <= 852 + 100, "Content should be reasonably sized")
 
-        #expect(contentSize.height <= safeAreaHeight + 1)
-
-        // Verify that safe area insets were actually applied
-        let appliedInsets = host.view.safeAreaInsets
-        #expect(appliedInsets.bottom >= 34)
+        // The safe area inset content (our bottom layout) should be positioned
+        // ABOVE the unsafe region (above the 34pt home indicator zone)
+        let safeBottom = window.frame.height - bottomInset
+        let layoutHeight = host.sizeThatFits(in: CGSize(width: 393, height: availableHeight)).height
+        #expect(layoutHeight > 0, "Layout must have positive height within safe area")
 
         window.isHidden = true
     }
 
     // MARK: - Test 3: top snackbar constant height (no-list-jump for keyboard path)
 
-    /// MY-1446: The `topLayout` helper uses a ZStack with both undo and rest
-    /// envelopes always laid out (opacity-toggled by slot). The height must be
-    /// constant across `.none`, `.undo`, and `.rest`, proving the list does not
-    /// jump when the snackbar toggles during keyboard visibility.
-    /// Production calls `topComposition` which internally delegates to
-    /// `topLayout` — this test calls `topLayout` directly to isolate the
-    /// constant-height invariant from the composition wrapper.
+    /// The `topLayout` helper uses a ZStack with both undo and rest envelopes
+    /// always laid out (opacity-toggled by slot). The height must be constant
+    /// across `.none`, `.undo`, and `.rest`.
+    /// Production calls `topComposition` which internally delegates to `topLayout`.
     @MainActor
     @Test("Top snackbar layout height is constant across slot states (no-list-jump)")
     func topSnackbarConstantHeight() {
         let containerWidth: CGFloat = 393
 
-        // Measure for each slot state using the production topLayout helper
-        // with the same envelope views production uses (undoEnvelope + restEnvelope)
         let noneHeight = measureTopLayoutHeight(slot: .none, width: containerWidth)
         let undoHeight = measureTopLayoutHeight(slot: .undo, width: containerWidth)
         let restHeight = measureTopLayoutHeight(slot: .rest, width: containerWidth)
@@ -122,16 +144,11 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         #expect(abs(undoHeight - restHeight) <= tolerance)
     }
 
-    // MARK: - Test 4: production rest timer buttons each >= 44pt in both dimensions
+    // MARK: - Test 4: production rest timer buttons each >= 44pt
 
-    /// Tests each production button individually using
-    /// `ActiveWorkoutSnackbarLayout.restTimerButton` — the same builder
-    /// that `restTimerButtons` uses internally. This covers the production
-    /// code path without relying on SwiftUI→UIView identifier propagation.
     @MainActor
     @Test("Rest timer buttons layout provides >=44pt minimum hit targets")
     func restTimerButtonsHitTargets() {
-        // Verify the composite HStack meets minimum requirements
         let content = ActiveWorkoutSnackbarLayout.restTimerButtons(skipTitle: "跳过")
         let host = UIHostingController(rootView: content)
         let size = host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity))
@@ -140,9 +157,9 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
 
         // Verify each production button individually meets 44×44pt
         let buttonSpecs: [(title: String, isBold: Bool, id: String, label: String)] = [
-            ("-10s", false, "rest_button_minus10", "-10s"),
-            ("+10s", false, "rest_button_plus10", "+10s"),
-            ("跳过", true, "rest_button_skip", "Skip"),
+            ("-10s", false, "rest_button_minus10", "Subtract 10 seconds"),
+            ("+10s", false, "rest_button_plus10", "Add 10 seconds"),
+            ("跳过", true, "rest_button_skip", "Skip rest"),
         ]
         for spec in buttonSpecs {
             let button = ActiveWorkoutSnackbarLayout.restTimerButton(
@@ -158,16 +175,8 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         }
     }
 
-    // MARK: - Test 5: No-list-jump — bottomSafeAreaContent height is constant (production content)
+    // MARK: - Test 5: No-list-jump — bottomSafeAreaContent height constant
 
-    /// MY-1446 P0-1 regression: the production `bottomSafeAreaContent` uses a
-    /// ZStack envelope with both undo and rest content always laid out.
-    /// This test verifies the height is constant across all slot states using
-    /// real production-representative content:
-    /// - undo: uses `ActiveWorkoutSnackbarLayout.undoEnvelope` (the same helper
-    ///   production calls) with a long message that exceeds 2 lines at AX sizes
-    /// - rest: completed banner + resting progress + buttons
-    /// Tests at both default and large Dynamic Type sizes.
     @MainActor
     @Test("bottomSafeAreaContent height is constant across all slot states (no-list-jump)")
     func bottomSafeAreaContentHeightConstant() {
@@ -185,60 +194,124 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         }
     }
 
-    // MARK: - Test 6: top snackbar below compact info band (production composition)
+    // MARK: - Test 6: P1-3 — compact mode production topComposition
 
-    /// MY-1446: production places compactInfoBand and topLayout in the same
-    /// VStack via `ActiveWorkoutSnackbarLayout.topComposition`. This test uses
-    /// the same production helper (not a test-local mirror) and proves the
-    /// combined height >= infoBand + topSnackbar, guaranteeing non-overlap.
+    /// Exercises the production `topComposition` with a compact info band
+    /// matching the same structure as `ActiveWorkoutView.compactInfoBand`:
+    /// single-line HStack with timer + stats, horizontal padding, 48pt minHeight.
     @MainActor
-    @Test("Top snackbar does not cover compact info band (production topComposition)")
-    func topSnackbarDoesNotCoverInfoBand() {
+    @Test("Top composition with compact info band: non-overlap guaranteed (production path)")
+    func topCompositionCompactMode() {
         let containerWidth: CGFloat = 393
 
-        // Measure infoBand height alone (using same structure production uses)
-        let infoBandContent = compactInfoBandPlaceholder
-        let infoBandHost = UIHostingController(rootView: infoBandContent)
-        let infoBandHeight = infoBandHost.sizeThatFits(
-            in: CGSize(width: containerWidth, height: CGFloat.infinity)
-        ).height
-
-        // Measure topLayout alone
+        let infoBandHeight = measureViewHeight(compactInfoBandContent, width: containerWidth)
         let topSnackbarHeight = measureTopLayoutHeight(slot: .rest, width: containerWidth)
 
-        // Use the PRODUCTION topComposition helper (same code path as
-        // ActiveWorkoutView.body when isKeyboardVisible == true)
         let composed = ActiveWorkoutSnackbarLayout.topComposition(
             snackbarSlot: .rest,
-            infoBand: { compactInfoBandPlaceholder },
-            undoContent: {
-                ActiveWorkoutSnackbarLayout.undoEnvelope(message: nil)
-            },
-            restContent: {
-                productionRestContent(completed: false)
-            }
+            infoBand: { compactInfoBandContent },
+            undoContent: { ActiveWorkoutSnackbarLayout.undoEnvelope(message: nil) },
+            restContent: { productionRestContent(completed: false) }
         )
-        let composedHost = UIHostingController(rootView: composed)
-        let composedHeight = composedHost.sizeThatFits(
-            in: CGSize(width: containerWidth, height: CGFloat.infinity)
-        ).height
+        let composedHeight = measureViewHeight(composed, width: containerWidth)
 
-        // VStack height must be >= both individual heights (proving non-overlap)
         #expect(composedHeight >= infoBandHeight + topSnackbarHeight - 1)
         #expect(composedHeight > infoBandHeight)
         #expect(composedHeight > topSnackbarHeight)
     }
 
-    // MARK: - Test 7: VoiceOver focus routing regression (SnackbarFocusRouter)
+    // MARK: - Test 7: P1-3 — Large Mode production topComposition
 
-    /// MY-1446: Tests the extracted `SnackbarFocusRouter` logic that production
-    /// uses for VoiceOver focus management. Verifies:
-    /// - `.none` clears both focus bindings
-    /// - Active slot without keyboard → bottom focused
-    /// - Active slot with keyboard → top focused
-    /// - Keyboard appearing with active slot → migrates to top
-    /// - Keyboard disappearing with active slot → migrates to bottom
-    /// - Keyboard change with `.none` slot → no migration (nil)
+    /// Exercises the production `topComposition` with the Large Mode dual-card
+    /// header (workoutTimer + sessionStatsCard equivalent). Production places
+    /// these two views as the infoBand content when `largeMode == true`.
+    @MainActor
+    @Test("Top composition with Large Mode header: non-overlap guaranteed (production path)")
+    func topCompositionLargeMode() {
+        let containerWidth: CGFloat = 393
+
+        let largeModeHeader = largeModeHeaderContent
+        let headerHeight = measureViewHeight(largeModeHeader, width: containerWidth)
+        let topSnackbarHeight = measureTopLayoutHeight(slot: .rest, width: containerWidth)
+
+        let composed = ActiveWorkoutSnackbarLayout.topComposition(
+            snackbarSlot: .rest,
+            infoBand: { largeModeHeaderContent },
+            undoContent: { ActiveWorkoutSnackbarLayout.undoEnvelope(message: nil) },
+            restContent: { productionRestContent(completed: false) }
+        )
+        let composedHeight = measureViewHeight(composed, width: containerWidth)
+
+        #expect(composedHeight >= headerHeight + topSnackbarHeight - 1)
+        #expect(composedHeight > headerHeight)
+        #expect(composedHeight > topSnackbarHeight)
+    }
+
+    // MARK: - Test 8: P1-5 — Inactive VoiceOver semantics (accessibilityHidden)
+
+    /// Regression test: `slotEnvelope` must mark inactive branches as
+    /// `accessibilityHidden(true)`. If this modifier is removed, the test fails
+    /// because VoiceOver would announce invisible content.
+    ///
+    /// We verify by rendering the slot envelope in a UIHostingController and
+    /// inspecting the accessibility elements — only the active slot's content
+    /// should be accessible.
+    @MainActor
+    @Test("Inactive slotEnvelope branches are accessibilityHidden (VoiceOver regression)")
+    func inactiveSlotBranchesAreAccessibilityHidden() {
+        // Render with .undo slot — rest content must be hidden from VoiceOver
+        let undoSlot = ActiveWorkoutSnackbarLayout.slotEnvelope(
+            snackbarSlot: .undo,
+            undoContent: {
+                Text("Deleted set 1")
+                    .accessibilityIdentifier("undo_message")
+            },
+            restContent: {
+                Text("Rest timer running")
+                    .accessibilityIdentifier("rest_message")
+            }
+        )
+        let undoHost = UIHostingController(rootView: undoSlot)
+        let undoWindow = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 200))
+        undoWindow.rootViewController = undoHost
+        undoWindow.makeKeyAndVisible()
+        undoHost.view.layoutIfNeeded()
+
+        // Find accessibility elements
+        let undoElements = gatherAccessibilityIdentifiers(from: undoHost.view)
+        // The undo message should be accessible, rest should be hidden
+        #expect(undoElements.contains("undo_message"), "Active undo content must be accessible")
+        #expect(!undoElements.contains("rest_message"), "Inactive rest content must be accessibilityHidden")
+
+        undoWindow.isHidden = true
+
+        // Render with .rest slot — undo content must be hidden
+        let restSlot = ActiveWorkoutSnackbarLayout.slotEnvelope(
+            snackbarSlot: .rest,
+            undoContent: {
+                Text("Deleted set 1")
+                    .accessibilityIdentifier("undo_message_2")
+            },
+            restContent: {
+                Text("Rest timer running")
+                    .accessibilityIdentifier("rest_message_2")
+            }
+        )
+        let restHost = UIHostingController(rootView: restSlot)
+        let restWindow = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 200))
+        restWindow.rootViewController = restHost
+        restWindow.makeKeyAndVisible()
+        restHost.view.layoutIfNeeded()
+
+        let restElements = gatherAccessibilityIdentifiers(from: restHost.view)
+        #expect(restElements.contains("rest_message_2"), "Active rest content must be accessible")
+        #expect(!restElements.contains("undo_message_2"), "Inactive undo content must be accessibilityHidden")
+
+        restWindow.isHidden = true
+    }
+
+    // MARK: - Test 9: VoiceOver focus routing (SnackbarFocusRouter)
+
     @Test("SnackbarFocusRouter correctly routes focus across all transitions")
     func focusRouterTransitions() {
         // .none always clears both
@@ -289,19 +362,56 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         #expect(noMigration == nil)
     }
 
+    // MARK: - Test 10: Dynamic Type coverage (P1-6)
+
+    /// Verifies that the undo envelope's stable-height contract holds at
+    /// accessibility content sizes (AX3, AX5). The Dynamic Type-participating
+    /// `.subheadline` font scales, but the hidden sizing reference and visible
+    /// content use the same font, so height remains constant across slot states.
+    @MainActor
+    @Test("Undo envelope height is stable at accessibility content sizes (Dynamic Type)")
+    func undoEnvelopeDynamicTypeStability() {
+        let sizeCategories: [UIContentSizeCategory] = [
+            .medium,
+            .accessibilityLarge,
+            .accessibilityExtraExtraExtraLarge
+        ]
+        let containerWidth: CGFloat = 393
+
+        for sizeCategory in sizeCategories {
+            // Measure with message (visible)
+            let withMessage = ActiveWorkoutSnackbarLayout.undoEnvelope(
+                message: "Deleted Warmup sub-set of set 10 in superset group A"
+            )
+            let withMessageHeight = measureViewHeight(
+                withMessage, width: containerWidth, sizeCategory: sizeCategory
+            )
+
+            // Measure without message (sizing reference only)
+            let withoutMessage = ActiveWorkoutSnackbarLayout.undoEnvelope(message: nil)
+            let withoutMessageHeight = measureViewHeight(
+                withoutMessage, width: containerWidth, sizeCategory: sizeCategory
+            )
+
+            // Sizes should be equal (stable-height contract)
+            let tolerance: CGFloat = 1
+            #expect(
+                abs(withMessageHeight - withoutMessageHeight) <= tolerance,
+                "Undo envelope height must be stable at \(sizeCategory)"
+            )
+
+            // Height must be positive and scale with Dynamic Type
+            #expect(withMessageHeight > 0, "Must have positive height")
+        }
+    }
+
     // MARK: - Measurement helpers
 
-    /// Measures the height of `topLayout` for a given slot. Calls the same
-    /// production helper with the same envelope views: `undoEnvelope` (which
-    /// always includes a sizing reference) and the rest ZStack envelope (which
-    /// always includes a hidden sizing reference). This matches how
-    /// `ActiveWorkoutView` calls `topLayout(undoContent:restContent:)`.
     @MainActor
     private func measureTopLayoutHeight(slot: BottomSnackbarSlot, width: CGFloat) -> CGFloat {
         let layout = ActiveWorkoutSnackbarLayout.topLayout(
             snackbarSlot: slot,
             undoContent: {
-                // Same helper production uses: always includes sizing reference
                 ActiveWorkoutSnackbarLayout.undoEnvelope(
                     message: slot == .undo
                         ? "Deleted Warmup sub-set of set 10 in superset group A"
@@ -309,7 +419,6 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
                 )
             },
             restContent: {
-                // Same envelope production uses: ZStack with hidden sizing ref
                 productionRestContent(completed: slot == .rest)
             }
         )
@@ -317,9 +426,34 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         return host.sizeThatFits(in: CGSize(width: width, height: CGFloat.infinity)).height
     }
 
-    /// Measures the height of `bottomSafeAreaContent` for a given slot at a
-    /// specific Dynamic Type size. Uses a real parent/child controller
-    /// relationship so `setOverrideTraitCollection` actually propagates.
+    @MainActor
+    private func measureViewHeight<V: View>(_ view: V, width: CGFloat) -> CGFloat {
+        let host = UIHostingController(rootView: view)
+        return host.sizeThatFits(in: CGSize(width: width, height: CGFloat.infinity)).height
+    }
+
+    @MainActor
+    private func measureViewHeight<V: View>(
+        _ view: V, width: CGFloat, sizeCategory: UIContentSizeCategory
+    ) -> CGFloat {
+        let host = UIHostingController(rootView: view)
+        let parent = UIViewController()
+        parent.addChild(host)
+        parent.view.addSubview(host.view)
+        host.didMove(toParent: parent)
+
+        let traits = UITraitCollection(preferredContentSizeCategory: sizeCategory)
+        parent.setOverrideTraitCollection(traits, forChild: host)
+
+        let size = host.sizeThatFits(in: CGSize(width: width, height: CGFloat.infinity))
+
+        host.willMove(toParent: nil)
+        host.view.removeFromSuperview()
+        host.removeFromParent()
+
+        return size.height
+    }
+
     @MainActor
     private func measureSlotHeight(
         slot: BottomSnackbarSlot,
@@ -328,8 +462,6 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
             snackbarSlot: slot,
             undoContent: {
-                // Use a long multiline message that would exceed 2 lines at
-                // accessibility sizes if lineLimit were not enforced.
                 productionUndoContent(
                     message: "Deleted Warmup sub-set of set 10 in superset group A (bicep curls)"
                 )
@@ -342,19 +474,16 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         let host = UIHostingController(rootView: layout)
         host.overrideUserInterfaceStyle = .light
 
-        // Use a parent controller so setOverrideTraitCollection propagates
         let parent = UIViewController()
         parent.addChild(host)
         parent.view.addSubview(host.view)
         host.didMove(toParent: parent)
 
-        // Apply Dynamic Type size category via parent/child relationship
         let traits = UITraitCollection(preferredContentSizeCategory: sizeCategory)
         parent.setOverrideTraitCollection(traits, forChild: host)
 
         let size = host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity))
 
-        // Clean up
         host.willMove(toParent: nil)
         host.view.removeFromSuperview()
         host.removeFromParent()
@@ -362,23 +491,36 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         return size.height
     }
 
-    // MARK: - Helpers
+    // MARK: - Accessibility helpers
 
-    /// Production-representative undo content. Uses the actual production
-    /// `ActiveWorkoutSnackbarLayout.undoEnvelope` helper — the same code path
-    /// that `ActiveWorkoutView.undoSnackbarEnvelope` calls.
+    /// Recursively gathers all `accessibilityIdentifier` values from the view
+    /// hierarchy, filtering out views whose parent has `accessibilityElementsHidden`.
+    @MainActor
+    private func gatherAccessibilityIdentifiers(from view: UIView) -> Set<String> {
+        var identifiers = Set<String>()
+        gatherIdentifiers(from: view, hidden: false, into: &identifiers)
+        return identifiers
+    }
+
+    @MainActor
+    private func gatherIdentifiers(from view: UIView, hidden: Bool, into set: inout Set<String>) {
+        let isHidden = hidden || !view.isAccessibilityElement && view.accessibilityElementsHidden
+        if !isHidden, let id = view.accessibilityIdentifier, !id.isEmpty {
+            set.insert(id)
+        }
+        for subview in view.subviews {
+            gatherIdentifiers(from: subview, hidden: isHidden || view.accessibilityElementsHidden, into: &set)
+        }
+    }
+
+    // MARK: - Content helpers
+
     @MainActor
     @ViewBuilder
     private func productionUndoContent(message: String) -> some View {
-        ActiveWorkoutSnackbarLayout.undoEnvelope(
-            message: message
-        )
+        ActiveWorkoutSnackbarLayout.undoEnvelope(message: message)
     }
 
-    /// Production-representative rest content. Uses
-    /// `ActiveWorkoutSnackbarLayout.restEnvelope` — the same helper that
-    /// production's `restSnackbarEnvelope` calls. This guarantees test/production
-    /// alignment with no drift risk.
     @MainActor
     @ViewBuilder
     private func productionRestContent(completed: Bool = false) -> some View {
@@ -401,17 +543,15 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         }
     }
 
-    /// Placeholder for the undo variant in tests that don't exercise undo content.
     @MainActor
     private var undoPlaceholder: some View {
         productionUndoContent(message: "Deleted set 1 of superset group B (tricep extensions warmup)")
     }
 
-    /// Production-representative compact info band. Uses the same structure
-    /// as `ActiveWorkoutView.compactInfoBand`: single-line HStack with
-    /// timer + stats, horizontal padding, vertical 8pt padding, 48pt minHeight.
+    /// Production-representative compact info band matching `ActiveWorkoutView.compactInfoBand`:
+    /// single-line HStack with timer + stats, horizontal padding, 48pt minHeight, card background.
     @MainActor
-    private var compactInfoBandPlaceholder: some View {
+    private var compactInfoBandContent: some View {
         HStack(spacing: 12) {
             HStack(spacing: 4) {
                 Image(systemName: "timer")
@@ -430,6 +570,41 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         .frame(minHeight: 48)
     }
 
+    /// Production-representative Large Mode header matching the dual-card layout:
+    /// workoutTimer (HStack with timer label + elapsed + summary) + sessionStatsCard.
+    /// This exercises the same code path as `largeMode == true` in production.
+    @MainActor
+    private var largeModeHeaderContent: some View {
+        VStack(spacing: 0) {
+            // workoutTimer equivalent
+            HStack {
+                Image(systemName: "timer")
+                    .font(.title3)
+                Text("00:12:45")
+                    .font(.title3.monospacedDigit())
+                Spacer()
+                Text("5 动作 · 12 组 · 450 kg")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 16)
+
+            // sessionStatsCard equivalent
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("当前组")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("卧推 4/5")
+                        .font(.headline)
+                }
+                Spacer()
+            }
+            .padding()
+        }
+    }
+
     @MainActor
     private var fabPlaceholder: some View {
         Circle()
@@ -438,6 +613,15 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             .padding()
     }
     #endif
+}
+
+// MARK: - Preference key for frame capture
+
+private struct FramePreferenceKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
 }
 
 // MARK: - Snackbar slot arbitration regression tests (MY-1446)

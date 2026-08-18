@@ -315,9 +315,13 @@ struct ActiveWorkoutView: View {
                     }
                 }
             }
-            // MY-1446: keep the presenter's slot visibility in sync and wire dismiss.
+            // MY-1446: event-driven visibility tracking for the presenter.
             .onChange(of: bottomSnackbarSlot) { _, newSlot in
-                restCompletedPresenter.slotIsVisible = (newSlot == .rest)
+                if newSlot == .rest {
+                    restCompletedPresenter.markVisible()
+                } else {
+                    restCompletedPresenter.markOccluded()
+                }
                 // MY-1446: VoiceOver focus routing via shared testable logic.
                 let focus = SnackbarFocusRouter.resolveSlotChange(
                     newSlot: newSlot,
@@ -343,7 +347,9 @@ struct ActiveWorkoutView: View {
                 restCompletedPresenter.onDismiss = { [restTimer] in
                     restTimer.dismissCompleted()
                 }
-                restCompletedPresenter.slotIsVisible = (bottomSnackbarSlot == .rest)
+                if bottomSnackbarSlot == .rest {
+                    restCompletedPresenter.markVisible()
+                }
                 // MY-1446: restart countdown for any buffered completion that
                 // survived a prior cancel() during disappear — prevents permanent
                 // rest-completed display after navigate away and back.
@@ -709,18 +715,6 @@ struct ActiveWorkoutView: View {
         return undoController.slot(restPhase: effectivePhase)
     }
 
-    @ViewBuilder
-    private var bottomSnackbarContent: some View {
-        switch bottomSnackbarSlot {
-        case .undo:
-            undoSnackbarContent
-        case .rest:
-            restSnackbarContent
-        case .none:
-            EmptyView()
-        }
-    }
-
     // MARK: - Envelope content for ZStack-based stable height (MY-1446 P0-1)
 
     /// Delegates to `ActiveWorkoutSnackbarLayout.undoEnvelope` — the production
@@ -761,38 +755,6 @@ struct ActiveWorkoutView: View {
             skipBackground: theme.primary.primary.opacity(0.15)
         ) {
             restSnackbarContent
-        }
-    }
-
-    @ViewBuilder
-    private var undoSnackbarContent: some View {
-        if let pending = undoController.pending {
-            HStack(spacing: Space.gap) {
-                Text(pending.message)
-                    .font(TypeScale.body)
-                    .lineLimit(2)
-                    .foregroundStyle(theme.neutrals.text1)
-                Spacer()
-                Button {
-                    undoController.undo(using: modelContext)
-                } label: {
-                    Text(String(
-                        localized: "active_workout.set_delete.undo_action",
-                        defaultValue: "Undo",
-                        comment: "Undo a set deletion snackbar action"
-                    ))
-                        .font(TypeScale.body.weight(.semibold))
-                        .foregroundStyle(theme.primary.primary)
-                        .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(
-                    localized: "active_workout.set_delete.undo_action_a11y",
-                    defaultValue: "Undo deletion",
-                    comment: "Undo set deletion a11y label"
-                ))
-            }
         }
     }
 

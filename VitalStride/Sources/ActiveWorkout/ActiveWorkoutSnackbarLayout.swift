@@ -143,6 +143,12 @@ enum ActiveWorkoutSnackbarLayout {
     ///
     /// Production `ActiveWorkoutView.undoSnackbarEnvelope` delegates here so
     /// tests exercise the actual delivered code path.
+    /// The Dynamic Type-participating font used for undo message and action text.
+    /// Uses `.subheadline` text style (scales with system settings) while the
+    /// stable-height contract is preserved by the hidden two-line sizing reference
+    /// using the same font.
+    static let undoFont: Font = .subheadline
+
     @ViewBuilder
     @MainActor
     static func undoEnvelope(
@@ -155,14 +161,15 @@ enum ActiveWorkoutSnackbarLayout {
     ) -> some View {
         ZStack(alignment: .leading) {
             // Hidden sizing reference: two-line body text + button at the
-            // same typography guarantees a stable worst-case height.
+            // same Dynamic Type-participating typography guarantees a stable
+            // worst-case height that scales with accessibility content sizes.
             HStack(spacing: Space.gap) {
                 Text(String(repeating: "M", count: 40))
-                    .font(TypeScale.body)
+                    .font(undoFont)
                     .lineLimit(2)
                 Spacer()
                 Text("Undo")
-                    .font(TypeScale.body.weight(.semibold))
+                    .font(undoFont.weight(.semibold))
                     .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
             }
             .hidden()
@@ -171,13 +178,13 @@ enum ActiveWorkoutSnackbarLayout {
             if let message {
                 HStack(spacing: Space.gap) {
                     Text(message)
-                        .font(TypeScale.body)
+                        .font(undoFont)
                         .lineLimit(2)
                         .foregroundStyle(messageColor)
                     Spacer()
                     Button(action: onUndo) {
                         Text(undoTitle)
-                            .font(TypeScale.body.weight(.semibold))
+                            .font(undoFont.weight(.semibold))
                             .foregroundStyle(undoColor)
                             .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
                             .contentShape(Rectangle())
@@ -260,31 +267,35 @@ enum ActiveWorkoutSnackbarLayout {
     /// verify hit targets on the actual production layout. Production calls
     /// this with themed colors and real actions.
     ///
-    /// - Parameter skipTitle: The user-visible localized title for the skip
-    ///   button. Required to prevent hardcoded English drift (Quality Bar G).
+    /// - Parameters:
+    ///   - minus10Title: Localized visible title for the -10s button.
+    ///   - plus10Title: Localized visible title for the +10s button.
+    ///   - skipTitle: Localized visible title for the skip button.
     @ViewBuilder
     @MainActor
     static func restTimerButtons(
+        minus10Title: String = String(localized: "rest_timer.minus10.title", defaultValue: "-10s", comment: "Rest timer subtract 10 seconds button title"),
+        plus10Title: String = String(localized: "rest_timer.plus10.title", defaultValue: "+10s", comment: "Rest timer add 10 seconds button title"),
         skipTitle: String,
         neutralBackground: Color = Color.gray.opacity(0.15),
         skipBackground: Color = Color.blue.opacity(0.15),
-        minus10AccessibilityLabel: String = "-10s",
-        plus10AccessibilityLabel: String = "+10s",
-        skipAccessibilityLabel: String = "Skip",
+        minus10AccessibilityLabel: String = String(localized: "rest_timer.minus10.a11y", defaultValue: "Subtract 10 seconds", comment: "Rest timer -10s accessibility label"),
+        plus10AccessibilityLabel: String = String(localized: "rest_timer.plus10.a11y", defaultValue: "Add 10 seconds", comment: "Rest timer +10s accessibility label"),
+        skipAccessibilityLabel: String = String(localized: "rest_timer.skip.a11y", defaultValue: "Skip rest", comment: "Rest timer skip accessibility label"),
         onMinus10: @escaping () -> Void = {},
         onPlus10: @escaping () -> Void = {},
         onSkip: @escaping () -> Void = {}
     ) -> some View {
         HStack(spacing: 8) {
             restTimerButton(
-                title: "-10s",
+                title: minus10Title,
                 background: neutralBackground,
                 accessibilityIdentifier: "rest_button_minus10",
                 accessibilityLabel: minus10AccessibilityLabel,
                 action: onMinus10
             )
             restTimerButton(
-                title: "+10s",
+                title: plus10Title,
                 background: neutralBackground,
                 accessibilityIdentifier: "rest_button_plus10",
                 accessibilityLabel: plus10AccessibilityLabel,

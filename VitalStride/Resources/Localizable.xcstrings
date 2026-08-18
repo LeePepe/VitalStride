@@ -10544,10 +10544,16 @@
       "comment": "Workout list source badge: recorded inside VitalStride (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "App" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "App"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "本应用" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "本应用"
+          }
         }
       }
     },
@@ -10556,10 +10562,16 @@
       "comment": "Workout list source badge: workout came from Apple Watch (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Apple Watch" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Watch"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "Apple Watch" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Watch"
+          }
         }
       }
     },
@@ -10568,10 +10580,16 @@
       "comment": "Workout list source badge: workout came from iPhone (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "iPhone" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "iPhone" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone"
+          }
         }
       }
     },
@@ -10580,10 +10598,16 @@
       "comment": "Workout list source badge: workout came from iPad (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "iPad" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPad"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "iPad" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPad"
+          }
         }
       }
     },
@@ -10592,10 +10616,16 @@
       "comment": "Workout list source badge: workout came from Mac (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Mac" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "Mac" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac"
+          }
         }
       }
     },
@@ -10604,10 +10634,16 @@
       "comment": "Workout list source badge: workout came from HealthKit with unknown device (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "HealthKit" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "HealthKit"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "HealthKit" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "HealthKit"
+          }
         }
       }
     },
@@ -10616,10 +10652,16 @@
       "comment": "VoiceOver: workout recorded in VitalStride app (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Recorded in VitalStride" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recorded in VitalStride"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "在 VitalStride 中记录" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 VitalStride 中记录"
+          }
         }
       }
     },
@@ -10628,10 +10670,16 @@
       "comment": "VoiceOver: workout came from Apple Watch (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Recorded on Apple Watch" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recorded on Apple Watch"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "来自 Apple Watch" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "来自 Apple Watch"
+          }
         }
       }
     },
@@ -10640,10 +10688,16 @@
       "comment": "VoiceOver: workout came from iPhone (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Recorded on iPhone" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recorded on iPhone"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "来自 iPhone" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "来自 iPhone"
+          }
         }
       }
     },
@@ -10652,10 +10706,16 @@
       "comment": "VoiceOver: workout came from iPad (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Recorded on iPad" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recorded on iPad"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "来自 iPad" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "来自 iPad"
+          }
         }
       }
     },
@@ -10664,10 +10724,16 @@
       "comment": "VoiceOver: workout came from Mac (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Recorded on Mac" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recorded on Mac"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "来自 Mac" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "来自 Mac"
+          }
         }
       }
     },
@@ -10676,10 +10742,16 @@
       "comment": "VoiceOver: workout came from HealthKit with unknown device (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Recorded via HealthKit" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recorded via HealthKit"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "来自 HealthKit" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "来自 HealthKit"
+          }
         }
       }
     },
@@ -10688,10 +10760,16 @@
       "comment": "VoiceOver: workout came from a named source (MY-1359). %@ = source name.",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Source: %@" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source: %@"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "来源：%@" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "来源：%@"
+          }
         }
       }
     },
@@ -10700,10 +10778,16 @@
       "comment": "Workout row: average heart rate in beats per minute (MY-1359). %lld = bpm value.",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "%lld bpm" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld bpm"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "%lld bpm" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld bpm"
+          }
         }
       }
     },
@@ -10712,10 +10796,16 @@
       "comment": "VoiceOver: average heart rate value (MY-1359). %lld = bpm value.",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Average heart rate %lld" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Average heart rate %lld"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "平均心率 %lld" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "平均心率 %lld"
+          }
         }
       }
     },
@@ -10724,10 +10814,16 @@
       "comment": "VoiceOver: number of exercises in an App workout (MY-1359). %lld = exercise count.",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "%lld exercises" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld exercises"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "%lld 个动作" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 个动作"
+          }
         }
       }
     },
@@ -10736,10 +10832,16 @@
       "comment": "VoiceOver: workout duration in minutes (MY-1359). %lld = minutes.",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "%lld minutes" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld minutes"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "%lld 分钟" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 分钟"
+          }
         }
       }
     },
@@ -10748,10 +10850,16 @@
       "comment": "Preview-only nav title for MY-1359 fixture previews.",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Workouts" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workouts"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "训练" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "训练"
+          }
         }
       }
     },
@@ -10760,10 +10868,16 @@
       "comment": "Preview-only App row title for MY-1359 fixture previews.",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "VitalStride workout" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "VitalStride workout"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "VitalStride 训练" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "VitalStride 训练"
+          }
         }
       }
     },
@@ -10772,10 +10886,16 @@
       "comment": "Preview-only App row subtitle for MY-1359 fixture previews.",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "6 exercises · 42 min" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 exercises · 42 min"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "6 个动作 · 42 分钟" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 个动作 · 42 分钟"
+          }
         }
       }
     },
@@ -10784,10 +10904,16 @@
       "comment": "Preview-only empty state title for MY-1359 fixture previews.",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "No workouts yet" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "No workouts yet"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "暂无训练记录" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无训练记录"
+          }
         }
       }
     },
@@ -10796,10 +10922,16 @@
       "comment": "Preview-only empty state subtitle for MY-1359 fixture previews.",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Tap + to start your first workout" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap + to start your first workout"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "点击 + 开始第一次训练" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击 + 开始第一次训练"
+          }
         }
       }
     },
@@ -10808,10 +10940,16 @@
       "comment": "Workout list loading banner title (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Loading workouts" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading workouts"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "正在加载训练" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在加载训练"
+          }
         }
       }
     },
@@ -10820,10 +10958,16 @@
       "comment": "Workout list loading banner subtitle (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Fetching your Apple Watch and Health data." }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fetching your Apple Watch and Health data."
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "正在获取 Apple Watch 与 健康数据。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在获取 Apple Watch 与 健康数据。"
+          }
         }
       }
     },
@@ -10832,10 +10976,16 @@
       "comment": "Workout list failure banner title (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Couldn't load Apple Health workouts" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load Apple Health workouts"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "无法加载 Apple 健康训练" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法加载 Apple 健康训练"
+          }
         }
       }
     },
@@ -10844,10 +10994,16 @@
       "comment": "Workout list failure banner subtitle (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Pull to refresh, or try again later." }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pull to refresh, or try again later."
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "下拉刷新，或稍后重试。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "下拉刷新，或稍后重试。"
+          }
         }
       }
     },
@@ -10856,10 +11012,16 @@
       "comment": "Workout list unauthorized banner title (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Grant HealthKit access" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grant HealthKit access"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "开启 HealthKit 授权" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "开启 HealthKit 授权"
+          }
         }
       }
     },
@@ -10868,10 +11030,16 @@
       "comment": "Workout list unauthorized banner subtitle (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Enable Workouts in Settings to see Apple Watch training here." }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enable Workouts in Settings to see Apple Watch training here."
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "在系统设置中开启训练权限，即可看到 Apple Watch 训练。" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "在系统设置中开启训练权限，即可看到 Apple Watch 训练。"
+          }
         }
       }
     },
@@ -10880,10 +11048,16 @@
       "comment": "Workout list unauthorized banner CTA — jump to iOS Settings (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Open Settings" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "打开设置" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开设置"
+          }
         }
       }
     },
@@ -10892,10 +11066,16 @@
       "comment": "VoiceOver label for the open-settings CTA (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Open Settings" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "打开系统设置" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开系统设置"
+          }
         }
       }
     },
@@ -10904,10 +11084,16 @@
       "comment": "VoiceOver hint for the open-settings CTA (MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Grants VitalStride access to HealthKit workouts" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grants VitalStride access to HealthKit workouts"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "允许 VitalStride 读取 HealthKit 训练" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许 VitalStride 读取 HealthKit 训练"
+          }
         }
       }
     },
@@ -10916,10 +11102,16 @@
       "comment": "Workout list unified section header (all sources combined, MY-1359).",
       "localizations": {
         "en": {
-          "stringUnit": { "state": "translated", "value": "Workouts" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workouts"
+          }
         },
         "zh-Hans": {
-          "stringUnit": { "state": "translated", "value": "训练记录" }
+          "stringUnit": {
+            "state": "translated",
+            "value": "训练记录"
+          }
         }
       }
     },
@@ -11099,6 +11291,96 @@
           "stringUnit": {
             "state": "translated",
             "value": "撤销删除"
+          }
+        }
+      }
+    },
+    "rest_timer.minus10.title": {
+      "extractionState": "manual",
+      "comment": "Rest timer subtract 10 seconds button visible title",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "-10s"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "-10s"
+          }
+        }
+      }
+    },
+    "rest_timer.plus10.title": {
+      "extractionState": "manual",
+      "comment": "Rest timer add 10 seconds button visible title",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+10s"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+10s"
+          }
+        }
+      }
+    },
+    "rest_timer.minus10.a11y": {
+      "extractionState": "manual",
+      "comment": "Rest timer -10s button accessibility label",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subtract 10 seconds"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "减少10秒"
+          }
+        }
+      }
+    },
+    "rest_timer.plus10.a11y": {
+      "extractionState": "manual",
+      "comment": "Rest timer +10s button accessibility label",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add 10 seconds"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "增加10秒"
+          }
+        }
+      }
+    },
+    "rest_timer.skip.a11y": {
+      "extractionState": "manual",
+      "comment": "Rest timer skip button accessibility label",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip rest"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跳过休息"
           }
         }
       }

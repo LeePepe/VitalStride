@@ -25,6 +25,13 @@ struct ProductionRestClock: RestCompletedClock, Sendable {
 /// full uninterrupted `displayDuration` of actual slot visibility (not occluded
 /// by undo) has elapsed.
 ///
+/// **Event-driven visibility (MY-1446 P1-1):** Instead of polling `slotIsVisible`
+/// each tick, the view calls `markVisible()` / `markOccluded()` on every slot
+/// transition. Each transition increments a generation counter. The countdown
+/// sleeps for `displayDuration` in one shot and verifies the generation is
+/// unchanged on wake — any `.rest → non-rest → .rest` transition, even
+/// sub-millisecond, invalidates the window and requires a fresh full duration.
+///
 /// Extracted from `ActiveWorkoutView` so the lifecycle can be tested
 /// deterministically without async timing uncertainty.
 @MainActor
@@ -33,48 +40,76 @@ final class RestCompletedPresenter {
     /// Whether the rest-completed snackbar should be presented.
     private(set) var isBuffered: Bool = false
 
-    /// Set by the view each time the slot changes. `true` when the snackbar
-    /// slot is `.rest` (not occluded by undo). The countdown loop reads this
-    /// each tick to detect interruption.
-    var slotIsVisible: Bool = false
-
     /// The duration the snackbar must be continuously visible before auto-dismiss.
     let displayDuration: Duration
 
     /// Injectable clock for deterministic testing.
     let clock: any RestCompletedClock
 
-    /// The polling interval used to check slot state during countdown.
-    let tickInterval: Duration
-
     /// Called when the auto-dismiss completes successfully.
     var onDismiss: (@MainActor () -> Void)?
+
+    // MARK: - Event-driven visibility state
+
+    /// Monotonically increasing generation counter. Incremented on every
+    /// visibility transition (markVisible/markOccluded). The countdown captures
+    /// the generation at start — any change means interruption occurred.
+    private(set) var visibilityGeneration: UInt64 = 0
+
+    /// Whether the slot is currently showing rest content (not occluded by undo).
+    private(set) var isCurrentlyVisible: Bool = false
 
     private var countdownTask: Task<Void, Never>?
 
     init(
         displayDuration: Duration = .seconds(2),
-        tickInterval: Duration = .milliseconds(100),
         clock: any RestCompletedClock = ProductionRestClock()
     ) {
         self.displayDuration = displayDuration
-        self.tickInterval = tickInterval
         self.clock = clock
     }
 
-    /// Buffers the rest-completed event and starts the auto-dismiss countdown.
-    /// If a previous completion was already buffered, resets the countdown for
-    /// the new rest completion (prevents stale completions from reappearing).
+    // MARK: - Public API
+
+    /// Buffers the rest-completed event and starts the auto-dismiss countdown
+    /// if currently visible. If a previous completion was already buffered,
+    /// resets the countdown for the new rest completion.
     func captureCompleted() {
         if isBuffered {
             // New rest completed while old one still showing — restart countdown
             countdownTask?.cancel()
             countdownTask = nil
-            startCountdown()
+            if isCurrentlyVisible {
+                startFreshDeadline()
+            }
             return
         }
         isBuffered = true
-        startCountdown()
+        if isCurrentlyVisible {
+            startFreshDeadline()
+        }
+    }
+
+    /// Called by the view when the snackbar slot becomes `.rest` (visible).
+    /// Starts a fresh deadline if buffered.
+    func markVisible() {
+        guard !isCurrentlyVisible else { return }
+        isCurrentlyVisible = true
+        visibilityGeneration &+= 1
+        if isBuffered {
+            startFreshDeadline()
+        }
+    }
+
+    /// Called by the view when the snackbar slot leaves `.rest` (occluded by
+    /// undo or cleared). Immediately cancels any running deadline — the next
+    /// `markVisible()` will require a fresh full `displayDuration`.
+    func markOccluded() {
+        guard isCurrentlyVisible else { return }
+        isCurrentlyVisible = false
+        visibilityGeneration &+= 1
+        countdownTask?.cancel()
+        countdownTask = nil
     }
 
     /// Clears the buffer immediately (e.g., user tapped to dismiss).
@@ -97,58 +132,31 @@ final class RestCompletedPresenter {
     /// Called by the view on reappear after a prior `cancel()` to ensure
     /// a buffered rest-completed notification is eventually auto-dismissed.
     func resume() {
-        guard isBuffered, countdownTask == nil else { return }
-        startCountdown()
+        guard isBuffered, countdownTask == nil, isCurrentlyVisible else { return }
+        startFreshDeadline()
     }
 
-    /// Restarts the countdown (called when `isBuffered` becomes true or when
-    /// external state changes require re-evaluation).
-    func startCountdown() {
+    // MARK: - Internal deadline
+
+    /// Starts a single-shot deadline for `displayDuration`. On wake, verifies
+    /// the generation hasn't changed (no visibility transitions occurred).
+    private func startFreshDeadline() {
         countdownTask?.cancel()
+        let capturedGeneration = visibilityGeneration
         countdownTask = Task { [weak self] in
-            await self?.runCountdown()
-        }
-    }
-
-    // MARK: - Internal countdown loop
-
-    /// The core auto-dismiss loop. Waits for the slot to be visible, then counts
-    /// elapsed visible time. If undo interrupts (slot becomes non-visible), resets
-    /// and waits again. Only dismisses after a full uninterrupted `displayDuration`.
-    private func runCountdown() async {
-        while !Task.isCancelled && isBuffered {
-            // Wait until the slot is actually showing rest
-            while !slotIsVisible {
-                guard !Task.isCancelled, isBuffered else { return }
-                do { try await clock.sleep(for: tickInterval) } catch { return }
+            guard let self else { return }
+            do {
+                try await self.clock.sleep(for: self.displayDuration)
+            } catch {
+                return // cancelled or task ended
             }
-
-            // Start the visible countdown
-            var elapsed: Duration = .zero
-            var interrupted = false
-
-            while elapsed < displayDuration {
-                guard !Task.isCancelled, isBuffered else { return }
-                do { try await clock.sleep(for: tickInterval) } catch { return }
-                guard !Task.isCancelled else { return }
-                elapsed += tickInterval
-
-                // If undo took over the slot mid-countdown, restart
-                if !slotIsVisible {
-                    interrupted = true
-                    break
-                }
-            }
-
-            if !interrupted {
-                // Full duration elapsed while visible — auto-dismiss
-                guard !Task.isCancelled, isBuffered else { return }
-                isBuffered = false
-                onDismiss?()
-                countdownTask = nil
-                return
-            }
-            // interrupted — loop again and wait for visibility
+            guard !Task.isCancelled else { return }
+            // Verify no visibility transitions occurred during sleep
+            guard self.visibilityGeneration == capturedGeneration else { return }
+            guard self.isBuffered else { return }
+            self.isBuffered = false
+            self.onDismiss?()
+            self.countdownTask = nil
         }
     }
 }
