@@ -120,9 +120,18 @@ fi
 
 echo "[claude-review] running claude on PR #$PR_NUMBER ($(printf '%s\n' "$CHANGED" | grep -c . | tr -d ' ') files)..."
 
+# The complete diff is already embedded in PROMPT, so this deterministic gate
+# needs no tools, skills, sessions, or user-configured MCP servers. Loading them
+# can hang the non-interactive CLI before it returns a verdict (MY-1425).
 RAW="$(printf %s "$PROMPT" | claude -p \
     --output-format json \
-    --json-schema "$SCHEMA" 2>/tmp/claude-review.err)"
+    --json-schema "$SCHEMA" \
+    --tools "" \
+    --strict-mcp-config \
+    --mcp-config '{"mcpServers":{}}' \
+    --disable-slash-commands \
+    --no-session-persistence \
+    2>/tmp/claude-review.err)"
 CLI_RC=$?
 
 if [ "$CLI_RC" -ne 0 ] || [ -z "$RAW" ]; then
