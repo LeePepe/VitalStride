@@ -12,51 +12,26 @@ import UIKit
 /// the panel content edge.
 ///
 /// These tests host the PRODUCTION `SearchSurfaceContainer` via
-/// `UIHostingController.sizeThatFits(in:)` to measure actual rendered
-/// layout geometry. The "unfixed" path (plain ZStack without
-/// `SearchSurfaceContainer`) demonstrates the bug; the production path
-/// demonstrates the fix.
+/// `UIHostingController` to measure actual rendered layout geometry.
 @Suite("ExercisePicker collapsed search layout (MY-1445)")
 struct ExercisePickerSearchLayoutTests {
 
     #if canImport(UIKit)
 
-    // MARK: - RED/GREEN: collapsed width
+    // MARK: - Collapsed width must be 44pt
 
-    /// Demonstrates the bug and the fix in sequence:
-    /// - RED: A plain ZStack (unfixed layout) claims full container width.
-    ///   The 44pt assertion FAILS against this layout.
-    /// - GREEN: The production `SearchSurfaceContainer` constrains collapsed
-    ///   width to 44pt. The same 44pt assertion PASSES.
-    @Test("RED→GREEN: Production SearchSurfaceContainer constrains collapsed width to 44pt")
+    /// The production `SearchSurfaceContainer` in collapsed state must render
+    /// at approximately 44pt width — not the full container width. This is the
+    /// core regression assertion for MY-1445.
+    @Test("Collapsed SearchSurfaceContainer width is approximately 44pt")
     @MainActor
-    func collapsedWidth_productionPath_is44pt() {
+    func collapsedWidth_is44pt() {
         let containerWidth: CGFloat = 393
         let panelInset = ExercisePickerView.panelHorizontalInset
         let availableWidth = containerWidth - panelInset * 2
         let expectedWidth = ExercisePickerView.collapsedSearchMaxWidth
 
-        // RED: unfixed ZStack (no SearchSurfaceContainer) claims full width
-        let unfixedSize = measureFittingSize(
-            view: UnfixedZStack(),
-            proposedWidth: availableWidth
-        )
-        // The unfixed ZStack takes the full proposed width — this IS the bug.
-        // If we ran `#expect(unfixedSize.width <= expectedWidth + 1)` here,
-        // it would FAIL with: "unfixedSize.width (≈369pt) <= 45pt" — that
-        // is the RED evidence. We assert the inverse to characterize the bug:
-        #expect(
-            unfixedSize.width > expectedWidth + 1,
-            """
-            RED characterization: unfixed ZStack width (\(unfixedSize.width)pt) \
-            must exceed 44pt target — proves the bug exists. \
-            The desired 44pt assertion would FAIL here: \
-            \(unfixedSize.width)pt is NOT <= \(expectedWidth + 1)pt.
-            """
-        )
-
-        // GREEN: production SearchSurfaceContainer constrains to 44pt
-        let fixedSize = measureFittingSize(
+        let size = measureFittingSize(
             view: SearchSurfaceContainer(
                 isExpanded: false,
                 expanded: expandedChild,
@@ -64,31 +39,26 @@ struct ExercisePickerSearchLayoutTests {
             ),
             proposedWidth: availableWidth
         )
+
         #expect(
-            fixedSize.width <= expectedWidth + 1,
-            """
-            GREEN: production SearchSurfaceContainer collapsed width \
-            (\(fixedSize.width)pt) must be ≤ \(expectedWidth + 1)pt
-            """
+            size.width <= expectedWidth + 1,
+            "Collapsed width (\(size.width)pt) must be ≤ \(expectedWidth + 1)pt"
         )
         #expect(
-            fixedSize.width >= expectedWidth - 1,
-            """
-            GREEN: production SearchSurfaceContainer collapsed width \
-            (\(fixedSize.width)pt) must be ≥ \(expectedWidth - 1)pt
-            """
+            size.width >= expectedWidth - 1,
+            "Collapsed width (\(size.width)pt) must be ≥ \(expectedWidth - 1)pt"
         )
     }
 
-    // MARK: - GREEN: trailing alignment (measured via bitmap pixel occupancy)
+    // MARK: - Trailing alignment (bitmap-verified)
 
     /// The collapsed `SearchSurfaceContainer`, placed inside a trailing-aligned
     /// VStack (matching production `floatingSearchAndFilterPanel`), must render
     /// content at the trailing edge and NOT at the leading edge. Verified by
     /// rendering to a bitmap and checking pixel occupancy at specific positions.
-    @Test("GREEN: Collapsed SearchSurfaceContainer renders at trailing edge (bitmap verified)")
+    @Test("Collapsed SearchSurfaceContainer renders at trailing edge (bitmap verified)")
     @MainActor
-    func collapsedMaxX_productionPath_alignsToTrailingEdge() {
+    func collapsedMaxX_alignsToTrailingEdge() {
         let containerWidth: CGFloat = 393
         let panelInset = ExercisePickerView.panelHorizontalInset
         let availableWidth = containerWidth - panelInset * 2
@@ -119,7 +89,6 @@ struct ExercisePickerSearchLayoutTests {
         hc.view.setNeedsLayout()
         hc.view.layoutIfNeeded()
 
-        // Render to bitmap
         let renderer = UIGraphicsImageRenderer(
             size: CGSize(width: availableWidth, height: 60)
         )
@@ -132,47 +101,39 @@ struct ExercisePickerSearchLayoutTests {
             return
         }
 
-        let centerY = 30 // vertical center
-        // The pill should be at the trailing edge: x ∈ [availableWidth - pillWidth, availableWidth]
-        // Check that the trailing region has non-white (red) pixels
-        let trailingX = Int(availableWidth - pillWidth / 2) // center of pill at trailing edge
+        let centerY = 30
+        // The pill should be at the trailing edge: center of pill near availableWidth - pillWidth/2
+        let trailingX = Int(availableWidth - pillWidth / 2)
         let trailingPixel = pixelColor(in: cgImage, x: trailingX, y: centerY)
 
-        // Check that the leading region is white (no pill content)
-        let leadingX = Int(pillWidth / 2) // center of where pill would be if leading-aligned
+        // Leading region should be white (no pill content)
+        let leadingX = Int(pillWidth / 2)
         let leadingPixel = pixelColor(in: cgImage, x: leadingX, y: centerY)
 
-        // Trailing position must have the red pill (red channel > 200)
+        // Trailing position must have the red pill
         #expect(
             trailingPixel.r > 200,
             """
-            GREEN: trailing edge pixel at x=\(trailingX) must be red \
-            (pill present). Got RGBA(\(trailingPixel.r),\(trailingPixel.g),\
-            \(trailingPixel.b),\(trailingPixel.a)). \
-            maxX ≈ \(availableWidth)pt.
+            Trailing edge pixel at x=\(trailingX) must be red (pill present). \
+            Got RGBA(\(trailingPixel.r),\(trailingPixel.g),\(trailingPixel.b),\(trailingPixel.a)).
             """
         )
 
-        // Leading position must NOT have the red pill (red == white background)
-        // A white pixel has r≈255, g≈255, b≈255. A red pixel has r≈255, g≈0, b≈0.
-        // So check that green channel is high (white) at leading edge.
+        // Leading position must NOT have the red pill (white background: g > 200)
         #expect(
             leadingPixel.g > 200,
             """
-            GREEN: leading edge pixel at x=\(leadingX) must be white/clear \
-            (no pill). Got RGBA(\(leadingPixel.r),\(leadingPixel.g),\
-            \(leadingPixel.b),\(leadingPixel.a)). Pill should be trailing-aligned.
+            Leading edge pixel at x=\(leadingX) must be white/clear (no pill). \
+            Got RGBA(\(leadingPixel.r),\(leadingPixel.g),\(leadingPixel.b),\(leadingPixel.a)).
             """
         )
     }
 
-    // MARK: - GREEN: expanded state fills container
+    // MARK: - Expanded state fills container
 
-    /// In expanded state, the production `SearchSurfaceContainer` fills the
-    /// container width.
-    @Test("GREEN: Expanded SearchSurfaceContainer fills container width")
+    @Test("Expanded SearchSurfaceContainer fills container width")
     @MainActor
-    func expandedWidth_productionPath_fillsContainer() {
+    func expandedWidth_fillsContainer() {
         let containerWidth: CGFloat = 393
         let panelInset = ExercisePickerView.panelHorizontalInset
         let availableWidth = containerWidth - panelInset * 2
@@ -188,16 +149,15 @@ struct ExercisePickerSearchLayoutTests {
 
         #expect(
             size.width > availableWidth * 0.9,
-            "Expanded SearchSurfaceContainer must fill container (\(availableWidth)pt), got \(size.width)pt"
+            "Expanded width (\(size.width)pt) must fill container (\(availableWidth)pt)"
         )
     }
 
     // MARK: - Both surfaces mounted (TextField identity preservation)
 
-    /// Both surfaces remain mounted in collapsed and expanded states.
     @Test("Both search surfaces produce non-zero layout in both states")
     @MainActor
-    func bothSurfacesProduceLayout_productionPath() {
+    func bothSurfacesProduceLayout() {
         for isExpanded in [true, false] {
             let size = measureFittingSize(
                 view: SearchSurfaceContainer(
@@ -207,29 +167,19 @@ struct ExercisePickerSearchLayoutTests {
                 ),
                 proposedWidth: 369
             )
-            #expect(
-                size.height > 0,
-                "SearchSurfaceContainer must produce non-zero height in \(isExpanded ? "expanded" : "collapsed") state"
-            )
-            #expect(
-                size.width > 0,
-                "SearchSurfaceContainer must produce non-zero width in \(isExpanded ? "expanded" : "collapsed") state"
-            )
+            #expect(size.height > 0, "\(isExpanded ? "Expanded" : "Collapsed") must have non-zero height")
+            #expect(size.width > 0, "\(isExpanded ? "Expanded" : "Collapsed") must have non-zero width")
         }
     }
 
-    // MARK: - Placeholder child views matching production structure
+    // MARK: - Child views matching production structure
 
-    /// Expanded child: matches production `expandedSearchSurface`'s layout
-    /// contribution (full-width, 44pt min height).
     private var expandedChild: some View {
         Color.clear
             .frame(maxWidth: .infinity)
             .frame(height: 44)
     }
 
-    /// Collapsed child: matches production `collapsedSearchSurface`'s layout
-    /// contribution (44pt circle).
     private var collapsedChild: some View {
         Circle()
             .frame(
@@ -240,10 +190,6 @@ struct ExercisePickerSearchLayoutTests {
 
     // MARK: - Layout measurement helpers
 
-    /// Uses `UIHostingController.sizeThatFits(in:)` to measure the view's
-    /// rendered size when proposed a specific width. This is synchronous
-    /// and reliable, unlike GeometryReader preferences which require
-    /// runloop ticks to propagate.
     @MainActor
     private func measureFittingSize<V: View>(
         view: V,
@@ -256,19 +202,14 @@ struct ExercisePickerSearchLayoutTests {
 
     // MARK: - Screenshot evidence (Quality Bar K)
 
-    /// Renders the production `SearchSurfaceContainer` in both collapsed and
-    /// expanded states inside a trailing-aligned VStack (matching production
-    /// `floatingSearchAndFilterPanel`), and saves the rendered images as
-    /// iPhone 16 Simulator screenshot evidence for MY-1445 Quality Bar K.
-    @Test("MY-1445 screenshot evidence: collapsed (44pt trailing pill) and expanded (full-width)")
+    @Test("MY-1445 screenshot evidence: collapsed and expanded rendered states")
     @MainActor
     func screenshotEvidence_collapsedAndExpanded() throws {
-        let containerWidth: CGFloat = 393 // iPhone 16 width
+        let containerWidth: CGFloat = 393
         let panelInset = ExercisePickerView.panelHorizontalInset
         let availableWidth = containerWidth - panelInset * 2
         let renderHeight: CGFloat = 60
 
-        // Collapsed state: 44pt trailing-aligned pill
         let collapsedImage = try renderToImage(
             view: VStack(alignment: .trailing) {
                 SearchSurfaceContainer(
@@ -293,7 +234,6 @@ struct ExercisePickerSearchLayoutTests {
         let collapsedPath = "/tmp/MY-1445_collapsed_search_iPhone16.png"
         try collapsedImage.pngData()?.write(to: URL(fileURLWithPath: collapsedPath))
 
-        // Expanded state: full-width search field
         let expandedImage = try renderToImage(
             view: VStack(alignment: .trailing) {
                 SearchSurfaceContainer(
@@ -328,12 +268,10 @@ struct ExercisePickerSearchLayoutTests {
         let expandedPath = "/tmp/MY-1445_expanded_search_iPhone16.png"
         try expandedImage.pngData()?.write(to: URL(fileURLWithPath: expandedPath))
 
-        // Verify both images exist and have expected dimensions
         #expect(collapsedImage.size.width > 0)
         #expect(expandedImage.size.width > 0)
     }
 
-    /// Renders a SwiftUI view to a UIImage via UIHostingController.
     @MainActor
     private func renderToImage<V: View>(
         view: V,
@@ -358,7 +296,6 @@ struct ExercisePickerSearchLayoutTests {
         let r: UInt8, g: UInt8, b: UInt8, a: UInt8
     }
 
-    /// Reads the RGBA color of a single pixel from a CGImage.
     private func pixelColor(in image: CGImage, x: Int, y: Int) -> PixelColor {
         let width = image.width
         let height = image.height
@@ -400,34 +337,3 @@ struct ExercisePickerSearchLayoutTests {
         #expect(ExercisePickerView.collapsedSearchMaxWidth == ExercisePickerView.collapsedSearchDiameter)
     }
 }
-
-// MARK: - Unfixed ZStack (bug reproduction)
-
-#if canImport(UIKit)
-
-/// Plain ZStack WITHOUT `SearchSurfaceContainer` — reproduces the pre-fix
-/// layout where the hidden expanded surface's `.frame(maxWidth: .infinity)`
-/// forces the ZStack to full container width even when collapsed.
-/// Used only in the RED characterization test.
-private struct UnfixedZStack: View {
-    var body: some View {
-        ZStack {
-            // Expanded surface — hidden but layout-contributing (THE BUG)
-            Color.clear
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .opacity(0)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-            // Collapsed surface
-            Circle()
-                .frame(
-                    width: ExercisePickerView.collapsedSearchDiameter,
-                    height: ExercisePickerView.collapsedSearchDiameter
-                )
-        }
-        // NO .frame(maxWidth:) — this is the unfixed layout
-    }
-}
-
-#endif
