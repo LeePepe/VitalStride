@@ -85,9 +85,19 @@ final class RestCompletedPresenter {
 
     /// Cancels any running countdown and releases resources.
     /// Called by the view on disappear to prevent leaked tasks.
+    /// Deliberately preserves `isBuffered` so `resume()` on reappear
+    /// can restart the countdown for an existing buffered completion.
     func cancel() {
         countdownTask?.cancel()
         countdownTask = nil
+    }
+
+    /// Resumes countdown for an existing buffered completion.
+    /// Called by the view on reappear after a prior `cancel()` to ensure
+    /// a buffered rest-completed notification is eventually auto-dismissed.
+    func resume() {
+        guard isBuffered, countdownTask == nil else { return }
+        startCountdown()
     }
 
     /// Restarts the countdown (called when `isBuffered` becomes true or when

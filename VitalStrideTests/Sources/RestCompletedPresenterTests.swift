@@ -17,6 +17,10 @@ final class TestRestCompletedClock: RestCompletedClock {
     private var continuations: [CheckedContinuation<Void, any Error>] = []
     private(set) var sleepCallCount = 0
 
+    /// Number of pending (unresolved) continuations — used by tests to verify
+    /// that cancellation properly drained all waiters.
+    var pendingCount: Int { continuations.count }
+
     /// Advances time by resolving all pending sleep continuations.
     func advance() {
         let pending = continuations
@@ -36,9 +40,21 @@ final class TestRestCompletedClock: RestCompletedClock {
     }
 
     func sleep(for duration: Duration) async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            self.sleepCallCount += 1
-            self.continuations.append(continuation)
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                self.sleepCallCount += 1
+                self.continuations.append(continuation)
+            }
+        } onCancel: {
+            // Task.cancel() will trigger this handler; we schedule the
+            // continuation resume on MainActor so it's safe to mutate state.
+            Task { @MainActor in
+                // Find and resume the most recently added continuation with
+                // a CancellationError so the sleep throws and the caller exits.
+                if let last = self.continuations.popLast() {
+                    last.resume(throwing: CancellationError())
+                }
+            }
         }
     }
 }
@@ -269,7 +285,7 @@ struct RestCompletedPresenterLifecycleTests {
     // MARK: - Test 8: cancel() terminates the countdown task
 
     @MainActor
-    @Test("cancel() stops the countdown loop — task does not poll forever")
+    @Test("cancel() stops the countdown loop — task terminates and no continuations leak")
     func cancelTerminatesCountdownTask() async {
         let clock = TestRestCompletedClock()
         let presenter = RestCompletedPresenter(
@@ -287,16 +303,28 @@ struct RestCompletedPresenterLifecycleTests {
 
         #expect(presenter.isBuffered)
 
-        // Cancel as if view disappeared
+        // Cancel as if view disappeared — the cancellation-aware clock will
+        // resume the pending continuation with CancellationError, which
+        // causes the countdown task to exit.
         presenter.cancel()
 
-        // Advance again — the clock should have no pending continuations
-        // because the task was cancelled
-        let sleepCountBefore = clock.sleepCallCount
+        // Give the cancellation handler time to fire on MainActor
+        await Task.yield()
+        await Task.yield()
+        await Task.yield()
+
+        // All continuations should have been drained by the cancellation handler
+        #expect(
+            clock.pendingCount == 0,
+            "After cancel(), no pending continuations should remain (got \(clock.pendingCount))"
+        )
+
+        // No new sleep calls should be issued after cancellation
+        let sleepCountAfterCancel = clock.sleepCallCount
         await Task.yield()
         await Task.yield()
         #expect(
-            clock.sleepCallCount == sleepCountBefore,
+            clock.sleepCallCount == sleepCountAfterCancel,
             "After cancel(), no new sleep calls should be issued"
         )
     }
@@ -340,5 +368,59 @@ struct RestCompletedPresenterLifecycleTests {
 
         #expect(!presenter.isBuffered)
         #expect(dismissCount == 1, "Should dismiss exactly once for the new completion")
+    }
+
+    // MARK: - Test 10: Disappear/reappear lifecycle with buffered completion
+
+    @MainActor
+    @Test("Buffered completion survives cancel+resume and auto-dismisses after fresh uninterrupted interval")
+    func disappearReappearLifecycle() async {
+        let clock = TestRestCompletedClock()
+        let presenter = RestCompletedPresenter(
+            displayDuration: .milliseconds(200),
+            tickInterval: .milliseconds(100),
+            clock: clock
+        )
+        var dismissed = false
+        presenter.onDismiss = { dismissed = true }
+        presenter.slotIsVisible = true
+
+        // Phase 1: completion captured, countdown running
+        presenter.captureCompleted()
+        #expect(presenter.isBuffered)
+
+        // 1 tick of visibility (100ms of 200ms elapsed)
+        await Task.yield()
+        clock.advance()
+        await Task.yield()
+        #expect(presenter.isBuffered)
+        #expect(!dismissed, "Should not dismiss mid-countdown")
+
+        // Phase 2: view disappears — cancel() preserves buffer
+        presenter.cancel()
+        // Give cancellation handler time to fire
+        await Task.yield()
+        await Task.yield()
+        await Task.yield()
+        #expect(presenter.isBuffered, "Buffer must survive cancel()")
+        #expect(!dismissed, "Must not dismiss on cancel()")
+
+        // Phase 3: view reappears — resume() restarts countdown
+        // Simulate onAppear: restore callbacks and resume
+        presenter.onDismiss = { dismissed = true }
+        presenter.slotIsVisible = true
+        presenter.resume()
+
+        // Need full 2 fresh ticks (200ms) for the restarted countdown
+        for _ in 0..<2 {
+            await Task.yield()
+            clock.advance()
+            await Task.yield()
+        }
+        await Task.yield()
+        await Task.yield()
+
+        #expect(!presenter.isBuffered, "Buffer should clear after resumed countdown completes")
+        #expect(dismissed, "onDismiss should fire after full uninterrupted interval post-resume")
     }
 }

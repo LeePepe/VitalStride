@@ -305,10 +305,15 @@ struct ActiveWorkoutView: View {
                     restTimer.dismissCompleted()
                 }
                 restCompletedPresenter.slotIsVisible = (bottomSnackbarSlot == .rest)
+                // MY-1446: restart countdown for any buffered completion that
+                // survived a prior cancel() during disappear — prevents permanent
+                // rest-completed display after navigate away and back.
+                restCompletedPresenter.resume()
             }
             .onDisappear {
                 // MY-1446 P0-1: cancel the presenter's countdown task to prevent
                 // leaked polling loops when the view exits while slot is hidden.
+                // Preserves isBuffered so resume() on reappear restarts the countdown.
                 restCompletedPresenter.cancel()
             }
             // MY-1420: the deleted row took VoiceOver focus with it, and the
