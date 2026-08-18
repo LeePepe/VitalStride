@@ -124,6 +124,7 @@ echo "[claude-review] running claude on PR #$PR_NUMBER ($(printf '%s\n' "$CHANGE
 # needs no tools, skills, sessions, or user-configured MCP servers. Loading them
 # can hang the non-interactive CLI before it returns a verdict (MY-1425).
 RAW="$(printf %s "$PROMPT" | claude -p \
+    --safe-mode \
     --output-format json \
     --json-schema "$SCHEMA" \
     --tools "" \

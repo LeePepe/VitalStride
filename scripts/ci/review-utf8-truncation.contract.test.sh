@@ -176,11 +176,12 @@ fi
 
 CLAUDE_GATE="$SCRIPT_DIR/claude-review.sh"
 if grep -qF -- '--tools ""' "$CLAUDE_GATE" \
+    && grep -qF -- '--safe-mode' "$CLAUDE_GATE" \
     && grep -qF -- '--strict-mcp-config' "$CLAUDE_GATE" \
     && grep -qF -- '--mcp-config '\''{"mcpServers":{}}'\''' "$CLAUDE_GATE"; then
-    assert_pass "claude-review disables tools and user-configured MCP servers"
+    assert_pass "claude-review disables tools, plugins, and user-configured MCP servers"
 else
-    assert_fail "claude-review can still load tools or user-configured MCP servers"
+    assert_fail "claude-review can still load tools, plugins, or user-configured MCP servers"
 fi
 
 # --- Summary ---
