@@ -1,3 +1,4 @@
+import DesignKit
 import SwiftUI
 import Testing
 
@@ -228,4 +229,36 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         return nil
     }
     #endif
+}
+
+// MARK: - Snackbar slot arbitration regression tests (MY-1446)
+
+@Suite("BottomSnackbarSlot arbitration (MY-1446)")
+struct BottomSnackbarSlotArbitrationTests {
+    @Test("Undo outranks rest-completed: slot stays .undo when rest completes during undo window")
+    func undoOutranksRestCompleted() {
+        // When the user has a pending undo AND rest completes simultaneously,
+        // the undo slot must win (it has a deadline the user cannot recover from).
+        let slot = BottomSnackbarSlot.resolve(hasPendingUndo: true, restPhase: .completed)
+        #expect(slot == .undo, "Undo must outrank rest-completed; got \(slot)")
+    }
+
+    @Test("Rest shows once undo clears")
+    func restShowsAfterUndoClears() {
+        // After the undo window expires, the rest-completed snackbar should appear.
+        let slot = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
+        #expect(slot == .rest, "Rest-completed must show once undo clears; got \(slot)")
+    }
+
+    @Test("No snackbar when idle and no undo")
+    func noSnackbarWhenIdle() {
+        let slot = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .idle)
+        #expect(slot == .none)
+    }
+
+    @Test("Undo outranks resting phase")
+    func undoOutranksResting() {
+        let slot = BottomSnackbarSlot.resolve(hasPendingUndo: true, restPhase: .resting)
+        #expect(slot == .undo)
+    }
 }

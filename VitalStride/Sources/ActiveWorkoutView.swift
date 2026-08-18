@@ -102,17 +102,13 @@ struct ActiveWorkoutView: View {
                 // MY-1446: when the keyboard is visible, the snackbar renders
                 // inline between the header and the list (not as an overlay)
                 // so it never covers the compact info band or gets clipped.
-                if isKeyboardVisible && bottomSnackbarSlot != .none {
-                    bottomSnackbarContent
-                        .padding(.horizontal, Space.cardPadding)
-                        .padding(.vertical, Space.gap)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(snackbarCardBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .shadow(color: .black.opacity(0.15), radius: 8, y: -4)
-                        .padding(.horizontal, Space.cardPadding)
-                        .padding(.vertical, Space.inline)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                // Uses the tested `topLayout` helper for guaranteed non-overlap.
+                if isKeyboardVisible {
+                    ActiveWorkoutSnackbarLayout.topLayout(
+                        snackbarSlot: bottomSnackbarSlot,
+                        infoBand: { EmptyView() },
+                        snackbar: { bottomSnackbarContent }
+                    )
                 }
                 exerciseList
             }
@@ -125,28 +121,18 @@ struct ActiveWorkoutView: View {
             // animation when the snackbar appears/disappears.
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if !isKeyboardVisible {
-                    VStack(spacing: 0) {
-                        // FAB: trailing-aligned, constant height
-                        HStack {
-                            Spacer()
-                            ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
-                                addExerciseButton
+                    ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                        snackbarSlot: bottomSnackbarSlot,
+                        snackbar: { bottomSnackbarContent },
+                        fab: {
+                            HStack {
+                                Spacer()
+                                ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
+                                    addExerciseButton
+                                }
                             }
                         }
-                        // Snackbar: full-width, below FAB
-                        if bottomSnackbarSlot != .none {
-                            bottomSnackbarContent
-                                .padding(.horizontal, Space.cardPadding)
-                                .padding(.vertical, Space.gap)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(snackbarCardBackground)
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
-                                .padding(.horizontal, Space.cardPadding)
-                                .padding(.bottom, Space.cardPadding)
-                                .transition(.move(edge: .bottom).combined(with: .opacity))
-                        }
-                    }
+                    )
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
@@ -299,8 +285,16 @@ struct ActiveWorkoutView: View {
             // MY-1446: auto-dismiss the "rest completed" snackbar after 2s.
             // Previously handled by SnackbarMode.autoDismiss; now managed
             // directly since the overlay modifier was removed.
+            // The countdown only starts once the rest snackbar is actually
+            // visible (bottomSnackbarSlot == .rest), so an undo occupying
+            // the slot does not silently clear the completed state.
             .task(id: restTimer.phase) {
                 guard restTimer.phase == .completed else { return }
+                // Wait until the slot is actually showing rest (undo may be occupying it)
+                while bottomSnackbarSlot != .rest {
+                    guard !Task.isCancelled else { return }
+                    try? await Task.sleep(for: .milliseconds(100))
+                }
                 try? await Task.sleep(for: .seconds(2))
                 guard !Task.isCancelled else { return }
                 restTimer.dismissCompleted()
@@ -653,17 +647,6 @@ struct ActiveWorkoutView: View {
     /// Which of the two competing bottom snackbars is showing right now.
     private var bottomSnackbarSlot: BottomSnackbarSlot {
         undoController.slot(restPhase: restTimer.phase)
-    }
-
-    /// MY-1446: the visual background for snackbar cards. Matches the
-    /// SnackbarModifier's `.bar` material styling.
-    @ViewBuilder
-    private var snackbarCardBackground: some View {
-        #if os(watchOS)
-        Color.gray.opacity(0.25)
-        #else
-        Color.clear.background(.bar)
-        #endif
     }
 
     @ViewBuilder
