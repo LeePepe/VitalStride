@@ -74,8 +74,25 @@ struct VitalStrideApp: App {
             let cache = healthDataCache
             let context = modelContainer.mainContext
 
+            #if DEBUG
+            // The picker focus UI harness opens the sheet immediately after
+            // launch. Seeding the full 1,558-row catalog at the same time
+            // causes repeated @Query rebuilds that can keep the expanded
+            // TextField non-hittable for the entire UI-test settle window.
+            // The harness installs its own minimal deterministic catalog
+            // before presenting the sheet, so isolate those focus tests from
+            // the unrelated first-launch migration workload.
+            let isExercisePickerUITest = ProcessInfo.processInfo.arguments.contains(
+                "-ExercisePickerTestMode"
+            )
+            #else
+            let isExercisePickerUITest = false
+            #endif
+
             Task {
-                ExerciseSeeder.seedIfNeeded(context: context)
+                if !isExercisePickerUITest {
+                    ExerciseSeeder.seedIfNeeded(context: context)
+                }
                 let status = try? await service.authorizationStatus()
                 if status == .unnecessary {
                     await cache.hydrate(types: HealthSampleType.overviewTypes)
@@ -134,6 +151,7 @@ private struct ExercisePickerTestHarnessModifier: ViewModifier {
         content
             .onAppear {
                 if testMode != nil {
+                    seedMinimalCatalogIfNeeded()
                     showsPicker = true
                 }
             }
@@ -143,6 +161,31 @@ private struct ExercisePickerTestHarnessModifier: ViewModifier {
                         .modelContainer(container)
                 }
             }
+    }
+
+    /// The focus suite needs one known populated result ("bench") plus the
+    /// ability to cross into the empty state. It does not need the production
+    /// catalog migration, which is covered by `ExerciseSeederTests`.
+    private func seedMinimalCatalogIfNeeded() {
+        guard let context = container?.mainContext else { return }
+        let descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.nameEn == "Bench Press" }
+        )
+        guard let matches = try? context.fetch(descriptor), matches.isEmpty else { return }
+
+        context.insert(
+            Exercise(
+                nameEn: "Bench Press",
+                nameZh: "Bench Press",
+                muscleGroup: .chest,
+                equipment: .barbell
+            )
+        )
+        do {
+            try context.save()
+        } catch {
+            print("[ExercisePickerTestHarness] baseline seed failed: \(error)")
+        }
     }
 }
 
