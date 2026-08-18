@@ -5,7 +5,7 @@ import VitalModels
 
 @testable import VitalStride
 
-private typealias AppWorkoutSetManager = VitalStride.WorkoutSetManager
+private typealias AppWorkoutSetManager = VitalModels.WorkoutSetManager
 
 /// MY-875 — SubSet 子组只读化与删除入口收敛
 ///

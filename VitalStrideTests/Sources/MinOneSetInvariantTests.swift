@@ -5,7 +5,7 @@ import VitalModels
 
 @testable import VitalStride
 
-private typealias AppWorkoutSetManager = VitalStride.WorkoutSetManager
+private typealias AppWorkoutSetManager = VitalModels.WorkoutSetManager
 
 @Suite("Min-One-Set Invariant Tests")
 struct MinOneSetInvariantTests {

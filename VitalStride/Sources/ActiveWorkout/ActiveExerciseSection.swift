@@ -426,7 +426,7 @@ struct ActiveExerciseSection: View {
         let deletedIndices = Set(contexts.indices.filter {
             targetIDs.contains(contexts[$0].exerciseSet.persistentModelID)
         })
-        let focusTarget = WorkoutSetTree.focusIndexAfterDeletion(
+        let focusTarget = SetDeletionFocusTarget.focusIndexAfterDeletion(
             deleting: deletedIndices,
             isSubSet: contexts.map { $0.exerciseSet.setType.isSubSet }
         ).map { contexts[$0].exerciseSet.persistentModelID }
