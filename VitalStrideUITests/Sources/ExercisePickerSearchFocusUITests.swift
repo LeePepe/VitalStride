@@ -237,15 +237,21 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         XCTAssertTrue(app.keyboards.firstMatch.exists,
                       "Keyboard missing before clear")
 
-        // Clear button — matches by a11y label ("清除搜索" / "Clear search")
-        // or by systemImage "xmark.circle.fill" fallback. Search across
-        // all buttons in the picker sheet.
+        // Match the production a11y contract exactly. A broad
+        // `CONTAINS "Clear"` query can select an unrelated system button
+        // before the search-row control on CI simulators.
         let clearButton = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR label CONTAINS[c] %@",
-                        "清除", "Clear", "xmark")
+            NSPredicate(format: "label == %@ OR label == %@",
+                        "清除搜索", "Clear search")
         ).firstMatch
         XCTAssertTrue(clearButton.waitForExistence(timeout: 1.0),
                       "Clear button not found — labels visible: \(app.buttons.allElementsBoundByIndex.map { $0.label })")
+        let hittableClearButton = expectation(
+            for: NSPredicate(format: "isHittable == true"),
+            evaluatedWith: clearButton,
+            handler: nil
+        )
+        wait(for: [hittableClearButton], timeout: UITestTimeout.uiSettle)
         clearButton.tap()
 
         // After clear: search text should reset. Focus behaviour differs
@@ -260,9 +266,12 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
             "",
             "Search exercises"
         )
+        // Re-query after the expanded surface becomes accessibility-hidden;
+        // do not retain the pre-collapse element proxy as the oracle.
+        let resetField = app.textFields.firstMatch
         let emptyField = expectation(for: resetPredicate,
-                                    evaluatedWith: searchField,
-                                    handler: nil)
+                                     evaluatedWith: resetField,
+                                     handler: nil)
         wait(for: [emptyField], timeout: UITestTimeout.uiSettle)
     }
 
