@@ -32,34 +32,30 @@ enum ActiveWorkoutSnackbarLayout {
         @ViewBuilder undoContent: () -> UndoContent,
         @ViewBuilder restContent: () -> RestContent
     ) -> some View {
+        // Both branches are always laid out for constant-height contract.
+        // Only the active branch has opacity/hit-testing.
         ZStack(alignment: .leading) {
-            slotBranch(isActive: snackbarSlot == .undo, content: undoContent())
-            slotBranch(isActive: snackbarSlot == .rest, content: restContent())
+            undoContent()
+                .opacity(snackbarSlot == .undo ? 1 : 0)
+                .allowsHitTesting(snackbarSlot == .undo)
+            restContent()
+                .opacity(snackbarSlot == .rest ? 1 : 0)
+                .allowsHitTesting(snackbarSlot == .rest)
         }
-    }
-
-    /// Keeps an inactive branch in layout for the constant-height contract,
-    /// while removing its descendants from the semantic tree. On iOS 26,
-    /// `accessibilityHidden(true)` alone does not suppress descendants of an
-    /// always-mounted transparent ZStack branch; `.ignore` plus an empty label
-    /// prevents those stale child labels from being announced or queried.
-    @ViewBuilder
-    @MainActor
-    private static func slotBranch<Content: View>(
-        isActive: Bool,
-        content: Content
-    ) -> some View {
-        if isActive {
-            content
-                .opacity(1)
-                .allowsHitTesting(true)
-        } else {
-            content
-                .opacity(0)
-                .allowsHitTesting(false)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text(verbatim: ""))
-                .accessibilityHidden(true)
+        // On iOS 26, `.accessibilityHidden(true)` on an inactive branch does
+        // not suppress its SwiftUI descendants from the accessibility tree.
+        // `.accessibilityRepresentation` completely replaces the ZStack's
+        // accessibility subtree with only the active content, so inactive
+        // labels/buttons are never exposed to VoiceOver or XCUI queries.
+        .accessibilityRepresentation {
+            switch snackbarSlot {
+            case .undo:
+                undoContent()
+            case .rest:
+                restContent()
+            case .none:
+                EmptyView()
+            }
         }
     }
 
