@@ -21,11 +21,13 @@ enum ActiveWorkoutSnackbarLayout {
 
     /// Renders the combined bottom layout for the `safeAreaInset(edge: .bottom)`.
     /// Uses a VStack to guarantee the FAB and snackbar never overlap by
-    /// construction: FAB is above, snackbar is below. The total height is the
-    /// single source of truth for the list's bottom scroll inset.
+    /// construction: FAB is above, snackbar is below.
     ///
-    /// When `snackbarSlot == .none`, only the FAB is rendered. When a snackbar
-    /// is active, it appears below the FAB with standard card styling.
+    /// MY-1446 P0-1 (no-list-jump): The snackbar area is ALWAYS rendered
+    /// regardless of slot state. When `.none`, the area is invisible and
+    /// non-interactive but still contributes its intrinsic height to the safe
+    /// area inset. This guarantees the reserved height is constant across all
+    /// slot transitions, preserving the MY-1421 no-list-jump invariant.
     @ViewBuilder
     @MainActor
     static func bottomSafeAreaContent<Snackbar: View, FAB: View>(
@@ -35,17 +37,20 @@ enum ActiveWorkoutSnackbarLayout {
     ) -> some View {
         VStack(spacing: 0) {
             fab()
-            if snackbarSlot != .none {
-                snackbar()
-                    .padding(.horizontal, Space.cardPadding)
-                    .padding(.vertical, Space.gap)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(snackbarCardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
-                    .padding(.horizontal, Space.cardPadding)
-                    .padding(.bottom, Space.cardPadding)
-            }
+            snackbar()
+                .padding(.horizontal, Space.cardPadding)
+                .padding(.vertical, Space.gap)
+                .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(
+                    color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
+                    radius: 8, y: 4
+                )
+                .padding(.horizontal, Space.cardPadding)
+                .padding(.bottom, Space.cardPadding)
+                .opacity(snackbarSlot != .none ? 1 : 0)
+                .allowsHitTesting(snackbarSlot != .none)
         }
     }
 
@@ -80,7 +85,8 @@ enum ActiveWorkoutSnackbarLayout {
     }
 
     /// The visual background for the snackbar card. Uses the system `.bar`
-    /// material on supported platforms.
+    /// material on supported platforms. Used by topLayout (where the card is
+    /// conditionally rendered, so the old pattern is fine).
     @ViewBuilder
     @MainActor
     private static var snackbarCardBackground: some View {
@@ -98,9 +104,13 @@ enum ActiveWorkoutSnackbarLayout {
     /// accessibility identifiers). Extracted as a static helper so tests can
     /// verify hit targets on the actual production layout. Production calls
     /// this with themed colors and real actions.
+    ///
+    /// - Parameter skipTitle: The user-visible localized title for the skip
+    ///   button. Required to prevent hardcoded English drift (Quality Bar G).
     @ViewBuilder
     @MainActor
     static func restTimerButtons(
+        skipTitle: String,
         neutralBackground: Color = Color.gray.opacity(0.15),
         skipBackground: Color = Color.blue.opacity(0.15),
         minus10AccessibilityLabel: String = "-10s",
@@ -129,7 +139,7 @@ enum ActiveWorkoutSnackbarLayout {
                 .contentShape(Capsule())
                 .accessibilityIdentifier("rest_button_plus10")
                 .accessibilityLabel(plus10AccessibilityLabel)
-            Button("Skip", action: onSkip)
+            Button(skipTitle, action: onSkip)
                 .font(.caption)
                 .fontWeight(.semibold)
                 .padding(.horizontal, 10)

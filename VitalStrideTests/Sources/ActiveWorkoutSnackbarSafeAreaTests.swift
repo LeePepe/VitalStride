@@ -16,8 +16,9 @@ import UIKit
 ///    (not clipped by the home indicator region).
 /// 3. When the snackbar is at the top edge (keyboard visible), it must not
 ///    overlap the persistent compact info band.
-/// 4. Each rest timer button (Skip, -10s, +10s) has a hit target >= 44pt.
-/// 5. Auto-dismiss respects undo mid-countdown interruption.
+/// 4. Each rest timer button (Skip, -10s, +10s) has a hit target >= 44×44pt.
+/// 5. The bottom safe-area content reserved height is constant across all slot
+///    states (preserves MY-1421 no-list-jump invariant on the production path).
 ///
 /// These tests exercise `ActiveWorkoutSnackbarLayout` helpers — the same
 /// helpers called by production `ActiveWorkoutView`.
@@ -157,7 +158,7 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     @MainActor
     @Test("Each rest timer button (-10s, +10s, Skip) has >=44×44pt hit target")
     func restTimerButtonsHitTargets() {
-        let content = ActiveWorkoutSnackbarLayout.restTimerButtons()
+        let content = ActiveWorkoutSnackbarLayout.restTimerButtons(skipTitle: "跳过")
         let host = UIHostingController(rootView: content)
         host.view.frame = CGRect(x: 0, y: 0, width: 393, height: 100)
         host.view.layoutIfNeeded()
@@ -180,67 +181,46 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         }
     }
 
-    // MARK: - Test 5: auto-dismiss timing regression (undo mid-countdown)
+    // MARK: - Test 5: No-list-jump — bottomSafeAreaContent height is constant
 
-    /// Validates the slot arbitration behavior that the auto-dismiss task
-    /// relies on: when undo appears during a rest-completed state, the slot
-    /// switches to .undo, and when undo clears the slot returns to .rest.
-    /// This is the contractual basis for the production code's "check slot
-    /// after delay" pattern.
-    @Test("Slot arbitration: undo mid-rest-completed then re-visible")
-    func slotArbitrationUndoMidRestCompleted() {
-        // Phase 1: rest completed, no undo → slot is .rest
-        let slotVisible = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
-        #expect(slotVisible == .rest)
+    /// MY-1446 P0-1 regression: the production `bottomSafeAreaContent` must
+    /// reserve identical height across `.none`, `.undo`, and `.rest` slot states.
+    /// This is the real production path (not just FABContainer). Uses
+    /// `UIHostingController.sizeThatFits` to measure actual layout height.
+    @MainActor
+    @Test("bottomSafeAreaContent height is constant across all slot states (no-list-jump)")
+    func bottomSafeAreaContentHeightConstant() {
+        let slots: [BottomSnackbarSlot] = [.none, .undo, .rest]
+        var heights: [BottomSnackbarSlot: CGFloat] = [:]
 
-        // Phase 2: undo appears → slot switches to .undo
-        let slotOccluded = BottomSnackbarSlot.resolve(hasPendingUndo: true, restPhase: .completed)
-        #expect(slotOccluded == .undo)
+        for slot in slots {
+            let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                snackbarSlot: slot,
+                snackbar: { snackbarPlaceholder },
+                fab: { fabPlaceholder }
+            )
+            let host = UIHostingController(rootView: layout)
+            let size = host.sizeThatFits(in: CGSize(width: 393, height: .infinity))
+            heights[slot] = size.height
+        }
 
-        // Phase 3: undo clears → slot returns to .rest
-        let slotRevisible = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
-        #expect(slotRevisible == .rest)
-    }
+        let tolerance: CGFloat = 1
+        let noneHeight = heights[.none]!
+        let undoHeight = heights[.undo]!
+        let restHeight = heights[.rest]!
 
-    // MARK: - Test 6: buffered completion survives controller clear
-
-    /// MY-1446 P0-1 regression: the controller independently clears .completed→.idle,
-    /// but the view-layer buffer keeps the slot at .rest (via effective phase) until
-    /// a full 2s of visibility elapses. Simulates the slot resolution logic when
-    /// the buffer is set but the controller phase has already reverted to .idle.
-    @Test("Buffered completion keeps slot .rest even after controller clears to idle")
-    func bufferedCompletionSurvivesControllerClear() {
-        // When restCompletedBuffered=true, effectivePhase=.completed regardless
-        // of actual controller phase. So slot resolution uses .completed:
-        let slotWithBuffer = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
-        #expect(slotWithBuffer == .rest)
-
-        // Without buffer (controller cleared to idle), slot would be .none:
-        let slotWithoutBuffer = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .idle)
-        #expect(slotWithoutBuffer == .none)
-    }
-
-    /// Regression: rest visible → countdown begins → undo appears → must NOT dismiss
-    /// → undo clears → rest reappears → only after fresh 2s does dismiss occur.
-    /// Verifies the slot arbitration contract that the auto-dismiss loop depends on.
-    @Test("Undo mid-countdown prevents dismiss, re-visibility restarts window")
-    func undoMidCountdownPreventsImmediate() {
-        // Step 1: rest visible (countdown started)
-        let step1 = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
-        #expect(step1 == .rest, "Rest must be visible to start countdown")
-
-        // Step 2: undo appears mid-countdown → slot goes .undo (interrupts countdown)
-        let step2 = BottomSnackbarSlot.resolve(hasPendingUndo: true, restPhase: .completed)
-        #expect(step2 == .undo, "Undo must occlude rest mid-countdown")
-
-        // Step 3: undo clears → slot returns to .rest (restart countdown)
-        let step3 = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
-        #expect(step3 == .rest, "Rest must reappear after undo clears for fresh 2s window")
-
-        // Step 4: even if controller clears to .idle, buffer keeps effective phase .completed
-        // (This tests the contract: production code passes effectivePhase based on buffer)
-        let step4WithBuffer = BottomSnackbarSlot.resolve(hasPendingUndo: false, restPhase: .completed)
-        #expect(step4WithBuffer == .rest, "Buffered completion keeps slot at .rest")
+        #expect(
+            abs(noneHeight - undoHeight) <= tolerance,
+            "Height shifted by \(abs(noneHeight - undoHeight))pt between .none (\(noneHeight)) and .undo (\(undoHeight)); must be within \(tolerance)pt"
+        )
+        #expect(
+            abs(noneHeight - restHeight) <= tolerance,
+            "Height shifted by \(abs(noneHeight - restHeight))pt between .none (\(noneHeight)) and .rest (\(restHeight)); must be within \(tolerance)pt"
+        )
+        #expect(
+            abs(undoHeight - restHeight) <= tolerance,
+            "Height shifted by \(abs(undoHeight - restHeight))pt between .undo (\(undoHeight)) and .rest (\(restHeight)); must be within \(tolerance)pt"
+        )
     }
 
     // MARK: - Helpers
