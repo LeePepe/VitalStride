@@ -257,67 +257,9 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     }
 
     // MARK: - Test 8: P1-5 — Inactive VoiceOver semantics (accessibilityHidden)
-
-    /// Regression test: `slotEnvelope` must mark inactive branches as
-    /// `accessibilityHidden(true)`. Validates using the accessibility container
-    /// protocol: only the active slot's content labels should appear in the
-    /// accessibility elements exposed by the hosting controller.
-    ///
-    /// This approach uses `UIAccessibility` element enumeration rather than
-    /// UIKit subview identifier traversal, which is unreliable for SwiftUI views.
-    @MainActor
-    @Test("Inactive slotEnvelope branches are accessibilityHidden (VoiceOver regression)")
-    func inactiveSlotBranchesAreAccessibilityHidden() {
-        // Render with .undo slot — rest content must be hidden from VoiceOver
-        let undoSlot = ActiveWorkoutSnackbarLayout.slotEnvelope(
-            snackbarSlot: .undo,
-            undoContent: {
-                Text("Deleted set 1")
-                    .accessibilityLabel("undo_active_label")
-            },
-            restContent: {
-                Text("Rest timer running")
-                    .accessibilityLabel("rest_inactive_label")
-            }
-        )
-        let undoHost = UIHostingController(rootView: undoSlot)
-        let undoWindow = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 200))
-        undoWindow.rootViewController = undoHost
-        undoWindow.makeKeyAndVisible()
-        undoHost.view.layoutIfNeeded()
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
-
-        let undoLabels = gatherAccessibilityLabels(from: undoHost.view)
-        #expect(undoLabels.contains("undo_active_label"), "Active undo content must be accessible")
-        #expect(!undoLabels.contains("rest_inactive_label"), "Inactive rest content must be accessibilityHidden")
-
-        undoWindow.isHidden = true
-
-        // Render with .rest slot — undo content must be hidden
-        let restSlot = ActiveWorkoutSnackbarLayout.slotEnvelope(
-            snackbarSlot: .rest,
-            undoContent: {
-                Text("Deleted set 1")
-                    .accessibilityLabel("undo_inactive_label")
-            },
-            restContent: {
-                Text("Rest timer running")
-                    .accessibilityLabel("rest_active_label")
-            }
-        )
-        let restHost = UIHostingController(rootView: restSlot)
-        let restWindow = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 200))
-        restWindow.rootViewController = restHost
-        restWindow.makeKeyAndVisible()
-        restHost.view.layoutIfNeeded()
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
-
-        let restLabels = gatherAccessibilityLabels(from: restHost.view)
-        #expect(restLabels.contains("rest_active_label"), "Active rest content must be accessible")
-        #expect(!restLabels.contains("undo_inactive_label"), "Inactive undo content must be accessibilityHidden")
-
-        restWindow.isHidden = true
-    }
+    // Moved to VitalStrideUITests/Sources/SnackbarAccessibilityUITests.swift
+    // as an XCUI accessibility-tree assertion — the only supported semantic path
+    // for verifying .accessibilityHidden behavior across iOS versions.
 
     // MARK: - Test 9: VoiceOver focus routing (SnackbarFocusRouter)
 
@@ -498,53 +440,6 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         host.removeFromParent()
 
         return size.height
-    }
-
-    // MARK: - Accessibility helpers
-
-    /// Gathers all accessibility labels from the view hierarchy by walking the
-    /// accessibility container protocol. This is more reliable on CI than
-    /// UIKit subview identifier traversal, which SwiftUI does not guarantee.
-    @MainActor
-    private func gatherAccessibilityLabels(from view: UIView) -> Set<String> {
-        var labels = Set<String>()
-        collectAccessibilityLabels(from: view, parentHidden: false, into: &labels)
-        return labels
-    }
-
-    @MainActor
-    private func collectAccessibilityLabels(
-        from element: Any,
-        parentHidden: Bool,
-        into labels: inout Set<String>
-    ) {
-        if let view = element as? UIView {
-            let isHidden = parentHidden || view.accessibilityElementsHidden
-
-            // Check the view itself
-            if !isHidden, view.isAccessibilityElement,
-               let label = view.accessibilityLabel, !label.isEmpty {
-                labels.insert(label)
-            }
-
-            // Walk accessibility elements if the view is a container
-            if let accessibilityElements = view.accessibilityElements {
-                for child in accessibilityElements {
-                    collectAccessibilityLabels(from: child, parentHidden: isHidden, into: &labels)
-                }
-            }
-
-            // Also walk subviews
-            for subview in view.subviews {
-                collectAccessibilityLabels(from: subview, parentHidden: isHidden, into: &labels)
-            }
-        } else if let element = element as? NSObject {
-            // Non-UIView accessibility element
-            if !parentHidden, element.isAccessibilityElement,
-               let label = element.accessibilityLabel, !label.isEmpty {
-                labels.insert(label)
-            }
-        }
     }
 
     // MARK: - Content helpers
