@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 // MARK: - RestCompletedPresenter (MY-1446)
 
