@@ -316,6 +316,113 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         wait(for: [noKeyboard], timeout: UITestTimeout.uiSettle)
     }
 
+    // MARK: T5e — MY-1445 regression: clear while already unfocused collapses
+
+    /// T5e: Enter a query → dismiss focus (via return key) while preserving
+    /// the non-empty query and expanded surface → tap clear while focus is
+    /// already false → verify the search collapses to the compact 44pt
+    /// trailing button. This is the exact state path fixed by the
+    /// `onChange(of: searchText)` collapse branch added in MY-1445.
+    @MainActor
+    func test_searchFocus_clearWhileUnfocusedCollapsesSearch() throws {
+        let app = launchPicker(mode: "single")
+        let searchField = openSearchField(in: app)
+
+        // Step 1: Type a non-empty query.
+        searchField.typeText("bench")
+        usleep(300_000) // > debounce
+
+        // Step 2: Dismiss focus via the keyboard return/search key.
+        // The query remains, and the search stays expanded (non-empty query
+        // keeps isSearchExpanded = true even after blur).
+        let searchKey = app.keyboards.buttons["Search"]
+        if searchKey.exists {
+            searchKey.tap()
+        } else if app.keyboards.buttons["搜索"].exists {
+            app.keyboards.buttons["搜索"].tap()
+        } else {
+            searchField.typeText("\n")
+        }
+
+        // Wait for keyboard to disappear — confirms focus is dismissed.
+        let noKeyboard = expectation(for: NSPredicate(format: "exists == false"),
+                                    evaluatedWith: app.keyboards.firstMatch,
+                                    handler: nil)
+        wait(for: [noKeyboard], timeout: UITestTimeout.uiSettle)
+
+        // Confirm search is still expanded (field still hittable with query).
+        XCTAssertTrue(searchField.isHittable,
+                      "Search field should remain hittable (expanded) after blur with non-empty query")
+
+        // Step 3: Tap the clear button while focus is already false.
+        let clearButton = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR label CONTAINS[c] %@",
+                        "清除", "Clear", "xmark")
+        ).firstMatch
+        XCTAssertTrue(clearButton.waitForExistence(timeout: UITestTimeout.uiSettle),
+                      "Clear button not found while unfocused with non-empty query")
+        clearButton.tap()
+
+        // Step 4: Verify collapse — the TextField should no longer be hittable
+        // (collapsed state uses allowsHitTesting(false) + opacity 0), and the
+        // magnifier button should reappear.
+        let fieldNotHittable = expectation(
+            for: NSPredicate(format: "isHittable == false"),
+            evaluatedWith: searchField,
+            handler: nil)
+        wait(for: [fieldNotHittable], timeout: UITestTimeout.uiSettle)
+
+        // The collapsed magnifier button should be visible and hittable.
+        let magnifier = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@",
+                        "搜索", "Search")
+        ).firstMatch
+        XCTAssertTrue(magnifier.waitForExistence(timeout: UITestTimeout.uiSettle),
+                      "Collapsed magnifier button should reappear after clear-while-unfocused")
+        XCTAssertTrue(magnifier.isHittable,
+                      "Collapsed magnifier button should be hittable after collapse")
+    }
+
+    // MARK: T7 — MY-1445 screenshot evidence (collapsed + expanded)
+
+    /// Captures iPhone 16 screenshots of both collapsed and expanded search
+    /// states as XCTest attachments. These serve as the required Quality Bar K
+    /// visual evidence for MY-1445.
+    @MainActor
+    func test_MY1445_captureSearchStateScreenshots() throws {
+        let app = launchPicker(mode: "single")
+
+        // Wait for the picker sheet to appear
+        _ = app.navigationBars.firstMatch.waitForExistence(timeout: 5.0)
+
+        // 1. Collapsed state screenshot — the search pill should be visible
+        //    as a 44pt trailing-aligned magnifier button.
+        usleep(500_000) // allow layout to settle
+        let collapsedScreenshot = XCUIScreen.main.screenshot()
+        let collapsedAttachment = XCTAttachment(screenshot: collapsedScreenshot)
+        collapsedAttachment.name = "MY-1445_collapsed_search_iPhone16"
+        collapsedAttachment.lifetime = .keepAlways
+        add(collapsedAttachment)
+
+        // 2. Expand the search field
+        let searchField = openSearchField(in: app)
+        searchField.typeText("bench")
+        usleep(500_000) // allow debounce + layout
+
+        // 3. Expanded state screenshot — the search field should span full width
+        let expandedScreenshot = XCUIScreen.main.screenshot()
+        let expandedAttachment = XCTAttachment(screenshot: expandedScreenshot)
+        expandedAttachment.name = "MY-1445_expanded_search_iPhone16"
+        expandedAttachment.lifetime = .keepAlways
+        add(expandedAttachment)
+
+        // Assert both states are functional
+        XCTAssertTrue(app.keyboards.firstMatch.exists,
+                      "Keyboard should be visible in expanded state")
+        XCTAssertTrue(searchField.hasKeyboardFocus,
+                      "Search field should have focus in expanded state")
+    }
+
     // MARK: helpers
 
     @MainActor
@@ -330,29 +437,38 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
 
     /// Locates the search text field within the presented picker sheet.
     /// The picker mounts a collapsed magnifier button first; tapping it
-    /// expands to the full `searchRow` with the TextField. In case the
-    /// picker already renders expanded (some configurations), the tap is
-    /// a no-op we then re-query.
+    /// expands to the full `searchRow` with the TextField. MY-1445: in
+    /// collapsed state the ZStack is constrained to 44pt and the expanded
+    /// TextField surface has hit-testing disabled (opacity 0 +
+    /// allowsHitTesting(false)), so it may not be hittable. We check
+    /// `isHittable` rather than just `exists` to decide whether the
+    /// magnifier button tap is needed to expand.
     @MainActor
     private func openSearchField(in app: XCUIApplication) -> XCUIElement {
         // Wait for the picker sheet to appear (navigation title present).
         _ = app.navigationBars.firstMatch.waitForExistence(timeout: 5.0)
 
-        // Try the expanded field directly first.
+        // Try the expanded field directly first — must both exist AND be
+        // hittable. MY-1445: the TextField is always mounted but is not
+        // hittable when collapsed (hit-testing disabled + opacity 0).
         var field = app.textFields.firstMatch
-        if !field.waitForExistence(timeout: 1.0) {
-            // Not expanded — tap the collapsed magnifier button by a11y
-            // label ("搜索动作" / "Search exercises").
+        let fieldReady = field.waitForExistence(timeout: 1.0) && field.isHittable
+        if !fieldReady {
+            // Not expanded (or not hittable) — tap the collapsed magnifier
+            // button by a11y label ("搜索动作" / "Search exercises").
             let magnifier = app.buttons.matching(
                 NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@",
                             "搜索", "Search")
             ).firstMatch
-            if magnifier.exists {
+            if magnifier.waitForExistence(timeout: UITestTimeout.uiSettle) {
                 magnifier.tap()
             }
             field = app.textFields.firstMatch
-            XCTAssertTrue(field.waitForExistence(timeout: UITestTimeout.uiSettle),
-                          "Search text field never appeared")
+            let expanded = NSPredicate(format: "isHittable == true")
+            let hittableExpectation = expectation(for: expanded,
+                                                  evaluatedWith: field,
+                                                  handler: nil)
+            wait(for: [hittableExpectation], timeout: UITestTimeout.uiSettle)
         }
 
         // Ensure focus by tapping.
