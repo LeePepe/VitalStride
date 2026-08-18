@@ -437,6 +437,11 @@ struct ExercisePickerView: View {
                 text: $searchText
             )
             .accessibilityIdentifier("exercise_picker_search_field")
+            // Bind semantic visibility to the actual control. Applying
+            // accessibilityHidden to its always-mounted ancestor leaves the
+            // descendant TextField cached as hidden in the XCUI tree after
+            // expansion on iOS 26, so it exists but is never hittable.
+            .accessibilityHidden(!isSearchExpanded)
             // Use `.body` text style (dynamic-type scaled) instead of
             // `TypeScale.body` (fixed 14pt) so the search input honors the
             // user's preferred Content Size Category. This is the only
@@ -1184,7 +1189,6 @@ internal struct SearchSurfaceContainer<Expanded: View, Collapsed: View>: View {
             expanded
                 .opacity(isExpanded ? 1 : 0)
                 .allowsHitTesting(isExpanded)
-                .accessibilityHidden(!isExpanded)
                 // Both branches stay mounted to preserve the TextField's
                 // FocusState identity. Keep the active branch physically on
                 // top as well: XCUITest otherwise treats the transparent
