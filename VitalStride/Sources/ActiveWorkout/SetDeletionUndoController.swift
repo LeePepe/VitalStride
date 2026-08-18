@@ -18,6 +18,13 @@ import Observation
 import SwiftData
 import VitalModels
 
+/// How long a delete stays undoable. Longer than the 3s DesignKit default:
+/// during a set the user's eyes leave the screen (rack, bar, mirror), so a
+/// standard toast expires before it is ever read.
+enum SetUndoTiming {
+    static let window: TimeInterval = 5
+}
+
 /// A delete that is still reversible.
 struct PendingSetDeletion: Identifiable {
     let id = UUID()
