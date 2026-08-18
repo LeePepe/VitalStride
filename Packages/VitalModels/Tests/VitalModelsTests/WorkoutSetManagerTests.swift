@@ -78,6 +78,31 @@ struct WorkoutSetManagerTests {
         #expect(sorted(workoutExercise).count == 3)
     }
 
+    @Test("Cannot delete a set owned by another workout exercise")
+    func cannotDeleteForeignSet() throws {
+        let context = ModelContext(container)
+        let (targetExercise, _) = makeExercise(
+            context: context,
+            sets: [(.working, 80), (.working, 85)]
+        )
+        let (ownerExercise, ownerSets) = makeExercise(
+            context: context,
+            sets: [(.working, 60), (.dropSet, 50)]
+        )
+        let foreignSetID = ownerSets[1].persistentModelID
+
+        let result = WorkoutSetManager.deleteSet(
+            ownerSets[1],
+            from: targetExercise,
+            using: context
+        )
+        try context.save()
+
+        #expect(!result)
+        #expect(sorted(targetExercise).count == 2)
+        #expect(sorted(ownerExercise).map(\.persistentModelID).contains(foreignSetID))
+    }
+
     // MARK: - Helpers
 
     private func sorted(_ workoutExercise: WorkoutExercise) -> [ExerciseSet] {

@@ -14,6 +14,9 @@ public enum WorkoutSetManager {
         using modelContext: ModelContext
     ) -> Bool {
         let sortedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
+        guard sortedSets.contains(where: {
+            $0.persistentModelID == exerciseSet.persistentModelID
+        }) else { return false }
 
         var toDelete = [exerciseSet]
         if !exerciseSet.setType.isSubSet {
