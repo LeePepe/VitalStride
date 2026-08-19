@@ -55,8 +55,24 @@ struct VitalStrideApp: App {
         diagnosticCollector.start()
         #endif
 
+        #if DEBUG
+        let isExercisePickerUITest = ProcessInfo.processInfo.arguments.contains(
+            "-ExercisePickerTestMode"
+        )
+        #else
+        let isExercisePickerUITest = false
+        #endif
+
         do {
-            let modelContainer = try ModelContainerConfiguration.makeContainer()
+            // The focus harness must not depend on the production persistent
+            // CloudKit store being available on a freshly booted CI
+            // simulator. Use the same in-memory container for app startup,
+            // the harness seed, and ExercisePickerView's @Query.
+            let modelContainer = if isExercisePickerUITest {
+                try ModelContainerConfiguration.makeTestContainer()
+            } else {
+                try ModelContainerConfiguration.makeContainer()
+            }
             container = modelContainer
             containerError = nil
 
@@ -73,21 +89,6 @@ struct VitalStrideApp: App {
 
             let cache = healthDataCache
             let context = modelContainer.mainContext
-
-            #if DEBUG
-            // The picker focus UI harness opens the sheet immediately after
-            // launch. Seeding the full 1,558-row catalog at the same time
-            // causes repeated @Query rebuilds that can keep the expanded
-            // TextField non-hittable for the entire UI-test settle window.
-            // The harness installs its own minimal deterministic catalog
-            // before presenting the sheet, so isolate those focus tests from
-            // the unrelated first-launch migration workload.
-            let isExercisePickerUITest = ProcessInfo.processInfo.arguments.contains(
-                "-ExercisePickerTestMode"
-            )
-            #else
-            let isExercisePickerUITest = false
-            #endif
 
             Task {
                 if !isExercisePickerUITest {
@@ -146,23 +147,18 @@ private struct ExercisePickerTestHarnessModifier: ViewModifier {
     let container: ModelContainer?
     @State private var testMode: ExercisePickerTestMode? = ExercisePickerTestMode.fromLaunchArguments()
     @State private var showsPicker: Bool = false
-    @State private var pickerTestContainer: ModelContainer?
 
     func body(content: Content) -> some View {
         content
             .onAppear {
-                guard testMode != nil, container != nil else { return }
-                guard let isolatedContainer = try? ModelContainerConfiguration.makeTestContainer() else {
-                    return
-                }
-                seedMinimalCatalogIfNeeded(in: isolatedContainer)
-                pickerTestContainer = isolatedContainer
+                guard testMode != nil, let container else { return }
+                seedMinimalCatalogIfNeeded(in: container)
                 showsPicker = true
             }
             .sheet(isPresented: $showsPicker) {
-                if let pickerTestContainer {
+                if let container {
                     ExercisePickerTestHost(mode: testMode ?? .single)
-                        .modelContainer(pickerTestContainer)
+                        .modelContainer(container)
                 }
             }
     }
