@@ -119,6 +119,10 @@ struct VitalStrideApp: App {
             // button that inserts a deterministic Exercise into SwiftData
             // to drive the @Query refresh test (T4).
             .modifier(ExercisePickerTestHarnessModifier(container: container))
+            // MY-1446 P1-5: XCUITest entry point for snackbar accessibility
+            // regression. Presents slotEnvelope with known labels so XCUI
+            // can verify the accessibility tree membership contract.
+            .modifier(SnackbarA11yTestHarnessModifier())
             #endif
         }
     }
@@ -235,6 +239,56 @@ private struct ExercisePickerTestHost: View {
             // loudly regardless.
             print("[ExercisePickerTestHarness] seed save failed: \(error)")
         }
+    }
+}
+
+// MARK: - MY-1446 P1-5: Snackbar Accessibility XCUITest harness
+
+/// Presents `slotEnvelope` full-screen when `-SnackbarA11yTestMode undo|rest`
+/// launch argument is detected. XCUI tests verify that only the active slot's
+/// content appears in the accessibility tree — the gold-standard semantic
+/// assertion for `.accessibilityHidden` behavior.
+private struct SnackbarA11yTestHarnessModifier: ViewModifier {
+    @State private var testSlot: BottomSnackbarSlot? = Self.slotFromLaunchArguments()
+
+    func body(content: Content) -> some View {
+        if let slot = testSlot {
+            SnackbarA11yTestHost(slot: slot)
+        } else {
+            content
+        }
+    }
+
+    private static func slotFromLaunchArguments() -> BottomSnackbarSlot? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let idx = args.firstIndex(of: "-SnackbarA11yTestMode"),
+              idx + 1 < args.count else { return nil }
+        switch args[idx + 1] {
+        case "undo": return .undo
+        case "rest": return .rest
+        default: return nil
+        }
+    }
+}
+
+/// Minimal full-screen host rendering `slotEnvelope` with deterministic
+/// accessibility labels for XCUI tree inspection.
+private struct SnackbarA11yTestHost: View {
+    let slot: BottomSnackbarSlot
+
+    var body: some View {
+        ActiveWorkoutSnackbarLayout.slotEnvelope(
+            snackbarSlot: slot,
+            undoContent: {
+                Text("Undo content")
+                    .accessibilityLabel("snackbar_undo_content")
+            },
+            restContent: {
+                Text("Rest content")
+                    .accessibilityLabel("snackbar_rest_content")
+            }
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 #endif

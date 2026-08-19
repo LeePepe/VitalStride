@@ -59,6 +59,14 @@ struct ActiveWorkoutView: View {
     // through iOS input system, so a simple notification observer is enough
     // and avoids adding a bespoke publisher inside the input view.
     @State private var isKeyboardVisible = false
+    // MY-1446: VoiceOver focus moves to snackbar when it appears (replicates
+    // the old SnackbarModifier's @AccessibilityFocusState behavior).
+    @AccessibilityFocusState private var isBottomSnackbarFocused: Bool
+    @AccessibilityFocusState private var isTopSnackbarFocused: Bool
+    // MY-1446 P0-1: buffered rest-completed presentation. Extracted to a
+    // testable presenter so lifecycle (buffer capture, controller clear survival,
+    // undo interruption, fresh 2s countdown) can be verified deterministically.
+    @State private var restCompletedPresenter = RestCompletedPresenter()
     #if !os(macOS)
     @State private var sessionManager: (any WorkoutSessionManaging)?
     #endif
@@ -89,60 +97,70 @@ struct ActiveWorkoutView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // MY-1262: default mode collapses the standalone timer and stats
-                // cards into a single ~48pt compact info band. Large Mode keeps
-                // its dual-card layout so its accessibility presentation stays
-                // intact.
-                if largeMode {
-                    workoutTimer
-                    sessionStatsCard
+                // MY-1446: when the keyboard is visible, the snackbar renders
+                // inline between the header and the list via the production
+                // `topComposition` helper (same code path tests exercise).
+                // topComposition places info band above snackbar in a VStack,
+                // guaranteeing non-overlap by construction. When keyboard is
+                // not visible, the header is placed standalone (no top snackbar).
+                if isKeyboardVisible {
+                    ActiveWorkoutSnackbarLayout.topComposition(
+                        snackbarSlot: bottomSnackbarSlot,
+                        infoBand: {
+                            // MY-1262: default mode uses compact info band;
+                            // Large Mode keeps its dual-card layout.
+                            if largeMode {
+                                workoutTimer
+                                sessionStatsCard
+                            } else {
+                                compactInfoBand
+                            }
+                        },
+                        undoContent: { undoSnackbarEnvelope },
+                        restContent: { restSnackbarEnvelope }
+                    )
+                    .accessibilityElement(children: .contain)
+                    .accessibilityFocused($isTopSnackbarFocused)
                 } else {
-                    compactInfoBand
+                    // MY-1262: standalone header when keyboard is hidden.
+                    if largeMode {
+                        workoutTimer
+                        sessionStatsCard
+                    } else {
+                        compactInfoBand
+                    }
                 }
                 exerciseList
             }
-            // MY-1420: one bottom snackbar, arbitrated between undo and rest.
-            // Undo wins while it is pending — it is the only one with a
-            // deadline the user can't recover from — and the rest timer is
-            // paused, not cancelled, so it returns with its true remaining
-            // time once the undo window closes. Both go through the shared
-            // `.snackbar` so a second bottom-overlay visual language is never
-            // introduced.
-            // MY-1421: snackbar switches to top edge while keyboard is
-            // visible so it never overlaps the numeric keyboard and remains
-            // fully visible. Animated with the existing 0.2s ease-in-out.
-            .snackbar(
-                isPresented: bottomSnackbarPresented,
-                edge: ActiveWorkoutSnackbarLayout.resolveEdge(isKeyboardVisible: isKeyboardVisible),
-                mode: bottomSnackbarMode
-            ) {
-                bottomSnackbarContent
-            }
-            // MY-1245: place the FAB via `safeAreaInset` instead of a
-            // bottom-trailing ZStack overlay. `safeAreaInset` both **reserves
-            // bottom scroll content inset** equal to the FAB footprint (so the
-            // last set row's `⋯` menu and completion ring are never obscured)
-            // and positions the button in the trailing corner. Hides the FAB
-            // when the custom numeric keyboard is on screen so it can't cover
-            // any input row or row-inline control (Acceptance criterion #3).
-            //
-            // MY-1421: FAB uses `.offset(y:)` for visual clearance above the
-            // snackbar instead of `.padding(.bottom:)`. Offset does NOT change
-            // the safeAreaInset's measured height, so the workout list never
-            // shifts when the snackbar appears or disappears.
-            .safeAreaInset(edge: .bottom, alignment: .trailing, spacing: 0) {
+            // MY-1446: unified bottom safe area — FAB above, snackbar below.
+            // Uses VStack so non-overlap is guaranteed by construction. The
+            // snackbar is fully within the safe area (never clipped by the
+            // screen edge). Replaces the old overlay-based `.snackbar()`
+            // modifier + offset workaround that caused touch-blocking and
+            // top-edge overlap. The list's scroll inset adjusts smoothly via
+            // animation when the snackbar appears/disappears.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 if !isKeyboardVisible {
-                    ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
-                        addExerciseButton
-                    }
-                    .animation(
-                        .easeInOut(duration: 0.2),
-                        value: bottomSnackbarSlot != .none
+                    ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                        snackbarSlot: bottomSnackbarSlot,
+                        undoContent: { undoSnackbarEnvelope },
+                        restContent: { restSnackbarEnvelope },
+                        fab: {
+                            HStack {
+                                Spacer()
+                                ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
+                                    addExerciseButton
+                                }
+                            }
+                        }
                     )
+                    .accessibilityElement(children: .contain)
+                    .accessibilityFocused($isBottomSnackbarFocused)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: isKeyboardVisible)
+            .animation(.easeInOut(duration: 0.2), value: bottomSnackbarSlot)
             .navigationTitle(String(localized: "训练中", comment: "Active workout navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -285,7 +303,63 @@ struct ActiveWorkoutView: View {
             .onChange(of: restTimer.phase) { _, newPhase in
                 if newPhase == .completed {
                     HapticManager.trigger(.restCompleted)
+                    // MY-1446 P0-1: buffer the completion in the presenter so
+                    // the view layer manages presentation independently of the
+                    // controller's own auto-clear sleep.
+                    restCompletedPresenter.captureCompleted()
+                } else if newPhase == .resting {
+                    // MY-1446 P0-5: a new rest started — clear any stale buffered
+                    // completion from the previous timer so it cannot reappear.
+                    if restCompletedPresenter.isBuffered {
+                        restCompletedPresenter.dismiss()
+                    }
                 }
+            }
+            // MY-1446: event-driven visibility tracking for the presenter.
+            .onChange(of: bottomSnackbarSlot) { _, newSlot in
+                if newSlot == .rest {
+                    restCompletedPresenter.markVisible()
+                } else {
+                    restCompletedPresenter.markOccluded()
+                }
+                // MY-1446: VoiceOver focus routing via shared testable logic.
+                let focus = SnackbarFocusRouter.resolveSlotChange(
+                    newSlot: newSlot,
+                    isKeyboardVisible: isKeyboardVisible
+                )
+                isBottomSnackbarFocused = focus.bottomFocused
+                isTopSnackbarFocused = focus.topFocused
+            }
+            // MY-1446: migrate VoiceOver focus when keyboard visibility changes
+            // while a snackbar is active. The snackbar moves between bottom and
+            // top positions; without this, the focused container is removed and
+            // the new one never receives focus.
+            .onChange(of: isKeyboardVisible) { _, keyboardNowVisible in
+                if let focus = SnackbarFocusRouter.resolveKeyboardChange(
+                    keyboardNowVisible: keyboardNowVisible,
+                    currentSlot: bottomSnackbarSlot
+                ) {
+                    isBottomSnackbarFocused = focus.bottomFocused
+                    isTopSnackbarFocused = focus.topFocused
+                }
+            }
+            .onAppear {
+                restCompletedPresenter.onDismiss = { [restTimer] in
+                    restTimer.dismissCompleted()
+                }
+                if bottomSnackbarSlot == .rest {
+                    restCompletedPresenter.markVisible()
+                }
+                // MY-1446: restart countdown for any buffered completion that
+                // survived a prior cancel() during disappear — prevents permanent
+                // rest-completed display after navigate away and back.
+                restCompletedPresenter.resume()
+            }
+            .onDisappear {
+                // MY-1446 P0-1: cancel the presenter's countdown task to prevent
+                // leaked polling loops when the view exits while slot is hidden.
+                // Preserves isBuffered so resume() on reappear restarts the countdown.
+                restCompletedPresenter.cancel()
             }
             // MY-1420: the deleted row took VoiceOver focus with it, and the
             // undo snackbar is deliberately non-modal (it must not block the
@@ -633,93 +707,62 @@ struct ActiveWorkoutView: View {
     // MARK: - Bottom snackbar arbitration (MY-1420)
 
     /// Which of the two competing bottom snackbars is showing right now.
+    /// MY-1446 P0-1: uses the presenter's buffer so that even after the
+    /// controller independently resets phase→.idle, the slot still resolves
+    /// to `.rest` while the presentation is pending.
     private var bottomSnackbarSlot: BottomSnackbarSlot {
-        undoController.slot(restPhase: restTimer.phase)
+        let effectivePhase: RestPhase = restCompletedPresenter.isBuffered ? .completed : restTimer.phase
+        return undoController.slot(restPhase: effectivePhase)
     }
 
-    private var bottomSnackbarPresented: Binding<Bool> {
-        Binding(
-            get: { bottomSnackbarSlot != .none },
-            set: { newValue in
-                guard !newValue else { return }
-                // Dismissal applies to whichever snackbar is actually on
-                // screen; dismissing the undo must not skip the rest timer
-                // hiding behind it.
-                switch bottomSnackbarSlot {
-                case .undo: undoController.clear()
-                case .rest: dismissRestSnackbar()
-                case .none: break
-                }
+    // MARK: - Envelope content for ZStack-based stable height (MY-1446 P0-1)
+
+    /// Delegates to `ActiveWorkoutSnackbarLayout.undoEnvelope` — the production
+    /// helper exercised by tests. Both message text and sizing reference share
+    /// `.lineLimit(2)`, so the envelope height is deterministic at any Dynamic
+    /// Type size.
+    @ViewBuilder
+    private var undoSnackbarEnvelope: some View {
+        ActiveWorkoutSnackbarLayout.undoEnvelope(
+            message: undoController.pending?.message,
+            undoTitle: String(
+                localized: "active_workout.set_delete.undo_action",
+                defaultValue: "Undo",
+                comment: "Undo a set deletion snackbar action"
+            ),
+            messageColor: theme.neutrals.text1,
+            undoColor: theme.primary.primary,
+            undoAccessibilityLabel: String(
+                localized: "active_workout.set_delete.undo_action_a11y",
+                defaultValue: "Undo deletion",
+                comment: "Undo set deletion a11y label"
+            ),
+            onUndo: {
+                undoController.undo(using: modelContext)
             }
         )
     }
 
-    /// Undo runs `.persistent` here: its 5s countdown belongs to
-    /// `SetDeletionUndoController` so a replacing delete restarts the full
-    /// window. `.autoDismiss` only re-arms when `isPresented`/`mode` flips,
-    /// neither of which changes when one pending delete supplants another —
-    /// the second undo would inherit the first's leftover time.
-    private var bottomSnackbarMode: SnackbarMode {
-        switch bottomSnackbarSlot {
-        case .undo: .persistent
-        case .rest: restTimer.phase == .completed ? .autoDismiss(duration: 2) : .persistent
-        case .none: .persistent
-        }
-    }
-
+    /// Always renders the rest layout structure regardless of rest timer state.
+    /// Delegates to `ActiveWorkoutSnackbarLayout.restEnvelope` (the production
+    /// helper exercised by tests) so the hidden sizing reference guarantees
+    /// stable height across completed/resting variants.
     @ViewBuilder
-    private var bottomSnackbarContent: some View {
-        switch bottomSnackbarSlot {
-        case .undo:
-            undoSnackbarContent
-        case .rest, .none:
+    private var restSnackbarEnvelope: some View {
+        ActiveWorkoutSnackbarLayout.restEnvelope(
+            skipTitle: String(localized: "跳过", comment: "Skip rest button visible title"),
+            neutralBackground: theme.neutrals.inner,
+            skipBackground: theme.primary.primary.opacity(0.15)
+        ) {
             restSnackbarContent
         }
     }
 
     @ViewBuilder
-    private var undoSnackbarContent: some View {
-        if let pending = undoController.pending {
-            HStack(spacing: Space.gap) {
-                Text(pending.message)
-                    .font(TypeScale.body)
-                    .foregroundStyle(theme.neutrals.text1)
-                Spacer()
-                Button {
-                    undoController.undo(using: modelContext)
-                } label: {
-                    Text(String(
-                        localized: "active_workout.set_delete.undo_action",
-                        defaultValue: "Undo",
-                        comment: "Undo a set deletion snackbar action"
-                    ))
-                        .font(TypeScale.body.weight(.semibold))
-                        .foregroundStyle(theme.primary.primary)
-                        .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(
-                    localized: "active_workout.set_delete.undo_action_a11y",
-                    defaultValue: "Undo deletion",
-                    comment: "Undo set deletion a11y label"
-                ))
-            }
-        }
-    }
-
-    private func dismissRestSnackbar() {
-        switch restTimer.phase {
-        case .resting: restTimer.skipRest()
-        case .completed: restTimer.dismissCompleted()
-        case .idle: break
-        }
-    }
-
-    @ViewBuilder
     private var restSnackbarContent: some View {
-        if restTimer.phase == .completed {
+        if restCompletedPresenter.isBuffered {
             Button {
+                restCompletedPresenter.dismiss()
                 restTimer.dismissCompleted()
             } label: {
                 HStack {
@@ -766,41 +809,19 @@ struct ActiveWorkoutView: View {
         }
     }
 
+    // MY-1446 P0-2: production now calls the same helper exercised by tests.
     private var restAdjustButtons: some View {
-        HStack(spacing: 8) {
-            Button("-10s") {
-                restTimer.adjustRest(by: -10)
-            }
-            .font(.caption)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(theme.neutrals.inner, in: Capsule())
-            .frame(minHeight: 44)
-            .contentShape(Capsule())
-            .accessibilityLabel(String(localized: "缩短十秒", comment: "Subtract 10 seconds a11y label"))
-            Button("+10s") {
-                restTimer.adjustRest(by: 10)
-            }
-            .font(.caption)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(theme.neutrals.inner, in: Capsule())
-            .frame(minHeight: 44)
-            .contentShape(Capsule())
-            .accessibilityLabel(String(localized: "延长十秒", comment: "Add 10 seconds a11y label"))
-            Button(String(localized: "跳过", comment: "Skip rest button label")) {
-                restTimer.skipRest()
-            }
-            .font(.caption)
-            .fontWeight(.semibold)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(theme.primary.primary.opacity(0.15), in: Capsule())
-            .frame(minHeight: 44)
-            .contentShape(Capsule())
-            .accessibilityLabel(String(localized: "跳过休息", comment: "Skip rest a11y label"))
-        }
-        .buttonStyle(.plain)
+        ActiveWorkoutSnackbarLayout.restTimerButtons(
+            skipTitle: String(localized: "跳过", comment: "Skip rest button visible title"),
+            neutralBackground: theme.neutrals.inner,
+            skipBackground: theme.primary.primary.opacity(0.15),
+            minus10AccessibilityLabel: String(localized: "缩短十秒", comment: "Subtract 10 seconds a11y label"),
+            plus10AccessibilityLabel: String(localized: "延长十秒", comment: "Add 10 seconds a11y label"),
+            skipAccessibilityLabel: String(localized: "跳过休息", comment: "Skip rest a11y label"),
+            onMinus10: { restTimer.adjustRest(by: -10) },
+            onPlus10: { restTimer.adjustRest(by: 10) },
+            onSkip: { restTimer.skipRest() }
+        )
     }
 
     @ViewBuilder
