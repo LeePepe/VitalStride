@@ -417,8 +417,9 @@ struct ExercisePickerIndexSyncTests {
     func equipmentMapsToCanonicalIdentifier() {
         // Every Equipment case's rawValue is ASCII lowercase — passing
         // TelemetryIdentifier.init(validating:) is a construction-time
-        // guarantee. Exercise all six explicitly so a future non-canonical
+        // guarantee. Exercise the complete taxonomy so a future non-canonical
         // rename fails here.
+        #expect(Equipment.allCases.count == 29)
         for equipment in Equipment.allCases {
             let identifier = ExercisePickerView.telemetryIdentifier(for: equipment)
             #expect(identifier.rawValue == equipment.rawValue)

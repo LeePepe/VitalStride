@@ -7,7 +7,48 @@ import VitalModels
 
 @Suite("ExerciseSeeder")
 struct ExerciseSeederTests {
+    private let requiredInstructionLanguages = ["en", "es", "fr", "hi", "it", "ko", "pl", "ru", "tr", "zh"]
     private let suiteName = "com.vitalstride.test.ExerciseSeeder.\(UUID().uuidString)"
+
+    private enum SaveBoundaryError: Error {
+        case forced
+    }
+
+    private struct ExerciseSnapshot: Equatable {
+        let nameEn: String
+        let nameZh: String
+        let muscleGroup: MuscleGroup
+        let equipment: Equipment
+        let primaryMuscles: [String]
+        let secondaryMuscles: [String]
+        let isCustom: Bool
+        let presetId: String?
+        let mediaKey: String?
+        let defaultWeightLow: Double?
+        let defaultWeightMid: Double?
+        let defaultWeightHigh: Double?
+        let defaultRepsLow: Int
+        let defaultRepsMid: Int
+        let defaultRepsHigh: Int
+
+        init(_ exercise: Exercise) {
+            nameEn = exercise.nameEn
+            nameZh = exercise.nameZh
+            muscleGroup = exercise.muscleGroup
+            equipment = exercise.equipment
+            primaryMuscles = exercise.primaryMuscles
+            secondaryMuscles = exercise.secondaryMuscles
+            isCustom = exercise.isCustom
+            presetId = exercise.presetId
+            mediaKey = exercise.mediaKey
+            defaultWeightLow = exercise.defaultWeightLow
+            defaultWeightMid = exercise.defaultWeightMid
+            defaultWeightHigh = exercise.defaultWeightHigh
+            defaultRepsLow = exercise.defaultRepsLow
+            defaultRepsMid = exercise.defaultRepsMid
+            defaultRepsHigh = exercise.defaultRepsHigh
+        }
+    }
 
     private func makeUserDefaults() -> UserDefaults {
         UserDefaults(suiteName: suiteName)!
@@ -28,10 +69,15 @@ struct ExerciseSeederTests {
         nameZh: String = "",
         muscleGroup: String = "chest",
         equipment: String = "barbell",
+        primaryMuscles: [String] = [],
+        secondaryMuscles: [String] = [],
         defaultWeightLow: Double? = nil,
         defaultWeightMid: Double? = nil,
         defaultWeightHigh: Double? = nil,
-        mediaKey: String? = nil
+        mediaKey: String? = nil,
+        legacyNames: [String]? = nil,
+        source: String? = nil,
+        sourceData: [String: Any]? = nil
     ) -> [String: Any] {
         var payload: [String: Any] = [
             "id": id,
@@ -39,14 +85,106 @@ struct ExerciseSeederTests {
             "nameZh": nameZh,
             "muscleGroup": muscleGroup,
             "equipment": equipment,
-            "primaryMuscles": [] as [String],
-            "secondaryMuscles": [] as [String],
+            "primaryMuscles": primaryMuscles,
+            "secondaryMuscles": secondaryMuscles,
         ]
         if let low = defaultWeightLow { payload["defaultWeightLow"] = low }
         if let mid = defaultWeightMid { payload["defaultWeightMid"] = mid }
         if let high = defaultWeightHigh { payload["defaultWeightHigh"] = high }
         if let mediaKey { payload["mediaKey"] = mediaKey }
+        if let legacyNames { payload["legacyNames"] = legacyNames }
+        if let source { payload["source"] = source }
+        if let sourceData { payload["sourceData"] = sourceData }
         return payload
+    }
+
+    private func makeInstructionMap(
+        base: String,
+        omitting omittedLanguages: Set<String> = [],
+        emptyLanguages: Set<String> = []
+    ) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: requiredInstructionLanguages.compactMap { language in
+            guard !omittedLanguages.contains(language) else { return nil }
+            if emptyLanguages.contains(language) {
+                return (language, "")
+            }
+            return (language, "\(base)-\(language)")
+        })
+    }
+
+    private func makeInstructionStepsMap(
+        base: String,
+        omitting omittedLanguages: Set<String> = [],
+        emptyLanguages: Set<String> = []
+    ) -> [String: [String]] {
+        Dictionary(uniqueKeysWithValues: requiredInstructionLanguages.compactMap { language in
+            guard !omittedLanguages.contains(language) else { return nil }
+            if emptyLanguages.contains(language) {
+                return (language, [])
+            }
+            return (language, ["\(base)-\(language)-step-1", "\(base)-\(language)-step-2"])
+        })
+    }
+
+    private func makeSourceDataJSON(
+        id: String,
+        name: String,
+        equipment: String = "barbell",
+        target: String = "pectoralis major",
+        muscleGroup: String = "anterior deltoid",
+        secondaryMuscles: [String] = ["anterior deltoid", "triceps"],
+        omittingInstructionLanguages: Set<String> = [],
+        emptyInstructionLanguages: Set<String> = [],
+        omittingInstructionStepLanguages: Set<String> = [],
+        emptyInstructionStepLanguages: Set<String> = []
+    ) -> [String: Any] {
+        [
+            "id": id,
+            "name": name,
+            "category": "strength",
+            "body_part": "chest",
+            "equipment": equipment,
+            "target": target,
+            "muscle_group": muscleGroup,
+            "secondary_muscles": secondaryMuscles,
+            "instructions": makeInstructionMap(
+                base: id,
+                omitting: omittingInstructionLanguages,
+                emptyLanguages: emptyInstructionLanguages
+            ),
+            "instruction_steps": makeInstructionStepsMap(
+                base: id,
+                omitting: omittingInstructionStepLanguages,
+                emptyLanguages: emptyInstructionStepLanguages
+            ),
+            "media_id": "media-\(id)",
+            "image": "images/\(id).jpg",
+            "gif_url": "videos/\(id).gif",
+            "attribution": "Source attribution \(id)",
+            "created_at": "2026-08-17T00:00:00Z",
+        ]
+    }
+
+    private func expectSeedError(
+        _ expected: ExerciseSeeder.SeedError,
+        catalogData: Data,
+        context: ModelContext,
+        userDefaults: UserDefaults
+    ) {
+        do {
+            try ExerciseSeeder.seed(context: context, userDefaults: userDefaults, catalogData: catalogData)
+            Issue.record("Expected seed to throw \(expected)")
+        } catch let error as ExerciseSeeder.SeedError {
+            #expect(error == expected)
+        } catch {
+            Issue.record("Expected ExerciseSeeder.SeedError, got \(error)")
+        }
+    }
+
+    private func fetchExercise(presetId: String, context: ModelContext) throws -> Exercise? {
+        try context.fetch(FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.presetId == presetId }
+        )).first
     }
 
     private struct BundledCatalogEnvelope: Decodable {
@@ -164,8 +302,8 @@ struct ExerciseSeederTests {
         #expect(benchPress.nameZh == "杠铃卧推")
         #expect(benchPress.muscleGroup == .chest)
         #expect(benchPress.equipment == .barbell)
-        #expect(benchPress.primaryMuscles == ["pectoralis major"])
-        #expect(benchPress.secondaryMuscles == ["anterior deltoid", "triceps"])
+        #expect(benchPress.primaryMuscles == ["pectorals"])
+        #expect(benchPress.secondaryMuscles == ["triceps", "shoulders"])
         #expect(benchPress.isCustom == false)
         #expect(benchPress.presetId == "550e8400-e29b-41d4-a716-446655440001")
     }
@@ -397,6 +535,167 @@ struct ExerciseSeederTests {
 
         let exerciseB = all.first { $0.presetId == "ex-2" }
         #expect(exerciseB?.nameEn == "Exercise B")
+    }
+
+    @Test("Migration assigns renamed upstream v5 preset in place from nil-version legacy rows")
+    func migrationBackfillsRenamedUpstreamPresetInPlace() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let legacy = Exercise(
+            nameEn: "Legacy Bench Press",
+            nameZh: "旧卧推",
+            muscleGroup: .chest,
+            equipment: .barbell,
+            primaryMuscles: ["pectoralis major"],
+            secondaryMuscles: ["triceps"],
+            isCustom: false,
+            mediaKey: "user-media",
+            defaultWeightLow: 81,
+            defaultWeightMid: 96,
+            defaultWeightHigh: 121,
+            defaultRepsLow: 6,
+            defaultRepsMid: 10,
+            defaultRepsHigh: 14
+        )
+        context.insert(legacy)
+
+        let workout = Workout(
+            type: .strength,
+            startDate: .now,
+            exercises: [WorkoutExercise(order: 0, exercise: legacy)]
+        )
+        let template = WorkoutTemplate(
+            name: "Legacy Push Day",
+            exercises: [TemplateExercise(exercise: legacy, targetSets: 4, order: 0)]
+        )
+        context.insert(workout)
+        context.insert(template)
+        try context.save()
+
+        let legacyModelID = legacy.persistentModelID
+
+        let catalogV5 = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "upstream-1",
+                nameEn: "Canonical Incline Press",
+                nameZh: "旧卧推",
+                muscleGroup: "shoulders",
+                equipment: "dumbbell",
+                primaryMuscles: ["upper chest"],
+                secondaryMuscles: ["front delts", "triceps"],
+                defaultWeightLow: 10,
+                defaultWeightMid: 20,
+                defaultWeightHigh: 30,
+                mediaKey: "catalog-media",
+                legacyNames: ["Legacy Bench Press"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "source-0001",
+                    name: "canonical incline press",
+                    equipment: "dumbbell",
+                    target: "upper chest",
+                    muscleGroup: "front delts",
+                    secondaryMuscles: ["front delts", "triceps"]
+                )
+            ),
+        ])
+
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV5)
+
+        let migrated = try #require(try fetchExercise(presetId: "upstream-1", context: context))
+        #expect(migrated.persistentModelID == legacyModelID)
+        #expect(migrated.nameEn == "Canonical Incline Press")
+        #expect(migrated.nameZh == "旧卧推")
+        #expect(migrated.muscleGroup == .shoulders)
+        #expect(migrated.equipment == .dumbbell)
+        #expect(migrated.primaryMuscles == ["upper chest"])
+        #expect(migrated.secondaryMuscles == ["front delts", "triceps"])
+        #expect(migrated.mediaKey == "user-media")
+        #expect(migrated.defaultWeightLow == 81)
+        #expect(migrated.defaultWeightMid == 96)
+        #expect(migrated.defaultWeightHigh == 121)
+        #expect(migrated.defaultRepsLow == 6)
+        #expect(migrated.defaultRepsMid == 10)
+        #expect(migrated.defaultRepsHigh == 14)
+        #expect((migrated.workoutExercises ?? []).count == 1)
+        #expect((migrated.templateExercises ?? []).count == 1)
+        #expect(migrated.workoutExercises?.first?.workout?.persistentModelID == workout.persistentModelID)
+        #expect(migrated.templateExercises?.first?.template?.persistentModelID == template.persistentModelID)
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 1)
+        #expect(try context.fetch(FetchDescriptor<Exercise>(predicate: #Predicate { $0.presetId == nil })).isEmpty)
+    }
+
+    @Test("Migration does not guess when a legacy English alias is ambiguous")
+    func migrationDoesNotGuessAmbiguousLegacyAlias() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let legacy = Exercise(
+            nameEn: "Shared Legacy Name",
+            nameZh: "旧动作一",
+            muscleGroup: .chest,
+            equipment: .barbell,
+            isCustom: false,
+            mediaKey: "catalog-media-1",
+            defaultWeightLow: 10,
+            defaultWeightMid: 20,
+            defaultWeightHigh: 30
+        )
+        context.insert(legacy)
+        try context.save()
+
+        let catalogV5 = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "upstream-1",
+                nameEn: "Canonical Move One",
+                nameZh: "旧动作一",
+                primaryMuscles: ["pectoralis major"],
+                secondaryMuscles: ["triceps"],
+                defaultWeightLow: 10,
+                defaultWeightMid: 20,
+                defaultWeightHigh: 30,
+                mediaKey: "catalog-media-1",
+                legacyNames: ["Shared Legacy Name"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "source-1",
+                    name: "canonical move one",
+                    target: "pectoralis major",
+                    secondaryMuscles: ["triceps"]
+                )
+            ),
+            makeExerciseJSON(
+                id: "upstream-2",
+                nameEn: "Canonical Move Two",
+                nameZh: "旧动作二",
+                muscleGroup: "back",
+                equipment: "cable",
+                primaryMuscles: ["lats"],
+                secondaryMuscles: ["biceps"],
+                legacyNames: ["Shared Legacy Name"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "source-2",
+                    name: "canonical move two",
+                    equipment: "cable",
+                    target: "lats",
+                    muscleGroup: "biceps",
+                    secondaryMuscles: ["biceps"]
+                )
+            ),
+        ])
+
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV5)
+
+        #expect(legacy.presetId == nil)
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 3)
+        #expect(try fetchExercise(presetId: "upstream-1", context: context) != nil)
+        #expect(try fetchExercise(presetId: "upstream-2", context: context) != nil)
     }
 
     @Test("Custom exercises not affected by migration or incremental seed")
@@ -774,5 +1073,660 @@ struct ExerciseSeederTests {
             )).first
         )
         #expect(aAfter.mediaKey == "user-set")
+    }
+
+    @Test("Catalog v5 updates only canonical upstream fields in place")
+    func v5UpdatesOnlyCanonicalUpstreamFieldsInPlace() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let catalogV4 = makeCatalogData(version: "4", exercises: [
+            makeExerciseJSON(
+                id: "upstream-1",
+                nameEn: "Legacy Bench Press",
+                nameZh: "旧卧推",
+                muscleGroup: "chest",
+                equipment: "barbell",
+                primaryMuscles: ["pectoralis major"],
+                secondaryMuscles: ["triceps"],
+                defaultWeightLow: 80,
+                defaultWeightHigh: 120
+            ),
+            makeExerciseJSON(
+                id: "vital-1",
+                nameEn: "Vital Original",
+                nameZh: "原生动作",
+                muscleGroup: "core",
+                equipment: "bodyweight",
+                primaryMuscles: ["abs"],
+                secondaryMuscles: ["obliques"],
+                mediaKey: "vital-media"
+            ),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV4)
+
+        let upstreamBefore = try #require(try fetchExercise(presetId: "upstream-1", context: context))
+        upstreamBefore.defaultWeightMid = nil
+        upstreamBefore.defaultRepsLow = 6
+        upstreamBefore.defaultRepsMid = 11
+        upstreamBefore.defaultRepsHigh = 17
+        upstreamBefore.mediaKey = nil
+
+        let workout = Workout(
+            type: .strength,
+            startDate: .now,
+            exercises: [WorkoutExercise(order: 0, exercise: upstreamBefore)]
+        )
+        let template = WorkoutTemplate(
+            name: "Push Day",
+            exercises: [TemplateExercise(exercise: upstreamBefore, targetSets: 4, order: 0)]
+        )
+        let custom = Exercise(
+            nameEn: "My Custom Move",
+            nameZh: "我的自定义动作",
+            muscleGroup: .legs,
+            equipment: .bodyweight,
+            primaryMuscles: ["quads"],
+            secondaryMuscles: ["glutes"],
+            isCustom: true,
+            mediaKey: "custom-media",
+            defaultWeightLow: 25,
+            defaultWeightMid: 35,
+            defaultWeightHigh: 45,
+            defaultRepsLow: 8,
+            defaultRepsMid: 12,
+            defaultRepsHigh: 16
+        )
+        context.insert(workout)
+        context.insert(template)
+        context.insert(custom)
+        try context.save()
+
+        let upstreamModelID = upstreamBefore.persistentModelID
+        let upstreamSnapshot = ExerciseSnapshot(upstreamBefore)
+
+        let vitalBefore = try #require(try fetchExercise(presetId: "vital-1", context: context))
+        let vitalModelID = vitalBefore.persistentModelID
+        let vitalSnapshot = ExerciseSnapshot(vitalBefore)
+
+        let customModelID = custom.persistentModelID
+        let customSnapshot = ExerciseSnapshot(custom)
+
+        let catalogV5 = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "upstream-1",
+                nameEn: "Canonical Incline Press",
+                nameZh: "新中文不应覆盖",
+                muscleGroup: "shoulders",
+                equipment: "dumbbell",
+                primaryMuscles: ["upper chest"],
+                secondaryMuscles: ["front delts", "triceps"],
+                defaultWeightLow: 1,
+                defaultWeightMid: 2,
+                defaultWeightHigh: 3,
+                mediaKey: "catalog-media",
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "source-0001",
+                    name: "canonical incline press",
+                    equipment: "dumbbell",
+                    target: "upper chest",
+                    muscleGroup: "front delts",
+                    secondaryMuscles: ["front delts", "triceps"]
+                )
+            ),
+            makeExerciseJSON(
+                id: "vital-1",
+                nameEn: "Vital Renamed",
+                nameZh: "新中文也不应覆盖",
+                muscleGroup: "back",
+                equipment: "cable",
+                primaryMuscles: ["lats"],
+                secondaryMuscles: ["biceps"],
+                defaultWeightLow: 10,
+                defaultWeightMid: 20,
+                defaultWeightHigh: 30,
+                mediaKey: "catalog-vital-media",
+                source: "vitalstride"
+            ),
+        ])
+
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV5)
+
+        let upstreamAfter = try #require(try fetchExercise(presetId: "upstream-1", context: context))
+        #expect(upstreamAfter.persistentModelID == upstreamModelID)
+        #expect(upstreamAfter.nameEn == "Canonical Incline Press")
+        #expect(upstreamAfter.muscleGroup == .shoulders)
+        #expect(upstreamAfter.equipment == .dumbbell)
+        #expect(upstreamAfter.primaryMuscles == ["upper chest"])
+        #expect(upstreamAfter.secondaryMuscles == ["front delts", "triceps"])
+        #expect(upstreamAfter.nameZh == upstreamSnapshot.nameZh)
+        #expect(upstreamAfter.defaultWeightLow == upstreamSnapshot.defaultWeightLow)
+        #expect(upstreamAfter.defaultWeightMid == upstreamSnapshot.defaultWeightMid)
+        #expect(upstreamAfter.defaultWeightHigh == upstreamSnapshot.defaultWeightHigh)
+        #expect(upstreamAfter.mediaKey == upstreamSnapshot.mediaKey)
+        #expect(upstreamAfter.defaultRepsLow == upstreamSnapshot.defaultRepsLow)
+        #expect(upstreamAfter.defaultRepsMid == upstreamSnapshot.defaultRepsMid)
+        #expect(upstreamAfter.defaultRepsHigh == upstreamSnapshot.defaultRepsHigh)
+        #expect((upstreamAfter.workoutExercises ?? []).count == 1)
+        #expect((upstreamAfter.templateExercises ?? []).count == 1)
+        #expect(upstreamAfter.workoutExercises?.first?.workout?.persistentModelID == workout.persistentModelID)
+        #expect(upstreamAfter.templateExercises?.first?.template?.persistentModelID == template.persistentModelID)
+
+        let vitalAfter = try #require(try fetchExercise(presetId: "vital-1", context: context))
+        #expect(vitalAfter.persistentModelID == vitalModelID)
+        #expect(ExerciseSnapshot(vitalAfter) == vitalSnapshot)
+
+        let customAfter = try #require(
+            try context.fetch(FetchDescriptor<Exercise>(predicate: #Predicate { $0.isCustom == true })).first
+        )
+        #expect(customAfter.persistentModelID == customModelID)
+        #expect(ExerciseSnapshot(customAfter) == customSnapshot)
+    }
+
+    @Test("Catalog v5 rejects duplicate stable IDs before mutating")
+    func v5RejectsDuplicateStableIDs() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let invalidCatalog = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "dup-id",
+                nameEn: "Canonical One",
+                nameZh: "动作一",
+                primaryMuscles: ["chest"],
+                secondaryMuscles: ["triceps"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(id: "source-1", name: "source one", target: "chest", secondaryMuscles: ["triceps"])
+            ),
+            makeExerciseJSON(
+                id: "dup-id",
+                nameEn: "Canonical Two",
+                nameZh: "动作二",
+                muscleGroup: "back",
+                equipment: "cable",
+                primaryMuscles: ["lats"],
+                secondaryMuscles: ["biceps"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(id: "source-2", name: "source two", equipment: "cable", target: "lats", muscleGroup: "biceps", secondaryMuscles: ["biceps"])
+            ),
+        ])
+
+        expectSeedError(.duplicateExerciseID("dup-id"), catalogData: invalidCatalog, context: context, userDefaults: defaults)
+
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 0)
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == nil)
+    }
+
+    @Test("Catalog v5 rejects duplicate upstream source IDs before mutating")
+    func v5RejectsDuplicateUpstreamSourceIDs() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let invalidCatalog = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "stable-1",
+                nameEn: "Canonical One",
+                nameZh: "动作一",
+                primaryMuscles: ["chest"],
+                secondaryMuscles: ["triceps"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(id: "shared-source", name: "source one", target: "chest", secondaryMuscles: ["triceps"])
+            ),
+            makeExerciseJSON(
+                id: "stable-2",
+                nameEn: "Canonical Two",
+                nameZh: "动作二",
+                muscleGroup: "back",
+                equipment: "cable",
+                primaryMuscles: ["lats"],
+                secondaryMuscles: ["biceps"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(id: "shared-source", name: "source two", equipment: "cable", target: "lats", muscleGroup: "biceps", secondaryMuscles: ["biceps"])
+            ),
+        ])
+
+        expectSeedError(.duplicateUpstreamSourceID("shared-source"), catalogData: invalidCatalog, context: context, userDefaults: defaults)
+
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 0)
+    }
+
+    @Test("Catalog v5 rejects incomplete instruction language maps")
+    func v5RejectsIncompleteInstructionLanguageMaps() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let invalidCatalog = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "stable-1",
+                nameEn: "Canonical One",
+                nameZh: "动作一",
+                primaryMuscles: ["abs"],
+                secondaryMuscles: ["obliques"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "source-1",
+                    name: "source one",
+                    equipment: "body weight",
+                    target: "abs",
+                    muscleGroup: "obliques",
+                    secondaryMuscles: ["obliques"],
+                    omittingInstructionLanguages: ["fr"]
+                )
+            ),
+        ])
+
+        expectSeedError(.invalidInstructionLanguages("stable-1"), catalogData: invalidCatalog, context: context, userDefaults: defaults)
+
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 0)
+    }
+
+    @Test("Catalog v5 rejects upstream rows missing sourceData")
+    func v5RejectsMissingSourceData() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let invalidCatalog = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "stable-1",
+                nameEn: "Canonical One",
+                nameZh: "动作一",
+                primaryMuscles: ["pectoralis major"],
+                secondaryMuscles: ["triceps"],
+                source: "hasaneyldrm/exercises-dataset"
+            ),
+        ])
+
+        expectSeedError(.missingSourceData("stable-1"), catalogData: invalidCatalog, context: context, userDefaults: defaults)
+
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 0)
+    }
+
+    @Test("Catalog v5 rejects incomplete instruction step language maps")
+    func v5RejectsIncompleteInstructionStepLanguageMaps() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let invalidCatalog = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "stable-1",
+                nameEn: "Canonical One",
+                nameZh: "动作一",
+                primaryMuscles: ["abs"],
+                secondaryMuscles: ["obliques"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "source-1",
+                    name: "source one",
+                    equipment: "body weight",
+                    target: "abs",
+                    muscleGroup: "obliques",
+                    secondaryMuscles: ["obliques"],
+                    omittingInstructionStepLanguages: ["fr"]
+                )
+            ),
+        ])
+
+        expectSeedError(.invalidInstructionSteps("stable-1"), catalogData: invalidCatalog, context: context, userDefaults: defaults)
+
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 0)
+    }
+
+    @Test("Catalog v5 rejects empty instruction step lists")
+    func v5RejectsEmptyInstructionSteps() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let invalidCatalog = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "stable-1",
+                nameEn: "Canonical One",
+                nameZh: "动作一",
+                primaryMuscles: ["abs"],
+                secondaryMuscles: ["obliques"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "source-1",
+                    name: "source one",
+                    equipment: "body weight",
+                    target: "abs",
+                    muscleGroup: "obliques",
+                    secondaryMuscles: ["obliques"],
+                    emptyInstructionStepLanguages: ["fr"]
+                )
+            ),
+        ])
+
+        expectSeedError(.emptyInstructionSteps("stable-1"), catalogData: invalidCatalog, context: context, userDefaults: defaults)
+
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 0)
+    }
+
+    @Test("Catalog v5 rejects invalid primary muscle mirrors")
+    func v5RejectsInvalidPrimaryMuscles() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let invalidCatalog = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "stable-1",
+                nameEn: "Canonical One",
+                nameZh: "动作一",
+                primaryMuscles: ["triceps"],
+                secondaryMuscles: ["obliques"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "source-1",
+                    name: "source one",
+                    equipment: "body weight",
+                    target: "abs",
+                    muscleGroup: "obliques",
+                    secondaryMuscles: ["obliques"]
+                )
+            ),
+        ])
+
+        expectSeedError(.invalidPrimaryMuscles("stable-1"), catalogData: invalidCatalog, context: context, userDefaults: defaults)
+
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 0)
+    }
+
+    @Test("Catalog v5 rejects invalid secondary muscle mirrors")
+    func v5RejectsInvalidSecondaryMuscles() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let invalidCatalog = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "stable-1",
+                nameEn: "Canonical One",
+                nameZh: "动作一",
+                primaryMuscles: ["abs"],
+                secondaryMuscles: ["triceps"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "source-1",
+                    name: "source one",
+                    equipment: "body weight",
+                    target: "abs",
+                    muscleGroup: "obliques",
+                    secondaryMuscles: ["obliques"]
+                )
+            ),
+        ])
+
+        expectSeedError(.invalidSecondaryMuscles("stable-1"), catalogData: invalidCatalog, context: context, userDefaults: defaults)
+
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 0)
+    }
+
+    @Test("Catalog v5 rejects unknown sources")
+    func v5RejectsUnknownSources() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let invalidCatalog = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "stable-1",
+                nameEn: "Unknown Source Move",
+                nameZh: "未知来源动作",
+                source: "third-party-source"
+            ),
+        ])
+
+        expectSeedError(.unknownSource("third-party-source"), catalogData: invalidCatalog, context: context, userDefaults: defaults)
+
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 0)
+    }
+
+    @Test("Catalog v5 same-version recovery inserts missing preset IDs")
+    func v5SameVersionRecoveryInsertsMissingPresetIDs() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        defaults.set("5", forKey: ExerciseSeeder.seedVersionKey)
+
+        let existing = Exercise(
+            nameEn: "Existing Upstream",
+            nameZh: "已存在上游",
+            muscleGroup: .chest,
+            equipment: .barbell,
+            primaryMuscles: ["pectoralis major"],
+            secondaryMuscles: ["triceps"],
+            isCustom: false,
+            presetId: "upstream-1"
+        )
+        let stale = Exercise(
+            nameEn: "Stale Preset",
+            nameZh: "陈旧预设",
+            muscleGroup: .back,
+            equipment: .cable,
+            primaryMuscles: ["lats"],
+            secondaryMuscles: ["biceps"],
+            isCustom: false,
+            presetId: "stale-only"
+        )
+        context.insert(existing)
+        context.insert(stale)
+        try context.save()
+
+        let catalogV5 = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "upstream-1",
+                nameEn: "Recovered Upstream",
+                nameZh: "恢复上游",
+                primaryMuscles: ["pectoralis major"],
+                secondaryMuscles: ["triceps"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(id: "source-1", name: "recovered upstream", target: "pectoralis major", secondaryMuscles: ["triceps"])
+            ),
+            makeExerciseJSON(
+                id: "vital-1",
+                nameEn: "Recovered Vital",
+                nameZh: "恢复原生",
+                muscleGroup: "core",
+                equipment: "bodyweight",
+                primaryMuscles: ["abs"],
+                secondaryMuscles: ["obliques"],
+                source: "vitalstride"
+            ),
+        ])
+
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV5)
+
+        let presets = try context.fetch(FetchDescriptor<Exercise>(predicate: #Predicate { $0.presetId != nil }))
+        #expect(presets.count == 3)
+        #expect(presets.contains { $0.presetId == "upstream-1" })
+        #expect(presets.contains { $0.presetId == "vital-1" })
+        #expect(presets.contains { $0.presetId == "stale-only" })
+    }
+
+    @Test("Catalog v5 repeated seed is idempotent once all presets exist")
+    func v5RepeatedSeedIsIdempotent() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let catalogV5 = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "upstream-1",
+                nameEn: "Canonical One",
+                nameZh: "动作一",
+                primaryMuscles: ["pectoralis major"],
+                secondaryMuscles: ["triceps"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(id: "source-1", name: "canonical one", target: "pectoralis major", secondaryMuscles: ["triceps"])
+            ),
+            makeExerciseJSON(
+                id: "vital-1",
+                nameEn: "Vital One",
+                nameZh: "原生动作一",
+                muscleGroup: "core",
+                equipment: "bodyweight",
+                primaryMuscles: ["abs"],
+                secondaryMuscles: ["obliques"],
+                source: "vitalstride"
+            ),
+        ])
+
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV5)
+        let firstIDs = Set(try context.fetch(FetchDescriptor<Exercise>()).compactMap(\.presetId))
+
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV5)
+
+        let all = try context.fetch(FetchDescriptor<Exercise>())
+        #expect(all.count == 2)
+        #expect(Set(all.compactMap(\.presetId)) == firstIDs)
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == "5")
+    }
+
+    @Test("Catalog v5 rolls back mutations and version when save boundary throws")
+    func v5RollsBackWhenSaveBoundaryThrows() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let catalogV4 = makeCatalogData(version: "4", exercises: [
+            makeExerciseJSON(
+                id: "upstream-1",
+                nameEn: "Legacy Bench Press",
+                nameZh: "旧卧推",
+                muscleGroup: "chest",
+                equipment: "barbell",
+                primaryMuscles: ["pectoralis major"],
+                secondaryMuscles: ["triceps"],
+                defaultWeightLow: 80,
+                defaultWeightHigh: 120
+            ),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV4)
+
+        let upstreamBefore = try #require(try fetchExercise(presetId: "upstream-1", context: context))
+        upstreamBefore.defaultWeightMid = nil
+        upstreamBefore.defaultRepsLow = 7
+        upstreamBefore.defaultRepsMid = 12
+        upstreamBefore.defaultRepsHigh = 18
+        upstreamBefore.mediaKey = nil
+        try context.save()
+
+        let modelID = upstreamBefore.persistentModelID
+        let snapshot = ExerciseSnapshot(upstreamBefore)
+
+        let catalogV5 = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "upstream-1",
+                nameEn: "Canonical Incline Press",
+                nameZh: "新中文不应覆盖",
+                muscleGroup: "shoulders",
+                equipment: "dumbbell",
+                primaryMuscles: ["upper chest"],
+                secondaryMuscles: ["front delts", "triceps"],
+                defaultWeightLow: 1,
+                defaultWeightMid: 2,
+                defaultWeightHigh: 3,
+                mediaKey: "catalog-media",
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "source-0001",
+                    name: "canonical incline press",
+                    equipment: "dumbbell",
+                    target: "upper chest",
+                    muscleGroup: "front delts",
+                    secondaryMuscles: ["front delts", "triceps"]
+                )
+            ),
+            makeExerciseJSON(
+                id: "vital-1",
+                nameEn: "Recovered Vital",
+                nameZh: "恢复原生",
+                muscleGroup: "core",
+                equipment: "bodyweight",
+                primaryMuscles: ["abs"],
+                secondaryMuscles: ["obliques"],
+                source: "vitalstride"
+            ),
+        ])
+
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == "4")
+
+        #expect(throws: SaveBoundaryError.self) {
+            try ExerciseSeeder.seed(
+                context: context,
+                userDefaults: defaults,
+                catalogData: catalogV5,
+                save: { _ in throw SaveBoundaryError.forced }
+            )
+        }
+
+        let upstreamAfter = try #require(try fetchExercise(presetId: "upstream-1", context: context))
+        #expect(upstreamAfter.persistentModelID == modelID)
+        #expect(ExerciseSnapshot(upstreamAfter) == snapshot)
+        #expect(try fetchExercise(presetId: "vital-1", context: context) == nil)
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == "4")
+    }
+
+    @Test("Pre-mutation decode failure preserves unrelated caller pending changes")
+    func preMutationDecodeFailurePreservesUnrelatedPendingChanges() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let unrelated = Exercise(
+            nameEn: "Caller Exercise",
+            nameZh: "调用方动作",
+            muscleGroup: .back,
+            equipment: .barbell,
+            primaryMuscles: ["lats"],
+            secondaryMuscles: ["biceps"],
+            isCustom: false,
+            presetId: "caller-owned"
+        )
+        context.insert(unrelated)
+        try context.save()
+
+        unrelated.nameEn = "Caller Exercise Pending Rename"
+        unrelated.defaultWeightMid = 52.5
+        unrelated.secondaryMuscles = ["biceps", "rear delts"]
+        let pendingSnapshot = ExerciseSnapshot(unrelated)
+
+        let invalidJSON = Data("{".utf8)
+
+        do {
+            try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: invalidJSON)
+            Issue.record("Expected invalid JSON to throw a DecodingError")
+        } catch is DecodingError {
+            // Expected: decoding fails before the seeder mutates the context.
+        } catch {
+            Issue.record("Expected DecodingError, got \(error)")
+        }
+
+        let unrelatedAfter = try #require(try fetchExercise(presetId: "caller-owned", context: context))
+        #expect(ExerciseSnapshot(unrelatedAfter) == pendingSnapshot)
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == nil)
     }
 }

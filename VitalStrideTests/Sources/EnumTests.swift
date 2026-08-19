@@ -83,7 +83,17 @@ struct EnumTests {
     @Test("Equipment has all expected cases")
     func equipmentCases() {
         let cases = Equipment.allCases
-        #expect(cases.count == 6)
+        let expectedRawValues: Set<String> = [
+            "assisted", "band", "barbell", "bodyweight", "bosu_ball", "cable",
+            "dumbbell", "elliptical_machine", "ez_barbell", "hammer", "kettlebell",
+            "leverage_machine", "machine", "medicine_ball", "olympic_barbell",
+            "resistance_band", "roller", "rope", "skierg_machine", "sled_machine",
+            "smith_machine", "stability_ball", "stationary_bike", "stepmill_machine",
+            "tire", "trap_bar", "upper_body_ergometer", "weighted", "wheel_roller",
+        ]
+
+        #expect(cases.count == 29)
+        #expect(Set(cases.map(\.rawValue)) == expectedRawValues)
         #expect(cases.contains(.barbell))
         #expect(cases.contains(.dumbbell))
         #expect(cases.contains(.machine))
@@ -122,10 +132,11 @@ struct EnumTests {
         let decodedMuscle = try decoder.decode(MuscleGroup.self, from: muscleData)
         #expect(decodedMuscle == muscleGroup)
 
-        let equipment = Equipment.barbell
-        let equipData = try encoder.encode(equipment)
-        let decodedEquip = try decoder.decode(Equipment.self, from: equipData)
-        #expect(decodedEquip == equipment)
+        for equipment in Equipment.allCases {
+            let equipData = try encoder.encode(equipment)
+            let decodedEquip = try decoder.decode(Equipment.self, from: equipData)
+            #expect(decodedEquip == equipment)
+        }
     }
 
     @Test("WorkoutType has all expected cases")

@@ -237,27 +237,41 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         XCTAssertTrue(app.keyboards.firstMatch.exists,
                       "Keyboard missing before clear")
 
-        // Clear button — matches by a11y label ("清除搜索" / "Clear search")
-        // or by systemImage "xmark.circle.fill" fallback. Search across
-        // all buttons in the picker sheet.
+        // Match the production a11y contract exactly. A broad
+        // `CONTAINS "Clear"` query can select an unrelated system button
+        // before the search-row control on CI simulators.
         let clearButton = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR label CONTAINS[c] %@",
-                        "清除", "Clear", "xmark")
+            NSPredicate(format: "label == %@ OR label == %@",
+                        "清除搜索", "Clear search")
         ).firstMatch
         XCTAssertTrue(clearButton.waitForExistence(timeout: 1.0),
                       "Clear button not found — labels visible: \(app.buttons.allElementsBoundByIndex.map { $0.label })")
+        let hittableClearButton = expectation(
+            for: NSPredicate(format: "isHittable == true"),
+            evaluatedWith: clearButton,
+            handler: nil
+        )
+        wait(for: [hittableClearButton], timeout: UITestTimeout.uiSettle)
         clearButton.tap()
 
         // After clear: search text should reset. Focus behaviour differs
         // by platform; the spec only mandates that the search text and
         // expansion state reset — keyboard dismissal is a consequence of
         // isSearchFocused = false which happens in the same closure.
-        // Assert on the search field being empty (the observable
-        // contract) rather than keyboard visibility (which iOS may keep
-        // for a beat during the collapse animation).
-        let emptyField = expectation(for: NSPredicate(format: "value == %@ OR value == nil OR value == %@", "", "Search exercises"),
-                                    evaluatedWith: searchField,
-                                    handler: nil)
+        // Assert that the field is empty or hidden after collapse (the
+        // observable contract) rather than keyboard visibility (which iOS
+        // may keep for a beat during the collapse animation).
+        let resetPredicate = NSPredicate(
+            format: "exists == false OR value == %@ OR value == nil OR value == %@",
+            "",
+            "Search exercises"
+        )
+        // Re-query after the expanded surface becomes accessibility-hidden;
+        // do not retain the pre-collapse element proxy as the oracle.
+        let resetField = app.textFields.firstMatch
+        let emptyField = expectation(for: resetPredicate,
+                                     evaluatedWith: resetField,
+                                     handler: nil)
         wait(for: [emptyField], timeout: UITestTimeout.uiSettle)
     }
 
@@ -451,19 +465,16 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         // Try the expanded field directly first — must both exist AND be
         // hittable. MY-1445: the TextField is always mounted but is not
         // hittable when collapsed (hit-testing disabled + opacity 0).
-        var field = app.textFields.firstMatch
+        var field = app.textFields["exercise_picker_search_field"]
         let fieldReady = field.waitForExistence(timeout: 1.0) && field.isHittable
         if !fieldReady {
             // Not expanded (or not hittable) — tap the collapsed magnifier
             // button by a11y label ("搜索动作" / "Search exercises").
-            let magnifier = app.buttons.matching(
-                NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@",
-                            "搜索", "Search")
-            ).firstMatch
+            let magnifier = app.buttons["exercise_picker_search_expand"]
             if magnifier.waitForExistence(timeout: UITestTimeout.uiSettle) {
                 magnifier.tap()
             }
-            field = app.textFields.firstMatch
+            field = app.textFields["exercise_picker_search_field"]
             let expanded = NSPredicate(format: "isHittable == true")
             let hittableExpectation = expectation(for: expanded,
                                                   evaluatedWith: field,

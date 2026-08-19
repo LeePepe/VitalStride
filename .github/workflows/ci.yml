@@ -129,6 +129,10 @@ jobs:
       # Layer frontmatter must stay consistent with code (anti-rot)
       - name: Layer frontmatter anti-rot check
         run: bash scripts/check-frontmatter.sh
+      - name: Exercise catalog generator tests
+        run: python3 -m unittest discover -s scripts/tests -p 'test_import_mit_exercises.py'
+      - name: Exercise catalog muscle validation
+        run: python3 scripts/validate_exercise_muscles.py
       # Regression coverage for the shared review prompt (scripts/ci/review-prompt.md,
       # consumed by both the claude and codex review gates). Locks: the
       # imperative-vs-declarative distinction (so legitimate report fields like

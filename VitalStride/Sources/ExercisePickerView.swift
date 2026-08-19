@@ -414,6 +414,7 @@ struct ExercisePickerView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("exercise_picker_search_expand")
         .background(
             CollapsedSearchPillSurface(theme: theme, opaque: reduceTransparency)
         )
@@ -435,6 +436,12 @@ struct ExercisePickerView: View {
                 String(localized: "搜索动作", comment: "Exercise search prompt"),
                 text: $searchText
             )
+            .accessibilityIdentifier("exercise_picker_search_field")
+            // Bind semantic visibility to the actual control. Applying
+            // accessibilityHidden to its always-mounted ancestor leaves the
+            // descendant TextField cached as hidden in the XCUI tree after
+            // expansion on iOS 26, so it exists but is never hittable.
+            .accessibilityHidden(!isSearchExpanded)
             // Use `.body` text style (dynamic-type scaled) instead of
             // `TypeScale.body` (fixed 14pt) so the search input honors the
             // user's preferred Content Size Category. This is the only
@@ -1182,11 +1189,17 @@ internal struct SearchSurfaceContainer<Expanded: View, Collapsed: View>: View {
             expanded
                 .opacity(isExpanded ? 1 : 0)
                 .allowsHitTesting(isExpanded)
-                .accessibilityHidden(!isExpanded)
+                // Both branches stay mounted to preserve the TextField's
+                // FocusState identity. Keep the active branch physically on
+                // top as well: XCUITest otherwise treats the transparent
+                // collapsed Button as occluding the expanded TextField and
+                // reports the field as non-hittable.
+                .zIndex(isExpanded ? 1 : 0)
             collapsed
                 .opacity(isExpanded ? 0 : 1)
                 .allowsHitTesting(!isExpanded)
                 .accessibilityHidden(isExpanded)
+                .zIndex(isExpanded ? 0 : 1)
         }
         .animation(.easeOut(duration: 0.22), value: isExpanded)
         .frame(

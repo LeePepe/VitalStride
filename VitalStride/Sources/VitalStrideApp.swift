@@ -55,8 +55,24 @@ struct VitalStrideApp: App {
         diagnosticCollector.start()
         #endif
 
+        #if DEBUG
+        let isExercisePickerUITest = ProcessInfo.processInfo.arguments.contains(
+            "-ExercisePickerTestMode"
+        )
+        #else
+        let isExercisePickerUITest = false
+        #endif
+
         do {
-            let modelContainer = try ModelContainerConfiguration.makeContainer()
+            // The focus harness must not depend on the production persistent
+            // CloudKit store being available on a freshly booted CI
+            // simulator. Use the same in-memory container for app startup,
+            // the harness seed, and ExercisePickerView's @Query.
+            let modelContainer = if isExercisePickerUITest {
+                try ModelContainerConfiguration.makeTestContainer()
+            } else {
+                try ModelContainerConfiguration.makeContainer()
+            }
             container = modelContainer
             containerError = nil
 
@@ -75,7 +91,9 @@ struct VitalStrideApp: App {
             let context = modelContainer.mainContext
 
             Task {
-                ExerciseSeeder.seedIfNeeded(context: context)
+                if !isExercisePickerUITest {
+                    ExerciseSeeder.seedIfNeeded(context: context)
+                }
                 let status = try? await service.authorizationStatus()
                 if status == .unnecessary {
                     await cache.hydrate(types: HealthSampleType.overviewTypes)
@@ -137,9 +155,9 @@ private struct ExercisePickerTestHarnessModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .onAppear {
-                if testMode != nil {
-                    showsPicker = true
-                }
+                guard testMode != nil, let container else { return }
+                seedMinimalCatalogIfNeeded(in: container)
+                showsPicker = true
             }
             .sheet(isPresented: $showsPicker) {
                 if let container {
@@ -147,6 +165,31 @@ private struct ExercisePickerTestHarnessModifier: ViewModifier {
                         .modelContainer(container)
                 }
             }
+    }
+
+    /// The focus suite needs one known populated result ("bench") plus the
+    /// ability to cross into the empty state. It does not need the production
+    /// catalog migration, which is covered by `ExerciseSeederTests`.
+    private func seedMinimalCatalogIfNeeded(in isolatedContainer: ModelContainer) {
+        let context = isolatedContainer.mainContext
+        let descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.nameEn == "Bench Press" }
+        )
+        guard let matches = try? context.fetch(descriptor), matches.isEmpty else { return }
+
+        context.insert(
+            Exercise(
+                nameEn: "Bench Press",
+                nameZh: "Bench Press",
+                muscleGroup: .chest,
+                equipment: .barbell
+            )
+        )
+        do {
+            try context.save()
+        } catch {
+            print("[ExercisePickerTestHarness] baseline seed failed: \(error)")
+        }
     }
 }
 
