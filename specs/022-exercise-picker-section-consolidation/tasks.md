@@ -4,7 +4,7 @@
 
 Dependency order: T001 → T002 → T003. 下游实现须在 ADR-0014 的 AI Reviewer + Team Lead 双批准完成后由 TL 派发。
 
-## [T001] [VitalModels] 建立稳定 ExerciseSection 语义
+## [T001] [Story] VitalModels 建立稳定 ExerciseSection 语义
 
 **Stage**: 1
 
@@ -42,7 +42,7 @@ swift test --package-path Packages/VitalModels
 
 **Constitution refs**: §II、§III、§VI、Quality Bar I。
 
-## [T002] [App Logic] 提取稳定 section grouping seam
+## [T002] [Story] App Logic 提取稳定 section grouping seam
 
 **Stage**: 2
 
@@ -81,7 +81,7 @@ xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride \
 
 **Constitution refs**: §II、§III、Quality Bar I。
 
-## [T003] [App UI] Picker 改用 section index 与唯一图标
+## [T003] [Story] App UI 改用 section index 与唯一图标
 
 **Stage**: 3
 
