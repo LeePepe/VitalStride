@@ -1,5 +1,7 @@
 import Foundation
 import Testing
+import VitalModels
+@testable import VitalStride
 
 private let requiredInstructionLanguages: Set<String> = ["en", "es", "fr", "hi", "it", "ko", "pl", "ru", "tr", "zh"]
 private let expectedSourceEquipmentValues: Set<String> = [
@@ -184,4 +186,85 @@ struct ExercisesJSONTests {
             #expect(!exercise.nameZh.isEmpty)
         }
     }
+
+    @Test("Full catalog resolves to a stable 17-section aggregation")
+    func fullCatalogSectionDistribution() {
+        let workouts = exercises.map { exercise in
+            let rawEquipment = exercise.sourceData?.equipment ?? exercise.equipment
+            return Exercise(
+                nameEn: exercise.nameEn,
+                nameZh: exercise.nameZh,
+                muscleGroup: MuscleGroup(rawValue: exercise.muscleGroup) ?? .fullBody,
+                equipment: equipment(fromSourceValue: rawEquipment),
+                primaryMuscles: exercise.primaryMuscles,
+                secondaryMuscles: exercise.secondaryMuscles
+            )
+        }
+
+        let grouped = ExercisePickerSectionGrouping.groupedSections(from: workouts)
+        let counts = Dictionary(uniqueKeysWithValues: grouped.map { ($0.0, $0.1.count) })
+
+        #expect(grouped.count == ExerciseSection.allCases.count)
+        #expect(grouped.map(\.0) == ExerciseSection.allCases)
+        #expect(counts[.other] == 30)
+        #expect(grouped.allSatisfy { section, items in
+            items.allSatisfy { $0.section == section }
+        })
+        #expect(grouped.allSatisfy { _, items in items.count >= 10 })
+        #expect(workouts.filter { $0.equipment == .rope }.count == 10)
+        #expect(
+            workouts
+                .filter { [
+                    Equipment.bosuBall,
+                    .ellipticalMachine,
+                    .hammer,
+                    .olympicBarbell,
+                    .resistanceBand,
+                    .roller,
+                    .skiergMachine,
+                    .stationaryBike,
+                    .stepmillMachine,
+                    .tire,
+                    .trapBar,
+                    .upperBodyErgometer,
+                    .wheelRoller
+                ].contains($0.equipment) }
+                .count == 30
+        )
+    }
 }
+
+private func equipment(fromSourceValue sourceValue: String) -> Equipment {
+    switch sourceValue {
+    case "assisted": .assisted
+    case "band": .band
+    case "barbell": .barbell
+    case "body weight": .bodyweight
+    case "bosu ball": .bosuBall
+    case "cable": .cable
+    case "dumbbell": .dumbbell
+    case "elliptical machine": .ellipticalMachine
+    case "ez barbell": .ezBarbell
+    case "hammer": .hammer
+    case "kettlebell": .kettlebell
+    case "leverage machine": .leverageMachine
+    case "medicine ball": .medicineBall
+    case "olympic barbell": .olympicBarbell
+    case "resistance band": .resistanceBand
+    case "roller": .roller
+    case "rope": .rope
+    case "skierg machine": .skiergMachine
+    case "sled machine": .sledMachine
+    case "smith machine": .smithMachine
+    case "stability ball": .stabilityBall
+    case "stationary bike": .stationaryBike
+    case "stepmill machine": .stepmillMachine
+    case "tire": .tire
+    case "trap bar": .trapBar
+    case "upper body ergometer": .upperBodyErgometer
+    case "weighted": .weighted
+    case "wheel roller": .wheelRoller
+    default: .bodyweight
+    }
+}
+
