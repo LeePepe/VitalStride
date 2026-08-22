@@ -104,25 +104,11 @@ struct ExercisePickerView: View {
         muscleGroup: MuscleGroup?,
         searchText: String
     ) -> [(ExerciseSection, [Exercise])] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let hasSearch = !trimmed.isEmpty
-        var buckets: [ExerciseSection: [Exercise]] = [:]
-        buckets.reserveCapacity(ExerciseSection.allCases.count)
-
-        for exercise in exercises {
-            if let group = muscleGroup, exercise.muscleGroup != group { continue }
-            if hasSearch {
-                let matches = exercise.nameEn.localizedCaseInsensitiveContains(trimmed) ||
-                    exercise.nameZh.localizedCaseInsensitiveContains(trimmed)
-                if !matches { continue }
-            }
-            buckets[exercise.section, default: []].append(exercise)
-        }
-
-        return ExerciseSection.allCases.compactMap { section in
-            guard let items = buckets[section], !items.isEmpty else { return nil }
-            return (section, items)
-        }
+        ExercisePickerSectionGrouping.groupedSections(
+            from: exercises,
+            muscleGroup: muscleGroup,
+            searchText: searchText
+        )
     }
 
     private var gridColumns: [GridItem] {

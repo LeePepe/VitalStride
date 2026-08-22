@@ -77,10 +77,3 @@ func categoryColor(_ index: Int, theme: Theme) -> Color {
 func categoryColorIndex(for equipment: Equipment) -> Int {
     (Equipment.allCases.firstIndex(of: equipment) ?? 0) % 5
 }
-
-/// Stable 0..4 category index for an `ExerciseSection`, keeping the same color
-/// palette across the canonical picker grouping while preserving the original
-/// equipment-hue mapping semantics.
-func categoryColorIndex(for section: ExerciseSection) -> Int {
-    (ExerciseSection.allCases.firstIndex(of: section) ?? 0) % 5
-}
