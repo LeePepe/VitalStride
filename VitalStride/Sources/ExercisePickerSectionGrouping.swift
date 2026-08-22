@@ -1,8 +1,8 @@
 import Foundation
 import VitalModels
 
-public enum ExercisePickerSectionGrouping {
-    public static func groupedSections(
+enum ExercisePickerSectionGrouping {
+    static func groupedSections(
         from exercises: [Exercise],
         muscleGroup: MuscleGroup? = nil,
         searchText: String = ""
@@ -34,13 +34,5 @@ public enum ExercisePickerSectionGrouping {
             guard let items = buckets[section], !items.isEmpty else { return nil }
             return (section, items)
         }
-    }
-
-    public static func group(
-        exercises: [Exercise],
-        muscleGroup: MuscleGroup? = nil,
-        searchText: String = ""
-    ) -> [(ExerciseSection, [Exercise])] {
-        groupedSections(from: exercises, muscleGroup: muscleGroup, searchText: searchText)
     }
 }

@@ -248,6 +248,7 @@ private func equipment(fromSourceValue sourceValue: String) -> Equipment {
     case "hammer": .hammer
     case "kettlebell": .kettlebell
     case "leverage machine": .leverageMachine
+    case "machine": .machine
     case "medicine ball": .medicineBall
     case "olympic barbell": .olympicBarbell
     case "resistance band": .resistanceBand
@@ -264,7 +265,8 @@ private func equipment(fromSourceValue sourceValue: String) -> Equipment {
     case "upper body ergometer": .upperBodyErgometer
     case "weighted": .weighted
     case "wheel roller": .wheelRoller
-    default: .bodyweight
+    default:
+        preconditionFailure("Unsupported exercise equipment in fixture: \(sourceValue)")
     }
 }
 
