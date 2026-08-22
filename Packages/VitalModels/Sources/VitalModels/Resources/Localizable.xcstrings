@@ -264,6 +264,125 @@
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "健腹轮" } }
       }
     },
+    "section.assisted": {
+      "comment": "Exercise section: assisted",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Assisted" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "辅助器械" } }
+      }
+    },
+    "section.band": {
+      "comment": "Exercise section: band",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Band" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "弹力带" } }
+      }
+    },
+    "section.barbell": {
+      "comment": "Exercise section: barbell",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Barbell" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "杠铃" } }
+      }
+    },
+    "section.bodyweight": {
+      "comment": "Exercise section: bodyweight",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Bodyweight" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "自重" } }
+      }
+    },
+    "section.cable": {
+      "comment": "Exercise section: cable",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Cable" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "绳索" } }
+      }
+    },
+    "section.dumbbell": {
+      "comment": "Exercise section: dumbbell",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Dumbbell" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "哑铃" } }
+      }
+    },
+    "section.ez_barbell": {
+      "comment": "Exercise section: EZ barbell",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "EZ Barbell" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "EZ 曲杆" } }
+      }
+    },
+    "section.kettlebell": {
+      "comment": "Exercise section: kettlebell",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Kettlebell" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "壶铃" } }
+      }
+    },
+    "section.leverage_machine": {
+      "comment": "Exercise section: leverage machine",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Leverage Machine" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "杠杆器械" } }
+      }
+    },
+    "section.machine": {
+      "comment": "Exercise section: machine",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Machine" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "固定器械" } }
+      }
+    },
+    "section.medicine_ball": {
+      "comment": "Exercise section: medicine ball",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Medicine Ball" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "药球" } }
+      }
+    },
+    "section.other": {
+      "comment": "Exercise section: other",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Other" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "其他" } }
+      }
+    },
+    "section.rope": {
+      "comment": "Exercise section: rope",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Rope" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "训练绳" } }
+      }
+    },
+    "section.sled_machine": {
+      "comment": "Exercise section: sled machine",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Sled Machine" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "雪橇机" } }
+      }
+    },
+    "section.smith_machine": {
+      "comment": "Exercise section: Smith machine",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Smith Machine" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "史密斯机" } }
+      }
+    },
+    "section.stability_ball": {
+      "comment": "Exercise section: stability ball",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Stability Ball" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "健身球" } }
+      }
+    },
+    "section.weighted": {
+      "comment": "Exercise section: weighted",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Weighted" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "负重" } }
+      }
+    },
     "muscle.arms": {
       "comment": "MuscleGroup: arms",
       "localizations": {

@@ -26,6 +26,10 @@ public final class Exercise {
     @Relationship(inverse: \TemplateExercise.exercise)
     public var templateExercises: [TemplateExercise]?
 
+    public var section: ExerciseSection {
+        equipment.section
+    }
+
     public var localizedName: String {
         let isZh = Locale.current.language.languageCode?.identifier == "zh"
         return isZh ? (nameZh.isEmpty ? nameEn : nameZh) : (nameEn.isEmpty ? nameZh : nameEn)
