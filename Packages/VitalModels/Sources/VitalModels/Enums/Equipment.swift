@@ -31,6 +31,41 @@ public enum Equipment: String, Codable, CaseIterable, Sendable {
     case weighted
     case wheelRoller = "wheel_roller"
 
+    public var section: ExerciseSection {
+        switch self {
+        case .assisted: .assisted
+        case .band: .band
+        case .barbell: .barbell
+        case .bodyweight: .bodyweight
+        case .cable: .cable
+        case .dumbbell: .dumbbell
+        case .ezBarbell: .ezBarbell
+        case .kettlebell: .kettlebell
+        case .leverageMachine: .leverageMachine
+        case .machine: .machine
+        case .medicineBall: .medicineBall
+        case .rope: .rope
+        case .sledMachine: .sledMachine
+        case .smithMachine: .smithMachine
+        case .stabilityBall: .stabilityBall
+        case .weighted: .weighted
+        case .bosuBall,
+             .ellipticalMachine,
+             .hammer,
+             .olympicBarbell,
+             .resistanceBand,
+             .roller,
+             .skiergMachine,
+             .stationaryBike,
+             .stepmillMachine,
+             .tire,
+             .trapBar,
+             .upperBodyErgometer,
+             .wheelRoller:
+             .other
+        }
+    }
+
     public var localizedName: String {
         switch self {
         case .assisted: String(localized: "equipment.assisted", bundle: .module)
