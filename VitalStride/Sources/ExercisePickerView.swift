@@ -1035,8 +1035,12 @@ struct ExercisePickerView: View {
         }
     }
 
+    private func sectionPaletteIndex(for section: ExerciseSection) -> Int {
+        (ExerciseSection.allCases.firstIndex(of: section) ?? 0) % 5
+    }
+
     private func equipmentSection(equipment: ExerciseSection, exercises: [Exercise]) -> some View {
-        let color = categoryColor(categoryColorIndex(for: equipment), theme: theme)
+        let color = categoryColor(sectionPaletteIndex(for: equipment), theme: theme)
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 Image(systemName: equipment.sfSymbol)
