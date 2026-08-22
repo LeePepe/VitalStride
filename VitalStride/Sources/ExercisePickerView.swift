@@ -22,15 +22,15 @@ struct ExercisePickerView: View {
     @State private var selectedMuscleGroup: MuscleGroup?
     @State private var selectedIDs: Set<PersistentIdentifier> = []
     @State private var selectedExercises: [Exercise] = []
-    @State private var visibleEquipment: Equipment?
-    @State private var draggedEquipment: Equipment?
+    @State private var visibleEquipment: ExerciseSection?
+    @State private var draggedEquipment: ExerciseSection?
     /// MY-1338: number of distinct equipment sections the current drag
     /// gesture has visited. Reset on drag start, reported via
     /// `exercisePickerIndexScrubbed(count:)` on drag end, so we can watch
     /// for high-count bursts that indicate the highlight is racing through
     /// neighbours instead of settling on the finger's target.
     @State private var dragScrubCount: Int = 0
-    @State private var cachedEquipmentGroups: [(Equipment, [Exercise])]?
+    @State private var cachedEquipmentGroups: [(ExerciseSection, [Exercise])]?
     @FocusState private var isSearchFocused: Bool
     // MY-1249 + MY-1250 reconciliation: MY-1250 previously reset the card-grid
     // scroll to the top on filter/search change by writing `visibleEquipment`
@@ -47,7 +47,7 @@ struct ExercisePickerView: View {
     // `resolveMuscleGroupScrollAnchor`). Captured at the moment the token
     // bumps so the `.onChange(scrollResetToken)` handler picks the correct
     // section without re-deriving intent.
-    @State private var pendingScrollAnchor: Equipment?
+    @State private var pendingScrollAnchor: ExerciseSection?
     // MY-1272: floating-search collapsed/expanded state. Collapsed = a
     // circular magnifier button; expanded = the full search field. Forced
     // open whenever `searchText` is non-empty so we never orphan an
@@ -91,7 +91,7 @@ struct ExercisePickerView: View {
         return false
     }
 
-    private var equipmentGroups: [(Equipment, [Exercise])] {
+    private var equipmentGroups: [(ExerciseSection, [Exercise])] {
         cachedEquipmentGroups ?? Self.computeEquipmentGroups(
             from: exercises,
             muscleGroup: selectedMuscleGroup,
@@ -103,26 +103,12 @@ struct ExercisePickerView: View {
         from exercises: [Exercise],
         muscleGroup: MuscleGroup?,
         searchText: String
-    ) -> [(Equipment, [Exercise])] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let hasSearch = !trimmed.isEmpty
-        var buckets: [Equipment: [Exercise]] = [:]
-        buckets.reserveCapacity(Equipment.allCases.count)
-
-        for exercise in exercises {
-            if let group = muscleGroup, exercise.muscleGroup != group { continue }
-            if hasSearch {
-                let matches = exercise.nameEn.localizedCaseInsensitiveContains(trimmed) ||
-                    exercise.nameZh.localizedCaseInsensitiveContains(trimmed)
-                if !matches { continue }
-            }
-            buckets[exercise.equipment, default: []].append(exercise)
-        }
-
-        return Equipment.allCases.compactMap { equipment in
-            guard let items = buckets[equipment], !items.isEmpty else { return nil }
-            return (equipment, items)
-        }
+    ) -> [(ExerciseSection, [Exercise])] {
+        ExercisePickerSectionGrouping.groupedSections(
+            from: exercises,
+            muscleGroup: muscleGroup,
+            searchText: searchText
+        )
     }
 
     private var gridColumns: [GridItem] {
@@ -725,7 +711,7 @@ struct ExercisePickerView: View {
                 // section from `visibleIds`. Locked by
                 // `ExercisePickerIndexSyncTests.visibilityThresholdIsLowEnoughForTallSections`.
                 .onScrollTargetVisibilityChange(
-                    idType: Equipment.self,
+                    idType: ExerciseSection.self,
                     threshold: Self.visibilityThreshold
                 ) { visibleIds in
                     Self.applyVisibleIds(
@@ -778,7 +764,7 @@ struct ExercisePickerView: View {
     // Top spacer is unbounded; bottom spacer capped at `indexBarBottomInset`
     // so the compact bar drifts toward — but does not touch — the bottom.
     @ViewBuilder
-    private func indexBarSlot(equipments: [Equipment], gridProxy: ScrollViewProxy) -> some View {
+    private func indexBarSlot(equipments: [ExerciseSection], gridProxy: ScrollViewProxy) -> some View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
             EquipmentIndexBar(
@@ -875,7 +861,7 @@ struct ExercisePickerView: View {
     /// with the `"scroll"` source identifier so we can observe how often
     /// the scroll-derived highlight jumps sections vs the drag-derived one.
     @MainActor
-    private func applyVisibleEquipment(_ equipment: Equipment?) {
+    private func applyVisibleEquipment(_ equipment: ExerciseSection?) {
         guard visibleEquipment != equipment else { return }
         emitSectionJumpTelemetry(
             from: visibleEquipment,
@@ -898,15 +884,13 @@ struct ExercisePickerView: View {
 
     /// MY-1338: send the strongly typed jump event through TelemetryKit.
     /// Both endpoints are mapped to canonical `TelemetryIdentifier`
-    /// values — `Equipment.rawValue` is already ASCII lowercase (see
-    /// `VitalModels/Equipment.swift`) so it satisfies the identifier
-    /// character set by construction. Falls back to `sectionJumpNone`
-    /// when either endpoint is `nil`, which happens on the initial mount
-    /// and when the grid empties mid-scroll.
+    /// values — `ExerciseSection.rawValue` is already ASCII lowercase
+    /// so it satisfies the identifier character set by construction.
+    /// Falls back to `sectionJumpNone` when either endpoint is `nil`.
     @MainActor
     private func emitSectionJumpTelemetry(
-        from: Equipment?,
-        to: Equipment?,
+        from: ExerciseSection?,
+        to: ExerciseSection?,
         source: TelemetryIdentifier
     ) {
         let fromID = Self.telemetryIdentifier(for: from)
@@ -916,14 +900,11 @@ struct ExercisePickerView: View {
         )
     }
 
-    /// Maps an optional `Equipment` to a canonical `TelemetryIdentifier`.
-    /// Non-nil equipments serialize via their raw case name (guaranteed
-    /// ASCII lowercase); nil serializes to `sectionJumpNone`. If a future
-    /// case somehow fails `TelemetryIdentifier.init(validating:)` (should
-    /// never happen for `Equipment` cases), we fall back to
-    /// `sectionJumpNone` rather than silently dropping the event.
-    static func telemetryIdentifier(for equipment: Equipment?) -> TelemetryIdentifier {
-        guard let raw = equipment?.rawValue,
+    /// Maps an optional `ExerciseSection` to a canonical `TelemetryIdentifier`.
+    /// Non-nil sections serialize via their raw case name; nil serializes to
+    /// `sectionJumpNone`.
+    static func telemetryIdentifier(for section: ExerciseSection?) -> TelemetryIdentifier {
+        guard let raw = section?.rawValue,
               let identifier = TelemetryIdentifier(validating: raw)
         else {
             return sectionJumpNone
@@ -933,37 +914,24 @@ struct ExercisePickerView: View {
 
     /// MY-1249: pure entry-point mirroring what
     /// `onScrollTargetVisibilityChange` does in production — takes the raw
-    /// visible-ids callback payload plus the current equipment order, picks
-    /// the highlight, and applies it via the supplied setter. Extracted so
-    /// tests can exercise the full callback path (not just the ordering
-    /// helper) with representative inputs, including the tall-section case
-    /// (single id reported) that motivates the low `visibilityThreshold`.
+    /// visible-ids callback payload plus the current section order, picks
+    /// the highlight, and applies it via the supplied setter.
     static func applyVisibleIds(
-        _ visibleIds: [Equipment],
-        in order: [Equipment],
-        using setter: (Equipment?) -> Void
+        _ visibleIds: [ExerciseSection],
+        in order: [ExerciseSection],
+        using setter: (ExerciseSection?) -> Void
     ) {
         setter(firstVisibleEquipment(from: visibleIds, in: order))
     }
 
-    /// Dedup-aware variant of `applyVisibleIds`. Resolves the top-visible
-    /// section from the callback payload and invokes `setter` **only when
-    /// it differs from `current`**, returning the resolved value so callers
-    /// can thread it forward. This is the pure mirror of the production
-    /// `applyVisibleEquipment` dedup guard: during a finger scroll the
-    /// SwiftUI callback fires on nearly every frame with an unchanged
-    /// top-visible section, and suppressing those no-op `@State` writes is
-    /// what keeps the main thread free of redundant grid re-evaluation.
-    /// Extracted as a `static` pure function so the dedup contract is
-    /// directly testable without a rendered view (see
-    /// `ExercisePickerIndexSyncTests`).
+    /// Dedup-aware variant of `applyVisibleIds`.
     @discardableResult
     static func applyVisibleIds(
-        _ visibleIds: [Equipment],
-        in order: [Equipment],
-        current: Equipment?,
-        using setter: (Equipment?) -> Void
-    ) -> Equipment? {
+        _ visibleIds: [ExerciseSection],
+        in order: [ExerciseSection],
+        current: ExerciseSection?,
+        using setter: (ExerciseSection?) -> Void
+    ) -> ExerciseSection? {
         applyVisibleIds(
             visibleIds,
             in: order,
@@ -973,34 +941,15 @@ struct ExercisePickerView: View {
         )
     }
 
-    /// MY-1338: drag-aware variant of the scroll-callback bridge. When the
-    /// side index bar is being scrubbed (`isDragging == true`), the drag
-    /// gesture owns the authoritative highlight — `scrollTo(_:anchor:.top)`
-    /// requests trigger their own `onScrollTargetVisibilityChange` bursts
-    /// with stale/out-of-order top-visible payloads that would overwrite
-    /// the finger's actual target with a neighbouring section mid-drag.
-    /// Ignoring those payloads while the drag is live eliminates the
-    /// "highlight jumps to neighbour then settles" glitch; the reducer
-    /// returns `current` unchanged so the caller's `visibleEquipment`
-    /// state stays pinned to the drag target. When the drag ends
-    /// (`isDragging == false`), the next callback reconciles the highlight
-    /// to whatever section is actually top-visible after all queued scroll
-    /// animations settle, matching the pre-fix contract.
-    ///
-    /// The dedup guard (skip write when resolved == current) is still
-    /// applied on non-drag frames — that behaviour is what the MY-1249
-    /// `dedupCollapsesHighFrequencyFrames` test locks in.
+    /// MY-1338: drag-aware variant of the scroll-callback bridge.
     @discardableResult
     static func applyVisibleIds(
-        _ visibleIds: [Equipment],
-        in order: [Equipment],
-        current: Equipment?,
+        _ visibleIds: [ExerciseSection],
+        in order: [ExerciseSection],
+        current: ExerciseSection?,
         isDragging: Bool,
-        using setter: (Equipment?) -> Void
-    ) -> Equipment? {
-        // Drag owns the highlight — ignore scroll-derived visibility during
-        // scrub. Return `current` so the caller keeps its pinned drag
-        // target rather than adopting the racing top-visible payload.
+        using setter: (ExerciseSection?) -> Void
+    ) -> ExerciseSection? {
         if isDragging {
             return current
         }
@@ -1011,31 +960,22 @@ struct ExercisePickerView: View {
         return resolved
     }
 
-    /// MY-1249: pick the section that should own the index-bar highlight
-    /// given the set of currently visible section ids. Prefer the first
-    /// visible section in equipment order (i.e. the top-most on-screen).
-    /// Falls back to `nil` when no ids are reported (empty content).
+    /// MY-1249: pick the section that should own the index-bar highlight.
     static func firstVisibleEquipment(
-        from visibleIds: [Equipment],
-        in order: [Equipment]
-    ) -> Equipment? {
+        from visibleIds: [ExerciseSection],
+        in order: [ExerciseSection]
+    ) -> ExerciseSection? {
         guard !visibleIds.isEmpty else { return nil }
         let visibleSet = Set(visibleIds)
         return order.first(where: visibleSet.contains) ?? visibleIds.first
     }
 
     /// MY-1272: pick the equipment section to scroll to when the muscle
-    /// group filter changes. Prefer the user's currently-visible
-    /// equipment when it survives the filter — that anchors the reset to
-    /// "the section you were already reading" (per parent MY-1271 UX).
-    /// When the previously visible equipment is missing from the new
-    /// list (e.g. the current group has no barbell exercises), fall back
-    /// to the first section of the new list (preserving MY-1250).
-    /// Returns `nil` when the new list is empty.
+    /// group filter changes.
     static func resolveMuscleGroupScrollAnchor(
-        previouslyVisible: Equipment?,
-        in newOrder: [Equipment]
-    ) -> Equipment? {
+        previouslyVisible: ExerciseSection?,
+        in newOrder: [ExerciseSection]
+    ) -> ExerciseSection? {
         if let previous = previouslyVisible, newOrder.contains(previous) {
             return previous
         }
@@ -1043,40 +983,24 @@ struct ExercisePickerView: View {
     }
 
     /// MY-1259: pick the equipment section to scroll to when the search
-    /// text changes. Search always resets scroll intent (the user changed
-    /// query), so the anchor is unconditionally the first section of the
-    /// filtered list — or `nil` when the search yields no matches so the
-    /// caller does not attempt to scroll to a missing target. Mirrors
-    /// `resolveMuscleGroupScrollAnchor`'s empty-list contract.
+    /// text changes.
     static func resolveSearchScrollAnchor(
-        in newOrder: [Equipment]
-    ) -> Equipment? {
+        in newOrder: [ExerciseSection]
+    ) -> ExerciseSection? {
         newOrder.first
     }
 
-    /// MY-1338: fixed section-preview popup dimensions. The popup used to
-    /// grow horizontally with long equipment names (`minWidth: 140`), which
-    /// made the surface visibly resize per scrub target and drift off
-    /// centre. Locking a hard `width × height` means the layout is a
-    /// no-op on every drag frame — long names truncate/scale inside the
-    /// fixed frame instead of pushing the frame out.
+    /// MY-1338: fixed section-preview popup dimensions.
     static let sectionPreviewPopupWidth: CGFloat = 160
     static let sectionPreviewPopupHeight: CGFloat = 160
 
-    private func sectionPreviewPopup(equipment: Equipment) -> some View {
+    private func sectionPreviewPopup(equipment: ExerciseSection) -> some View {
         VStack(spacing: 8) {
             Image(systemName: equipment.sfSymbol)
                 .font(.system(size: 48, weight: .light))
             Text(equipment.localizedName)
                 .font(.title3)
                 .fontWeight(.medium)
-                // MY-1338: single-line + shrink-to-fit so long localized
-                // names (e.g. Chinese 3-4 chars, or long English words)
-                // stay inside the fixed popup frame instead of stretching
-                // it. `minimumScaleFactor(0.6)` keeps the text legible
-                // down to ~60% of the base title3 point size, then the
-                // trailing truncation kicks in if the string is still
-                // too long — the frame itself never resizes.
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .truncationMode(.tail)
@@ -1111,8 +1035,12 @@ struct ExercisePickerView: View {
         }
     }
 
-    private func equipmentSection(equipment: Equipment, exercises: [Exercise]) -> some View {
-        let color = categoryColor(categoryColorIndex(for: equipment), theme: theme)
+    private func sectionPaletteIndex(for section: ExerciseSection) -> Int {
+        (ExerciseSection.allCases.firstIndex(of: section) ?? 0) % 5
+    }
+
+    private func equipmentSection(equipment: ExerciseSection, exercises: [Exercise]) -> some View {
+        let color = categoryColor(sectionPaletteIndex(for: equipment), theme: theme)
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 Image(systemName: equipment.sfSymbol)
@@ -1446,15 +1374,15 @@ private struct ExerciseCard: View {
 
 private struct EquipmentIndexBar: View {
     @Environment(\.theme) private var theme
-    let equipments: [Equipment]
-    let activeEquipment: Equipment?
+    let equipments: [ExerciseSection]
+    let activeEquipment: ExerciseSection?
     /// `animated == false` during a finger drag: the drag scrubs across many
     /// equipments and each triggers a `scrollTo`, so stacking a 0.2s animated
     /// scroll per frame to a tall section (e.g. 201-item machine) makes the
     /// animations fight and spikes the main thread. A tap sets `animated ==
     /// true` for a single smooth jump.
-    let onSelect: (_ equipment: Equipment, _ animated: Bool) -> Void
-    let onDragChanged: (Equipment) -> Void
+    let onSelect: (_ equipment: ExerciseSection, _ animated: Bool) -> Void
+    let onDragChanged: (ExerciseSection) -> Void
     let onDragEnded: () -> Void
 
     private static let verticalPadding: CGFloat = 8
@@ -1515,7 +1443,7 @@ private struct EquipmentIndexBar: View {
         .accessibilityLabel(String(localized: "器械分区索引", comment: "Equipment section index bar a11y label"))
     }
 
-    private func equipmentAt(y: CGFloat, totalHeight: CGFloat) -> Equipment? {
+    private func equipmentAt(y: CGFloat, totalHeight: CGFloat) -> ExerciseSection? {
         guard !equipments.isEmpty else { return nil }
         let usable = max(totalHeight - Self.verticalPadding * 2, 1)
         let clamped = min(max(y - Self.verticalPadding, 0), usable - 0.001)

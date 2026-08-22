@@ -275,7 +275,7 @@ struct ExercisePickerScrollResetTests {
         #expect(noMatch.isEmpty)
         // The fix passes `newGroups.first?.0` into `visibleEquipment`.
         // When empty, that is `nil` — must not crash.
-        let anchor: Equipment? = noMatch.first?.0
+        let anchor: ExerciseSection? = noMatch.first?.0
         #expect(anchor == nil)
     }
 }
