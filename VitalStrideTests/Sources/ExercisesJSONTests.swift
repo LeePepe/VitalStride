@@ -240,6 +240,7 @@ private func equipment(fromSourceValue sourceValue: String) -> Equipment {
     case "band": .band
     case "barbell": .barbell
     case "body weight": .bodyweight
+    case "bodyweight": .bodyweight
     case "bosu ball": .bosuBall
     case "cable": .cable
     case "dumbbell": .dumbbell
