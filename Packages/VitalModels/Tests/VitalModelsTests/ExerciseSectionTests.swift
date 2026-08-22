@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import VitalModels
 
@@ -29,6 +30,18 @@ struct ExerciseSectionTests {
         let actual = ExerciseSection.allCases.map(\.rawValue)
         #expect(actual.count == 17)
         #expect(Set(actual) == Set(expected))
+    }
+
+    @Test("ExerciseSection Codable round-trips every case without data loss")
+    func codableRoundTrip() throws {
+        let encoder = JSONEncoder()
+        let decoder = JSONDecoder()
+
+        for section in ExerciseSection.allCases {
+            let data = try encoder.encode(section)
+            let decoded = try decoder.decode(ExerciseSection.self, from: data)
+            #expect(decoded == section)
+        }
     }
 
     @Test("Equipment resolves the stable section mapping and pushes low-frequency equipment into other")
