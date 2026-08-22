@@ -23,12 +23,12 @@ struct ExercisePickerIndexSyncTests {
 
     @Test("first visible id in equipment order wins the highlight")
     func firstVisibleWins() {
-        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
         // Grid scrolled past barbell — barbell is off-screen, dumbbell &
         // machine are both partially visible. The top-most (dumbbell)
         // must own the highlight, not whichever id the scroll view
         // happens to report first.
-        let visible: [Equipment] = [.machine, .dumbbell]
+        let visible: [ExerciseSection] = [.machine, .dumbbell]
 
         let selected = ExercisePickerView.firstVisibleEquipment(from: visible, in: order)
 
@@ -37,7 +37,7 @@ struct ExercisePickerIndexSyncTests {
 
     @Test("scrolling to a later section moves the highlight")
     func highlightFollowsScroll() {
-        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
 
         // Initial: barbell + dumbbell visible → barbell highlighted.
         let atTop = ExercisePickerView.firstVisibleEquipment(
@@ -65,7 +65,7 @@ struct ExercisePickerIndexSyncTests {
 
     @Test("empty visible list yields nil (no crash, no stale highlight)")
     func emptyVisibleReturnsNil() {
-        let order: [Equipment] = [.barbell, .dumbbell]
+        let order: [ExerciseSection] = [.barbell, .dumbbell]
         #expect(ExercisePickerView.firstVisibleEquipment(from: [], in: order) == nil)
     }
 
@@ -74,7 +74,7 @@ struct ExercisePickerIndexSyncTests {
         // Defensive: if the scroll view reports an id we did not list
         // (shouldn't happen, but guard against filter-race timing), the
         // helper still returns something rather than nil.
-        let order: [Equipment] = [.barbell]
+        let order: [ExerciseSection] = [.barbell]
         let selected = ExercisePickerView.firstVisibleEquipment(
             from: [.dumbbell],
             in: order
@@ -129,8 +129,8 @@ struct ExercisePickerIndexSyncTests {
     /// single id so the highlight follows.
     @Test("callback path picks the top-visible section when only one id is reported")
     func callbackPathHandlesSingleTallSection() {
-        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
-        var applied: Equipment? = .barbell // stale
+        let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
+        var applied: ExerciseSection? = .barbell // stale
 
         // Dumbbell is the only section on-screen (huge section, fills the
         // viewport). Without a low threshold this would be an empty list;
@@ -151,8 +151,8 @@ struct ExercisePickerIndexSyncTests {
     /// configuration path, not just on `firstVisibleEquipment`.
     @Test("callback path selects top-most on-screen section across multiple ids")
     func callbackPathSelectsTopMostAcrossIds() {
-        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
-        var applied: Equipment? = nil
+        let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
+        var applied: ExerciseSection? = nil
 
         // Barbell (top-most) + dumbbell both visible.
         ExercisePickerView.applyVisibleIds([.dumbbell, .barbell], in: order) { applied = $0 }
@@ -169,8 +169,8 @@ struct ExercisePickerIndexSyncTests {
     /// than crash or leak a stale id through to the setter.
     @Test("callback path clears highlight when nothing is on-screen")
     func callbackPathClearsHighlightOnEmpty() {
-        let order: [Equipment] = [.barbell, .dumbbell]
-        var applied: Equipment? = .barbell
+        let order: [ExerciseSection] = [.barbell, .dumbbell]
+        var applied: ExerciseSection? = .barbell
 
         ExercisePickerView.applyVisibleIds([], in: order) { applied = $0 }
         #expect(applied == nil)
@@ -191,9 +191,9 @@ struct ExercisePickerIndexSyncTests {
     /// must NOT fire — this is the per-frame no-op that the fix suppresses.
     @Test("dedup: unchanged top-visible section does not write @State")
     func dedupSuppressesUnchangedWrite() {
-        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
         var writeCount = 0
-        var applied: Equipment? = .dumbbell
+        var applied: ExerciseSection? = .dumbbell
 
         // Same section still top-visible (payload jitters between frames but
         // dumbbell stays top-most). No write should occur.
@@ -212,9 +212,9 @@ struct ExercisePickerIndexSyncTests {
     /// highlight keeps following the scroll (the dedup cannot over-suppress).
     @Test("dedup: changed top-visible section writes exactly once")
     func dedupWritesOnGenuineChange() {
-        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
         var writeCount = 0
-        var applied: Equipment? = .barbell
+        var applied: ExerciseSection? = .barbell
 
         let resolved = ExercisePickerView.applyVisibleIds(
             [.dumbbell, .machine],
@@ -232,9 +232,9 @@ struct ExercisePickerIndexSyncTests {
     /// of the hang fix. Simulates 100 frames reporting dumbbell as top-most.
     @Test("dedup: 100 same-section frames collapse to a single write")
     func dedupCollapsesHighFrequencyFrames() {
-        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
         var writeCount = 0
-        var current: Equipment? = .barbell
+        var current: ExerciseSection? = .barbell
 
         for _ in 0..<100 {
             current = ExercisePickerView.applyVisibleIds(
@@ -255,10 +255,10 @@ struct ExercisePickerIndexSyncTests {
     /// already `nil` must be suppressed.
     @Test("dedup: nil transition writes once then suppresses")
     func dedupHandlesNilTransition() {
-        let order: [Equipment] = [.barbell, .dumbbell]
+        let order: [ExerciseSection] = [.barbell, .dumbbell]
         var writeCount = 0
 
-        var current: Equipment? = .barbell
+        var current: ExerciseSection? = .barbell
         current = ExercisePickerView.applyVisibleIds([], in: order, current: current) {
             current = $0; writeCount += 1
         }
@@ -294,9 +294,9 @@ struct ExercisePickerIndexSyncTests {
     /// through the neighbour.
     @Test("drag suppresses scroll-derived highlight write (MY-1338)")
     func dragSuppressesScrollWrite() {
-        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
         var writeCount = 0
-        var current: Equipment? = .machine // drag has scrubbed to machine
+        var current: ExerciseSection? = .machine // drag has scrubbed to machine
 
         // Scroll callback fires mid-drag with an OLDER section (barbell)
         // reported top-visible — this is the racing payload. Without the
@@ -318,9 +318,9 @@ struct ExercisePickerIndexSyncTests {
     /// the drag reducer is a hard mute on the scroll path.
     @Test("drag suppresses 100 scroll frames without writing (MY-1338)")
     func dragSuppressesHighFrequencyScroll() {
-        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
         var writeCount = 0
-        var current: Equipment? = .cable
+        var current: ExerciseSection? = .cable
 
         for _ in 0..<100 {
             _ = ExercisePickerView.applyVisibleIds(
@@ -341,9 +341,9 @@ struct ExercisePickerIndexSyncTests {
     /// even when the grid subsequently scrolls independently.
     @Test("drag end reconciles highlight to actual top-visible section (MY-1338)")
     func dragEndReconcilesToScroll() {
-        let order: [Equipment] = [.barbell, .dumbbell, .machine, .cable]
+        let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
         var writeCount = 0
-        var current: Equipment? = .machine // last drag target
+        var current: ExerciseSection? = .machine // last drag target
 
         // Drag has ended; scroll animations settle; the grid is actually
         // top-anchored at `.dumbbell` (perhaps the animated scrollTo(.machine)
@@ -365,9 +365,9 @@ struct ExercisePickerIndexSyncTests {
     /// MY-1249 fixed. Regression-guards the interaction between the two.
     @Test("non-drag reducer still dedups unchanged frames (MY-1338)")
     func nonDragReducerDedups() {
-        let order: [Equipment] = [.barbell, .dumbbell]
+        let order: [ExerciseSection] = [.barbell, .dumbbell]
         var writeCount = 0
-        var current: Equipment? = .dumbbell
+        var current: ExerciseSection? = .dumbbell
 
         _ = ExercisePickerView.applyVisibleIds(
             [.dumbbell],
@@ -385,9 +385,9 @@ struct ExercisePickerIndexSyncTests {
     /// (and their tests above) keep the same contract.
     @Test("legacy 4-arg overload delegates to non-drag path (MY-1338)")
     func legacyOverloadDelegatesToNonDrag() {
-        let order: [Equipment] = [.barbell, .dumbbell, .machine]
+        let order: [ExerciseSection] = [.barbell, .dumbbell, .machine]
         var writeCount = 0
-        var current: Equipment? = .barbell
+        var current: ExerciseSection? = .barbell
 
         // Same payload as `dedupWritesOnGenuineChange` — legacy overload
         // must write exactly once when the top-visible section changes.
@@ -419,8 +419,8 @@ struct ExercisePickerIndexSyncTests {
         // TelemetryIdentifier.init(validating:) is a construction-time
         // guarantee. Exercise the complete taxonomy so a future non-canonical
         // rename fails here.
-        #expect(Equipment.allCases.count == 29)
-        for equipment in Equipment.allCases {
+        #expect(ExerciseSection.allCases.count == 17)
+        for equipment in ExerciseSection.allCases {
             let identifier = ExercisePickerView.telemetryIdentifier(for: equipment)
             #expect(identifier.rawValue == equipment.rawValue)
         }
