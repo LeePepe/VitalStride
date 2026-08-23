@@ -10,7 +10,7 @@
 行为与原 heredoc 逐字等价（含输出格式），三个子命令对应原来的三段：
 
   canon <top-context>                 → 逗号分隔的 canonical_roles
-  parse <layer-context>               → NO_FRONTMATTER | LAYER=/TEST=/DEPS=/ROLE= 行
+  parse <layer-context>               → identity/dependency/path/exclusion/role lines
   roles <layer-context> <dir> <pkg> <canon>  → 每行一条错误（无错则无输出）
 """
 
@@ -22,14 +22,16 @@ import sys
 
 def read_frontmatter(path):
     """取 `---` 包住的 frontmatter 正文；没有则返回 None。"""
-    text = open(path, encoding="utf-8").read()
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
     m = re.match(r"^---\n(.*?)\n---\n", text, re.S)
     return m.group(1) if m else None
 
 
 def parse_list(fm, key):
     m = re.search(r"^%s:\s*\[(.*?)\]\s*$" % re.escape(key), fm, re.M)
-    return [x.strip() for x in (m.group(1) if m else "").split(",") if x.strip()]
+    values = [x.strip() for x in (m.group(1) if m else "").split(",") if x.strip()]
+    return [x[1:-1] if len(x) >= 2 and x[0] == x[-1] and x[0] in "'\"" else x for x in values]
 
 
 def parse_scalar(fm, key):
@@ -67,6 +69,10 @@ def cmd_parse(layer_context):
     print("LAYER=" + parse_scalar(fm, "layer"))
     print("TEST=" + parse_scalar(fm, "test"))
     print("DEPS=" + ",".join(parse_list(fm, "depends_on")))
+    print("BY=" + ",".join(parse_list(fm, "depended_by")))
+    print("PATHS=" + "|".join(parse_list(fm, "paths")))
+    print("SUPPORT_EXCLUDES=" + "|".join(parse_list(fm, "support_excludes")))
+    print("GENERATED_EXCLUDES=" + "|".join(parse_list(fm, "generated_excludes")))
     for key, entries in parse_roles(fm).items():
         print("ROLE=%s=%s" % (key, "|".join(entries)))
     return 0

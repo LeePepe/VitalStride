@@ -37,6 +37,9 @@ HealthKit 数值不离设备、不入日志、权限撤销即清除。
 
 **规则**：
 - App target 不互相依赖，只依赖 packages。
+- App production/test/XcodeGen 真理源归 `AppUI`；repository automation/config 归 `RepoInfra`。
+  `Prototype` 与 6 个 package layer 补齐其余 schedulable paths；治理/support 与 generated/cache/log/local-secret
+  路径显式排除。ownership 与 gate speed 正交（ADR-0018、ADR-0019）。
 - 新 AI provider = 在 `AIService` 实现 `AIProvider` 协议，不新建包。
 - 改动仅涉及 `Packages/<X>/` 时，**必须**用 `swift build && swift test` 验证；禁止用 xcodebuild（慢且无意义）。
 - 新增 package 需 ADR 并更新 `project.yml` + 本宪法表格。
@@ -91,7 +94,7 @@ AI provider chain：**Apple Intelligence Foundation Models 优先**（On-device,
 ## Module Architecture
 
 ```
-App targets (iOS / macOS / watchOS)
+AppUI (iOS / macOS / watchOS / widget + app tests/config)
     │  仅含入口、平台 UI、Live Activity widget
     ↓
 VitalUI ←── VitalModels
@@ -101,6 +104,8 @@ HealthKitService ┘
     AIService    (独立, 无依赖)
     TelemetryKit (独立, 无依赖)
     DesignKit    (独立, 无依赖 — 设计系统 token + 组件)
+
+RepoInfra (独立：CI/workflow/hooks/tooling/release/repo policy；无 product dependency)
 ```
 
 **Rules**：
@@ -148,7 +153,8 @@ review 机器人都 required）** —— 任一 CI 红或**任一 review 机器�
 也不例外。**两个 review check 都必须 required**：曾因 `codex-review` 漏配为非 required，auto-merge
 无视其 FAIL 直接合并、P0 缺陷进 main（MY-1314/PR #342，2026-07-24）；根治=把 codex-review 加入
 ruleset required checks。`scripts/hooks/pre-commit` 禁止直接 commit 到
-main；`pre-push` 本地跑全量 build/test + lint 作为 PR 前的快速门。详见 [ADR-0009](../../docs/adr/0009-pr-required-workflow.md)、AGENTS.md §Git Workflow。
+main；`pre-push` 只跑 agent-run-safe 的轻量门禁，分钟级 AppUI `xcodebuild` 由 required CI
+不可绕过地执行（本地完整验证由 FS 按风险决定）。详见 [ADR-0009](../../docs/adr/0009-pr-required-workflow.md)、[ADR-0018](../../docs/adr/0018-formal-appui-change-owner-layer.md)、AGENTS.md §Git Workflow。
 
 ### Commit Message 约定
 
@@ -161,10 +167,11 @@ main；`pre-push` 本地跑全量 build/test + lint 作为 PR 前的快速门。
 ### Build & Test Gate
 
 - **Packages/ 仅改动** → `swift build && swift test`（per package）
-- **App target 改动** → `xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 16' -skipPackagePluginValidation`
-- pre-push hook 自动选择路径（SPM-only fast path）
-- 共享 `<git-common-dir>/derived-data` + `flock` 保护并发 build
-- 纯 docs/hooks/scripts 改动 skip build
+- **AppUI 改动** → required CI 执行 `xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation`
+- **RepoInfra 改动** → 本地运行 `bash scripts/test-repoinfra.sh`；不触发 app xcodebuild
+- 本地 AppUI 完整验证可选：直接运行上条命令，或 `RUN_XCODEBUILD=1 git push`
+- pre-push hook 自动选择 fast path（production SPM build/test；Prototype build；AppUI 重验证 deferred to CI）
+- support-only docs 改动 skip build；RepoInfra 路径走上述 fast validation
 
 ### 平台 Deployment Target
 
@@ -229,14 +236,14 @@ main；`pre-push` 本地跑全量 build/test + lint 作为 PR 前的快速门。
 
 - 风格、注释优化、命名建议。
 
-### J — Ship-Gate Failure Classification (P0 verdict aggregation modifier)
+### J — Ship-Gate Failure Classification
 
-Ship gate (`xcodebuild test` / `swift test` 在 pre-push hook) 失败时，Reviewer / TL **必须**先判定失败是否由当前 patch 引入：
+Ship gate（required CI 的 `App target` / `SPM …`）失败时，PR Manager **必须**先判定失败是否由当前 patch 引入。AI Reviewer 只审内容，不执行或判断 build/test/lint/hook/CI gate；TL 仅处理证据冲突、恢复和升级：
 
-- **Patch-induced**：失败 test 文件 ∈ `git diff github/main...HEAD --name-only`，或失败 test 所属 module 有源码改动 → 正常 P0 FAIL，回 FS
-- **Pre-existing flake**：失败 test 与当前 patch 无源码关联 → **不计入 verdict**，走 AGENTS.md §Pipeline Recovery → Quarantine 路径
+- **Patch-induced**：失败 test 文件 ∈ `git diff github/main...HEAD --name-only`，或失败 test 所属 module 有源码改动 → 阻止 shipping，由 PR Manager 带证据直接请求 FS 修复
+- **Pre-existing flake**：失败 test 与当前 patch 无源码关联 → 不改变 AI Reviewer 的内容 verdict；由 PR Manager 走 AGENTS.md §Pipeline Recovery → Quarantine 路径
 
-把 pre-existing flake 当作 P0 FAIL 阻塞 patch = 宪法违规（reviewer 责任）。
+把 gate state 写进 AI Reviewer verdict，或让 Reviewer/TL 代替 PR Manager 监督 CI，均为职责边界违规。
 
 ### Verdict Aggregation
 
@@ -293,7 +300,17 @@ TL 每次 pipeline 起手前必须扫描：
   - MAJOR — 删除/反转原则；MINOR — 新增原则/新 Quality Bar；PATCH — 文字澄清不改语义
 - 与本宪法相关：AGENTS.md（agent 操作手册）、CONTEXT.md（数据架构细节）、`docs/adr/`（决策档案）、`scripts/hooks/`（强制规则机器实现）。
 
-**Version**: 2.7.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-31
+**Version**: 2.7.2 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-08-23
+
+> 2.7.2（PATCH，补齐 schedulable ownership）：新增独立 `RepoInfra` change-owner layer，覆盖
+> repository automation/config，并以 machine-readable support/generated exclusions 划清非 schedulable
+> artifacts；path checker 对 unmapped 与 overlap fail closed。ownership 与 gate speed 继续正交，
+> AI Reviewer/PR Manager 职责不变（[ADR-0019](../../docs/adr/0019-formal-repoinfra-change-owner-layer.md)）。
+
+> 2.7.1（PATCH，正式化既有边界）：app production/test/build-config 路径归入一个跨平台
+> `AppUI` change-owner layer，隔离的视觉原型归 `Prototype` layer；明确 layer ownership 与 gate
+> speed 正交，AppUI 分钟级完整验证默认由 required CI 执行，本地运行由 FS 按风险决定
+> （[ADR-0018](../../docs/adr/0018-formal-appui-change-owner-layer.md)）。
 
 > 2.7.0（MINOR，新增 Quality Bar K + 收紧 DoR 硬合同）：两条 pipeline 质量改进，源自 MY-1369 规划递归与 MY-1352 真机门死结的复盘。(1) **DoR 硬合同**新增两条红线——Planner 不内联实现级可编译代码（只写契约级描述，实现细节留 GREEN 由编译器兜底）、引用符号前须 `grep`/`git show` 核验存在（规划审一次性全量核验，不做增量逐个抓）；修正 planner 把编译级自查外包给 reviewer、导致 R4/R5 逐轮抓 `init` 标签 / 枚举 case 的递归浪费。(2) **Quality Bar K**：纯视觉改动的 before/after 验收默认走 iPhone Simulator light/dark 截图或 SnapshotTesting，禁写死真机；修正 keyboard stage 因 runtime 无真机造出的「永远升级 human」死结。同步收紧 AGENTS.md 的 human 升级措辞与 Planner Lead 职责行（[ADR-0017](../../docs/adr/0017-planning-code-inlining-and-visual-acceptance-gates.md)）。
 

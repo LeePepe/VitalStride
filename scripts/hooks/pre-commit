@@ -3,12 +3,12 @@
 #
 # 1. Block direct commits to main / master
 # 2. SwiftLint staged Swift files (fast — no build)
-# 3. Incremental per-layer discovery: swift build + test for each touched
-#    Packages/<X> (seconds each). App-target / docs-only changes skip this.
+# 3. Incremental per-layer discovery: build/test each touched production SPM
+#    layer and build the isolated Prototype layer. AppUI/RepoInfra/support
+#    paths skip heavy build; RepoInfra's focused gate runs at pre-push + CI.
 #
-# pre-push still runs the FULL checks (xcodebuild, all-package build/test,
-# full SwiftLint, frontmatter anti-rot) — this hook is the fast inner-loop
-# subset scoped to the layers you actually touched.
+# Required CI runs full AppUI xcodebuild. This hook is the fast inner-loop
+# subset scoped to the layers actually touched.
 
 set -uo pipefail
 
@@ -66,7 +66,8 @@ TOUCHED_LAYERS=$(echo "$STAGED" \
   | sed -E 's|^Packages/([^/]+)/.*|\1|' \
   | sort -u || true)
 
-[ -z "$TOUCHED_LAYERS" ] && exit 0
+PROTOTYPE_TOUCHED=$(echo "$STAGED" | grep -E '^Prototype/' || true)
+[ -z "$TOUCHED_LAYERS" ] && [ -z "$PROTOTYPE_TOUCHED" ] && exit 0
 
 # Guard: many touched layers × per-layer build+test can break the "fast" promise.
 # Above the cap, build only (defer full test to pre-push).
@@ -85,18 +86,27 @@ while IFS= read -r pkg; do
   LOG=$(mktemp)
 
   echo "🔨 swift build [$pkg]"
-  if ! (cd "Packages/$pkg" && swift build) > "$LOG" 2>&1; then
+  if ! (cd "Packages/$pkg" && swift build </dev/null) > "$LOG" 2>&1; then
     echo "❌ swift build failed [$pkg]"; tail -20 "$LOG"; FAIL=1; rm -f "$LOG"; continue
   fi
 
   if [ "$RUN_TESTS" = true ]; then
     echo "🧪 swift test  [$pkg]"
-    if ! (cd "Packages/$pkg" && swift test) > "$LOG" 2>&1; then
+    if ! (cd "Packages/$pkg" && swift test </dev/null) > "$LOG" 2>&1; then
       echo "❌ swift test failed [$pkg]"; tail -30 "$LOG"; FAIL=1
     fi
   fi
   rm -f "$LOG"
-done <<< "$TOUCHED_LAYERS"
+done < <(printf '%s\n' "$TOUCHED_LAYERS")
+
+if [ -n "$PROTOTYPE_TOUCHED" ]; then
+  LOG=$(mktemp)
+  echo "🔨 swift build [Prototype]"
+  if ! swift build --package-path Prototype </dev/null > "$LOG" 2>&1; then
+    echo "❌ swift build failed [Prototype]"; tail -20 "$LOG"; FAIL=1
+  fi
+  rm -f "$LOG"
+fi
 
 if [ "$FAIL" -ne 0 ]; then
   echo ""

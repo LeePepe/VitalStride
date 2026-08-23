@@ -2,7 +2,7 @@
 layer: VitalModels
 role: SwiftData @Model 定义 + 枚举 + ModelContainer 配置；全项目数据层基础
 depends_on: []
-depended_by: [HealthKitService, VitalUI]
+depended_by: [HealthKitService, VitalUI, AppUI]
 red_lines:
   - HealthKit L2 缓存模型（HealthCacheEntry / AvailableTypesEntry）必须 cloudKitDatabase:.none，禁止 CloudKit 同步（宪法 I）
   - AI 缓存模型（OverviewInsightCache / TrainingAdviceCache / DataAnalysisCache）必须 cloudKitDatabase:.none（宪法 I）

@@ -2,7 +2,7 @@
 layer: AIService
 role: AI 推理 Provider 抽象层；定义 AIProvider 协议 + ProviderChain + 输出结构（不含缓存）
 depends_on: []
-depended_by: []
+depended_by: [AppUI]
 red_lines:
   - 禁止引入 OpenAI/Anthropic/Google 等第三方 AI SDK；provider 走 OpenAI-compatible REST via URLSession（宪法 V）
   - API key 仅存 Keychain，禁止硬编码（宪法 V）

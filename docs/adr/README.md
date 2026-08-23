@@ -45,6 +45,8 @@ Each ADR is its own file, numbered sequentially: `NNNN-kebab-case-title.md`.
 | [0016](0016-task-kind-ai-routing-feedback-weights.md) | Task-Kind AI Routing with Feedback-Driven Weights | Proposed | 2026-07-29 |
 | [0014](0014-restore-planner-review-dual-approval.md) | Restore Planner Lead Review + AI Reviewer/TL Dual-Approval Gate | Accepted | 2026-07-24 |
 | [0017](0017-planning-code-inlining-and-visual-acceptance-gates.md) | Planner No-Code-Inlining + Simulator Snapshot for Visual Acceptance | Accepted | 2026-07-31 |
+| [0018](0018-formal-appui-change-owner-layer.md) | Formal AppUI Change-Owner Layer | Accepted | 2026-08-23 |
+| [0019](0019-formal-repoinfra-change-owner-layer.md) | Formal RepoInfra Change-Owner Layer | Accepted | 2026-08-23 |
 
 ## Writing a new ADR
 

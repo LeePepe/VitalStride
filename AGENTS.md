@@ -12,14 +12,17 @@
 | 决定做未来功能 / V2+ 规划 | `specs/001-future-roadmap/spec.md`（+ `plan.md` 看扩展点与 fork 顺序） | 未来功能意图、优先级、宪法预检、复用锚点（umbrella，启动时 fork 出 `specs/002-*`） |
 | 改全局架构 / 跨层设计 | `CONTEXT.md`（顶层，含 `canonical_roles`） | 架构决策、数据流、layer 划分、类角色顺序 |
 | 改 `Packages/<X>/**` | `Packages/<X>/CONTEXT.md`（该层 frontmatter） | 该层职责 / 依赖 / red_lines / test 命令 |
+| 改 app target / app tests / `project.yml` | `VitalStride/CONTEXT.md`（AppUI frontmatter） | 跨平台 app layer 的路径归属 / 依赖 / red_lines / CI gate |
+| 改 `Prototype/**` | `Prototype/CONTEXT.md` | 隔离边界 / DesignKit-only 依赖 / build 命令 |
+| 改 CI/workflow、hooks/scripts、fastlane、repo lint/security/spec-kit tooling | `RepoInfra/CONTEXT.md` | RepoInfra owned/excluded paths、角色边界、fast test 命令 |
 | build / test / git 操作 | 本文件（AGENTS.md） | 命令手册、PR 工作流 |
 | 架构方向冲突 | `docs/adr/` | 已落地决策；要推翻先写新 ADR |
 
 ## Layer 索引（Layer Map）
 
-业务逻辑住 `Packages/`（6 个本地 SPM 包）；app target（`VitalStride/`、`VitalStrideMac/`、
-`VitalStrideWatch Watch App/`、`VitalStrideWidgets/`）只放平台入口 + UI，**不属于任何 layer**
-（其门禁走 pre-push 全量 xcodebuild）。
+业务逻辑住 `Packages/`（6 个本地 SPM 包）。app target/tests 与 XcodeGen 真理源归 `AppUI`，
+独立视觉原型归 `Prototype`，repository automation/config 归 `RepoInfra`。治理、spec、设计证据
+以及 generated/cache/log/local-secret 路径是显式 exclusions。layer ownership 与 gate 速度正交。
 
 | Layer | 职责（一句话） | 文档 | 依赖（depends_on） |
 |---|---|---|---|
@@ -29,12 +32,15 @@
 | VitalUI | 跨 target 共享 SwiftUI 组件 | `Packages/VitalUI/CONTEXT.md` | VitalModels |
 | TelemetryKit | 埋点抽象（独立，无本地依赖） | `Packages/TelemetryKit/CONTEXT.md` | （无） |
 | DesignKit | 设计语言：seed 配色 token + SwiftUI 组件 | `Packages/DesignKit/CONTEXT.md` | （无） |
+| AppUI | 跨平台 app 入口、应用编排、UI、app tests 与 XcodeGen 配置 | `VitalStride/CONTEXT.md` | 6 个 production packages |
+| Prototype | 隔离的 SwiftUI 视觉原型与截图导出 | `Prototype/CONTEXT.md` | DesignKit |
+| RepoInfra | CI/workflow、scripts/hooks/tests、fastlane/release、repo policy/config 与 spec-kit tooling | `RepoInfra/CONTEXT.md` | （无） |
 
 **渐进展开**：先读本表定位相关 layer → 只下钻该 layer 的 CONTEXT.md → 拿约束再动手。
 改哪层读哪层，不预读所有层文档。
 
 **按 layer 收窄范围**：
-- 改动只落 1 个 layer（或只落 app target）→ 一个任务直接做。
+- 改动只落 1 个 layer → 一个任务直接做。
 - 跨 2+ layer → 太大，按 layer 拆成 N 个独立可 `swift build/test` 的子任务（一层一 commit）。
 - 单层内仍很大 → 按技术切面再拆：纯逻辑 → 输入/校验 → 处理/编排 → 输出转换 → fixture → 文档 → 迁移。
 - **收尾遗留记为新任务，不回头扩大当前任务。**
@@ -54,6 +60,11 @@ lint/test 失败信号带 `{layer, red_lines}`。无论谁来修：
 
 ## Build & Test
 
+### RepoInfra（fast only）
+
+RepoInfra 改动运行 `bash scripts/test-repoinfra.sh`。该命令验证 path coverage/frontmatter、
+shell/Python syntax 与 tooling tests，不运行 app `xcodebuild`；分钟级 app gate 仍由 required CI 执行。
+
 ### SPM Packages（优先使用）
 
 `Packages/` 下的六个独立 SPM 包（VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit, DesignKit）支持 `swift build` 和 `swift test`，无需 Xcode 项目、无需模拟器，秒级完成。
@@ -67,7 +78,7 @@ cd Packages/HealthKitService && swift build && swift test
 
 ### 主 App Target（仅在必要时）
 
-主 app（VitalStride/、VitalStrideMac/、VitalStrideWatch/）没有顶层 Package.swift，必须用 xcodebuild。但要遵守以下规则：
+`AppUI` 没有顶层 Package.swift，完整验证必须用 xcodebuild。但要遵守以下规则：
 
 1. **destination 用 generic** — 避免设备连接超时：
    ```bash
@@ -75,8 +86,8 @@ cd Packages/HealthKitService && swift build && swift test
      -destination 'generic/platform=iOS Simulator' \
      -skipPackagePluginValidation
    ```
-2. **后台执行 + 长 timeout** — xcodebuild 首次 SPM resolve 可能需要 2-3 分钟，不要用前台短 timeout
-3. **只在改动涉及 app target 源码时才跑 xcodebuild** — 如果只改了 Packages/ 下的代码，swift build/test 就够了
+2. **本地完整验证可选，required CI 必跑** — FS 按改动风险决定是否在本地执行；`App target` required check 不可绕过
+3. **只在改动涉及 AppUI 时才考虑 xcodebuild** — 如果只改了 Packages/ 下的代码，swift build/test 就够了
 4. **运行测试**：
    ```bash
    xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride \
@@ -198,8 +209,8 @@ The Multica daemon already created your worktree at `<task-dir>/workdir/`. **Do 
      --title "<type>: <summary> (MY-XXX)" \
      --body "Implements MY-XXX. <what changed + test plan>"
    ```
-   The pre-push hook runs `xcodebuild test` (or `swift build/test` for SPM-only changes) locally
-   first. If it fails, fix and retry. CI then re-runs the required checks on the PR.
+   The pre-push hook runs fast touched-package/Prototype/RepoInfra validation and lint. It does not run the
+   minutes-scale AppUI `xcodebuild` unless `RUN_XCODEBUILD=1`; required CI always runs `App target`.
 
 4. **Comment the PR link + assign back to TL**:
    ```bash
@@ -284,9 +295,9 @@ When you receive an issue with state `in_review` and an FS comment reporting a P
 > 这一节定义 pipeline 失败时的恢复路径。**所有失败路径都自动化，禁止 `waiting_on: human_triage`**。
 > 唯一例外：constitution P0 违规（例如健康数据隐私破坏）才升人工。其它一律走 Hermes auto-dispatch。
 
-### Ship-gate flake quarantine（pre-push test 失败）
+### Ship-gate flake quarantine（required CI test 失败）
 
-TL push `github main` 时 pre-push hook 跑 `xcodebuild test` / `swift test`。失败时**不要无脑 retry / 不要回 FS**——先判定是不是当前 patch 引入的：
+required CI 的 `App target` / `SPM …` check 失败时**不要无脑 retry / 不要回 FS**——先判定是不是当前 patch 引入的：
 
 ```bash
 # 1. 拿到当前 ship 范围（FS branch vs github/main）

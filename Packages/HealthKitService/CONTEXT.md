@@ -2,7 +2,7 @@
 layer: HealthKitService
 role: HealthKit 数据读取、双层缓存、授权管理；app target 访问健康数据的唯一入口
 depends_on: [VitalModels]
-depended_by: []
+depended_by: [AppUI]
 red_lines:
   - 健康数值禁止进任何日志（os_log/print/SDK）；仅可记录 sample type / 数量 / 时间范围（宪法 I）
   - L2 缓存（HealthCacheEntry）本地隔离，cloudKitDatabase:.none，不参与 CloudKit 同步（宪法 I）

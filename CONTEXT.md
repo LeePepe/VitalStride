@@ -135,9 +135,12 @@ Tapping a row → Detail page.
 - No data point list in detail pages
 - Extensible: new types added via HealthKitService registration
 
-## Project Structure: SPM Local Packages
+## Project Structure: Formal Layers
 
-The project uses XcodeGen + local SPM packages. Business logic lives in packages; app targets only contain platform-specific entry points and UI.
+The project uses XcodeGen + local SPM packages. Business logic lives in packages; app targets contain
+platform-specific entry points, UI, and app-specific composition. Every tracked schedulable path
+has exactly one formal change-owner layer; support and generated/local-only artifacts are explicit
+exclusions rather than implicit infrastructure ownership.
 
 ### Packages
 
@@ -150,11 +153,23 @@ The project uses XcodeGen + local SPM packages. Business logic lives in packages
 | TelemetryKit | TelemetryEvent, TelemetryProvider protocol, ConsoleTelemetryProvider, TelemetryService | None |
 | DesignKit | 设计语言:seed-based 配色 token (Seed/PrimaryPalette/Theme) + SwiftUI 组件 (Card/Metric/Sparkline/DashboardView) | None |
 
+### Non-production-package layers
+
+| Layer | Owned paths | Dependencies |
+|---|---|---|
+| AppUI | `VitalStride/**`, companion app roots, app test roots, `project.yml` | all 6 production packages |
+| Prototype | `Prototype/**` | DesignKit |
+| RepoInfra | `.github/**`, `scripts/**`, `fastlane/**`, repo lint/security config, executable/configurable `.specify` tooling | None |
+
 ### Rules
 
 - App targets (iOS/macOS/watchOS) depend on packages, not on each other
+- Shared Mac/Watch/Widget source entries remain owned once by AppUI; target reuse does not duplicate layer ownership
 - DataView + DataSections remain in app target (shared via project.yml), not in a package
 - XcodeGen is retained for managing app targets, entitlements, and package references
+- `VitalStride.xcodeproj/**` is a generated exclusion; `project.yml` remains AppUI-owned
+- Governance/docs/spec/design evidence are support exclusions; caches, logs, local secrets, and signing material are generated/local exclusions
+- AI Reviewer owns content review only; PR Manager owns CI/build/test/lint/hook/shipping state
 - Adding a new AI provider = implementing `AIProvider` protocol in AIService package
 
 ## AI Architecture
@@ -193,7 +208,8 @@ checks + review. FS pushes `agent/<issue>-<task>` to `github` and opens a PR; TL
 | FS | `github` | `agent/<issue-key>-<task-id-short>` + opens PR |
 | TL | — | merges the PR (`gh pr merge`); never pushes `main` directly |
 
-**Hard rule**: `main` is branch-protected (6 required checks + 1 review + `enforce_admins=true`);
+**Hard rule**: `main` ruleset requires `Lint & policy`, 6× `SPM …`, `App target`, `claude-review`,
+and `codex-review` (10 checks total);
 direct pushes to `main` are rejected — even for admins. The only path to `main` is a merged PR
 whose required checks are green. `pre-commit` also blocks local commits to `main`.
 
@@ -212,9 +228,13 @@ Git hooks live in `scripts/hooks/` and are activated via `core.hooksPath`. This 
 
 | Hook | Purpose |
 |------|---------|
-| `pre-commit` | Blocks direct commits to `main` / `master`; SwiftLint on staged Swift files; incremental `swift build`(+`test`) for each touched `Packages/<X>` layer (fast, no sim; >3 layers → build-only) |
-| `pre-push` | `xcodebuild test` (or `swift build/test` for SPM-only); SwiftLint on changed Swift files; layer frontmatter anti-rot check (`scripts/check-frontmatter.sh`). Runs as a fast pre-gate before the PR |
+| `pre-commit` | Blocks direct commits to `main` / `master`; SwiftLint staged Swift; touched `Packages/<X>` build/test and touched `Prototype` build (fast, no simulator) |
+| `pre-push` | Fast package/Prototype/RepoInfra validation, touched-line SwiftLint, and exhaustive layer path anti-rot. AppUI `xcodebuild` is opt-in via `RUN_XCODEBUILD=1`; required CI owns the default full run |
 
-**Build performance**: `pre-push` shares `<git-common-dir>/derived-data` across all worktrees sharing the same git-common-dir (so agent worktrees benefit from each other's build cache), and serializes concurrent `xcodebuild` invocations via a `flock`-protected `<git-common-dir>/build.lock` to avoid DerivedData corruption. `xcodebuild test` is invoked instead of separate `build` + `test` steps (test re-builds internally — running both wastes ~50% of build time).
+**Build performance**: default pre-push stays under the agent-run budget. An explicit
+`RUN_XCODEBUILD=1 git push` shares `<git-common-dir>/derived-data` and serializes the optional local
+app build via the common build lock. The non-optional full AppUI test runs in required CI.
 
-**SPM-only fast path**: when changes are confined to `Packages/<X>/` and no app-target files are touched, `pre-push` runs `swift build && swift test` per touched package instead of full `xcodebuild test`. Pure docs/hooks/scripts changes skip build entirely.
+**Fast paths**: touched production packages run `swift build && swift test`; `Prototype` runs
+`swift build --package-path Prototype`; RepoInfra runs `bash scripts/test-repoinfra.sh`. Support-only
+documentation changes skip build entirely.
