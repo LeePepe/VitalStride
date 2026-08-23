@@ -2,7 +2,7 @@
 layer: TelemetryKit
 role: 埋点抽象层；TelemetryEvent 定义 + TelemetryProvider 协议 + actor TelemetryService 分发
 depends_on: []
-depended_by: []
+depended_by: [AppUI]
 red_lines:
   - Telemetry 仅记录计数 / 耗时 / 元数据；禁止上报实际健康数值（心率/体重/步数等）（宪法 I）
   - 第三方 telemetry SDK 仅限自建 Aptabase，且只能作为 provider 消费强类型 TelemetryEvent（宪法 V narrow 例外 / ADR-0015 supersedes ADR-0011）；禁止 AI 第三方 SDK 与任何接受原始健康数值的 provider API

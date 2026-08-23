@@ -3,7 +3,7 @@
 #
 # This hook runs on EVERY push and enforces (fast, agent-run-safe gates only):
 #
-#   1. swift build + swift test for Packages/* only changes (seconds)
+#   1. swift build + swift test for production Packages/*; Prototype build
 #   2. Skip build for pure docs/hooks/scripts changes
 #   3. SwiftLint on changed Swift files (touched lines, strict)
 #
@@ -127,14 +127,17 @@ PACKAGES_TOUCHED=$(echo "$CHANGED" \
   | sed -E 's|^Packages/([^/]+)/.*|\1|' \
   | sort -u || true)
 
-# Anything outside Packages/ that isn't a doc — forces full xcodebuild
-NON_PACKAGE=$(echo "$NON_DOC" | grep -vE '^Packages/' || true)
+PROTOTYPE_TOUCHED=$(echo "$CHANGED" | grep -E '^Prototype/' || true)
+
+# Anything outside fast SPM layers is AppUI/tooling/config surface. It never
+# forces default local xcodebuild; required CI owns that heavy gate.
+NON_FAST_LAYER=$(echo "$NON_DOC" | grep -vE '^(Packages/|Prototype/)' || true)
 
 # ---- 4. Build / test ---------------------------------------------------------
 
-if [ -z "$NON_PACKAGE" ] && [ -n "$PACKAGES_TOUCHED" ]; then
-  # SPM-only path: swift build + swift test for each touched package
-  echo "📦 Package-only changes detected:"
+if [ -n "$PACKAGES_TOUCHED" ] || [ -n "$PROTOTYPE_TOUCHED" ]; then
+  # Fast SPM path: production packages build+test; Prototype build-only.
+  echo "📦 Fast SPM layer changes detected:"
   while IFS= read -r pkg; do
     [ -z "$pkg" ] && continue
     echo "    - $pkg"
@@ -172,7 +175,21 @@ if [ -z "$NON_PACKAGE" ] && [ -n "$PACKAGES_TOUCHED" ]; then
 
   echo "✅ Package builds + tests passed."
 
-else
+  if [ -n "$PROTOTYPE_TOUCHED" ]; then
+    echo "🔨 swift build [Prototype]"
+    LOG=$(mktemp)
+    if ! swift build --package-path Prototype > "$LOG" 2>&1; then
+      tail -30 "$LOG"; rm -f "$LOG"
+      echo "❌ swift build failed for Prototype"
+      exit 1
+    fi
+    rm -f "$LOG"
+    echo "✅ Prototype build passed."
+  fi
+
+fi
+
+if [ -n "$NON_FAST_LAYER" ]; then
   # App-target path: NO full xcodebuild here (by design).
   #
   # Why: `xcodebuild test` on the app target is a minutes-scale gate (measured

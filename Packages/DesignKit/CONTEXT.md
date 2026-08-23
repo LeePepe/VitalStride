@@ -2,7 +2,7 @@
 layer: DesignKit
 role: VitalStride 唯一设计语言；单 seed color → 主色 token 全集 + 固定 neutral/semantic + SwiftUI 组件
 depends_on: []
-depended_by: []
+depended_by: [AppUI, Prototype]
 red_lines:
   - 单一设计语言、单一 seed-based 配色：换主题只换 seed，禁止 fork 语言或另起第二套 palette
   - neutral + semantic palette 固定，不随 seed 变（与 design-system web 端同一套 seed 数学）
