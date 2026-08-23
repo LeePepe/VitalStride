@@ -39,4 +39,3 @@ owns: [ExercisePickerView, app entry points, app-specific SwiftUI, application o
 - 需要本地完整验证时使用 frontmatter 的命令，或 `RUN_XCODEBUILD=1 git push`。
 - watchOS 测试 bundle 和 macOS target 尚未被独立 required job 完整执行；这是已记录的 gate coverage gap，
   不通过重复归属或默认 pre-push 重构建来掩盖。
-

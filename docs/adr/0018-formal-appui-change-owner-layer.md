@@ -1,7 +1,7 @@
 # ADR-0018: Formal AppUI Change-Owner Layer
 
-**Status**: Accepted  
-**Date**: 2026-08-23  
+**Status**: Accepted
+**Date**: 2026-08-23
 **Decider**: tianpli
 
 ## Context
@@ -34,4 +34,3 @@ once.
   mirrors for both directory-backed and logical multi-root layers.
 - Current required CI fully covers the iOS scheme. Dedicated macOS and watchOS execution remains a
   separately visible coverage gap rather than a reason to exclude app code from the layer model.
-
