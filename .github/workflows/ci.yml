@@ -126,13 +126,12 @@ jobs:
             exit 1
           fi
           echo "OK: no HealthKit values logged."
-      # Layer frontmatter must stay consistent with code (anti-rot)
-      - name: Layer frontmatter anti-rot check
-        run: bash scripts/check-frontmatter.sh
+      # RepoInfra owns policy/tooling and validates exhaustive layer coverage,
+      # shell/Python syntax, and its tests without invoking app xcodebuild.
+      - name: RepoInfra fast validation
+        run: bash scripts/test-repoinfra.sh
       - name: Prototype layer build
         run: swift build --package-path Prototype
-      - name: Exercise catalog generator tests
-        run: python3 -m unittest discover -s scripts/tests -p 'test_import_mit_exercises.py'
       - name: Exercise catalog muscle validation
         run: python3 scripts/validate_exercise_muscles.py
       # Regression coverage for the shared review prompt (scripts/ci/review-prompt.md,

@@ -4,7 +4,8 @@
 # 1. Block direct commits to main / master
 # 2. SwiftLint staged Swift files (fast — no build)
 # 3. Incremental per-layer discovery: build/test each touched production SPM
-#    layer and build the isolated Prototype layer. AppUI/docs skip heavy build.
+#    layer and build the isolated Prototype layer. AppUI/RepoInfra/support
+#    paths skip heavy build; RepoInfra's focused gate runs at pre-push + CI.
 #
 # Required CI runs full AppUI xcodebuild. This hook is the fast inner-loop
 # subset scoped to the layers actually touched.

@@ -8,6 +8,8 @@
 #   ③ depended_by 与 depends_on 互为镜像；test 命令引用路径存在
 #   ④ roles: 角色名都在顶层 CONTEXT.md 的 canonical_roles 里；每个条目在本层 Sources 下
 #      真实存在（作为目录或 <条目>.swift 文件）
+#   ⑤ tracked schedulable paths are exhaustive and non-overlapping; declared
+#      support/generated/local-only exclusions are outside all layer content
 #
 # 三段门禁共用（pre-push / CI policy job）。语言相关处仅 Package.swift 依赖提取一处。
 #
@@ -31,7 +33,7 @@ CANON="$(python3 "$PARSER" canon "$TOP_CONTEXT")"
 [ -n "$CANON" ] || { echo "❌ $TOP_CONTEXT: 缺 canonical_roles"; exit 1; }
 
 fail=0
-CONTEXTS=(Packages/*/CONTEXT.md VitalStride/CONTEXT.md Prototype/CONTEXT.md)
+CONTEXTS=(Packages/*/CONTEXT.md VitalStride/CONTEXT.md Prototype/CONTEXT.md RepoInfra/CONTEXT.md)
 for tc in "${CONTEXTS[@]}"; do
   [ -f "$tc" ] || continue
   dir="$(dirname "$tc")"; pkg="$(basename "$dir")"
@@ -46,6 +48,7 @@ for tc in "${CONTEXTS[@]}"; do
   # ① layer/context identity + logical-layer path ownership.
   expected="$pkg"
   [ "$tc" = "VitalStride/CONTEXT.md" ] && expected="AppUI"
+  [ "$tc" = "RepoInfra/CONTEXT.md" ] && expected="RepoInfra"
   [ "$layer" = "$expected" ] || { echo "❌ $tc: layer='$layer' ≠ 期望 '$expected'"; fail=1; }
 
   if [ -n "$paths" ]; then
@@ -63,6 +66,10 @@ for tc in "${CONTEXTS[@]}"; do
       | sed -E 's/.*- package:[[:space:]]+([^[:space:]]+).*/\1/' \
       | while IFS= read -r d; do [ -d "Packages/$d" ] && printf '%s\n' "$d"; done \
       | sort -u || true)"
+  elif [ "$layer" = "RepoInfra" ]; then
+    # Repository automation/config has no production code dependency. Invoking
+    # another layer's validation command is a gate relationship, not depends_on.
+    declared=""
   else
     # Directory-backed SPM layers (Packages/* and Prototype).
     declared="$(grep -oE '\.package\(path:[[:space:]]*"\.\./[^"]+"' "$dir/Package.swift" 2>/dev/null \
@@ -76,6 +83,7 @@ for tc in "${CONTEXTS[@]}"; do
     depctx="Packages/$d/CONTEXT.md"
     [ "$d" = "AppUI" ] && depctx="VitalStride/CONTEXT.md"
     [ "$d" = "Prototype" ] && depctx="Prototype/CONTEXT.md"
+    [ "$d" = "RepoInfra" ] && depctx="RepoInfra/CONTEXT.md"
     [ -f "$depctx" ] || { echo "❌ $tc: depends_on '$d' 是幽灵层（无 CONTEXT.md）"; fail=1; continue; }
     printf '%s\n' "$declared" | grep -qx "$d" || { echo "❌ $tc: depends_on 写了 '$d' 但代码/配置没声明"; fail=1; }
 
@@ -93,6 +101,7 @@ for tc in "${CONTEXTS[@]}"; do
     consumerctx="Packages/$consumer/CONTEXT.md"
     [ "$consumer" = "AppUI" ] && consumerctx="VitalStride/CONTEXT.md"
     [ "$consumer" = "Prototype" ] && consumerctx="Prototype/CONTEXT.md"
+    [ "$consumer" = "RepoInfra" ] && consumerctx="RepoInfra/CONTEXT.md"
     if [ ! -f "$consumerctx" ]; then
       echo "❌ $tc: depended_by '$consumer' 是幽灵层（无 CONTEXT.md）"; fail=1; continue
     fi
@@ -107,6 +116,8 @@ for tc in "${CONTEXTS[@]}"; do
   [ -z "$tp" ] || [ -d "$tp" ] || { echo "❌ $tc: test 路径 '$tp' 不存在"; fail=1; }
   xp="$(echo "$testcmd" | grep -oE -- '-project[[:space:]]+[^[:space:]]+' | awk '{print $2}')"
   [ -z "$xp" ] || [ -e "$xp" ] || { echo "❌ $tc: test project '$xp' 不存在"; fail=1; }
+  sp="$(printf '%s\n' "$testcmd" | awk '$1 == "bash" || $1 == "python3" {print $2}')"
+  [ -z "$sp" ] || [ -f "$sp" ] || { echo "❌ $tc: test script '$sp' 不存在"; fail=1; }
 
   # ④ roles: 角色名 ∈ canonical_roles；每个条目在 Sources 下真实存在（目录或 <条目>.swift）
   #    交给 python 做（bash 数组 + IFS 在 set -u 下易碎）
@@ -121,13 +132,24 @@ done
 # fall back to "outside all layers".
 APPUI_REQUIRED=(
   VitalStride VitalStrideMac "VitalStrideWatch Watch App" VitalStrideWidgets
-  VitalStrideTests VitalStrideUITests VitalStrideWatchTests project.yml VitalStride.xcodeproj
+  VitalStrideTests VitalStrideUITests VitalStrideWatchTests project.yml
 )
 APPUI_PATHS="$(python3 "$PARSER" parse VitalStride/CONTEXT.md | sed -n 's/^PATHS=//p')"
 for required in "${APPUI_REQUIRED[@]}"; do
   printf '%s' "$APPUI_PATHS" | tr '|' '\n' | grep -Fxq "$required" \
     || { echo "❌ VitalStride/CONTEXT.md: AppUI paths 漏写 '$required'"; fail=1; }
 done
+
+# Every tracked path is either owned once in the schedulable universe or is an
+# explicit support/generated exclusion. This makes new top-level tooling fail
+# closed instead of silently living outside the layer model.
+COVERAGE="scripts/lib/layer_coverage.py"
+if [ ! -f "$COVERAGE" ]; then
+  echo "❌ 缺 path coverage checker $COVERAGE"
+  fail=1
+elif ! python3 "$COVERAGE" "${CONTEXTS[@]}"; then
+  fail=1
+fi
 
 [ "$fail" -eq 0 ] && echo "✅ frontmatter 与代码一致" \
   || { echo "架构变了？更新对应 CONTEXT.md frontmatter 后重试。"; exit 1; }

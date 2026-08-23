@@ -37,7 +37,9 @@ HealthKit 数值不离设备、不入日志、权限撤销即清除。
 
 **规则**：
 - App target 不互相依赖，只依赖 packages。
-- App production/test/build-config 路径正式归 `AppUI` change-owner layer；CI-only 不等于无 layer（ADR-0018）。
+- App production/test/XcodeGen 真理源归 `AppUI`；repository automation/config 归 `RepoInfra`。
+  `Prototype` 与 6 个 package layer 补齐其余 schedulable paths；治理/support 与 generated/cache/log/local-secret
+  路径显式排除。ownership 与 gate speed 正交（ADR-0018、ADR-0019）。
 - 新 AI provider = 在 `AIService` 实现 `AIProvider` 协议，不新建包。
 - 改动仅涉及 `Packages/<X>/` 时，**必须**用 `swift build && swift test` 验证；禁止用 xcodebuild（慢且无意义）。
 - 新增 package 需 ADR 并更新 `project.yml` + 本宪法表格。
@@ -102,6 +104,8 @@ HealthKitService ┘
     AIService    (独立, 无依赖)
     TelemetryKit (独立, 无依赖)
     DesignKit    (独立, 无依赖 — 设计系统 token + 组件)
+
+RepoInfra (独立：CI/workflow/hooks/tooling/release/repo policy；无 product dependency)
 ```
 
 **Rules**：
@@ -164,9 +168,10 @@ main；`pre-push` 只跑 agent-run-safe 的轻量门禁，分钟级 AppUI `xcode
 
 - **Packages/ 仅改动** → `swift build && swift test`（per package）
 - **AppUI 改动** → required CI 执行 `xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation`
+- **RepoInfra 改动** → 本地运行 `bash scripts/test-repoinfra.sh`；不触发 app xcodebuild
 - 本地 AppUI 完整验证可选：直接运行上条命令，或 `RUN_XCODEBUILD=1 git push`
 - pre-push hook 自动选择 fast path（production SPM build/test；Prototype build；AppUI 重验证 deferred to CI）
-- 纯 docs/hooks/scripts 改动 skip build
+- support-only docs 改动 skip build；RepoInfra 路径走上述 fast validation
 
 ### 平台 Deployment Target
 
@@ -295,7 +300,12 @@ TL 每次 pipeline 起手前必须扫描：
   - MAJOR — 删除/反转原则；MINOR — 新增原则/新 Quality Bar；PATCH — 文字澄清不改语义
 - 与本宪法相关：AGENTS.md（agent 操作手册）、CONTEXT.md（数据架构细节）、`docs/adr/`（决策档案）、`scripts/hooks/`（强制规则机器实现）。
 
-**Version**: 2.7.1 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-08-23
+**Version**: 2.7.2 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-08-23
+
+> 2.7.2（PATCH，补齐 schedulable ownership）：新增独立 `RepoInfra` change-owner layer，覆盖
+> repository automation/config，并以 machine-readable support/generated exclusions 划清非 schedulable
+> artifacts；path checker 对 unmapped 与 overlap fail closed。ownership 与 gate speed 继续正交，
+> AI Reviewer/PR Manager 职责不变（[ADR-0019](../../docs/adr/0019-formal-repoinfra-change-owner-layer.md)）。
 
 > 2.7.1（PATCH，正式化既有边界）：app production/test/build-config 路径归入一个跨平台
 > `AppUI` change-owner layer，隔离的视觉原型归 `Prototype` layer；明确 layer ownership 与 gate

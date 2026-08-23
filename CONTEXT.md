@@ -138,8 +138,9 @@ Tapping a row → Detail page.
 ## Project Structure: Formal Layers
 
 The project uses XcodeGen + local SPM packages. Business logic lives in packages; app targets contain
-platform-specific entry points, UI, and app-specific composition. Every production/test/build-config
-path has one formal change-owner layer, including CI-only `AppUI`.
+platform-specific entry points, UI, and app-specific composition. Every tracked schedulable path
+has exactly one formal change-owner layer; support and generated/local-only artifacts are explicit
+exclusions rather than implicit infrastructure ownership.
 
 ### Packages
 
@@ -156,8 +157,9 @@ path has one formal change-owner layer, including CI-only `AppUI`.
 
 | Layer | Owned paths | Dependencies |
 |---|---|---|
-| AppUI | `VitalStride/**`, companion app roots, app test roots, `project.yml`, generated `.xcodeproj` | all 6 production packages |
+| AppUI | `VitalStride/**`, companion app roots, app test roots, `project.yml` | all 6 production packages |
 | Prototype | `Prototype/**` | DesignKit |
+| RepoInfra | `.github/**`, `scripts/**`, `fastlane/**`, repo lint/security config, executable/configurable `.specify` tooling | None |
 
 ### Rules
 
@@ -165,6 +167,9 @@ path has one formal change-owner layer, including CI-only `AppUI`.
 - Shared Mac/Watch/Widget source entries remain owned once by AppUI; target reuse does not duplicate layer ownership
 - DataView + DataSections remain in app target (shared via project.yml), not in a package
 - XcodeGen is retained for managing app targets, entitlements, and package references
+- `VitalStride.xcodeproj/**` is a generated exclusion; `project.yml` remains AppUI-owned
+- Governance/docs/spec/design evidence are support exclusions; caches, logs, local secrets, and signing material are generated/local exclusions
+- AI Reviewer owns content review only; PR Manager owns CI/build/test/lint/hook/shipping state
 - Adding a new AI provider = implementing `AIProvider` protocol in AIService package
 
 ## AI Architecture
@@ -224,11 +229,12 @@ Git hooks live in `scripts/hooks/` and are activated via `core.hooksPath`. This 
 | Hook | Purpose |
 |------|---------|
 | `pre-commit` | Blocks direct commits to `main` / `master`; SwiftLint staged Swift; touched `Packages/<X>` build/test and touched `Prototype` build (fast, no simulator) |
-| `pre-push` | Fast package/Prototype validation, touched-line SwiftLint, and layer frontmatter anti-rot. AppUI `xcodebuild` is opt-in via `RUN_XCODEBUILD=1`; required CI owns the default full run |
+| `pre-push` | Fast package/Prototype/RepoInfra validation, touched-line SwiftLint, and exhaustive layer path anti-rot. AppUI `xcodebuild` is opt-in via `RUN_XCODEBUILD=1`; required CI owns the default full run |
 
 **Build performance**: default pre-push stays under the agent-run budget. An explicit
 `RUN_XCODEBUILD=1 git push` shares `<git-common-dir>/derived-data` and serializes the optional local
 app build via the common build lock. The non-optional full AppUI test runs in required CI.
 
 **Fast paths**: touched production packages run `swift build && swift test`; `Prototype` runs
-`swift build --package-path Prototype`; pure docs/hooks/scripts changes skip build entirely.
+`swift build --package-path Prototype`; RepoInfra runs `bash scripts/test-repoinfra.sh`. Support-only
+documentation changes skip build entirely.

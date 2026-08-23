@@ -1,7 +1,7 @@
 ---
 layer: AppUI
 role: iOS/macOS/watchOS/widget 的平台入口、应用编排与 UI；共享 app 源码的唯一 change owner
-paths: [VitalStride, VitalStrideMac, VitalStrideWatch Watch App, VitalStrideWidgets, VitalStrideTests, VitalStrideUITests, VitalStrideWatchTests, project.yml, VitalStride.xcodeproj]
+paths: [VitalStride, VitalStrideMac, VitalStrideWatch Watch App, VitalStrideWidgets, VitalStrideTests, VitalStrideUITests, VitalStrideWatchTests, project.yml]
 depends_on: [VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit, DesignKit]
 depended_by: []
 red_lines:
@@ -20,7 +20,8 @@ owns: [ExercisePickerView, app entry points, app-specific SwiftUI, application o
 ## 职责与路径所有权
 
 `AppUI` 是所有 Xcode app targets 的正式 change-owner layer。它覆盖 frontmatter `paths` 中的生产、
-测试和构建配置路径；同一份 `VitalStride/Sources/**` 即使被 macOS/watchOS/widget target 通过
+测试和 XcodeGen 真理源；生成的 `VitalStride.xcodeproj/**` 是 RepoInfra 契约声明的 exclusion。
+同一份 `VitalStride/Sources/**` 即使被 macOS/watchOS/widget target 通过
 `project.yml` 复用，仍只归 `AppUI` 一次，不重复映射。
 
 `VitalStride/Sources/ExercisePickerView.swift` 因此属于 `AppUI`，而它消费的稳定领域语义属于
