@@ -53,21 +53,15 @@ if command -v swiftlint >/dev/null 2>&1; then
   fi
 fi
 
-# ---- 3. Incremental per-layer swift build + test ----------------------------
-# Map staged paths → touched Packages/<X> layers, then build+test each.
-# Only runs when a package layer's sources are touched. Fast (SPM, no sim).
+# ---- 3. Resolve staged paths recursively ------------------------------------
 
-if ! command -v swift >/dev/null 2>&1; then
-  exit 0
+RESOLVER="scripts/lib/layer_coverage.py"
+[ -f "$RESOLVER" ] || { echo "❌ missing recursive layer resolver"; exit 1; }
+if ! TOUCHED_LAYERS=$(printf '%s\n' "$STAGED" | python3 "$RESOLVER" layers --stdin); then
+  echo "❌ staged paths do not resolve to a unique leaf layer"
+  exit 1
 fi
-
-TOUCHED_LAYERS=$(echo "$STAGED" \
-  | grep -E '^Packages/[^/]+/' \
-  | sed -E 's|^Packages/([^/]+)/.*|\1|' \
-  | sort -u || true)
-
-PROTOTYPE_TOUCHED=$(echo "$STAGED" | grep -E '^Prototype/' || true)
-[ -z "$TOUCHED_LAYERS" ] && [ -z "$PROTOTYPE_TOUCHED" ] && exit 0
+[ -z "$TOUCHED_LAYERS" ] && exit 0
 
 # Guard: many touched layers × per-layer build+test can break the "fast" promise.
 # Above the cap, build only (defer full test to pre-push).
@@ -80,33 +74,17 @@ if [ "$LAYER_COUNT" -gt "$MAX_TEST_LAYERS" ]; then
 fi
 
 FAIL=0
-while IFS= read -r pkg; do
-  [ -z "$pkg" ] && continue
-  [ -d "Packages/$pkg" ] || continue
-  LOG=$(mktemp)
-
-  echo "🔨 swift build [$pkg]"
-  if ! (cd "Packages/$pkg" && swift build </dev/null) > "$LOG" 2>&1; then
-    echo "❌ swift build failed [$pkg]"; tail -20 "$LOG"; FAIL=1; rm -f "$LOG"; continue
-  fi
-
+while IFS= read -r layer; do
+  [ -z "$layer" ] && continue
+  tier="$(python3 "$RESOLVER" field "$layer" gate_tier)" || { FAIL=1; continue; }
+  [ "$tier" = "local-fast" ] || continue
+  echo "🔨 layer build [$layer]"
+  python3 "$RESOLVER" run "$layer" build </dev/null || { FAIL=1; continue; }
   if [ "$RUN_TESTS" = true ]; then
-    echo "🧪 swift test  [$pkg]"
-    if ! (cd "Packages/$pkg" && swift test </dev/null) > "$LOG" 2>&1; then
-      echo "❌ swift test failed [$pkg]"; tail -30 "$LOG"; FAIL=1
-    fi
+    echo "🧪 layer test  [$layer]"
+    python3 "$RESOLVER" run "$layer" test </dev/null || FAIL=1
   fi
-  rm -f "$LOG"
 done < <(printf '%s\n' "$TOUCHED_LAYERS")
-
-if [ -n "$PROTOTYPE_TOUCHED" ]; then
-  LOG=$(mktemp)
-  echo "🔨 swift build [Prototype]"
-  if ! swift build --package-path Prototype </dev/null > "$LOG" 2>&1; then
-    echo "❌ swift build failed [Prototype]"; tail -20 "$LOG"; FAIL=1
-  fi
-  rm -f "$LOG"
-fi
 
 if [ "$FAIL" -ne 0 ]; then
   echo ""

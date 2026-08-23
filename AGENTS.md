@@ -11,33 +11,28 @@
 | 了解已实现基线 / 回归基准 | `specs/000-baseline-existing-codebase/spec.md`（+ `plan.md` 看 gap） | 已实现功能意图、验收标准、已知 gap（不可改） |
 | 决定做未来功能 / V2+ 规划 | `specs/001-future-roadmap/spec.md`（+ `plan.md` 看扩展点与 fork 顺序） | 未来功能意图、优先级、宪法预检、复用锚点（umbrella，启动时 fork 出 `specs/002-*`） |
 | 改全局架构 / 跨层设计 | `CONTEXT.md`（顶层，含 `canonical_roles`） | 架构决策、数据流、layer 划分、类角色顺序 |
-| 改 `Packages/<X>/**` | `Packages/<X>/CONTEXT.md`（该层 frontmatter） | 该层职责 / 依赖 / red_lines / test 命令 |
+| 改 `Packages/**` | `Packages/CONTEXT.md`，再按其中 route 下钻 | 命中 package 的职责 / 依赖 / red_lines / gate |
 | 改 app target / app tests / `project.yml` | `VitalStride/CONTEXT.md`（AppUI frontmatter） | 跨平台 app layer 的路径归属 / 依赖 / red_lines / CI gate |
 | 改 `Prototype/**` | `Prototype/CONTEXT.md` | 隔离边界 / DesignKit-only 依赖 / build 命令 |
 | 改 CI/workflow、hooks/scripts、fastlane、repo lint/security/spec-kit tooling | `RepoInfra/CONTEXT.md` | RepoInfra owned/excluded paths、角色边界、fast test 命令 |
 | build / test / git 操作 | 本文件（AGENTS.md） | 命令手册、PR 工作流 |
 | 架构方向冲突 | `docs/adr/` | 已落地决策；要推翻先写新 ADR |
 
-## Layer 索引（Layer Map）
+## 最外层索引（Root Routes）
 
 业务逻辑住 `Packages/`（6 个本地 SPM 包）。app target/tests 与 XcodeGen 真理源归 `AppUI`，
 独立视觉原型归 `Prototype`，repository automation/config 归 `RepoInfra`。治理、spec、设计证据
 以及 generated/cache/log/local-secret 路径是显式 exclusions。layer ownership 与 gate 速度正交。
 
-| Layer | 职责（一句话） | 文档 | 依赖（depends_on） |
-|---|---|---|---|
-| VitalModels | SwiftData models / enums / 容器配置 | `Packages/VitalModels/CONTEXT.md` | （无） |
-| HealthKitService | HealthKit 读取 + 双层缓存 + 授权 | `Packages/HealthKitService/CONTEXT.md` | VitalModels |
-| AIService | AIProvider 抽象 + provider chain | `Packages/AIService/CONTEXT.md` | （无） |
-| VitalUI | 跨 target 共享 SwiftUI 组件 | `Packages/VitalUI/CONTEXT.md` | VitalModels |
-| TelemetryKit | 埋点抽象（独立，无本地依赖） | `Packages/TelemetryKit/CONTEXT.md` | （无） |
-| DesignKit | 设计语言：seed 配色 token + SwiftUI 组件 | `Packages/DesignKit/CONTEXT.md` | （无） |
-| AppUI | 跨平台 app 入口、应用编排、UI、app tests 与 XcodeGen 配置 | `VitalStride/CONTEXT.md` | 6 个 production packages |
-| Prototype | 隔离的 SwiftUI 视觉原型与截图导出 | `Prototype/CONTEXT.md` | DesignKit |
-| RepoInfra | CI/workflow、scripts/hooks/tests、fastlane/release、repo policy/config 与 spec-kit tooling | `RepoInfra/CONTEXT.md` | （无） |
+| 最外层范围 | 首个 context | 节点类型 |
+|---|---|---|
+| `Packages/**` | `Packages/CONTEXT.md` | index：再展开六个 package layer |
+| app roots、app tests、`project.yml` | `VitalStride/CONTEXT.md` | AppUI leaf |
+| `Prototype/**` | `Prototype/CONTEXT.md` | Prototype leaf |
+| CI/workflow、scripts/hooks/tests、fastlane、repo policy/config、Spec Kit tooling | `RepoInfra/CONTEXT.md` | RepoInfra leaf |
 
-**渐进展开**：先读本表定位相关 layer → 只下钻该 layer 的 CONTEXT.md → 拿约束再动手。
-改哪层读哪层，不预读所有层文档。
+**渐进展开**：先读本表定位最外层 context；只有命中 `Packages/**` 时再读取
+`Packages/CONTEXT.md` 的下一层 route。不要从顶层预读六个 package contexts。
 
 **按 layer 收窄范围**：
 - 改动只落 1 个 layer → 一个任务直接做。

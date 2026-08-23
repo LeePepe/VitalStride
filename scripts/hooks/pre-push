@@ -111,92 +111,40 @@ if [ -z "$CHANGED" ]; then
   exit 0
 fi
 
-# ---- 3. Classify changes -----------------------------------------------------
+# ---- 3. Resolve changed paths recursively -----------------------------------
 
-REPOINFRA_PATTERN='^(\.github/|scripts/|fastlane/|\.gitignore$|\.gitleaks\.toml$|\.swiftlint(-baseline\.json|\.yml)$|\.specify/(extensions(\.yml|/)|init-options\.json$|integration\.json$|integrations/|scripts/|templates/|workflows/))'
-REPOINFRA_TOUCHED=$(echo "$CHANGED" | grep -E "$REPOINFRA_PATTERN" || true)
-
-# Pure-docs pattern: nothing affects the build
-DOC_PATTERN='^(docs/|[^/]*\.md$|scripts/hooks/|scripts/setup-hooks\.sh$|\.gitignore$|LICENSE$|\.github/)'
-
-NON_DOC=$(echo "$CHANGED" | grep -vE "$DOC_PATTERN" || true)
-if [ -z "$NON_DOC" ] && [ -z "$REPOINFRA_TOUCHED" ]; then
-  echo "📝 Support-only documentation changes — skipping build."
+RESOLVER="scripts/lib/layer_coverage.py"
+[ -f "$RESOLVER" ] || { echo "❌ missing recursive layer resolver"; exit 1; }
+if ! LAYERS=$(printf '%s\n' "$CHANGED" | python3 "$RESOLVER" layers --stdin); then
+  echo "❌ changed paths do not resolve to unique leaf layers"
+  exit 1
+fi
+if [ -z "$LAYERS" ]; then
+  echo "📝 Support/generated-only changes — skipping product gates."
   exit 0
 fi
 
-# Packages touched (per-package list)
-PACKAGES_TOUCHED=$(echo "$CHANGED" \
-  | grep -E '^Packages/[^/]+/' \
-  | sed -E 's|^Packages/([^/]+)/.*|\1|' \
-  | sort -u || true)
+LAYER_COUNT=$(printf '%s\n' "$LAYERS" | sed '/^$/d' | wc -l | tr -d ' ')
+[ "$LAYER_COUNT" -gt 1 ] && echo "⚠️  Change spans $LAYER_COUNT formal leaf layers."
 
-PROTOTYPE_TOUCHED=$(echo "$CHANGED" | grep -E '^Prototype/' || true)
+# ---- 4. Run local-fast leaves; defer ci-only leaves -------------------------
 
-# AppUI is a formal layer even though its heavy gate is CI-only by default.
-# Match its machine-readable owner roots; unrelated repo tooling must not be
-# mislabeled as an app change or trigger optional xcodebuild.
-APPUI_TOUCHED=$(echo "$NON_DOC" \
-  | grep -E '^(VitalStride/|VitalStrideMac/|VitalStrideWatch Watch App/|VitalStrideWidgets/|VitalStrideTests/|VitalStrideUITests/|VitalStrideWatchTests/|project\.yml$)' \
-  || true)
-
-# ---- 4. Build / test ---------------------------------------------------------
-
-if [ -n "$PACKAGES_TOUCHED" ] || [ -n "$PROTOTYPE_TOUCHED" ]; then
-  # Fast SPM path: production packages build+test; Prototype build-only.
-  echo "📦 Fast SPM layer changes detected:"
-  while IFS= read -r pkg; do
-    [ -z "$pkg" ] && continue
-    echo "    - $pkg"
-  done <<< "$PACKAGES_TOUCHED"
-  echo ""
-
-  while IFS= read -r pkg; do
-    [ -z "$pkg" ] && continue
-    [ -d "Packages/$pkg" ] || continue
-
-    echo "🔨 swift build [$pkg]"
-    LOG=$(mktemp)
-    if (cd "Packages/$pkg" && swift build </dev/null 2>&1) > "$LOG"; then
-      :
-    else
-      tail -30 "$LOG"
-      rm -f "$LOG"
-      echo "❌ swift build failed for Packages/$pkg"
-      exit 1
-    fi
-    rm -f "$LOG"
-
-    echo "🧪 swift test  [$pkg]"
-    LOG=$(mktemp)
-    if (cd "Packages/$pkg" && swift test </dev/null 2>&1) > "$LOG"; then
-      :
-    else
-      tail -30 "$LOG"
-      rm -f "$LOG"
-      echo "❌ swift test failed for Packages/$pkg"
-      exit 1
-    fi
-    rm -f "$LOG"
-  done < <(printf '%s\n' "$PACKAGES_TOUCHED")
-
-  echo "✅ Package builds + tests passed."
-
-  if [ -n "$PROTOTYPE_TOUCHED" ]; then
-    echo "🔨 swift build [Prototype]"
-    LOG=$(mktemp)
-    if ! swift build --package-path Prototype </dev/null > "$LOG" 2>&1; then
-      tail -30 "$LOG"; rm -f "$LOG"
-      echo "❌ swift build failed for Prototype"
-      exit 1
-    fi
-    rm -f "$LOG"
-    echo "✅ Prototype build passed."
+APPUI_TOUCHED=false
+while IFS= read -r layer; do
+  [ -z "$layer" ] && continue
+  tier="$(python3 "$RESOLVER" field "$layer" gate_tier)" || exit 1
+  if [ "$tier" = "local-fast" ]; then
+    echo "🔨 layer build [$layer]"
+    python3 "$RESOLVER" run "$layer" build </dev/null || exit 1
+    echo "🧪 layer test  [$layer]"
+    python3 "$RESOLVER" run "$layer" test </dev/null || exit 1
+  else
+    echo "⏭️  $layer is ci-only; required CI owns its heavy validation."
   fi
+  [ "$layer" = "AppUI" ] && APPUI_TOUCHED=true
+done < <(printf '%s\n' "$LAYERS")
 
-fi
-
-if [ -n "$APPUI_TOUCHED" ]; then
+if [ "$APPUI_TOUCHED" = true ]; then
   # App-target path: NO full xcodebuild here (by design).
   #
   # Why: `xcodebuild test` on the app target is a minutes-scale gate (measured
@@ -219,14 +167,7 @@ if [ -n "$APPUI_TOUCHED" ]; then
 
     run_xcodebuild_test() {
       set -o pipefail
-      xcodebuild test \
-        -project VitalStride.xcodeproj \
-        -scheme VitalStride \
-        -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
-        -configuration Debug \
-        -derivedDataPath "$DERIVED_DATA" \
-        -skipPackagePluginValidation \
-        2>&1 | tee "$TEST_LOG" | tail -10
+      python3 "$RESOLVER" run AppUI test 2>&1 | tee "$TEST_LOG" | tail -10
     }
 
     if command -v flock >/dev/null 2>&1; then
@@ -260,14 +201,6 @@ if [ -n "$APPUI_TOUCHED" ]; then
   else
     echo "⏭️  App-target change — full xcodebuild test deferred to REQUIRED CI (ci.yml Job B)."
     echo "    Local push stays fast; merge is gated server-side. Force local run: RUN_XCODEBUILD=1 git push"
-  fi
-fi
-
-if [ -n "$REPOINFRA_TOUCHED" ]; then
-  echo "🛠️  RepoInfra changes detected — running fast validation."
-  if ! bash scripts/test-repoinfra.sh; then
-    echo "❌ RepoInfra validation failed. Push aborted."
-    exit 1
   fi
 fi
 

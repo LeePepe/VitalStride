@@ -1,6 +1,10 @@
 ---
 layer: DesignKit
 role: VitalStride 唯一设计语言；单 seed color → 主色 token 全集 + 固定 neutral/semantic + SwiftUI 组件
+paths: [Packages/DesignKit]
+test_paths: [Packages/DesignKit/Tests]
+gate_tier: local-fast
+build: swift build --package-path Packages/DesignKit
 depends_on: []
 depended_by: [AppUI, Prototype]
 red_lines:
