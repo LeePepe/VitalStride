@@ -231,14 +231,14 @@ main；`pre-push` 只跑 agent-run-safe 的轻量门禁，分钟级 AppUI `xcode
 
 - 风格、注释优化、命名建议。
 
-### J — Ship-Gate Failure Classification (P0 verdict aggregation modifier)
+### J — Ship-Gate Failure Classification
 
-Ship gate（required CI 的 `App target` / `SPM …`）失败时，Reviewer / TL **必须**先判定失败是否由当前 patch 引入：
+Ship gate（required CI 的 `App target` / `SPM …`）失败时，PR Manager **必须**先判定失败是否由当前 patch 引入。AI Reviewer 只审内容，不执行或判断 build/test/lint/hook/CI gate；TL 仅处理证据冲突、恢复和升级：
 
-- **Patch-induced**：失败 test 文件 ∈ `git diff github/main...HEAD --name-only`，或失败 test 所属 module 有源码改动 → 正常 P0 FAIL，回 FS
-- **Pre-existing flake**：失败 test 与当前 patch 无源码关联 → **不计入 verdict**，走 AGENTS.md §Pipeline Recovery → Quarantine 路径
+- **Patch-induced**：失败 test 文件 ∈ `git diff github/main...HEAD --name-only`，或失败 test 所属 module 有源码改动 → 阻止 shipping，由 PR Manager 带证据直接请求 FS 修复
+- **Pre-existing flake**：失败 test 与当前 patch 无源码关联 → 不改变 AI Reviewer 的内容 verdict；由 PR Manager 走 AGENTS.md §Pipeline Recovery → Quarantine 路径
 
-把 pre-existing flake 当作 P0 FAIL 阻塞 patch = 宪法违规（reviewer 责任）。
+把 gate state 写进 AI Reviewer verdict，或让 Reviewer/TL 代替 PR Manager 监督 CI，均为职责边界违规。
 
 ### Verdict Aggregation
 

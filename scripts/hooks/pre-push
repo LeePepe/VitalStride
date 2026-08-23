@@ -150,7 +150,7 @@ if [ -n "$PACKAGES_TOUCHED" ] || [ -n "$PROTOTYPE_TOUCHED" ]; then
 
     echo "🔨 swift build [$pkg]"
     LOG=$(mktemp)
-    if (cd "Packages/$pkg" && swift build 2>&1) > "$LOG"; then
+    if (cd "Packages/$pkg" && swift build </dev/null 2>&1) > "$LOG"; then
       :
     else
       tail -30 "$LOG"
@@ -162,7 +162,7 @@ if [ -n "$PACKAGES_TOUCHED" ] || [ -n "$PROTOTYPE_TOUCHED" ]; then
 
     echo "🧪 swift test  [$pkg]"
     LOG=$(mktemp)
-    if (cd "Packages/$pkg" && swift test 2>&1) > "$LOG"; then
+    if (cd "Packages/$pkg" && swift test </dev/null 2>&1) > "$LOG"; then
       :
     else
       tail -30 "$LOG"
@@ -171,14 +171,14 @@ if [ -n "$PACKAGES_TOUCHED" ] || [ -n "$PROTOTYPE_TOUCHED" ]; then
       exit 1
     fi
     rm -f "$LOG"
-  done <<< "$PACKAGES_TOUCHED"
+  done < <(printf '%s\n' "$PACKAGES_TOUCHED")
 
   echo "✅ Package builds + tests passed."
 
   if [ -n "$PROTOTYPE_TOUCHED" ]; then
     echo "🔨 swift build [Prototype]"
     LOG=$(mktemp)
-    if ! swift build --package-path Prototype > "$LOG" 2>&1; then
+    if ! swift build --package-path Prototype </dev/null > "$LOG" 2>&1; then
       tail -30 "$LOG"; rm -f "$LOG"
       echo "❌ swift build failed for Prototype"
       exit 1
@@ -307,7 +307,7 @@ if [ -n "$SWIFT_FILES" ] && command -v swiftlint >/dev/null 2>&1; then
       baseline_args="--baseline .swiftlint-baseline.json"
     fi
     # shellcheck disable=SC2086
-    lint_out=$(swiftlint lint --quiet --strict $baseline_args -- "$file" 2>&1) || true
+    lint_out=$(swiftlint lint --quiet --strict $baseline_args -- "$file" </dev/null 2>&1) || true
     [ -z "$lint_out" ] && continue
 
     new_violations=""
@@ -335,7 +335,7 @@ if [ -n "$SWIFT_FILES" ] && command -v swiftlint >/dev/null 2>&1; then
       legacy_count=$(echo "$legacy_violations" | sed '/^$/d' | wc -l | tr -d ' ')
       LEGACY_COUNT=$((LEGACY_COUNT + legacy_count))
     fi
-  done <<< "$SWIFT_FILES"
+  done < <(printf '%s\n' "$SWIFT_FILES")
 
   if [ "$LINT_FAIL" -ne 0 ]; then
     echo ""
