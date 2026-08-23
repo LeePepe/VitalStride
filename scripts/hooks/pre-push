@@ -130,6 +130,7 @@ LAYER_COUNT=$(printf '%s\n' "$LAYERS" | sed '/^$/d' | wc -l | tr -d ' ')
 # ---- 4. Run local-fast leaves; defer ci-only leaves -------------------------
 
 APPUI_TOUCHED=false
+REPOINFRA_VALIDATED=false
 while IFS= read -r layer; do
   [ -z "$layer" ] && continue
   tier="$(python3 "$RESOLVER" field "$layer" gate_tier)" || exit 1
@@ -138,6 +139,7 @@ while IFS= read -r layer; do
     python3 "$RESOLVER" run "$layer" build </dev/null || exit 1
     echo "🧪 layer test  [$layer]"
     python3 "$RESOLVER" run "$layer" test </dev/null || exit 1
+    [ "$layer" = "RepoInfra" ] && REPOINFRA_VALIDATED=true
   else
     echo "⏭️  $layer is ci-only; required CI owns its heavy validation."
   fi
@@ -323,7 +325,7 @@ fi
 # 校验 Packages/*/CONTEXT.md frontmatter 与代码一致（layer 名 / depends_on 双向 /
 # test 路径 / roles ∈ canonical_roles 且目录存在）。腐烂即阻塞。
 
-if [ -f "scripts/check-frontmatter.sh" ]; then
+if [ "$REPOINFRA_VALIDATED" != true ] && [ -f "scripts/check-frontmatter.sh" ]; then
   echo ""
   echo "🧭 Layer frontmatter 防腐校验..."
   if ! bash scripts/check-frontmatter.sh; then
