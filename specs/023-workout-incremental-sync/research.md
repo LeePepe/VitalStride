@@ -16,6 +16,7 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 | Nil coverage claims every request is covered | `HealthDataCache.swift:745-755` | A later 90-day request can be incorrectly satisfied by 30 days of data. |
 | Workout cache is memory-only; anchor persists | Cache state in `HealthDataCache.swift`; workout anchor in `HealthKitAnchorStore.swift:46-74` | A process restart can receive changes without a base snapshot. |
 | One in-flight workout task is global | `HealthDataCache.swift:766-788` | Different ranges or request semantics can incorrectly share one result. |
+| Workout anchor is saved before the result reaches the cache | `HealthKitService.swift:594-607` | A result rejected after provider completion can advance the anchor past changes that never reached the cache. |
 
 ## Decision 1: Make request and result semantics explicit
 
@@ -51,13 +52,28 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 
 **Conflict rule**: If one delta both upserts and deletes a UUID, deletion wins.
 
-## Decision 4: Key coalescing and add workout generation
+## Decision 4: Defer checkpoint persistence to cache acceptance
 
-**Chosen**: Key in-flight work by request semantic plus date range. Add a workout-specific generation that changes on workout invalidation and superseding snapshot operations.
+**Chosen**: A prepared baseline/change fetch returns an opaque pending checkpoint and does not persist it. The cache actor validates currentness, publishes the corresponding whole cache entry, then synchronously persists the checkpoint without an intervening suspension point.
 
-**Why**: Actor isolation does not prevent stale writes after an `await`; cooperative cancellation alone cannot guarantee invalidation wins.
+**Why**: Cache-first/checkpoint-second gives at-least-once delivery. If checkpoint persistence is interrupted, the old anchor replays changes and UUID reconciliation is idempotent. Persisting the checkpoint first creates an unsafe at-most-once gap where changes can be skipped permanently.
 
-## Decision 5: Keep logs aggregate-only
+**Direct-call compatibility**: The existing direct service call shape remains, but it becomes an anchor-free authoritative snapshot with no default-anchor side effect. The cache-facing provider path is the only anchor prepare/accept authority.
+
+### Alternatives rejected
+
+- **Provider persists before returning, cache clears anchor when rejecting**: a process crash between persistence and cleanup still loses the delta.
+- **Persist checkpoint and cache entry concurrently**: has no ordering guarantee and recreates the unsafe state.
+- **Allow direct service calls to commit independently**: creates a second anchor writer outside cache acceptance and can move the anchor past an unaccepted cache transition.
+- **Persist cache workouts alongside the anchor**: introduces workout L2 persistence and schema/privacy scope not required by MY-1477.
+
+## Decision 5: Key coalescing and add request-instance currentness
+
+**Chosen**: Key in-flight work by request semantic plus date range, and give each owning fetch a unique request instance. Add a workout-specific generation that changes on invalidation and incompatible snapshot operations. An explicit refresh creates a new owner even when its key matches the prior refresh.
+
+**Why**: Actor isolation does not prevent stale writes after an `await`; cooperative cancellation alone cannot guarantee invalidation wins. Generation/key checks alone also cannot distinguish two same-semantic refreshes.
+
+## Decision 6: Keep logs aggregate-only
 
 **Chosen**: Query semantic, count, duration, and cache outcome may be logged. Workout values, timestamps tied to a record, source details, and identifiers may not be logged.
 

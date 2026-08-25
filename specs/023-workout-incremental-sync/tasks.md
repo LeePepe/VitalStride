@@ -13,10 +13,10 @@ Each executable row uses native Spec Kit syntax: `- [ ] Txxx [US#] Action with e
 
 **Goal**: Repeated reads and refreshes retain the prior HealthKit workout baseline while applying additions, updates, deletions, explicit range snapshots, and invalidation safely.
 
-**Independent Test**: Run a deterministic provider sequence through `HealthDataCache`; after baseline A, empty changes still return A, and the complete add/update/delete/idempotency/range/invalidation matrix passes without HealthKit hardware.
+**Independent Test**: Run a deterministic provider sequence through `HealthDataCache`; after baseline A, empty changes still return A, and the complete add/update/delete/idempotency/range/invalidation/anchor-acceptance matrix passes without HealthKit hardware.
 
-- [ ] T023-001 [US1] Define source-compatible baseline/changes/explicit-range request-result semantics in `Packages/HealthKitService/Sources/HealthKitService/HealthWorkoutRecord.swift` and `Packages/HealthKitService/Sources/HealthKitService/HealthKitService.swift`, with provider behavior tests in `Packages/HealthKitService/Tests/HealthKitServiceTests/HealthWorkoutQueryContractTests.swift`
-- [ ] T023-002 [US1] Add the red regression matrix, then implement UUID reconciliation, concrete coverage/provenance, semantic-plus-range coalescing, deterministic ordering, and workout-generation commit guards in `Packages/HealthKitService/Sources/HealthKitService/HealthDataCache.swift` and `Packages/HealthKitService/Tests/HealthKitServiceTests/HealthWorkoutCacheTests.swift`; extend `Packages/HealthKitService/Tests/HealthKitServiceTests/PrivacyLoggingTests.swift` only if aggregate-only audit coverage is missing
+- [ ] T023-001 [US1] Define source-compatible baseline/changes/explicit-range prepared result types with opaque pending checkpoints plus anchor-free direct snapshot behavior in `Packages/HealthKitService/Sources/HealthKitService/HealthWorkoutRecord.swift` and `Packages/HealthKitService/Sources/HealthKitService/HealthKitService.swift`, with provider behavior tests in `Packages/HealthKitService/Tests/HealthKitServiceTests/HealthWorkoutQueryContractTests.swift`
+- [ ] T023-002 [US1] Add the cache-facing provider requirement/default and the red regression/anchor-cache interleaving matrix, then implement UUID reconciliation, concrete coverage/provenance, semantic-plus-range coalescing, request-instance currentness, cache-first/checkpoint-second acceptance, deterministic ordering, and workout-generation guards in `Packages/HealthKitService/Sources/HealthKitService/HealthDataCache.swift` and `Packages/HealthKitService/Tests/HealthKitServiceTests/HealthWorkoutCacheTests.swift`; extend `Packages/HealthKitService/Tests/HealthKitServiceTests/PrivacyLoggingTests.swift` only if aggregate-only audit coverage is missing
 
 ### Task Metadata
 
@@ -28,8 +28,8 @@ Each executable row uses native Spec Kit syntax: `- [ ] Txxx [US#] Action with e
 | Blocking tasks | None | T023-001 |
 | Files in scope | `HealthWorkoutRecord.swift`; `HealthKitService.swift`; new `HealthWorkoutQueryContractTests.swift` | `HealthDataCache.swift`; `HealthWorkoutCacheTests.swift`; `PrivacyLoggingTests.swift` only if needed |
 | Files/layers excluded | `HealthDataCache.swift`; AppUI; VitalModels; WatchConnectivity; workout-session/write/delete flows | `HealthKitService.swift`; `HealthWorkoutRecord.swift`; AppUI; VitalModels; WatchConnectivity; workout-session/write/delete flows |
-| Contract impact | Extend the provider/result seam to distinguish baseline snapshot, anchored changes, and explicit range while keeping existing public call shapes source-compatible | Consume the reviewed contract; no new public AppUI-facing API |
-| Task-local acceptance | Provider tests prove anchor-free baseline, anchored changes, anchor-free explicit range, concrete snapshot coverage, anchor advancement only for baseline/changes, and compatibility of the existing direct call shape | Red-before-green evidence for A→empty; UUID add/update/delete; duplicate/idempotent changes; deletion wins; stable ordering; 30-day vs wider range; restart/invalidation rebuild; semantic/range coalescing isolation; late-result rejection; error preserves cache |
+| Contract impact | Define concrete prepared result/service behavior; direct service calls become anchor-free snapshots while keeping existing public call shapes source-compatible | Add the provider requirement/default in its owning file, consume the prepared result, and become the sole default-anchor acceptance authority; no new public AppUI-facing API |
+| Task-local acceptance | Service tests prove anchor-free baseline preparation, anchored changes preparation, anchor-free explicit range, concrete snapshot coverage, prepared fetch does not persist, explicit acceptance persists, discard does not, and direct call remains source-compatible without reading/advancing the anchor | Red-before-green evidence for A→empty; UUID add/update/delete; duplicate/idempotent changes; deletion wins; stable ordering; 30-day vs wider range; restart/invalidation rebuild; semantic/range coalescing isolation; same-semantic request supersession; provider-complete/cache-not-yet-accepted delta remains obtainable; stale owner cannot persist/clear newer work; error preserves cache/anchor pair |
 | Exact verification | From `Packages/HealthKitService`: `swift build && swift test` | From `Packages/HealthKitService`: `swift build && swift test` |
 
 **Checkpoint**: US1 is complete only after T023-001 and T023-002 both pass the full package gate.
@@ -54,7 +54,7 @@ US1
 | AC 1-5; FR-003/004/005/012 | US1 | T023-002 |
 | AC 6; FR-001/002/007/010/011 | US1 | T023-001 → T023-002 |
 | AC 7-8; FR-002/006/008 | US1 | T023-001 → T023-002 |
-| AC 9; FR-008/009/014 | US1 | T023-002 |
+| AC 9-10; FR-008/009/014/015 | US1 | T023-001 → T023-002 |
 | FR-013 aggregate-only logging | US1 | T023-001, T023-002; existing privacy audit extended only if needed |
 | SC-006 repository-declared SPM gate | US1 | T023-001, T023-002 |
 | SC-007 scope boundary | US1 | T023-001, T023-002 diff audit |
@@ -73,6 +73,7 @@ swift build && swift test
 ## Implementation Handoff Notes
 
 - Tests in T023-002 must be written and observed failing against the old whole-replacement behavior before the production change is completed.
+- The adversarial test must deterministically hold an anchored result after provider query completion but before cache acceptance, supersede it with the same semantic/range, and prove the next accepted read still obtains the delta with cache and anchor aligned.
 - Preserve whole-entry immutable assignment; do not mutate the published workout array in place.
 - Do not add workout L2 persistence, TTL/observer refresh policy, UI changes, or broad sample-cache refactors.
 - If an implementation fact makes the reviewed contract infeasible, stop and return evidence to Team Lead/Planner rather than widening scope.

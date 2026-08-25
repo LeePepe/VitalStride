@@ -16,7 +16,9 @@
 - [x] No `NEEDS CLARIFICATION` marker remains.
 - [x] Requirements distinguish snapshot, anchored changes, explicit range, invalidation, concurrency, and privacy behavior.
 - [x] Acceptance scenarios cover the reported A → empty-delta regression.
-- [x] Acceptance scenarios cover add, update, delete, idempotency, deterministic ordering, range coverage, restart/invalidation, and stale work.
+- [x] Acceptance scenarios cover add, update, delete, idempotency, deterministic ordering, range coverage, restart/invalidation, stale work, and anchor/cache acceptance interleaving.
+- [x] The contract forbids checkpoint-first advancement and defines currentness for same-semantic supersession.
+- [x] The direct service path cannot become an independent default-anchor writer outside cache acceptance.
 - [x] Public compatibility, files in scope, files not to touch, and exact package verification are explicit.
 - [x] Success criteria are measurable without HealthKit hardware.
 

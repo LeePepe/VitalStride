@@ -7,7 +7,7 @@
 
 ## Summary
 
-Repair the workout cache/provider seam inside the `HealthKitService` layer. The provider will distinguish an authoritative snapshot with concrete coverage from anchored changes. `HealthDataCache` will rebuild a baseline when no compatible snapshot exists, reconcile changes by UUID with deletion-wins semantics, key coalescing by query shape/range, and guard commits with a workout-specific generation. Public cache and direct-service entry points remain source-compatible.
+Repair the workout cache/provider seam inside the `HealthKitService` layer. The provider will distinguish an authoritative snapshot with concrete coverage from anchored changes and return any new anchor as an unpersisted checkpoint. `HealthDataCache` will own acceptance: validate generation/key/request identity, publish the immutable UUID-reconciled entry, then synchronously persist the matching checkpoint. Public cache and direct-service entry points remain source-compatible.
 
 ## Technical Context
 
@@ -26,7 +26,7 @@ Repair the workout cache/provider seam inside the `HealthKitService` layer. The 
 | Gate | Result | Evidence |
 |---|---|---|
 | §I health privacy | PASS | Plan changes cache semantics only; aggregate query type/count/duration logs are allowed. |
-| §II strict concurrency | PASS | Actor isolation remains the synchronization boundary; workout generation handles actor reentrancy without unsafe annotations. |
+| §II strict concurrency | PASS | Actor isolation remains the synchronization boundary; workout generation plus request-instance identity handles actor reentrancy without unsafe annotations. |
 | §III SPM-first | PASS | All production work is under `Packages/HealthKitService`; verification is package-local Swift build/test only. |
 | Quality Bar A scope | PASS | AppUI, models, WatchConnectivity, and generated project files are excluded. |
 | Quality Bar C unsafe concurrency | PASS | No `@preconcurrency`, `nonisolated(unsafe)`, or new `@unchecked Sendable` is planned. |
@@ -41,6 +41,7 @@ Repair the workout cache/provider seam inside the `HealthKitService` layer. The 
 - The default first-sync request fetches 30 days but stores `coveredRange: nil`; `coversRange(nil, requested:)` then claims every requested range is covered.
 - The workout cache is process-memory-only while the anchor persists, so a new cache process can receive a delta without a baseline.
 - One global workout in-flight task can currently coalesce unrelated ranges.
+- `HealthKitService.fetchWorkouts(dateRange:)` currently persists the returned workout anchor before `HealthDataCache` can accept or reject the corresponding cache transition.
 
 Details and alternatives are recorded in `research.md`.
 
@@ -54,7 +55,7 @@ Add an explicit provider-level request semantic for:
 2. anchored changes from the persisted workout anchor;
 3. explicit-range snapshot.
 
-The result identifies snapshot versus changes. Snapshots report concrete coverage. Changes retain UUID upserts and deleted UUIDs. Existing public direct-service and cache APIs stay source-compatible through compatibility defaults; no implementation-level signature is prescribed here.
+The prepared result identifies snapshot versus changes. Snapshots report concrete coverage. Changes retain UUID upserts and deleted UUIDs. Baseline/change results carry an opaque pending checkpoint but do not persist it. The existing direct service call remains source-compatible but becomes an anchor-free authoritative snapshot, leaving `HealthDataCache` as the sole default-anchor acceptance authority. No implementation-level signature is prescribed here.
 
 ### Cache state transition
 
@@ -64,14 +65,17 @@ The result identifies snapshot versus changes. Snapshots report concrete coverag
 - Snapshot → replace the single workout cache entry with the authoritative records and coverage.
 - Changes → copy current records into a UUID map, apply upserts, apply deletions last, deterministically sort, then assign one new immutable entry with unchanged coverage.
 - Incompatible query shape → rebuild rather than treating scoped data as global or vice versa.
+- Accepted baseline/changes → publish the entry first, then synchronously persist its pending checkpoint in the same actor turn; rejected results persist nothing.
 
 ### Concurrency and invalidation
 
 - Key in-flight fetches by request semantic and date range.
-- Capture a workout-specific generation before awaiting the provider.
+- Give every started fetch a unique request instance and capture a workout-specific generation before awaiting the provider.
+- Ordinary duplicate reads may coalesce onto the owning instance; an explicit refresh supersedes prior work even for the same semantic/range.
 - `invalidateWorkouts()` and `invalidateAll()` bump the workout generation and cancel/clear workout tasks.
-- A fetch commits only if its generation and semantic target remain current; cancellation is not treated as sufficient protection.
-- Errors and stale completions leave the last valid entry unchanged.
+- A fetch commits only if generation, semantic/range key, and request instance remain current; only that instance may clear the in-flight slot.
+- Errors, rejected currentness, and stale completions leave the last accepted cache/anchor pair unchanged.
+- Cache-first/checkpoint-second ordering permits safe idempotent replay if checkpoint persistence does not complete; checkpoint-first ordering is forbidden.
 
 ### Ordering
 
@@ -133,7 +137,8 @@ Packages/HealthKitService/
 - Keep `HealthDataCache.workoutData(in:)` source-compatible.
 - Keep `HealthDataCache.refreshWorkouts(in:)` source-compatible.
 - Keep `HealthKitService.fetchWorkouts(dateRange:)` source-compatible.
-- Extend only the provider/result seam needed to express baseline, changes, explicit range, and coverage; compatibility behavior is locked by tests.
+- Make the direct service call anchor-free and side-effect-free with respect to the default workout anchor.
+- Extend only the cache-facing provider/result seam needed to express baseline, changes, explicit range, coverage, deferred checkpoint, and cache acceptance; compatibility behavior is locked by tests.
 
 ## Vertical Slice and Dependency Graph
 
@@ -145,8 +150,8 @@ Task metadata and the acceptance mapping are in `tasks.md`.
 
 ## Verification Strategy
 
-1. Provider contract tests prove baseline versus anchored versus explicit-range query behavior and anchor advancement.
-2. Cache tests perform the required red-green regression sequence and the full merge/range/concurrency/invalidation matrix.
+1. Provider contract tests prove baseline versus anchored versus explicit-range query behavior, prepared-fetch non-persistence, accepted checkpoint persistence, and source-compatible direct snapshot behavior with no anchor side effect.
+2. Cache tests perform the required red-green regression sequence and the full merge/range/concurrency/invalidation matrix, including the provider-complete/cache-not-yet-accepted supersession interleaving.
 3. Existing HealthKitService tests protect public compatibility and privacy logging.
 4. Required layer gate, from `Packages/HealthKitService`:
 
@@ -162,8 +167,11 @@ No `xcodebuild` is permitted because implementation scope is package-only.
 |---|---|
 | Persisted anchor outlives in-memory baseline | Empty/incompatible cache forces baseline and re-establishes the anchor. |
 | Range snapshot is treated as a global baseline | Result carries semantic/coverage; cache provenance controls compatibility. |
-| Late actor-reentrant task overwrites newer state | Workout-specific generation guards every post-await commit. |
+| Late actor-reentrant task overwrites newer state | Workout generation plus fetch-key/request-instance ownership guards every post-await commit. |
 | Different ranges share an in-flight result | Coalescing key includes semantic and range. |
+| Same-semantic superseded result advances anchor or clears newer ownership | Unique request-instance currentness; only accepted owner publishes cache then persists checkpoint. |
+| Direct service caller advances the anchor outside cache acceptance | Direct entry point is anchor-free snapshot-only; cache-facing prepare/accept is the sole anchor writer. |
+| Process interruption between cache publish and checkpoint persistence | Previous anchor remains; next fetch safely replays idempotent UUID changes. |
 | Duplicate or unstable projection | UUID map plus explicit sort/tie-breaker. |
 | Logging leaks workout details | Keep only aggregate query type/count/duration and extend existing privacy audit only if needed. |
 | Scope grows into workout persistence/refresh policy | L2 workout persistence, observer sync, and TTL remain explicit non-goals. |

@@ -12,7 +12,7 @@
 1. Complete T023-001 and keep the package gate green.
 2. Complete T023-002 after T023-001.
 3. In T023-002, add the regression assertions first and run the focused suite to capture the expected failure against the old replacement behavior.
-4. Implement reconciliation, range provenance, request-keyed coalescing, and workout generation.
+4. Implement reconciliation, range provenance, request-keyed coalescing, unique request-instance currentness, and cache-first/checkpoint-second acceptance.
 5. Run the focused workout suites.
 6. Run the full repository-declared package gate.
 
@@ -27,7 +27,8 @@
 - Default 30-day coverage → wider range fetches a snapshot.
 - Explicit range → later default request rebuilds a compatible baseline.
 - Different ranges/semantics → no incorrect task coalescing.
-- Late cancelled or invalidated work → no stale cache commit.
+- Provider-complete delta held before acceptance → same-semantic supersession → rejected checkpoint is not persisted and the next read still obtains the delta.
+- Late cancelled or invalidated work → no stale cache commit, checkpoint commit, or newer in-flight cleanup.
 - Provider error → prior cache remains.
 
 ## Focused Verification
@@ -50,6 +51,9 @@ Before handoff, confirm:
 
 - only the HealthKitService source/tests named in `tasks.md` changed;
 - `workoutData(in:)`, `refreshWorkouts(in:)`, and direct `fetchWorkouts(dateRange:)` call shapes remain source-compatible;
+- direct service fetches are anchor-free snapshots and do not independently read/advance the default workout anchor;
+- prepared cache-facing fetches do not persist checkpoints before acceptance;
+- only the current request instance publishes cache state and then synchronously persists its checkpoint;
 - no health values/details were added to logs;
 - no unsafe concurrency annotation was introduced;
 - no AppUI, schema, WatchConnectivity, generated Xcode project, or project configuration file changed.
