@@ -127,7 +127,7 @@ US1 delivers the complete user outcome: stable numeric editing across all snackb
 
 1. Focused AppUI suites on iPhone 17 Simulator.
 2. Full AppUI layer command on iPhone 17 Simulator.
-3. iPhone 16 Simulator light/dark keyboard show/hide capture with active snackbar and final-row visibility.
+3. Continuous iPhone 16 Simulator light/dark recordings spanning the complete keyboard show and hide animations with active snackbar and final-row visibility.
 
 ## Verification Commands
 
@@ -145,13 +145,13 @@ Authoritative AppUI layer gate:
 xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation
 ```
 
-Visual evidence target required by MY-1476:
+Generic AppUI build before visual evidence:
 
 ```bash
-xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 16' -skipPackagePluginValidation
+xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
 ```
 
-The Fullstack Engineer then performs the `quickstart.md` interaction sequence in light and dark appearance and attaches consecutive before-show, after-show, and after-hide screenshots to MY-1476. Runtime-local image paths are not deliverables.
+The Fullstack Engineer then boots an iPhone 16 Simulator, performs the `quickstart.md` interaction sequence, and attaches two continuous recordings to MY-1476: one light and one dark. Each recording starts before focusing the field, captures the entire keyboard show animation and settled visible state, then captures the entire hide animation and settled hidden state. A separate settled light screenshot proves no-snackbar FAB spacing and final-row clearance. Runtime-local evidence paths are not deliverables.
 
 ## Risks and Mitigations
 
@@ -161,7 +161,7 @@ The Fullstack Engineer then performs the `quickstart.md` interaction sequence in
 | Constant reservation wastes space or double-counts the keyboard | Contract distinguishes structural stability from visible/reserved policy and verifies focused-row clearance on both keyboard states. |
 | Large Mode diverges from compact mode | Both header variants must pass through the same root layout contract. |
 | Stale tests keep passing without production coverage | Replace production-unused edge/pass-through assertions with tests that exercise the production layout policy. |
-| Simulator device mismatch hides a gate | Use iPhone 17 for the canonical AppUI command and iPhone 16 for issue-mandated visual evidence. |
+| Simulator destination confusion hides a gate | Use the generic simulator destination for build, iPhone 17 for automated AppUI tests, and iPhone 16 only for issue-mandated visual recording. |
 
 ## Complexity Tracking
 

@@ -17,7 +17,7 @@ description: "Layer-scoped implementation tasks for MY-1476 active-workout safe-
 **Independent Test**: Execute the six-state automated matrix, both transition directions, the full AppUI gate, and the iPhone 16 light/dark interaction runbook.
 
 - [ ] T001 [US1] Test-drive and implement the stable production layout policy in `VitalStride/Sources/ActiveWorkoutView.swift`, `VitalStride/Sources/ActiveWorkout/ActiveWorkoutSnackbarLayout.swift`, `VitalStrideTests/Sources/ActiveWorkoutSnackbarLayoutTests.swift`, and `VitalStrideTests/Sources/ActiveWorkoutSnackbarSafeAreaTests.swift`
-- [ ] T002 [US1] Verify the completed `ActiveWorkoutView` layout with the focused/full AppUI gates and attach iPhone 16 Simulator light/dark before-show, after-show, and after-hide screenshots to MY-1476; make no repository source changes
+- [ ] T002 [US1] Verify the completed `ActiveWorkoutView` layout with the focused/full AppUI gates and attach continuous light/dark iPhone 16 Simulator recordings spanning the complete keyboard show/hide animations plus a settled no-snackbar screenshot to MY-1476; make no repository source changes
 
 ## Task Metadata
 
@@ -28,7 +28,7 @@ description: "Layer-scoped implementation tasks for MY-1476 active-workout safe-
 | Owning layer | AppUI — `VitalStride/CONTEXT.md` |
 | Vertical slice | US1 |
 | Files in scope | `VitalStride/Sources/ActiveWorkoutView.swift`; `VitalStride/Sources/ActiveWorkout/ActiveWorkoutSnackbarLayout.swift`; `VitalStrideTests/Sources/ActiveWorkoutSnackbarLayoutTests.swift`; `VitalStrideTests/Sources/ActiveWorkoutSnackbarSafeAreaTests.swift` |
-| Files/layers out of scope | `Packages/**`; `project.yml`; `VitalStride.xcodeproj/**`; `SelectAllTextField`; snackbar copy/timer/arbitration/persistence/telemetry; unrelated ActiveWorkout modules; `SnackbarAccessibilityUITests.swift` (must continue to pass unchanged) |
+| Files/layers out of scope | `Packages/**`; `project.yml`; `VitalStride.xcodeproj/**`; `SelectAllTextField`; snackbar copy/timer/arbitration/persistence/telemetry; unrelated ActiveWorkout modules; `VitalStrideUITests/Sources/SnackbarAccessibilityUITests.swift` (must continue to pass unchanged) |
 | Interface impact | Internal-only: deepen existing `ActiveWorkoutSnackbarLayout` and its `ActiveWorkoutView` call site; preserve `SnackbarFocusRouter`; no public interface |
 | Test-first acceptance | RED covers keyboard hidden/visible × none/rest/undo through the production policy and fails on complete bottom-subtree removal/duplicate root geometry; GREEN satisfies `contracts/active-workout-layout.md`; REFACTOR removes stale production-unused edge/pass-through assumptions |
 | Functional acceptance | Stable root bottom composition; exactly one active snackbar; hidden-keyboard FAB above active snackbar; focused row clears keyboard; final row clears active lower chrome; compact/Large Mode share policy; accessibility/focus remain valid |
@@ -44,8 +44,8 @@ description: "Layer-scoped implementation tasks for MY-1476 active-workout safe-
 | Files in scope | None; verification-only task against the T001 revision |
 | Files/layers out of scope | All repository edits. A discovered failure returns to T001 scope instead of expanding this task. |
 | Interface impact | None |
-| Acceptance | Full AppUI suite passes; iPhone 16 light/dark before-show, after-show, and after-hide screenshots cover an active snackbar, no-snackbar spacing, and final-row visibility; evidence is attached to MY-1476 |
-| Verification | From repo root: `xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation`; then `xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 16' -skipPackagePluginValidation` and execute `quickstart.md` |
+| Acceptance | Full AppUI suite passes; two continuous iPhone 16 recordings, one light and one dark, each start before field focus and span the complete keyboard show and hide animations with an active snackbar and final-row visibility; one settled light screenshot proves no-snackbar FAB spacing and final-row clearance; all three files are attached to MY-1476 |
+| Verification | From repo root: `xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation`; then `xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation` and execute `quickstart.md` |
 | Blocking tasks | T001 |
 
 ## Dependencies and Execution Order
@@ -64,10 +64,10 @@ US1: T001 (AppUI test-first implementation) → T002 (AppUI gate + visual eviden
 |---|---|---|
 | Rest snackbar keyboard show/hide stability | US1 | T001 matrix/transition tests; T002 visual capture |
 | Undo snackbar reachability and focus migration | US1 | T001 matrix/focus assertions; T002 visual capture |
-| No-snackbar spacing and FAB return | US1 | T001 none-state assertions; T002 no-snackbar observation |
+| No-snackbar spacing and FAB return | US1 | T001 none-state assertions; T002 settled no-snackbar screenshot |
 | Hidden-keyboard FAB/snackbar non-overlap and final-row clearance | US1 | T001 host geometry; T002 final-row runbook |
 | Visible-keyboard focused-row/snackbar/keyboard clearance | US1 | T001 production-policy geometry; T002 interaction runbook |
-| iPhone 16 light/dark evidence in both directions | US1 | T002 attached before-show, after-show, and after-hide screenshots |
+| iPhone 16 light/dark evidence across both transitions | US1 | T002 attached continuous light and dark recordings spanning complete show and hide animations |
 
 ## Requirement Traceability
 

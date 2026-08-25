@@ -29,7 +29,7 @@ While editing a set in an active workout, the user can show and dismiss the cust
 3. **Given** no snackbar is visible, **when** the keyboard appears or disappears, **then** no empty snackbar presentation becomes interactive or accessible and the FAB returns to its correct hidden-keyboard position without displacing the list twice.
 4. **Given** the keyboard is hidden and a rest or undo snackbar is visible, **when** the user scrolls to the last set, **then** the FAB is above the snackbar, both remain inside the bottom safe area without intersecting, and the last set can scroll above them.
 5. **Given** the keyboard is visible, **when** the user edits a row near the end of the workout, **then** the focused input row, active snackbar, and keyboard remain mutually unobscured without reading private keyboard geometry.
-6. **Given** light and dark appearance, **when** the keyboard is shown and dismissed with an active snackbar, **then** consecutive before-show, after-show, and after-hide screenshots show stable margins and no transient overlap in either direction.
+6. **Given** light and dark appearance, **when** the keyboard is shown and dismissed with an active snackbar, **then** one continuous recording per appearance spans the complete show and hide animations and shows stable margins with no transient jump or overlap in either direction.
 
 ### Edge Cases
 
@@ -51,7 +51,7 @@ While editing a set in an active workout, the user can show and dismiss the cust
 - **FR-006**: At most one snackbar presentation MUST be interactive and exposed to accessibility. Existing undo-over-rest arbitration and VoiceOver focus migration MUST remain intact.
 - **FR-007**: The last set row MUST be scrollable above every active lower overlay or reserved region in all six keyboard/snackbar combinations.
 - **FR-008**: Regression tests MUST be written first and cover keyboard visible/hidden crossed with snackbar none/rest/undo through the production layout policy, including stable root avoidance, single active placement, non-overlap, and final-row clearance.
-- **FR-009**: Verification MUST include iPhone 16 Simulator light/dark visual evidence for keyboard show and hide. Automated AppUI verification MUST use the layer command declared by `VitalStride/CONTEXT.md`.
+- **FR-009**: Verification MUST include two continuous iPhone 16 Simulator recordings, one light and one dark, each beginning before field focus and ending after keyboard dismissal so the complete show and hide animations are visible. Automated AppUI verification MUST use the layer command declared by `VitalStride/CONTEXT.md`.
 
 ### Non-Functional Requirements
 
@@ -75,7 +75,7 @@ While editing a set in an active workout, the user can show and dismiss the cust
 - `project.yml` and `VitalStride.xcodeproj/**`
 - `VitalStride/Sources/SelectAllTextField.swift` and numeric parsing/input contracts
 - Snackbar copy, timer lifecycle, undo arbitration, persistence, telemetry, and unrelated ActiveWorkout modules
-- `VitalStrideTests/Sources/SnackbarAccessibilityUITests.swift` (must continue to pass unchanged)
+- `VitalStrideUITests/Sources/SnackbarAccessibilityUITests.swift` (must continue to pass unchanged)
 
 ### Interface impact
 
@@ -88,7 +88,7 @@ While editing a set in an active workout, the user can show and dismiss the cust
 - **SC-001**: The automated regression matrix passes for all 6 keyboard/snackbar states and both keyboard transition directions.
 - **SC-002**: Host geometry assertions show no FAB/snackbar intersection and no loss of final-row scroll clearance in any matrix state.
 - **SC-003**: The focused row and active snackbar remain visible during keyboard presentation without private keyboard-geometry access.
-- **SC-004**: iPhone 16 Simulator light/dark evidence covers keyboard show and hide with no transient header/list double jump or overlay intersection.
+- **SC-004**: Two continuous iPhone 16 Simulator recordings, one light and one dark, visibly cover the full keyboard show and hide animations with no transient header/list double jump or overlay intersection.
 - **SC-005**: The full AppUI layer test command passes from the repository root.
 
 ## Assumptions

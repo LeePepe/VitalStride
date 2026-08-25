@@ -34,7 +34,7 @@
 
 **Finding**: MY-1476 requests iPhone 16 visual evidence, while the current AppUI layer frontmatter declares iPhone 17 for the authoritative test command.
 
-**Decision**: Run automated focused and full AppUI tests on iPhone 17. Build and capture the required light/dark transition evidence on iPhone 16.
+**Decision**: Run automated focused and full AppUI tests on iPhone 17, build with the generic iOS Simulator destination, then launch and capture the full light/dark transitions on iPhone 16.
 
 ## R7 — Planning outputs
 

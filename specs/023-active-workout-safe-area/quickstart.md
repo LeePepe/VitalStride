@@ -18,30 +18,55 @@ xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 
 
 Expected: the full `VitalStride` scheme test suite passes with zero failures.
 
-## 3. Build the visual-evidence target
+## 3. Build before visual capture
 
 ```bash
-xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 16' -skipPackagePluginValidation
+xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
 ```
 
-## 4. Capture the interaction evidence
+## 4. Record the transition evidence
 
-On a booted iPhone 16 Simulator:
+Boot an iPhone 16 Simulator and make it the active Simulator device. Prepare a workout with multiple exercises and enough sets to require scrolling.
 
-1. Start or resume a workout with multiple exercises and enough sets to require scrolling.
-2. Scroll to the final set and confirm its controls can be placed above the hidden-keyboard FAB/snackbar region.
-3. Make a rest snackbar visible, focus the final set's weight or reps input, then dismiss the keyboard.
-4. Repeat the show/hide path with an undo snackbar and once with no snackbar.
-5. Repeat the active-snackbar show/hide path in light and dark appearance.
-6. Capture consecutive screenshots of the settled state before show, after show, and after hide.
+For the light recording:
 
-Evidence must show:
+```bash
+xcrun simctl ui booted appearance light
+xcrun simctl io booted recordVideo --codec=h264 --force ./my-1476-light.mp4
+```
+
+While the foreground recording command is running, use the Simulator UI to:
+
+1. Start with the final set visible and a rest snackbar active.
+2. Focus the final set's weight or reps field and let the keyboard finish appearing.
+3. Keep the settled keyboard-visible state on screen briefly.
+4. Dismiss the keyboard and let the hide animation finish.
+5. Keep the settled keyboard-hidden state on screen briefly, then stop the recording with Control-C.
+
+For the dark recording, repeat the complete sequence with an undo snackbar active:
+
+```bash
+xcrun simctl ui booted appearance dark
+xcrun simctl io booted recordVideo --codec=h264 --force ./my-1476-dark.mp4
+```
+
+Each recording must show continuously:
 
 - no paired header/list jump;
 - exactly one active snackbar;
 - no FAB/snackbar intersection while the keyboard is hidden;
 - no focused-row/snackbar/keyboard overlap while the keyboard is visible;
 - final-row scroll clearance;
+- the complete show and hide animations, not only their settled endpoints;
 - correct light/dark margins.
 
-Attach the files to MY-1476. Do not report runtime-local file paths as delivered evidence.
+After both recordings, return to a settled light appearance with the keyboard hidden, no rest snackbar, and no pending undo. Scroll the final set above the FAB, then capture the no-snackbar spacing evidence:
+
+```bash
+xcrun simctl ui booted appearance light
+xcrun simctl io booted screenshot --type=png ./my-1476-no-snackbar-light.png
+```
+
+The screenshot must show the FAB inside the bottom safe area and the complete final set row above it.
+
+Attach both MP4 files and the PNG file to MY-1476, then remove the local copies. Do not report runtime-local file paths as delivered evidence.
