@@ -1,6 +1,6 @@
 # Quickstart: Verify Active Workout Safe-Area Stability
 
-Run all commands from the repository root.
+Run all commands from the repository root in the same shell so the task-specific variables remain bound through build, install, launch, and capture.
 
 ## 1. Focused automated regression
 
@@ -21,18 +21,40 @@ Expected: the full `VitalStride` scheme test suite passes with zero failures.
 ## 3. Build before visual capture
 
 ```bash
-xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
+set -euo pipefail
+MY1476_REVISION="$(git rev-parse HEAD)"
+MY1476_DERIVED_DATA="./DerivedData/MY-1476-$MY1476_REVISION"
+MY1476_APP_PATH="$MY1476_DERIVED_DATA/Build/Products/Debug-iphonesimulator/VitalStride.app"
+MY1476_BUNDLE_ID="com.leepepe.vitalstride"
+xcodebuild clean build -project VitalStride.xcodeproj -scheme VitalStride -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath "$MY1476_DERIVED_DATA" -skipPackagePluginValidation
+test -d "$MY1476_APP_PATH"
+test "$(plutil -extract CFBundleIdentifier raw -- "$MY1476_APP_PATH/Info.plist")" = "$MY1476_BUNDLE_ID"
 ```
 
-## 4. Record the transition evidence
+## 4. Create and launch the exact capture simulator
 
-Boot an iPhone 16 Simulator and make it the active Simulator device. Prepare a workout with multiple exercises and enough sets to require scrolling.
+Resolve the latest available iOS runtime and the repository-required iPhone 16 device type, then create one dedicated simulator. Preserve the returned UDID for every remaining command:
+
+```bash
+MY1476_RUNTIME_ID="$(xcrun simctl list runtimes available --json | jq -er '[.runtimes[] | select(.platform == "iOS" and .isAvailable == true)] | sort_by(.version | split(".") | map(tonumber)) | last | .identifier')"
+MY1476_DEVICE_TYPE_ID="$(xcrun simctl list devicetypes --json | jq -er '.devicetypes[] | select(.name == "iPhone 16") | .identifier')"
+MY1476_UDID="$(xcrun simctl create "MY-1476-$MY1476_REVISION" "$MY1476_DEVICE_TYPE_ID" "$MY1476_RUNTIME_ID")"
+xcrun simctl bootstatus "$MY1476_UDID" -b
+open -a Simulator --args -CurrentDeviceUDID "$MY1476_UDID"
+xcrun simctl install "$MY1476_UDID" "$MY1476_APP_PATH"
+xcrun simctl launch --terminate-running-process "$MY1476_UDID" "$MY1476_BUNDLE_ID"
+xcrun simctl list devices --json | jq -er --arg udid "$MY1476_UDID" '.devices[][] | select(.udid == $udid and .state == "Booted") | .name'
+```
+
+The final command must print `MY-1476-$MY1476_REVISION`. Confirm the Simulator window shows that dedicated device before interacting. The launched foreground app is now the exact build from `$MY1476_REVISION`; prepare a workout with multiple exercises and enough sets to require scrolling.
+
+## 5. Record the transition evidence
 
 For the light recording:
 
 ```bash
-xcrun simctl ui booted appearance light
-xcrun simctl io booted recordVideo --codec=h264 --force ./my-1476-light.mp4
+xcrun simctl ui "$MY1476_UDID" appearance light
+xcrun simctl io "$MY1476_UDID" recordVideo --codec=h264 --display=internal --force "./my-1476-$MY1476_REVISION-light.mp4"
 ```
 
 While the foreground recording command is running, use the Simulator UI to:
@@ -46,8 +68,8 @@ While the foreground recording command is running, use the Simulator UI to:
 For the dark recording, repeat the complete sequence with an undo snackbar active:
 
 ```bash
-xcrun simctl ui booted appearance dark
-xcrun simctl io booted recordVideo --codec=h264 --force ./my-1476-dark.mp4
+xcrun simctl ui "$MY1476_UDID" appearance dark
+xcrun simctl io "$MY1476_UDID" recordVideo --codec=h264 --display=internal --force "./my-1476-$MY1476_REVISION-dark.mp4"
 ```
 
 Each recording must show continuously:
@@ -63,10 +85,10 @@ Each recording must show continuously:
 After both recordings, return to a settled light appearance with the keyboard hidden, no rest snackbar, and no pending undo. Scroll the final set above the FAB, then capture the no-snackbar spacing evidence:
 
 ```bash
-xcrun simctl ui booted appearance light
-xcrun simctl io booted screenshot --type=png ./my-1476-no-snackbar-light.png
+xcrun simctl ui "$MY1476_UDID" appearance light
+xcrun simctl io "$MY1476_UDID" screenshot --type=png --display=internal "./my-1476-$MY1476_REVISION-no-snackbar-light.png"
 ```
 
 The screenshot must show the FAB inside the bottom safe area and the complete final set row above it.
 
-Attach both MP4 files and the PNG file to MY-1476, then remove the local copies. Do not report runtime-local file paths as delivered evidence.
+Attach both revision-named MP4 files and the PNG file to MY-1476, and record `$MY1476_REVISION` plus `$MY1476_UDID` in the result comment. Then remove the local evidence copies. Do not report runtime-local file paths as delivered evidence.

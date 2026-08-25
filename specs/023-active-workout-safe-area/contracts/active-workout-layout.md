@@ -46,4 +46,5 @@ No public interface is added or changed.
 - Table-driven policy tests cover all six settled states.
 - Transition tests cover hidden→visible and visible→hidden with none, rest, and undo.
 - Hosted SwiftUI geometry verifies bottom containment, FAB/snackbar non-intersection, single active placement, and final-row clearance.
-- Two continuous iPhone 16 Simulator recordings, one light and one dark, each span the full keyboard show and hide animations with an active snackbar and a final-row edit; one settled light screenshot proves no-snackbar FAB spacing and final-row clearance.
+- The revision-keyed generic Debug build is clean-built and its bundle identifier is asserted before installation and launch on one dedicated iPhone 16; two continuous recordings and the settled no-snackbar screenshot all use that same explicit UDID.
+- The light and dark recordings each span the full keyboard show and hide animations with an active snackbar and a final-row edit; the settled light screenshot proves no-snackbar FAB spacing and final-row clearance.

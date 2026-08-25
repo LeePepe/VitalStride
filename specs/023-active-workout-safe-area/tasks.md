@@ -17,7 +17,7 @@ description: "Layer-scoped implementation tasks for MY-1476 active-workout safe-
 **Independent Test**: Execute the six-state automated matrix, both transition directions, the full AppUI gate, and the iPhone 16 light/dark interaction runbook.
 
 - [ ] T001 [US1] Test-drive and implement the stable production layout policy in `VitalStride/Sources/ActiveWorkoutView.swift`, `VitalStride/Sources/ActiveWorkout/ActiveWorkoutSnackbarLayout.swift`, `VitalStrideTests/Sources/ActiveWorkoutSnackbarLayoutTests.swift`, and `VitalStrideTests/Sources/ActiveWorkoutSnackbarSafeAreaTests.swift`
-- [ ] T002 [US1] Verify the completed `ActiveWorkoutView` layout with the focused/full AppUI gates and attach continuous light/dark iPhone 16 Simulator recordings spanning the complete keyboard show/hide animations plus a settled no-snackbar screenshot to MY-1476; make no repository source changes
+- [ ] T002 [US1] Verify the completed `ActiveWorkoutView` layout from the revision-keyed build installed and launched on one explicit iPhone 16 UDID, then attach continuous light/dark keyboard-transition recordings plus a settled no-snackbar screenshot to MY-1476; make no repository source changes
 
 ## Task Metadata
 
@@ -44,8 +44,8 @@ description: "Layer-scoped implementation tasks for MY-1476 active-workout safe-
 | Files in scope | None; verification-only task against the T001 revision |
 | Files/layers out of scope | All repository edits. A discovered failure returns to T001 scope instead of expanding this task. |
 | Interface impact | None |
-| Acceptance | Full AppUI suite passes; two continuous iPhone 16 recordings, one light and one dark, each start before field focus and span the complete keyboard show and hide animations with an active snackbar and final-row visibility; one settled light screenshot proves no-snackbar FAB spacing and final-row clearance; all three files are attached to MY-1476 |
-| Verification | From repo root: `xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation`; then `xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation` and execute `quickstart.md` |
+| Acceptance | Full AppUI suite passes; the revision-keyed generic Debug build is clean-built and its `com.leepepe.vitalstride` identifier is asserted before install/launch on one dedicated iPhone 16; the same explicit UDID is used for both complete show/hide recordings and the no-snackbar screenshot; all three files plus revision/UDID provenance are attached to MY-1476 |
+| Verification | From repo root: `xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation`; then `xcodebuild clean build -project VitalStride.xcodeproj -scheme VitalStride -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath "./DerivedData/MY-1476-$(git rev-parse HEAD)" -skipPackagePluginValidation` and every assertion/install/launch/capture command in `quickstart.md` |
 | Blocking tasks | T001 |
 
 ## Dependencies and Execution Order

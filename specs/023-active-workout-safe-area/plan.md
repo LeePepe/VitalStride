@@ -148,10 +148,12 @@ xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 
 Generic AppUI build before visual evidence:
 
 ```bash
-xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
+MY1476_REVISION="$(git rev-parse HEAD)"
+MY1476_DERIVED_DATA="./DerivedData/MY-1476-$MY1476_REVISION"
+xcodebuild clean build -project VitalStride.xcodeproj -scheme VitalStride -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath "$MY1476_DERIVED_DATA" -skipPackagePluginValidation
 ```
 
-The Fullstack Engineer then boots an iPhone 16 Simulator, performs the `quickstart.md` interaction sequence, and attaches two continuous recordings to MY-1476: one light and one dark. Each recording starts before focusing the field, captures the entire keyboard show animation and settled visible state, then captures the entire hide animation and settled hidden state. A separate settled light screenshot proves no-snackbar FAB spacing and final-row clearance. Runtime-local evidence paths are not deliverables.
+The Fullstack Engineer then follows the fail-fast `quickstart.md` to assert the clean-built app path and `com.leepepe.vitalstride` bundle identifier, resolve the latest available iOS runtime and iPhone 16 device type, create one dedicated simulator whose returned UDID is retained, install the asserted app, and launch it by that bundle identifier. Every appearance, recording, and screenshot command uses that same explicit UDID. The two recordings span the entire show/hide animations; a settled light screenshot proves no-snackbar FAB spacing and final-row clearance. Runtime-local evidence paths are not deliverables.
 
 ## Risks and Mitigations
 
@@ -161,7 +163,7 @@ The Fullstack Engineer then boots an iPhone 16 Simulator, performs the `quicksta
 | Constant reservation wastes space or double-counts the keyboard | Contract distinguishes structural stability from visible/reserved policy and verifies focused-row clearance on both keyboard states. |
 | Large Mode diverges from compact mode | Both header variants must pass through the same root layout contract. |
 | Stale tests keep passing without production coverage | Replace production-unused edge/pass-through assertions with tests that exercise the production layout policy. |
-| Simulator destination confusion hides a gate | Use the generic simulator destination for build, iPhone 17 for automated AppUI tests, and iPhone 16 only for issue-mandated visual recording. |
+| A stale app or wrong simulator invalidates evidence | Clean-build Debug into revision-keyed DerivedData, assert the product and bundle ID, create one dedicated iPhone 16, install and launch that exact app, and use its explicit UDID for every capture command. |
 
 ## Complexity Tracking
 

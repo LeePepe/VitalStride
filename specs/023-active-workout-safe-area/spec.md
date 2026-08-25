@@ -51,7 +51,7 @@ While editing a set in an active workout, the user can show and dismiss the cust
 - **FR-006**: At most one snackbar presentation MUST be interactive and exposed to accessibility. Existing undo-over-rest arbitration and VoiceOver focus migration MUST remain intact.
 - **FR-007**: The last set row MUST be scrollable above every active lower overlay or reserved region in all six keyboard/snackbar combinations.
 - **FR-008**: Regression tests MUST be written first and cover keyboard visible/hidden crossed with snackbar none/rest/undo through the production layout policy, including stable root avoidance, single active placement, non-overlap, and final-row clearance.
-- **FR-009**: Verification MUST include two continuous iPhone 16 Simulator recordings, one light and one dark, each beginning before field focus and ending after keyboard dismissal so the complete show and hide animations are visible. Automated AppUI verification MUST use the layer command declared by `VitalStride/CONTEXT.md`.
+- **FR-009**: Verification MUST include two continuous iPhone 16 Simulator recordings, one light and one dark, each beginning before field focus and ending after keyboard dismissal so the complete show and hide animations are visible. The clean-built `VitalStride.app` MUST have its bundle identifier asserted before it is installed and launched on one explicit iPhone 16 UDID, and that same UDID MUST be used for every capture command. Automated AppUI verification MUST use the layer command declared by `VitalStride/CONTEXT.md`.
 
 ### Non-Functional Requirements
 
@@ -88,7 +88,7 @@ While editing a set in an active workout, the user can show and dismiss the cust
 - **SC-001**: The automated regression matrix passes for all 6 keyboard/snackbar states and both keyboard transition directions.
 - **SC-002**: Host geometry assertions show no FAB/snackbar intersection and no loss of final-row scroll clearance in any matrix state.
 - **SC-003**: The focused row and active snackbar remain visible during keyboard presentation without private keyboard-geometry access.
-- **SC-004**: Two continuous iPhone 16 Simulator recordings, one light and one dark, visibly cover the full keyboard show and hide animations with no transient header/list double jump or overlay intersection.
+- **SC-004**: Two continuous iPhone 16 Simulator recordings, one light and one dark, visibly cover the full keyboard show and hide animations with no transient header/list double jump or overlay intersection, captured from the explicit UDID running the newly built app.
 - **SC-005**: The full AppUI layer test command passes from the repository root.
 
 ## Assumptions
