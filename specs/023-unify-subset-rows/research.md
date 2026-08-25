@@ -24,17 +24,20 @@
 - Reimplement the cascade in AppUI: violates the issue and layer contract.
 - Change WorkoutSetManager: current package tests already prove its required behavior.
 
-## Decision 3 — Test the real production route through an internal seam
+## Decision 3 — Test policy and execution through a request-level seam
 
-**Decision**: Extract only enough app-internal orchestration from the SwiftUI view for both production requestDelete and tests to invoke the same handler.
+**Decision**: Extract one app-internal request-level seam that begins before SetDeletionPolicy dispatch and owns the transition into production execution. ActiveExerciseSection.requestDelete delegates to it, and tests invoke it directly. The seam applies undo/announcement and the deletion callback only after manager success, while the view applies the returned confirmation/focus presentation state.
 
-**Evidence**: Existing tests separately cover policy, manager and undo, but the defect is at the connection between the row affordance and those pieces.
+**Evidence**: Existing tests separately cover policy, manager and undo, but the defect is at the connection between the row affordance and those pieces. Testing only the downstream executor could pass while request-level policy routing or row wiring is broken.
 
 **Alternatives rejected**:
 
 - Test SetDeletionPolicy and WorkoutSetManager separately again: does not prove the UI request route works.
+- Test only a downstream execution helper: does not prove request-level policy dispatch.
 - Source-text assertions: brittle and do not observe model mutation or undo.
 - Add a public coordinator: violates the no-public-API requirement.
+
+The negative matrix includes an only-remaining-set request. WorkoutSetManager refusal must leave the row intact, leave a fresh undo controller's pending/announcement state unchanged, and keep a deletion-callback spy at zero.
 
 ## Decision 4 — Preserve numeric-keyboard implementation
 

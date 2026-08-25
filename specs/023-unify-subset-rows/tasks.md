@@ -27,9 +27,9 @@
 | Slice | US1 |
 | Files in scope | VitalStride/Sources/ActiveWorkout/SetRow.swift; VitalStride/Sources/ActiveWorkout/SubSetRow.swift; VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift; VitalStrideTests/Sources/SubSetDeletionUndoTests.swift; VitalStrideTests/Sources/SubSetReadOnlyTests.swift (rename source and remove obsolete suite content); VitalStrideTests/Sources/SubSetRowParityTests.swift (rename target and replacement suite); VitalStrideTests/Sources/ActiveExerciseRowContextsTests.swift; VitalStrideTests/Sources/ActiveWorkoutHitTargetTests.swift; specs/023-unify-subset-rows/** |
 | Files excluded | VitalStride/Sources/ActiveWorkout/SetDeletionPolicy.swift; Packages/** including SetType and WorkoutSetManager; VitalStride/Sources/WorkoutNumericKeyboard.swift; VitalStride/Sources/ActiveWorkoutView.swift; VitalStride/Sources/ActiveWorkout/ActiveWorkoutSnackbarLayout.swift; VitalStride/Resources/Localizable.xcstrings; project.yml; VitalStride.xcodeproj/**; VitalStrideMac/**; VitalStrideWatch Watch App/**; VitalStrideWidgets/** |
-| Interface / contract | No public API. Add immutable app-internal row identity/configuration. SetRow remains the only weight/reps/menu/completion composition; SubSetRow remains a thin adapter. Deepen an app-internal deletion execution seam used by production requestDelete and tests. Reuse existing cataloged sub-set identity and delete strings. |
+| Interface / contract | No public API. Add immutable app-internal row identity/configuration. SetRow remains the only weight/reps/menu/completion composition; SubSetRow remains a thin adapter. Add one app-internal request-level seam that starts before SetDeletionPolicy dispatch, enters production execution, and is delegated to by ActiveExerciseSection.requestDelete and invoked by tests. The seam records undo/announcement and invokes the deletion callback only after manager success, then returns presentation state such as the focus target; the view does not apply those success effects. Reuse existing cataloged sub-set identity and delete strings. |
 | Blocking edges | None |
-| Task-local acceptance | Capture RED before production edits. GREEN proves: (1) pyramid and drop-set cases enter the same internal handler used by requestDelete, remove only the selected row, arm pending undo and restore values/order without parent/sibling loss; (2) normal, pyramid and drop-set identities select the shared editable field/menu/completion model; (3) the old read-only/tree-line implementation and tests are removed; (4) menu and full swipe converge at requestDelete; (5) rendered delete width/height are each at least 44 points; (6) sub-set delete copy includes parent number, current type and delete intent; (7) existing parent confirmation, announcement identity, dead-parent undo, main-row keyboard behavior and compact Large layout remain green; (8) the existing four ActiveExerciseSection preview states each seed a normal, pyramid and drop-set row for visual capture. |
+| Task-local acceptance | Capture RED before production edits. GREEN proves: (1) pyramid and drop-set cases enter the request-level seam used by requestDelete, including SetDeletionPolicy dispatch and production execution, remove only the selected row, arm pending undo and restore values/order without parent/sibling loss; (2) the production-configured menu-delete and full-swipe callbacks each forward the selected set exactly once through requestDelete to that seam; (3) an only-remaining-set request reaches WorkoutSetManager refusal, leaves the row intact, leaves a fresh undo controller's pending and announcement state nil, and keeps a deletion-callback spy at zero; (4) normal, pyramid and drop-set identities select the shared editable field/menu/completion model; (5) the old read-only/tree-line implementation and tests are removed; (6) adjacent hosted standard, pyramid and drop-set production rows each expose a delete hit/accessibility frame at least 44 by 44 points and both neighboring pairs have an empty intersection; (7) sub-set delete copy includes parent number, current type and delete intent; (8) existing parent confirmation, announcement identity, dead-parent undo, main-row keyboard behavior and compact Large layout remain green; (9) the existing four ActiveExerciseSection preview states each seed a normal, pyramid and drop-set row for visual capture. |
 | Exact verification | Run the focused iPhone 16 command below from repository root. |
 
 ~~~bash
@@ -52,7 +52,7 @@ xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride \
 | Files excluded | Any implementation repair or scope expansion; failures return to T001. T002 changes no repository file. |
 | Interface / contract | Verify the assembled AppUI behavior and evidence. Do not create another row or deletion path. |
 | Blocking edges | Depends on T001 |
-| Task-local acceptance | Focused iPhone 16 suites pass; the issue-declared unfiltered iPhone 16 suite passes; the formal AppUI iPhone 17 suite passes; diff contains only declared source/test/spec paths; four iPhone 16 screenshots show aligned standard/pyramid/drop-set rows in normal-light, normal-dark, Large-light and Large-dark; PR evidence records menu delete, full swipe, undo and parent-cascade results. |
+| Task-local acceptance | Focused iPhone 16 suites pass, including request-level pyramid/drop-set success, manager-refusal side effects, exactly-once menu/swipe callback convergence and three-row adjacent disjoint-frame assertions; the issue-declared unfiltered iPhone 16 suite passes; the formal AppUI iPhone 17 suite passes; diff contains only declared source/test/spec paths; four iPhone 16 screenshots show aligned standard/pyramid/drop-set rows in normal-light, normal-dark, Large-light and Large-dark; PR evidence records menu delete, full swipe, undo and parent-cascade results. |
 | Exact verification | Run all commands and the manual checklist below from repository root. |
 
 ~~~bash
@@ -110,11 +110,12 @@ US1 / T002 assembled AppUI verification
 
 | Spec requirement / acceptance | Slice | Tasks | Verification surface |
 |---|---|---|---|
-| FR-003, FR-004, FR-005: pyramid menu deletion removes only selected row and undo restores | US1 | T001, T002 | SubSetDeletionUndoTests; manual menu path |
-| FR-003, FR-004, FR-005: drop-set swipe deletion removes only selected row and undo restores | US1 | T001, T002 | SubSetDeletionUndoTests; manual full swipe |
+| FR-003, FR-004, FR-005: pyramid menu deletion crosses request-level policy/execution, removes only selected row and undo restores | US1 | T001, T002 | SubSetDeletionUndoTests; production menu-callback exactly-once test; manual menu path |
+| FR-003, FR-004, FR-005: drop-set swipe deletion crosses request-level policy/execution, removes only selected row and undo restores | US1 | T001, T002 | SubSetDeletionUndoTests; production swipe-callback exactly-once test; manual full swipe |
+| FR-004, FR-008: manager refusal emits no undo, announcement or deletion callback | US1 | T001, T002 | SubSetDeletionUndoTests only-remaining-set negative case |
 | FR-001, FR-002, FR-007: shared editable weight/reps/completion/menu composition and identity | US1 | T001, T002 | SubSetRowParityTests; implementation reuse; screenshots |
 | FR-004, FR-005: parent cascade confirmation and package rule remain | US1 | T001, T002 | SubSetDeletionUndoTests; manual parent delete |
-| FR-006: 44-point delete targets and explicit VoiceOver identity | US1 | T001, T002 | ActiveWorkoutHitTargetTests; SubSetRowParityTests; VoiceOver check |
+| FR-006: 44-point delete targets, disjoint adjacent frames and explicit VoiceOver identity | US1 | T001, T002 | ActiveWorkoutHitTargetTests standard+pyramid+drop-set geometry and both neighboring intersections; SubSetRowParityTests; VoiceOver check |
 | FR-008: light/dark × normal/Large alignment and full verification | US1 | T001, T002 | ActiveExerciseSection previews; focused/full tests; four iPhone 16 screenshots |
 | FR-009: no public API/package/schema/keyboard/reorder/FAB change | US1 | T001, T002 | Diff allowlist and full AppUI gates |
 
@@ -145,7 +146,7 @@ US1 / T002 assembled AppUI verification
 
 ### Public signatures
 
-None. App-internal immutable row configuration and a testable production deletion execution seam are permitted. No public type, method or package API is added.
+None. App-internal immutable row configuration and a testable request-level deletion seam covering policy dispatch plus production execution are permitted. No public type, method or package API is added.
 
 ## Implementation Strategy
 

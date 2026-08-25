@@ -29,23 +29,26 @@ SubSetRow remains as a thin source-internal adapter, but it may not own a second
 shared row menu delete ─┐
                         ├─> ActiveExerciseSection.requestDelete
 trailing full swipe ────┘        │
-                                 ├─> SetDeletionPolicy.intent
-                                 │      ├─ immediate
-                                 │      └─ confirm hidden child impact
-                                 │
-                                 └─> shared app-internal execution seam
-                                        ├─ capture DeletedSetSnapshot
-                                        ├─ WorkoutSetManager.deleteSet
-                                        ├─ record undo only on success
-                                        ├─ choose surviving focus target
-                                        └─ notify onSetDeleted
+                                 └─> shared app-internal request seam
+                                        ├─ SetDeletionPolicy.intent
+                                        │      ├─ immediate ─┐
+                                        │      └─ confirm ───┼─> production execution
+                                        │                    │
+                                        └────────────────────┘
+                                               ├─ capture DeletedSetSnapshot
+                                               ├─ WorkoutSetManager.deleteSet
+                                               ├─ success: record undo/announcement,
+                                               │           invoke callback,
+                                               │           return focus target
+                                               └─ refusal: no undo/announcement/callback
 ~~~
 
-No row may delete a model directly. No AppUI type may reproduce the package manager's cascade or minimum-one-row rules.
+ActiveExerciseSection.requestDelete delegates to the request seam before policy dispatch. Tests invoke that same seam; they do not call only its downstream executor. The seam owns success-side-effect application; the view applies only returned confirmation/focus presentation state. No row may delete a model directly. No AppUI type may reproduce the package manager's cascade or minimum-one-row rules.
 
 ## Accessibility
 
 - Every delete hit target is at least 44 by 44 points.
+- When standard, pyramid and drop-set production rows are hosted adjacently, all three measured hit/accessibility target frames are at least 44 by 44 points and each neighboring pair has an empty intersection.
 - A normal row identifies its set number and delete action.
 - A sub-set identifies parent main-set number, current subtype and delete action.
 - The sub-set label composes existing cataloged sub-set identity and delete strings; no new localization key is required.
@@ -54,4 +57,4 @@ No row may delete a model directly. No AppUI type may reproduce the package mana
 
 ## Test contract
 
-Tests invoke the same app-internal execution handler used by requestDelete. Pyramid and drop-set cases must each assert model removal, undo state, restoration and parent/sibling survival. Parent cascade confirmation and no-dangling-identity behavior remain covered.
+Tests invoke the same app-internal request-level policy/execution seam used by requestDelete. Pyramid and drop-set cases must each assert model removal, undo state, restoration and parent/sibling survival. Automated coverage activates the production-configured menu-delete and full-swipe callbacks and proves each forwards the selected set exactly once through requestDelete. An only-remaining-set case must reach WorkoutSetManager refusal and assert the row remains, a fresh undo controller retains nil pending/announcement state, and a deletion-callback spy remains zero. Parent cascade confirmation and no-dangling-identity behavior remain covered.

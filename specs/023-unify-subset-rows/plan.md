@@ -6,7 +6,7 @@
 
 ## Summary
 
-Replace the independent read-only SubSetRow control tree with an app-internal identity/configuration feeding the existing SetRow composition. ActiveExerciseSection remains the single row assembler and delete entry point. Menu and swipe deletion converge before SetDeletionPolicy; successful execution remains delegated to WorkoutSetManager.deleteSet and the existing undo controller. The work changes only the AppUI layer and its tests.
+Replace the independent read-only SubSetRow control tree with an app-internal identity/configuration feeding the existing SetRow composition. ActiveExerciseSection remains the single row assembler and delete entry point. Menu and swipe deletion converge at requestDelete, which delegates policy dispatch and production execution to one testable app-internal request-level seam. Successful execution remains delegated to WorkoutSetManager.deleteSet and the existing undo controller. The work changes only the AppUI layer and its tests.
 
 ## Technical Context
 
@@ -39,7 +39,7 @@ Replace the independent read-only SubSetRow control tree with an app-internal id
 | Principle VI localization | PASS | Accessibility copy composes existing cataloged sub-set identity and delete strings through String(localized:); the catalog does not change. |
 | Principle VII scope restraint | PASS | No keyboard redesign, generation algorithm, reorder, FAB, companion-target or schema work. |
 | Quality Bar A scope | PASS | Exact source/test allowlist is declared in tasks.md. |
-| Quality Bars H/I/K | PASS | Rendered hit-target test, row/deletion tests and iPhone 16 Simulator visual matrix are mandatory. |
+| Quality Bars H/I/K | PASS | Request-level positive/refusal tests, adjacent rendered-target geometry, row tests and the iPhone 16 Simulator visual matrix are mandatory. |
 
 ### After design
 
@@ -63,15 +63,15 @@ SetRow remains the sole composition for editable fields, menu chrome and complet
 
 This is a source-internal boundary, not a new public API. Existing main-row behavior, smart-progression content, previous-set hint behavior and custom-keyboard component remain intact.
 
-### D2 — Production deletion routing gains a testable app-internal seam
+### D2 — Production deletion routing gains a testable request-level seam
 
-The private SwiftUI event remains requestDelete. Its immediate branch and the confirmed branch must delegate to the same app-internal deletion execution seam used by tests. That seam captures the existing snapshot, calls WorkoutSetManager.deleteSet, records undo only on success, and reports enough outcome for the view to preserve focus and onSetDeleted behavior.
+The private SwiftUI event remains requestDelete and becomes a thin delegate to one app-internal request-level seam used by tests. The seam begins before SetDeletionPolicy.intent: it performs policy dispatch, returns the existing confirmation requirement when hidden child impact exists, and sends an immediate request into production execution. Confirmed requests re-enter that same production execution path. Execution captures the existing snapshot and calls WorkoutSetManager.deleteSet. Only after manager success, the seam records undo/announcement and invokes the deletion callback; it returns the surviving-focus target for the view to assign. On refusal it applies none of those success effects. The view owns only presentation state such as pending confirmation and accessibility focus, so seam-level tests can prove callback absence.
 
-Tests must not duplicate the manager's deletion algorithm or construct a parallel test-only deletion path. No change to WorkoutSetManager is allowed.
+Pyramid and drop-set RED tests invoke this request-level seam, proving both policy and execution rather than calling its downstream executor. A negative test passes an only remaining set through the same seam, reaches WorkoutSetManager refusal, and observes an unchanged fresh undo controller plus a zero-count deletion callback. Tests must not duplicate the manager's deletion algorithm or construct a parallel test-only deletion path. No change to WorkoutSetManager is allowed.
 
 ### D3 — Menu and swipe converge before policy
 
-Normal, pyramid and drop-set menu callbacks and trailing full-swipe callbacks all invoke requestDelete with the selected ExerciseSet. No affordance may call ModelContext.delete or WorkoutSetManager directly. A parent continues to receive confirmation only when SetDeletionPolicy reports hidden child impact.
+Normal, pyramid and drop-set menu callbacks and trailing full-swipe callbacks all invoke requestDelete with the selected ExerciseSet. Automated coverage activates the production-configured menu-delete and full-swipe callbacks and proves each forwards the selected set exactly once through requestDelete to the same request-level policy/execution seam. No affordance may call ModelContext.delete or WorkoutSetManager directly. A parent continues to receive confirmation only when SetDeletionPolicy reports hidden child impact.
 
 ### D4 — Preserve hierarchy and keyboard behavior
 
@@ -79,7 +79,7 @@ The shared row uses the current SetType without redefining enum meaning. Workout
 
 ### D5 — Accessibility is derived from row identity
 
-The shared delete control receives localized identity copy from the row configuration. A sub-set label includes the parent main-set number, current pyramid/drop-set display name and delete intent. It reuses the existing cataloged composite sub-set identity format and the existing cataloged delete action, so Localizable.xcstrings does not change. The shared 44-point token remains the minimum rendered target, and tests measure the production hit-target container rather than checking the constant alone.
+The shared delete control receives localized identity copy from the row configuration. A sub-set label includes the parent main-set number, current pyramid/drop-set display name and delete intent. It reuses the existing cataloged composite sub-set identity format and the existing cataloged delete action, so Localizable.xcstrings does not change. The shared 44-point token remains the minimum rendered target. Tests host one standard, one pyramid and one drop-set production row in one coordinate space, measure the actual frames backing all three hit/accessibility targets, assert every width and height is at least 44 points, and assert each neighboring pair has an empty intersection. This detects the negative-padding/overhang class that a token-only or screenshot check misses.
 
 ## Project Structure
 
@@ -117,12 +117,13 @@ VitalStrideTests/Sources/
 
 ## Test Strategy
 
-1. RED: Add pyramid and drop-set tests that invoke the same app-internal handler used by requestDelete. Each must observe model removal, pending undo, exact restoration, and parent/sibling survival.
-2. GREEN: Extract only the production routing seam needed for those tests; keep policy and package-manager ownership unchanged.
-3. In the same implementation task, replace the read-only contract with shared-row configuration/parity tests, then move sub-set rendering onto SetRow composition.
-4. Add rendered hit-target and localized identity assertions, remove obsolete tree-line context coverage, and preserve parent-cascade regression coverage.
-5. In the verification task, run focused and full tests on the issue-declared iPhone 16 Simulator, then the AppUI layer's full iPhone 17 Simulator command from VitalStride/CONTEXT.md.
-6. Capture four iPhone 16 Simulator comparisons: normal/light, normal/dark, Large/light and Large/dark.
+1. RED: Add pyramid and drop-set tests that invoke the request-level policy/execution seam used by requestDelete. Each must observe model removal, pending undo, exact restoration, and parent/sibling survival; production callback tests must prove menu and swipe each forward the selected set exactly once through requestDelete.
+2. RED: Add an only-remaining-set request through the same seam and assert manager refusal leaves the model intact with no pending undo, success announcement or deletion callback.
+3. GREEN: Extract only the request-level production routing seam needed for those tests; keep policy and package-manager ownership unchanged.
+4. In the same implementation task, replace the read-only contract with shared-row configuration/parity tests, then move sub-set rendering onto SetRow composition.
+5. Host adjacent standard, pyramid and drop-set production rows and assert all target sizes plus both neighboring-pair intersections; add localized identity assertions, remove obsolete tree-line context coverage, and preserve parent-cascade regression coverage.
+6. In the verification task, run focused and full tests on the issue-declared iPhone 16 Simulator, then the AppUI layer's full iPhone 17 Simulator command from VitalStride/CONTEXT.md.
+7. Capture four iPhone 16 Simulator comparisons: normal/light, normal/dark, Large/light and Large/dark.
 
 ## Files in Scope
 
@@ -148,7 +149,7 @@ VitalStrideTests/Sources/
 
 ## Public Interfaces
 
-None. Any row identity/configuration or deletion execution seam is internal to the app target and exists only to deepen the shared composition and make the real production route testable.
+None. Any row identity/configuration or request-level deletion seam is internal to the app target and exists only to deepen the shared composition and make policy dispatch plus production execution testable.
 
 ## Verification
 

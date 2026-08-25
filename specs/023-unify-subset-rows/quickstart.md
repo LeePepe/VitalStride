@@ -22,6 +22,13 @@ xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride \
   -skipPackagePluginValidation
 ~~~
 
+## Automated Expectations
+
+- Pyramid and drop-set positive cases enter the request-level seam used by ActiveExerciseSection.requestDelete, covering SetDeletionPolicy dispatch, WorkoutSetManager execution, pending undo and exact restoration.
+- Production-configured menu-delete and full-swipe callbacks each forward the selected set exactly once through requestDelete to that seam.
+- An only-remaining-set request reaches WorkoutSetManager refusal, leaves the row intact, leaves a fresh undo controller's pending/announcement state nil, and keeps a deletion-callback spy at zero.
+- One hosted standard row followed by pyramid and drop-set rows exposes three delete hit/accessibility frames at least 44 by 44 points; the standard/pyramid and pyramid/drop-set frame intersections are empty.
+
 ## Demonstration
 
 1. Start an active workout and add a main working set.
