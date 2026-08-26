@@ -119,7 +119,7 @@ cd $HOME/actions-runner-vitalstride-mac && ./svc.sh install && ./svc.sh start
 
 ### 安全(public repo + self-hosted 的高危组合)
 self-hosted runner + `pull_request` + checkout PR head = 公认高危:step 执行的是 PR 版本的代码。
-本仓库的**信任边界放在 workflow YAML**(`pull_request` 事件下 YAML 由 base 分支评估,fork 改不到),
+本仓库的**信任边界放在 workflow YAML**(`pull_request_target` 由 base 分支评估,fork 改不到),
 **不放在被 checkout 的脚本里**:
 - Codex/Kimi jobs 都只接收同仓库 PR;fork job 在 GitHub 托管 runner 上跳过本机执行。
 - 两者 checkout trusted base。Kimi 的显式 agent 声明 `tools: []`、`subagents: []`,
