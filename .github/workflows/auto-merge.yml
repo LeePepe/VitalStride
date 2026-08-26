@@ -1,7 +1,7 @@
 name: auto-merge
 
 # 任何非 draft PR 一建就挂上 squash auto-merge。真正何时合并由默认分支的
-# ruleset 机器门决定:所有 required status check(含 codex-review)全绿。
+# ruleset 机器门决定:所有 required status check(含 codex-review-target)全绿。
 # kimi-review 是 advisory-only;claude-review 已暂停。
 #
 # 不论谁提的 PR 都触发(包括 fork)。本 workflow 只调 gh API、不执行 PR 代码,

@@ -8,10 +8,10 @@
 ```
 建 PR ──► auto-merge.yml     → 立即挂上 squash auto-merge(draft 除外)
        └►        → 现有 CI(构建/测试等)
-       └► codex-review       → self-hosted 本机跑 Codex;required
+       └► codex-review-target → self-hosted 本机跑 Codex;required
        └► kimi-review        → self-hosted 本机跑 Kimi;advisory-only
                                       │
-        ruleset「main protection」要求:构建/测试 + codex-review 全绿
+        ruleset「main protection」要求:构建/测试 + codex-review-target 全绿
                                       ▼
                             门皆绿 → 自动 squash 合并 + 删分支
 ```
@@ -20,7 +20,8 @@
 
 | 层 | 文件 | 触发 | 可绕? |
 |---|---|---|---|
-| required review | `.github/workflows/codex-review.yml` + `scripts/ci/codex-review.sh` | PR | 否 |
+| required review | `.github/workflows/codex-review-target.yml` + `scripts/ci/codex-review.sh` | PR | 否 |
+| paused legacy review | `.github/workflows/codex-review.yml` | 手动 no-op | — |
 | advisory review | `.github/workflows/kimi-review.yml` + `scripts/ci/kimi-review.sh` | PR | 不阻塞 |
 | paused review | `.github/workflows/claude-review.yml` | 手动 no-op | — |
 | review prompt(数据) | `scripts/ci/review-prompt.md` + `scripts/ci/render-review-prompt.py` | Codex 与历史 Claude gate | — |
@@ -105,7 +106,7 @@ FR-017 说的「上架」= App Store 提交。`fastlane/Fastfile` 目前只有 `
 ## 自动 review 是怎么工作的
 
 - 跑在维护者本机的 self-hosted runner(标签 `vitalstride-mac`)。
-- `codex-review` 使用独立只读 `CODEX_HOME`,是 ruleset 中唯一 required AI check。
+- `codex-review-target` 使用独立只读 `CODEX_HOME`,是 ruleset 中唯一 required AI check。
 - `kimi-review` 固定 tool-less agent 与 `kimi-code/k3`,只更新 advisory sticky comment;
   findings、超时和解析失败均不阻塞 merge。
 - `claude-review` 只保留手动 no-op workflow,不再响应 PR。
@@ -119,10 +120,9 @@ cd $HOME/actions-runner-vitalstride-mac && ./svc.sh install && ./svc.sh start
 
 ### 安全(public repo + self-hosted 的高危组合)
 self-hosted runner + `pull_request` + checkout PR head = 公认高危:step 执行的是 PR 版本的代码。
-Kimi 使用 `pull_request_target`,由 base 分支评估 workflow YAML。Codex 的
-`codex-review-target.yml` 已作为 Stage A 落地；旧 `pull_request` check 仅维持
-bootstrap PR 的 required-check 连续性。target check 首次上报后，Stage B 必须切换 ruleset
-并停用旧 workflow（ADR-0020）:
+Kimi 与 Codex required gate 都使用 `pull_request_target`,由 base 分支评估 workflow
+YAML。旧 Codex `pull_request` workflow 已停用，线上 ruleset 已切到
+`codex-review-target`（ADR-0020）:
 - Codex/Kimi jobs 都只接收同仓库 PR;fork job 在 GitHub 托管 runner 上跳过本机执行。
 - 两者 checkout trusted base。Kimi 的显式 agent声明 `tools: []`、`subagents: []`,
   PR diff 只能作为围栏内数据进入模型。

@@ -150,7 +150,7 @@ testflight → Run workflow（`force=true` 忽略"无新提交"检查）。
 **This project uses a PR-required workflow.** All code reaches `main` only via a GitHub Pull
 Request that passes the required status checks. `main` is protected by a **ruleset** (`main
 protection`): required checks = `Lint & policy` + 6× `SPM …` + `App target` +
-`codex-review`. A red required check blocks auto-merge. `claude-review` is paused;
+`codex-review-target`. A red required check blocks auto-merge. `claude-review` is paused;
 `kimi-review` posts advisory findings but is intentionally non-required. Human approving-review
 count is 0. See
 `docs/adr/0009-pr-required-workflow.md` for full rationale (supersedes ADR-0001).
@@ -237,7 +237,7 @@ When you receive an issue with state `in_review` and an FS comment reporting a P
    ```bash
    gh pr checks "$PR_NUM"        # all required checks must be green
    ```
-   Human *approving* review is not required (approving-review count is 0). `codex-review` is the
+   Human *approving* review is not required (approving-review count is 0). `codex-review-target` is the
    required AI check. `kimi-review` is advisory and must not be treated as a merge gate;
    `claude-review` is paused. If an AI Reviewer left a `CHANGES_REQUESTED` review, honor it before merging;
    but do **not** block on waiting for an `APPROVED` decision — green required checks are the gate.
