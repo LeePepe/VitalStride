@@ -214,11 +214,10 @@ else
     fi
 fi
 
-# ---- Track 5: 两道 review 门必须 checkout base 而非 PR head ------------------
+# ---- Track 5: active required review 必须 checkout base 而非 PR head --------
 # 安全红线:评审脚本来自可信 base。若改成 checkout PR head,同仓库分支 PR 就能
 # 改 scripts/ci/*.sh 在维护者机器上跑任意代码。
-for yml in "$SCRIPT_DIR/../../.github/workflows/codex-review.yml" \
-           "$SCRIPT_DIR/../../.github/workflows/claude-review.yml"; do
+for yml in "$SCRIPT_DIR/../../.github/workflows/codex-review.yml"; do
     yname="$(basename "$yml")"
     if [ ! -f "$yml" ]; then
         fail "$yname 不存在（路径漂移？）"

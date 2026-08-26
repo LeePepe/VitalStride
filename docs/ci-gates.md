@@ -8,9 +8,10 @@
 ```
 建 PR ──► auto-merge.yml     → 立即挂上 squash auto-merge(draft 除外)
        └►        → 现有 CI(构建/测试等)
-       └► claude-review      → self-hosted 本机跑 claude,发 review;critical→红
+       └► codex-review       → self-hosted 本机跑 Codex;required
+       └► kimi-review        → self-hosted 本机跑 Kimi;advisory-only
                                       │
-        ruleset「main protection」要求:上面这些 check 全绿 + 分支与 base 同步
+        ruleset「main protection」要求:构建/测试 + codex-review 全绿
                                       ▼
                             门皆绿 → 自动 squash 合并 + 删分支
 ```
@@ -19,9 +20,10 @@
 
 | 层 | 文件 | 触发 | 可绕? |
 |---|---|---|---|
-| 自动 review | `.github/workflows/claude-review.yml` + `scripts/ci/claude-review.sh` | PR | 否 |
-| 自动 review | `.github/workflows/codex-review.yml` + `scripts/ci/codex-review.sh` | PR | 否 |
-| review prompt(数据) | `scripts/ci/review-prompt.md` + `scripts/ci/render-review-prompt.py` | 被上面两门读取 | — |
+| required review | `.github/workflows/codex-review.yml` + `scripts/ci/codex-review.sh` | PR | 否 |
+| advisory review | `.github/workflows/kimi-review.yml` + `scripts/ci/kimi-review.sh` | PR | 不阻塞 |
+| paused review | `.github/workflows/claude-review.yml` | 手动 no-op | — |
+| review prompt(数据) | `scripts/ci/review-prompt.md` + `scripts/ci/render-review-prompt.py` | Codex 与历史 Claude gate | — |
 | prompt 契约回归 | `scripts/ci/review-prompt.contract.test.sh`(ci.yml「Lint & policy」) | PR | 否 |
 | TEMP-PRELAUNCH 扫描 | `scripts/ci/scan-temp-prelaunch.sh`(ci.yml「Lint & policy」用 `enforce`;testflight.yml 用 `audit`) | PR + 发布 | 否 |
 | 自动合并 | `.github/workflows/auto-merge.yml` | PR | — |
@@ -29,7 +31,8 @@
 
 ## review prompt 是单一数据源
 
-两道 review 门(claude / codex)**共用同一份 prompt**:`scripts/ci/review-prompt.md`。
+required Codex gate 与暂停保留的 Claude 实现共用 `scripts/ci/review-prompt.md`。
+Kimi 使用 tool-less advisory envelope,不参与 required verdict。
 **要改 review 规则(判 blocker 的 9 个维度、injection 判定标准、各类豁免),改这个
 文件** —— 不要改两个 `.sh`,它们已不含任何内联 prompt 文本。
 
@@ -101,11 +104,12 @@ FR-017 说的「上架」= App Store 提交。`fastlane/Fastfile` 目前只有 `
 
 ## 自动 review 是怎么工作的
 
-- 跑在**维护者本机的 self-hosted runner**(标签 `vitalstride-mac`)。
-- 用你**已登录订阅**的本地 `claude` CLI,**不需要 ANTHROPIC_API_KEY**。
-- `claude -p --json-schema` 产出确定性 verdict:发现 **critical/high** → 脚本 `exit 1`
-  → 该 check 变红 → auto-merge 被 ruleset 挡住。仅 notes → 通过。
-- **runner 离线 = 该 check 不上报 = PR 卡住不合并**(设计如此:没机器 review 过就不合)。
+- 跑在维护者本机的 self-hosted runner(标签 `vitalstride-mac`)。
+- `codex-review` 使用独立只读 `CODEX_HOME`,是 ruleset 中唯一 required AI check。
+- `kimi-review` 固定 tool-less agent 与 `kimi-code/k3`,只更新 advisory sticky comment;
+  findings、超时和解析失败均不阻塞 merge。
+- `claude-review` 只保留手动 no-op workflow,不再响应 PR。
+- runner 离线会卡住 required Codex check;Kimi 缺席不改变 merge 资格。
 
 ### 首次安装 runner
 ```bash
@@ -117,8 +121,9 @@ cd $HOME/actions-runner-vitalstride-mac && ./svc.sh install && ./svc.sh start
 self-hosted runner + `pull_request` + checkout PR head = 公认高危:step 执行的是 PR 版本的代码。
 本仓库的**信任边界放在 workflow YAML**(`pull_request` 事件下 YAML 由 base 分支评估,fork 改不到),
 **不放在被 checkout 的脚本里**:
-- `claude-review` job 有 `if: head.repo.full_name == github.repository` —— fork PR 的代码**一行都不在本机执行**。
-- fork PR 改由 `claude-review-fork` job(GitHub 托管 runner)只发提示 + 上报同名 check,留人工。
+- Codex/Kimi jobs 都只接收同仓库 PR;fork job 在 GitHub 托管 runner 上跳过本机执行。
+- 两者 checkout trusted base。Kimi 的显式 agent 声明 `tools: []`、`subagents: []`,
+  PR diff 只能作为围栏内数据进入模型。
 - 仓库设置把 outside collaborators 的 workflow 设为需人工批准
   (`actions/permissions/fork-pr-contributor-approval = all_external_contributors`)。
 - review prompt 显式声明 diff 为**不可信数据**,防止 PR 内对抗性文本诱导 `verdict=pass`。
@@ -130,5 +135,5 @@ self-hosted runner + `pull_request` + checkout PR head = 公认高危:step 执�
 
 ## ruleset 即代码
 `scripts/rulesets/main-protection.json` 是唯一真相,改后重跑 `scripts/rulesets/apply`
-(幂等 create-or-update)同步到服务端。**先让 `claude-review` check 至少成功上报过一次,
-再把它加进 required 并 apply**,否则新门会把所有 PR 卡死。
+(幂等 create-or-update)同步到服务端。required 列表只含 Codex;Kimi 与暂停的 Claude
+不得加入 required status checks。
