@@ -244,7 +244,7 @@ done
 # 的规则再自己 review 自己),而没有任何门会发现。这里把该前提钉死。
 
 WORKFLOW_DIR="$(cd "$SCRIPT_DIR/../../.github/workflows" && pwd)"
-for wf in codex-review.yml; do
+for wf in codex-review-target.yml; do
     wf_path="$WORKFLOW_DIR/$wf"
     if [ ! -f "$wf_path" ]; then
         echo "[FAIL] review workflow not found: $wf_path"
