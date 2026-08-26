@@ -119,10 +119,11 @@ cd $HOME/actions-runner-vitalstride-mac && ./svc.sh install && ./svc.sh start
 
 ### 安全(public repo + self-hosted 的高危组合)
 self-hosted runner + `pull_request` + checkout PR head = 公认高危:step 执行的是 PR 版本的代码。
-本仓库的**信任边界放在 workflow YAML**(`pull_request_target` 由 base 分支评估,fork 改不到),
-**不放在被 checkout 的脚本里**:
+Kimi 使用 `pull_request_target`,由 base 分支评估 workflow YAML;Codex 为保持现有
+required-check 连续性仍使用 `pull_request`,但 checkout trusted base 脚本。Codex
+workflow YAML 的同仓库分支控制面迁移是独立 RepoInfra follow-up:
 - Codex/Kimi jobs 都只接收同仓库 PR;fork job 在 GitHub 托管 runner 上跳过本机执行。
-- 两者 checkout trusted base。Kimi 的显式 agent 声明 `tools: []`、`subagents: []`,
+- 两者 checkout trusted base。Kimi 的显式 agent声明 `tools: []`、`subagents: []`,
   PR diff 只能作为围栏内数据进入模型。
 - 仓库设置把 outside collaborators 的 workflow 设为需人工批准
   (`actions/permissions/fork-pr-contributor-approval = all_external_contributors`)。
