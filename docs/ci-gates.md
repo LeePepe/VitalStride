@@ -119,9 +119,10 @@ cd $HOME/actions-runner-vitalstride-mac && ./svc.sh install && ./svc.sh start
 
 ### 安全(public repo + self-hosted 的高危组合)
 self-hosted runner + `pull_request` + checkout PR head = 公认高危:step 执行的是 PR 版本的代码。
-Kimi 使用 `pull_request_target`,由 base 分支评估 workflow YAML;Codex 为保持现有
-required-check 连续性仍使用 `pull_request`,但 checkout trusted base 脚本。Codex
-workflow YAML 的同仓库分支控制面迁移是独立 RepoInfra follow-up:
+Kimi 使用 `pull_request_target`,由 base 分支评估 workflow YAML。Codex 的
+`codex-review-target.yml` 已作为 Stage A 落地；旧 `pull_request` check 仅维持
+bootstrap PR 的 required-check 连续性。target check 首次上报后，Stage B 必须切换 ruleset
+并停用旧 workflow（ADR-0020）:
 - Codex/Kimi jobs 都只接收同仓库 PR;fork job 在 GitHub 托管 runner 上跳过本机执行。
 - 两者 checkout trusted base。Kimi 的显式 agent声明 `tools: []`、`subagents: []`,
   PR diff 只能作为围栏内数据进入模型。
