@@ -1,9 +1,12 @@
+import contextlib
 import importlib.util
+import io
 import os
 import pathlib
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -134,6 +137,110 @@ test: xcodebuild test""",
         )
         with self.assertRaisesRegex(layer_coverage.RouteError, "parent/leaf mismatch"):
             layer_coverage.resolve("AppTests/RootTests.swift")
+
+
+class ResolverRunCommandRegressionTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.temp.name)
+        self.old_cwd = os.getcwd()
+        os.chdir(self.root)
+
+    def tearDown(self):
+        os.chdir(self.old_cwd)
+        self.temp.cleanup()
+
+    def write(self, path, frontmatter):
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(f"---\n{frontmatter}\n---\n", encoding="utf-8")
+
+    def fixture(self, *, build_command: str = 'python3 -c "print(\'hello world\')"', test_command: str = 'python3 -c "print(\'hello again\')"'):
+        self.write(
+            "CONTEXT.md",
+            """scope: repo
+routes:
+  - paths: [Packages]
+    context: Packages/CONTEXT.md
+    kind: index
+  - paths: [App]
+    context: App/CONTEXT.md
+    kind: layer
+support_excludes: [docs]""",
+        )
+        self.write(
+            "Packages/CONTEXT.md",
+            """scope: Packages
+routes:
+  - paths: [Packages/Core]
+    context: Packages/Core/CONTEXT.md
+    kind: layer""",
+        )
+        self.write(
+            "Packages/Core/CONTEXT.md",
+            f"""layer: Core
+paths: [Packages/Core]
+test_paths: [Packages/Core/Tests]
+gate_tier: local-fast
+build: {build_command}
+test: {test_command}""",
+        )
+        self.write(
+            "App/CONTEXT.md",
+            """layer: AppUI
+paths: [App]
+test_paths: [AppTests]
+gate_tier: ci-only
+build: xcodebuild build
+test: xcodebuild test""",
+        )
+
+    def test_run_uses_argv_without_shell(self):
+        self.fixture(build_command='python3 -c "print(\'hello world\')"')
+        with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=0)) as run_mock:
+            rc = layer_coverage.main(["run", "Core", "build"])
+        self.assertEqual(0, rc)
+        run_mock.assert_called_once_with(["python3", "-c", "print('hello world')"], shell=False)
+
+    def test_run_rejects_malformed_and_shell_control(self):
+        unsafe = [
+            'python3 -c "print(\'hello\')" && echo nope',
+            'python3 -c "print(\'hello\')" > /tmp/boom',
+            'python3 -c "print(\'hello\')" $(whoami)',
+            'python3 -c "print(\'hello\')',
+        ]
+
+        for command in unsafe:
+            self.fixture(build_command=command)
+            with mock.patch("layer_coverage.subprocess.run") as run_mock:
+                rc = layer_coverage.main(["run", "Core", "build"])
+            self.assertEqual(1, rc)
+            run_mock.assert_not_called()
+
+        self.fixture(build_command='python3 -c "print(\'hello world\')"')
+        self.write(
+            "Packages/Core/CONTEXT.md",
+            """layer: Core
+paths: [Packages/Core]
+test_paths: [Packages/Core/Tests]
+gate_tier: local-fast
+build: python3 -c "print('hello world')"
+test: python3 -c "print('hello again')"
+""",
+        )
+        with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=0)) as run_mock:
+            rc = layer_coverage.main(["run", "Core", "build"])
+        self.assertEqual(0, rc)
+        run_mock.assert_called_once_with(["python3", "-c", "print('hello world')"], shell=False)
+
+    def test_run_emits_layered_failure_signal_on_nonzero_exit(self):
+        self.fixture(build_command='python3 -c "print(\'hello world\')"')
+        with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=7)) as run_mock:
+            with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                rc = layer_coverage.main(["run", "Core", "build"])
+        self.assertEqual(7, rc)
+        run_mock.assert_called_once_with(["python3", "-c", "print('hello world')"], shell=False)
+        self.assertIn("::layered-signal::", stdout.getvalue())
 
 
 if __name__ == "__main__":

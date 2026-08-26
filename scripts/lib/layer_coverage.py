@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import shlex
 import subprocess
 import sys
 from pathlib import PurePosixPath
@@ -151,6 +152,29 @@ def emit_run_failure(node: dict, action: str, code: int) -> None:
     print("::layered-signal::" + json.dumps(signal, ensure_ascii=False))
 
 
+def parse_run_argv(command: str) -> list[str]:
+    if not isinstance(command, str):
+        raise ValueError("run command must be a string")
+    text = command.strip()
+    if not text:
+        raise ValueError("run command is empty")
+    try:
+        argv = shlex.split(text, posix=True)
+    except ValueError as exc:
+        raise ValueError(f"malformed run command: {exc}") from exc
+    if not argv:
+        raise ValueError("run command is empty")
+    blocked = {"&&", "||", ";", "|", "&", "<", ">", "$", "`"}
+    for token in argv:
+        if any(char in token for char in ("$", "`")):
+            raise ValueError(f"shell expansion rejected: {token!r}")
+        if any(char in token for char in ("&", "|", ";", "<", ">")):
+            raise ValueError(f"shell control rejected: {token!r}")
+        if token in blocked:
+            raise ValueError(f"shell control rejected: {token!r}")
+    return argv
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
@@ -203,7 +227,12 @@ def main(argv: list[str]) -> int:
         command = node.get(args.action, "")
         if not command:
             return 0
-        completed = subprocess.run(command, shell=True)
+        try:
+            argv = parse_run_argv(command)
+        except ValueError as exc:
+            print(f"❌ {exc}")
+            return 1
+        completed = subprocess.run(argv, shell=False)
         if completed.returncode:
             emit_run_failure(node, args.action, completed.returncode)
         return completed.returncode
