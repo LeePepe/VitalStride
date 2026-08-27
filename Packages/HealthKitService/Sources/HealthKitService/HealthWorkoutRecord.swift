@@ -214,15 +214,14 @@ public struct WorkoutFetchResult: Sendable {
 // MARK: - Metadata helpers (pure, testable without HKObject)
 
 /// Pure helper: extracts `HKMetadataKeyWasUserEntered` from a metadata dict.
-/// Kept separate so it's unit-testable without instantiating an `HKObject`.
+/// Kept separate so it remains unit-testable without constructing an `HKObject`.
 ///
 /// - Parameter metadata: The raw metadata dictionary from `HKObject.metadata`.
 /// - Returns: `true` when the key is present and set to `true`; `false` otherwise.
 public func healthWorkoutIsUserEntered(metadata: [String: Any]?) -> Bool {
     guard let metadata else { return false }
     // HKMetadataKeyWasUserEntered = "HKWasUserEntered"; we hardcode the string
-    // so this helper doesn't have to import HealthKit (keeps it testable on
-    // platforms where HealthKit tests would otherwise pull in the framework).
+    // to keep this helper pure and testable without depending on a full HealthKit runtime.
     if let raw = metadata["HKWasUserEntered"] {
         if let b = raw as? Bool { return b }
         if let n = raw as? NSNumber { return n.boolValue }
