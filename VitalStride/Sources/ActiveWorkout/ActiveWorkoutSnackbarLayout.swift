@@ -9,12 +9,57 @@ import SwiftUI
 /// MY-1446: extended to provide safe-area-driven rendering that guarantees
 /// non-overlap between snackbar, FAB, and info band by construction (VStack).
 enum ActiveWorkoutSnackbarLayout {
+    enum PresentationPolicy: Equatable {
+        case keyboardHidden(slot: BottomSnackbarSlot)
+        case keyboardVisible(slot: BottomSnackbarSlot)
+
+        static func resolve(isKeyboardVisible: Bool, snackbarSlot: BottomSnackbarSlot) -> Self {
+            isKeyboardVisible ? .keyboardVisible(slot: snackbarSlot) : .keyboardHidden(slot: snackbarSlot)
+        }
+
+        var activeSlot: BottomSnackbarSlot {
+            switch self {
+            case .keyboardHidden(let slot), .keyboardVisible(let slot):
+                return slot
+            }
+        }
+
+        var hasActiveSnackbar: Bool {
+            activeSlot != .none
+        }
+
+        var isKeyboardVisible: Bool {
+            switch self {
+            case .keyboardHidden:
+                return false
+            case .keyboardVisible:
+                return true
+            }
+        }
+
+        var usesTopPresentation: Bool {
+            isKeyboardVisible && hasActiveSnackbar
+        }
+
+        var bottomSafeAreaVisible: Bool {
+            !isKeyboardVisible
+        }
+
+        var fabVisible: Bool {
+            !isKeyboardVisible
+        }
+    }
+
     /// Determines which edge the snackbar should render at based on keyboard
     /// visibility. When the custom numeric keyboard is on screen, the snackbar
     /// moves to the top edge so it remains fully visible and never overlaps
     /// the keyboard.
     static func resolveEdge(isKeyboardVisible: Bool) -> VerticalEdge {
         isKeyboardVisible ? .top : .bottom
+    }
+
+    static func resolvePolicy(isKeyboardVisible: Bool, snackbarSlot: BottomSnackbarSlot) -> PresentationPolicy {
+        PresentationPolicy.resolve(isKeyboardVisible: isKeyboardVisible, snackbarSlot: snackbarSlot)
     }
 
     @MainActor
@@ -30,17 +75,6 @@ enum ActiveWorkoutSnackbarLayout {
             restContent()
         case .none:
             EmptyView()
-        }
-    }
-
-    static func activeContentKey(_ snackbarSlot: BottomSnackbarSlot) -> String? {
-        switch snackbarSlot {
-        case .none:
-            nil
-        case .rest:
-            "rest"
-        case .undo:
-            "undo"
         }
     }
 

@@ -94,21 +94,20 @@ struct ActiveWorkoutView: View {
         Font.system(largeMode ? .title3 : .subheadline, design: .default)
     }
 
+    private var layoutPolicy: ActiveWorkoutSnackbarLayout.PresentationPolicy {
+        ActiveWorkoutSnackbarLayout.resolvePolicy(
+            isKeyboardVisible: isKeyboardVisible,
+            snackbarSlot: bottomSnackbarSlot
+        )
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // MY-1446: when the keyboard is visible, the snackbar renders
-                // inline between the header and the list via the production
-                // `topComposition` helper (same code path tests exercise).
-                // topComposition places info band above snackbar in a VStack,
-                // guaranteeing non-overlap by construction. When keyboard is
-                // not visible, the header is placed standalone (no top snackbar).
-                if isKeyboardVisible {
+                if layoutPolicy.usesTopPresentation {
                     ActiveWorkoutSnackbarLayout.topComposition(
                         snackbarSlot: bottomSnackbarSlot,
                         infoBand: {
-                            // MY-1262: default mode uses compact info band;
-                            // Large Mode keeps its dual-card layout.
                             if largeMode {
                                 workoutTimer
                                 sessionStatsCard
@@ -122,7 +121,6 @@ struct ActiveWorkoutView: View {
                     .accessibilityElement(children: .contain)
                     .accessibilityFocused($isTopSnackbarFocused)
                 } else {
-                    // MY-1262: standalone header when keyboard is hidden.
                     if largeMode {
                         workoutTimer
                         sessionStatsCard
@@ -132,20 +130,13 @@ struct ActiveWorkoutView: View {
                 }
                 exerciseList
             }
-            // MY-1446: unified bottom safe area — FAB above, snackbar below.
-            // Uses VStack so non-overlap is guaranteed by construction. The
-            // snackbar is fully within the safe area (never clipped by the
-            // screen edge). Replaces the old overlay-based `.snackbar()`
-            // modifier + offset workaround that caused touch-blocking and
-            // top-edge overlap. The list's scroll inset adjusts smoothly via
-            // animation when the snackbar appears/disappears.
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                if !isKeyboardVisible {
-                    ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
-                        snackbarSlot: bottomSnackbarSlot,
-                        undoContent: { undoSnackbarEnvelope },
-                        restContent: { restSnackbarEnvelope },
-                        fab: {
+                ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                    snackbarSlot: bottomSnackbarSlot,
+                    undoContent: { undoSnackbarEnvelope },
+                    restContent: { restSnackbarEnvelope },
+                    fab: {
+                        if layoutPolicy.fabVisible {
                             HStack {
                                 Spacer()
                                 ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
@@ -153,14 +144,15 @@ struct ActiveWorkoutView: View {
                                 }
                             }
                         }
-                    )
-                    .accessibilityElement(children: .contain)
-                    .accessibilityFocused($isBottomSnackbarFocused)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-                }
+                    }
+                )
+                .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0)
+                .allowsHitTesting(layoutPolicy.bottomSafeAreaVisible)
+                .accessibilityElement(children: .contain)
+                .accessibilityFocused($isBottomSnackbarFocused)
+                .accessibilityHidden(!layoutPolicy.bottomSafeAreaVisible)
             }
-            .animation(.easeInOut(duration: 0.2), value: isKeyboardVisible)
-            .animation(.easeInOut(duration: 0.2), value: bottomSnackbarSlot)
+            .animation(.easeInOut(duration: 0.2), value: layoutPolicy)
             .navigationTitle(String(localized: "训练中", comment: "Active workout navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
