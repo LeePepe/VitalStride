@@ -13,7 +13,7 @@ HOOK_PATH = ROOT / "scripts" / "hooks" / "pre-push"
 
 class PrePushHookTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
+        self.temp = tempfile.TemporaryDirectory(prefix="pre-push-hook-", dir="/tmp")
         self.root = pathlib.Path(self.temp.name)
         self.old_cwd = os.getcwd()
         os.chdir(self.root)
