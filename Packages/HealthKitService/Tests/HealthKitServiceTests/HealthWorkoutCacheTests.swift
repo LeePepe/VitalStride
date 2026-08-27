@@ -159,6 +159,31 @@ struct HealthWorkoutCacheTests {
         #expect(workoutMock.fetchCallCount == 2)
     }
 
+    @Test("Refresh supersedes an older in-flight workout fetch")
+    func refreshSupersedesOlderInFlightWorkoutFetch() async throws {
+        let workoutMock = MockWorkoutProvider()
+        workoutMock.fetchDelay = .milliseconds(150)
+        workoutMock.fetchResult = makeWorkoutResult(count: 1)
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: workoutMock
+        )
+
+        let staleTask = Task {
+            try await cache.workoutData()
+        }
+
+        try await Task.sleep(for: .milliseconds(20))
+        workoutMock.fetchResult = makeWorkoutResult(count: 4)
+        let refreshed = try await cache.refreshWorkouts()
+        _ = try? await staleTask.value
+
+        #expect(refreshed.count == 4)
+        #expect(await cache.hasWorkoutCache())
+        let current = try await cache.workoutData()
+        #expect(current.count == 4)
+    }
+
     // MARK: - Invalidation
 
     @Test("InvalidateWorkouts clears workout cache")
@@ -178,6 +203,28 @@ struct HealthWorkoutCacheTests {
 
         _ = try await cache.workoutData()
         #expect(workoutMock.fetchCallCount == 2)
+    }
+
+    @Test("In-flight workout fetch does not repopulate after invalidateWorkouts")
+    func inFlightWorkoutFetchDiscardedAfterInvalidateWorkouts() async throws {
+        let workoutMock = MockWorkoutProvider()
+        workoutMock.fetchDelay = .milliseconds(100)
+        workoutMock.fetchResult = makeWorkoutResult(count: 3)
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: workoutMock
+        )
+
+        let fetchTask = Task {
+            try await cache.workoutData()
+        }
+
+        try await Task.sleep(for: .milliseconds(20))
+        await cache.invalidateWorkouts()
+
+        _ = try? await fetchTask.value
+
+        #expect(await !cache.hasWorkoutCache())
     }
 
     @Test("InvalidateAll clears both sample and workout caches")
@@ -223,7 +270,7 @@ struct HealthWorkoutCacheTests {
     @Test("handleAuthorizationRevoked clears workout cache and anchors")
     func authorizationRevokedClearsWorkouts() async throws {
         let suiteName = "test-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
+        let defaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
 
         let workoutMock = MockWorkoutProvider()
@@ -263,7 +310,7 @@ struct HealthWorkoutCacheTests {
         )
 
         let suiteName = "test-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
+        let defaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
 
         let fetchTask = Task {

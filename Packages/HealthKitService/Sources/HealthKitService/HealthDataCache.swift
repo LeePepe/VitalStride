@@ -98,6 +98,7 @@ public actor HealthDataCache {
 
     private var workoutCache: WorkoutCacheEntry?
     private var workoutInFlightFetch: Task<[HealthWorkoutRecord], any Error>?
+    private var workoutGeneration: UInt64 = 0
     private let workoutProvider: (any WorkoutDataProviding)?
     private var workoutHitCount: Int = 0
     private var workoutMissCount: Int = 0
@@ -280,6 +281,7 @@ public actor HealthDataCache {
 
     public func invalidateAll() {
         generation &+= 1
+        workoutGeneration &+= 1
         cache = [:]
         for task in inFlightFetches.values { task.cancel() }
         inFlightFetches = [:]
@@ -444,6 +446,10 @@ public actor HealthDataCache {
             return []
         }
 
+        // Refresh is a higher-priority request for the workout cache. Bumping
+        // the per-workout generation invalidates any older in-flight fetch that
+        // may still resolve later and try to repopulate the cache.
+        workoutGeneration &+= 1
         workoutInFlightFetch?.cancel()
         workoutInFlightFetch = nil
 
@@ -459,6 +465,7 @@ public actor HealthDataCache {
     // MARK: - Workout Invalidation
 
     public func invalidateWorkouts() {
+        workoutGeneration &+= 1
         workoutCache = nil
         workoutInFlightFetch?.cancel()
         workoutInFlightFetch = nil
@@ -780,7 +787,7 @@ public actor HealthDataCache {
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("healthkit_workout_fetch", id: signpostID)
         let start = ContinuousClock.now
-        let fetchGeneration = generation
+        let fetchGeneration = workoutGeneration
 
         let task = Task {
             try await provider.fetchWorkouts(dateRange: dateRange).workouts
@@ -791,7 +798,7 @@ public actor HealthDataCache {
             let workouts = try await task.value
             workoutInFlightFetch = nil
 
-            if generation == fetchGeneration {
+            if workoutGeneration == fetchGeneration {
                 workoutCache = WorkoutCacheEntry(workouts: workouts, coveredRange: dateRange)
             }
 
