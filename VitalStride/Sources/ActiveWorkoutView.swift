@@ -139,6 +139,7 @@ struct ActiveWorkoutView: View {
         bottomFocused: AccessibilityFocusState<Bool>.Binding? = nil,
         topFrameProbe: ((CGRect) -> Void)? = nil,
         bottomFrameProbe: ((CGRect) -> Void)? = nil,
+        rootFrameProbe: ((CGRect) -> Void)? = nil,
         fabFrameProbe: ((CGRect) -> Void)? = nil,
         mainContentFrameProbe: ((CGRect) -> Void)? = nil,
         @ViewBuilder infoBand: () -> some View,
@@ -237,7 +238,7 @@ struct ActiveWorkoutView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             bottomContent
         }
-        .modifier(ActiveWorkoutFrameCollectorModifier(id: "rootContainer", onFrame: nil))
+        .modifier(ActiveWorkoutFrameCollectorModifier(id: "rootContainer", onFrame: rootFrameProbe))
         .animation(.easeInOut(duration: 0.2), value: layoutPolicy)
     }
 

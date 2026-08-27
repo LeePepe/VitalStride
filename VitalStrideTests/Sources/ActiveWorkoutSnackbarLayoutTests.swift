@@ -95,6 +95,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
                 snackbarSlot: state.snackbarSlot,
                 topFrameProbe: { tracker.set($0, for: "topPresentation") },
                 bottomFrameProbe: { tracker.set($0, for: "bottomPresentation") },
+                rootFrameProbe: { tracker.set($0, for: "rootContainer") },
                 fabFrameProbe: { tracker.set($0, for: "fab") },
                 mainContentFrameProbe: { tracker.set($0, for: "mainContent") },
                 infoBand: {
@@ -186,12 +187,24 @@ struct ActiveWorkoutSnackbarLayoutTests {
 
             let hiddenHeight = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height
             #expect(hiddenHeight > 0, "Hidden state must keep the production root mounted for slot \(slot)")
+            if slot != .none {
+                let hiddenBottom = tracker.frame(for: "bottomPresentation") ?? .zero
+                let hiddenRoot = tracker.frame(for: "rootContainer") ?? .zero
+                #expect(hiddenBottom.width > 0 || hiddenBottom.height > 0, "Hidden state must keep the bottom subtree mounted for slot \(slot)")
+                #expect(hiddenRoot.width > 0 && hiddenRoot.height > 0, "Hidden root geometry must remain mounted for slot \(slot)")
+            }
 
             state.isKeyboardVisible = true
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
 
             let visibleHeight = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height
             #expect(visibleHeight > 0, "Visible state must keep the root mounted for slot \(slot)")
+            if slot != .none {
+                let visibleBottom = tracker.frame(for: "bottomPresentation") ?? .zero
+                let visibleRoot = tracker.frame(for: "rootContainer") ?? .zero
+                #expect(visibleBottom.width > 0 || visibleBottom.height > 0, "Visible state must keep the bottom subtree mounted for slot \(slot)")
+                #expect(visibleRoot.width > 0 && visibleRoot.height > 0, "Visible root geometry must remain mounted for slot \(slot)")
+            }
             #expect(state.snackbarSlot == slot)
             #expect(state.isKeyboardVisible)
 
@@ -208,6 +221,12 @@ struct ActiveWorkoutSnackbarLayoutTests {
 
             let hiddenAgain = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height
             #expect(hiddenAgain > 0, "The same root must survive the visible→hidden transition for slot \(slot)")
+            if slot != .none {
+                let hiddenAgainBottom = tracker.frame(for: "bottomPresentation") ?? .zero
+                let hiddenAgainRoot = tracker.frame(for: "rootContainer") ?? .zero
+                #expect(hiddenAgainBottom.width > 0 || hiddenAgainBottom.height > 0, "The hidden return must keep the bottom subtree mounted for slot \(slot)")
+                #expect(hiddenAgainRoot.width > 0 && hiddenAgainRoot.height > 0, "The hidden return must keep root geometry mounted for slot \(slot)")
+            }
             #expect(!state.isKeyboardVisible)
         }
     }
@@ -357,31 +376,48 @@ struct ActiveWorkoutSnackbarLayoutTests {
             host.view.setNeedsLayout()
             host.view.layoutIfNeeded()
 
-            let hiddenBefore = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height
+            let hiddenBefore = (tracker.frame(for: "rootContainer") ?? .zero).height
+            #expect(hiddenBefore > 0, "Hidden root geometry must remain mounted for slot \(slot)")
+            if slot != .none {
+                let hiddenBottom = tracker.frame(for: "bottomPresentation") ?? .zero
+                #expect(hiddenBottom.width > 0 || hiddenBottom.height > 0, "Hidden bottom subtree must remain mounted for slot \(slot)")
+            }
 
             state.isKeyboardVisible = true
             var visibleTransitionHeights: [CGFloat] = [hiddenBefore]
             for _ in 0..<6 {
                 RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.04))
-                visibleTransitionHeights.append(host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height)
+                host.view.setNeedsLayout()
+                host.view.layoutIfNeeded()
+                visibleTransitionHeights.append((tracker.frame(for: "rootContainer") ?? .zero).height)
             }
 
             let visibleLast = visibleTransitionHeights.last ?? hiddenBefore
             let visibleBounces = visibleTransitionHeights.dropLast().filter { abs($0 - visibleLast) > 2 }
             #expect(visibleBounces.count <= 1, "Visible transition must settle through a single root-owned animation for slot \(slot)")
             #expect(visibleLast > 0)
+            if slot != .none {
+                let visibleBottom = tracker.frame(for: "bottomPresentation") ?? .zero
+                #expect(visibleBottom.width > 0 || visibleBottom.height > 0, "Visible bottom subtree must remain mounted for slot \(slot)")
+            }
 
             state.isKeyboardVisible = false
             var hiddenTransitionHeights: [CGFloat] = [visibleLast]
             for _ in 0..<6 {
                 RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.04))
-                hiddenTransitionHeights.append(host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height)
+                host.view.setNeedsLayout()
+                host.view.layoutIfNeeded()
+                hiddenTransitionHeights.append((tracker.frame(for: "rootContainer") ?? .zero).height)
             }
 
             let hiddenLast = hiddenTransitionHeights.last ?? visibleLast
             let hiddenBounces = hiddenTransitionHeights.dropLast().filter { abs($0 - hiddenLast) > 2 }
             #expect(hiddenBounces.count <= 1, "Hidden transition must settle through a single root-owned animation for slot \(slot)")
             #expect(hiddenLast > 0)
+            if slot != .none {
+                let hiddenAfterBottom = tracker.frame(for: "bottomPresentation") ?? .zero
+                #expect(hiddenAfterBottom.width > 0 || hiddenAfterBottom.height > 0, "Hidden return must keep the bottom subtree mounted for slot \(slot)")
+            }
         }
     }
 
