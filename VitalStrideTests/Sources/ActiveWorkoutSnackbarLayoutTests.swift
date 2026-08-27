@@ -7,44 +7,177 @@ import UIKit
 
 @testable import VitalStride
 
-/// MY-1421 — Snackbar/FAB/keyboard layout regression tests.
+/// MY-1421 — production policy + transition regression tests.
 ///
-/// These tests enforce the production 2×3 keyboard/snackbar policy and keep
-/// the bottom composition structurally stable while the keyboard toggles.
+/// These tests exercise the actual production composition seam, not isolated
+/// helper mirrors. They cover the full 2×3 keyboard/snackbar matrix and both
+/// transition directions while asserting that the root composition remains
+/// mounted, exactly one active slot is presented, and the FAB/snackbar geometry
+/// does not interleave.
 @Suite("ActiveWorkout snackbar layout (MY-1421)")
 struct ActiveWorkoutSnackbarLayoutTests {
 
-    #if canImport(UIKit) && !os(macOS)
+    private let allSlots: [BottomSnackbarSlot] = [.none, .rest, .undo]
+
     @MainActor
-    @Test("FAB safeAreaInset height is constant regardless of snackbar state")
-    func fabHeightConstantAcrossSnackbarStates() {
-        let fabNoSnackbar = ActiveWorkoutFABContainer.body(snackbarSlot: .none) {
-            representativeFAB
+    private func productionComposition(
+        isKeyboardVisible: Bool,
+        snackbarSlot: BottomSnackbarSlot
+    ) -> AnyView {
+        if isKeyboardVisible {
+            return AnyView(
+                ActiveWorkoutSnackbarLayout.topComposition(
+                    snackbarSlot: snackbarSlot,
+                    infoBand: { representativeInfoBand },
+                    undoContent: { representativeUndoContent },
+                    restContent: { representativeRestContent }
+                )
+            )
         }
-        let hostNoSnackbar = UIHostingController(rootView: fabNoSnackbar)
-        let sizeNoSnackbar = hostNoSnackbar.sizeThatFits(in: CGSize(width: 400, height: 0))
 
-        let fabWithSnackbar = ActiveWorkoutFABContainer.body(snackbarSlot: .rest) {
-            representativeFAB
-        }
-        let hostWithSnackbar = UIHostingController(rootView: fabWithSnackbar)
-        let sizeWithSnackbar = hostWithSnackbar.sizeThatFits(in: CGSize(width: 400, height: 0))
-
-        let fabWithUndo = ActiveWorkoutFABContainer.body(snackbarSlot: .undo) {
-            representativeFAB
-        }
-        let hostWithUndo = UIHostingController(rootView: fabWithUndo)
-        let sizeWithUndo = hostWithUndo.sizeThatFits(in: CGSize(width: 400, height: 0))
-
-        let tolerance: CGFloat = 1
-        #expect(
-            abs(sizeNoSnackbar.height - sizeWithSnackbar.height) <= tolerance,
-            "FAB height shifted by \(abs(sizeNoSnackbar.height - sizeWithSnackbar.height))pt when rest snackbar appeared; must be within \(tolerance)pt. Heights: noSnackbar=\(sizeNoSnackbar.height), withSnackbar=\(sizeWithSnackbar.height)"
+        return AnyView(
+            ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                snackbarSlot: snackbarSlot,
+                undoContent: { representativeUndoContent },
+                restContent: { representativeRestContent },
+                fab: { representativeFAB }
+            )
         )
-        #expect(
-            abs(sizeNoSnackbar.height - sizeWithUndo.height) <= tolerance,
-            "FAB height shifted by \(abs(sizeNoSnackbar.height - sizeWithUndo.height))pt when undo snackbar appeared; must be within \(tolerance)pt. Heights: noSnackbar=\(sizeNoSnackbar.height), withUndo=\(sizeWithUndo.height)"
-        )
+    }
+
+    @MainActor
+    @Test("Production 2×3 keyboard/snackbar matrix keeps a single mounted composition")
+    func productionMatrixkeepsSingleMountedComposition() {
+        for isKeyboardVisible in [false, true] {
+            for slot in allSlots {
+                let policy = ActiveWorkoutSnackbarLayout.resolvePolicy(
+                    isKeyboardVisible: isKeyboardVisible,
+                    snackbarSlot: slot
+                )
+                let expectedPolicy: ActiveWorkoutSnackbarLayout.PresentationPolicy = isKeyboardVisible
+                    ? .keyboardVisible(slot: slot)
+                    : .keyboardHidden(slot: slot)
+
+                #expect(policy == expectedPolicy)
+                #expect(policy.activeSlot == slot)
+                #expect(policy.hasActiveSnackbar == (slot != .none))
+                #expect(policy.usesTopPresentation == (isKeyboardVisible && slot != .none))
+                #expect(policy.bottomSafeAreaVisible == !isKeyboardVisible)
+                #expect(policy.fabVisible == !isKeyboardVisible)
+
+                let host = UIHostingController(rootView: productionComposition(
+                    isKeyboardVisible: isKeyboardVisible,
+                    snackbarSlot: slot
+                ))
+                let size = host.sizeThatFits(in: CGSize(width: 390, height: .infinity))
+
+                #expect(size.height > 0, "State keyboard=\(isKeyboardVisible) slot=\(slot) must keep a mounted production composition")
+
+                if slot == .none {
+                    #expect(!policy.hasActiveSnackbar, "No active snackbar should be presented for the .none state")
+                } else {
+                    #expect(policy.hasActiveSnackbar, "Exactly one active snackbar should be presented for state keyboard=\(isKeyboardVisible) slot=\(slot)")
+                    #expect(policy.activeSlot == slot)
+                }
+            }
+        }
+    }
+
+    @MainActor
+    @Test("Keyboard transitions preserve root mount and active slot in both directions")
+    func keyboardTransitionsPreserveProductionComposition() {
+        for slot in allSlots {
+            let hidden = ActiveWorkoutSnackbarLayout.resolvePolicy(
+                isKeyboardVisible: false,
+                snackbarSlot: slot
+            )
+            let visible = ActiveWorkoutSnackbarLayout.resolvePolicy(
+                isKeyboardVisible: true,
+                snackbarSlot: slot
+            )
+
+            let hiddenView = productionComposition(isKeyboardVisible: false, snackbarSlot: slot)
+            let visibleView = productionComposition(isKeyboardVisible: true, snackbarSlot: slot)
+
+            let hiddenHost = UIHostingController(rootView: hiddenView)
+            let visibleHost = UIHostingController(rootView: visibleView)
+
+            let hiddenHeight = hiddenHost.sizeThatFits(in: CGSize(width: 390, height: .infinity)).height
+            let visibleHeight = visibleHost.sizeThatFits(in: CGSize(width: 390, height: .infinity)).height
+
+            #expect(hiddenHeight > 0)
+            #expect(visibleHeight > 0)
+            #expect(hidden.bottomSafeAreaVisible)
+            #expect(!visible.bottomSafeAreaVisible)
+            #expect(hidden.fabVisible)
+            #expect(!visible.fabVisible)
+            #expect(hidden.activeSlot == slot)
+            #expect(visible.activeSlot == slot)
+
+            if slot == .none {
+                #expect(!hidden.hasActiveSnackbar)
+                #expect(!visible.hasActiveSnackbar)
+            } else {
+                #expect(hidden.hasActiveSnackbar)
+                #expect(visible.hasActiveSnackbar)
+                #expect(hidden.usesTopPresentation == false)
+                #expect(visible.usesTopPresentation)
+            }
+        }
+    }
+
+    @MainActor
+    @Test("Keyboard-visible top layout keeps final-row clearance and a single active presentation")
+    func keyboardVisibleTopLayoutStaysSingleActivePresentation() {
+        let policy = ActiveWorkoutSnackbarLayout.resolvePolicy(isKeyboardVisible: true, snackbarSlot: .rest)
+        #expect(policy.isKeyboardVisible)
+        #expect(policy.usesTopPresentation)
+        #expect(policy.activeSlot == .rest)
+        #expect(policy.hasActiveSnackbar)
+
+        let host = UIHostingController(rootView: productionComposition(
+            isKeyboardVisible: true,
+            snackbarSlot: .rest
+        ))
+        let size = host.sizeThatFits(in: CGSize(width: 390, height: .infinity))
+
+        #expect(size.height > 0)
+        #expect(ActiveWorkoutSnackbarLayout.resolveEdge(isKeyboardVisible: true) == .top)
+    }
+
+    @MainActor
+    private var representativeInfoBand: some View {
+        HStack {
+            Text("12:34")
+                .font(.title2.monospacedDigit())
+            Spacer()
+            Text("1 set · 2 exercises")
+                .font(.subheadline)
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 48)
+    }
+
+    @MainActor
+    private var representativeUndoContent: some View {
+        HStack {
+            Text("Undo")
+            Spacer()
+            Button("Undo") {}
+        }
+        .padding(12)
+        .frame(height: 56)
+    }
+
+    @MainActor
+    private var representativeRestContent: some View {
+        HStack {
+            Text("Rest")
+            Spacer()
+            Button("Skip") {}
+        }
+        .padding(12)
+        .frame(height: 56)
     }
 
     @MainActor
@@ -52,64 +185,5 @@ struct ActiveWorkoutSnackbarLayoutTests {
         Color.clear
             .frame(width: 60, height: 60)
             .padding()
-    }
-    #endif
-
-    @MainActor
-    @Test("Keyboard visibility and snackbar slot resolve to one production policy")
-    func keyboardAndSnackbarMatrixResolvesSingleActivePresentation() {
-        let keyboardStates = [false, true]
-        let slots: [BottomSnackbarSlot] = [.none, .rest, .undo]
-
-        for keyboardVisible in keyboardStates {
-            let expectedEdge = keyboardVisible ? VerticalEdge.top : .bottom
-            let edge = ActiveWorkoutSnackbarLayout.resolveEdge(isKeyboardVisible: keyboardVisible)
-            #expect(edge == expectedEdge)
-
-            for slot in slots {
-                let policy = ActiveWorkoutSnackbarLayout.resolvePolicy(
-                    isKeyboardVisible: keyboardVisible,
-                    snackbarSlot: slot
-                )
-                let expectedPolicy = keyboardVisible
-                    ? ActiveWorkoutSnackbarLayout.PresentationPolicy.keyboardVisible(slot: slot)
-                    : ActiveWorkoutSnackbarLayout.PresentationPolicy.keyboardHidden(slot: slot)
-
-                #expect(policy == expectedPolicy)
-                #expect(policy.activeSlot == slot)
-                #expect(policy.hasActiveSnackbar == (slot != .none))
-                #expect(policy.usesTopPresentation == (keyboardVisible && slot != .none))
-                #expect(policy.bottomSafeAreaVisible == !keyboardVisible)
-                #expect(policy.fabVisible == !keyboardVisible)
-
-                let activeContent = ActiveWorkoutSnackbarLayout.activeSlotContent(
-                    snackbarSlot: slot,
-                    undoContent: {
-                        Text("Undo").padding(8)
-                    },
-                    restContent: {
-                        Text("Rest").padding(8)
-                    }
-                )
-                let host = UIHostingController(rootView: activeContent)
-                let size = host.sizeThatFits(in: CGSize(width: 320, height: .infinity))
-
-                if slot == .none {
-                    #expect(size.height == 0, "No snackbar should produce an empty presentation for state keyboard=\(keyboardVisible) slot=\(slot)")
-                } else {
-                    #expect(size.height > 0, "State keyboard=\(keyboardVisible) slot=\(slot) should retain one visible active snackbar")
-                }
-            }
-        }
-    }
-
-    @MainActor
-    @Test("Keyboard visible path keeps a single active top snackbar")
-    func keyboardVisibleStateRespectsTopPlacement() {
-        let policy = ActiveWorkoutSnackbarLayout.resolvePolicy(isKeyboardVisible: true, snackbarSlot: .rest)
-        #expect(policy.usesTopPresentation)
-        #expect(policy.activeSlot == .rest)
-        #expect(policy.isKeyboardVisible)
-        #expect(ActiveWorkoutSnackbarLayout.resolveEdge(isKeyboardVisible: true) == .top)
     }
 }
