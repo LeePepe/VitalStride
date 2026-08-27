@@ -9,7 +9,7 @@ import json
 import shlex
 import subprocess
 import sys
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 
 from frontmatter import parse_block_list, parse_list, parse_routes, parse_scalar, read_frontmatter
 
@@ -19,6 +19,8 @@ TRUSTED_BASH_SCRIPTS = {"scripts/test-repoinfra.sh", "scripts/check-frontmatter.
 TRUSTED_SWIFT_COMMANDS = {
     ("swift", "build", "--package-path", "Prototype"),
     ("swift", "test", "--package-path", "Prototype"),
+    ("swift", "build", "--package-path", "Packages/Core"),
+    ("swift", "test", "--package-path", "Packages/Core"),
     ("swift", "build", "--package-path", "Packages/AIService"),
     ("swift", "test", "--package-path", "Packages/AIService"),
     ("swift", "build", "--package-path", "Packages/DesignKit"),
@@ -211,26 +213,9 @@ def _validate_script_path(path: str) -> str:
     return path
 
 
-def _known_swift_package_paths() -> set[str]:
-    roots = {"Prototype"}
-    packages_root = Path("Packages")
-    if packages_root.exists() and packages_root.is_dir():
-        for child in sorted(packages_root.iterdir()):
-            if child.is_dir():
-                roots.add(f"Packages/{child.name}")
-    return roots
-
-
 def _validate_swift_argv(argv: list[str]) -> None:
-    if tuple(argv) in TRUSTED_SWIFT_COMMANDS:
-        return
-
-    if len(argv) != 4 or argv[0] != "swift" or argv[2] != "--package-path":
+    if tuple(argv) not in TRUSTED_SWIFT_COMMANDS:
         raise ValueError(f"untrusted swift argv rejected: {argv!r}")
-
-    package_path = argv[3]
-    if package_path not in _known_swift_package_paths():
-        raise ValueError(f"untrusted package path rejected: {package_path!r}")
 
 
 def _validate_xcodebuild_argv(argv: list[str]) -> None:

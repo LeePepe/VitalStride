@@ -239,6 +239,12 @@ test: swift test --package-path Packages/Core
         run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/Core"], shell=False)
 
     def test_run_accepts_trusted_repo_commands(self):
+        self.fixture(build_command="swift build --package-path Packages/AIService")
+        with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=0)) as run_mock:
+            rc = layer_coverage.main(["run", "Core", "build"])
+        self.assertEqual(0, rc)
+        run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/AIService"], shell=False)
+
         self.write(
             "CONTEXT.md",
             """scope: repo
@@ -263,6 +269,14 @@ test: swift build --package-path Prototype
         self.assertEqual(0, rc)
         run_mock.assert_called_once_with(["swift", "build", "--package-path", "Prototype"], shell=False)
 
+    def test_run_rejects_unapproved_swift_action_and_package_path(self):
+        self.fixture(build_command="swift run --package-path Packages/AIService")
+        with mock.patch("layer_coverage.subprocess.run") as run_mock:
+            rc = layer_coverage.main(["run", "Core", "build"])
+        self.assertEqual(1, rc)
+        run_mock.assert_not_called()
+
+        (self.root / "Packages" / "Arbitrary").mkdir(parents=True, exist_ok=True)
         self.fixture(build_command="swift build --package-path Packages/Arbitrary")
         with mock.patch("layer_coverage.subprocess.run") as run_mock:
             rc = layer_coverage.main(["run", "Core", "build"])
