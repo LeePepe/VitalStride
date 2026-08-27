@@ -16,6 +16,10 @@ class PrePushHookTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="pre-push-hook-", dir="/tmp")
         self.root = pathlib.Path(self.temp.name)
         self.old_cwd = os.getcwd()
+        self.old_env = os.environ.copy()
+        for key in list(os.environ):
+            if key.startswith("GIT_"):
+                os.environ.pop(key, None)
         os.chdir(self.root)
         subprocess.run(["git", "init"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(["git", "config", "user.name", "Tester"], check=True)
@@ -93,6 +97,8 @@ class PrePushHookTests(unittest.TestCase):
 
     def tearDown(self):
         os.chdir(self.old_cwd)
+        os.environ.clear()
+        os.environ.update(self.old_env)
         self.temp.cleanup()
 
     def _commit(self, relpath: str, content: str):
