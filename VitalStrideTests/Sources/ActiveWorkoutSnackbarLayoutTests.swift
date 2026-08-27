@@ -86,4 +86,43 @@ struct ActiveWorkoutSnackbarLayoutTests {
         let edgeWithKeyboard = ActiveWorkoutSnackbarLayout.resolveEdge(isKeyboardVisible: true)
         #expect(edgeWithKeyboard == .top)
     }
+
+    @MainActor
+    @Test("2x3 keyboard and snackbar policy maintains one active presentation")
+    func keyboardAndSnackbarMatrixKeepsSingleActivePresentation() {
+        let keyboardStates = [false, true]
+        let slots: [BottomSnackbarSlot] = [.none, .rest, .undo]
+
+        for keyboardVisible in keyboardStates {
+            let expectedEdge = keyboardVisible ? VerticalEdge.top : .bottom
+            let edge = ActiveWorkoutSnackbarLayout.resolveEdge(isKeyboardVisible: keyboardVisible)
+            #expect(edge == expectedEdge)
+
+            for slot in slots {
+                let expectedKey = switch slot {
+                case .none:
+                    nil
+                case .rest:
+                    "rest"
+                case .undo:
+                    "undo"
+                }
+
+                let activeContent = ActiveWorkoutSnackbarLayout.activeSlotContent(
+                    snackbarSlot: slot,
+                    undoContent: {
+                        Text("Undo").padding(8)
+                    },
+                    restContent: {
+                        Text("Rest").padding(8)
+                    }
+                )
+
+                let host = UIHostingController(rootView: activeContent)
+                let size = host.sizeThatFits(in: CGSize(width: 320, height: .infinity))
+                #expect(size.height > 0, "Matrix state keyboard=\(keyboardVisible), slot=\(slot) should render a valid ActiveWorkout snackbar content")
+                #expect(ActiveWorkoutSnackbarLayout.activeContentKey(slot) == expectedKey)
+            }
+        }
+    }
 }

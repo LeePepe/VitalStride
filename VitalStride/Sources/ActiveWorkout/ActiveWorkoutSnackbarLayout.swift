@@ -17,6 +17,33 @@ enum ActiveWorkoutSnackbarLayout {
         isKeyboardVisible ? .top : .bottom
     }
 
+    @MainActor
+    static func activeSlotContent<UndoContent: View, RestContent: View>(
+        snackbarSlot: BottomSnackbarSlot,
+        @ViewBuilder undoContent: () -> UndoContent,
+        @ViewBuilder restContent: () -> RestContent
+    ) -> some View {
+        switch snackbarSlot {
+        case .undo:
+            undoContent()
+        case .rest:
+            restContent()
+        case .none:
+            EmptyView()
+        }
+    }
+
+    static func activeContentKey(_ snackbarSlot: BottomSnackbarSlot) -> String? {
+        switch snackbarSlot {
+        case .none:
+            nil
+        case .rest:
+            "rest"
+        case .undo:
+            "undo"
+        }
+    }
+
     // MARK: - Shared slot envelope (MY-1446)
 
     /// Shared constant-height envelope used by both bottom and top snackbar
@@ -48,14 +75,11 @@ enum ActiveWorkoutSnackbarLayout {
         // accessibility subtree with only the active content, so inactive
         // labels/buttons are never exposed to VoiceOver or XCUI queries.
         .accessibilityRepresentation {
-            switch snackbarSlot {
-            case .undo:
-                undoContent()
-            case .rest:
-                restContent()
-            case .none:
-                EmptyView()
-            }
+            activeSlotContent(
+                snackbarSlot: snackbarSlot,
+                undoContent: undoContent,
+                restContent: restContent
+            )
         }
     }
 
