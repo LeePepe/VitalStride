@@ -446,8 +446,11 @@ public actor HealthDataCache {
         }
 
         if let entry = workoutCache {
-            let coversRequested = dateRange == nil || Self.coversRange(entry.coveredRange, requested: dateRange)
-            if coversRequested {
+            let hasRangeCoverage = entry.coveredRange != nil
+            let defaultBaselineHit = (entry.source == .baselineSnapshot || entry.source == .anchoredChanges)
+                && (dateRange == nil || (hasRangeCoverage && Self.coversRange(entry.coveredRange, requested: dateRange)))
+            let rangeHit = dateRange != nil && hasRangeCoverage && Self.coversRange(entry.coveredRange, requested: dateRange)
+            if defaultBaselineHit || rangeHit {
                 workoutHitCount += 1
                 logger.info(
                     "healthkit_workout_cache_hit total=\(self.workoutHitCount)"
@@ -801,11 +804,7 @@ public actor HealthDataCache {
         case (_, nil):
             return false
         case let (cached?, requested?):
-            // A cached snapshot is considered authoritative for a request when the
-            // requested window starts within the cached range. This preserves the
-            // wider-range optimization while allowing same-day queries that end just
-            // after the current wall clock to reuse the baseline snapshot.
-            return cached.start <= requested.start && requested.start <= cached.end
+            return cached.start <= requested.start && requested.end <= cached.end
         }
     }
 
@@ -887,8 +886,8 @@ public actor HealthDataCache {
         let staleOwner = workoutGeneration != generation || workoutInFlightFetches[key]?.requestID != requestID
 
         if staleOwner {
-            logger.info("healthkit_workout_fetch_stale request=\(requestID.uuidString)")
-            return normalized
+            logger.info("healthkit_workout_fetch_stale")
+            throw CancellationError()
         }
 
         let previous = workoutCache

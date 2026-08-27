@@ -118,7 +118,7 @@ struct HealthWorkoutCacheTests {
 
         let workouts = [
             makeWorkout(date: yesterday),
-            makeWorkout(date: now),
+            makeWorkout(date: now.addingTimeInterval(-30 * 60)),
         ]
         workoutMock.fetchResult = WorkoutFetchResult(workouts: workouts, deletedObjectIDs: [])
         let cache = HealthDataCache(
@@ -130,12 +130,63 @@ struct HealthWorkoutCacheTests {
 
         let todayRange = DateInterval(
             start: Calendar.current.startOfDay(for: now),
-            end: now.addingTimeInterval(3600)
+            end: now.addingTimeInterval(-60)
         )
         let filtered = try await cache.workoutData(in: todayRange)
 
         #expect(filtered.count == 1)
         #expect(workoutMock.fetchCallCount == 1)
+    }
+
+    @Test("Range cache hit requires full coverage, not just a matching start")
+    func rangeCacheHitRequiresFullCoverage() async throws {
+        let now = Date()
+        let workoutMock = MockWorkoutProvider()
+        workoutMock.fetchResult = WorkoutFetchResult(
+            workouts: [
+                makeWorkout(date: now.addingTimeInterval(-7 * 24 * 60 * 60)),
+                makeWorkout(date: now),
+            ],
+            deletedObjectIDs: []
+        )
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: workoutMock
+        )
+
+        _ = try await cache.workoutData()
+        let widerRange = DateInterval(
+            start: now.addingTimeInterval(-40 * 24 * 60 * 60),
+            end: now.addingTimeInterval(60 * 60)
+        )
+
+        _ = try await cache.workoutData(in: widerRange)
+
+        #expect(workoutMock.fetchCallCount == 2)
+    }
+
+    @Test("Default baseline does not satisfy an explicit range when coverage is missing")
+    func defaultBaselineDoesNotSatisfyExplicitRangeWithoutCoverage() async throws {
+        let now = Date()
+        let workoutMock = MockWorkoutProvider()
+        workoutMock.fetchResult = WorkoutFetchResult(
+            workouts: [makeWorkout(date: now)],
+            deletedObjectIDs: []
+        )
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: workoutMock
+        )
+
+        _ = try await cache.workoutData()
+        let explicitRange = DateInterval(
+            start: now.addingTimeInterval(-2 * 24 * 60 * 60),
+            end: now.addingTimeInterval(2 * 24 * 60 * 60)
+        )
+
+        _ = try await cache.workoutData(in: explicitRange)
+
+        #expect(workoutMock.fetchCallCount == 2)
     }
 
     // MARK: - Refresh
