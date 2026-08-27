@@ -303,6 +303,36 @@ struct ActiveExerciseSection: View {
     // list row. The row-only spacing/background/separator modifiers are removed so
     // the control cannot receive list edit/move behavior while preserving the
     // frozen a11y label/hint and ≥44pt hit target contract.
+    // The append source stays on the last main set even when a trailing sub-set
+    // exists, so the add-set default remains tied to the final visible main-set
+    // contract rather than the temporary sub-set tail.
+    nonisolated static func appendedMainSet(in workoutExercise: WorkoutExercise) -> ExerciseSet {
+        let sortedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
+        let lastMainSet = sortedSets.last(where: { !$0.setType.isSubSet })
+        let order = sortedSets.count
+        return ExerciseSet(
+            order: order,
+            weight: lastMainSet?.weight ?? 0,
+            reps: lastMainSet?.reps ?? 0,
+            setType: lastMainSet?.setType ?? .working,
+            isUnilateral: lastMainSet?.isUnilateral ?? false,
+            weightRight: lastMainSet?.weightRight
+        )
+    }
+
+    /// Exercises the complete append contract used by `addSet()`: construct the
+    /// default main set, attach it to the owning workout exercise, and insert it
+    /// into the relationship so tests can lock the real mutation path.
+    nonisolated static func insertAppendedMainSet(
+        in workoutExercise: WorkoutExercise,
+        using modelContext: ModelContext
+    ) -> ExerciseSet {
+        let newSet = Self.appendedMainSet(in: workoutExercise)
+        newSet.workoutExercise = workoutExercise
+        modelContext.insert(newSet)
+        return newSet
+    }
+
     private var addSetButton: some View {
         Button {
             addSet()
@@ -329,18 +359,7 @@ struct ActiveExerciseSection: View {
     }
 
     private func addSet() {
-        let lastMainSet = sortedSets.last(where: { !$0.setType.isSubSet })
-        let order = workoutExercise.sets?.count ?? 0
-        let newSet = ExerciseSet(
-            order: order,
-            weight: lastMainSet?.weight ?? 0,
-            reps: lastMainSet?.reps ?? 0,
-            setType: lastMainSet?.setType ?? .working,
-            isUnilateral: lastMainSet?.isUnilateral ?? false,
-            weightRight: lastMainSet?.weightRight
-        )
-        newSet.workoutExercise = workoutExercise
-        modelContext.insert(newSet)
+        _ = Self.insertAppendedMainSet(in: workoutExercise, using: modelContext)
     }
 
     private func addSubSet(after parentSet: ExerciseSet, type: SetType) {
@@ -528,8 +547,8 @@ private struct AddSetButtonStyle: ButtonStyle {
 // MARK: - Previews (MY-1348 spec 017 — 4-state coverage)
 //
 // Preview matrix required by `tasks.md` §Preview Coverage: `{normal, large}
-// × {light, dark}`, each with ≥ 2 sets so the `addSetButton` sits next to
-// SetRows and its visual separation from data rows is directly comparable.
+// × {light, dark}`, each with ≥ 2 sets so the shared exercise header is shown
+// alongside the title/menu and two set rows as the visual context.
 // Uses the same in-memory `ModelContainerConfiguration.makeTestContainer()`
 // harness as `SetRow` previews.
 
