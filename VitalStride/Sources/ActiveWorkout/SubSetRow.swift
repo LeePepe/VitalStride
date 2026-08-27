@@ -19,8 +19,11 @@ struct SubSetRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        SetRow(
-            index: parentSetNumber,
+        let rowIndex = max(parentSetNumber - 1, 0)
+        let deleteLabel = String(localized: "删除", comment: "Delete action")
+
+        return SetRow(
+            index: rowIndex,
             exerciseSet: exerciseSet,
             weightUnit: weightUnit,
             canDelete: true,
@@ -35,7 +38,7 @@ struct SubSetRow: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
             String(
-                localized: "第 \(parentSetNumber + 1) 组\(exerciseSet.setType.displayName)子组",
+                localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(deleteLabel)",
                 comment: "Sub-set row accessibility label"
             )
         )

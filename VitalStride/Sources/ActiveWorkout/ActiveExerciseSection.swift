@@ -574,9 +574,17 @@ private struct AddSetButtonPreviewWrapper: View {
         set1.workoutExercise = workoutExercise
         context.insert(set1)
 
-        let set2 = ExerciseSet(order: 1, weight: 62.5, reps: 8, setType: .working)
+        let pyramidSet = ExerciseSet(order: 1, weight: 62.5, reps: 8, setType: .pyramid)
+        pyramidSet.workoutExercise = workoutExercise
+        context.insert(pyramidSet)
+
+        let set2 = ExerciseSet(order: 2, weight: 65, reps: 6, setType: .working)
         set2.workoutExercise = workoutExercise
         context.insert(set2)
+
+        let dropSet = ExerciseSet(order: 3, weight: 70, reps: 5, setType: .dropSet)
+        dropSet.workoutExercise = workoutExercise
+        context.insert(dropSet)
 
         return List {
             ActiveExerciseSection(
