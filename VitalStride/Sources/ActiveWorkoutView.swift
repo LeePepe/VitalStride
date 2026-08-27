@@ -17,6 +17,35 @@ import UIKit
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveWorkout")
 
+private struct ActiveWorkoutFrameCollectorKey: PreferenceKey {
+    static let defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue()) { _, new in new }
+    }
+}
+
+private struct ActiveWorkoutFrameCollectorModifier: ViewModifier {
+    let id: String
+    let onFrame: ((CGRect) -> Void)?
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: ActiveWorkoutFrameCollectorKey.self,
+                        value: [id: proxy.frame(in: .global)]
+                    )
+                }
+            )
+            .onPreferenceChange(ActiveWorkoutFrameCollectorKey.self) { frames in
+                guard let rect = frames[id] else { return }
+                onFrame?(rect)
+            }
+    }
+}
+
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.theme) private var theme
@@ -108,6 +137,9 @@ struct ActiveWorkoutView: View {
         snackbarSlot: BottomSnackbarSlot,
         topFocused: AccessibilityFocusState<Bool>.Binding? = nil,
         bottomFocused: AccessibilityFocusState<Bool>.Binding? = nil,
+        topFrameProbe: ((CGRect) -> Void)? = nil,
+        bottomFrameProbe: ((CGRect) -> Void)? = nil,
+        mainContentFrameProbe: ((CGRect) -> Void)? = nil,
         @ViewBuilder infoBand: () -> some View,
         @ViewBuilder mainContent: () -> some View,
         @ViewBuilder undoContent: () -> some View,
@@ -171,11 +203,15 @@ struct ActiveWorkoutView: View {
 
         return VStack(spacing: 0) {
             topContent
+                .modifier(ActiveWorkoutFrameCollectorModifier(id: "topPresentation", onFrame: topFrameProbe))
             mainContent()
+                .modifier(ActiveWorkoutFrameCollectorModifier(id: "mainContent", onFrame: mainContentFrameProbe))
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             bottomContent
+                .modifier(ActiveWorkoutFrameCollectorModifier(id: "bottomPresentation", onFrame: bottomFrameProbe))
         }
+        .modifier(ActiveWorkoutFrameCollectorModifier(id: "rootContainer", onFrame: nil))
         .animation(.easeInOut(duration: 0.2), value: layoutPolicy)
     }
 

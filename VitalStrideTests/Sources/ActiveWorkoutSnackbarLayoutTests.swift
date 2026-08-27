@@ -7,47 +7,52 @@ import UIKit
 
 @testable import VitalStride
 
-/// MY-1421 — production root transition regression tests.
-///
-/// These tests host one production-consumed root and toggle the shared keyboard/
-/// slot state on that same controller. They prove the bottom safe-area subtree is
-/// structurally stable across hidden→visible→hidden transitions and that the
-/// policy remains single-active across all six keyboard/snackbar states.
-private final class ActiveWorkoutFrameBox: ObservableObject {
-    @Published var frame: CGRect = .zero
-}
+@MainActor
+private final class ActiveWorkoutFrameTracker {
+    var frames: [String: CGRect] = [:]
 
-private struct ActiveWorkoutFrameProbe: ViewModifier {
-    @ObservedObject var box: ActiveWorkoutFrameBox
+    func set(_ frame: CGRect, for id: String) {
+        frames[id] = frame
+    }
 
-    func body(content: Content) -> some View {
-        content.background(
-            GeometryReader { proxy in
-                Color.clear.preference(
-                    key: ActiveWorkoutFramePreferenceKey.self,
-                    value: proxy.frame(in: .global)
-                )
-            }
-        )
-        .onPreferenceChange(ActiveWorkoutFramePreferenceKey.self) { frame in
-            if let frame {
-                box.frame = frame
-            }
-        }
+    func frame(for id: String) -> CGRect? {
+        frames[id]
     }
 }
 
-private struct ActiveWorkoutFramePreferenceKey: PreferenceKey {
-    static let defaultValue: CGRect? = nil
+private struct ActiveWorkoutFrameValueKey: PreferenceKey {
+    static let defaultValue: [String: CGRect] = [:]
 
-    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
-        value = value ?? nextValue()
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue()) { _, new in new }
+    }
+}
+
+private struct ActiveWorkoutFrameCaptureModifier: ViewModifier {
+    let id: String
+    let tracker: ActiveWorkoutFrameTracker
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: ActiveWorkoutFrameValueKey.self,
+                        value: [id: proxy.frame(in: .global)]
+                    )
+                }
+            )
+            .onPreferenceChange(ActiveWorkoutFrameValueKey.self) { frames in
+                if let frame = frames[id] {
+                    tracker.set(frame, for: id)
+                }
+            }
     }
 }
 
 private extension View {
-    func captureActiveWorkoutFrame(_ box: ActiveWorkoutFrameBox) -> some View {
-        modifier(ActiveWorkoutFrameProbe(box: box))
+    func captureActiveWorkoutFrame(id: String, tracker: ActiveWorkoutFrameTracker) -> some View {
+        modifier(ActiveWorkoutFrameCaptureModifier(id: id, tracker: tracker))
     }
 }
 
@@ -68,16 +73,52 @@ struct ActiveWorkoutSnackbarLayoutTests {
     @MainActor
     private struct ProductionRoot: View {
         @ObservedObject var state: ProductionRootState
+        let tracker: ActiveWorkoutFrameTracker
 
         var body: some View {
             ActiveWorkoutView.productionRoot(
                 isKeyboardVisible: state.isKeyboardVisible,
                 snackbarSlot: state.snackbarSlot,
-                infoBand: { representativeInfoBand },
-                mainContent: { representativeMainContent },
-                undoContent: { representativeUndoContent },
-                restContent: { representativeRestContent },
-                fab: { representativeFAB }
+                topFrameProbe: { tracker.set($0, for: "topPresentation") },
+                bottomFrameProbe: { tracker.set($0, for: "bottomPresentation") },
+                mainContentFrameProbe: { tracker.set($0, for: "mainContent") },
+                infoBand: {
+                    representativeInfoBand
+                        .captureActiveWorkoutFrame(id: "infoBand", tracker: tracker)
+                },
+                mainContent: {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            Color.clear.frame(height: 48)
+                                .captureActiveWorkoutFrame(id: "focusedRow", tracker: tracker)
+                            ForEach(0..<10, id: \.self) { index in
+                                HStack {
+                                    Text("Exercise \(index + 1)")
+                                    Spacer()
+                                    Text("3 sets")
+                                }
+                                .frame(height: 52)
+                            }
+                            Color.clear.frame(height: 80)
+                                .captureActiveWorkoutFrame(id: "finalRow", tracker: tracker)
+                        }
+                    }
+                    .captureActiveWorkoutFrame(id: "scrollViewport", tracker: tracker)
+                },
+                undoContent: {
+                    representativeUndoContent
+                        .captureActiveWorkoutFrame(id: "undoContent", tracker: tracker)
+                },
+                restContent: {
+                    representativeRestContent
+                        .captureActiveWorkoutFrame(id: "restContent", tracker: tracker)
+                },
+                fab: {
+                    if !state.isKeyboardVisible {
+                        representativeFAB
+                            .captureActiveWorkoutFrame(id: "fab", tracker: tracker)
+                    }
+                }
             )
         }
     }
@@ -86,7 +127,8 @@ struct ActiveWorkoutSnackbarLayoutTests {
     @Test("Single production root stays mounted across hidden→visible→hidden transitions")
     func productionRootStaysMountedAcrossTransitions() {
         let state = ProductionRootState()
-        let host = UIHostingController(rootView: ProductionRoot(state: state))
+        let tracker = ActiveWorkoutFrameTracker()
+        let host = UIHostingController(rootView: ProductionRoot(state: state, tracker: tracker))
 
         for slot in [BottomSnackbarSlot.none, .rest, .undo] {
             state.snackbarSlot = slot
@@ -130,7 +172,8 @@ struct ActiveWorkoutSnackbarLayoutTests {
                     isKeyboardVisible: isKeyboardVisible,
                     snackbarSlot: slot
                 )
-                let host = UIHostingController(rootView: ProductionRoot(state: state))
+                let tracker = ActiveWorkoutFrameTracker()
+                let host = UIHostingController(rootView: ProductionRoot(state: state, tracker: tracker))
                 let size = host.sizeThatFits(in: CGSize(width: 390, height: .infinity))
 
                 #expect(size.height > 0)
@@ -160,98 +203,55 @@ struct ActiveWorkoutSnackbarLayoutTests {
     }
 
     @MainActor
-    @Test("Production root keeps the active snackbar and content clear of the real keyboard-safe boundary")
+    @Test("Production root keeps the active snackbar above the real keyboard-safe content boundary")
     func productionRootKeepsContentClearAcrossStateMatrix() {
         for isKeyboardVisible in [false, true] {
             for slot in [BottomSnackbarSlot.none, .rest, .undo] {
-                let topSnackbarBox = ActiveWorkoutFrameBox()
-                let bottomSnackbarBox = ActiveWorkoutFrameBox()
-                let fabBox = ActiveWorkoutFrameBox()
-                let keyboardBoundaryBox = ActiveWorkoutFrameBox()
-                let focusedRowBox = ActiveWorkoutFrameBox()
-                let finalRowBox = ActiveWorkoutFrameBox()
-                let scrollBox = ActiveWorkoutFrameBox()
-
-                let host = UIHostingController(
-                    rootView: ActiveWorkoutView.productionRoot(
-                        isKeyboardVisible: isKeyboardVisible,
-                        snackbarSlot: slot,
-                        infoBand: {
-                            representativeInfoBand
-                                .captureActiveWorkoutFrame(ActiveWorkoutFrameBox())
-                        },
-                        mainContent: {
-                            ScrollView {
-                                VStack(spacing: 0) {
-                                    Color.clear.frame(height: 48)
-                                        .captureActiveWorkoutFrame(focusedRowBox)
-                                    ForEach(0..<10, id: \.self) { index in
-                                        HStack {
-                                            Text("Exercise \(index + 1)")
-                                            Spacer()
-                                            Text("3 sets")
-                                        }
-                                        .frame(height: 52)
-                                    }
-                                    Color.clear.frame(height: 80)
-                                        .captureActiveWorkoutFrame(finalRowBox)
-                                }
-                                .captureActiveWorkoutFrame(scrollBox)
-                            }
-                            .background(
-                                GeometryReader { proxy in
-                                    Color.clear.preference(
-                                        key: ActiveWorkoutFramePreferenceKey.self,
-                                        value: proxy.frame(in: .global)
-                                    )
-                                }
-                            )
-                            .onPreferenceChange(ActiveWorkoutFramePreferenceKey.self) { frame in
-                                if let frame {
-                                    keyboardBoundaryBox.frame = frame
-                                }
-                            }
-                        },
-                        undoContent: {
-                            representativeUndoContent
-                                .captureActiveWorkoutFrame(isKeyboardVisible ? topSnackbarBox : bottomSnackbarBox)
-                        },
-                        restContent: {
-                            representativeRestContent
-                                .captureActiveWorkoutFrame(isKeyboardVisible ? topSnackbarBox : bottomSnackbarBox)
-                        },
-                        fab: { representativeFAB.captureActiveWorkoutFrame(fabBox) }
-                    )
+                let tracker = ActiveWorkoutFrameTracker()
+                let state = ProductionRootState(
+                    isKeyboardVisible: isKeyboardVisible,
+                    snackbarSlot: slot
                 )
+                let host = UIHostingController(rootView: ProductionRoot(state: state, tracker: tracker))
 
                 host.view.frame = CGRect(x: 0, y: 0, width: 390, height: 852)
                 host.view.setNeedsLayout()
                 host.view.layoutIfNeeded()
                 RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
 
-                #expect(scrollBox.frame.width > 0)
-                #expect(keyboardBoundaryBox.frame.width > 0)
-                #expect(focusedRowBox.frame.width > 0)
-                #expect(finalRowBox.frame.width > 0)
+                let policy = ActiveWorkoutSnackbarLayout.resolvePolicy(
+                    isKeyboardVisible: isKeyboardVisible,
+                    snackbarSlot: slot
+                )
 
-                let hasActiveTopSnackbar = isKeyboardVisible && slot != .none
-                let hasActiveBottomSnackbar = !isKeyboardVisible && slot != .none
+                let topPresentation = tracker.frame(for: "topPresentation") ?? .zero
+                let bottomPresentation = tracker.frame(for: "bottomPresentation") ?? .zero
+                let mainContent = tracker.frame(for: "mainContent") ?? .zero
+                let focusedRow = tracker.frame(for: "focusedRow") ?? .zero
+                let finalRow = tracker.frame(for: "finalRow") ?? .zero
+                let fab = tracker.frame(for: "fab") ?? .zero
 
-                if hasActiveTopSnackbar {
-                    #expect(topSnackbarBox.frame.width > 0)
-                    #expect(focusedRowBox.frame.maxY <= topSnackbarBox.frame.minY + 2)
-                    #expect(finalRowBox.frame.maxY <= topSnackbarBox.frame.minY + 2)
-                    #expect(keyboardBoundaryBox.frame.minY >= topSnackbarBox.frame.maxY - 2)
-                } else if hasActiveBottomSnackbar {
-                    #expect(bottomSnackbarBox.frame.width > 0)
-                    #expect(fabBox.frame.maxY <= bottomSnackbarBox.frame.minY + 2)
-                    #expect(focusedRowBox.frame.maxY <= fabBox.frame.minY + 2)
-                    #expect(finalRowBox.frame.maxY <= fabBox.frame.minY + 2)
-                    #expect(bottomSnackbarBox.frame.minY >= keyboardBoundaryBox.frame.maxY - 2)
+                if isKeyboardVisible && slot != .none {
+                    #expect(policy.usesTopPresentation)
+                    #expect(topPresentation.width > 0)
+                    #expect(mainContent.minY >= topPresentation.maxY - 2)
+                    #expect(focusedRow.minY >= topPresentation.maxY - 2)
+                    #expect(finalRow.minY >= topPresentation.maxY - 2)
+                    #expect(fab.width == 0 || fab.height == 0 || !policy.fabVisible)
+                } else if !isKeyboardVisible && slot != .none {
+                    #expect(!policy.usesTopPresentation)
+                    #expect(bottomPresentation.width > 0)
+                    #expect(fab.width > 0)
+                    #expect(fab.maxY <= bottomPresentation.minY + 2)
+                    #expect(focusedRow.maxY <= bottomPresentation.minY + 2)
+                    #expect(finalRow.maxY <= bottomPresentation.minY + 2)
                 } else {
-                    #expect(fabBox.frame.width > 0)
-                    #expect(focusedRowBox.frame.maxY <= keyboardBoundaryBox.frame.minY + 2)
-                    #expect(finalRowBox.frame.maxY <= keyboardBoundaryBox.frame.minY + 2)
+                    #expect(!policy.hasActiveSnackbar)
+                    #expect(!policy.usesTopPresentation)
+                    #expect(fab.width == 0 || fab.height == 0 || !policy.fabVisible)
+                    #expect(mainContent.minY >= topPresentation.maxY - 2)
+                    #expect(focusedRow.minY >= topPresentation.maxY - 2)
+                    #expect(finalRow.minY >= topPresentation.maxY - 2)
                 }
             }
         }
