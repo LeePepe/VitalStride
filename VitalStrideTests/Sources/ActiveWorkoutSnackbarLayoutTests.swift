@@ -32,37 +32,14 @@ struct ActiveWorkoutSnackbarLayoutTests {
         @ObservedObject var state: ProductionRootState
 
         var body: some View {
-            VStack(spacing: 0) {
-                if state.isKeyboardVisible {
-                    ActiveWorkoutSnackbarLayout.topComposition(
-                        snackbarSlot: state.snackbarSlot,
-                        infoBand: { representativeInfoBand },
-                        undoContent: { representativeUndoContent },
-                        restContent: { representativeRestContent }
-                    )
-                } else {
-                    representativeInfoBand
-                }
-
-                VStack(spacing: 12) {
-                    ForEach(0..<3, id: \.self) { _ in
-                        Color.clear.frame(height: 56)
-                    }
-                }
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
-                    snackbarSlot: state.snackbarSlot,
-                    undoContent: { representativeUndoContent },
-                    restContent: { representativeRestContent },
-                    fab: { representativeFAB }
-                )
-                .opacity(state.isKeyboardVisible ? 0 : 1)
-                .allowsHitTesting(!state.isKeyboardVisible)
-                .accessibilityHidden(state.isKeyboardVisible)
-            }
-            .animation(.easeInOut(duration: 0.2), value: state.isKeyboardVisible)
-            .animation(.easeInOut(duration: 0.2), value: state.snackbarSlot)
+            ActiveWorkoutView.productionRoot(
+                isKeyboardVisible: state.isKeyboardVisible,
+                snackbarSlot: state.snackbarSlot,
+                infoBand: { representativeInfoBand },
+                undoContent: { representativeUndoContent },
+                restContent: { representativeRestContent },
+                fab: { representativeFAB }
+            )
         }
     }
 
@@ -78,8 +55,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
 
             let hiddenHeight = host.sizeThatFits(in: CGSize(width: 390, height: .infinity)).height
-            #expect(hiddenHeight > 0, "Hidden state must keep the root mounted for slot \(slot)")
-            #expect(type(of: host.rootView) == ProductionRoot.self)
+            #expect(hiddenHeight > 0, "Hidden state must keep the production root mounted for slot \(slot)")
 
             state.isKeyboardVisible = true
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))

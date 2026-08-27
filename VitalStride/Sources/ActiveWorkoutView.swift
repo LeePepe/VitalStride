@@ -101,6 +101,82 @@ struct ActiveWorkoutView: View {
         )
     }
 
+    @MainActor
+    @ViewBuilder
+    static func productionRoot(
+        isKeyboardVisible: Bool,
+        snackbarSlot: BottomSnackbarSlot,
+        topFocused: Binding<Bool>? = nil,
+        bottomFocused: Binding<Bool>? = nil,
+        @ViewBuilder infoBand: () -> some View,
+        @ViewBuilder undoContent: () -> some View,
+        @ViewBuilder restContent: () -> some View,
+        @ViewBuilder fab: () -> some View
+    ) -> some View {
+        let layoutPolicy = ActiveWorkoutSnackbarLayout.resolvePolicy(
+            isKeyboardVisible: isKeyboardVisible,
+            snackbarSlot: snackbarSlot
+        )
+
+        let topContent: AnyView
+        if layoutPolicy.usesTopPresentation {
+            let base = ActiveWorkoutSnackbarLayout.topComposition(
+                snackbarSlot: snackbarSlot,
+                infoBand: infoBand,
+                undoContent: undoContent,
+                restContent: restContent
+            )
+            if let topFocused {
+                topContent = AnyView(
+                    base
+                        .accessibilityElement(children: .contain)
+                        .accessibilityFocused(topFocused)
+                )
+            } else {
+                topContent = AnyView(
+                    base
+                        .accessibilityElement(children: .contain)
+                )
+            }
+        } else {
+            topContent = AnyView(infoBand())
+        }
+
+        let bottomContent: AnyView
+        let baseBottom = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+            snackbarSlot: snackbarSlot,
+            undoContent: undoContent,
+            restContent: restContent,
+            fab: fab
+        )
+        if let bottomFocused {
+            bottomContent = AnyView(
+                baseBottom
+                    .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0)
+                    .allowsHitTesting(layoutPolicy.bottomSafeAreaVisible)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityFocused(bottomFocused)
+                    .accessibilityHidden(!layoutPolicy.bottomSafeAreaVisible)
+            )
+        } else {
+            bottomContent = AnyView(
+                baseBottom
+                    .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0)
+                    .allowsHitTesting(layoutPolicy.bottomSafeAreaVisible)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityHidden(!layoutPolicy.bottomSafeAreaVisible)
+            )
+        }
+
+        return VStack(spacing: 0) {
+            topContent
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            bottomContent
+        }
+        .animation(.easeInOut(duration: 0.2), value: layoutPolicy)
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
