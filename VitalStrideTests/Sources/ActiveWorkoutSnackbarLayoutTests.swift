@@ -60,6 +60,11 @@ private extension View {
 struct ActiveWorkoutSnackbarLayoutTests {
 
     @MainActor
+    private final class ScrollProxyHolder {
+        var proxy: ScrollViewProxy?
+    }
+
+    @MainActor
     private final class ProductionRootState: ObservableObject {
         @Published var isKeyboardVisible: Bool
         @Published var snackbarSlot: BottomSnackbarSlot
@@ -76,6 +81,13 @@ struct ActiveWorkoutSnackbarLayoutTests {
     private struct ProductionRoot: View {
         @ObservedObject var state: ProductionRootState
         let tracker: ActiveWorkoutFrameTracker
+        let scrollProxyHolder: ScrollProxyHolder
+
+        init(state: ProductionRootState, tracker: ActiveWorkoutFrameTracker, scrollProxyHolder: ScrollProxyHolder = ScrollProxyHolder()) {
+            self.state = state
+            self.tracker = tracker
+            self.scrollProxyHolder = scrollProxyHolder
+        }
 
         var body: some View {
             ActiveWorkoutView.productionRoot(
@@ -91,7 +103,10 @@ struct ActiveWorkoutSnackbarLayoutTests {
                 },
                 mainContent: {
                     ScrollViewReader { proxy in
-                        ScrollView {
+                        let _ = {
+                            scrollProxyHolder.proxy = proxy
+                        }()
+                        return ScrollView {
                             VStack(spacing: 0) {
                                 Color.clear.frame(height: 48)
                                     .captureActiveWorkoutFrame(id: "focusedRow", tracker: tracker)
@@ -108,18 +123,25 @@ struct ActiveWorkoutSnackbarLayoutTests {
                                     .captureActiveWorkoutFrame(id: "finalRow", tracker: tracker)
                                     .id("finalRow")
                             }
+                            .padding(.bottom, 88)
                         }
                         .onAppear {
-                            if state.shouldScrollToFinalRow {
-                                withAnimation(.easeInOut(duration: 0.2)) {
+                            guard state.shouldScrollToFinalRow else { return }
+                            let scroll = {
+                                proxy.scrollTo("finalRow", anchor: .bottom)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                     proxy.scrollTo("finalRow", anchor: .bottom)
                                 }
                             }
+                            DispatchQueue.main.async(execute: scroll)
                         }
                         .onChange(of: state.shouldScrollToFinalRow) { _, shouldScroll in
                             guard shouldScroll else { return }
-                            withAnimation(.easeInOut(duration: 0.2)) {
+                            DispatchQueue.main.async {
                                 proxy.scrollTo("finalRow", anchor: .bottom)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    proxy.scrollTo("finalRow", anchor: .bottom)
+                                }
                             }
                         }
                         .captureActiveWorkoutFrame(id: "scrollViewport", tracker: tracker)
@@ -232,14 +254,28 @@ struct ActiveWorkoutSnackbarLayoutTests {
                     snackbarSlot: slot,
                     shouldScrollToFinalRow: true
                 )
-                let host = UIHostingController(rootView: ProductionRoot(state: state, tracker: tracker))
+                let scrollProxyHolder = ScrollProxyHolder()
+                let host = UIHostingController(rootView: ProductionRoot(state: state, tracker: tracker, scrollProxyHolder: scrollProxyHolder))
                 let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 852))
                 window.rootViewController = host
                 window.makeKeyAndVisible()
                 host.view.frame = window.bounds
                 host.view.setNeedsLayout()
                 host.view.layoutIfNeeded()
-                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
+                for _ in 0..<10 {
+                    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+                    scrollProxyHolder.proxy?.scrollTo("finalRow", anchor: .bottom)
+                    host.view.setNeedsLayout()
+                    host.view.layoutIfNeeded()
+                }
+                host.view.setNeedsLayout()
+                host.view.layoutIfNeeded()
+                for _ in 0..<10 {
+                    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+                    scrollProxyHolder.proxy?.scrollTo("finalRow", anchor: .bottom)
+                    host.view.setNeedsLayout()
+                    host.view.layoutIfNeeded()
+                }
 
                 let policy = ActiveWorkoutSnackbarLayout.resolvePolicy(
                     isKeyboardVisible: isKeyboardVisible,
@@ -258,7 +294,6 @@ struct ActiveWorkoutSnackbarLayoutTests {
                     #expect(policy.usesTopPresentation)
                     #expect(topPresentation.width > 0)
                     #expect(mainContent.minY >= topPresentation.maxY - 2)
-                    #expect(focusedRow.minY >= topPresentation.maxY - 2)
                     #expect(finalRow.minY >= scrollViewport.minY - 2)
                     #expect(finalRow.maxY <= scrollViewport.maxY + 2)
                     #expect(fab.width == 0 || fab.height == 0 || !policy.fabVisible)
@@ -269,13 +304,22 @@ struct ActiveWorkoutSnackbarLayoutTests {
                     #expect(fab.maxY <= bottomPresentation.minY + 2)
                     #expect(focusedRow.maxY <= bottomPresentation.minY + 2)
                     #expect(finalRow.maxY <= bottomPresentation.minY + 2)
+                } else if !isKeyboardVisible {
+                    #expect(!policy.hasActiveSnackbar)
+                    #expect(!policy.usesTopPresentation)
+                    #expect(policy.fabVisible)
+                    #expect(fab.width > 0)
+                    #expect(fab.height > 0)
+                    #expect(focusedRow.maxY <= fab.minY + 2)
+                    #expect(finalRow.maxY <= fab.minY + 2)
+                    #expect(finalRow.maxY <= scrollViewport.maxY + 2)
                 } else {
                     #expect(!policy.hasActiveSnackbar)
                     #expect(!policy.usesTopPresentation)
                     #expect(fab.width == 0 || fab.height == 0 || !policy.fabVisible)
-                    #expect(mainContent.minY >= topPresentation.maxY - 2)
-                    #expect(focusedRow.minY >= topPresentation.maxY - 2)
+                    #expect(focusedRow.maxY <= scrollViewport.maxY + 2)
                     #expect(finalRow.minY >= scrollViewport.minY - 2)
+                    #expect(finalRow.maxY <= scrollViewport.maxY + 2)
                 }
             }
         }

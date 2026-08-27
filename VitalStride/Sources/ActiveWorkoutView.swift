@@ -226,9 +226,12 @@ struct ActiveWorkoutView: View {
             )
         }
 
+        let mainContentBottomInset: CGFloat = 88
+
         return VStack(spacing: 0) {
             topContent
             mainContent()
+                .padding(.bottom, mainContentBottomInset)
                 .modifier(ActiveWorkoutFrameCollectorModifier(id: "mainContent", onFrame: mainContentFrameProbe))
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
