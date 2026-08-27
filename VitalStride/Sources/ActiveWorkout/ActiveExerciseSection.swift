@@ -320,6 +320,19 @@ struct ActiveExerciseSection: View {
         )
     }
 
+    /// Exercises the complete append contract used by `addSet()`: construct the
+    /// default main set, attach it to the owning workout exercise, and insert it
+    /// into the relationship so tests can lock the real mutation path.
+    nonisolated static func insertAppendedMainSet(
+        in workoutExercise: WorkoutExercise,
+        using modelContext: ModelContext
+    ) -> ExerciseSet {
+        let newSet = Self.appendedMainSet(in: workoutExercise)
+        newSet.workoutExercise = workoutExercise
+        modelContext.insert(newSet)
+        return newSet
+    }
+
     private var addSetButton: some View {
         Button {
             addSet()
@@ -346,9 +359,7 @@ struct ActiveExerciseSection: View {
     }
 
     private func addSet() {
-        let newSet = Self.appendedMainSet(in: workoutExercise)
-        newSet.workoutExercise = workoutExercise
-        modelContext.insert(newSet)
+        _ = Self.insertAppendedMainSet(in: workoutExercise, using: modelContext)
     }
 
     private func addSubSet(after parentSet: ExerciseSet, type: SetType) {

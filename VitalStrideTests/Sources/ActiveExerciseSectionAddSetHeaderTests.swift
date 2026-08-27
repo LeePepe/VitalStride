@@ -98,7 +98,10 @@ struct ActiveExerciseSectionAddSetHeaderTests {
         )
         context.insert(workoutExercise)
 
-        let appendedSet = ActiveExerciseSection.appendedMainSet(in: workoutExercise)
+        let appendedSet = ActiveExerciseSection.insertAppendedMainSet(
+            in: workoutExercise,
+            using: context
+        )
 
         #expect(appendedSet.weight == 90)
         #expect(appendedSet.reps == 6)
@@ -106,10 +109,12 @@ struct ActiveExerciseSectionAddSetHeaderTests {
         #expect(appendedSet.isUnilateral == true)
         #expect(appendedSet.weightRight == 92)
         #expect(appendedSet.order == 3)
-        // `appendMainSet` intentionally returns an uninserted model; the owning
-        // `addSet()` call attaches it to the workout exercise after the frozen
-        // defaults are materialized.
-        #expect((workoutExercise.sets ?? []).count == 3)
+        #expect(appendedSet.workoutExercise?.persistentModelID == workoutExercise.persistentModelID)
+
+        let orderedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
+        #expect(orderedSets.count == 4)
+        #expect(orderedSets.map(\.order) == [0, 1, 2, 3])
+        #expect(orderedSets.last?.persistentModelID == appendedSet.persistentModelID)
     }
 
     @Test("The add-set button keeps its existing localized label and insertion hint")
