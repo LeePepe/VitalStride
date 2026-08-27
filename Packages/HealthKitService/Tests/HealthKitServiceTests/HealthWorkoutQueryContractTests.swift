@@ -79,7 +79,7 @@ private final class MockWorkoutQueryHealthStore: HealthStoreProviding {
         let samples = await state.record(anchor: anchor)
         return AnchoredQueryResult(
             samples: samples,
-            deletedObjectUUIDs: [],
+            deletedObjectUUIDs: await state.deletedUUIDs(),
             newAnchor: await state.currentNewAnchor()
         )
     }
@@ -215,15 +215,23 @@ struct HealthWorkoutQueryContractTests {
             deviceIdentifier: "device"
         )
 
+        let beforeSync = Date()
         let prepared = try await service.prepareWorkoutSnapshot(dateRange: nil)
+        let afterSync = Date()
         let beforePersist = anchorStore.workoutAnchor(for: "device")
         let expectedAnchorData = try encodedAnchor(HKQueryAnchor(fromValue: 202))
 
         #expect(prepared.source == .baselineSnapshot)
-        #expect(prepared.coverage != nil)
         #expect(prepared.checkpoint != nil)
         #expect(prepared.checkpoint?.anchorData == expectedAnchorData)
         #expect(beforePersist == nil)
+
+        let coverage = try #require(prepared.coverage)
+        #expect(abs(coverage.duration - HealthKitService.defaultFirstSyncWindow) < 1)
+        #expect(coverage.start >= beforeSync.addingTimeInterval(-HealthKitService.defaultFirstSyncWindow - 1))
+        #expect(coverage.start <= beforeSync.addingTimeInterval(-HealthKitService.defaultFirstSyncWindow + 1))
+        #expect(coverage.end >= beforeSync)
+        #expect(coverage.end <= afterSync)
 
         service.acceptPreparedWorkoutFetch(prepared)
         let persisted = anchorStore.workoutAnchor(for: "device")
@@ -234,8 +242,8 @@ struct HealthWorkoutQueryContractTests {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    @Test("prepareWorkoutChanges persists only after explicit acceptance and keeps the prior anchor unchanged on reject")
-    func prepareWorkoutChangesPersistsOnlyAfterAcceptance() async throws {
+    @Test("prepareWorkoutChanges uses the persisted anchor and propagates deleted IDs")
+    func prepareWorkoutChangesUsesPersistedAnchorAndDeletes() async throws {
         let suiteName = "workout-contract-anchored-\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             return
@@ -245,8 +253,10 @@ struct HealthWorkoutQueryContractTests {
         let existingRecord = AnchorRecord(anchorData: try encodedAnchor(persistedAnchor), lastSyncDate: Date())
         anchorStore.setWorkoutAnchor(existingRecord, for: "device")
 
+        let deletedIDs = [UUID(), UUID()]
         let healthStore = MockWorkoutQueryHealthStore(
             samples: [makeWorkout()],
+            deletedObjectUUIDs: deletedIDs,
             newAnchor: HKQueryAnchor(fromValue: 77)
         )
         let service = HealthKitService(
@@ -258,12 +268,18 @@ struct HealthWorkoutQueryContractTests {
         let beforePrepare = anchorStore.workoutAnchor(for: "device")
         let prepared = try await service.prepareWorkoutChanges()
         let lastAnchor = await healthStore.lastReceivedAnchor()
-        let expectedAnchorData = try encodedAnchor(HKQueryAnchor(fromValue: 77))
+        let expectedQueryAnchorData = try encodedAnchor(persistedAnchor)
+        let expectedNewAnchorData = try encodedAnchor(HKQueryAnchor(fromValue: 77))
 
         #expect(prepared.source == .anchoredChanges)
+        #expect(prepared.deletedObjectIDs == deletedIDs)
         #expect(prepared.checkpoint != nil)
-        #expect(prepared.checkpoint?.anchorData == expectedAnchorData)
-        #expect(lastAnchor != nil)
+        #expect(prepared.checkpoint?.anchorData == expectedNewAnchorData)
+        guard let lastAnchor else {
+            Issue.record("expected anchored query to receive the persisted anchor")
+            return
+        }
+        #expect(try encodedAnchor(lastAnchor) == expectedQueryAnchorData)
         #expect(anchorStore.workoutAnchor(for: "device")?.anchorData == beforePrepare?.anchorData)
         #expect(anchorStore.workoutAnchor(for: "device")?.lastSyncDate == beforePrepare?.lastSyncDate)
 
@@ -274,17 +290,14 @@ struct HealthWorkoutQueryContractTests {
         service.acceptPreparedWorkoutFetch(prepared)
         let accepted = anchorStore.workoutAnchor(for: "device")
         #expect(accepted != nil)
-        #expect(accepted?.anchorData == expectedAnchorData)
+        #expect(accepted?.anchorData == expectedNewAnchorData)
         #expect(accepted?.lastSyncDate != nil)
-
-        let persisted = anchorStore.workoutAnchor(for: "device")
-        #expect(persisted?.anchorData == expectedAnchorData)
 
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    @Test("explicit-range snapshots do not create a default checkpoint or advance the stored default anchor")
-    func explicitRangeSnapshotDoesNotAdvanceDefaultAnchor() async throws {
+    @Test("ranged prepareWorkoutChanges uses anchor-free snapshot semantics and preserves the persisted anchor")
+    func rangedPrepareWorkoutChangesUsesSnapshotSemantics() async throws {
         let suiteName = "workout-contract-explicit-\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             return
@@ -309,13 +322,58 @@ struct HealthWorkoutQueryContractTests {
             end: Date().addingTimeInterval(-1 * 60)
         )
 
-        let prepared = try await service.prepareWorkoutSnapshot(dateRange: range)
+        let prepared = try await service.prepareWorkoutChanges(dateRange: range)
         let receivedAnchors = await healthStore.allReceivedAnchors()
 
         #expect(prepared.source == .explicitRangeSnapshot)
         #expect(prepared.coverage == range)
         #expect(prepared.checkpoint == nil)
         #expect(receivedAnchors.allSatisfy { $0 == nil })
+        #expect(anchorStore.workoutAnchor(for: "device")?.anchorData == priorRecord.anchorData)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    @Test("acceptPreparedWorkoutFetch rejects mismatched source and explicit-range checkpoints")
+    func acceptPreparedWorkoutFetchRejectsInvalidSourceAndExplicitRange() async throws {
+        let suiteName = "workout-contract-accept-invalid-\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return
+        }
+        let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "contract")
+        let persistedAnchor = HKQueryAnchor(fromValue: 99)
+        let priorRecord = AnchorRecord(anchorData: try encodedAnchor(persistedAnchor), lastSyncDate: Date())
+        anchorStore.setWorkoutAnchor(priorRecord, for: "device")
+
+        let service = HealthKitService(
+            healthStore: MockWorkoutQueryHealthStore(samples: [makeWorkout()]),
+            anchorStore: anchorStore,
+            deviceIdentifier: "device"
+        )
+
+        let mismatched = PreparedWorkoutFetch(
+            workouts: [],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            checkpoint: WorkoutAnchorCheckpoint(
+                source: .anchoredChanges,
+                anchor: HKQueryAnchor(fromValue: 123)
+            )
+        )
+
+        service.acceptPreparedWorkoutFetch(mismatched)
+        #expect(anchorStore.workoutAnchor(for: "device")?.anchorData == priorRecord.anchorData)
+
+        let range = DateInterval(start: Date().addingTimeInterval(-24 * 60 * 60), end: Date())
+        let explicitRange = PreparedWorkoutFetch(
+            workouts: [],
+            deletedObjectIDs: [],
+            source: .explicitRangeSnapshot,
+            coverage: range,
+            checkpoint: nil
+        )
+
+        service.acceptPreparedWorkoutFetch(explicitRange)
         #expect(anchorStore.workoutAnchor(for: "device")?.anchorData == priorRecord.anchorData)
 
         defaults.removePersistentDomain(forName: suiteName)

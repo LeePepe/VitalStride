@@ -782,9 +782,9 @@ public final class HealthKitService: Sendable {
         let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
         let status = error == nil ? "success" : "failed"
 
-        if let error {
+        if error != nil {
             logger.error(
-                "query type=\(sampleType.rawValue, privacy: .private) count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status) error=\(error.localizedDescription, privacy: .private)"
+                "query type=\(sampleType.rawValue, privacy: .private) count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status)"
             )
         } else {
             logger.info(

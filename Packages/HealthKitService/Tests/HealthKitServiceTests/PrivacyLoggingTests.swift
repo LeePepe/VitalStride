@@ -23,6 +23,18 @@ struct PrivacyLoggingTests {
         "heartRate.value",
     ]
 
+    /// Error-detail tokens that must never appear in aggregate health logs.
+    /// We allow aggregate metadata (count, ms, status, firstSync, type) but
+    /// forbid free-form error text or record-detail interpolation.
+    private static let bannedErrorDetailTokens: [String] = [
+        "error.localizedDescription",
+        "localizedDescription",
+        "errorDescription",
+        "detail=",
+        "record_detail",
+        "recordDetail",
+    ]
+
     /// Log-emitting patterns we scan. Matches os_log, `logger.info`,
     /// `logger.error`, `logger.debug`, and top-level `print(`.
     private static let logCallSitePatterns: [String] = [
@@ -65,6 +77,13 @@ struct PrivacyLoggingTests {
                 Issue.record("""
                 Privacy red line violated at \(path):\(index + 1):
                 Log call contains banned value token '\(banned)'.
+                Line: \(line)
+                """)
+            }
+            for banned in Self.bannedErrorDetailTokens where line.contains(banned) {
+                Issue.record("""
+                Privacy red line violated at \(path):\(index + 1):
+                Log call contains banned error-detail token '\(banned)'.
                 Line: \(line)
                 """)
             }
