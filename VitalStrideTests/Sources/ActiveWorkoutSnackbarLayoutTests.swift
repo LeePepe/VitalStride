@@ -108,10 +108,18 @@ struct ActiveWorkoutSnackbarLayoutTests {
                         }()
                         return ScrollView {
                             VStack(spacing: 0) {
+                                ForEach(0..<7, id: \.self) { index in
+                                    HStack {
+                                        Text("Exercise \(index + 1)")
+                                        Spacer()
+                                        Text("3 sets")
+                                    }
+                                    .frame(height: 52)
+                                }
                                 Color.clear.frame(height: 48)
                                     .captureActiveWorkoutFrame(id: "focusedRow", tracker: tracker)
                                     .id("focusedRow")
-                                ForEach(0..<10, id: \.self) { index in
+                                ForEach(7..<10, id: \.self) { index in
                                     HStack {
                                         Text("Exercise \(index + 1)")
                                         Spacer()
@@ -294,6 +302,8 @@ struct ActiveWorkoutSnackbarLayoutTests {
                     #expect(policy.usesTopPresentation)
                     #expect(topPresentation.width > 0)
                     #expect(mainContent.minY >= topPresentation.maxY - 2)
+                    #expect(focusedRow.minY >= scrollViewport.minY - 2)
+                    #expect(focusedRow.maxY <= scrollViewport.maxY + 2)
                     #expect(finalRow.minY >= scrollViewport.minY - 2)
                     #expect(finalRow.maxY <= scrollViewport.maxY + 2)
                     #expect(fab.width == 0 || fab.height == 0 || !policy.fabVisible)
@@ -310,18 +320,68 @@ struct ActiveWorkoutSnackbarLayoutTests {
                     #expect(policy.fabVisible)
                     #expect(fab.width > 0)
                     #expect(fab.height > 0)
+                    #expect(focusedRow.minY >= scrollViewport.minY - 2)
                     #expect(focusedRow.maxY <= fab.minY + 2)
+                    #expect(finalRow.minY >= scrollViewport.minY - 2)
                     #expect(finalRow.maxY <= fab.minY + 2)
                     #expect(finalRow.maxY <= scrollViewport.maxY + 2)
                 } else {
                     #expect(!policy.hasActiveSnackbar)
                     #expect(!policy.usesTopPresentation)
                     #expect(fab.width == 0 || fab.height == 0 || !policy.fabVisible)
+                    #expect(focusedRow.minY >= scrollViewport.minY - 2)
                     #expect(focusedRow.maxY <= scrollViewport.maxY + 2)
                     #expect(finalRow.minY >= scrollViewport.minY - 2)
                     #expect(finalRow.maxY <= scrollViewport.maxY + 2)
                 }
             }
+        }
+    }
+
+    @MainActor
+    @Test("Keyboard transitions are driven by a single root animation owner")
+    func keyboardTransitionsHaveSingleRootAnimationOwner() {
+        for slot in [BottomSnackbarSlot.none, .rest, .undo] {
+            let state = ProductionRootState(
+                isKeyboardVisible: false,
+                snackbarSlot: slot,
+                shouldScrollToFinalRow: true
+            )
+            let tracker = ActiveWorkoutFrameTracker()
+            let scrollProxyHolder = ScrollProxyHolder()
+            let host = UIHostingController(rootView: ProductionRoot(state: state, tracker: tracker, scrollProxyHolder: scrollProxyHolder))
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 852))
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            host.view.frame = window.bounds
+            host.view.setNeedsLayout()
+            host.view.layoutIfNeeded()
+
+            let hiddenBefore = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height
+
+            state.isKeyboardVisible = true
+            var visibleTransitionHeights: [CGFloat] = [hiddenBefore]
+            for _ in 0..<6 {
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.04))
+                visibleTransitionHeights.append(host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height)
+            }
+
+            let visibleLast = visibleTransitionHeights.last ?? hiddenBefore
+            let visibleBounces = visibleTransitionHeights.dropLast().filter { abs($0 - visibleLast) > 2 }
+            #expect(visibleBounces.count <= 1, "Visible transition must settle through a single root-owned animation for slot \(slot)")
+            #expect(visibleLast > 0)
+
+            state.isKeyboardVisible = false
+            var hiddenTransitionHeights: [CGFloat] = [visibleLast]
+            for _ in 0..<6 {
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.04))
+                hiddenTransitionHeights.append(host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height)
+            }
+
+            let hiddenLast = hiddenTransitionHeights.last ?? visibleLast
+            let hiddenBounces = hiddenTransitionHeights.dropLast().filter { abs($0 - hiddenLast) > 2 }
+            #expect(hiddenBounces.count <= 1, "Hidden transition must settle through a single root-owned animation for slot \(slot)")
+            #expect(hiddenLast > 0)
         }
     }
 
