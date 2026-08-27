@@ -128,8 +128,8 @@ public enum WorkoutAnchorSource: String, Sendable, Codable, Equatable {
 
 public struct WorkoutAnchorCheckpoint: Sendable, Codable, Equatable {
     public let source: WorkoutAnchorSource
-    public let anchorData: Data
     public let lastSyncDate: Date
+    let anchorData: Data
 
     public init(source: WorkoutAnchorSource, anchor: HKQueryAnchor, lastSyncDate: Date = Date()) {
         self.source = source
@@ -140,12 +140,32 @@ public struct WorkoutAnchorCheckpoint: Sendable, Codable, Equatable {
         )) ?? Data()
     }
 
-    public var anchor: HKQueryAnchor? {
+    var anchor: HKQueryAnchor? {
         guard !anchorData.isEmpty else { return nil }
         return try? NSKeyedUnarchiver.unarchivedObject(
             ofClass: HKQueryAnchor.self,
             from: anchorData
         )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case source
+        case lastSyncDate
+        case anchorData
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.source = try container.decode(WorkoutAnchorSource.self, forKey: .source)
+        self.lastSyncDate = try container.decode(Date.self, forKey: .lastSyncDate)
+        self.anchorData = try container.decode(Data.self, forKey: .anchorData)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(source, forKey: .source)
+        try container.encode(lastSyncDate, forKey: .lastSyncDate)
+        try container.encode(anchorData, forKey: .anchorData)
     }
 }
 
@@ -153,17 +173,20 @@ public struct PreparedWorkoutFetch: Sendable, Equatable {
     public let workouts: [HealthWorkoutRecord]
     public let deletedObjectIDs: [UUID]
     public let source: WorkoutAnchorSource
+    public let coverage: DateInterval?
     public let checkpoint: WorkoutAnchorCheckpoint?
 
     public init(
         workouts: [HealthWorkoutRecord],
         deletedObjectIDs: [UUID],
         source: WorkoutAnchorSource,
+        coverage: DateInterval? = nil,
         checkpoint: WorkoutAnchorCheckpoint?
     ) {
         self.workouts = workouts
         self.deletedObjectIDs = deletedObjectIDs
         self.source = source
+        self.coverage = coverage
         self.checkpoint = checkpoint
     }
 }
@@ -171,10 +194,12 @@ public struct PreparedWorkoutFetch: Sendable, Equatable {
 public struct WorkoutFetchResult: Sendable {
     public let workouts: [HealthWorkoutRecord]
     public let deletedObjectIDs: [UUID]
+    public let coverage: DateInterval?
 
-    public init(workouts: [HealthWorkoutRecord], deletedObjectIDs: [UUID]) {
+    public init(workouts: [HealthWorkoutRecord], deletedObjectIDs: [UUID], coverage: DateInterval? = nil) {
         self.workouts = workouts
         self.deletedObjectIDs = deletedObjectIDs
+        self.coverage = coverage
     }
 }
 

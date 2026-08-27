@@ -548,21 +548,20 @@ public final class HealthKitService: Sendable {
     // MARK: - Workout Queries
 
     public func fetchWorkouts(dateRange: DateInterval? = nil) async throws -> WorkoutFetchResult {
-        let prepared = try await prepareWorkoutFetch(
-            dateRange: dateRange,
-            anchor: nil,
-            sourceOverride: dateRange == nil ? .baselineSnapshot : .explicitRangeSnapshot,
-            persistCheckpoint: false
+        let prepared = try await prepareWorkoutSnapshot(dateRange: dateRange)
+        return WorkoutFetchResult(
+            workouts: prepared.workouts,
+            deletedObjectIDs: prepared.deletedObjectIDs,
+            coverage: prepared.coverage
         )
-        return WorkoutFetchResult(workouts: prepared.workouts, deletedObjectIDs: prepared.deletedObjectIDs)
     }
 
     public func prepareWorkoutSnapshot(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
-        try await prepareWorkoutFetch(
+        let source: WorkoutAnchorSource = dateRange == nil ? .baselineSnapshot : .explicitRangeSnapshot
+        return try await prepareWorkoutFetch(
             dateRange: dateRange,
             anchor: nil,
-            sourceOverride: dateRange == nil ? .baselineSnapshot : .explicitRangeSnapshot,
-            persistCheckpoint: false
+            source: source
         )
     }
 
@@ -571,19 +570,21 @@ public final class HealthKitService: Sendable {
         dateRange: DateInterval? = nil
     ) async throws -> PreparedWorkoutFetch {
         let resolvedAnchor = anchor ?? persistedWorkoutAnchor()
+        guard let resolvedAnchor else {
+            return try await prepareWorkoutSnapshot(dateRange: dateRange)
+        }
+
         return try await prepareWorkoutFetch(
             dateRange: dateRange,
             anchor: resolvedAnchor,
-            sourceOverride: .anchoredChanges,
-            persistCheckpoint: false
+            source: .anchoredChanges
         )
     }
 
-    public func prepareWorkoutFetch(
+    private func prepareWorkoutFetch(
         dateRange: DateInterval? = nil,
         anchor: HKQueryAnchor? = nil,
-        sourceOverride: WorkoutAnchorSource? = nil,
-        persistCheckpoint: Bool = false
+        source: WorkoutAnchorSource
     ) async throws -> PreparedWorkoutFetch {
         guard type(of: healthStore).isHealthDataAvailable else {
             throw HealthKitServiceError.healthDataNotAvailable
@@ -599,23 +600,30 @@ public final class HealthKitService: Sendable {
         }
 
         let start = ContinuousClock.now
-        let predicate: NSPredicate? = if let dateRange {
-            HKQuery.predicateForSamples(withStart: dateRange.start, end: dateRange.end)
+        let effectiveCoverage: DateInterval
+        if let dateRange {
+            effectiveCoverage = dateRange
         } else {
-            HKQuery.predicateForSamples(
-                withStart: Date(timeIntervalSinceNow: -Self.defaultFirstSyncWindow),
+            effectiveCoverage = DateInterval(
+                start: Date(timeIntervalSinceNow: -Self.defaultFirstSyncWindow),
                 end: Date()
             )
         }
 
-        let source: WorkoutAnchorSource = sourceOverride ?? (dateRange == nil ? .baselineSnapshot : .explicitRangeSnapshot)
-        let queryAnchor: HKQueryAnchor? = anchor
+        let predicate: NSPredicate? = if let dateRange {
+            HKQuery.predicateForSamples(withStart: dateRange.start, end: dateRange.end)
+        } else {
+            HKQuery.predicateForSamples(
+                withStart: effectiveCoverage.start,
+                end: effectiveCoverage.end
+            )
+        }
 
         do {
             let result = try await healthStore.executeAnchoredQuery(
                 type: hkType,
                 predicate: predicate,
-                anchor: queryAnchor,
+                anchor: source == .explicitRangeSnapshot ? nil : anchor,
                 limit: HKObjectQueryNoLimit
             )
 
@@ -627,18 +635,19 @@ public final class HealthKitService: Sendable {
                 }
             }
 
-            let checkpoint = result.newAnchor.map {
-                WorkoutAnchorCheckpoint(source: source, anchor: $0)
-            }
-            if persistCheckpoint, let checkpoint {
-                acceptWorkoutCheckpoint(checkpoint)
-            }
+            let checkpoint: WorkoutAnchorCheckpoint? = {
+                guard source != .explicitRangeSnapshot, let newAnchor = result.newAnchor else {
+                    return nil
+                }
+                return WorkoutAnchorCheckpoint(source: source, anchor: newAnchor)
+            }()
 
             logWorkoutQuery(count: workouts.count, start: start, isFirstSync: false, error: nil)
             return PreparedWorkoutFetch(
                 workouts: workouts,
                 deletedObjectIDs: result.deletedObjectUUIDs,
                 source: source,
+                coverage: source == .explicitRangeSnapshot || source == .baselineSnapshot ? effectiveCoverage : nil,
                 checkpoint: checkpoint
             )
         } catch {
@@ -648,7 +657,10 @@ public final class HealthKitService: Sendable {
     }
 
     public func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
-        guard let checkpoint = prepared.checkpoint else { return }
+        guard let checkpoint = prepared.checkpoint,
+              checkpoint.source != .explicitRangeSnapshot else {
+            return
+        }
         acceptWorkoutCheckpoint(checkpoint)
     }
 
