@@ -25,7 +25,7 @@ struct SubSetRowParityTests {
         let contexts = ActiveExerciseSection.rowContexts(from: sets)
 
         #expect(contexts.map(\.mainSetNumber) == [0, 1, 1, 1])
-        #expect(contexts.map(\.isLastSubSet) == [false, false, true, false])
+        #expect(contexts.map(\.exerciseSet.setType.isSubSet) == [false, true, true, false])
     }
 
     @Test("Sub-set deletion remains immediate by policy while preserving the shared row contract")

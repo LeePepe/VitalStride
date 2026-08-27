@@ -17,10 +17,10 @@ struct SubSetRow: View {
     let parentSetNumber: Int
     let onToggleCompleted: (_ wasCompleted: Bool) -> Void
     let onDelete: () -> Void
+    let onCopyToNext: () -> Void
 
     var body: some View {
         let rowIndex = max(parentSetNumber - 1, 0)
-        let deleteLabel = String(localized: "删除", comment: "Delete action")
 
         return SetRow(
             index: rowIndex,
@@ -30,17 +30,15 @@ struct SubSetRow: View {
             exercise: nil,
             recentWeightKg: nil,
             previousSet: nil,
+            rowIdentity: SetRowIdentity(
+                displayedMainSetNumber: parentSetNumber,
+                currentSetType: exerciseSet.setType,
+                isSubSet: true
+            ),
             onToggleCompleted: onToggleCompleted,
             onDelete: onDelete,
             onAddSubSet: { _ in },
-            onCopyToNext: {}
-        )
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(
-            String(
-                localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(deleteLabel)",
-                comment: "Sub-set row accessibility label"
-            )
+            onCopyToNext: onCopyToNext
         )
     }
 }
