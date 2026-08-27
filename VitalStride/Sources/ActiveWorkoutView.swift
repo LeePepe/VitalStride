@@ -106,8 +106,8 @@ struct ActiveWorkoutView: View {
     static func productionRoot(
         isKeyboardVisible: Bool,
         snackbarSlot: BottomSnackbarSlot,
-        topFocused: Binding<Bool>? = nil,
-        bottomFocused: Binding<Bool>? = nil,
+        topFocused: AccessibilityFocusState<Bool>.Binding? = nil,
+        bottomFocused: AccessibilityFocusState<Bool>.Binding? = nil,
         @ViewBuilder infoBand: () -> some View,
         @ViewBuilder mainContent: () -> some View,
         @ViewBuilder undoContent: () -> some View,
