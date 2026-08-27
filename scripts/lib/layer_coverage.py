@@ -15,7 +15,10 @@ from frontmatter import parse_block_list, parse_list, parse_routes, parse_scalar
 
 
 ROOT_CONTEXT = "CONTEXT.md"
-TRUSTED_BASH_SCRIPTS = {"scripts/test-repoinfra.sh", "scripts/check-frontmatter.sh"}
+TRUSTED_BASH_COMMANDS = {
+    ("bash", "-n", "scripts/test-repoinfra.sh"),
+    ("bash", "scripts/test-repoinfra.sh"),
+}
 TRUSTED_SWIFT_COMMANDS = {
     ("swift", "build", "--package-path", "Prototype"),
     ("swift", "build", "--package-path", "Packages/AIService"),
@@ -203,11 +206,9 @@ def _reject_untrusted_path(path: str) -> None:
         raise ValueError(f"unsafe path rejected: {path!r}")
 
 
-def _validate_script_path(path: str) -> str:
-    _reject_untrusted_path(path)
-    if path not in TRUSTED_BASH_SCRIPTS:
-        raise ValueError(f"untrusted script rejected: {path!r}")
-    return path
+def _validate_bash_argv(argv: list[str]) -> None:
+    if tuple(argv) not in TRUSTED_BASH_COMMANDS:
+        raise ValueError(f"untrusted bash argv rejected: {argv!r}")
 
 
 def _validate_swift_argv(argv: list[str]) -> None:
@@ -234,16 +235,8 @@ def parse_run_argv(command: str) -> list[str]:
         raise ValueError("run command is empty")
 
     executable = argv[0]
-    if executable in {"bash", "sh"}:
-        shell_eval_flags = {"-c", "-lc", "-ic", "-ec"}
-        if any(arg in shell_eval_flags for arg in argv[1:]):
-            raise ValueError(f"shell eval rejected: {executable!r}")
-        if len(argv) == 2:
-            _validate_script_path(argv[1])
-        elif len(argv) == 3 and argv[1] == "-n":
-            _validate_script_path(argv[2])
-        else:
-            raise ValueError(f"untrusted bash argv rejected: {argv!r}")
+    if executable == "bash":
+        _validate_bash_argv(argv)
     elif executable == "swift":
         _validate_swift_argv(argv)
     elif executable == "xcodebuild":

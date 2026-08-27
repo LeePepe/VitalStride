@@ -269,6 +269,56 @@ test: swift build --package-path Prototype
         self.assertEqual(0, rc)
         run_mock.assert_called_once_with(["swift", "build", "--package-path", "Prototype"], shell=False)
 
+        self.write(
+            "RepoInfra/CONTEXT.md",
+            """layer: RepoInfra
+paths: [scripts]
+test_paths: []
+gate_tier: local-fast
+build: bash -n scripts/test-repoinfra.sh
+test: bash scripts/test-repoinfra.sh
+""",
+        )
+        self.write(
+            "CONTEXT.md",
+            """scope: repo
+routes:
+  - paths: [scripts]
+    context: RepoInfra/CONTEXT.md
+    kind: layer
+support_excludes: [docs]""",
+        )
+        with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=0)) as run_mock:
+            rc = layer_coverage.main(["run", "RepoInfra", "build"])
+        self.assertEqual(0, rc)
+        run_mock.assert_called_once_with(["bash", "-n", "scripts/test-repoinfra.sh"], shell=False)
+
+    def test_run_rejects_unapproved_bash_commands(self):
+        self.write(
+            "RepoInfra/CONTEXT.md",
+            """layer: RepoInfra
+paths: [scripts]
+test_paths: []
+gate_tier: local-fast
+build: sh scripts/test-repoinfra.sh
+test: bash scripts/check-frontmatter.sh
+""",
+        )
+        self.write(
+            "CONTEXT.md",
+            """scope: repo
+routes:
+  - paths: [scripts]
+    context: RepoInfra/CONTEXT.md
+    kind: layer
+support_excludes: [docs]""",
+        )
+        for kind in ("build", "test"):
+            with mock.patch("layer_coverage.subprocess.run") as run_mock:
+                rc = layer_coverage.main(["run", "RepoInfra", kind])
+            self.assertEqual(1, rc)
+            run_mock.assert_not_called()
+
     def test_run_rejects_unapproved_swift_action_and_package_path(self):
         self.fixture(build_command="swift run --package-path Packages/AIService")
         with mock.patch("layer_coverage.subprocess.run") as run_mock:
