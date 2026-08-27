@@ -105,7 +105,6 @@ struct ActiveExerciseSection: View {
                     SubSetRow(
                         exerciseSet: exerciseSet,
                         weightUnit: weightUnit,
-                        isLast: ctx.isLastSubSet,
                         parentSetNumber: ctx.mainSetNumber,
                         onToggleCompleted: { wasCompleted in
                             if !wasCompleted { onSetCompleted() }
