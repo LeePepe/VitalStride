@@ -143,14 +143,14 @@ jobs:
       # content survives rendering intact.
       - name: review prompt contract regression
         run: bash scripts/ci/review-prompt.contract.test.sh
-      # 两道 review 门调用 CLI 时必须提供 stdin。codex 即使已拿到 prompt 位置
+      # review CLI 必须有有界、非交互 stdin。codex 即使已拿到 prompt 位置
       # 参数仍会读 stdin;CI step 没有 EOF → 无限阻塞 → job timeout 后报
       # `cancelled`,日志上长得跟「正在认真审一个大 diff」一模一样。
       # PR #391 因此连挂两次、白等 40 分钟才定位。
       - name: review CLI stdin contract regression
         run: bash scripts/ci/review-cli-stdin.contract.test.sh
       # Large diffs containing multi-byte text must be truncated on a valid
-      # UTF-8 boundary so both required review gates can render their prompt.
+      # UTF-8 boundary so the required gate can render its prompt.
       - name: review UTF-8 truncation contract regression
         run: bash scripts/ci/review-utf8-truncation.contract.test.sh
       # spec 019 FR-017 / SC-007 ship-gate。Stage 6e 已把 RoutingSignalEntry 的

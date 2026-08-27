@@ -43,7 +43,7 @@
           { "context": "SPM TelemetryKit" },
           { "context": "SPM DesignKit" },
           { "context": "App target" },
-          { "context": "claude-review" }
+          { "context": "codex-review-target" }
         ]
       }
     }
