@@ -155,7 +155,7 @@ class ResolverRunCommandRegressionTests(unittest.TestCase):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(f"---\n{frontmatter}\n---\n", encoding="utf-8")
 
-    def fixture(self, *, build_command: str = 'python3 -c "print(\'hello world\')"', test_command: str = 'python3 -c "print(\'hello again\')"'):
+    def fixture(self, *, build_command: str = "swift build --package-path Packages/Core", test_command: str = "swift test --package-path Packages/Core"):
         self.write(
             "CONTEXT.md",
             """scope: repo
@@ -196,11 +196,11 @@ test: xcodebuild test""",
         )
 
     def test_run_uses_argv_without_shell(self):
-        self.fixture(build_command='python3 -c "print(\'hello world\')"')
+        self.fixture(build_command="swift build --package-path Packages/Core")
         with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=0)) as run_mock:
             rc = layer_coverage.main(["run", "Core", "build"])
         self.assertEqual(0, rc)
-        run_mock.assert_called_once_with(["python3", "-c", "print('hello world')"], shell=False)
+        run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/Core"], shell=False)
 
     def test_run_rejects_malformed_and_shell_control(self):
         unsafe = [
@@ -211,6 +211,8 @@ test: xcodebuild test""",
             '""',
             '/usr/bin/env python3 -c "print(\'hello\')"',
             "bash -lc 'echo nope'",
+            "bash /tmp/payload.sh",
+            "python3 -c \"open('/tmp/pwn','w').close()\"",
         ]
 
         for command in unsafe:
@@ -220,29 +222,29 @@ test: xcodebuild test""",
             self.assertEqual(1, rc)
             run_mock.assert_not_called()
 
-        self.fixture(build_command='python3 -c "print(\'hello world\')"')
+        self.fixture(build_command="swift build --package-path Packages/Core")
         self.write(
             "Packages/Core/CONTEXT.md",
             """layer: Core
 paths: [Packages/Core]
 test_paths: [Packages/Core/Tests]
 gate_tier: local-fast
-build: python3 -c "print('hello world')"
-test: python3 -c "print('hello again')"
+build: swift build --package-path Packages/Core
+test: swift test --package-path Packages/Core
 """,
         )
         with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=0)) as run_mock:
             rc = layer_coverage.main(["run", "Core", "build"])
         self.assertEqual(0, rc)
-        run_mock.assert_called_once_with(["python3", "-c", "print('hello world')"], shell=False)
+        run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/Core"], shell=False)
 
     def test_run_emits_layered_failure_signal_on_nonzero_exit(self):
-        self.fixture(build_command='python3 -c "print(\'hello world\')"')
+        self.fixture(build_command="swift build --package-path Packages/Core")
         with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=7)) as run_mock:
             with contextlib.redirect_stdout(io.StringIO()) as stdout:
                 rc = layer_coverage.main(["run", "Core", "build"])
         self.assertEqual(7, rc)
-        run_mock.assert_called_once_with(["python3", "-c", "print('hello world')"], shell=False)
+        run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/Core"], shell=False)
         self.assertIn("::layered-signal::", stdout.getvalue())
 
 

@@ -15,7 +15,9 @@ from frontmatter import parse_block_list, parse_list, parse_routes, parse_scalar
 
 
 ROOT_CONTEXT = "CONTEXT.md"
-TRUSTED_EXECUTABLES = {"bash", "python3", "swift", "swiftc", "xcodebuild"}
+TRUSTED_BASH_SCRIPTS = {"scripts/test-repoinfra.sh", "scripts/check-frontmatter.sh"}
+TRUSTED_SWIFT_ACTIONS = {"build", "test"}
+TRUSTED_XCODEBUILD_ACTIONS = {"build", "test"}
 
 
 class RouteError(ValueError):
@@ -153,6 +155,73 @@ def emit_run_failure(node: dict, action: str, code: int) -> None:
     print("::layered-signal::" + json.dumps(signal, ensure_ascii=False))
 
 
+def _reject_untrusted_path(path: str) -> None:
+    if not path or not path.strip():
+        raise ValueError(f"unsafe path rejected: {path!r}")
+    if path.startswith("/") or path.startswith("~") or path.startswith("$"):
+        raise ValueError(f"unsafe path rejected: {path!r}")
+    if ".." in PurePosixPath(path).parts:
+        raise ValueError(f"path traversal rejected: {path!r}")
+    if "\\" in path:
+        raise ValueError(f"unsafe path rejected: {path!r}")
+
+
+def _validate_script_path(path: str) -> str:
+    _reject_untrusted_path(path)
+    if path not in TRUSTED_BASH_SCRIPTS:
+        raise ValueError(f"untrusted script rejected: {path!r}")
+    return path
+
+
+def _validate_swift_argv(argv: list[str]) -> None:
+    if len(argv) != 4:
+        raise ValueError(f"untrusted swift argv rejected: {argv!r}")
+    action, flag, package_path = argv[1], argv[2], argv[3]
+    if action not in TRUSTED_SWIFT_ACTIONS or flag != "--package-path":
+        raise ValueError(f"untrusted swift argv rejected: {argv!r}")
+    _reject_untrusted_path(package_path)
+    if not package_path.startswith("Packages/"):
+        raise ValueError(f"untrusted package path rejected: {package_path!r}")
+
+
+def _validate_xcodebuild_argv(argv: list[str]) -> None:
+    if len(argv) < 2 or argv[1] not in TRUSTED_XCODEBUILD_ACTIONS:
+        raise ValueError(f"untrusted xcodebuild argv rejected: {argv!r}")
+
+    required = {"-project": "VitalStride.xcodeproj", "-scheme": "VitalStride"}
+    seen_flags = set()
+    idx = 2
+    while idx < len(argv):
+        flag = argv[idx]
+        if flag == "-skipPackagePluginValidation":
+            seen_flags.add(flag)
+            idx += 1
+            continue
+        if flag in required:
+            if idx + 1 >= len(argv):
+                raise ValueError(f"missing value for {flag!r}")
+            value = argv[idx + 1]
+            if value != required[flag]:
+                raise ValueError(f"untrusted xcodebuild value rejected: {value!r}")
+            seen_flags.add(flag)
+            idx += 2
+            continue
+        if flag == "-destination":
+            if idx + 1 >= len(argv):
+                raise ValueError(f"missing value for {flag!r}")
+            value = argv[idx + 1]
+            _reject_untrusted_path(value)
+            if value.startswith("/") or ".." in PurePosixPath(value).parts:
+                raise ValueError(f"unsafe destination rejected: {value!r}")
+            seen_flags.add(flag)
+            idx += 2
+            continue
+        raise ValueError(f"untrusted xcodebuild flag rejected: {flag!r}")
+
+    if not {"-project", "-scheme"}.issubset(seen_flags):
+        raise ValueError(f"xcodebuild argv missing trusted project/scheme: {argv!r}")
+
+
 def parse_run_argv(command: str) -> list[str]:
     if not isinstance(command, str):
         raise ValueError("run command must be a string")
@@ -171,7 +240,17 @@ def parse_run_argv(command: str) -> list[str]:
         shell_eval_flags = {"-c", "-lc", "-ic", "-ec"}
         if any(arg in shell_eval_flags for arg in argv[1:]):
             raise ValueError(f"shell eval rejected: {executable!r}")
-    if executable not in TRUSTED_EXECUTABLES:
+        if len(argv) == 2:
+            _validate_script_path(argv[1])
+        elif len(argv) == 3 and argv[1] == "-n":
+            _validate_script_path(argv[2])
+        else:
+            raise ValueError(f"untrusted bash argv rejected: {argv!r}")
+    elif executable == "swift":
+        _validate_swift_argv(argv)
+    elif executable == "xcodebuild":
+        _validate_xcodebuild_argv(argv)
+    else:
         raise ValueError(f"untrusted executable rejected: {executable!r}")
 
     blocked = {"&&", "||", ";", "|", "&", "<", ">", "$", "`"}
