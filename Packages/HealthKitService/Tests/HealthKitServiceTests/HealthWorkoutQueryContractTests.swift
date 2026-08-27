@@ -187,11 +187,18 @@ struct HealthWorkoutQueryContractTests {
         )
 
         let before = anchorStore.workoutAnchor(for: "device")
+        let beforeSync = Date()
         let result = try await service.fetchWorkouts(dateRange: nil)
+        let afterSync = Date()
         let receivedAnchors = await healthStore.allReceivedAnchors()
+        let coverage = try #require(result.coverage)
 
         #expect(result.workouts.count == 1)
         #expect(receivedAnchors.allSatisfy { $0 == nil })
+        #expect(coverage.start >= beforeSync.addingTimeInterval(-HealthKitService.defaultFirstSyncWindow - 1))
+        #expect(coverage.start <= beforeSync.addingTimeInterval(-HealthKitService.defaultFirstSyncWindow + 1))
+        #expect(coverage.end >= beforeSync)
+        #expect(coverage.end <= afterSync)
         #expect(anchorStore.workoutAnchor(for: "device")?.anchorData == before?.anchorData)
         #expect(anchorStore.workoutAnchor(for: "device")?.lastSyncDate == before?.lastSyncDate)
 
