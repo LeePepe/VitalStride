@@ -160,16 +160,17 @@ struct ActiveWorkoutSnackbarLayoutTests {
     }
 
     @MainActor
-    @Test("Production root keeps focus and final row clear across the six active layout states")
+    @Test("Production root keeps the active snackbar and content clear of the real keyboard-safe boundary")
     func productionRootKeepsContentClearAcrossStateMatrix() {
         for isKeyboardVisible in [false, true] {
             for slot in [BottomSnackbarSlot.none, .rest, .undo] {
                 let topSnackbarBox = ActiveWorkoutFrameBox()
                 let bottomSnackbarBox = ActiveWorkoutFrameBox()
                 let fabBox = ActiveWorkoutFrameBox()
-                let infoBandBox = ActiveWorkoutFrameBox()
+                let keyboardBoundaryBox = ActiveWorkoutFrameBox()
                 let focusedRowBox = ActiveWorkoutFrameBox()
                 let finalRowBox = ActiveWorkoutFrameBox()
+                let scrollBox = ActiveWorkoutFrameBox()
 
                 let host = UIHostingController(
                     rootView: ActiveWorkoutView.productionRoot(
@@ -177,31 +178,47 @@ struct ActiveWorkoutSnackbarLayoutTests {
                         snackbarSlot: slot,
                         infoBand: {
                             representativeInfoBand
-                                .captureActiveWorkoutFrame(infoBandBox)
+                                .captureActiveWorkoutFrame(ActiveWorkoutFrameBox())
                         },
                         mainContent: {
-                            VStack(spacing: 0) {
-                                Color.clear.frame(height: 48)
-                                    .captureActiveWorkoutFrame(focusedRowBox)
-                                ForEach(0..<3, id: \.self) { index in
-                                    HStack {
-                                        Text("Exercise \(index + 1)")
-                                        Spacer()
-                                        Text("3 sets")
+                            ScrollView {
+                                VStack(spacing: 0) {
+                                    Color.clear.frame(height: 48)
+                                        .captureActiveWorkoutFrame(focusedRowBox)
+                                    ForEach(0..<10, id: \.self) { index in
+                                        HStack {
+                                            Text("Exercise \(index + 1)")
+                                            Spacer()
+                                            Text("3 sets")
+                                        }
+                                        .frame(height: 52)
                                     }
-                                    .frame(height: 52)
+                                    Color.clear.frame(height: 80)
+                                        .captureActiveWorkoutFrame(finalRowBox)
                                 }
-                                Color.clear.frame(height: 80)
-                                    .captureActiveWorkoutFrame(finalRowBox)
+                                .captureActiveWorkoutFrame(scrollBox)
+                            }
+                            .background(
+                                GeometryReader { proxy in
+                                    Color.clear.preference(
+                                        key: ActiveWorkoutFramePreferenceKey.self,
+                                        value: proxy.frame(in: .global)
+                                    )
+                                }
+                            )
+                            .onPreferenceChange(ActiveWorkoutFramePreferenceKey.self) { frame in
+                                if let frame {
+                                    keyboardBoundaryBox.frame = frame
+                                }
                             }
                         },
                         undoContent: {
                             representativeUndoContent
-                                .captureActiveWorkoutFrame(isKeyboardVisible && slot != .none ? topSnackbarBox : bottomSnackbarBox)
+                                .captureActiveWorkoutFrame(isKeyboardVisible ? topSnackbarBox : bottomSnackbarBox)
                         },
                         restContent: {
                             representativeRestContent
-                                .captureActiveWorkoutFrame(isKeyboardVisible && slot != .none ? topSnackbarBox : bottomSnackbarBox)
+                                .captureActiveWorkoutFrame(isKeyboardVisible ? topSnackbarBox : bottomSnackbarBox)
                         },
                         fab: { representativeFAB.captureActiveWorkoutFrame(fabBox) }
                     )
@@ -212,30 +229,29 @@ struct ActiveWorkoutSnackbarLayoutTests {
                 host.view.layoutIfNeeded()
                 RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
 
-                #expect(infoBandBox.frame.width > 0)
+                #expect(scrollBox.frame.width > 0)
+                #expect(keyboardBoundaryBox.frame.width > 0)
                 #expect(focusedRowBox.frame.width > 0)
                 #expect(finalRowBox.frame.width > 0)
 
-                if isKeyboardVisible {
-                    if slot == .none {
-                        #expect(focusedRowBox.frame.minY >= infoBandBox.frame.maxY - 2)
-                        #expect(finalRowBox.frame.minY >= infoBandBox.frame.maxY - 2)
-                    } else {
-                        #expect(topSnackbarBox.frame.width > 0)
-                        #expect(focusedRowBox.frame.minY >= topSnackbarBox.frame.maxY - 2)
-                        #expect(finalRowBox.frame.minY >= topSnackbarBox.frame.maxY - 2)
-                    }
+                let hasActiveTopSnackbar = isKeyboardVisible && slot != .none
+                let hasActiveBottomSnackbar = !isKeyboardVisible && slot != .none
+
+                if hasActiveTopSnackbar {
+                    #expect(topSnackbarBox.frame.width > 0)
+                    #expect(focusedRowBox.frame.maxY <= topSnackbarBox.frame.minY + 2)
+                    #expect(finalRowBox.frame.maxY <= topSnackbarBox.frame.minY + 2)
+                    #expect(keyboardBoundaryBox.frame.minY >= topSnackbarBox.frame.maxY - 2)
+                } else if hasActiveBottomSnackbar {
+                    #expect(bottomSnackbarBox.frame.width > 0)
+                    #expect(fabBox.frame.maxY <= bottomSnackbarBox.frame.minY + 2)
+                    #expect(focusedRowBox.frame.maxY <= fabBox.frame.minY + 2)
+                    #expect(finalRowBox.frame.maxY <= fabBox.frame.minY + 2)
+                    #expect(bottomSnackbarBox.frame.minY >= keyboardBoundaryBox.frame.maxY - 2)
                 } else {
                     #expect(fabBox.frame.width > 0)
-                    if slot == .none {
-                        #expect(focusedRowBox.frame.maxY <= fabBox.frame.minY + 2)
-                        #expect(finalRowBox.frame.maxY <= fabBox.frame.minY + 2)
-                    } else {
-                        #expect(bottomSnackbarBox.frame.width > 0)
-                        #expect(fabBox.frame.maxY <= bottomSnackbarBox.frame.minY + 2)
-                        #expect(focusedRowBox.frame.maxY <= fabBox.frame.minY + 2)
-                        #expect(finalRowBox.frame.maxY <= fabBox.frame.minY + 2)
-                    }
+                    #expect(focusedRowBox.frame.maxY <= keyboardBoundaryBox.frame.minY + 2)
+                    #expect(finalRowBox.frame.maxY <= keyboardBoundaryBox.frame.minY + 2)
                 }
             }
         }
