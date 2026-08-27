@@ -55,6 +55,7 @@ public actor HealthDataCache {
     private struct WorkoutCacheEntry {
         let workouts: [HealthWorkoutRecord]
         let coveredRange: DateInterval?
+        let source: WorkoutAnchorSource
     }
 
     private struct FetchKey: Hashable {
@@ -96,8 +97,30 @@ public actor HealthDataCache {
     private var missCounts: [HealthSampleType: Int] = [:]
     private var refreshCounts: [HealthSampleType: Int] = [:]
 
+    private struct WorkoutFetchKey: Hashable {
+        let source: WorkoutAnchorSource
+        let rangeStart: Date?
+        let rangeEnd: Date?
+
+        var dateRange: DateInterval? {
+            guard let rangeStart, let rangeEnd else { return nil }
+            return DateInterval(start: rangeStart, end: rangeEnd)
+        }
+
+        init(source: WorkoutAnchorSource, dateRange: DateInterval?) {
+            self.source = source
+            self.rangeStart = dateRange?.start
+            self.rangeEnd = dateRange?.end
+        }
+    }
+
+    private struct WorkoutInFlightFetch {
+        let requestID: UUID
+        let task: Task<[HealthWorkoutRecord], any Error>
+    }
+
     private var workoutCache: WorkoutCacheEntry?
-    private var workoutInFlightFetch: Task<[HealthWorkoutRecord], any Error>?
+    private var workoutInFlightFetches: [WorkoutFetchKey: WorkoutInFlightFetch] = [:]
     private var workoutGeneration: UInt64 = 0
     private let workoutProvider: (any WorkoutDataProviding)?
     private var workoutHitCount: Int = 0
@@ -290,8 +313,10 @@ public actor HealthDataCache {
         for task in persistTasks.values { task.cancel() }
         persistTasks = [:]
         workoutCache = nil
-        workoutInFlightFetch?.cancel()
-        workoutInFlightFetch = nil
+        for fetch in workoutInFlightFetches.values {
+            fetch.task.cancel()
+        }
+        workoutInFlightFetches = [:]
         availableTypes = nil
         availableTypesFetchedAt = nil
         availableTypesProbeTask?.cancel()
@@ -420,12 +445,15 @@ public actor HealthDataCache {
             return []
         }
 
-        if let entry = workoutCache, Self.coversRange(entry.coveredRange, requested: dateRange) {
-            workoutHitCount += 1
-            logger.info(
-                "healthkit_workout_cache_hit total=\(self.workoutHitCount)"
-            )
-            return Self.filteredWorkouts(entry.workouts, by: dateRange)
+        if let entry = workoutCache {
+            let coversRequested = dateRange == nil || Self.coversRange(entry.coveredRange, requested: dateRange)
+            if coversRequested {
+                workoutHitCount += 1
+                logger.info(
+                    "healthkit_workout_cache_hit total=\(self.workoutHitCount)"
+                )
+                return Self.filteredWorkouts(entry.workouts, by: dateRange)
+            }
         }
 
         workoutMissCount += 1
@@ -433,7 +461,12 @@ public actor HealthDataCache {
             "healthkit_workout_cache_miss total=\(self.workoutMissCount)"
         )
 
-        let workouts = try await fetchWorkoutCoalesced(dateRange: dateRange, provider: workoutProvider)
+        let semantic: WorkoutFetchSemantic = dateRange == nil ? .baselineSnapshot : .explicitRangeSnapshot
+        let workouts = try await fetchWorkoutCoalesced(
+            dateRange: dateRange,
+            provider: workoutProvider,
+            semantic: semantic
+        )
         return Self.filteredWorkouts(workouts, by: dateRange)
     }
 
@@ -450,15 +483,22 @@ public actor HealthDataCache {
         // the per-workout generation invalidates any older in-flight fetch that
         // may still resolve later and try to repopulate the cache.
         workoutGeneration &+= 1
-        workoutInFlightFetch?.cancel()
-        workoutInFlightFetch = nil
+        for fetch in workoutInFlightFetches.values {
+            fetch.task.cancel()
+        }
+        workoutInFlightFetches = [:]
 
         workoutRefreshCount += 1
         logger.info(
             "healthkit_workout_cache_refresh total=\(self.workoutRefreshCount)"
         )
 
-        let workouts = try await performWorkoutFetch(dateRange: dateRange, provider: workoutProvider)
+        let semantic: WorkoutFetchSemantic = dateRange == nil ? .baselineSnapshot : .explicitRangeSnapshot
+        let workouts = try await performWorkoutFetch(
+            dateRange: dateRange,
+            provider: workoutProvider,
+            semantic: semantic
+        )
         return Self.filteredWorkouts(workouts, by: dateRange)
     }
 
@@ -467,8 +507,10 @@ public actor HealthDataCache {
     public func invalidateWorkouts() {
         workoutGeneration &+= 1
         workoutCache = nil
-        workoutInFlightFetch?.cancel()
-        workoutInFlightFetch = nil
+        for fetch in workoutInFlightFetches.values {
+            fetch.task.cancel()
+        }
+        workoutInFlightFetches = [:]
         logger.info("workout cache invalidated")
     }
 
@@ -759,7 +801,11 @@ public actor HealthDataCache {
         case (_, nil):
             return false
         case let (cached?, requested?):
-            return cached.start <= requested.start && cached.end >= requested.end
+            // A cached snapshot is considered authoritative for a request when the
+            // requested window starts within the cached range. This preserves the
+            // wider-range optimization while allowing same-day queries that end just
+            // after the current wall clock to reuse the baseline snapshot.
+            return cached.start <= requested.start && requested.start <= cached.end
         }
     }
 
@@ -770,45 +816,134 @@ public actor HealthDataCache {
 
     // MARK: - Private Workout Helpers
 
+    private enum WorkoutFetchSemantic: Hashable {
+        case baselineSnapshot
+        case explicitRangeSnapshot
+        case anchoredChanges
+    }
+
     private func fetchWorkoutCoalesced(
         dateRange: DateInterval?,
-        provider: any WorkoutDataProviding
+        provider: any WorkoutDataProviding,
+        semantic: WorkoutFetchSemantic
     ) async throws -> [HealthWorkoutRecord] {
-        if let existingTask = workoutInFlightFetch {
-            return try await existingTask.value
+        let key = WorkoutFetchKey(source: semanticSource(for: semantic), dateRange: dateRange)
+        if let existing = workoutInFlightFetches[key] {
+            return try await existing.task.value
         }
-        return try await performWorkoutFetch(dateRange: dateRange, provider: provider)
+        return try await performWorkoutFetch(dateRange: dateRange, provider: provider, semantic: semantic)
     }
 
     private func performWorkoutFetch(
         dateRange: DateInterval?,
-        provider: any WorkoutDataProviding
+        provider: any WorkoutDataProviding,
+        semantic: WorkoutFetchSemantic
     ) async throws -> [HealthWorkoutRecord] {
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("healthkit_workout_fetch", id: signpostID)
         let start = ContinuousClock.now
         let fetchGeneration = workoutGeneration
+        let requestID = UUID()
+        let key = WorkoutFetchKey(source: semanticSource(for: semantic), dateRange: dateRange)
 
-        let task = Task {
-            try await provider.fetchWorkouts(dateRange: dateRange).workouts
+        let task = Task { [provider] in
+            let result = try await provider.fetchWorkouts(dateRange: dateRange)
+            return try await self.acceptWorkoutFetchResult(
+                result,
+                semantic: semantic,
+                key: key,
+                requestID: requestID,
+                generation: fetchGeneration
+            )
         }
-        workoutInFlightFetch = task
+        workoutInFlightFetches[key] = WorkoutInFlightFetch(requestID: requestID, task: task)
 
         do {
             let workouts = try await task.value
-            workoutInFlightFetch = nil
-
-            if workoutGeneration == fetchGeneration {
-                workoutCache = WorkoutCacheEntry(workouts: workouts, coveredRange: dateRange)
+            if workoutInFlightFetches[key]?.requestID == requestID {
+                workoutInFlightFetches[key] = nil
             }
 
             signposter.endInterval("healthkit_workout_fetch", state)
             logWorkoutFetchDuration(count: workouts.count, start: start)
             return workouts
         } catch {
-            workoutInFlightFetch = nil
+            if workoutInFlightFetches[key]?.requestID == requestID {
+                workoutInFlightFetches[key] = nil
+            }
             signposter.endInterval("healthkit_workout_fetch", state)
             throw error
+        }
+    }
+
+    private func acceptWorkoutFetchResult(
+        _ result: WorkoutFetchResult,
+        semantic: WorkoutFetchSemantic,
+        key: WorkoutFetchKey,
+        requestID: UUID,
+        generation: UInt64
+    ) async throws -> [HealthWorkoutRecord] {
+        let normalized = Self.normalizeWorkoutProjection(result.workouts)
+        let staleOwner = workoutGeneration != generation || workoutInFlightFetches[key]?.requestID != requestID
+
+        if staleOwner {
+            logger.info("healthkit_workout_fetch_stale request=\(requestID.uuidString)")
+            return normalized
+        }
+
+        let previous = workoutCache
+        let preserveBaseline = semantic == .anchoredChanges
+            && result.deletedObjectIDs.isEmpty
+            && result.workouts.isEmpty
+            && previous != nil
+
+        if preserveBaseline {
+            guard let previous else {
+                return normalized
+            }
+            return Self.filteredWorkouts(previous.workouts, by: key.dateRange)
+        }
+
+        let nextWorkouts: [HealthWorkoutRecord]
+        let nextCoverage: DateInterval?
+        let nextSource: WorkoutAnchorSource
+
+        if semantic == .anchoredChanges, let previous {
+            var merged = Dictionary(previous.workouts.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
+            for workout in normalized {
+                merged[workout.id] = workout
+            }
+            for id in Set(result.deletedObjectIDs) {
+                merged[id] = nil
+            }
+            nextWorkouts = Self.normalizeWorkoutProjection(Array(merged.values))
+            nextCoverage = result.coverage ?? previous.coveredRange
+            nextSource = previous.source
+        } else {
+            nextWorkouts = normalized
+            nextCoverage = result.coverage ?? key.dateRange ?? DateInterval(
+                start: Date(timeIntervalSinceNow: -HealthKitService.defaultFirstSyncWindow),
+                end: Date()
+            )
+            nextSource = semanticSource(for: semantic)
+        }
+
+        workoutCache = WorkoutCacheEntry(
+            workouts: nextWorkouts,
+            coveredRange: nextCoverage,
+            source: nextSource
+        )
+        return nextWorkouts
+    }
+
+    private func semanticSource(for semantic: WorkoutFetchSemantic) -> WorkoutAnchorSource {
+        switch semantic {
+        case .baselineSnapshot:
+            return .baselineSnapshot
+        case .explicitRangeSnapshot:
+            return .explicitRangeSnapshot
+        case .anchoredChanges:
+            return .anchoredChanges
         }
     }
 
@@ -822,6 +957,18 @@ public actor HealthDataCache {
         logger.info(
             "healthkit_workout_fetch_duration_ms ms=\(ms) count=\(count)"
         )
+    }
+
+    private static func normalizeWorkoutProjection(
+        _ workouts: [HealthWorkoutRecord]
+    ) -> [HealthWorkoutRecord] {
+        let unique = Dictionary(workouts.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
+        return Array(unique.values).sorted { lhs, rhs in
+            if lhs.startDate == rhs.startDate {
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+            return lhs.startDate > rhs.startDate
+        }
     }
 
     private static func filteredWorkouts(
