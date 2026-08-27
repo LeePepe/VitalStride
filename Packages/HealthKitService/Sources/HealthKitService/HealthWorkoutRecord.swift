@@ -183,11 +183,19 @@ public struct PreparedWorkoutFetch: Sendable, Equatable {
         coverage: DateInterval? = nil,
         checkpoint: WorkoutAnchorCheckpoint?
     ) {
+        let normalizedCheckpoint: WorkoutAnchorCheckpoint?
+        switch source {
+        case .explicitRangeSnapshot:
+            normalizedCheckpoint = nil
+        case .baselineSnapshot, .anchoredChanges:
+            normalizedCheckpoint = checkpoint
+        }
+
         self.workouts = workouts
         self.deletedObjectIDs = deletedObjectIDs
         self.source = source
         self.coverage = coverage
-        self.checkpoint = checkpoint
+        self.checkpoint = normalizedCheckpoint
     }
 }
 

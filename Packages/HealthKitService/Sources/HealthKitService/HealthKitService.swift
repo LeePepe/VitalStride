@@ -569,13 +569,17 @@ public final class HealthKitService: Sendable {
         anchor: HKQueryAnchor? = nil,
         dateRange: DateInterval? = nil
     ) async throws -> PreparedWorkoutFetch {
-        let resolvedAnchor = anchor ?? persistedWorkoutAnchor()
-        guard let resolvedAnchor else {
+        let _ = anchor
+        if let dateRange {
             return try await prepareWorkoutSnapshot(dateRange: dateRange)
         }
 
+        guard let resolvedAnchor = persistedWorkoutAnchor() else {
+            return try await prepareWorkoutSnapshot(dateRange: nil)
+        }
+
         return try await prepareWorkoutFetch(
-            dateRange: dateRange,
+            dateRange: nil,
             anchor: resolvedAnchor,
             source: .anchoredChanges
         )
@@ -586,6 +590,10 @@ public final class HealthKitService: Sendable {
         anchor: HKQueryAnchor? = nil,
         source: WorkoutAnchorSource
     ) async throws -> PreparedWorkoutFetch {
+        if source == .anchoredChanges && dateRange != nil {
+            return try await prepareWorkoutSnapshot(dateRange: dateRange)
+        }
+
         guard type(of: healthStore).isHealthDataAvailable else {
             throw HealthKitServiceError.healthDataNotAvailable
         }
@@ -658,7 +666,8 @@ public final class HealthKitService: Sendable {
 
     public func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
         guard let checkpoint = prepared.checkpoint,
-              checkpoint.source != .explicitRangeSnapshot else {
+              prepared.source == checkpoint.source,
+              prepared.source != .explicitRangeSnapshot else {
             return
         }
         acceptWorkoutCheckpoint(checkpoint)
@@ -876,7 +885,7 @@ public final class HealthKitService: Sendable {
 
         if let error {
             logger.error(
-                "healthkit_workout_fetch type=workout count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status) error=\(error.localizedDescription, privacy: .private)"
+                "healthkit_workout_fetch type=workout count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status)"
             )
         } else {
             logger.info(
