@@ -1,4 +1,5 @@
 import Foundation
+import HealthKit
 
 public enum WorkoutActivityType: UInt, Sendable, Codable, CaseIterable {
     case cycling = 13
@@ -119,28 +120,108 @@ public struct HealthWorkoutRecord: Sendable, Identifiable, Codable, Equatable {
     }
 }
 
+public enum WorkoutAnchorSource: String, Sendable, Codable, Equatable {
+    case baselineSnapshot
+    case anchoredChanges
+    case explicitRangeSnapshot
+}
+
+public struct WorkoutAnchorCheckpoint: Sendable, Codable, Equatable {
+    public let source: WorkoutAnchorSource
+    public let lastSyncDate: Date
+    let anchorData: Data
+
+    public init(source: WorkoutAnchorSource, anchor: HKQueryAnchor, lastSyncDate: Date = Date()) {
+        self.source = source
+        self.lastSyncDate = lastSyncDate
+        self.anchorData = (try? NSKeyedArchiver.archivedData(
+            withRootObject: anchor,
+            requiringSecureCoding: true
+        )) ?? Data()
+    }
+
+    var anchor: HKQueryAnchor? {
+        guard !anchorData.isEmpty else { return nil }
+        return try? NSKeyedUnarchiver.unarchivedObject(
+            ofClass: HKQueryAnchor.self,
+            from: anchorData
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case source
+        case lastSyncDate
+        case anchorData
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.source = try container.decode(WorkoutAnchorSource.self, forKey: .source)
+        self.lastSyncDate = try container.decode(Date.self, forKey: .lastSyncDate)
+        self.anchorData = try container.decode(Data.self, forKey: .anchorData)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(source, forKey: .source)
+        try container.encode(lastSyncDate, forKey: .lastSyncDate)
+        try container.encode(anchorData, forKey: .anchorData)
+    }
+}
+
+public struct PreparedWorkoutFetch: Sendable, Equatable {
+    public let workouts: [HealthWorkoutRecord]
+    public let deletedObjectIDs: [UUID]
+    public let source: WorkoutAnchorSource
+    public let coverage: DateInterval?
+    public let checkpoint: WorkoutAnchorCheckpoint?
+
+    public init(
+        workouts: [HealthWorkoutRecord],
+        deletedObjectIDs: [UUID],
+        source: WorkoutAnchorSource,
+        coverage: DateInterval? = nil,
+        checkpoint: WorkoutAnchorCheckpoint?
+    ) {
+        let normalizedCheckpoint: WorkoutAnchorCheckpoint?
+        switch source {
+        case .explicitRangeSnapshot:
+            normalizedCheckpoint = nil
+        case .baselineSnapshot, .anchoredChanges:
+            normalizedCheckpoint = checkpoint
+        }
+
+        self.workouts = workouts
+        self.deletedObjectIDs = deletedObjectIDs
+        self.source = source
+        self.coverage = coverage
+        self.checkpoint = normalizedCheckpoint
+    }
+}
+
 public struct WorkoutFetchResult: Sendable {
     public let workouts: [HealthWorkoutRecord]
     public let deletedObjectIDs: [UUID]
+    public let coverage: DateInterval?
 
-    public init(workouts: [HealthWorkoutRecord], deletedObjectIDs: [UUID]) {
+    public init(workouts: [HealthWorkoutRecord], deletedObjectIDs: [UUID], coverage: DateInterval? = nil) {
         self.workouts = workouts
         self.deletedObjectIDs = deletedObjectIDs
+        self.coverage = coverage
     }
 }
 
 // MARK: - Metadata helpers (pure, testable without HKObject)
 
 /// Pure helper: extracts `HKMetadataKeyWasUserEntered` from a metadata dict.
-/// Kept separate so it's unit-testable without instantiating an `HKObject`.
+/// Kept separate so it remains unit-testable without constructing an `HKObject`.
 ///
 /// - Parameter metadata: The raw metadata dictionary from `HKObject.metadata`.
 /// - Returns: `true` when the key is present and set to `true`; `false` otherwise.
 public func healthWorkoutIsUserEntered(metadata: [String: Any]?) -> Bool {
     guard let metadata else { return false }
     // HKMetadataKeyWasUserEntered = "HKWasUserEntered"; we hardcode the string
-    // so this helper doesn't have to import HealthKit (keeps it testable on
-    // platforms where HealthKit tests would otherwise pull in the framework).
+    // to keep this helper pure and testable without depending on a full HealthKit runtime.
     if let raw = metadata["HKWasUserEntered"] {
         if let b = raw as? Bool { return b }
         if let n = raw as? NSNumber { return n.boolValue }

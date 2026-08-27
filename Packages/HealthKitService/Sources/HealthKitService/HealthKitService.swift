@@ -548,6 +548,48 @@ public final class HealthKitService: Sendable {
     // MARK: - Workout Queries
 
     public func fetchWorkouts(dateRange: DateInterval? = nil) async throws -> WorkoutFetchResult {
+        let prepared = try await prepareWorkoutSnapshot(dateRange: dateRange)
+        return WorkoutFetchResult(
+            workouts: prepared.workouts,
+            deletedObjectIDs: prepared.deletedObjectIDs,
+            coverage: prepared.coverage
+        )
+    }
+
+    func prepareWorkoutSnapshot(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
+        let source: WorkoutAnchorSource = dateRange == nil ? .baselineSnapshot : .explicitRangeSnapshot
+        return try await prepareWorkoutFetch(
+            dateRange: dateRange,
+            anchor: nil,
+            source: source
+        )
+    }
+
+    func prepareWorkoutChanges(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
+        if let dateRange {
+            return try await prepareWorkoutSnapshot(dateRange: dateRange)
+        }
+
+        guard let resolvedAnchor = persistedWorkoutAnchor() else {
+            return try await prepareWorkoutSnapshot(dateRange: nil)
+        }
+
+        return try await prepareWorkoutFetch(
+            dateRange: nil,
+            anchor: resolvedAnchor,
+            source: .anchoredChanges
+        )
+    }
+
+    private func prepareWorkoutFetch(
+        dateRange: DateInterval? = nil,
+        anchor: HKQueryAnchor? = nil,
+        source: WorkoutAnchorSource
+    ) async throws -> PreparedWorkoutFetch {
+        if source == .anchoredChanges && dateRange != nil {
+            return try await prepareWorkoutSnapshot(dateRange: dateRange)
+        }
+
         guard type(of: healthStore).isHealthDataAvailable else {
             throw HealthKitServiceError.healthDataNotAvailable
         }
@@ -562,38 +604,32 @@ public final class HealthKitService: Sendable {
         }
 
         let start = ContinuousClock.now
-        let existingRecord = anchorStore.workoutAnchor(for: deviceIdentifier)
-        let isFirstSync = existingRecord == nil
+        let effectiveCoverage: DateInterval
+        if let dateRange {
+            effectiveCoverage = dateRange
+        } else {
+            effectiveCoverage = DateInterval(
+                start: Date(timeIntervalSinceNow: -Self.defaultFirstSyncWindow),
+                end: Date()
+            )
+        }
 
         let predicate: NSPredicate? = if let dateRange {
             HKQuery.predicateForSamples(withStart: dateRange.start, end: dateRange.end)
         } else {
             HKQuery.predicateForSamples(
-                withStart: Date(timeIntervalSinceNow: -Self.defaultFirstSyncWindow),
-                end: Date()
+                withStart: effectiveCoverage.start,
+                end: effectiveCoverage.end
             )
-        }
-
-        let queryAnchor: HKQueryAnchor? = if dateRange == nil, let record = existingRecord {
-            try? NSKeyedUnarchiver.unarchivedObject(
-                ofClass: HKQueryAnchor.self,
-                from: record.anchorData
-            )
-        } else {
-            nil
         }
 
         do {
             let result = try await healthStore.executeAnchoredQuery(
                 type: hkType,
                 predicate: predicate,
-                anchor: queryAnchor,
+                anchor: source == .explicitRangeSnapshot ? nil : anchor,
                 limit: HKObjectQueryNoLimit
             )
-
-            if dateRange == nil, let newAnchor = result.newAnchor {
-                saveWorkoutAnchor(newAnchor)
-            }
 
             var workouts: [HealthWorkoutRecord] = []
             workouts.reserveCapacity(result.samples.count)
@@ -603,12 +639,42 @@ public final class HealthKitService: Sendable {
                 }
             }
 
-            logWorkoutQuery(count: workouts.count, start: start, isFirstSync: isFirstSync, error: nil)
-            return WorkoutFetchResult(workouts: workouts, deletedObjectIDs: result.deletedObjectUUIDs)
+            let checkpoint: WorkoutAnchorCheckpoint? = {
+                guard source != .explicitRangeSnapshot, let newAnchor = result.newAnchor else {
+                    return nil
+                }
+                return WorkoutAnchorCheckpoint(source: source, anchor: newAnchor)
+            }()
+
+            let deletedObjectIDs: [UUID] = source == .anchoredChanges ? result.deletedObjectUUIDs : []
+
+            logWorkoutQuery(count: workouts.count, start: start, isFirstSync: false, error: nil)
+            return PreparedWorkoutFetch(
+                workouts: workouts,
+                deletedObjectIDs: deletedObjectIDs,
+                source: source,
+                coverage: source == .explicitRangeSnapshot || source == .baselineSnapshot ? effectiveCoverage : nil,
+                checkpoint: checkpoint
+            )
         } catch {
-            logWorkoutQuery(count: 0, start: start, isFirstSync: isFirstSync, error: error)
+            logWorkoutQuery(count: 0, start: start, isFirstSync: false, error: error)
             throw HealthKitServiceError.queryFailed(underlying: error)
         }
+    }
+
+    func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+        guard let checkpoint = prepared.checkpoint,
+              prepared.source == checkpoint.source,
+              prepared.source != .explicitRangeSnapshot,
+              (prepared.source == .baselineSnapshot || prepared.source == .anchoredChanges)
+        else {
+            return
+        }
+        acceptWorkoutCheckpoint(checkpoint)
+    }
+
+    func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+        _ = prepared
     }
 
     // MARK: - Workout Deletion
@@ -718,9 +784,9 @@ public final class HealthKitService: Sendable {
         let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
         let status = error == nil ? "success" : "failed"
 
-        if let error {
+        if error != nil {
             logger.error(
-                "query type=\(sampleType.rawValue, privacy: .private) count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status) error=\(error.localizedDescription, privacy: .private)"
+                "query type=\(sampleType.rawValue, privacy: .private) count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status)"
             )
         } else {
             logger.info(
@@ -785,6 +851,19 @@ public final class HealthKitService: Sendable {
         return Int(bpm.rounded())
     }
 
+    private func persistedWorkoutAnchor() -> HKQueryAnchor? {
+        guard let record = anchorStore.workoutAnchor(for: deviceIdentifier) else { return nil }
+        return try? NSKeyedUnarchiver.unarchivedObject(
+            ofClass: HKQueryAnchor.self,
+            from: record.anchorData
+        )
+    }
+
+    private func acceptWorkoutCheckpoint(_ checkpoint: WorkoutAnchorCheckpoint) {
+        guard let anchor = checkpoint.anchor else { return }
+        saveWorkoutAnchor(anchor)
+    }
+
     private func saveWorkoutAnchor(_ anchor: HKQueryAnchor) {
         guard let data = try? NSKeyedArchiver.archivedData(
             withRootObject: anchor,
@@ -804,9 +883,9 @@ public final class HealthKitService: Sendable {
         let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
         let status = error == nil ? "success" : "failed"
 
-        if let error {
+        if error != nil {
             logger.error(
-                "healthkit_workout_fetch type=workout count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status) error=\(error.localizedDescription, privacy: .private)"
+                "healthkit_workout_fetch type=workout count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status)"
             )
         } else {
             logger.info(
