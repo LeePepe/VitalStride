@@ -209,6 +209,8 @@ test: xcodebuild test""",
             'python3 -c "print(\'hello\')" $(whoami)',
             'python3 -c "print(\'hello\')',
             '""',
+            '/usr/bin/env python3 -c "print(\'hello\')"',
+            "bash -lc 'echo nope'",
         ]
 
         for command in unsafe:

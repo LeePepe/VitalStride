@@ -15,6 +15,7 @@ from frontmatter import parse_block_list, parse_list, parse_routes, parse_scalar
 
 
 ROOT_CONTEXT = "CONTEXT.md"
+TRUSTED_EXECUTABLES = {"bash", "python3", "swift", "swiftc", "xcodebuild"}
 
 
 class RouteError(ValueError):
@@ -164,6 +165,15 @@ def parse_run_argv(command: str) -> list[str]:
         raise ValueError(f"malformed run command: {exc}") from exc
     if not argv or not argv[0].strip():
         raise ValueError("run command is empty")
+
+    executable = argv[0]
+    if executable in {"bash", "sh"}:
+        shell_eval_flags = {"-c", "-lc", "-ic", "-ec"}
+        if any(arg in shell_eval_flags for arg in argv[1:]):
+            raise ValueError(f"shell eval rejected: {executable!r}")
+    if executable not in TRUSTED_EXECUTABLES:
+        raise ValueError(f"untrusted executable rejected: {executable!r}")
+
     blocked = {"&&", "||", ";", "|", "&", "<", ">", "$", "`"}
     for token in argv:
         if any(char in token for char in ("$", "`")):
