@@ -67,14 +67,14 @@ enum ActiveWorkoutSnackbarLayout {
         snackbarSlot: BottomSnackbarSlot,
         @ViewBuilder undoContent: () -> UndoContent,
         @ViewBuilder restContent: () -> RestContent
-    ) -> some View {
+    ) -> AnyView {
         switch snackbarSlot {
         case .undo:
-            undoContent()
+            AnyView(undoContent())
         case .rest:
-            restContent()
+            AnyView(restContent())
         case .none:
-            EmptyView()
+            AnyView(EmptyView())
         }
     }
 

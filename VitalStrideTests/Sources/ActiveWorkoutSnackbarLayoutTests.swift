@@ -63,10 +63,12 @@ struct ActiveWorkoutSnackbarLayoutTests {
     private final class ProductionRootState: ObservableObject {
         @Published var isKeyboardVisible: Bool
         @Published var snackbarSlot: BottomSnackbarSlot
+        @Published var shouldScrollToFinalRow: Bool
 
-        init(isKeyboardVisible: Bool = false, snackbarSlot: BottomSnackbarSlot = .none) {
+        init(isKeyboardVisible: Bool = false, snackbarSlot: BottomSnackbarSlot = .none, shouldScrollToFinalRow: Bool = false) {
             self.isKeyboardVisible = isKeyboardVisible
             self.snackbarSlot = snackbarSlot
+            self.shouldScrollToFinalRow = shouldScrollToFinalRow
         }
     }
 
@@ -81,42 +83,59 @@ struct ActiveWorkoutSnackbarLayoutTests {
                 snackbarSlot: state.snackbarSlot,
                 topFrameProbe: { tracker.set($0, for: "topPresentation") },
                 bottomFrameProbe: { tracker.set($0, for: "bottomPresentation") },
+                fabFrameProbe: { tracker.set($0, for: "fab") },
                 mainContentFrameProbe: { tracker.set($0, for: "mainContent") },
                 infoBand: {
-                    representativeInfoBand
+                    ActiveWorkoutSnackbarLayoutTests.representativeInfoBand
                         .captureActiveWorkoutFrame(id: "infoBand", tracker: tracker)
                 },
                 mainContent: {
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            Color.clear.frame(height: 48)
-                                .captureActiveWorkoutFrame(id: "focusedRow", tracker: tracker)
-                            ForEach(0..<10, id: \.self) { index in
-                                HStack {
-                                    Text("Exercise \(index + 1)")
-                                    Spacer()
-                                    Text("3 sets")
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                Color.clear.frame(height: 48)
+                                    .captureActiveWorkoutFrame(id: "focusedRow", tracker: tracker)
+                                    .id("focusedRow")
+                                ForEach(0..<10, id: \.self) { index in
+                                    HStack {
+                                        Text("Exercise \(index + 1)")
+                                        Spacer()
+                                        Text("3 sets")
+                                    }
+                                    .frame(height: 52)
                                 }
-                                .frame(height: 52)
+                                Color.clear.frame(height: 80)
+                                    .captureActiveWorkoutFrame(id: "finalRow", tracker: tracker)
+                                    .id("finalRow")
                             }
-                            Color.clear.frame(height: 80)
-                                .captureActiveWorkoutFrame(id: "finalRow", tracker: tracker)
                         }
+                        .onAppear {
+                            if state.shouldScrollToFinalRow {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    proxy.scrollTo("finalRow", anchor: .bottom)
+                                }
+                            }
+                        }
+                        .onChange(of: state.shouldScrollToFinalRow) { _, shouldScroll in
+                            guard shouldScroll else { return }
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                proxy.scrollTo("finalRow", anchor: .bottom)
+                            }
+                        }
+                        .captureActiveWorkoutFrame(id: "scrollViewport", tracker: tracker)
                     }
-                    .captureActiveWorkoutFrame(id: "scrollViewport", tracker: tracker)
                 },
                 undoContent: {
-                    representativeUndoContent
+                    ActiveWorkoutSnackbarLayoutTests.representativeUndoContent
                         .captureActiveWorkoutFrame(id: "undoContent", tracker: tracker)
                 },
                 restContent: {
-                    representativeRestContent
+                    ActiveWorkoutSnackbarLayoutTests.representativeRestContent
                         .captureActiveWorkoutFrame(id: "restContent", tracker: tracker)
                 },
                 fab: {
                     if !state.isKeyboardVisible {
-                        representativeFAB
-                            .captureActiveWorkoutFrame(id: "fab", tracker: tracker)
+                        ActiveWorkoutSnackbarLayoutTests.representativeFAB
                     }
                 }
             )
@@ -135,13 +154,13 @@ struct ActiveWorkoutSnackbarLayoutTests {
             state.isKeyboardVisible = false
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
 
-            let hiddenHeight = host.sizeThatFits(in: CGSize(width: 390, height: .infinity)).height
+            let hiddenHeight = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height
             #expect(hiddenHeight > 0, "Hidden state must keep the production root mounted for slot \(slot)")
 
             state.isKeyboardVisible = true
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
 
-            let visibleHeight = host.sizeThatFits(in: CGSize(width: 390, height: .infinity)).height
+            let visibleHeight = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height
             #expect(visibleHeight > 0, "Visible state must keep the root mounted for slot \(slot)")
             #expect(state.snackbarSlot == slot)
             #expect(state.isKeyboardVisible)
@@ -157,7 +176,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
             state.isKeyboardVisible = false
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
 
-            let hiddenAgain = host.sizeThatFits(in: CGSize(width: 390, height: .infinity)).height
+            let hiddenAgain = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height
             #expect(hiddenAgain > 0, "The same root must survive the visible→hidden transition for slot \(slot)")
             #expect(!state.isKeyboardVisible)
         }
@@ -174,7 +193,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
                 )
                 let tracker = ActiveWorkoutFrameTracker()
                 let host = UIHostingController(rootView: ProductionRoot(state: state, tracker: tracker))
-                let size = host.sizeThatFits(in: CGSize(width: 390, height: .infinity))
+                let size = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity))
 
                 #expect(size.height > 0)
 
@@ -210,14 +229,17 @@ struct ActiveWorkoutSnackbarLayoutTests {
                 let tracker = ActiveWorkoutFrameTracker()
                 let state = ProductionRootState(
                     isKeyboardVisible: isKeyboardVisible,
-                    snackbarSlot: slot
+                    snackbarSlot: slot,
+                    shouldScrollToFinalRow: true
                 )
                 let host = UIHostingController(rootView: ProductionRoot(state: state, tracker: tracker))
-
-                host.view.frame = CGRect(x: 0, y: 0, width: 390, height: 852)
+                let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 852))
+                window.rootViewController = host
+                window.makeKeyAndVisible()
+                host.view.frame = window.bounds
                 host.view.setNeedsLayout()
                 host.view.layoutIfNeeded()
-                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
 
                 let policy = ActiveWorkoutSnackbarLayout.resolvePolicy(
                     isKeyboardVisible: isKeyboardVisible,
@@ -227,6 +249,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
                 let topPresentation = tracker.frame(for: "topPresentation") ?? .zero
                 let bottomPresentation = tracker.frame(for: "bottomPresentation") ?? .zero
                 let mainContent = tracker.frame(for: "mainContent") ?? .zero
+                let scrollViewport = tracker.frame(for: "scrollViewport") ?? .zero
                 let focusedRow = tracker.frame(for: "focusedRow") ?? .zero
                 let finalRow = tracker.frame(for: "finalRow") ?? .zero
                 let fab = tracker.frame(for: "fab") ?? .zero
@@ -236,7 +259,8 @@ struct ActiveWorkoutSnackbarLayoutTests {
                     #expect(topPresentation.width > 0)
                     #expect(mainContent.minY >= topPresentation.maxY - 2)
                     #expect(focusedRow.minY >= topPresentation.maxY - 2)
-                    #expect(finalRow.minY >= topPresentation.maxY - 2)
+                    #expect(finalRow.minY >= scrollViewport.minY - 2)
+                    #expect(finalRow.maxY <= scrollViewport.maxY + 2)
                     #expect(fab.width == 0 || fab.height == 0 || !policy.fabVisible)
                 } else if !isKeyboardVisible && slot != .none {
                     #expect(!policy.usesTopPresentation)
@@ -251,14 +275,14 @@ struct ActiveWorkoutSnackbarLayoutTests {
                     #expect(fab.width == 0 || fab.height == 0 || !policy.fabVisible)
                     #expect(mainContent.minY >= topPresentation.maxY - 2)
                     #expect(focusedRow.minY >= topPresentation.maxY - 2)
-                    #expect(finalRow.minY >= topPresentation.maxY - 2)
+                    #expect(finalRow.minY >= scrollViewport.minY - 2)
                 }
             }
         }
     }
 
     @MainActor
-    private var representativeMainContent: some View {
+    static var representativeMainContent: some View {
         VStack(spacing: 0) {
             ForEach(0..<4, id: \.self) { index in
                 HStack {
@@ -272,7 +296,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
     }
 
     @MainActor
-    private var representativeInfoBand: some View {
+    static var representativeInfoBand: some View {
         HStack {
             Text("12:34")
                 .font(.title2.monospacedDigit())
@@ -285,7 +309,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
     }
 
     @MainActor
-    private var representativeUndoContent: some View {
+    static var representativeUndoContent: some View {
         HStack {
             Text("Undo")
             Spacer()
@@ -296,7 +320,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
     }
 
     @MainActor
-    private var representativeRestContent: some View {
+    static var representativeRestContent: some View {
         HStack {
             Text("Rest")
             Spacer()
@@ -307,7 +331,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
     }
 
     @MainActor
-    private var representativeFAB: some View {
+    static var representativeFAB: some View {
         Color.clear
             .frame(width: 60, height: 60)
             .padding()

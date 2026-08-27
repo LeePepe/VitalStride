@@ -139,6 +139,7 @@ struct ActiveWorkoutView: View {
         bottomFocused: AccessibilityFocusState<Bool>.Binding? = nil,
         topFrameProbe: ((CGRect) -> Void)? = nil,
         bottomFrameProbe: ((CGRect) -> Void)? = nil,
+        fabFrameProbe: ((CGRect) -> Void)? = nil,
         mainContentFrameProbe: ((CGRect) -> Void)? = nil,
         @ViewBuilder infoBand: () -> some View,
         @ViewBuilder mainContent: () -> some View,
@@ -153,21 +154,25 @@ struct ActiveWorkoutView: View {
 
         let topContent: AnyView
         if layoutPolicy.usesTopPresentation {
-            let base = ActiveWorkoutSnackbarLayout.topComposition(
+            let topSnackbar = ActiveWorkoutSnackbarLayout.topLayout(
                 snackbarSlot: snackbarSlot,
-                infoBand: infoBand,
                 undoContent: undoContent,
                 restContent: restContent
             )
+            let content = VStack(spacing: 0) {
+                infoBand()
+                topSnackbar
+                    .modifier(ActiveWorkoutFrameCollectorModifier(id: "topPresentation", onFrame: topFrameProbe))
+            }
             if let topFocused {
                 topContent = AnyView(
-                    base
+                    content
                         .accessibilityElement(children: .contain)
                         .accessibilityFocused(topFocused)
                 )
             } else {
                 topContent = AnyView(
-                    base
+                    content
                         .accessibilityElement(children: .contain)
                 )
             }
@@ -176,12 +181,32 @@ struct ActiveWorkoutView: View {
         }
 
         let bottomContent: AnyView
-        let baseBottom = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+        let bottomSnackbar = ActiveWorkoutSnackbarLayout.slotEnvelope(
             snackbarSlot: snackbarSlot,
             undoContent: undoContent,
-            restContent: restContent,
-            fab: fab
+            restContent: restContent
         )
+        .padding(.horizontal, Space.cardPadding)
+        .padding(.vertical, Space.gap)
+        .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+        .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(
+            color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
+            radius: 8, y: 4
+        )
+        .padding(.horizontal, Space.cardPadding)
+        .padding(.bottom, Space.cardPadding)
+        .modifier(ActiveWorkoutFrameCollectorModifier(id: "bottomPresentation", onFrame: bottomFrameProbe))
+
+        let fabView = fab()
+            .modifier(ActiveWorkoutFrameCollectorModifier(id: "fab", onFrame: fabFrameProbe))
+
+        let baseBottom = VStack(spacing: 0) {
+            fabView
+            bottomSnackbar
+        }
+
         if let bottomFocused {
             bottomContent = AnyView(
                 baseBottom
@@ -203,13 +228,11 @@ struct ActiveWorkoutView: View {
 
         return VStack(spacing: 0) {
             topContent
-                .modifier(ActiveWorkoutFrameCollectorModifier(id: "topPresentation", onFrame: topFrameProbe))
             mainContent()
                 .modifier(ActiveWorkoutFrameCollectorModifier(id: "mainContent", onFrame: mainContentFrameProbe))
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             bottomContent
-                .modifier(ActiveWorkoutFrameCollectorModifier(id: "bottomPresentation", onFrame: bottomFrameProbe))
         }
         .modifier(ActiveWorkoutFrameCollectorModifier(id: "rootContainer", onFrame: nil))
         .animation(.easeInOut(duration: 0.2), value: layoutPolicy)
