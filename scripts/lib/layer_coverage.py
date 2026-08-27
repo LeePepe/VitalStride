@@ -9,15 +9,53 @@ import json
 import shlex
 import subprocess
 import sys
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from frontmatter import parse_block_list, parse_list, parse_routes, parse_scalar, read_frontmatter
 
 
 ROOT_CONTEXT = "CONTEXT.md"
 TRUSTED_BASH_SCRIPTS = {"scripts/test-repoinfra.sh", "scripts/check-frontmatter.sh"}
-TRUSTED_SWIFT_ACTIONS = {"build", "test"}
-TRUSTED_XCODEBUILD_ACTIONS = {"build", "test"}
+TRUSTED_SWIFT_COMMANDS = {
+    ("swift", "build", "--package-path", "Prototype"),
+    ("swift", "test", "--package-path", "Prototype"),
+    ("swift", "build", "--package-path", "Packages/AIService"),
+    ("swift", "test", "--package-path", "Packages/AIService"),
+    ("swift", "build", "--package-path", "Packages/DesignKit"),
+    ("swift", "test", "--package-path", "Packages/DesignKit"),
+    ("swift", "build", "--package-path", "Packages/HealthKitService"),
+    ("swift", "test", "--package-path", "Packages/HealthKitService"),
+    ("swift", "build", "--package-path", "Packages/TelemetryKit"),
+    ("swift", "test", "--package-path", "Packages/TelemetryKit"),
+    ("swift", "build", "--package-path", "Packages/VitalModels"),
+    ("swift", "test", "--package-path", "Packages/VitalModels"),
+    ("swift", "build", "--package-path", "Packages/VitalUI"),
+    ("swift", "test", "--package-path", "Packages/VitalUI"),
+}
+TRUSTED_XCODEBUILD_COMMANDS = {
+    (
+        "xcodebuild",
+        "build",
+        "-project",
+        "VitalStride.xcodeproj",
+        "-scheme",
+        "VitalStride",
+        "-destination",
+        "generic/platform=iOS Simulator",
+        "-skipPackagePluginValidation",
+    ),
+    (
+        "xcodebuild",
+        "test",
+        "-project",
+        "VitalStride.xcodeproj",
+        "-scheme",
+        "VitalStride",
+        "-destination",
+        "platform=iOS Simulator,name=iPhone 17",
+        "-skipPackagePluginValidation",
+    ),
+}
 
 
 class RouteError(ValueError):
@@ -173,53 +211,31 @@ def _validate_script_path(path: str) -> str:
     return path
 
 
+def _known_swift_package_paths() -> set[str]:
+    roots = {"Prototype"}
+    packages_root = Path("Packages")
+    if packages_root.exists() and packages_root.is_dir():
+        for child in sorted(packages_root.iterdir()):
+            if child.is_dir():
+                roots.add(f"Packages/{child.name}")
+    return roots
+
+
 def _validate_swift_argv(argv: list[str]) -> None:
-    if len(argv) != 4:
+    if tuple(argv) in TRUSTED_SWIFT_COMMANDS:
+        return
+
+    if len(argv) != 4 or argv[0] != "swift" or argv[2] != "--package-path":
         raise ValueError(f"untrusted swift argv rejected: {argv!r}")
-    action, flag, package_path = argv[1], argv[2], argv[3]
-    if action not in TRUSTED_SWIFT_ACTIONS or flag != "--package-path":
-        raise ValueError(f"untrusted swift argv rejected: {argv!r}")
-    _reject_untrusted_path(package_path)
-    if not package_path.startswith("Packages/"):
+
+    package_path = argv[3]
+    if package_path not in _known_swift_package_paths():
         raise ValueError(f"untrusted package path rejected: {package_path!r}")
 
 
 def _validate_xcodebuild_argv(argv: list[str]) -> None:
-    if len(argv) < 2 or argv[1] not in TRUSTED_XCODEBUILD_ACTIONS:
+    if tuple(argv) not in TRUSTED_XCODEBUILD_COMMANDS:
         raise ValueError(f"untrusted xcodebuild argv rejected: {argv!r}")
-
-    required = {"-project": "VitalStride.xcodeproj", "-scheme": "VitalStride"}
-    seen_flags = set()
-    idx = 2
-    while idx < len(argv):
-        flag = argv[idx]
-        if flag == "-skipPackagePluginValidation":
-            seen_flags.add(flag)
-            idx += 1
-            continue
-        if flag in required:
-            if idx + 1 >= len(argv):
-                raise ValueError(f"missing value for {flag!r}")
-            value = argv[idx + 1]
-            if value != required[flag]:
-                raise ValueError(f"untrusted xcodebuild value rejected: {value!r}")
-            seen_flags.add(flag)
-            idx += 2
-            continue
-        if flag == "-destination":
-            if idx + 1 >= len(argv):
-                raise ValueError(f"missing value for {flag!r}")
-            value = argv[idx + 1]
-            _reject_untrusted_path(value)
-            if value.startswith("/") or ".." in PurePosixPath(value).parts:
-                raise ValueError(f"unsafe destination rejected: {value!r}")
-            seen_flags.add(flag)
-            idx += 2
-            continue
-        raise ValueError(f"untrusted xcodebuild flag rejected: {flag!r}")
-
-    if not {"-project", "-scheme"}.issubset(seen_flags):
-        raise ValueError(f"xcodebuild argv missing trusted project/scheme: {argv!r}")
 
 
 def parse_run_argv(command: str) -> list[str]:

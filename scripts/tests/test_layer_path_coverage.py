@@ -238,6 +238,37 @@ test: swift test --package-path Packages/Core
         self.assertEqual(0, rc)
         run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/Core"], shell=False)
 
+    def test_run_accepts_trusted_repo_commands(self):
+        self.write(
+            "CONTEXT.md",
+            """scope: repo
+routes:
+  - paths: [Prototype]
+    context: Prototype/CONTEXT.md
+    kind: layer
+support_excludes: [docs]""",
+        )
+        self.write(
+            "Prototype/CONTEXT.md",
+            """layer: Prototype
+paths: [Prototype]
+test_paths: []
+gate_tier: local-fast
+build: swift build --package-path Prototype
+test: swift build --package-path Prototype
+""",
+        )
+        with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=0)) as run_mock:
+            rc = layer_coverage.main(["run", "Prototype", "build"])
+        self.assertEqual(0, rc)
+        run_mock.assert_called_once_with(["swift", "build", "--package-path", "Prototype"], shell=False)
+
+        self.fixture(build_command="swift build --package-path Packages/Arbitrary")
+        with mock.patch("layer_coverage.subprocess.run") as run_mock:
+            rc = layer_coverage.main(["run", "Core", "build"])
+        self.assertEqual(1, rc)
+        run_mock.assert_not_called()
+
     def test_run_emits_layered_failure_signal_on_nonzero_exit(self):
         self.fixture(build_command="swift build --package-path Packages/Core")
         with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=7)) as run_mock:
@@ -246,6 +277,22 @@ test: swift test --package-path Packages/Core
         self.assertEqual(7, rc)
         run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/Core"], shell=False)
         self.assertIn("::layered-signal::", stdout.getvalue())
+
+    def test_run_rejects_unknown_xcodebuild_destination(self):
+        self.write(
+            "App/CONTEXT.md",
+            """layer: AppUI
+paths: [App]
+test_paths: [AppTests]
+gate_tier: ci-only
+build: xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 99' -skipPackagePluginValidation
+test: xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 99' -skipPackagePluginValidation
+""",
+        )
+        with mock.patch("layer_coverage.subprocess.run") as run_mock:
+            rc = layer_coverage.main(["run", "AppUI", "build"])
+        self.assertEqual(1, rc)
+        run_mock.assert_not_called()
 
 
 if __name__ == "__main__":
