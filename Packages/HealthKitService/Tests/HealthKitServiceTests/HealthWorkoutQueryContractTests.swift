@@ -176,8 +176,10 @@ struct HealthWorkoutQueryContractTests {
         let beforeRecord = AnchorRecord(anchorData: try encodedAnchor(persistedAnchor), lastSyncDate: Date())
         anchorStore.setWorkoutAnchor(beforeRecord, for: "device")
 
+        let deletedIDs = [UUID(), UUID()]
         let healthStore = MockWorkoutQueryHealthStore(
             samples: [makeWorkout()],
+            deletedObjectUUIDs: deletedIDs,
             newAnchor: HKQueryAnchor(fromValue: 101)
         )
         let service = HealthKitService(
@@ -194,6 +196,7 @@ struct HealthWorkoutQueryContractTests {
         let coverage = try #require(result.coverage)
 
         #expect(result.workouts.count == 1)
+        #expect(result.deletedObjectIDs.isEmpty)
         #expect(receivedAnchors.allSatisfy { $0 == nil })
         #expect(coverage.start >= beforeSync.addingTimeInterval(-HealthKitService.defaultFirstSyncWindow - 1))
         #expect(coverage.start <= beforeSync.addingTimeInterval(-HealthKitService.defaultFirstSyncWindow + 1))
@@ -212,8 +215,10 @@ struct HealthWorkoutQueryContractTests {
             return
         }
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "contract")
+        let deletedIDs = [UUID(), UUID()]
         let healthStore = MockWorkoutQueryHealthStore(
             samples: [makeWorkout()],
+            deletedObjectUUIDs: deletedIDs,
             newAnchor: HKQueryAnchor(fromValue: 202)
         )
         let service = HealthKitService(
@@ -229,6 +234,7 @@ struct HealthWorkoutQueryContractTests {
         let expectedAnchorData = try encodedAnchor(HKQueryAnchor(fromValue: 202))
 
         #expect(prepared.source == .baselineSnapshot)
+        #expect(prepared.deletedObjectIDs.isEmpty)
         #expect(prepared.checkpoint != nil)
         #expect(prepared.checkpoint?.anchorData == expectedAnchorData)
         #expect(beforePersist == nil)
@@ -314,8 +320,10 @@ struct HealthWorkoutQueryContractTests {
         let priorRecord = AnchorRecord(anchorData: try encodedAnchor(persistedAnchor), lastSyncDate: Date())
         anchorStore.setWorkoutAnchor(priorRecord, for: "device")
 
+        let deletedIDs = [UUID(), UUID()]
         let healthStore = MockWorkoutQueryHealthStore(
             samples: [makeWorkout()],
+            deletedObjectUUIDs: deletedIDs,
             newAnchor: HKQueryAnchor(fromValue: 77)
         )
         let service = HealthKitService(
@@ -333,6 +341,7 @@ struct HealthWorkoutQueryContractTests {
         let receivedAnchors = await healthStore.allReceivedAnchors()
 
         #expect(prepared.source == .explicitRangeSnapshot)
+        #expect(prepared.deletedObjectIDs.isEmpty)
         #expect(prepared.coverage == range)
         #expect(prepared.checkpoint == nil)
         #expect(receivedAnchors.allSatisfy { $0 == nil })

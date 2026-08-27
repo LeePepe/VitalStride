@@ -646,10 +646,12 @@ public final class HealthKitService: Sendable {
                 return WorkoutAnchorCheckpoint(source: source, anchor: newAnchor)
             }()
 
+            let deletedObjectIDs: [UUID] = source == .anchoredChanges ? result.deletedObjectUUIDs : []
+
             logWorkoutQuery(count: workouts.count, start: start, isFirstSync: false, error: nil)
             return PreparedWorkoutFetch(
                 workouts: workouts,
-                deletedObjectIDs: result.deletedObjectUUIDs,
+                deletedObjectIDs: deletedObjectIDs,
                 source: source,
                 coverage: source == .explicitRangeSnapshot || source == .baselineSnapshot ? effectiveCoverage : nil,
                 checkpoint: checkpoint
