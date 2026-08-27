@@ -556,7 +556,7 @@ public final class HealthKitService: Sendable {
         )
     }
 
-    public func prepareWorkoutSnapshot(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
+    func prepareWorkoutSnapshot(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
         let source: WorkoutAnchorSource = dateRange == nil ? .baselineSnapshot : .explicitRangeSnapshot
         return try await prepareWorkoutFetch(
             dateRange: dateRange,
@@ -565,11 +565,7 @@ public final class HealthKitService: Sendable {
         )
     }
 
-    public func prepareWorkoutChanges(
-        anchor: HKQueryAnchor? = nil,
-        dateRange: DateInterval? = nil
-    ) async throws -> PreparedWorkoutFetch {
-        let _ = anchor
+    func prepareWorkoutChanges(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
         if let dateRange {
             return try await prepareWorkoutSnapshot(dateRange: dateRange)
         }
@@ -664,16 +660,18 @@ public final class HealthKitService: Sendable {
         }
     }
 
-    public func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+    func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
         guard let checkpoint = prepared.checkpoint,
               prepared.source == checkpoint.source,
-              prepared.source != .explicitRangeSnapshot else {
+              prepared.source != .explicitRangeSnapshot,
+              (prepared.source == .baselineSnapshot || prepared.source == .anchoredChanges)
+        else {
             return
         }
         acceptWorkoutCheckpoint(checkpoint)
     }
 
-    public func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+    func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
         _ = prepared
     }
 
@@ -883,7 +881,7 @@ public final class HealthKitService: Sendable {
         let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
         let status = error == nil ? "success" : "failed"
 
-        if let error {
+        if error != nil {
             logger.error(
                 "healthkit_workout_fetch type=workout count=\(count, privacy: .private) ms=\(ms) firstSync=\(isFirstSync, privacy: .private) status=\(status)"
             )

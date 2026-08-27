@@ -5,11 +5,13 @@ import Testing
 
 private actor MockWorkoutQueryHealthStoreState {
     private let samples: [HKSample]
+    private let deletedObjectUUIDs: [UUID]
     private let newAnchorData: Data?
     private var receivedAnchors: [Data?]
 
-    init(samples: [HKSample], newAnchor: HKQueryAnchor? = nil) {
+    init(samples: [HKSample], deletedObjectUUIDs: [UUID] = [], newAnchor: HKQueryAnchor? = nil) {
         self.samples = samples
+        self.deletedObjectUUIDs = deletedObjectUUIDs
         self.newAnchorData = newAnchor.flatMap { try? encodedAnchor($0) }
         self.receivedAnchors = []
     }
@@ -17,6 +19,10 @@ private actor MockWorkoutQueryHealthStoreState {
     func record(anchor: HKQueryAnchor?) -> [HKSample] {
         receivedAnchors.append(anchor.flatMap { try? encodedAnchor($0) })
         return samples
+    }
+
+    func deletedUUIDs() -> [UUID] {
+        deletedObjectUUIDs
     }
 
     func allReceivedAnchors() -> [HKQueryAnchor?] {
@@ -44,8 +50,12 @@ private final class MockWorkoutQueryHealthStore: HealthStoreProviding {
 
     private let state: MockWorkoutQueryHealthStoreState
 
-    init(samples: [HKSample], newAnchor: HKQueryAnchor? = nil) {
-        self.state = MockWorkoutQueryHealthStoreState(samples: samples, newAnchor: newAnchor)
+    init(samples: [HKSample], deletedObjectUUIDs: [UUID] = [], newAnchor: HKQueryAnchor? = nil) {
+        self.state = MockWorkoutQueryHealthStoreState(
+            samples: samples,
+            deletedObjectUUIDs: deletedObjectUUIDs,
+            newAnchor: newAnchor
+        )
     }
 
     func requestAuthorization(
@@ -246,7 +256,7 @@ struct HealthWorkoutQueryContractTests {
         )
 
         let beforePrepare = anchorStore.workoutAnchor(for: "device")
-        let prepared = try await service.prepareWorkoutChanges(anchor: nil)
+        let prepared = try await service.prepareWorkoutChanges()
         let lastAnchor = await healthStore.lastReceivedAnchor()
         let expectedAnchorData = try encodedAnchor(HKQueryAnchor(fromValue: 77))
 
@@ -318,7 +328,7 @@ struct HealthWorkoutQueryContractTests {
             return
         }
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "contract")
-        let healthStore = await MockWorkoutQueryHealthStore(
+        let healthStore = MockWorkoutQueryHealthStore(
             samples: [makeWorkout()],
             newAnchor: HKQueryAnchor(fromValue: 13)
         )
@@ -328,7 +338,7 @@ struct HealthWorkoutQueryContractTests {
             deviceIdentifier: "device"
         )
 
-        let prepared = try await service.prepareWorkoutChanges(anchor: nil)
+        let prepared = try await service.prepareWorkoutChanges()
 
         #expect(prepared.source == .baselineSnapshot)
         #expect(prepared.checkpoint != nil)
