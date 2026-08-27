@@ -1,4 +1,5 @@
 import Foundation
+import HealthKit
 
 public enum WorkoutActivityType: UInt, Sendable, Codable, CaseIterable {
     case cycling = 13
@@ -116,6 +117,54 @@ public struct HealthWorkoutRecord: Sendable, Identifiable, Codable, Equatable {
         self.averageHeartRate = try container.decodeIfPresent(Int.self, forKey: .averageHeartRate)
         self.sourceDeviceKind = try container.decodeIfPresent(SourceDeviceKind.self, forKey: .sourceDeviceKind)
         self.isUserEntered = try container.decodeIfPresent(Bool.self, forKey: .isUserEntered) ?? false
+    }
+}
+
+public enum WorkoutAnchorSource: String, Sendable, Codable, Equatable {
+    case baselineSnapshot
+    case anchoredChanges
+    case explicitRangeSnapshot
+}
+
+public struct WorkoutAnchorCheckpoint: Sendable, Codable, Equatable {
+    public let source: WorkoutAnchorSource
+    public let anchorData: Data
+    public let lastSyncDate: Date
+
+    public init(source: WorkoutAnchorSource, anchor: HKQueryAnchor, lastSyncDate: Date = Date()) {
+        self.source = source
+        self.lastSyncDate = lastSyncDate
+        self.anchorData = (try? NSKeyedArchiver.archivedData(
+            withRootObject: anchor,
+            requiringSecureCoding: true
+        )) ?? Data()
+    }
+
+    public var anchor: HKQueryAnchor? {
+        guard !anchorData.isEmpty else { return nil }
+        return try? NSKeyedUnarchiver.unarchivedObject(
+            ofClass: HKQueryAnchor.self,
+            from: anchorData
+        )
+    }
+}
+
+public struct PreparedWorkoutFetch: Sendable, Equatable {
+    public let workouts: [HealthWorkoutRecord]
+    public let deletedObjectIDs: [UUID]
+    public let source: WorkoutAnchorSource
+    public let checkpoint: WorkoutAnchorCheckpoint?
+
+    public init(
+        workouts: [HealthWorkoutRecord],
+        deletedObjectIDs: [UUID],
+        source: WorkoutAnchorSource,
+        checkpoint: WorkoutAnchorCheckpoint?
+    ) {
+        self.workouts = workouts
+        self.deletedObjectIDs = deletedObjectIDs
+        self.source = source
+        self.checkpoint = checkpoint
     }
 }
 
