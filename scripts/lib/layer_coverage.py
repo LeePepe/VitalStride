@@ -162,7 +162,7 @@ def parse_run_argv(command: str) -> list[str]:
         argv = shlex.split(text, posix=True)
     except ValueError as exc:
         raise ValueError(f"malformed run command: {exc}") from exc
-    if not argv:
+    if not argv or not argv[0].strip():
         raise ValueError("run command is empty")
     blocked = {"&&", "||", ";", "|", "&", "<", ">", "$", "`"}
     for token in argv:

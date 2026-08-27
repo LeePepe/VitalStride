@@ -115,12 +115,25 @@ fi
 
 RESOLVER="scripts/lib/layer_coverage.py"
 [ -f "$RESOLVER" ] || { echo "❌ missing recursive layer resolver"; exit 1; }
+
+run_frontmatter_check() {
+  if [ -f "scripts/check-frontmatter.sh" ]; then
+    echo ""
+    echo "🧭 Layer frontmatter 防腐校验..."
+    if ! bash scripts/check-frontmatter.sh; then
+      echo "❌ frontmatter 与代码不一致。更新对应 CONTEXT.md 后重推。Push aborted."
+      exit 1
+    fi
+  fi
+}
+
 if ! LAYERS=$(printf '%s\n' "$CHANGED" | python3 "$RESOLVER" layers --stdin); then
   echo "❌ changed paths do not resolve to unique leaf layers"
   exit 1
 fi
 if [ -z "$LAYERS" ]; then
   echo "📝 Support/generated-only changes — skipping product gates."
+  run_frontmatter_check
   exit 0
 fi
 
@@ -325,13 +338,8 @@ fi
 # 校验 Packages/*/CONTEXT.md frontmatter 与代码一致（layer 名 / depends_on 双向 /
 # test 路径 / roles ∈ canonical_roles 且目录存在）。腐烂即阻塞。
 
-if [ "$REPOINFRA_VALIDATED" != true ] && [ -f "scripts/check-frontmatter.sh" ]; then
-  echo ""
-  echo "🧭 Layer frontmatter 防腐校验..."
-  if ! bash scripts/check-frontmatter.sh; then
-    echo "❌ frontmatter 与代码不一致。更新对应 CONTEXT.md 后重推。Push aborted."
-    exit 1
-  fi
+if [ "$REPOINFRA_VALIDATED" != true ]; then
+  run_frontmatter_check
 fi
 
 echo ""

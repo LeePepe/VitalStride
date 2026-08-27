@@ -208,6 +208,7 @@ test: xcodebuild test""",
             'python3 -c "print(\'hello\')" > /tmp/boom',
             'python3 -c "print(\'hello\')" $(whoami)',
             'python3 -c "print(\'hello\')',
+            '""',
         ]
 
         for command in unsafe:
