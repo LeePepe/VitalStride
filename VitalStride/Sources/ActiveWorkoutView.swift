@@ -109,6 +109,7 @@ struct ActiveWorkoutView: View {
         topFocused: Binding<Bool>? = nil,
         bottomFocused: Binding<Bool>? = nil,
         @ViewBuilder infoBand: () -> some View,
+        @ViewBuilder mainContent: () -> some View,
         @ViewBuilder undoContent: () -> some View,
         @ViewBuilder restContent: () -> some View,
         @ViewBuilder fab: () -> some View
@@ -170,6 +171,7 @@ struct ActiveWorkoutView: View {
 
         return VStack(spacing: 0) {
             topContent
+            mainContent()
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             bottomContent
@@ -179,56 +181,33 @@ struct ActiveWorkoutView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                if layoutPolicy.usesTopPresentation {
-                    ActiveWorkoutSnackbarLayout.topComposition(
-                        snackbarSlot: bottomSnackbarSlot,
-                        infoBand: {
-                            if largeMode {
-                                workoutTimer
-                                sessionStatsCard
-                            } else {
-                                compactInfoBand
-                            }
-                        },
-                        undoContent: { undoSnackbarEnvelope },
-                        restContent: { restSnackbarEnvelope }
-                    )
-                    .accessibilityElement(children: .contain)
-                    .accessibilityFocused($isTopSnackbarFocused)
-                } else {
+            Self.productionRoot(
+                isKeyboardVisible: isKeyboardVisible,
+                snackbarSlot: bottomSnackbarSlot,
+                topFocused: $isTopSnackbarFocused,
+                bottomFocused: $isBottomSnackbarFocused,
+                infoBand: {
                     if largeMode {
                         workoutTimer
                         sessionStatsCard
                     } else {
                         compactInfoBand
                     }
-                }
-                exerciseList
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
-                    snackbarSlot: bottomSnackbarSlot,
-                    undoContent: { undoSnackbarEnvelope },
-                    restContent: { restSnackbarEnvelope },
-                    fab: {
-                        if layoutPolicy.fabVisible {
-                            HStack {
-                                Spacer()
-                                ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
-                                    addExerciseButton
-                                }
+                },
+                mainContent: { exerciseList },
+                undoContent: { undoSnackbarEnvelope },
+                restContent: { restSnackbarEnvelope },
+                fab: {
+                    if layoutPolicy.fabVisible {
+                        HStack {
+                            Spacer()
+                            ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
+                                addExerciseButton
                             }
                         }
                     }
-                )
-                .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0)
-                .allowsHitTesting(layoutPolicy.bottomSafeAreaVisible)
-                .accessibilityElement(children: .contain)
-                .accessibilityFocused($isBottomSnackbarFocused)
-                .accessibilityHidden(!layoutPolicy.bottomSafeAreaVisible)
-            }
-            .animation(.easeInOut(duration: 0.2), value: layoutPolicy)
+                }
+            )
             .navigationTitle(String(localized: "训练中", comment: "Active workout navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -36,10 +36,50 @@ struct ActiveWorkoutSnackbarLayoutTests {
                 isKeyboardVisible: state.isKeyboardVisible,
                 snackbarSlot: state.snackbarSlot,
                 infoBand: { representativeInfoBand },
+                mainContent: { representativeMainContent },
                 undoContent: { representativeUndoContent },
                 restContent: { representativeRestContent },
                 fab: { representativeFAB }
             )
+        }
+    }
+
+    @MainActor
+    private final class FrameBox: ObservableObject {
+        @Published var frame: CGRect = .zero
+    }
+
+    private struct FrameProbe: ViewModifier {
+        @ObservedObject var box: FrameBox
+
+        func body(content: Content) -> some View {
+            content.background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: FramePreferenceKey.self,
+                        value: proxy.frame(in: .global)
+                    )
+                }
+            )
+            .onPreferenceChange(FramePreferenceKey.self) { frame in
+                if let frame {
+                    box.frame = frame
+                }
+            }
+        }
+    }
+
+    private struct FramePreferenceKey: PreferenceKey {
+        static var defaultValue: CGRect? = nil
+
+        static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
+            value = value ?? nextValue()
+        }
+    }
+
+    private extension View {
+        func captureFrame(_ box: FrameBox) -> some View {
+            modifier(FrameProbe(box: box))
         }
     }
 
@@ -116,6 +156,74 @@ struct ActiveWorkoutSnackbarLayoutTests {
                     #expect(policy.hasActiveSnackbar)
                     #expect(policy.activeSlot == slot)
                 }
+            }
+        }
+    }
+
+    @MainActor
+    @Test("Production root keeps focused and final rows clear of the active bottom chrome")
+    func productionRootKeepsContentClearOfActiveChrome() {
+        let snackbarBox = FrameBox()
+        let fabBox = FrameBox()
+        let infoBandBox = FrameBox()
+        let focusedRowBox = FrameBox()
+        let finalRowBox = FrameBox()
+
+        let host = UIHostingController(
+            rootView: ActiveWorkoutView.productionRoot(
+                isKeyboardVisible: true,
+                snackbarSlot: .rest,
+                infoBand: {
+                    representativeInfoBand
+                        .captureFrame(infoBandBox)
+                },
+                mainContent: {
+                    VStack(spacing: 0) {
+                        Color.clear.frame(height: 48)
+                            .captureFrame(focusedRowBox)
+                        ForEach(0..<3, id: \ .self) { index in
+                            HStack {
+                                Text("Exercise \(index + 1)")
+                                Spacer()
+                                Text("3 sets")
+                            }
+                            .frame(height: 52)
+                        }
+                        Color.clear.frame(height: 80)
+                            .captureFrame(finalRowBox)
+                    }
+                },
+                undoContent: { representativeUndoContent.captureFrame(snackbarBox) },
+                restContent: { representativeRestContent.captureFrame(snackbarBox) },
+                fab: { representativeFAB.captureFrame(fabBox) }
+            )
+        )
+
+        host.view.frame = CGRect(x: 0, y: 0, width: 390, height: 852)
+        host.view.setNeedsLayout()
+        host.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        #expect(snackbarBox.frame.width > 0)
+        #expect(fabBox.frame.width > 0)
+        #expect(infoBandBox.frame.width > 0)
+        #expect(focusedRowBox.frame.width > 0)
+        #expect(finalRowBox.frame.width > 0)
+        #expect(fabBox.frame.maxY <= snackbarBox.frame.minY + 2)
+        #expect(focusedRowBox.frame.maxY <= snackbarBox.frame.minY + 2)
+        #expect(finalRowBox.frame.maxY <= fabBox.frame.minY + 2)
+    }
+
+    @MainActor
+    private var representativeMainContent: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<4, id: \ .self) { index in
+                HStack {
+                    Text("Exercise \(index + 1)")
+                    Spacer()
+                    Text("3 sets")
+                }
+                .frame(height: 52)
             }
         }
     }
