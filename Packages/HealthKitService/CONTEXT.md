@@ -1,6 +1,10 @@
 ---
 layer: HealthKitService
 role: HealthKit 数据读取、双层缓存、授权管理；app target 访问健康数据的唯一入口
+paths: [Packages/HealthKitService]
+test_paths: [Packages/HealthKitService/Tests]
+gate_tier: local-fast
+build: swift build --package-path Packages/HealthKitService
 depends_on: [VitalModels]
 depended_by: [AppUI]
 red_lines:

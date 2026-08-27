@@ -1,5 +1,21 @@
 ---
+scope: repo
 canonical_roles: [Types, Config, Repo, Service, Runtime, UI]
+routes:
+  - paths: [Packages]
+    context: Packages/CONTEXT.md
+    kind: index
+  - paths: [VitalStride, VitalStrideMac, VitalStrideWatch Watch App, VitalStrideWidgets, VitalStrideTests, VitalStrideUITests, VitalStrideWatchTests, project.yml]
+    context: VitalStride/CONTEXT.md
+    kind: layer
+  - paths: [Prototype]
+    context: Prototype/CONTEXT.md
+    kind: layer
+  - paths: [.github, scripts, fastlane, .gitignore, .gitleaks.toml, .swiftlint.yml, .swiftlint-baseline.json, .specify/extensions.yml, .specify/extensions, .specify/init-options.json, .specify/integration.json, .specify/integrations, .specify/scripts, .specify/templates, .specify/workflows]
+    context: RepoInfra/CONTEXT.md
+    kind: layer
+support_excludes: [AGENTS.md, CLAUDE.md, CONTEXT.md, README.md, '**/CONTEXT.md', design, docs, specs, .specify/memory]
+generated_excludes: [VitalStride.xcodeproj, build, .build, '**/.build', DerivedData, derived-data, .agent_context, '*.log', '*.xcresult', '*.xcuserdata', '*.xcworkspace/xcuserdata', xcuserdata, Package.resolved, '*.ipa', '*.dSYM', '*.dSYM.zip', '**/.swiftpm', 'Prototype/*.xcodeproj', scripts/i18n_check_lproj_parity.report.md, scripts/i18n_extract_hardcoded.report.md, local, fastlane/report.xml, fastlane/Preview.html, fastlane/test_output, .env, '.env.*', '*.p8', 'AuthKey_*.p8', '*.mobileprovision', 'AppStore_*.mobileprovision', .DS_Store, .Trashes, Thumbs.db, '*.swp', '*~', .idea, .vscode, __pycache__, '**/__pycache__', '*.pyc', '*.pyo', .claude, .claude-flow, .swarm, ruvector.db]
 # Intra-layer stereotype order (class-role dependency axis), NOT package deps.
 # Package deps live in each Packages/<X>/CONTEXT.md `depends_on`.
 # A lower-role type must never import a higher-role type WITHIN the same package.
@@ -142,24 +158,14 @@ platform-specific entry points, UI, and app-specific composition. Every tracked 
 has exactly one formal change-owner layer; support and generated/local-only artifacts are explicit
 exclusions rather than implicit infrastructure ownership.
 
-### Packages
+### Root routes
 
-| Package | Contents | Dependencies |
-|---------|----------|-------------|
-| VitalModels | SwiftData models (Workout, Exercise, etc.), enums, ModelContainerConfiguration | None |
-| HealthKitService | HealthKitService, HealthDataPoint, HealthKitAnchorStore, HealthSampleType | VitalModels |
-| AIService | AIProvider protocol, ZhipuProvider (智谱 GLM), ChatMessage/ChatResponse models | None |
-| VitalUI | Shared UI components (DataStoreErrorView) | VitalModels |
-| TelemetryKit | TelemetryEvent, TelemetryProvider protocol, ConsoleTelemetryProvider, TelemetryService | None |
-| DesignKit | 设计语言:seed-based 配色 token (Seed/PrimaryPalette/Theme) + SwiftUI 组件 (Card/Metric/Sparkline/DashboardView) | None |
-
-### Non-production-package layers
-
-| Layer | Owned paths | Dependencies |
+| Scope | Context | Kind |
 |---|---|---|
-| AppUI | `VitalStride/**`, companion app roots, app test roots, `project.yml` | all 6 production packages |
-| Prototype | `Prototype/**` | DesignKit |
-| RepoInfra | `.github/**`, `scripts/**`, `fastlane/**`, repo lint/security config, executable/configurable `.specify` tooling | None |
+| `Packages/**` | `Packages/CONTEXT.md` | index；package 细节只在下一层展开 |
+| app roots/tests + `project.yml` | `VitalStride/CONTEXT.md` | AppUI leaf |
+| `Prototype/**` | `Prototype/CONTEXT.md` | Prototype leaf |
+| repo automation/config | `RepoInfra/CONTEXT.md` | RepoInfra leaf |
 
 ### Rules
 

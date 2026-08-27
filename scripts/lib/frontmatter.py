@@ -39,6 +39,53 @@ def parse_scalar(fm, key):
     return m.group(1).strip() if m else ""
 
 
+def parse_block_list(fm, key):
+    """Parse `key:` followed by indented `- value` lines."""
+    values = []
+    active = False
+    for line in fm.splitlines():
+        if line == f"{key}:":
+            active = True
+            continue
+        if not active:
+            continue
+        match = re.match(r"^\s+-\s+(.+?)\s*$", line)
+        if match:
+            values.append(match.group(1).strip().strip("'\""))
+        elif re.match(r"^\S", line):
+            break
+    return values
+
+
+def parse_routes(fm):
+    """Parse the small YAML subset used by recursive context `routes`."""
+    routes = []
+    current = None
+    in_routes = False
+    for line in fm.splitlines():
+        if line == "routes:":
+            in_routes = True
+            continue
+        if not in_routes:
+            continue
+        if re.match(r"^\S", line):
+            break
+        match = re.match(r"^  - paths:\s*\[(.*?)\]\s*$", line)
+        if match:
+            if current:
+                routes.append(current)
+            current = {
+                "paths": [item.strip().strip("'\"") for item in match.group(1).split(",") if item.strip()]
+            }
+            continue
+        match = re.match(r"^    (context|kind):\s*(.+?)\s*$", line)
+        if match and current is not None:
+            current[match.group(1)] = match.group(2).strip().strip("'\"")
+    if current:
+        routes.append(current)
+    return routes
+
+
 def parse_roles(fm):
     """解析 `roles:` 块 —— 缩进的 `Key: [a, b]` 行，遇到顶格行即结束。"""
     roles, in_roles = {}, False
@@ -71,10 +118,15 @@ def cmd_parse(layer_context):
     print("DEPS=" + ",".join(parse_list(fm, "depends_on")))
     print("BY=" + ",".join(parse_list(fm, "depended_by")))
     print("PATHS=" + "|".join(parse_list(fm, "paths")))
+    print("TEST_PATHS=" + "|".join(parse_list(fm, "test_paths")))
+    print("GATE_TIER=" + parse_scalar(fm, "gate_tier"))
+    print("BUILD=" + parse_scalar(fm, "build"))
     print("SUPPORT_EXCLUDES=" + "|".join(parse_list(fm, "support_excludes")))
     print("GENERATED_EXCLUDES=" + "|".join(parse_list(fm, "generated_excludes")))
     for key, entries in parse_roles(fm).items():
         print("ROLE=%s=%s" % (key, "|".join(entries)))
+    for route in parse_routes(fm):
+        print("ROUTE=%s=%s=%s" % ("|".join(route.get("paths", [])), route.get("context", ""), route.get("kind", "")))
     return 0
 
 

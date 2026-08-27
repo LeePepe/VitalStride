@@ -1,6 +1,10 @@
 ---
 layer: TelemetryKit
 role: 埋点抽象层；TelemetryEvent 定义 + TelemetryProvider 协议 + actor TelemetryService 分发
+paths: [Packages/TelemetryKit]
+test_paths: [Packages/TelemetryKit/Tests]
+gate_tier: local-fast
+build: swift build --package-path Packages/TelemetryKit
 depends_on: []
 depended_by: [AppUI]
 red_lines:
