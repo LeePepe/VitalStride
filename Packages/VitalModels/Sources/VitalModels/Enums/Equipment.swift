@@ -33,7 +33,7 @@ public enum Equipment: String, Codable, CaseIterable, Sendable {
 
     public var section: ExerciseSection {
         switch self {
-        case .assisted: .assisted
+        case .assisted: .bodyweight
         case .band: .band
         case .barbell: .barbell
         case .bodyweight: .bodyweight
@@ -43,11 +43,8 @@ public enum Equipment: String, Codable, CaseIterable, Sendable {
         case .kettlebell: .kettlebell
         case .leverageMachine: .leverageMachine
         case .machine: .machine
-        case .medicineBall: .medicineBall
-        case .rope: .rope
-        case .sledMachine: .sledMachine
+        case .medicineBall, .rope, .sledMachine, .stabilityBall: .other
         case .smithMachine: .smithMachine
-        case .stabilityBall: .stabilityBall
         case .weighted: .weighted
         case .bosuBall,
              .ellipticalMachine,
