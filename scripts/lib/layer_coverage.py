@@ -18,9 +18,6 @@ ROOT_CONTEXT = "CONTEXT.md"
 TRUSTED_BASH_SCRIPTS = {"scripts/test-repoinfra.sh", "scripts/check-frontmatter.sh"}
 TRUSTED_SWIFT_COMMANDS = {
     ("swift", "build", "--package-path", "Prototype"),
-    ("swift", "test", "--package-path", "Prototype"),
-    ("swift", "build", "--package-path", "Packages/Core"),
-    ("swift", "test", "--package-path", "Packages/Core"),
     ("swift", "build", "--package-path", "Packages/AIService"),
     ("swift", "test", "--package-path", "Packages/AIService"),
     ("swift", "build", "--package-path", "Packages/DesignKit"),

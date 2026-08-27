@@ -155,7 +155,7 @@ class ResolverRunCommandRegressionTests(unittest.TestCase):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(f"---\n{frontmatter}\n---\n", encoding="utf-8")
 
-    def fixture(self, *, build_command: str = "swift build --package-path Packages/Core", test_command: str = "swift test --package-path Packages/Core"):
+    def fixture(self, *, build_command: str = "swift build --package-path Packages/AIService", test_command: str = "swift test --package-path Packages/AIService"):
         self.write(
             "CONTEXT.md",
             """scope: repo
@@ -172,15 +172,15 @@ support_excludes: [docs]""",
             "Packages/CONTEXT.md",
             """scope: Packages
 routes:
-  - paths: [Packages/Core]
-    context: Packages/Core/CONTEXT.md
+  - paths: [Packages/AIService]
+    context: Packages/AIService/CONTEXT.md
     kind: layer""",
         )
         self.write(
-            "Packages/Core/CONTEXT.md",
+            "Packages/AIService/CONTEXT.md",
             f"""layer: Core
-paths: [Packages/Core]
-test_paths: [Packages/Core/Tests]
+paths: [Packages/AIService]
+test_paths: [Packages/AIService/Tests]
 gate_tier: local-fast
 build: {build_command}
 test: {test_command}""",
@@ -196,11 +196,11 @@ test: xcodebuild test""",
         )
 
     def test_run_uses_argv_without_shell(self):
-        self.fixture(build_command="swift build --package-path Packages/Core")
+        self.fixture(build_command="swift build --package-path Packages/AIService")
         with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=0)) as run_mock:
             rc = layer_coverage.main(["run", "Core", "build"])
         self.assertEqual(0, rc)
-        run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/Core"], shell=False)
+        run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/AIService"], shell=False)
 
     def test_run_rejects_malformed_and_shell_control(self):
         unsafe = [
@@ -222,21 +222,21 @@ test: xcodebuild test""",
             self.assertEqual(1, rc)
             run_mock.assert_not_called()
 
-        self.fixture(build_command="swift build --package-path Packages/Core")
+        self.fixture(build_command="swift build --package-path Packages/AIService")
         self.write(
-            "Packages/Core/CONTEXT.md",
+            "Packages/AIService/CONTEXT.md",
             """layer: Core
-paths: [Packages/Core]
-test_paths: [Packages/Core/Tests]
+paths: [Packages/AIService]
+test_paths: [Packages/AIService/Tests]
 gate_tier: local-fast
-build: swift build --package-path Packages/Core
-test: swift test --package-path Packages/Core
+build: swift build --package-path Packages/AIService
+test: swift test --package-path Packages/AIService
 """,
         )
         with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=0)) as run_mock:
             rc = layer_coverage.main(["run", "Core", "build"])
         self.assertEqual(0, rc)
-        run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/Core"], shell=False)
+        run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/AIService"], shell=False)
 
     def test_run_accepts_trusted_repo_commands(self):
         self.fixture(build_command="swift build --package-path Packages/AIService")
@@ -284,12 +284,12 @@ test: swift build --package-path Prototype
         run_mock.assert_not_called()
 
     def test_run_emits_layered_failure_signal_on_nonzero_exit(self):
-        self.fixture(build_command="swift build --package-path Packages/Core")
+        self.fixture(build_command="swift build --package-path Packages/AIService")
         with mock.patch("layer_coverage.subprocess.run", return_value=mock.Mock(returncode=7)) as run_mock:
             with contextlib.redirect_stdout(io.StringIO()) as stdout:
                 rc = layer_coverage.main(["run", "Core", "build"])
         self.assertEqual(7, rc)
-        run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/Core"], shell=False)
+        run_mock.assert_called_once_with(["swift", "build", "--package-path", "Packages/AIService"], shell=False)
         self.assertIn("::layered-signal::", stdout.getvalue())
 
     def test_run_rejects_unknown_xcodebuild_destination(self):
