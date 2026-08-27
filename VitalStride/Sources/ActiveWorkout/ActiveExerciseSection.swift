@@ -303,6 +303,20 @@ struct ActiveExerciseSection: View {
     // list row. The row-only spacing/background/separator modifiers are removed so
     // the control cannot receive list edit/move behavior while preserving the
     // frozen a11y label/hint and ≥44pt hit target contract.
+    nonisolated static func appendedMainSet(in workoutExercise: WorkoutExercise) -> ExerciseSet {
+        let sortedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
+        let lastMainSet = sortedSets.last(where: { !$0.setType.isSubSet })
+        let order = sortedSets.count
+        return ExerciseSet(
+            order: order,
+            weight: lastMainSet?.weight ?? 0,
+            reps: lastMainSet?.reps ?? 0,
+            setType: lastMainSet?.setType ?? .working,
+            isUnilateral: lastMainSet?.isUnilateral ?? false,
+            weightRight: lastMainSet?.weightRight
+        )
+    }
+
     private var addSetButton: some View {
         Button {
             addSet()
@@ -329,16 +343,7 @@ struct ActiveExerciseSection: View {
     }
 
     private func addSet() {
-        let lastMainSet = sortedSets.last(where: { !$0.setType.isSubSet })
-        let order = workoutExercise.sets?.count ?? 0
-        let newSet = ExerciseSet(
-            order: order,
-            weight: lastMainSet?.weight ?? 0,
-            reps: lastMainSet?.reps ?? 0,
-            setType: lastMainSet?.setType ?? .working,
-            isUnilateral: lastMainSet?.isUnilateral ?? false,
-            weightRight: lastMainSet?.weightRight
-        )
+        let newSet = Self.appendedMainSet(in: workoutExercise)
         newSet.workoutExercise = workoutExercise
         modelContext.insert(newSet)
     }
@@ -528,8 +533,8 @@ private struct AddSetButtonStyle: ButtonStyle {
 // MARK: - Previews (MY-1348 spec 017 — 4-state coverage)
 //
 // Preview matrix required by `tasks.md` §Preview Coverage: `{normal, large}
-// × {light, dark}`, each with ≥ 2 sets so the `addSetButton` sits next to
-// SetRows and its visual separation from data rows is directly comparable.
+// × {light, dark}`, each with ≥ 2 sets so the shared exercise header is shown
+// alongside the title/menu and two set rows as the visual context.
 // Uses the same in-memory `ModelContainerConfiguration.makeTestContainer()`
 // harness as `SetRow` previews.
 
