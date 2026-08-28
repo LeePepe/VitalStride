@@ -38,6 +38,20 @@ struct ExercisePickerSectionGroupingTests {
 
     @Test("Custom exercises still map through equipment to the fixed section contract")
     func customExercisesMapToEquipmentSection() {
+        let assisted = Exercise(
+            nameEn: "Custom Assisted Dip",
+            nameZh: "自定义辅助深蹲",
+            muscleGroup: .fullBody,
+            equipment: .assisted,
+            isCustom: true
+        )
+        let weighted = Exercise(
+            nameEn: "Custom Weighted Pull",
+            nameZh: "自定义负重拉力",
+            muscleGroup: .back,
+            equipment: .weighted,
+            isCustom: true
+        )
         let custom = Exercise(
             nameEn: "Custom Wheel Roller Push",
             nameZh: "自定义轮式滚轮推举",
@@ -46,11 +60,14 @@ struct ExercisePickerSectionGroupingTests {
             isCustom: true
         )
 
-        let grouped = ExercisePickerSectionGrouping.groupedSections(from: [custom])
+        let grouped = ExercisePickerSectionGrouping.groupedSections(from: [assisted, weighted, custom])
 
-        #expect(grouped.count == 1)
-        #expect(grouped[0].0 == .other)
-        #expect(grouped[0].1 == [custom])
+        #expect(grouped.map(\.0) == [.bodyweight, .weighted, .other])
+        #expect(grouped.allSatisfy { section, items in
+            items.allSatisfy { $0.section == section }
+        })
+        #expect(assisted.section == .bodyweight)
+        #expect(weighted.section == .weighted)
         #expect(custom.section == .other)
     }
 }
