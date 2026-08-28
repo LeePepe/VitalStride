@@ -123,11 +123,12 @@ T002 has a semantic dependency on T001's mapping but no remaining scheduling dep
 2. After that PASS, tracker reconciliation moves MY-1490 from Stage 2 to Stage 1 so it can share the active barrier with MY-1489; it remains parked until Team Lead schedules it.
 3. Team Lead prepares T002 from exact checkout base `P`, after verifying `H0` is an ancestor of `P` and both PR #418 `headRefOid` and remote branch `agent/team-lead/0032588c7a6c` still equal `H0`.
 4. Fullstack Engineer changes only T002's two AppUI test files. Its implementation review diff is the exact range `P...H1`; inherited VitalModels and reviewed planning commits are base context, not T002 changes.
-5. The T002 pull request targets `agent/team-lead/0032588c7a6c`, not `main`. Its total stacked PR surface `H0...H1` contains the independently reviewed planning artifacts plus the two T002 AppUI test files; targeting `main` would additionally expose unrelated unmerged history as T002 delivery scope.
-6. AI Reviewer reviews the exact implementation range `P...H1`. `H1` is acceptable only when that range contains the two declared AppUI test files and no other path.
-7. MY-1491 may implement in parallel, but it must merge to `main` before Team Lead integrates T002 and requests the fresh PR #418 required run. This ensures the fresh run uses the corrected RepoInfra gate.
-8. After T002 review passes and the PR #418 source branch is still at `H0`, Team Lead advances `agent/team-lead/0032588c7a6c` by fast-forward only to `H1`. Squash, rebase, cherry-pick, merge commits, or any extra commit are forbidden because they produce an unreviewed combined head.
-9. The fast-forward makes PR #418's new `headRefOid` byte-for-byte equal to `H1` and triggers a fresh required run. This is a new descendant delivery event, not a retry of run `33089199269`.
+5. Team Lead creates or verifies the dedicated frozen PR base ref `agent/planner-lead/my1490-pr-base` at exact OID `P`. The ref must not move during T002 implementation or review.
+6. The T002 pull request targets `agent/planner-lead/my1490-pr-base`, not PR #418's `H0` branch and not `main`. Its actual GitHub three-dot PR surface is therefore `P...H1` and contains only the two authorized AppUI test files.
+7. AI Reviewer reviews the exact implementation range `P...H1`. `H1` is acceptable only when that range and the actual PR surface contain the two declared AppUI test files and no other path.
+8. MY-1491 may implement in parallel, but it must merge to `main` before Team Lead integrates T002 and requests the fresh PR #418 required run. This ensures the fresh run uses the corrected RepoInfra gate.
+9. After T002 review passes, the frozen PR base still equals `P`, and the PR #418 source branch is still at `H0`, Team Lead advances `agent/team-lead/0032588c7a6c` by fast-forward only to `H1`. Squash, rebase, cherry-pick, merge commits, or any extra commit are forbidden because they produce an unreviewed combined head.
+10. The fast-forward makes PR #418's new `headRefOid` byte-for-byte equal to `H1` and triggers a fresh required run. This is a new descendant delivery event, not a retry of run `33089199269`. The temporary T002 base ref is reconciled only after this integration and must never be used to rewrite `H1`.
 
 ### Reviewed-descendant rule
 
@@ -135,11 +136,12 @@ A combined PR #418 head is valid only when all of the following are true:
 
 - `cee0a1a8b3ef6fd13e6c1a84ffc553fe71e0c72f...H0` remains the previously reviewed T001 range.
 - `H0...P` has the fresh planning PASS and contains only the declared planning artifacts.
-- `P...H1` has a fresh implementation PASS and contains only the two T002 AppUI test files.
+- The remote base ref `agent/planner-lead/my1490-pr-base` and T002 PR `baseRefOid` both equal exact `P` throughout implementation review.
+- The T002 PR's actual three-dot surface `P...H1` has a fresh implementation PASS and contains only the two T002 AppUI test files.
 - PR #418 `headRefOid`, the remote source branch, and `H1` match byte-for-byte after fast-forward; `H0` and `P` remain ancestors of that exact head.
 - The final PR #418 required checks, including `App target`, run against that exact combined head and current `main` base.
 
-If PR #418's source branch moves before integration, or any integration step rewrites `P` or `H1`, stop. Recreate the descendant chain from the new authorized base, rerun verification, and obtain fresh exact-revision review; do not rebase or cherry-pick an already reviewed patch and call it equivalent.
+If the frozen T002 PR base ref moves during review, PR #418's source branch moves before integration, or any integration step rewrites `P` or `H1`, stop. Recreate the descendant chain and frozen base from the new authorized revision, rerun verification, and obtain fresh exact-revision review; do not rebase or cherry-pick an already reviewed patch and call it equivalent.
 
 ## Error and Compatibility Strategy
 

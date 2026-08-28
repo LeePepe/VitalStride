@@ -32,9 +32,9 @@ xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride \
 
 Expected assembled distribution: 12 nonempty sections, Bodyweight 376, Weighted 36, Other 96, total 1,558.
 
-Open the T002 pull request against `agent/team-lead/0032588c7a6c`, not `main`. Its stacked PR range `H0...H1` contains the independently reviewed planning artifacts plus the two AppUI test files, while the implementation review range `P...H1` contains only those test files. Obtain an exact-revision AI Reviewer PASS for `P...H1`.
+Create or verify the dedicated remote base ref `agent/planner-lead/my1490-pr-base` at exact `P`, then freeze it. Open the T002 pull request against that ref—not PR #418's `agent/team-lead/0032588c7a6c` branch and not `main`. Confirm the PR `baseRefOid` equals `P`; its actual three-dot PR range and implementation review range are both `P...H1` and contain only the two AppUI test files. Obtain an exact-revision AI Reviewer PASS for that range.
 
-MY-1491 may run in parallel. After MY-1491 merges to `main`, and only while the PR #418 source branch still equals `H0`, Team Lead fast-forwards that branch to `H1`. Do not squash, rebase, cherry-pick, create a merge commit, or add another commit. After integration, the remote source branch and PR #418 `headRefOid` must equal `H1`, with both `H0` and `P` as ancestors, before a fresh required run is accepted.
+MY-1491 may run in parallel. After MY-1491 merges to `main`, while the T002 PR base still equals `P`, and only while the separate PR #418 source branch still equals `H0`, Team Lead fast-forwards the PR #418 branch to `H1`. Do not squash, rebase, cherry-pick, create a merge commit, or add another commit. After integration, the remote source branch and PR #418 `headRefOid` must equal `H1`, with both `H0` and `P` as ancestors, before a fresh required run is accepted.
 
 If any SHA differs, stop and reprepare/review rather than transforming the reviewed patch.
 

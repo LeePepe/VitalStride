@@ -30,10 +30,9 @@ After this revised planning revision passes, reconcile MY-1490 from Stage 2 to S
 
 - Semantic T001 base: `H0=cb78fe8c70071c11f91bf400b00ef14b7812e771`.
 - Exact checkout base: fresh reviewed planning head `P`, pinned in MY-1490 after planning PASS; `H0` must be its ancestor and `H0...P` must contain only the reviewed planning artifacts.
-- Frozen target before integration: PR #418 branch `agent/team-lead/0032588c7a6c`, which must still equal `H0`.
-- Pull-request target: `agent/team-lead/0032588c7a6c`, never `main`.
-- Implementation review range: `P...H1`; the range must contain only `VitalStrideTests/Sources/ExercisesJSONTests.swift` and `VitalStrideTests/Sources/ExercisePickerSectionGroupingTests.swift`.
-- Stacked PR range: `H0...H1`; it contains only the independently reviewed planning artifacts plus the two T002 test files.
+- Frozen PR #418 target before integration: branch `agent/team-lead/0032588c7a6c`, which must still equal `H0`; this is not the T002 PR base.
+- T002 pull-request base: dedicated ref `agent/planner-lead/my1490-pr-base`, created or verified at exact `P` and frozen through implementation review. Never target `H0` or `main`.
+- Actual PR and implementation review range: `P...H1`; the range must contain only `VitalStrideTests/Sources/ExercisesJSONTests.swift` and `VitalStrideTests/Sources/ExercisePickerSectionGroupingTests.swift`.
 - Integration: after fresh implementation PASS and MY-1491 merge, Team Lead fast-forwards the PR #418 branch from `H0` to `H1`. No squash, rebase, cherry-pick, merge commit, or extra commit.
 - Post-integration proof: local head, remote PR #418 branch, PR #418 `headRefOid`, and `H1` are byte-identical; both `H0` and `P` are ancestors; a fresh required PR #418 run evaluates that exact combined head.
 
@@ -42,10 +41,10 @@ If the frozen target moves or the reviewed commit is rewritten, the review is st
 ### T002 delivery acceptance
 
 - Team Lead records a fresh T002 delivery workspace whose `delivery_base_sha` is exactly the reviewed planning head `P`; its branch is distinct from MY-1489's workspace/branch.
-- The T002 pull request's base ref is `agent/team-lead/0032588c7a6c`, its head ref is the dedicated T002 branch, and the target branch remains frozen at `H0` throughout review.
+- The T002 pull request's `baseRefName` is `agent/planner-lead/my1490-pr-base`, its `baseRefOid` and remote base ref both equal exact `P`, and its head ref is the dedicated T002 branch. The base remains frozen throughout review.
 - `git diff --name-only P...H1` returns exactly the two declared AppUI test paths; `git diff --name-only H0...P` returns only the freshly reviewed planning artifacts.
 - The exact `H1` receives AI Reviewer PASS after focused AppUI verification succeeds.
-- Only after MY-1491 merges to `main`, Team Lead fast-forwards the PR #418 source branch to `H1` and proves all head/ancestry values before accepting the fresh required run.
+- Only after MY-1491 merges to `main`, Team Lead fast-forwards the separate PR #418 source branch from `H0` to `H1` and proves all head/ancestry values before accepting the fresh required run.
 
 ## Acceptance traceability
 
