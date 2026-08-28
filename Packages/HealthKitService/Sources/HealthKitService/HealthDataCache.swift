@@ -477,10 +477,12 @@ public actor HealthDataCache {
         )
 
         let semantic: WorkoutFetchSemantic = selectWorkoutFetchSemantic(dateRange: dateRange)
+        let scheduledGeneration = workoutGeneration
         let workouts = try await fetchWorkoutCoalesced(
             dateRange: dateRange,
             provider: workoutProvider,
-            semantic: semantic
+            semantic: semantic,
+            scheduledGeneration: scheduledGeneration
         )
         return Self.filteredWorkouts(workouts, by: dateRange)
     }
@@ -517,10 +519,12 @@ public actor HealthDataCache {
             }
             return .anchoredChanges
         }()
+        let scheduledGeneration = workoutGeneration
         let workouts = try await performWorkoutFetch(
             dateRange: dateRange,
             provider: workoutProvider,
-            semantic: semantic
+            semantic: semantic,
+            scheduledGeneration: scheduledGeneration
         )
         return Self.filteredWorkouts(workouts, by: dateRange)
     }
@@ -854,19 +858,26 @@ public actor HealthDataCache {
     private func fetchWorkoutCoalesced(
         dateRange: DateInterval?,
         provider: any WorkoutDataProviding,
-        semantic: WorkoutFetchSemantic
+        semantic: WorkoutFetchSemantic,
+        scheduledGeneration: UInt64
     ) async throws -> [HealthWorkoutRecord] {
         let key = WorkoutFetchKey(source: semanticSource(for: semantic), dateRange: dateRange)
         if let existing = workoutInFlightFetches[key] {
             return try await existing.task.value
         }
-        return try await performWorkoutFetch(dateRange: dateRange, provider: provider, semantic: semantic)
+        return try await performWorkoutFetch(
+            dateRange: dateRange,
+            provider: provider,
+            semantic: semantic,
+            scheduledGeneration: scheduledGeneration
+        )
     }
 
     private func performWorkoutFetch(
         dateRange: DateInterval?,
         provider: any WorkoutDataProviding,
-        semantic: WorkoutFetchSemantic
+        semantic: WorkoutFetchSemantic,
+        scheduledGeneration: UInt64
     ) async throws -> [HealthWorkoutRecord] {
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("healthkit_workout_fetch", id: signpostID)
@@ -878,6 +889,11 @@ public actor HealthDataCache {
         let key = WorkoutFetchKey(source: semanticSource(for: semantic), dateRange: dateRange)
 
         let task = Task { [provider] in
+            guard self.workoutGeneration == scheduledGeneration else {
+                logger.info("healthkit_workout_fetch_stale_scheduled_generation")
+                throw CancellationError()
+            }
+
             if let preparedProvider = provider as? any WorkoutPreparedDataProviding {
                 let prepared: PreparedWorkoutFetch
                 switch semantic {
@@ -885,6 +901,11 @@ public actor HealthDataCache {
                     prepared = try await preparedProvider.prepareWorkoutSnapshot(dateRange: dateRange)
                 case .anchoredChanges:
                     prepared = try await preparedProvider.prepareWorkoutChanges(dateRange: dateRange)
+                }
+                guard self.workoutGeneration == scheduledGeneration else {
+                    preparedProvider.rejectPreparedWorkoutFetch(prepared)
+                    logger.info("healthkit_workout_fetch_stale_after_provider_ready")
+                    throw CancellationError()
                 }
                 return try await self.acceptPreparedWorkoutFetch(
                     prepared,
@@ -898,6 +919,10 @@ public actor HealthDataCache {
             }
 
             let result = try await provider.fetchWorkouts(dateRange: dateRange)
+            guard self.workoutGeneration == scheduledGeneration else {
+                logger.info("healthkit_workout_fetch_stale_after_provider_ready")
+                throw CancellationError()
+            }
             return try await self.acceptWorkoutFetchResult(
                 result,
                 semantic: semantic,
