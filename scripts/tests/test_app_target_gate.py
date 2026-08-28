@@ -29,7 +29,13 @@ class AppTargetGateRunnerTests(unittest.TestCase):
         streamed = []
         deadline = time.monotonic() + timeout
         try:
-            while time.monotonic() < deadline:
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                ready, _, _ = select.select([proc.stdout], [], [], remaining)
+                if not ready:
+                    break
                 line = proc.stdout.readline()
                 if not line:
                     if proc.poll() is not None:
