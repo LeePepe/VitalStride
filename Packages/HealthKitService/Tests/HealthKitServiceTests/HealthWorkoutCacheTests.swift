@@ -161,6 +161,78 @@ final class RangeAwarePreparedWorkoutProvider: WorkoutPreparedDataProviding, Sen
     }
 }
 
+final class BarrierPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendable {
+    private let preparedState: Mutex<[String: PreparedWorkoutFetch]>
+    private let releaseState: Mutex<[String: Bool]>
+    private let continuations: Mutex<[String: [CheckedContinuation<Void, Never>]]>
+    private let acceptedState: Mutex<[PreparedWorkoutFetch]>
+    private let rejectedState: Mutex<[PreparedWorkoutFetch]>
+
+    init() {
+        self.preparedState = Mutex([:])
+        self.releaseState = Mutex([:])
+        self.continuations = Mutex([:])
+        self.acceptedState = Mutex([])
+        self.rejectedState = Mutex([])
+    }
+
+    func register(_ prepared: PreparedWorkoutFetch, for range: DateInterval?, gate: Bool = false) {
+        let key = Self.key(for: range)
+        preparedState.withLock { $0[key] = prepared }
+        releaseState.withLock { if gate { $0[key] = true } else { $0.removeValue(forKey: key) } }
+    }
+
+    func release(for range: DateInterval?) {
+        let key = Self.key(for: range)
+        let toResume = continuations.withLock { $0.removeValue(forKey: key) ?? [] }
+        for continuation in toResume {
+            continuation.resume()
+        }
+        releaseState.withLock { $0.removeValue(forKey: key) }
+    }
+
+    func prepareWorkoutSnapshot(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch {
+        let key = Self.key(for: dateRange)
+        let gated = releaseState.withLock { $0[key] ?? false }
+        if gated {
+            await withCheckedContinuation { continuation in
+                continuations.withLock { $0[key, default: []].append(continuation) }
+            }
+        }
+        return preparedState.withLock { $0[key] ?? PreparedWorkoutFetch(workouts: [], deletedObjectIDs: [], source: .baselineSnapshot, checkpoint: nil) }
+    }
+
+    func prepareWorkoutChanges(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch {
+        let key = Self.key(for: dateRange)
+        let gated = releaseState.withLock { $0[key] ?? false }
+        if gated {
+            await withCheckedContinuation { continuation in
+                continuations.withLock { $0[key, default: []].append(continuation) }
+            }
+        }
+        return preparedState.withLock { $0[key] ?? PreparedWorkoutFetch(workouts: [], deletedObjectIDs: [], source: .anchoredChanges, checkpoint: nil) }
+    }
+
+    func fetchWorkouts(dateRange: DateInterval?) async throws -> WorkoutFetchResult {
+        WorkoutFetchResult(workouts: [], deletedObjectIDs: [])
+    }
+
+    func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+        acceptedState.withLock { $0.append(prepared) }
+    }
+
+    func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+        rejectedState.withLock { $0.append(prepared) }
+    }
+
+    private static func key(for range: DateInterval?) -> String {
+        guard let range else {
+            return "default"
+        }
+        return "\(range.start.timeIntervalSinceReferenceDate)-\(range.end.timeIntervalSinceReferenceDate)"
+    }
+}
+
 // MARK: - Helpers
 
 private func makeWorkout(
@@ -312,7 +384,7 @@ struct HealthWorkoutCacheTests {
 
         let olderWorkout = makeWorkout(date: olderRange.start)
         let newerWorkout = makeWorkout(date: newerRange.start)
-        let provider = RangeAwarePreparedWorkoutProvider()
+        let provider = BarrierPreparedWorkoutProvider()
         provider.register(
             PreparedWorkoutFetch(
                 workouts: [olderWorkout],
@@ -322,7 +394,7 @@ struct HealthWorkoutCacheTests {
                 checkpoint: nil
             ),
             for: olderRange,
-            delay: .milliseconds(80)
+            gate: true
         )
         provider.register(
             PreparedWorkoutFetch(
@@ -333,7 +405,7 @@ struct HealthWorkoutCacheTests {
                 checkpoint: nil
             ),
             for: newerRange,
-            delay: .milliseconds(5)
+            gate: true
         )
 
         let cache = HealthDataCache(
@@ -344,23 +416,113 @@ struct HealthWorkoutCacheTests {
         let olderTask = Task {
             try await cache.workoutData(in: olderRange)
         }
-        try await Task.sleep(for: .milliseconds(10))
         let newerTask = Task {
             try await cache.workoutData(in: newerRange)
         }
 
+        provider.release(for: newerRange)
         let newestResult = try await newerTask.value
+        provider.release(for: olderRange)
+
         do {
             _ = try await olderTask.value
             Issue.record("older explicit-range result should not replace the newer accepted range")
         } catch is CancellationError {
         }
+
         let authoritative = try await cache.workoutData(in: newerRange)
 
         #expect(newestResult.count == 1)
         #expect(newestResult.first?.id == newerWorkout.id)
         #expect(authoritative.count == 1)
         #expect(authoritative.first?.id == newerWorkout.id)
+    }
+
+    @Test("Anchored empty changes preserve the current baseline")
+    func anchoredEmptyChangesPreserveCurrentBaseline() async throws {
+        let baselineWorkout = makeWorkout(date: Date().addingTimeInterval(-3600))
+        let provider = MockPreparedWorkoutProvider()
+        provider.setPreparedSnapshot(
+            PreparedWorkoutFetch(
+                workouts: [baselineWorkout],
+                deletedObjectIDs: [],
+                source: .baselineSnapshot,
+                coverage: DateInterval(start: baselineWorkout.startDate, end: baselineWorkout.endDate),
+                checkpoint: nil
+            )
+        )
+        provider.setPreparedChanges(
+            PreparedWorkoutFetch(
+                workouts: [],
+                deletedObjectIDs: [],
+                source: .anchoredChanges,
+                coverage: DateInterval(start: baselineWorkout.startDate, end: baselineWorkout.endDate),
+                checkpoint: nil
+            )
+        )
+
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: provider
+        )
+
+        _ = try await cache.workoutData()
+        let refreshed = try await cache.refreshWorkouts()
+
+        #expect(refreshed.count == 1)
+        #expect(refreshed.first?.id == baselineWorkout.id)
+        #expect(provider.accepted.count == 2)
+    }
+
+    @Test("Same-range refresh supersedes the older in-flight request without clearing newer state")
+    func sameRangeRefreshSupersedesOlderInFlightRequest() async throws {
+        let base = Date()
+        let range = DateInterval(start: base.addingTimeInterval(-8 * 60 * 60), end: base)
+        let oldWorkout = makeWorkout(date: range.start.addingTimeInterval(60))
+        let newerWorkout = makeWorkout(date: range.end.addingTimeInterval(-60))
+        let provider = BarrierPreparedWorkoutProvider()
+        provider.register(
+            PreparedWorkoutFetch(
+                workouts: [oldWorkout],
+                deletedObjectIDs: [],
+                source: .explicitRangeSnapshot,
+                coverage: range,
+                checkpoint: nil
+            ),
+            for: range,
+            gate: true
+        )
+        provider.register(
+            PreparedWorkoutFetch(
+                workouts: [newerWorkout],
+                deletedObjectIDs: [],
+                source: .explicitRangeSnapshot,
+                coverage: range,
+                checkpoint: nil
+            ),
+            for: range,
+            gate: true
+        )
+
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: provider
+        )
+
+        let first = Task { try await cache.workoutData(in: range) }
+        let second = Task { try await cache.refreshWorkouts(in: range) }
+
+        provider.release(for: range)
+
+        let secondResult = try await second.value
+        do {
+            _ = try await first.value
+            Issue.record("older same-range request should not publish after a newer refresh")
+        } catch is CancellationError {
+        }
+
+        #expect(secondResult.count == 1)
+        #expect(secondResult.first?.id == newerWorkout.id)
     }
 
     // MARK: - Date Range Filtering
