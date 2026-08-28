@@ -1,6 +1,7 @@
 import os
 import pathlib
 import re
+import select
 import subprocess
 import tempfile
 import time
