@@ -240,8 +240,17 @@ private func makeWorkout(
     activityType: UInt = 37,
     duration: TimeInterval = 3600
 ) -> HealthWorkoutRecord {
+    makeWorkout(id: UUID(), date: date, activityType: activityType, duration: duration)
+}
+
+private func makeWorkout(
+    id: UUID,
+    date: Date = Date(),
+    activityType: UInt = 37,
+    duration: TimeInterval = 3600
+) -> HealthWorkoutRecord {
     HealthWorkoutRecord(
-        id: UUID(),
+        id: id,
         activityTypeRawValue: activityType,
         duration: duration,
         totalEnergyBurned: 500,
@@ -883,5 +892,121 @@ struct HealthWorkoutCacheTests {
         _ = try await cache.workoutData(in: range)
 
         #expect(await workoutMock.fetchDateRanges.first as? DateInterval == range)
+    }
+
+    @Test("Prepared anchored delta reconciles UUID updates and deletions deterministically")
+    func preparedAnchoredDeltaReconcilesUUIDUpdatesAndDeletes() async throws {
+        let baselineStart = Date().addingTimeInterval(-8 * 3600)
+        let updatedID = UUID()
+        let deletedID = UUID()
+        let retainedID = UUID()
+        let baseline = [
+            makeWorkout(id: updatedID, date: baselineStart, activityType: 37),
+            makeWorkout(id: deletedID, date: baselineStart.addingTimeInterval(1800), activityType: 52)
+        ]
+        let updated = makeWorkout(id: updatedID, date: baselineStart.addingTimeInterval(600), activityType: 37)
+        let retained = makeWorkout(id: retainedID, date: baselineStart.addingTimeInterval(900), activityType: 46)
+
+        let provider = MockPreparedWorkoutProvider()
+        provider.setPreparedSnapshot(PreparedWorkoutFetch(
+            workouts: baseline,
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: nil,
+            checkpoint: nil
+        ))
+        provider.setPreparedChanges(PreparedWorkoutFetch(
+            workouts: [updated, retained],
+            deletedObjectIDs: [deletedID],
+            source: .anchoredChanges,
+            coverage: nil,
+            checkpoint: nil
+        ))
+
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: provider
+        )
+
+        _ = try await cache.workoutData()
+        let refreshed = try await cache.refreshWorkouts()
+
+        #expect(Set(refreshed.map(\.id)) == Set([updatedID, retainedID]))
+        #expect(!refreshed.contains { $0.id == deletedID })
+    }
+
+    @Test("Repeated anchored delta is idempotent and keeps deterministic UUID ordering")
+    func repeatedAnchoredDeltaIsIdempotentAndStable() async throws {
+        let anchorDate = Date().addingTimeInterval(-24 * 3600)
+        let firstID = UUID()
+        let secondID = UUID()
+        let thirdID = UUID()
+        let baseline = [makeWorkout(id: firstID, date: anchorDate, activityType: 37)]
+        let updated = [
+            makeWorkout(id: thirdID, date: anchorDate.addingTimeInterval(900), activityType: 35),
+            makeWorkout(id: secondID, date: anchorDate.addingTimeInterval(600), activityType: 52),
+            makeWorkout(id: firstID, date: anchorDate.addingTimeInterval(300), activityType: 37)
+        ]
+
+        let provider = MockPreparedWorkoutProvider()
+        provider.setPreparedSnapshot(PreparedWorkoutFetch(
+            workouts: baseline,
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: nil,
+            checkpoint: nil
+        ))
+        provider.setPreparedChanges(PreparedWorkoutFetch(
+            workouts: updated,
+            deletedObjectIDs: [],
+            source: .anchoredChanges,
+            coverage: nil,
+            checkpoint: nil
+        ))
+
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: provider
+        )
+
+        _ = try await cache.workoutData()
+        let once = try await cache.refreshWorkouts()
+        let twice = try await cache.refreshWorkouts()
+
+        let orderedIDs = once.map(\.id)
+        #expect(orderedIDs == [thirdID, secondID, firstID])
+        #expect(twice == once)
+    }
+
+    @Test("Deletion wins when the same UUID is both updated and deleted in one delta")
+    func deletionWinsWhenSameUUIDAppearsInUpsertAndDelete() async throws {
+        let sharedID = UUID()
+        let baseline = [makeWorkout(id: sharedID, date: Date().addingTimeInterval(-3600), activityType: 37)]
+        let replacement = makeWorkout(id: sharedID, date: Date().addingTimeInterval(-1800), activityType: 52)
+
+        let provider = MockPreparedWorkoutProvider()
+        provider.setPreparedSnapshot(PreparedWorkoutFetch(
+            workouts: baseline,
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: nil,
+            checkpoint: nil
+        ))
+        provider.setPreparedChanges(PreparedWorkoutFetch(
+            workouts: [replacement],
+            deletedObjectIDs: [sharedID],
+            source: .anchoredChanges,
+            coverage: nil,
+            checkpoint: nil
+        ))
+
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: provider
+        )
+
+        _ = try await cache.workoutData()
+        let refreshed = try await cache.refreshWorkouts()
+        #expect(refreshed.isEmpty)
     }
 }
