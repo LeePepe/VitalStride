@@ -1,23 +1,27 @@
 import Testing
 import Foundation
+import Synchronization
 @testable import HealthKitService
 
 // MARK: - Mock
 
-final class MockWorkoutProvider: WorkoutDataProviding, @unchecked Sendable {
+actor MockWorkoutProvider: WorkoutDataProviding {
     var fetchResult: WorkoutFetchResult = WorkoutFetchResult(workouts: [], deletedObjectIDs: [])
     var fetchDelay: Duration?
-    var fetchError: (any Error)?
-    private let lock = NSLock()
-    private var _fetchCallCount: Int = 0
-    private var _fetchDateRanges: [DateInterval?] = []
+    var fetchError: (any Error & Sendable)?
+    var fetchCallCount: Int = 0
+    var fetchDateRanges: [DateInterval?] = []
 
-    var fetchCallCount: Int {
-        lock.withLock { _fetchCallCount }
+    func setFetchResult(_ result: WorkoutFetchResult) {
+        fetchResult = result
     }
 
-    var fetchDateRanges: [DateInterval?] {
-        lock.withLock { _fetchDateRanges }
+    func setFetchDelay(_ delay: Duration?) {
+        fetchDelay = delay
+    }
+
+    func setFetchError(_ error: (any Error & Sendable)?) {
+        fetchError = error
     }
 
     func fetchWorkouts(dateRange: DateInterval?) async throws -> WorkoutFetchResult {
@@ -27,30 +31,64 @@ final class MockWorkoutProvider: WorkoutDataProviding, @unchecked Sendable {
         if let error = fetchError {
             throw error
         }
-        lock.withLock {
-            _fetchCallCount += 1
-            _fetchDateRanges.append(dateRange)
-        }
+        fetchCallCount += 1
+        fetchDateRanges.append(dateRange)
         return fetchResult
     }
 }
 
-final class MockPreparedWorkoutProvider: WorkoutPreparedDataProviding, @unchecked Sendable {
-    var preparedSnapshot: PreparedWorkoutFetch = PreparedWorkoutFetch(
-        workouts: [],
-        deletedObjectIDs: [],
-        source: .baselineSnapshot,
-        checkpoint: nil
-    )
-    var preparedChanges: PreparedWorkoutFetch = PreparedWorkoutFetch(
-        workouts: [],
-        deletedObjectIDs: [],
-        source: .anchoredChanges,
-        checkpoint: nil
-    )
-    var accepted: [PreparedWorkoutFetch] = []
-    var rejected: [PreparedWorkoutFetch] = []
-    var fetchResult: WorkoutFetchResult = WorkoutFetchResult(workouts: [], deletedObjectIDs: [])
+final class MockPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendable {
+    private let preparedSnapshotState: Mutex<PreparedWorkoutFetch>
+    private let preparedChangesState: Mutex<PreparedWorkoutFetch>
+    private let acceptedState: Mutex<[PreparedWorkoutFetch]>
+    private let rejectedState: Mutex<[PreparedWorkoutFetch]>
+    private let fetchResultState: Mutex<WorkoutFetchResult>
+
+    var preparedSnapshot: PreparedWorkoutFetch {
+        preparedSnapshotState.withLock { $0 }
+    }
+    var preparedChanges: PreparedWorkoutFetch {
+        preparedChangesState.withLock { $0 }
+    }
+    var accepted: [PreparedWorkoutFetch] {
+        acceptedState.withLock { $0 }
+    }
+    var rejected: [PreparedWorkoutFetch] {
+        rejectedState.withLock { $0 }
+    }
+    var fetchResult: WorkoutFetchResult {
+        fetchResultState.withLock { $0 }
+    }
+
+    init() {
+        self.preparedSnapshotState = Mutex(PreparedWorkoutFetch(
+            workouts: [],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            checkpoint: nil
+        ))
+        self.preparedChangesState = Mutex(PreparedWorkoutFetch(
+            workouts: [],
+            deletedObjectIDs: [],
+            source: .anchoredChanges,
+            checkpoint: nil
+        ))
+        self.acceptedState = Mutex([])
+        self.rejectedState = Mutex([])
+        self.fetchResultState = Mutex(WorkoutFetchResult(workouts: [], deletedObjectIDs: []))
+    }
+
+    func setPreparedSnapshot(_ value: PreparedWorkoutFetch) {
+        preparedSnapshotState.withLock { $0 = value }
+    }
+
+    func setPreparedChanges(_ value: PreparedWorkoutFetch) {
+        preparedChangesState.withLock { $0 = value }
+    }
+
+    func setFetchResult(_ result: WorkoutFetchResult) {
+        fetchResultState.withLock { $0 = result }
+    }
 
     func fetchWorkouts(dateRange: DateInterval?) async throws -> WorkoutFetchResult {
         fetchResult
@@ -65,11 +103,11 @@ final class MockPreparedWorkoutProvider: WorkoutPreparedDataProviding, @unchecke
     }
 
     func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
-        accepted.append(prepared)
+        acceptedState.withLock { $0.append(prepared) }
     }
 
     func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
-        rejected.append(prepared)
+        rejectedState.withLock { $0.append(prepared) }
     }
 }
 
@@ -116,7 +154,7 @@ struct HealthWorkoutCacheTests {
     @Test("First workout query triggers fetch")
     func cacheMissFetches() async throws {
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchResult = makeWorkoutResult(count: 3)
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 3))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -125,7 +163,7 @@ struct HealthWorkoutCacheTests {
         let result = try await cache.workoutData()
 
         #expect(result.count == 3)
-        #expect(workoutMock.fetchCallCount == 1)
+        #expect(await workoutMock.fetchCallCount == 1)
     }
 
     // MARK: - Cache Hit
@@ -133,7 +171,7 @@ struct HealthWorkoutCacheTests {
     @Test("Second workout query returns cached data without fetching")
     func cacheHitSkipsFetch() async throws {
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchResult = makeWorkoutResult(count: 2)
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 2))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -143,18 +181,20 @@ struct HealthWorkoutCacheTests {
         let second = try await cache.workoutData()
 
         #expect(second.count == 2)
-        #expect(workoutMock.fetchCallCount == 1)
+        #expect(await workoutMock.fetchCallCount == 1)
     }
 
     @Test("Prepared provider results are accepted through the cache checkpoint boundary")
     func preparedProviderAcceptancePublishesAndAccepts() async throws {
         let provider = MockPreparedWorkoutProvider()
-        provider.preparedSnapshot = PreparedWorkoutFetch(
-            workouts: [makeWorkout(date: Date())],
-            deletedObjectIDs: [],
-            source: .baselineSnapshot,
-            coverage: DateInterval(start: Date().addingTimeInterval(-3600), end: Date()),
-            checkpoint: nil
+        provider.setPreparedSnapshot(
+            PreparedWorkoutFetch(
+                workouts: [makeWorkout(date: Date())],
+                deletedObjectIDs: [],
+                source: .baselineSnapshot,
+                coverage: DateInterval(start: Date().addingTimeInterval(-3600), end: Date()),
+                checkpoint: nil
+            )
         )
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
@@ -162,11 +202,50 @@ struct HealthWorkoutCacheTests {
         )
 
         let result = try await cache.workoutData()
+        let accepted = provider.accepted
+        let rejected = provider.rejected
 
         #expect(result.count == 1)
-        #expect(provider.accepted.count == 1)
-        #expect(provider.rejected.isEmpty)
+        #expect(accepted.count == 1)
+        #expect(rejected.isEmpty)
         #expect(await cache.hasWorkoutCache())
+    }
+
+    @Test("Compatible refreshes take the anchored changes path instead of rewriting the baseline")
+    func compatibleRefreshUsesAnchoredChanges() async throws {
+        let provider = MockPreparedWorkoutProvider()
+        let initial = makeWorkout(date: Date().addingTimeInterval(-3600))
+        let updated = makeWorkout(date: Date())
+        provider.setPreparedSnapshot(
+            PreparedWorkoutFetch(
+                workouts: [initial],
+                deletedObjectIDs: [],
+                source: .baselineSnapshot,
+                coverage: DateInterval(start: initial.startDate, end: initial.endDate),
+                checkpoint: nil
+            )
+        )
+        provider.setPreparedChanges(
+            PreparedWorkoutFetch(
+                workouts: [initial, updated],
+                deletedObjectIDs: [],
+                source: .anchoredChanges,
+                coverage: DateInterval(start: initial.startDate, end: updated.endDate),
+                checkpoint: nil
+            )
+        )
+
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: provider
+        )
+
+        _ = try await cache.workoutData()
+        let refreshed = try await cache.refreshWorkouts()
+
+        #expect(refreshed.count == 2)
+        #expect(provider.accepted.count == 2)
+        #expect(provider.rejected.isEmpty)
     }
 
     // MARK: - Date Range Filtering
@@ -180,7 +259,7 @@ struct HealthWorkoutCacheTests {
             makeWorkout(date: now.addingTimeInterval(-2 * 24 * 60 * 60)),
             makeWorkout(date: now.addingTimeInterval(-30 * 60)),
         ]
-        workoutMock.fetchResult = WorkoutFetchResult(workouts: workouts, deletedObjectIDs: [])
+        await workoutMock.setFetchResult(WorkoutFetchResult(workouts: workouts, deletedObjectIDs: []))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -195,20 +274,20 @@ struct HealthWorkoutCacheTests {
         let filtered = try await cache.workoutData(in: recentRange)
 
         #expect(filtered.count == 1)
-        #expect(workoutMock.fetchCallCount == 1)
+        #expect(await workoutMock.fetchCallCount == 1)
     }
 
     @Test("Range cache hit requires full coverage, not just a matching start")
     func rangeCacheHitRequiresFullCoverage() async throws {
         let now = Date()
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchResult = WorkoutFetchResult(
+        await workoutMock.setFetchResult(WorkoutFetchResult(
             workouts: [
                 makeWorkout(date: now.addingTimeInterval(-7 * 24 * 60 * 60)),
                 makeWorkout(date: now),
             ],
             deletedObjectIDs: []
-        )
+        ))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -222,17 +301,17 @@ struct HealthWorkoutCacheTests {
 
         _ = try await cache.workoutData(in: widerRange)
 
-        #expect(workoutMock.fetchCallCount == 2)
+        #expect(await workoutMock.fetchCallCount == 2)
     }
 
     @Test("Default baseline does not satisfy an explicit range when coverage is missing")
     func defaultBaselineDoesNotSatisfyExplicitRangeWithoutCoverage() async throws {
         let now = Date()
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchResult = WorkoutFetchResult(
+        await workoutMock.setFetchResult(WorkoutFetchResult(
             workouts: [makeWorkout(date: now)],
             deletedObjectIDs: []
-        )
+        ))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -246,7 +325,7 @@ struct HealthWorkoutCacheTests {
 
         _ = try await cache.workoutData(in: explicitRange)
 
-        #expect(workoutMock.fetchCallCount == 2)
+        #expect(await workoutMock.fetchCallCount == 2)
     }
 
     // MARK: - Refresh
@@ -254,27 +333,27 @@ struct HealthWorkoutCacheTests {
     @Test("Refresh always fetches and replaces workout cache")
     func refreshAlwaysFetches() async throws {
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchResult = makeWorkoutResult(count: 1)
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 1))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
         )
 
         _ = try await cache.workoutData()
-        #expect(workoutMock.fetchCallCount == 1)
+        #expect(await workoutMock.fetchCallCount == 1)
 
-        workoutMock.fetchResult = makeWorkoutResult(count: 5)
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 5))
         let refreshed = try await cache.refreshWorkouts()
 
         #expect(refreshed.count == 5)
-        #expect(workoutMock.fetchCallCount == 2)
+        #expect(await workoutMock.fetchCallCount == 2)
     }
 
     @Test("Refresh supersedes an older in-flight workout fetch")
     func refreshSupersedesOlderInFlightWorkoutFetch() async throws {
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchDelay = .milliseconds(150)
-        workoutMock.fetchResult = makeWorkoutResult(count: 1)
+        await workoutMock.setFetchDelay(.milliseconds(150))
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 1))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -285,7 +364,7 @@ struct HealthWorkoutCacheTests {
         }
 
         try await Task.sleep(for: .milliseconds(20))
-        workoutMock.fetchResult = makeWorkoutResult(count: 4)
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 4))
         let refreshed = try await cache.refreshWorkouts()
         _ = try? await staleTask.value
 
@@ -300,7 +379,7 @@ struct HealthWorkoutCacheTests {
     @Test("InvalidateWorkouts clears workout cache")
     func invalidateWorkoutsClearsCache() async throws {
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchResult = makeWorkoutResult(count: 2)
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 2))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -313,14 +392,14 @@ struct HealthWorkoutCacheTests {
         #expect(await !cache.hasWorkoutCache())
 
         _ = try await cache.workoutData()
-        #expect(workoutMock.fetchCallCount == 2)
+        #expect(await workoutMock.fetchCallCount == 2)
     }
 
     @Test("In-flight workout fetch does not repopulate after invalidateWorkouts")
     func inFlightWorkoutFetchDiscardedAfterInvalidateWorkouts() async throws {
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchDelay = .milliseconds(100)
-        workoutMock.fetchResult = makeWorkoutResult(count: 3)
+        await workoutMock.setFetchDelay(.milliseconds(100))
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 3))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -358,7 +437,7 @@ struct HealthWorkoutCacheTests {
         )
 
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchResult = makeWorkoutResult(count: 1)
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 1))
         let cache = HealthDataCache(
             dataProvider: dataMock,
             workoutProvider: workoutMock
@@ -385,7 +464,7 @@ struct HealthWorkoutCacheTests {
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test_anchor")
 
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchResult = makeWorkoutResult(count: 1)
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 1))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -413,8 +492,8 @@ struct HealthWorkoutCacheTests {
     @Test("In-flight workout fetch does not repopulate after invalidateAll")
     func inFlightWorkoutFetchDiscardedAfterInvalidation() async throws {
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchDelay = .milliseconds(100)
-        workoutMock.fetchResult = makeWorkoutResult(count: 3)
+        await workoutMock.setFetchDelay(.milliseconds(100))
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 3))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -447,7 +526,7 @@ struct HealthWorkoutCacheTests {
     @Test("Workout telemetry tracks hits, misses, and refreshes")
     func workoutTelemetryTracking() async throws {
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchResult = makeWorkoutResult(count: 1)
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 1))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -467,7 +546,7 @@ struct HealthWorkoutCacheTests {
     @Test("InvalidateAll resets workout telemetry")
     func invalidateAllResetsWorkoutTelemetry() async throws {
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchResult = makeWorkoutResult(count: 1)
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 1))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -496,7 +575,7 @@ struct HealthWorkoutCacheTests {
     @Test("Workout fetch error propagates to caller")
     func workoutFetchErrorPropagates() async {
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchError = HealthKitServiceError.healthDataNotAvailable
+        await workoutMock.setFetchError(HealthKitServiceError.healthDataNotAvailable)
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -517,7 +596,7 @@ struct HealthWorkoutCacheTests {
     @Test("Date range is passed to workout provider on cache miss")
     func dateRangePassedToProvider() async throws {
         let workoutMock = MockWorkoutProvider()
-        workoutMock.fetchResult = makeWorkoutResult(count: 1)
+        await workoutMock.setFetchResult(makeWorkoutResult(count: 1))
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: workoutMock
@@ -526,6 +605,6 @@ struct HealthWorkoutCacheTests {
         let range = DateInterval(start: Date().addingTimeInterval(-3600), duration: 3600)
         _ = try await cache.workoutData(in: range)
 
-        #expect(workoutMock.fetchDateRanges.first as? DateInterval == range)
+        #expect(await workoutMock.fetchDateRanges.first as? DateInterval == range)
     }
 }

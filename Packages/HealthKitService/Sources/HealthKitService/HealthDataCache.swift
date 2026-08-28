@@ -506,7 +506,15 @@ public actor HealthDataCache {
             "healthkit_workout_cache_refresh total=\(self.workoutRefreshCount)"
         )
 
-        let semantic: WorkoutFetchSemantic = dateRange == nil ? .baselineSnapshot : .explicitRangeSnapshot
+        let semantic: WorkoutFetchSemantic = {
+            if dateRange != nil {
+                return .explicitRangeSnapshot
+            }
+            if workoutCache == nil || workoutCache?.source == .explicitRangeSnapshot {
+                return .baselineSnapshot
+            }
+            return .anchoredChanges
+        }()
         let workouts = try await performWorkoutFetch(
             dateRange: dateRange,
             provider: workoutProvider,
@@ -896,7 +904,11 @@ public actor HealthDataCache {
         workoutInFlightFetches[key] = WorkoutInFlightFetch(requestID: requestID, task: task)
 
         do {
-            let workouts = try await task.value
+            let workouts = try await withTaskCancellationHandler {
+                try await task.value
+            } onCancel: {
+                task.cancel()
+            }
             if workoutInFlightFetches[key]?.requestID == requestID {
                 workoutInFlightFetches[key] = nil
             }
@@ -933,27 +945,15 @@ public actor HealthDataCache {
         }
 
         let previous = workoutCache
-        let preserveBaseline = semantic == .anchoredChanges
-            && prepared.deletedObjectIDs.isEmpty
-            && prepared.workouts.isEmpty
-            && previous != nil
+        let preparedSource = prepared.source
 
-        if preserveBaseline {
+        if preparedSource == .anchoredChanges {
             guard let previous else {
                 provider.rejectPreparedWorkoutFetch(prepared)
-                return normalized
+                logger.info("healthkit_workout_fetch_rejected_missing_baseline")
+                throw CancellationError()
             }
-            provider.acceptPreparedWorkoutFetch(prepared)
-            workoutCache = previous
-            return Self.filteredWorkouts(previous.workouts, by: key.dateRange)
-        }
-
-        let nextWorkouts: [HealthWorkoutRecord]
-        let nextCoverage: DateInterval?
-        let nextSource: WorkoutAnchorSource
-
-        if semantic == .anchoredChanges, let previous {
-            if previous.source == .explicitRangeSnapshot {
+            guard previous.source != .explicitRangeSnapshot else {
                 provider.rejectPreparedWorkoutFetch(prepared)
                 logger.info("healthkit_workout_fetch_rejected_incompatible_anchored_base")
                 throw CancellationError()
@@ -966,24 +966,32 @@ public actor HealthDataCache {
             for id in Set(prepared.deletedObjectIDs) {
                 merged[id] = nil
             }
-            nextWorkouts = Self.normalizeWorkoutProjection(Array(merged.values))
-            nextCoverage = prepared.coverage ?? previous.coveredRange
-            nextSource = previous.source
-            if previous.source != .anchoredChanges {
-                workoutGeneration &+= 1
-                logger.info("healthkit_workout_fetch_generation_advanced incompatible_transition")
-            }
-        } else {
-            nextWorkouts = normalized
-            nextCoverage = prepared.coverage ?? key.dateRange ?? DateInterval(
-                start: Date(timeIntervalSinceNow: -HealthKitService.defaultFirstSyncWindow),
-                end: Date()
+
+            let nextWorkouts = Self.normalizeWorkoutProjection(Array(merged.values))
+            let nextEntry = WorkoutCacheEntry(
+                workouts: nextWorkouts,
+                coveredRange: previous.coveredRange,
+                source: previous.source
             )
-            nextSource = semanticSource(for: semantic)
-            if let previous, previous.source != nextSource {
-                workoutGeneration &+= 1
-                logger.info("healthkit_workout_fetch_generation_advanced incompatible_snapshot")
-            }
+            workoutCache = nextEntry
+            provider.acceptPreparedWorkoutFetch(prepared)
+            return nextWorkouts
+        }
+
+        let nextWorkouts: [HealthWorkoutRecord]
+        let nextCoverage: DateInterval?
+        let nextSource: WorkoutAnchorSource
+
+        nextWorkouts = normalized
+        nextCoverage = prepared.coverage ?? key.dateRange ?? DateInterval(
+            start: Date(timeIntervalSinceNow: -HealthKitService.defaultFirstSyncWindow),
+            end: Date()
+        )
+        nextSource = preparedSource
+
+        if let previous, previous.source != nextSource {
+            workoutGeneration &+= 1
+            logger.info("healthkit_workout_fetch_generation_advanced incompatible_snapshot")
         }
 
         workoutCache = WorkoutCacheEntry(
@@ -1013,67 +1021,26 @@ public actor HealthDataCache {
         }
 
         let previous = workoutCache
-        let preserveBaseline = semantic == .anchoredChanges
-            && result.deletedObjectIDs.isEmpty
-            && result.workouts.isEmpty
-            && previous != nil
+        let nextSource: WorkoutAnchorSource = semantic == .explicitRangeSnapshot
+            ? .explicitRangeSnapshot
+            : .baselineSnapshot
 
-        if preserveBaseline {
-            guard let previous else {
-                return normalized
-            }
-            return Self.filteredWorkouts(previous.workouts, by: key.dateRange)
-        }
+        let nextCoverage = result.coverage ?? key.dateRange ?? DateInterval(
+            start: Date(timeIntervalSinceNow: -HealthKitService.defaultFirstSyncWindow),
+            end: Date()
+        )
 
-        let nextWorkouts: [HealthWorkoutRecord]
-        let nextCoverage: DateInterval?
-        let nextSource: WorkoutAnchorSource
-
-        if semantic == .anchoredChanges, let previous {
-            if previous.source == .explicitRangeSnapshot {
-                nextWorkouts = normalized
-                nextCoverage = result.coverage ?? key.dateRange ?? DateInterval(
-                    start: Date(timeIntervalSinceNow: -HealthKitService.defaultFirstSyncWindow),
-                    end: Date()
-                )
-                nextSource = .baselineSnapshot
-                workoutGeneration &+= 1
-                logger.info("healthkit_workout_fetch_generation_advanced incompatible_transition")
-            } else {
-                var merged = Dictionary(previous.workouts.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
-                for workout in normalized {
-                    merged[workout.id] = workout
-                }
-                for id in Set(result.deletedObjectIDs) {
-                    merged[id] = nil
-                }
-                nextWorkouts = Self.normalizeWorkoutProjection(Array(merged.values))
-                nextCoverage = result.coverage ?? previous.coveredRange
-                nextSource = previous.source
-                if previous.source != .anchoredChanges {
-                    workoutGeneration &+= 1
-                    logger.info("healthkit_workout_fetch_generation_advanced incompatible_transition")
-                }
-            }
-        } else {
-            nextWorkouts = normalized
-            nextCoverage = result.coverage ?? key.dateRange ?? DateInterval(
-                start: Date(timeIntervalSinceNow: -HealthKitService.defaultFirstSyncWindow),
-                end: Date()
-            )
-            nextSource = semanticSource(for: semantic)
-            if let previous, previous.source != nextSource {
-                workoutGeneration &+= 1
-                logger.info("healthkit_workout_fetch_generation_advanced incompatible_snapshot")
-            }
+        if let previous, previous.source != nextSource {
+            workoutGeneration &+= 1
+            logger.info("healthkit_workout_fetch_generation_advanced incompatible_snapshot")
         }
 
         workoutCache = WorkoutCacheEntry(
-            workouts: nextWorkouts,
+            workouts: normalized,
             coveredRange: nextCoverage,
             source: nextSource
         )
-        return nextWorkouts
+        return normalized
     }
 
     private func semanticSource(for semantic: WorkoutFetchSemantic) -> WorkoutAnchorSource {
