@@ -35,6 +35,44 @@ final class MockWorkoutProvider: WorkoutDataProviding, @unchecked Sendable {
     }
 }
 
+final class MockPreparedWorkoutProvider: WorkoutPreparedDataProviding, @unchecked Sendable {
+    var preparedSnapshot: PreparedWorkoutFetch = PreparedWorkoutFetch(
+        workouts: [],
+        deletedObjectIDs: [],
+        source: .baselineSnapshot,
+        checkpoint: nil
+    )
+    var preparedChanges: PreparedWorkoutFetch = PreparedWorkoutFetch(
+        workouts: [],
+        deletedObjectIDs: [],
+        source: .anchoredChanges,
+        checkpoint: nil
+    )
+    var accepted: [PreparedWorkoutFetch] = []
+    var rejected: [PreparedWorkoutFetch] = []
+    var fetchResult: WorkoutFetchResult = WorkoutFetchResult(workouts: [], deletedObjectIDs: [])
+
+    func fetchWorkouts(dateRange: DateInterval?) async throws -> WorkoutFetchResult {
+        fetchResult
+    }
+
+    func prepareWorkoutSnapshot(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch {
+        preparedSnapshot
+    }
+
+    func prepareWorkoutChanges(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch {
+        preparedChanges
+    }
+
+    func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+        accepted.append(prepared)
+    }
+
+    func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+        rejected.append(prepared)
+    }
+}
+
 // MARK: - Helpers
 
 private func makeWorkout(
@@ -108,16 +146,38 @@ struct HealthWorkoutCacheTests {
         #expect(workoutMock.fetchCallCount == 1)
     }
 
+    @Test("Prepared provider results are accepted through the cache checkpoint boundary")
+    func preparedProviderAcceptancePublishesAndAccepts() async throws {
+        let provider = MockPreparedWorkoutProvider()
+        provider.preparedSnapshot = PreparedWorkoutFetch(
+            workouts: [makeWorkout(date: Date())],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: DateInterval(start: Date().addingTimeInterval(-3600), end: Date()),
+            checkpoint: nil
+        )
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: provider
+        )
+
+        let result = try await cache.workoutData()
+
+        #expect(result.count == 1)
+        #expect(provider.accepted.count == 1)
+        #expect(provider.rejected.isEmpty)
+        #expect(await cache.hasWorkoutCache())
+    }
+
     // MARK: - Date Range Filtering
 
     @Test("Cache hit filters workouts by date range")
     func cacheHitFiltersDateRange() async throws {
         let now = Date()
-        let yesterday = now.addingTimeInterval(-86400)
         let workoutMock = MockWorkoutProvider()
 
         let workouts = [
-            makeWorkout(date: yesterday),
+            makeWorkout(date: now.addingTimeInterval(-2 * 24 * 60 * 60)),
             makeWorkout(date: now.addingTimeInterval(-30 * 60)),
         ]
         workoutMock.fetchResult = WorkoutFetchResult(workouts: workouts, deletedObjectIDs: [])
@@ -128,11 +188,11 @@ struct HealthWorkoutCacheTests {
 
         _ = try await cache.workoutData()
 
-        let todayRange = DateInterval(
-            start: Calendar.current.startOfDay(for: now),
+        let recentRange = DateInterval(
+            start: now.addingTimeInterval(-2 * 60 * 60),
             end: now.addingTimeInterval(-60)
         )
-        let filtered = try await cache.workoutData(in: todayRange)
+        let filtered = try await cache.workoutData(in: recentRange)
 
         #expect(filtered.count == 1)
         #expect(workoutMock.fetchCallCount == 1)
