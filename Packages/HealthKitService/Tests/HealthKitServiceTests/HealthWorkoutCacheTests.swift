@@ -349,8 +349,12 @@ struct HealthWorkoutCacheTests {
             try await cache.workoutData(in: newerRange)
         }
 
-        _ = try? await olderTask.value
         let newestResult = try await newerTask.value
+        do {
+            _ = try await olderTask.value
+            Issue.record("older explicit-range result should not replace the newer accepted range")
+        } catch is CancellationError {
+        }
         let authoritative = try await cache.workoutData(in: newerRange)
 
         #expect(newestResult.count == 1)

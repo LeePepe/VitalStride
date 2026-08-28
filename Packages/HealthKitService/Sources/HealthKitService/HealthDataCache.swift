@@ -64,6 +64,7 @@ public actor HealthDataCache {
         let workouts: [HealthWorkoutRecord]
         let coveredRange: DateInterval?
         let source: WorkoutAnchorSource
+        let requestOrder: UInt64
     }
 
     private struct FetchKey: Hashable {
@@ -130,6 +131,7 @@ public actor HealthDataCache {
     private var workoutCache: WorkoutCacheEntry?
     private var workoutInFlightFetches: [WorkoutFetchKey: WorkoutInFlightFetch] = [:]
     private var workoutGeneration: UInt64 = 0
+    private var workoutRequestOrder: UInt64 = 0
     private let workoutProvider: (any WorkoutDataProviding)?
     private var workoutHitCount: Int = 0
     private var workoutMissCount: Int = 0
@@ -870,6 +872,8 @@ public actor HealthDataCache {
         let state = signposter.beginInterval("healthkit_workout_fetch", id: signpostID)
         let start = ContinuousClock.now
         let fetchGeneration = workoutGeneration
+        workoutRequestOrder += 1
+        let requestOrder = workoutRequestOrder
         let requestID = UUID()
         let key = WorkoutFetchKey(source: semanticSource(for: semantic), dateRange: dateRange)
 
@@ -888,7 +892,8 @@ public actor HealthDataCache {
                     semantic: semantic,
                     key: key,
                     requestID: requestID,
-                    generation: fetchGeneration
+                    generation: fetchGeneration,
+                    requestOrder: requestOrder
                 )
             }
 
@@ -898,7 +903,8 @@ public actor HealthDataCache {
                 semantic: semantic,
                 key: key,
                 requestID: requestID,
-                generation: fetchGeneration
+                generation: fetchGeneration,
+                requestOrder: requestOrder
             )
         }
         workoutInFlightFetches[key] = WorkoutInFlightFetch(requestID: requestID, task: task)
@@ -931,7 +937,8 @@ public actor HealthDataCache {
         semantic: WorkoutFetchSemantic,
         key: WorkoutFetchKey,
         requestID: UUID,
-        generation: UInt64
+        generation: UInt64,
+        requestOrder: UInt64
     ) async throws -> [HealthWorkoutRecord] {
         let normalized = Self.normalizeWorkoutProjection(prepared.workouts)
         let staleOwner = Task.isCancelled
@@ -971,7 +978,8 @@ public actor HealthDataCache {
             let nextEntry = WorkoutCacheEntry(
                 workouts: nextWorkouts,
                 coveredRange: previous.coveredRange,
-                source: previous.source
+                source: previous.source,
+                requestOrder: requestOrder
             )
             workoutCache = nextEntry
             provider.acceptPreparedWorkoutFetch(prepared)
@@ -990,16 +998,25 @@ public actor HealthDataCache {
         nextSource = preparedSource
 
         if let previous,
-           Self.isIncompatibleWorkoutSnapshot(previous: previous, nextSource: nextSource, nextCoverage: nextCoverage)
+           Self.isIncompatibleWorkoutSnapshot(previous: previous, nextSource: nextSource, nextCoverage: nextCoverage),
+           previous.requestOrder < requestOrder
         {
             workoutGeneration &+= 1
             logger.info("healthkit_workout_fetch_generation_advanced incompatible_snapshot")
+        } else if let previous,
+                  Self.isIncompatibleWorkoutSnapshot(previous: previous, nextSource: nextSource, nextCoverage: nextCoverage),
+                  previous.requestOrder > requestOrder
+        {
+            provider.rejectPreparedWorkoutFetch(prepared)
+            logger.info("healthkit_workout_fetch_rejected_stale_snapshot")
+            throw CancellationError()
         }
 
         workoutCache = WorkoutCacheEntry(
             workouts: nextWorkouts,
             coveredRange: nextCoverage,
-            source: nextSource
+            source: nextSource,
+            requestOrder: requestOrder
         )
         provider.acceptPreparedWorkoutFetch(prepared)
         return nextWorkouts
@@ -1010,7 +1027,8 @@ public actor HealthDataCache {
         semantic: WorkoutFetchSemantic,
         key: WorkoutFetchKey,
         requestID: UUID,
-        generation: UInt64
+        generation: UInt64,
+        requestOrder: UInt64
     ) async throws -> [HealthWorkoutRecord] {
         let normalized = Self.normalizeWorkoutProjection(result.workouts)
         let staleOwner = Task.isCancelled
@@ -1033,16 +1051,24 @@ public actor HealthDataCache {
         )
 
         if let previous,
-           Self.isIncompatibleWorkoutSnapshot(previous: previous, nextSource: nextSource, nextCoverage: nextCoverage)
+           Self.isIncompatibleWorkoutSnapshot(previous: previous, nextSource: nextSource, nextCoverage: nextCoverage),
+           previous.requestOrder < requestOrder
         {
             workoutGeneration &+= 1
             logger.info("healthkit_workout_fetch_generation_advanced incompatible_snapshot")
+        } else if let previous,
+                  Self.isIncompatibleWorkoutSnapshot(previous: previous, nextSource: nextSource, nextCoverage: nextCoverage),
+                  previous.requestOrder > requestOrder
+        {
+            logger.info("healthkit_workout_fetch_rejected_stale_snapshot")
+            throw CancellationError()
         }
 
         workoutCache = WorkoutCacheEntry(
             workouts: normalized,
             coveredRange: nextCoverage,
-            source: nextSource
+            source: nextSource,
+            requestOrder: requestOrder
         )
         return normalized
     }
