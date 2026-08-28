@@ -15,6 +15,10 @@ private final class ActiveWorkoutFrameTracker {
         frames[id] = frame
     }
 
+    func clear(_ ids: [String]) {
+        for id in ids { frames[id] = .zero }
+    }
+
     func frame(for id: String) -> CGRect? {
         frames[id]
     }
@@ -36,9 +40,11 @@ private struct ActiveWorkoutFrameCaptureModifier: ViewModifier {
         content
             .background(
                 GeometryReader { proxy in
+                    let frame = proxy.frame(in: .global)
+                    let _ = { tracker.set(frame, for: id) }()
                     Color.clear.preference(
                         key: ActiveWorkoutFrameValueKey.self,
-                        value: [id: proxy.frame(in: .global)]
+                        value: [id: frame]
                     )
                 }
             )
@@ -179,31 +185,50 @@ struct ActiveWorkoutSnackbarLayoutTests {
         let state = ProductionRootState()
         let tracker = ActiveWorkoutFrameTracker()
         let host = UIHostingController(rootView: ProductionRoot(state: state, tracker: tracker))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 852))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.frame = window.bounds
+
+        let flushLayout = {
+            host.view.setNeedsLayout()
+            host.view.layoutIfNeeded()
+            window.layoutIfNeeded()
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+        }
 
         for slot in [BottomSnackbarSlot.none, .rest, .undo] {
             state.snackbarSlot = slot
             state.isKeyboardVisible = false
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+            tracker.clear(["bottomPresentation", "rootContainer"])
+            flushLayout()
+            for _ in 0..<8 {
+                flushLayout()
+            }
 
             let hiddenHeight = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height
             #expect(hiddenHeight > 0, "Hidden state must keep the production root mounted for slot \(slot)")
+            let hiddenBottom = tracker.frame(for: "bottomPresentation") ?? .zero
+            let hiddenRoot = tracker.frame(for: "rootContainer") ?? .zero
+            #expect(hiddenRoot.width > 0 && hiddenRoot.height > 0, "Hidden root geometry must remain mounted for slot \(slot)")
             if slot != .none {
-                let hiddenBottom = tracker.frame(for: "bottomPresentation") ?? .zero
-                let hiddenRoot = tracker.frame(for: "rootContainer") ?? .zero
                 #expect(hiddenBottom.width > 0 || hiddenBottom.height > 0, "Hidden state must keep the bottom subtree mounted for slot \(slot)")
-                #expect(hiddenRoot.width > 0 && hiddenRoot.height > 0, "Hidden root geometry must remain mounted for slot \(slot)")
             }
 
             state.isKeyboardVisible = true
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+            tracker.clear(["bottomPresentation", "rootContainer"])
+            flushLayout()
+            for _ in 0..<8 {
+                flushLayout()
+            }
 
             let visibleHeight = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height
             #expect(visibleHeight > 0, "Visible state must keep the root mounted for slot \(slot)")
+            let visibleBottom = tracker.frame(for: "bottomPresentation") ?? .zero
+            let visibleRoot = tracker.frame(for: "rootContainer") ?? .zero
+            #expect(visibleRoot.width > 0 && visibleRoot.height > 0, "Visible root geometry must remain mounted for slot \(slot)")
             if slot != .none {
-                let visibleBottom = tracker.frame(for: "bottomPresentation") ?? .zero
-                let visibleRoot = tracker.frame(for: "rootContainer") ?? .zero
                 #expect(visibleBottom.width > 0 || visibleBottom.height > 0, "Visible state must keep the bottom subtree mounted for slot \(slot)")
-                #expect(visibleRoot.width > 0 && visibleRoot.height > 0, "Visible root geometry must remain mounted for slot \(slot)")
             }
             #expect(state.snackbarSlot == slot)
             #expect(state.isKeyboardVisible)
@@ -217,15 +242,19 @@ struct ActiveWorkoutSnackbarLayoutTests {
             #expect(policy.usesTopPresentation == (slot != .none))
 
             state.isKeyboardVisible = false
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+            tracker.clear(["bottomPresentation", "rootContainer"])
+            flushLayout()
+            for _ in 0..<8 {
+                flushLayout()
+            }
 
             let hiddenAgain = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.infinity)).height
             #expect(hiddenAgain > 0, "The same root must survive the visible→hidden transition for slot \(slot)")
+            let hiddenAgainBottom = tracker.frame(for: "bottomPresentation") ?? .zero
+            let hiddenAgainRoot = tracker.frame(for: "rootContainer") ?? .zero
+            #expect(hiddenAgainRoot.width > 0 && hiddenAgainRoot.height > 0, "The hidden return must keep root geometry mounted for slot \(slot)")
             if slot != .none {
-                let hiddenAgainBottom = tracker.frame(for: "bottomPresentation") ?? .zero
-                let hiddenAgainRoot = tracker.frame(for: "rootContainer") ?? .zero
                 #expect(hiddenAgainBottom.width > 0 || hiddenAgainBottom.height > 0, "The hidden return must keep the bottom subtree mounted for slot \(slot)")
-                #expect(hiddenAgainRoot.width > 0 && hiddenAgainRoot.height > 0, "The hidden return must keep root geometry mounted for slot \(slot)")
             }
             #expect(!state.isKeyboardVisible)
         }

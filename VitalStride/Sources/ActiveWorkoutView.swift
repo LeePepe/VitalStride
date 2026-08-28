@@ -33,9 +33,11 @@ private struct ActiveWorkoutFrameCollectorModifier: ViewModifier {
         content
             .background(
                 GeometryReader { proxy in
+                    let rect = proxy.frame(in: .global)
+                    let _ = { onFrame?(rect) }()
                     Color.clear.preference(
                         key: ActiveWorkoutFrameCollectorKey.self,
-                        value: [id: proxy.frame(in: .global)]
+                        value: [id: rect]
                     )
                 }
             )
@@ -198,48 +200,56 @@ struct ActiveWorkoutView: View {
         )
         .padding(.horizontal, Space.cardPadding)
         .padding(.bottom, Space.cardPadding)
-        .modifier(ActiveWorkoutFrameCollectorModifier(id: "bottomPresentation", onFrame: bottomFrameProbe))
+        .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0.001)
+        .allowsHitTesting(layoutPolicy.bottomSafeAreaVisible)
 
         let fabView = fab()
             .modifier(ActiveWorkoutFrameCollectorModifier(id: "fab", onFrame: fabFrameProbe))
+            .opacity(layoutPolicy.fabVisible ? 1 : 0)
+            .allowsHitTesting(layoutPolicy.fabVisible)
 
-        let baseBottom = VStack(spacing: 0) {
+        let bottomSafeAreaLayout = VStack(spacing: 0) {
             fabView
             bottomSnackbar
         }
+        .frame(maxWidth: .infinity, alignment: .bottom)
+        .modifier(ActiveWorkoutFrameCollectorModifier(id: "bottomPresentation", onFrame: bottomFrameProbe))
+        .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0.001)
+        .allowsHitTesting(layoutPolicy.bottomSafeAreaVisible)
 
         if let bottomFocused {
             bottomContent = AnyView(
-                baseBottom
-                    .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0)
-                    .allowsHitTesting(layoutPolicy.bottomSafeAreaVisible)
+                bottomSafeAreaLayout
                     .accessibilityElement(children: .contain)
                     .accessibilityFocused(bottomFocused)
                     .accessibilityHidden(!layoutPolicy.bottomSafeAreaVisible)
             )
         } else {
             bottomContent = AnyView(
-                baseBottom
-                    .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0)
-                    .allowsHitTesting(layoutPolicy.bottomSafeAreaVisible)
+                bottomSafeAreaLayout
                     .accessibilityElement(children: .contain)
                     .accessibilityHidden(!layoutPolicy.bottomSafeAreaVisible)
             )
         }
 
         let mainContentBottomInset: CGFloat = 88
-
-        return VStack(spacing: 0) {
+        let rootView = VStack(spacing: 0) {
             topContent
             mainContent()
                 .padding(.bottom, mainContentBottomInset)
                 .modifier(ActiveWorkoutFrameCollectorModifier(id: "mainContent", onFrame: mainContentFrameProbe))
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    bottomContent
+                        .frame(maxWidth: .infinity, alignment: .bottom)
+                }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            bottomContent
+
+        return GeometryReader { geometry in
+            rootView
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .bottom)
+                .modifier(ActiveWorkoutFrameCollectorModifier(id: "rootContainer", onFrame: rootFrameProbe))
+                .animation(.easeInOut(duration: 0.2), value: layoutPolicy)
         }
-        .modifier(ActiveWorkoutFrameCollectorModifier(id: "rootContainer", onFrame: rootFrameProbe))
-        .animation(.easeInOut(duration: 0.2), value: layoutPolicy)
     }
 
     var body: some View {
