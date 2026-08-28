@@ -58,6 +58,8 @@ Remove ambiguity between authoritative workout snapshots and HealthKit anchored 
 
 The cache actor is the sole acceptance authority for provider results used by `HealthDataCache`.
 
+The precise prepared-fetch capability and its HealthKitService conformance are package-internal to the HealthKitService module and owned by the cache-facing T023-002 file. The package-internal preparation/acceptance methods delivered by T023-001 remain in `HealthKitService.swift` without public access changes. Existing public provider conformers are not required to adopt this capability and retain anchor-free snapshot-only compatibility behavior.
+
 For an anchor-advancing baseline or changes result, acceptance order is:
 
 1. The provider completes the query and returns records/deletions plus an opaque pending checkpoint without persisting it.
@@ -65,6 +67,8 @@ For an anchor-advancing baseline or changes result, acceptance order is:
 3. The cache actor constructs and publishes the new immutable cache entry.
 4. Without another suspension point, the accepted checkpoint is synchronously persisted.
 5. Only the owning request instance clears its in-flight slot and returns the accepted projection.
+
+Acceptance uses the prepared result's declared semantic, coverage, and provenance. The requested semantic identifies intent and coalescing, but it does not override the result: when anchored preparation has no persisted anchor and returns a baseline snapshot, the cache publishes that result as a baseline before accepting its matching checkpoint.
 
 A rejected result performs neither step 3 nor step 4. This gives at-least-once change delivery: if checkpoint persistence cannot complete after cache publication, the previous anchor remains and the next fetch may replay changes, which UUID reconciliation handles idempotently. The unsafe inverse—persisting an anchor before accepting its cache transition—is forbidden.
 
@@ -84,7 +88,8 @@ The source-compatible direct `HealthKitService.fetchWorkouts(dateRange:)` path i
 - Existing callers of `HealthDataCache.refreshWorkouts(in:)` require no source changes.
 - Existing callers of `HealthKitService.fetchWorkouts(dateRange:)` require no source changes.
 - Existing direct service callers receive an authoritative snapshot and no default-anchor side effect.
-- Existing provider conformers receive compatibility behavior for any newly explicit request/acceptance semantic.
+- Existing public provider conformers add no new witness and receive anchor-free snapshot-only compatibility behavior.
+- The prepared-fetch capability adds no AppUI-facing or other public interface; HealthKitService and deterministic cache tests adopt it inside the package.
 - Tests must cover both old call shapes and new precise behavior.
 
 ## Privacy

@@ -32,7 +32,9 @@ The request semantic and range together form the in-flight coalescing identity.
 - Explicit-range snapshots never advance the default workout anchor.
 - Prepared baseline/change results do not persist their pending checkpoint.
 - The direct public service fetch is snapshot-only and has no default-anchor side effect.
-- Existing result construction remains source-compatible through defaults.
+- The precise prepared-fetch capability is package-internal and adds no public witness requirement.
+- Existing public provider conformers remain source-compatible through anchor-free snapshot-only fallback behavior.
+- Cache application follows the prepared result's semantic; an anchored request that prepares a baseline because no persisted anchor exists establishes baseline coverage/provenance.
 
 ## Workout Request Instance
 

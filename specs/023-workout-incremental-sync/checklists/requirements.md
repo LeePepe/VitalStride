@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness before planning review
 **Spec**: `specs/023-workout-incremental-sync/spec.md`
-**Reviewed**: 2026-08-25
+**Reviewed**: 2026-08-28
 
 ## Content Quality
 
@@ -20,6 +20,8 @@
 - [x] The contract forbids checkpoint-first advancement and defines currentness for same-semantic supersession.
 - [x] The direct service path cannot become an independent default-anchor writer outside cache acceptance.
 - [x] Public compatibility, files in scope, files not to touch, and exact package verification are explicit.
+- [x] The prepared-fetch capability is explicitly package-internal, adds no public witness requirement, and preserves snapshot-only fallback for existing public providers.
+- [x] Cache acceptance follows the prepared result's semantic when anchored preparation falls back to a baseline.
 - [x] Success criteria are measurable without HealthKit hardware.
 
 ## Readiness Traceability

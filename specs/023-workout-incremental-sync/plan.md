@@ -1,13 +1,13 @@
 # Implementation Plan: HealthKit workout incremental sync
 
-**Branch**: `agent/planner-lead/afa3d12e2f19`
-**Date**: 2026-08-25
+**Branch**: `agent/planner-lead/19b63eb88135`
+**Date**: 2026-08-28
 **Spec**: `specs/023-workout-incremental-sync/spec.md`
 **Issue**: MY-1477
 
 ## Summary
 
-Repair the workout cache/provider seam inside the `HealthKitService` layer. The provider will distinguish an authoritative snapshot with concrete coverage from anchored changes and return any new anchor as an unpersisted checkpoint. `HealthDataCache` will own acceptance: validate generation/key/request identity, publish the immutable UUID-reconciled entry, then synchronously persist the matching checkpoint. Public cache and direct-service entry points remain source-compatible.
+Repair the workout cache/provider seam inside the `HealthKitService` layer. A package-internal prepared-fetch capability will distinguish an authoritative snapshot with concrete coverage from anchored changes and return any new anchor as an unpersisted checkpoint. `HealthDataCache` will own acceptance: validate generation/key/request identity, publish the immutable UUID-reconciled entry, then synchronously persist the matching checkpoint. Public cache, provider, and direct-service entry points remain source-compatible without widening prepared checkpoint methods into public API.
 
 ## Technical Context
 
@@ -55,13 +55,14 @@ Add an explicit provider-level request semantic for:
 2. anchored changes from the persisted workout anchor;
 3. explicit-range snapshot.
 
-The prepared result identifies snapshot versus changes. Snapshots report concrete coverage. Changes retain UUID upserts and deleted UUIDs. Baseline/change results carry an opaque pending checkpoint but do not persist it. The existing direct service call remains source-compatible but becomes an anchor-free authoritative snapshot, leaving `HealthDataCache` as the sole default-anchor acceptance authority. No implementation-level signature is prescribed here.
+The prepared result identifies snapshot versus changes. Snapshots report concrete coverage. Changes retain UUID upserts and deleted UUIDs. Baseline/change results carry an opaque pending checkpoint but do not persist it. The prepared capability and its production conformance stay package-internal in the cache-owned file, so T023-001's package-internal preparation/acceptance methods satisfy it without a public access change in `HealthKitService.swift`. Existing public provider conformers use anchor-free snapshot-only fallback behavior. The existing direct service call remains source-compatible but becomes an anchor-free authoritative snapshot, leaving `HealthDataCache` as the sole default-anchor acceptance authority. No implementation-level signature is prescribed here.
 
 ### Cache state transition
 
 - Default read with no compatible cache → request baseline snapshot and establish provenance/coverage.
 - Default refresh with a compatible baseline → request anchored changes.
 - Explicit range read/refresh not covered by the current entry → request an anchor-free snapshot for that range.
+- Acceptance follows the prepared result's declared semantic, not only the requested semantic; if preparation falls back from anchored changes to a baseline because no persisted anchor exists, publish it as a baseline with its concrete coverage/provenance.
 - Snapshot → replace the single workout cache entry with the authoritative records and coverage.
 - Changes → copy current records into a UUID map, apply upserts, apply deletions last, deterministically sort, then assign one new immutable entry with unchanged coverage.
 - Incompatible query shape → rebuild rather than treating scoped data as global or vice versa.
@@ -138,7 +139,8 @@ Packages/HealthKitService/
 - Keep `HealthDataCache.refreshWorkouts(in:)` source-compatible.
 - Keep `HealthKitService.fetchWorkouts(dateRange:)` source-compatible.
 - Make the direct service call anchor-free and side-effect-free with respect to the default workout anchor.
-- Extend only the cache-facing provider/result seam needed to express baseline, changes, explicit range, coverage, deferred checkpoint, and cache acceptance; compatibility behavior is locked by tests.
+- Keep the precise cache-facing provider/result seam package-internal, with its conformance owned by `HealthDataCache.swift`; do not add public prepared-fetch requirements or public witness changes in `HealthKitService.swift`.
+- Existing public provider conformers remain source-compatible and are treated as anchor-free snapshot-only adapters; compatibility behavior is locked by tests.
 
 ## Vertical Slice and Dependency Graph
 
@@ -171,6 +173,8 @@ No `xcodebuild` is permitted because implementation scope is package-only.
 | Different ranges share an in-flight result | Coalescing key includes semantic and range. |
 | Same-semantic superseded result advances anchor or clears newer ownership | Unique request-instance currentness; only accepted owner publishes cache then persists checkpoint. |
 | Direct service caller advances the anchor outside cache acceptance | Direct entry point is anchor-free snapshot-only; cache-facing prepare/accept is the sole anchor writer. |
+| A package-internal cache seam accidentally widens public service API or crosses task ownership | Keep the capability and conformance in `HealthDataCache.swift`; existing package-internal service witnesses remain owned by T023-001 and require no access change. |
+| Requested anchored changes prepare a baseline because no anchor exists | Drive publication, coverage, and provenance from the prepared result's declared semantic. |
 | Process interruption between cache publish and checkpoint persistence | Previous anchor remains; next fetch safely replays idempotent UUID changes. |
 | Duplicate or unstable projection | UUID map plus explicit sort/tie-breaker. |
 | Logging leaks workout details | Keep only aggregate query type/count/duration and extend existing privacy audit only if needed. |
@@ -178,7 +182,7 @@ No `xcodebuild` is permitted because implementation scope is package-only.
 
 ## Constitution Check — After Design
 
-All pre-design gates remain PASS. The design uses one existing layer, preserves dependency direction and public call shapes, adds no unsafe concurrency exception, and defines the exact package-local verification. No constitution exception or ADR is required.
+All pre-design gates remain PASS. The design uses one existing layer, preserves dependency direction and public call shapes, keeps the new prepared capability package-internal, adds no unsafe concurrency exception, and defines the exact package-local verification. No constitution exception or ADR is required.
 
 ## Complexity Tracking
 

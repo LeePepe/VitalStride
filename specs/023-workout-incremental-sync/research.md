@@ -17,6 +17,7 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 | Workout cache is memory-only; anchor persists | Cache state in `HealthDataCache.swift`; workout anchor in `HealthKitAnchorStore.swift:46-74` | A process restart can receive changes without a base snapshot. |
 | One in-flight workout task is global | `HealthDataCache.swift:766-788` | Different ranges or request semantics can incorrectly share one result. |
 | Workout anchor is saved before the result reaches the cache | `HealthKitService.swift:594-607` | A result rejected after provider completion can advance the anchor past changes that never reached the cache. |
+| T023-001's prepared-fetch methods are package-internal while the cache owns the capability declaration | Post-T023-001 `HealthKitService.swift` and the T023-002 ownership table in `tasks.md` | A public prepared capability would require excluded public witness edits; a package-internal capability can be adopted across files in the same Swift module without widening scope. |
 
 ## Decision 1: Make request and result semantics explicit
 
@@ -24,7 +25,7 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 
 **Why**: The optional date range currently overloads query scope and synchronization meaning. The cache cannot safely decide replacement versus merge from arrays alone.
 
-**Compatibility**: Existing public cache methods and direct `fetchWorkouts(dateRange:)` remain source-compatible. Provider/result extensions need defaults and tests for existing conformers.
+**Compatibility**: Existing public cache methods and direct `fetchWorkouts(dateRange:)` remain source-compatible. The precise prepared-fetch capability remains package-internal; existing public provider conformers retain anchor-free snapshot-only fallback behavior and require no new public witnesses.
 
 ### Alternatives rejected
 
@@ -32,6 +33,7 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 - **Infer snapshot from empty cache**: a persisted-anchor delta can arrive to an empty cache and be mistaken for a complete baseline.
 - **Reset the anchor on every read**: correct but discards the benefit of anchored synchronization and broadens anchor lifecycle changes.
 - **Persist workout records in L2**: larger schema/privacy scope not required to fix MY-1477.
+- **Expose prepared checkpoint operations as public provider requirements**: adds ordering and persistence knowledge to the public interface, forces T023-001 witness access changes in a T023-002 repair, and provides no external caller leverage.
 
 ## Decision 2: Keep one authoritative workout cache entry
 
@@ -78,6 +80,20 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 **Chosen**: Query semantic, count, duration, and cache outcome may be logged. Workout values, timestamps tied to a record, source details, and identifiers may not be logged.
 
 **Why**: Constitution §I permits aggregate operational metadata but prohibits actual health values/details.
+
+## Decision 7: Keep the prepared-fetch capability at an internal seam
+
+**Chosen**: Declare the prepared-fetch capability and the HealthKitService conformance in T023-002's cache-owned file with package-internal visibility. The existing public provider seam remains unchanged and acts as anchor-free snapshot-only compatibility behavior.
+
+**Why**: The production adapter, cache consumer, and deterministic test adapter are all in the same Swift module. Package-internal witnesses declared by T023-001 are visible across source files, while making the capability public would force public witnesses in an excluded file without serving an external use case.
+
+**Result semantic**: Cache acceptance follows the prepared result's declared semantic. If a requested anchored preparation legitimately falls back to a baseline because no persisted anchor exists, the cache publishes baseline coverage/provenance rather than treating the result as changes.
+
+### Alternatives rejected
+
+- **Add `HealthKitService.swift` to T023-002**: overlaps T023-001 ownership and expands the reviewed file graph for an access-control issue that can be solved at the owning seam.
+- **Move the capability declaration into `HealthKitService.swift`**: changes file ownership but not Swift module visibility or behavior.
+- **Remove production conformance and use only the public fallback**: bypasses prepared checkpoint acceptance and recreates the independent anchor/cache authority gap.
 
 ## Validation Decision
 

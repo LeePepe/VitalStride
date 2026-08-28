@@ -59,7 +59,7 @@ As a workout-list user, I want repeated HealthKit synchronization to retain exis
 - **FR-008**: Workout fetch coalescing MUST be keyed by request semantic and date range so unrelated work cannot share a result.
 - **FR-009**: Workout currentness MUST combine invalidation generation with a unique request instance so cancelled, late, or same-semantic superseded work cannot publish cache state, persist an anchor checkpoint, or clear a newer in-flight owner.
 - **FR-010**: `workoutData(in:)`, `refreshWorkouts(in:)`, and the existing direct `fetchWorkouts(dateRange:)` entry point MUST remain source-compatible; the direct service entry point MUST use anchor-free snapshot behavior and MUST NOT independently read or advance the default workout anchor.
-- **FR-011**: Any provider-contract extension MUST supply compatibility defaults for existing conformers and tests while allowing HealthKitService to expose precise snapshot/delta semantics.
+- **FR-011**: The precise prepared-fetch capability MUST remain package-internal and MUST NOT add public witness requirements. Existing public provider conformers and tests MUST remain source-compatible through anchor-free snapshot-only fallback behavior, while HealthKitService and cache tests may adopt the package-internal capability for precise snapshot/delta semantics.
 - **FR-012**: Final workout projections MUST be deterministically ordered by start date descending, then UUID.
 - **FR-013**: Logs and signposts MUST contain only aggregate metadata such as query type, count, and duration; no workout health values or details may be logged.
 - **FR-014**: Provider failure, cancellation, invalidation, or rejected currentness MUST preserve the last accepted cache/anchor pair and surface existing error behavior to the caller.
@@ -98,7 +98,7 @@ As a workout-list user, I want repeated HealthKit synchronization to retain exis
 - Preserve the current public call shape and defaults of `HealthDataCache.refreshWorkouts(in:)`.
 - Preserve the current public call shape and defaults of `HealthKitService.fetchWorkouts(dateRange:)`.
 - Define the direct service method as an anchor-free authoritative snapshot; reserve anchor preparation/commit for the cache-facing provider seam.
-- Add a more explicit provider request/result/acceptance seam only with source-compatible defaults and behavioral tests.
+- Keep the prepared request/result/acceptance seam package-internal, with no new public provider or witness requirement; preserve source compatibility for existing public providers through snapshot-only fallback behavior and behavioral tests.
 
 ## Success Criteria
 
