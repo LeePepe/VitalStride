@@ -29,11 +29,13 @@ class AppTargetGateRunnerTests(unittest.TestCase):
             tmp = pathlib.Path(tmpdir)
             count = tmp / "count.txt"
             args = tmp / "args.txt"
+            release = tmp / "release.txt"
             fake = tmp / "fake-command.sh"
             fake.write_text(
                 "#!/usr/bin/env bash\n"
                 "count_file=\"${APP_TARGET_COUNT_FILE}\"\n"
                 "args_file=\"${APP_TARGET_ARGS_FILE}\"\n"
+                "release_file=\"${APP_TARGET_RELEASE_FILE}\"\n"
                 "if [ -f \"$count_file\" ]; then\n"
                 "  current=$(cat \"$count_file\")\n"
                 "else\n"
@@ -43,7 +45,7 @@ class AppTargetGateRunnerTests(unittest.TestCase):
                 "printf '%s\\n' \"$next\" > \"$count_file\"\n"
                 "printf '%s\\n' \"$@\" > \"$args_file\"\n"
                 "echo 'fake failure progress'\n"
-                "sleep 1\n"
+                "while [ ! -f \"$release_file\" ]; do sleep 0.05; done\n"
                 "exit 42\n",
                 encoding="utf-8",
             )
@@ -53,6 +55,7 @@ class AppTargetGateRunnerTests(unittest.TestCase):
             env["APP_TARGET_RUNNER"] = str(fake)
             env["APP_TARGET_COUNT_FILE"] = str(count)
             env["APP_TARGET_ARGS_FILE"] = str(args)
+            env["APP_TARGET_RELEASE_FILE"] = str(release)
 
             proc = subprocess.Popen(
                 ["bash", str(SCRIPT)],
@@ -65,19 +68,29 @@ class AppTargetGateRunnerTests(unittest.TestCase):
             )
 
             streamed = []
+            progress_seen = False
             while True:
                 line = proc.stdout.readline()
                 if not line:
                     break
                 streamed.append(line)
                 if "fake failure progress" in line:
+                    progress_seen = True
                     self.assertIsNone(proc.poll())
                     break
 
-            output = "".join(streamed)
-            self.assertIn("fake failure progress", output)
+            self.assertTrue(progress_seen)
+            release.touch()
+            remaining, _ = proc.communicate(timeout=10)
+            output = "".join(streamed) + remaining
+
             self.assertIn("Starting App target tests", output)
-            self.assertIn("App target tests failed", proc.communicate(timeout=10)[0])
+            self.assertIn("fake failure progress", output)
+            self.assertIn("App target tests failed with exit status 42", output)
+            self.assertIn("::group::App target test output", output)
+            self.assertIn("::group::App target failure summary", output)
+            self.assertEqual(output.count("::group::"), 2)
+            self.assertEqual(output.count("::endgroup::"), 2)
             self.assertEqual(42, proc.returncode)
             self.assertEqual("1\n", count.read_text(encoding="utf-8"))
             recorded = args.read_text(encoding="utf-8").splitlines()
@@ -89,11 +102,13 @@ class AppTargetGateRunnerTests(unittest.TestCase):
             tmp = pathlib.Path(tmpdir)
             count = tmp / "count.txt"
             args = tmp / "args.txt"
+            release = tmp / "release.txt"
             fake = tmp / "fake-command.sh"
             fake.write_text(
                 "#!/usr/bin/env bash\n"
                 "count_file=\"${APP_TARGET_COUNT_FILE}\"\n"
                 "args_file=\"${APP_TARGET_ARGS_FILE}\"\n"
+                "release_file=\"${APP_TARGET_RELEASE_FILE}\"\n"
                 "if [ -f \"$count_file\" ]; then\n"
                 "  current=$(cat \"$count_file\")\n"
                 "else\n"
@@ -103,7 +118,7 @@ class AppTargetGateRunnerTests(unittest.TestCase):
                 "printf '%s\\n' \"$next\" > \"$count_file\"\n"
                 "printf '%s\\n' \"$@\" > \"$args_file\"\n"
                 "echo 'fake success progress'\n"
-                "sleep 0.2\n"
+                "while [ ! -f \"$release_file\" ]; do sleep 0.05; done\n"
                 "exit 0\n",
                 encoding="utf-8",
             )
@@ -113,14 +128,43 @@ class AppTargetGateRunnerTests(unittest.TestCase):
             env["APP_TARGET_RUNNER"] = str(fake)
             env["APP_TARGET_COUNT_FILE"] = str(count)
             env["APP_TARGET_ARGS_FILE"] = str(args)
+            env["APP_TARGET_RELEASE_FILE"] = str(release)
 
-            proc = subprocess.run(["bash", str(SCRIPT)], cwd=ROOT, text=True, capture_output=True, env=env)
+            proc = subprocess.Popen(
+                ["bash", str(SCRIPT)],
+                cwd=ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=env,
+            )
 
-            self.assertEqual(0, proc.returncode, proc.stdout + proc.stderr)
+            streamed = []
+            progress_seen = False
+            while True:
+                line = proc.stdout.readline()
+                if not line:
+                    break
+                streamed.append(line)
+                if "fake success progress" in line:
+                    progress_seen = True
+                    self.assertIsNone(proc.poll())
+                    break
+
+            self.assertTrue(progress_seen)
+            release.touch()
+            remaining, _ = proc.communicate(timeout=10)
+            output = "".join(streamed) + remaining
+
+            self.assertEqual(0, proc.returncode)
             self.assertEqual("1\n", count.read_text(encoding="utf-8"))
-            self.assertIn("Starting App target tests", proc.stdout)
-            self.assertIn("App target tests passed", proc.stdout)
-            self.assertIn("fake success progress", proc.stdout)
+            self.assertIn("Starting App target tests", output)
+            self.assertIn("App target tests passed", output)
+            self.assertIn("fake success progress", output)
+            self.assertIn("::group::App target test output", output)
+            self.assertEqual(output.count("::group::"), 1)
+            self.assertEqual(output.count("::endgroup::"), 1)
             recorded = args.read_text(encoding="utf-8").splitlines()
             self.assertEqual(EXPECTED_ARGV, recorded)
 
