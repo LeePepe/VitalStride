@@ -989,7 +989,9 @@ public actor HealthDataCache {
         )
         nextSource = preparedSource
 
-        if let previous, previous.source != nextSource {
+        if let previous,
+           Self.isIncompatibleWorkoutSnapshot(previous: previous, nextSource: nextSource, nextCoverage: nextCoverage)
+        {
             workoutGeneration &+= 1
             logger.info("healthkit_workout_fetch_generation_advanced incompatible_snapshot")
         }
@@ -1030,7 +1032,9 @@ public actor HealthDataCache {
             end: Date()
         )
 
-        if let previous, previous.source != nextSource {
+        if let previous,
+           Self.isIncompatibleWorkoutSnapshot(previous: previous, nextSource: nextSource, nextCoverage: nextCoverage)
+        {
             workoutGeneration &+= 1
             logger.info("healthkit_workout_fetch_generation_advanced incompatible_snapshot")
         }
@@ -1076,6 +1080,20 @@ public actor HealthDataCache {
             }
             return lhs.startDate > rhs.startDate
         }
+    }
+
+    private static func isIncompatibleWorkoutSnapshot(
+        previous: WorkoutCacheEntry,
+        nextSource: WorkoutAnchorSource,
+        nextCoverage: DateInterval?
+    ) -> Bool {
+        if previous.source != nextSource {
+            return true
+        }
+        if previous.source == .anchoredChanges {
+            return false
+        }
+        return previous.coveredRange != nextCoverage
     }
 
     private static func filteredWorkouts(

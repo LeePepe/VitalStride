@@ -111,6 +111,56 @@ final class MockPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendable 
     }
 }
 
+final class RangeAwarePreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendable {
+    private let state: Mutex<[DateInterval: PreparedWorkoutFetch]>
+    private let delays: Mutex<[DateInterval: Duration]>
+    private let acceptedState: Mutex<[PreparedWorkoutFetch]>
+    private let rejectedState: Mutex<[PreparedWorkoutFetch]>
+
+    init() {
+        self.state = Mutex([:])
+        self.delays = Mutex([:])
+        self.acceptedState = Mutex([])
+        self.rejectedState = Mutex([])
+    }
+
+    func register(_ prepared: PreparedWorkoutFetch, for range: DateInterval?, delay: Duration = .zero) {
+        let key = range ?? DateInterval(start: Date.distantPast, end: Date.distantFuture)
+        state.withLock { $0[key] = prepared }
+        delays.withLock { $0[key] = delay }
+    }
+
+    func fetchWorkouts(dateRange: DateInterval?) async throws -> WorkoutFetchResult {
+        WorkoutFetchResult(workouts: [], deletedObjectIDs: [])
+    }
+
+    func prepareWorkoutSnapshot(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch {
+        let key = dateRange ?? DateInterval(start: Date.distantPast, end: Date.distantFuture)
+        let delay = delays.withLock { $0[key] ?? .zero }
+        if delay > .zero {
+            try await Task.sleep(for: delay)
+        }
+        return state.withLock { $0[key] ?? PreparedWorkoutFetch(workouts: [], deletedObjectIDs: [], source: .baselineSnapshot, checkpoint: nil) }
+    }
+
+    func prepareWorkoutChanges(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch {
+        let key = dateRange ?? DateInterval(start: Date.distantPast, end: Date.distantFuture)
+        let delay = delays.withLock { $0[key] ?? .zero }
+        if delay > .zero {
+            try await Task.sleep(for: delay)
+        }
+        return state.withLock { $0[key] ?? PreparedWorkoutFetch(workouts: [], deletedObjectIDs: [], source: .anchoredChanges, checkpoint: nil) }
+    }
+
+    func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+        acceptedState.withLock { $0.append(prepared) }
+    }
+
+    func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+        rejectedState.withLock { $0.append(prepared) }
+    }
+}
+
 // MARK: - Helpers
 
 private func makeWorkout(
@@ -246,6 +296,67 @@ struct HealthWorkoutCacheTests {
         #expect(refreshed.count == 2)
         #expect(provider.accepted.count == 2)
         #expect(provider.rejected.isEmpty)
+    }
+
+    @Test("Different explicit-range snapshots keep the newer range authoritative")
+    func differentExplicitRangeSnapshotsKeepNewerRangeAuthoritative() async throws {
+        let base = Date()
+        let olderRange = DateInterval(
+            start: base.addingTimeInterval(-12 * 60 * 60),
+            end: base.addingTimeInterval(-6 * 60 * 60)
+        )
+        let newerRange = DateInterval(
+            start: base.addingTimeInterval(-18 * 60 * 60),
+            end: base.addingTimeInterval(-12 * 60 * 60)
+        )
+
+        let olderWorkout = makeWorkout(date: olderRange.start)
+        let newerWorkout = makeWorkout(date: newerRange.start)
+        let provider = RangeAwarePreparedWorkoutProvider()
+        provider.register(
+            PreparedWorkoutFetch(
+                workouts: [olderWorkout],
+                deletedObjectIDs: [],
+                source: .explicitRangeSnapshot,
+                coverage: olderRange,
+                checkpoint: nil
+            ),
+            for: olderRange,
+            delay: .milliseconds(80)
+        )
+        provider.register(
+            PreparedWorkoutFetch(
+                workouts: [newerWorkout],
+                deletedObjectIDs: [],
+                source: .explicitRangeSnapshot,
+                coverage: newerRange,
+                checkpoint: nil
+            ),
+            for: newerRange,
+            delay: .milliseconds(5)
+        )
+
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: provider
+        )
+
+        let olderTask = Task {
+            try await cache.workoutData(in: olderRange)
+        }
+        try await Task.sleep(for: .milliseconds(10))
+        let newerTask = Task {
+            try await cache.workoutData(in: newerRange)
+        }
+
+        _ = try? await olderTask.value
+        let newestResult = try await newerTask.value
+        let authoritative = try await cache.workoutData(in: newerRange)
+
+        #expect(newestResult.count == 1)
+        #expect(newestResult.first?.id == newerWorkout.id)
+        #expect(authoritative.count == 1)
+        #expect(authoritative.first?.id == newerWorkout.id)
     }
 
     // MARK: - Date Range Filtering
