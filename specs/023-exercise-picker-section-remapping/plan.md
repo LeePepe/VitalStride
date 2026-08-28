@@ -106,14 +106,40 @@ VitalStrideTests/Sources/
 └── ExercisePickerSectionGroupingTests.swift
 ```
 
-**Structure Decision**: Classification remains in dependency-free VitalModels. AppUI owns only assembled picker behavior and its tests. T001 must complete before T002.
+**Structure Decision**: Classification remains in dependency-free VitalModels. AppUI owns only assembled picker behavior and its tests. The fresh planning revision is published as a planning-files-only descendant of the exact reviewed T001 head; T002 uses that reviewed planning head as its exact checkout base so its implementation diff remains AppUI-test-only. Delivery uses the stacked contract below instead of waiting for T001 to merge to `main`.
 
 ## Layer Decomposition
 
-| Stage | Task | Layer | Deliverable | Depends on |
+| Tracker stage | Task | Layer | Deliverable | Depends on |
 |---|---|---|---|---|
 | 1 | T001 | VitalModels | Final explicit Equipment→ExerciseSection mapping, visible order, package contracts | None |
-| 2 | T002 | AppUI | 12-section catalog distribution and filtered non-empty integration contracts | T001 |
+| 1 after revised planning PASS | T002 | AppUI | 12-section catalog distribution and filtered non-empty integration contracts | Semantic T001 snapshot `cb78fe8c70071c11f91bf400b00ef14b7812e771` plus exact reviewed planning descendant `P` as checkout base |
+
+## Stacked Delivery Contract for T002
+
+T002 has a semantic dependency on T001's mapping but no remaining scheduling dependency: the reviewed T001 head already exists. Let `H0` be `cb78fe8c70071c11f91bf400b00ef14b7812e771`, `P` be the fresh reviewed planning head, and `H1` be the later reviewed T002 implementation head. The following delivery topology preserves each task's one-layer diff while keeping PR #418 frozen until integration is authorized.
+
+1. `P` is based on `H0`, changes only the revised `specs/023-exercise-picker-section-remapping/` planning artifacts, and receives fresh exact-revision planning PASS. The concrete SHA for `P` is then pinned in MY-1490's task body and delivery metadata.
+2. After that PASS, tracker reconciliation moves MY-1490 from Stage 2 to Stage 1 so it can share the active barrier with MY-1489; it remains parked until Team Lead schedules it.
+3. Team Lead prepares T002 from exact checkout base `P`, after verifying `H0` is an ancestor of `P` and both PR #418 `headRefOid` and remote branch `agent/team-lead/0032588c7a6c` still equal `H0`.
+4. Fullstack Engineer changes only T002's two AppUI test files. Its implementation review diff is the exact range `P...H1`; inherited VitalModels and reviewed planning commits are base context, not T002 changes.
+5. The T002 pull request targets `agent/team-lead/0032588c7a6c`, not `main`. Its total stacked PR surface `H0...H1` contains the independently reviewed planning artifacts plus the two T002 AppUI test files; targeting `main` would additionally expose unrelated unmerged history as T002 delivery scope.
+6. AI Reviewer reviews the exact implementation range `P...H1`. `H1` is acceptable only when that range contains the two declared AppUI test files and no other path.
+7. MY-1491 may implement in parallel, but it must merge to `main` before Team Lead integrates T002 and requests the fresh PR #418 required run. This ensures the fresh run uses the corrected RepoInfra gate.
+8. After T002 review passes and the PR #418 source branch is still at `H0`, Team Lead advances `agent/team-lead/0032588c7a6c` by fast-forward only to `H1`. Squash, rebase, cherry-pick, merge commits, or any extra commit are forbidden because they produce an unreviewed combined head.
+9. The fast-forward makes PR #418's new `headRefOid` byte-for-byte equal to `H1` and triggers a fresh required run. This is a new descendant delivery event, not a retry of run `33089199269`.
+
+### Reviewed-descendant rule
+
+A combined PR #418 head is valid only when all of the following are true:
+
+- `cee0a1a8b3ef6fd13e6c1a84ffc553fe71e0c72f...H0` remains the previously reviewed T001 range.
+- `H0...P` has the fresh planning PASS and contains only the declared planning artifacts.
+- `P...H1` has a fresh implementation PASS and contains only the two T002 AppUI test files.
+- PR #418 `headRefOid`, the remote source branch, and `H1` match byte-for-byte after fast-forward; `H0` and `P` remain ancestors of that exact head.
+- The final PR #418 required checks, including `App target`, run against that exact combined head and current `main` base.
+
+If PR #418's source branch moves before integration, or any integration step rewrites `P` or `H1`, stop. Recreate the descendant chain from the new authorized base, rerun verification, and obtain fresh exact-revision review; do not rebase or cherry-pick an already reviewed patch and call it equivalent.
 
 ## Error and Compatibility Strategy
 
@@ -138,7 +164,7 @@ xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride \
   -only-testing:VitalStrideTests/ExercisePickerIndexSyncTests
 ```
 
-完整 App target required check 由 delivery pipeline 执行。
+完整 App target required check 由 delivery pipeline 在 MY-1491 合入 `main`、`H1` fast-forward 进入 PR #418 后执行。该 fresh run 是 MY-1489 的最终 unblock evidence。
 
 ## Files Not to Touch
 

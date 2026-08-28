@@ -18,11 +18,34 @@
 | Task | Layer / context | Files in scope | Explicit exclusions | Interface / contract | Acceptance | Exact verification | Blocked by |
 |---|---|---|---|---|---|---|---|
 | T001 | VitalModels · `Packages/VitalModels/CONTEXT.md` | `Packages/VitalModels/Sources/VitalModels/Enums/Equipment.swift`; `Packages/VitalModels/Sources/VitalModels/Enums/ExerciseSection.swift`; `Packages/VitalModels/Tests/VitalModelsTests/ExerciseSectionTests.swift` | All AppUI files; catalog/importer/Seeder; resources/localizations; persisted models; TelemetryKit; project config | Existing public `Equipment.section` changes mapping; `ExerciseSection` cases/raw values and `Exercise.section` interface remain; `allCases` order places Other last | (1) all 29 Equipment values covered exactly once; (2) assisted→bodyweight; medicine/rope/sled/stability→other; weighted→weighted; (3) retained categories unchanged; (4) merged legacy cases no longer emitted; (5) public raw values and Exercise schema/initializer unchanged; (6) package tests pass | From repo root: `swift build --package-path Packages/VitalModels && swift test --package-path Packages/VitalModels` | None |
-| T002 | AppUI · `VitalStride/CONTEXT.md` | `VitalStrideTests/Sources/ExercisesJSONTests.swift`; `VitalStrideTests/Sources/ExercisePickerSectionGroupingTests.swift` | All app production views/grouping implementation; VitalModels; catalog/importer/Seeder; UI redesign; TelemetryKit; project config | No new interface; verifies existing `ExercisePickerSectionGrouping.groupedSections` through the reviewed mapping contract | (1) exact final order/counts = 12 sections and 1,558 total; (2) Bodyweight=376, Weighted=36, Other=96; (3) every output section nonempty; (4) search/muscle filters preserve per-exercise identity; (5) custom assisted/Other/weighted mapping follows T001; (6) existing index-order regression remains green | From repo root: `xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation -only-testing:VitalStrideTests/ExercisesJSONTests -only-testing:VitalStrideTests/ExercisePickerSectionGroupingTests -only-testing:VitalStrideTests/ExercisePickerIndexSyncTests` | T001 |
+| T002 | AppUI · `VitalStride/CONTEXT.md` | `VitalStrideTests/Sources/ExercisesJSONTests.swift`; `VitalStrideTests/Sources/ExercisePickerSectionGroupingTests.swift` | All app production views/grouping implementation; VitalModels; catalog/importer/Seeder; UI redesign; TelemetryKit; project config | No new interface; verifies existing `ExercisePickerSectionGrouping.groupedSections` through the reviewed mapping contract | (1) exact final order/counts = 12 sections and 1,558 total; (2) Bodyweight=376, Weighted=36, Other=96; (3) every output section nonempty; (4) search/muscle filters preserve per-exercise identity; (5) custom assisted/Other/weighted mapping follows T001; (6) existing index-order regression remains green | From repo root: `xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride -destination 'platform=iOS Simulator,name=iPhone 17' -skipPackagePluginValidation -only-testing:VitalStrideTests/ExercisesJSONTests -only-testing:VitalStrideTests/ExercisePickerSectionGroupingTests -only-testing:VitalStrideTests/ExercisePickerIndexSyncTests` | Semantic T001 snapshot `H0=cb78fe8c70071c11f91bf400b00ef14b7812e771` (satisfied); exact reviewed planning head `P` is the checkout base; final integration waits for MY-1491 merge |
 
 ## Dependencies and execution order
 
-`T001 → T002`. No tasks are parallel: T002's expected distribution depends on T001's model mapping. Each task is one formal layer and one independently reviewable commit.
+The semantic graph remains `T001 → T002`, but T001's exact reviewed implementation head `H0` already satisfies the content dependency. The fresh planning head `P` descends from `H0` and becomes T002's exact checkout base after planning PASS. T002 may therefore be implemented in parallel with MY-1491. Final PR #418 integration waits for both the T002 exact-revision PASS and MY-1491's merge to `main`.
+
+After this revised planning revision passes, reconcile MY-1490 from Stage 2 to Stage 1 while leaving it in `backlog` and unassigned. Stage 1 then represents the active parallel barrier: MY-1489 retains the frozen T001 delivery and MY-1490 carries the dependent AppUI test descendant; Team Lead alone promotes/schedules MY-1490.
+
+### T002 checkout and pull-request contract
+
+- Semantic T001 base: `H0=cb78fe8c70071c11f91bf400b00ef14b7812e771`.
+- Exact checkout base: fresh reviewed planning head `P`, pinned in MY-1490 after planning PASS; `H0` must be its ancestor and `H0...P` must contain only the reviewed planning artifacts.
+- Frozen target before integration: PR #418 branch `agent/team-lead/0032588c7a6c`, which must still equal `H0`.
+- Pull-request target: `agent/team-lead/0032588c7a6c`, never `main`.
+- Implementation review range: `P...H1`; the range must contain only `VitalStrideTests/Sources/ExercisesJSONTests.swift` and `VitalStrideTests/Sources/ExercisePickerSectionGroupingTests.swift`.
+- Stacked PR range: `H0...H1`; it contains only the independently reviewed planning artifacts plus the two T002 test files.
+- Integration: after fresh implementation PASS and MY-1491 merge, Team Lead fast-forwards the PR #418 branch from `H0` to `H1`. No squash, rebase, cherry-pick, merge commit, or extra commit.
+- Post-integration proof: local head, remote PR #418 branch, PR #418 `headRefOid`, and `H1` are byte-identical; both `H0` and `P` are ancestors; a fresh required PR #418 run evaluates that exact combined head.
+
+If the frozen target moves or the reviewed commit is rewritten, the review is stale. Reprepare from the new authorized base, rerun verification, and obtain a new exact-revision PASS before integration.
+
+### T002 delivery acceptance
+
+- Team Lead records a fresh T002 delivery workspace whose `delivery_base_sha` is exactly the reviewed planning head `P`; its branch is distinct from MY-1489's workspace/branch.
+- The T002 pull request's base ref is `agent/team-lead/0032588c7a6c`, its head ref is the dedicated T002 branch, and the target branch remains frozen at `H0` throughout review.
+- `git diff --name-only P...H1` returns exactly the two declared AppUI test paths; `git diff --name-only H0...P` returns only the freshly reviewed planning artifacts.
+- The exact `H1` receives AI Reviewer PASS after focused AppUI verification succeeds.
+- Only after MY-1491 merges to `main`, Team Lead fast-forwards the PR #418 source branch to `H1` and proves all head/ancestry values before accepting the fresh required run.
 
 ## Acceptance traceability
 
@@ -46,4 +69,4 @@
 - `Packages/TelemetryKit/**`
 - `project.yml`, `VitalStride.xcodeproj/**`, Prototype, HealthKit, AIService, watchOS, widget
 
-Implementation dispatch is blocked until AI Reviewer and Team Lead both approve the exact planning revision under ADR-0014.
+T002 dispatch is blocked until AI Reviewer and Team Lead both approve the exact revised planning revision under ADR-0014. Planner/Reviewer do not assign implementation; Team Lead prepares the exact-base workspace and schedules it.

@@ -111,6 +111,16 @@ Weighted spans arms, back, chest, core, legs, and shoulders. Thirty-four of 36 n
 
 ## Decision analysis
 
+### Delivery topology for the unmerged layer stack
+
+The AppUI test patch must compile against the reviewed T001 mapping while keeping VitalModels outside T002's change surface. Three delivery shapes were evaluated:
+
+- **Branch from `main`, target `main`**: rejected because `main` lacks the reviewed mapping, so T002's expected distribution cannot become green independently.
+- **Branch from PR #418 head, target `main`**: rejected because the T002 pull request would include the inherited unmerged VitalModels range and violate T002's AppUI-only scope.
+- **Publish a reviewed planning descendant of PR #418 head, branch T002 from it, and target the PR #418 source branch**: selected. Let `H0=cb78fe8c70071c11f91bf400b00ef14b7812e771`, `P` be the fresh planning-only reviewed descendant, and `H1` be the T002 implementation head. `P...H1` contains only T002's two test files, while `H0...H1` contains only independently reviewed planning artifacts plus those tests. PR #418 can later fast-forward to `H1` without losing either reviewed range.
+
+Squash, rebase, cherry-pick, or a merge commit would create a head different from `H1`. The selected contract therefore requires fast-forward-only integration after MY-1491 merges to `main`, followed by a fresh required PR #418 run. Any intervening branch movement or rewrite of `P`/`H1` invalidates the review and requires a new descendant chain plus fresh review.
+
 ### `assisted`: merge to Bodyweight
 
 **Recommendation confidence: medium-high.** Assisted describes a way the movement is performed, not a consistent device. Most rows are stretches or calisthenic/core movements; actual machine-assisted exercises are already represented by Leverage Machine. Bodyweight is the least misleading existing target and keeps all 15 actions discoverable.

@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-26
 
-**Status**: Candidate — pending ADR-0014 AI Reviewer and Team Lead approval
+**Status**: Candidate — revised T002 delivery contract pending fresh ADR-0014 AI Reviewer and Team Lead approval
 
 **Input**: 基于 catalog v5 的真实上游标签、导入链路与 1,558 条预置动作，落实 MY-1475 对现有 17 个 picker section 的逐项产品决策；保留全部动作，只精简用户可见分区。
 
