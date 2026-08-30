@@ -163,33 +163,37 @@ final class RangeAwarePreparedWorkoutProvider: WorkoutPreparedDataProviding, Sen
 }
 
 final class BarrierPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendable {
-    private let preparedState: Mutex<[String: PreparedWorkoutFetch]>
-    private let releaseState: Mutex<[String: Bool]>
+    private struct QueuedPrepared {
+        let prepared: PreparedWorkoutFetch
+        let gate: Bool
+    }
+
+    private let preparedQueue: Mutex<[String: [QueuedPrepared]]>
     private let continuations: Mutex<[String: [CheckedContinuation<Void, any Error>]]>
+    private let releasedGates: Mutex<[String: Int]>
     private let acceptedState: Mutex<[PreparedWorkoutFetch]>
     private let rejectedState: Mutex<[PreparedWorkoutFetch]>
 
     init() {
-        self.preparedState = Mutex([:])
-        self.releaseState = Mutex([:])
+        self.preparedQueue = Mutex([:])
         self.continuations = Mutex([:])
+        self.releasedGates = Mutex([:])
         self.acceptedState = Mutex([])
         self.rejectedState = Mutex([])
     }
 
     func register(_ prepared: PreparedWorkoutFetch, for range: DateInterval?, gate: Bool = false) {
         let key = Self.key(for: range)
-        preparedState.withLock { $0[key] = prepared }
-        releaseState.withLock { if gate { $0[key] = true } else { $0.removeValue(forKey: key) } }
+        preparedQueue.withLock { $0[key, default: []].append(.init(prepared: prepared, gate: gate)) }
     }
 
     func release(for range: DateInterval?) {
         let key = Self.key(for: range)
+        releasedGates.withLock { $0[key, default: 0] += 1 }
         let toResume = continuations.withLock { $0.removeValue(forKey: key) ?? [] }
         for continuation in toResume {
             continuation.resume(returning: ())
         }
-        releaseState.withLock { $0.removeValue(forKey: key) }
     }
 
     var accepted: [PreparedWorkoutFetch] {
@@ -202,25 +206,58 @@ final class BarrierPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendab
 
     func prepareWorkoutSnapshot(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch {
         let key = Self.key(for: dateRange)
-        let gated = releaseState.withLock { $0[key] ?? false }
-        if gated {
-            try await awaitGateForKey(key)
+        let queued: QueuedPrepared? = preparedQueue.withLock { queue in
+            guard var pending = queue[key], !pending.isEmpty else { return nil }
+            let next = pending.removeFirst()
+            queue[key] = pending
+            return next
         }
-        return preparedState.withLock { $0[key] ?? PreparedWorkoutFetch(workouts: [], deletedObjectIDs: [], source: .baselineSnapshot, checkpoint: nil) }
+
+        if let queued {
+            if queued.gate {
+                try await awaitGateForKey(key)
+            }
+            return queued.prepared
+        }
+
+        return PreparedWorkoutFetch(workouts: [], deletedObjectIDs: [], source: .baselineSnapshot, checkpoint: nil)
     }
 
     func prepareWorkoutChanges(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch {
         let key = Self.key(for: dateRange)
-        let gated = releaseState.withLock { $0[key] ?? false }
-        if gated {
-            try await awaitGateForKey(key)
+        let queued: QueuedPrepared? = preparedQueue.withLock { queue in
+            guard var pending = queue[key], !pending.isEmpty else { return nil }
+            let next = pending.removeFirst()
+            queue[key] = pending
+            return next
         }
-        return preparedState.withLock { $0[key] ?? PreparedWorkoutFetch(workouts: [], deletedObjectIDs: [], source: .anchoredChanges, checkpoint: nil) }
+
+        if let queued {
+            if queued.gate {
+                try await awaitGateForKey(key)
+            }
+            return queued.prepared
+        }
+
+        return PreparedWorkoutFetch(workouts: [], deletedObjectIDs: [], source: .anchoredChanges, checkpoint: nil)
     }
 
     private func awaitGateForKey(_ key: String) async throws {
         try await withTaskCancellationHandler(operation: {
             try await withCheckedThrowingContinuation { continuation in
+                let resumeImmediately = releasedGates.withLock { state in
+                    guard let count = state[key], count > 0 else {
+                        return false
+                    }
+                    state[key] = count - 1
+                    return true
+                }
+
+                if resumeImmediately {
+                    continuation.resume(returning: ())
+                    return
+                }
+
                 continuations.withLock { $0[key, default: []].append(continuation) }
             }
         }, onCancel: {
@@ -228,7 +265,6 @@ final class BarrierPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendab
             for continuation in waiting {
                 continuation.resume(throwing: CancellationError())
             }
-            self.releaseState.withLock { $0.removeValue(forKey: key) }
         })
     }
 
@@ -549,7 +585,9 @@ struct HealthWorkoutCacheTests {
         )
 
         let first = Task { try await cache.workoutData(in: range) }
+        await Task.yield()
         let second = Task { try await cache.refreshWorkouts(in: range) }
+        await Task.yield()
 
         provider.release(for: range)
 
@@ -594,45 +632,73 @@ struct HealthWorkoutCacheTests {
         )
 
         let staleRequest = Task { try await cache.workoutData(in: range) }
-        try await Task.sleep(for: .milliseconds(20))
+        await Task.yield()
         let refreshRequest = Task { try await cache.refreshWorkouts(in: range) }
+        await Task.yield()
 
         provider.release(for: range)
         let refreshed = try await refreshRequest.value
-        _ = try? await staleRequest.value
+        do {
+            _ = try await staleRequest.value
+            Issue.record("stale owner should be rejected before the newer state is accepted")
+        } catch is CancellationError {
+        }
 
         #expect(refreshed.count == 1)
         #expect(refreshed.first?.id == newerWorkout.id)
-        #expect(provider.accepted.count == 2)
-        #expect(provider.accepted.allSatisfy { $0.checkpoint?.anchorData == newerPrepared.checkpoint?.anchorData || $0.checkpoint?.anchorData == stalePrepared.checkpoint?.anchorData })
+        #expect(provider.accepted.count == 1)
+        #expect(provider.accepted.first?.checkpoint?.anchorData == newerPrepared.checkpoint?.anchorData)
+        #expect(provider.rejected.count == 1)
+        #expect(provider.rejected.first?.checkpoint?.anchorData == stalePrepared.checkpoint?.anchorData)
     }
 
     @Test("Rejected checkpoint replay preserves the previously accepted anchor pair")
     func rejectedCheckpointReplayPreservesPreviouslyAcceptedAnchor() async throws {
-        let provider = MockPreparedWorkoutProvider()
+        let base = Date()
+        let range = DateInterval(start: base.addingTimeInterval(-4 * 60 * 60), end: base)
+        let provider = BarrierPreparedWorkoutProvider()
         let acceptedPrepared = PreparedWorkoutFetch(
-            workouts: [makeWorkout(date: Date())],
+            workouts: [makeWorkout(date: base.addingTimeInterval(-90 * 60))],
             deletedObjectIDs: [],
             source: .baselineSnapshot,
-            coverage: DateInterval(start: Date().addingTimeInterval(-1800), end: Date()),
+            coverage: range,
             checkpoint: makeCheckpoint(value: 77)
         )
-        provider.setPreparedSnapshot(acceptedPrepared)
+        let stalePrepared = PreparedWorkoutFetch(
+            workouts: [makeWorkout(date: base.addingTimeInterval(-30 * 60))],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: range,
+            checkpoint: makeCheckpoint(value: 66)
+        )
+        provider.register(acceptedPrepared, for: range, gate: false)
 
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: provider
         )
 
-        _ = try await cache.workoutData()
-        provider.rejectPreparedWorkoutFetch(acceptedPrepared)
+        let accepted = try await cache.workoutData(in: range)
+        #expect(accepted.count == 1)
 
-        #expect(provider.accepted.count == 1)
-        #expect(provider.rejected.last?.checkpoint != nil)
-        #expect(provider.rejected.last?.checkpoint?.anchorData == acceptedPrepared.checkpoint?.anchorData)
+        provider.register(stalePrepared, for: range, gate: true)
+        let staleRequest = Task { try await cache.refreshWorkouts(in: range) }
+        await Task.yield()
+        provider.release(for: range)
+
+        do {
+            _ = try await staleRequest.value
+            Issue.record("stale replay should be rejected without replacing the accepted anchor pair")
+        } catch is CancellationError {
+        }
+
+        #expect(provider.rejected.last?.checkpoint?.anchorData == stalePrepared.checkpoint?.anchorData)
+        #expect(await cache.hasWorkoutCache())
+        let replay = try await cache.workoutData(in: range)
+        #expect(replay.first?.id == accepted.first?.id)
     }
 
-    @Test("Anchored refresh rebuilds from the last accepted checkpoint without dropping the baseline")
+    @Test("Persisted anchor restart rebuilds from the last accepted checkpoint on a new cache instance")
     func persistedAnchorRestartUsesLastAcceptedCheckpoint() async throws {
         let provider = MockPreparedWorkoutProvider()
         let baseline = makeWorkout(date: Date().addingTimeInterval(-60))
@@ -643,27 +709,69 @@ struct HealthWorkoutCacheTests {
             coverage: DateInterval(start: baseline.startDate, end: baseline.endDate),
             checkpoint: makeCheckpoint(value: 101)
         )
-        let nextPrepared = PreparedWorkoutFetch(
+        let restartPrepared = PreparedWorkoutFetch(
             workouts: [makeWorkout(date: Date())],
             deletedObjectIDs: [],
-            source: .anchoredChanges,
+            source: .baselineSnapshot,
             coverage: DateInterval(start: Date().addingTimeInterval(-3600), end: Date()),
             checkpoint: makeCheckpoint(value: 202)
         )
         provider.setPreparedSnapshot(firstPrepared)
-        provider.setPreparedChanges(nextPrepared)
+
+        let initialCache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: provider
+        )
+        _ = try await initialCache.workoutData()
+
+        provider.setPreparedSnapshot(restartPrepared)
+        let restartedCache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: provider
+        )
+        let rebuilt = try await restartedCache.workoutData()
+
+        #expect(rebuilt.count == 1)
+        #expect(provider.accepted.count == 2)
+        #expect(provider.accepted.last?.checkpoint?.anchorData == restartPrepared.checkpoint?.anchorData)
+    }
+
+    @Test("A cancelled coalesced waiter does not cancel the owning caller")
+    func coalescedWaiterCancellationDoesNotCancelOwner() async throws {
+        let base = Date()
+        let range = DateInterval(start: base.addingTimeInterval(-6 * 60 * 60), end: base)
+        let prepared = PreparedWorkoutFetch(
+            workouts: [makeWorkout(date: base.addingTimeInterval(-1 * 60 * 60))],
+            deletedObjectIDs: [],
+            source: .explicitRangeSnapshot,
+            coverage: range,
+            checkpoint: makeCheckpoint(value: 99)
+        )
+        let provider = BarrierPreparedWorkoutProvider()
+        provider.register(prepared, for: range, gate: true)
 
         let cache = HealthDataCache(
             dataProvider: makeMockDataProvider(),
             workoutProvider: provider
         )
 
-        _ = try await cache.workoutData()
-        let refreshed = try await cache.refreshWorkouts()
+        let ownerTask = Task { try await cache.workoutData(in: range) }
+        await Task.yield()
+        let waiterTask = Task { try await cache.workoutData(in: range) }
+        waiterTask.cancel()
+        await Task.yield()
+        provider.release(for: range)
 
-        #expect(refreshed.count == 2)
-        #expect(provider.accepted.count == 2)
-        #expect(provider.accepted.last?.checkpoint?.anchorData == nextPrepared.checkpoint?.anchorData)
+        let ownerResult = try await ownerTask.value
+        do {
+            _ = try await waiterTask.value
+            Issue.record("coalesced waiter cancellation should not cancel the owning request")
+        } catch is CancellationError {
+        }
+
+        #expect(ownerResult.count == 1)
+        #expect(provider.accepted.count == 1)
+        #expect(provider.accepted.last?.checkpoint?.anchorData == prepared.checkpoint?.anchorData)
     }
 
     @Test("Failure preserves the previously accepted cache and checkpoint pair")
@@ -698,8 +806,9 @@ struct HealthWorkoutCacheTests {
         provider.register(failingPrepared, for: nil, gate: true)
 
         let refreshTask = Task { try await cache.refreshWorkouts() }
-        try await Task.sleep(for: .milliseconds(20))
+        await Task.yield()
         refreshTask.cancel()
+        provider.release(for: nil)
 
         do {
             _ = try await refreshTask.value
