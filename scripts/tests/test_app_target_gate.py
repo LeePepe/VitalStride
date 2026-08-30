@@ -1,6 +1,7 @@
 import os
 import pathlib
 import re
+import select
 import subprocess
 import tempfile
 import time
@@ -24,6 +25,38 @@ EXPECTED_ARGV = [
 
 
 class AppTargetGateRunnerTests(unittest.TestCase):
+    def _wait_for_output(self, proc, marker, release_path, timeout=5.0):
+        streamed = []
+        deadline = time.monotonic() + timeout
+        try:
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                ready, _, _ = select.select([proc.stdout], [], [], remaining)
+                if not ready:
+                    break
+                line = proc.stdout.readline()
+                if not line:
+                    if proc.poll() is not None:
+                        break
+                    continue
+                streamed.append(line)
+                if marker in line:
+                    self.assertIsNone(proc.poll())
+                    return "".join(streamed)
+            release_path.touch(exist_ok=True)
+            if proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=3)
+            raise AssertionError(f"Timed out waiting for output marker {marker!r}. Collected output:\n{''.join(streamed)}")
+        finally:
+            release_path.touch(exist_ok=True)
+
     def test_controlled_failure_is_single_invocation_and_propagates_exit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = pathlib.Path(tmpdir)
@@ -66,36 +99,32 @@ class AppTargetGateRunnerTests(unittest.TestCase):
                 bufsize=1,
                 env=env,
             )
-
-            streamed = []
-            progress_seen = False
-            while True:
-                line = proc.stdout.readline()
-                if not line:
-                    break
-                streamed.append(line)
-                if "fake failure progress" in line:
-                    progress_seen = True
-                    self.assertIsNone(proc.poll())
-                    break
-
-            self.assertTrue(progress_seen)
-            release.touch()
-            remaining, _ = proc.communicate(timeout=10)
-            output = "".join(streamed) + remaining
-
-            self.assertIn("Starting App target tests", output)
-            self.assertIn("fake failure progress", output)
-            self.assertIn("App target tests failed with exit status 42", output)
-            self.assertIn("::group::App target test output", output)
-            self.assertIn("::group::App target failure summary", output)
-            self.assertEqual(output.count("::group::"), 2)
-            self.assertEqual(output.count("::endgroup::"), 2)
-            self.assertEqual(42, proc.returncode)
-            self.assertEqual("1\n", count.read_text(encoding="utf-8"))
-            recorded = args.read_text(encoding="utf-8").splitlines()
-            self.assertEqual(EXPECTED_ARGV, recorded)
-            self.assertEqual(1, recorded.count("-skip-testing:VitalStrideTests/OverviewHealthSnapshotTests/loadAllMetrics"))
+            try:
+                output = self._wait_for_output(proc, "fake failure progress", release)
+                release.touch(exist_ok=True)
+                remaining, _ = proc.communicate(timeout=10)
+                output += remaining
+                self.assertIn("Starting App target tests", output)
+                self.assertIn("fake failure progress", output)
+                self.assertIn("App target tests failed with exit status 42", output)
+                self.assertIn("::group::App target test output", output)
+                self.assertIn("::group::App target failure summary", output)
+                self.assertEqual(output.count("::group::"), 2)
+                self.assertEqual(output.count("::endgroup::"), 2)
+                self.assertEqual(42, proc.returncode)
+                self.assertEqual("1\n", count.read_text(encoding="utf-8"))
+                recorded = args.read_text(encoding="utf-8").splitlines()
+                self.assertEqual(EXPECTED_ARGV, recorded)
+                self.assertEqual(1, recorded.count("-skip-testing:VitalStrideTests/OverviewHealthSnapshotTests/loadAllMetrics"))
+            finally:
+                release.touch(exist_ok=True)
+                if proc.poll() is None:
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                        proc.wait(timeout=3)
 
     def test_controlled_success_is_single_invocation_and_returns_zero(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -139,34 +168,30 @@ class AppTargetGateRunnerTests(unittest.TestCase):
                 bufsize=1,
                 env=env,
             )
-
-            streamed = []
-            progress_seen = False
-            while True:
-                line = proc.stdout.readline()
-                if not line:
-                    break
-                streamed.append(line)
-                if "fake success progress" in line:
-                    progress_seen = True
-                    self.assertIsNone(proc.poll())
-                    break
-
-            self.assertTrue(progress_seen)
-            release.touch()
-            remaining, _ = proc.communicate(timeout=10)
-            output = "".join(streamed) + remaining
-
-            self.assertEqual(0, proc.returncode)
-            self.assertEqual("1\n", count.read_text(encoding="utf-8"))
-            self.assertIn("Starting App target tests", output)
-            self.assertIn("App target tests passed", output)
-            self.assertIn("fake success progress", output)
-            self.assertIn("::group::App target test output", output)
-            self.assertEqual(output.count("::group::"), 1)
-            self.assertEqual(output.count("::endgroup::"), 1)
-            recorded = args.read_text(encoding="utf-8").splitlines()
-            self.assertEqual(EXPECTED_ARGV, recorded)
+            try:
+                output = self._wait_for_output(proc, "fake success progress", release)
+                release.touch(exist_ok=True)
+                remaining, _ = proc.communicate(timeout=10)
+                output += remaining
+                self.assertEqual(0, proc.returncode)
+                self.assertEqual("1\n", count.read_text(encoding="utf-8"))
+                self.assertIn("Starting App target tests", output)
+                self.assertIn("App target tests passed", output)
+                self.assertIn("fake success progress", output)
+                self.assertIn("::group::App target test output", output)
+                self.assertEqual(output.count("::group::"), 1)
+                self.assertEqual(output.count("::endgroup::"), 1)
+                recorded = args.read_text(encoding="utf-8").splitlines()
+                self.assertEqual(EXPECTED_ARGV, recorded)
+            finally:
+                release.touch(exist_ok=True)
+                if proc.poll() is None:
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                        proc.wait(timeout=3)
 
     def test_workflow_uses_single_fail_closed_runner(self):
         text = WORKFLOW.read_text(encoding="utf-8")
