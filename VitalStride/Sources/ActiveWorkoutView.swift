@@ -17,6 +17,37 @@ import UIKit
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveWorkout")
 
+private struct ActiveWorkoutFrameCollectorKey: PreferenceKey {
+    static let defaultValue: [String: CGRect] = [:]
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue()) { _, new in new }
+    }
+}
+
+private struct ActiveWorkoutFrameCollectorModifier: ViewModifier {
+    let id: String
+    let onFrame: ((CGRect) -> Void)?
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                GeometryReader { proxy in
+                    let rect = proxy.frame(in: .global)
+                    let _ = { onFrame?(rect) }()
+                    Color.clear.preference(
+                        key: ActiveWorkoutFrameCollectorKey.self,
+                        value: [id: rect]
+                    )
+                }
+            )
+            .onPreferenceChange(ActiveWorkoutFrameCollectorKey.self) { frames in
+                guard let rect = frames[id] else { return }
+                onFrame?(rect)
+            }
+    }
+}
+
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.theme) private var theme
@@ -94,73 +125,162 @@ struct ActiveWorkoutView: View {
         Font.system(largeMode ? .title3 : .subheadline, design: .default)
     }
 
+    private var layoutPolicy: ActiveWorkoutSnackbarLayout.PresentationPolicy {
+        ActiveWorkoutSnackbarLayout.resolvePolicy(
+            isKeyboardVisible: isKeyboardVisible,
+            snackbarSlot: bottomSnackbarSlot
+        )
+    }
+
+    @MainActor
+    @ViewBuilder
+    static func productionRoot(
+        isKeyboardVisible: Bool,
+        snackbarSlot: BottomSnackbarSlot,
+        topFocused: AccessibilityFocusState<Bool>.Binding? = nil,
+        bottomFocused: AccessibilityFocusState<Bool>.Binding? = nil,
+        topFrameProbe: ((CGRect) -> Void)? = nil,
+        bottomFrameProbe: ((CGRect) -> Void)? = nil,
+        rootFrameProbe: ((CGRect) -> Void)? = nil,
+        fabFrameProbe: ((CGRect) -> Void)? = nil,
+        mainContentFrameProbe: ((CGRect) -> Void)? = nil,
+        @ViewBuilder infoBand: () -> some View,
+        @ViewBuilder mainContent: () -> some View,
+        @ViewBuilder undoContent: () -> some View,
+        @ViewBuilder restContent: () -> some View,
+        @ViewBuilder fab: () -> some View
+    ) -> some View {
+        let layoutPolicy = ActiveWorkoutSnackbarLayout.resolvePolicy(
+            isKeyboardVisible: isKeyboardVisible,
+            snackbarSlot: snackbarSlot
+        )
+
+        let topContent: AnyView
+        if layoutPolicy.usesTopPresentation {
+            let topSnackbar = ActiveWorkoutSnackbarLayout.topLayout(
+                snackbarSlot: snackbarSlot,
+                undoContent: undoContent,
+                restContent: restContent
+            )
+            let content = VStack(spacing: 0) {
+                infoBand()
+                topSnackbar
+                    .modifier(ActiveWorkoutFrameCollectorModifier(id: "topPresentation", onFrame: topFrameProbe))
+            }
+            if let topFocused {
+                topContent = AnyView(
+                    content
+                        .accessibilityElement(children: .contain)
+                        .accessibilityFocused(topFocused)
+                )
+            } else {
+                topContent = AnyView(
+                    content
+                        .accessibilityElement(children: .contain)
+                )
+            }
+        } else {
+            topContent = AnyView(infoBand())
+        }
+
+        let bottomContent: AnyView
+        let bottomSnackbar = ActiveWorkoutSnackbarLayout.slotEnvelope(
+            snackbarSlot: snackbarSlot,
+            undoContent: undoContent,
+            restContent: restContent
+        )
+        .padding(.horizontal, Space.cardPadding)
+        .padding(.vertical, Space.gap)
+        .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+        .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(
+            color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
+            radius: 8, y: 4
+        )
+        .padding(.horizontal, Space.cardPadding)
+        .padding(.bottom, Space.cardPadding)
+        .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0.001)
+        .allowsHitTesting(layoutPolicy.bottomSafeAreaVisible)
+
+        let fabView = fab()
+            .modifier(ActiveWorkoutFrameCollectorModifier(id: "fab", onFrame: fabFrameProbe))
+            .opacity(layoutPolicy.fabVisible ? 1 : 0)
+            .allowsHitTesting(layoutPolicy.fabVisible)
+
+        let bottomSafeAreaLayout = VStack(spacing: 0) {
+            fabView
+            bottomSnackbar
+        }
+        .frame(maxWidth: .infinity, alignment: .bottom)
+        .modifier(ActiveWorkoutFrameCollectorModifier(id: "bottomPresentation", onFrame: bottomFrameProbe))
+        .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0.001)
+        .allowsHitTesting(layoutPolicy.bottomSafeAreaVisible)
+
+        if let bottomFocused {
+            bottomContent = AnyView(
+                bottomSafeAreaLayout
+                    .accessibilityElement(children: .contain)
+                    .accessibilityFocused(bottomFocused)
+                    .accessibilityHidden(!layoutPolicy.bottomSafeAreaVisible)
+            )
+        } else {
+            bottomContent = AnyView(
+                bottomSafeAreaLayout
+                    .accessibilityElement(children: .contain)
+                    .accessibilityHidden(!layoutPolicy.bottomSafeAreaVisible)
+            )
+        }
+
+        let mainContentBottomInset: CGFloat = 88
+        let rootView = VStack(spacing: 0) {
+            topContent
+            mainContent()
+                .padding(.bottom, mainContentBottomInset)
+                .modifier(ActiveWorkoutFrameCollectorModifier(id: "mainContent", onFrame: mainContentFrameProbe))
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    bottomContent
+                        .frame(maxWidth: .infinity, alignment: .bottom)
+                }
+        }
+
+        return GeometryReader { geometry in
+            rootView
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .bottom)
+                .modifier(ActiveWorkoutFrameCollectorModifier(id: "rootContainer", onFrame: rootFrameProbe))
+                .animation(.easeInOut(duration: 0.2), value: layoutPolicy)
+        }
+    }
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // MY-1446: when the keyboard is visible, the snackbar renders
-                // inline between the header and the list via the production
-                // `topComposition` helper (same code path tests exercise).
-                // topComposition places info band above snackbar in a VStack,
-                // guaranteeing non-overlap by construction. When keyboard is
-                // not visible, the header is placed standalone (no top snackbar).
-                if isKeyboardVisible {
-                    ActiveWorkoutSnackbarLayout.topComposition(
-                        snackbarSlot: bottomSnackbarSlot,
-                        infoBand: {
-                            // MY-1262: default mode uses compact info band;
-                            // Large Mode keeps its dual-card layout.
-                            if largeMode {
-                                workoutTimer
-                                sessionStatsCard
-                            } else {
-                                compactInfoBand
-                            }
-                        },
-                        undoContent: { undoSnackbarEnvelope },
-                        restContent: { restSnackbarEnvelope }
-                    )
-                    .accessibilityElement(children: .contain)
-                    .accessibilityFocused($isTopSnackbarFocused)
-                } else {
-                    // MY-1262: standalone header when keyboard is hidden.
+            Self.productionRoot(
+                isKeyboardVisible: isKeyboardVisible,
+                snackbarSlot: bottomSnackbarSlot,
+                topFocused: $isTopSnackbarFocused,
+                bottomFocused: $isBottomSnackbarFocused,
+                infoBand: {
                     if largeMode {
                         workoutTimer
                         sessionStatsCard
                     } else {
                         compactInfoBand
                     }
-                }
-                exerciseList
-            }
-            // MY-1446: unified bottom safe area — FAB above, snackbar below.
-            // Uses VStack so non-overlap is guaranteed by construction. The
-            // snackbar is fully within the safe area (never clipped by the
-            // screen edge). Replaces the old overlay-based `.snackbar()`
-            // modifier + offset workaround that caused touch-blocking and
-            // top-edge overlap. The list's scroll inset adjusts smoothly via
-            // animation when the snackbar appears/disappears.
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if !isKeyboardVisible {
-                    ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
-                        snackbarSlot: bottomSnackbarSlot,
-                        undoContent: { undoSnackbarEnvelope },
-                        restContent: { restSnackbarEnvelope },
-                        fab: {
-                            HStack {
-                                Spacer()
-                                ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
-                                    addExerciseButton
-                                }
+                },
+                mainContent: { exerciseList },
+                undoContent: { undoSnackbarEnvelope },
+                restContent: { restSnackbarEnvelope },
+                fab: {
+                    if layoutPolicy.fabVisible {
+                        HStack {
+                            Spacer()
+                            ActiveWorkoutFABContainer.body(snackbarSlot: bottomSnackbarSlot) {
+                                addExerciseButton
                             }
                         }
-                    )
-                    .accessibilityElement(children: .contain)
-                    .accessibilityFocused($isBottomSnackbarFocused)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    }
                 }
-            }
-            .animation(.easeInOut(duration: 0.2), value: isKeyboardVisible)
-            .animation(.easeInOut(duration: 0.2), value: bottomSnackbarSlot)
+            )
             .navigationTitle(String(localized: "训练中", comment: "Active workout navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
