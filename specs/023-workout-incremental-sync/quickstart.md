@@ -16,8 +16,8 @@
 3. **Stage A — result semantics and reconciliation**: add one failing public-cache case for A→empty and anchored-intent→baseline fallback, then implement the minimal whole-entry semantic transition; continue one RED→GREEN case at a time through UUID add/update/delete, unknown deletion, duplicate provider UUIDs, repeated-delta idempotency, deletion-wins, empty authoritative snapshot, and equal-time ordering.
 4. **Stage B — exactly-once caller settlement**: add deterministic failing cases for same-key coalescing, non-owner cancellation, owner cancellation, and shared provider failure; then replace independently synchronized waiter helpers with actor-owned registration/settlement state. Every case must finish without a hang, direct second resume, sleeps, or yield polling.
 5. **Stage C — provider-lane cancellation and reset**: gate one active provider request and one queued successor; observe RED for cancellation, refresh supersession, `invalidateWorkouts()`, and `invalidateAll()`, then implement actor-owned request-ID lanes and reset draining so a fresh successor starts while a stale non-cooperative provider remains held.
-6. **Stage D — atomic checkpoint pair and anchored replay**: accept A/c1; hold completed anchored B/c2 before cache acceptance; cancel/supersede it; prove c2 rejection and replay from c1; then implement opaque currentness plus same-turn A+B/c2 publication/persistence before success settlement. Add the interrupted-persistence replay case as its next tracer bullet.
-7. **Stage E — remaining deterministic matrix**: one RED→GREEN case at a time for explicit-range→default rebuild, concrete coverage versus wider range, different semantic/range requests not coalescing, persisted-anchor restart baseline rebuild, provider failure preserving the accepted pair, stale late completion, and legacy snapshot-only fallback.
+6. **Stage D — checkpoint publication/invocation and anchored replay**: accept A/c1; hold completed anchored B/c2 before cache acceptance; cancel/supersede it; prove c2 rejection and replay from c1; then implement opaque currentness plus same-turn A+B/c2 publication and synchronous acceptance invocation before success settlement. Next, make the provider silently leave durable state on c1 and prove the following query replays B from c1 and resubmits c2 safely.
+7. **Stage E — remaining deterministic matrix**: one RED→GREEN case at a time for explicit-range→default rebuild, concrete coverage versus wider range, different semantic/range requests not coalescing, persisted-anchor restart baseline rebuild, provider failure preserving cache-accepted state, stale late completion, and legacy snapshot-only fallback.
 8. Run focused workout tests after every tracer bullet, then the full repository-declared package gate.
 
 ## Required Regression Matrix
@@ -25,7 +25,7 @@
 - Baseline A → empty changes → A remains.
 - Baseline A → add B + delete A → only B.
 - Existing UUID → changed record → one updated record.
-- Unknown deletion → accepted pair unchanged; duplicate UUIDs in one provider response → one deterministic record.
+- Unknown deletion → cache-accepted state unchanged; duplicate UUIDs in one provider response → one deterministic record.
 - Repeat the same changes → identical result.
 - Empty authoritative snapshot → accepted empty entry; empty anchored changes → prior records retained.
 - Same timestamps → UUID tie-breaker is stable.
@@ -34,14 +34,14 @@
 - Explicit range → later default request rebuilds a compatible baseline.
 - Different ranges/semantics → no incorrect task coalescing.
 - Provider-complete delta held before acceptance → same-semantic supersession → rejected checkpoint is not persisted and the next read still obtains the delta.
-- Replacement provider read observes c1 → replay B → cache publishes A+B with c2 → provider persists c2 → success waiters complete.
+- Replacement provider read observes c1 → replay B → cache publishes A+B with candidate c2 → provider acceptance for c2 is invoked → success waiters complete.
 - Forward opaque checkpoint c1→c2 is accepted solely by current request identity; no cache-side anchor/timestamp ordering.
 - Non-owner coalesced cancellation completes once and leaves owner/peers running; owner cancellation retires the request and completes every attached waiter once.
 - Active/queued provider-lane cancellation, refresh supersession, `invalidateWorkouts()`, and `invalidateAll()` release all affected callers and let current successor work start before stale provider return.
 - Authorization revocation follows the same full-reset drain and cannot leave a provider lane or caller suspended.
 - Late cancelled or invalidated work → reject only; no stale cache/checkpoint commit or newer ownership cleanup.
-- Provider error → every attached waiter fails once and the prior accepted pair remains.
-- Interrupted checkpoint persistence → prior checkpoint replay is UUID-idempotent and later acceptance advances the pair.
+- Provider error → every attached waiter fails once and the prior cache-accepted state remains.
+- Silent no-advance after acceptance invocation → prior durable checkpoint replay is UUID-idempotent and later acceptance invocation may retry c2; no durable-success assertion is made.
 
 ## Focused Verification
 
@@ -67,8 +67,9 @@ Before handoff, confirm:
 - the precise prepared-fetch capability/conformance is package-internal in `HealthDataCache.swift`, and `HealthKitService.swift` has no T023-002 public-witness access change;
 - existing public provider adapters remain snapshot-only, and prepared acceptance uses the result's declared semantic when preparation falls back to a baseline;
 - prepared cache-facing fetches do not persist checkpoints before acceptance;
-- only the current request instance publishes cache state and then synchronously persists its checkpoint;
-- the accepted immutable entry records the same opaque candidate checkpoint that the provider synchronously persists before success settlement;
+- only the current request instance publishes cache state and then synchronously invokes provider acceptance for its checkpoint;
+- the accepted immutable entry records the same opaque candidate checkpoint submitted to provider acceptance before success settlement; this is not treated as a persistence receipt;
+- a provider adapter that records the acceptance call but deliberately leaves durable state unchanged causes a later query from the prior checkpoint and safe UUID-idempotent replay;
 - all request, waiter, and provider-lane mutable state is actor-owned and every continuation completion uses one remove-before-resume authority;
 - cancellation/invalidation drains active and queued callers and a late non-cooperative result is rejected without blocking a successor;
 - production `HealthDataCache.swift` does not decode/order checkpoints or use `Synchronization`, locks, unsafe Sendable annotations, or yield polling for transaction state;

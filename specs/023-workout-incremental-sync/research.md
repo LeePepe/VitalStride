@@ -62,9 +62,9 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 
 ## Decision 4: Defer checkpoint persistence to cache acceptance
 
-**Chosen**: A prepared baseline/change fetch returns an opaque pending checkpoint and does not persist it. The cache actor validates currentness, publishes the corresponding whole cache entry, then synchronously persists the checkpoint without an intervening suspension point.
+**Chosen**: A prepared baseline/change fetch returns an opaque pending checkpoint and does not persist it. The cache actor validates currentness, publishes the corresponding whole cache entry, then synchronously invokes provider acceptance for that checkpoint without an intervening suspension point.
 
-**Why**: Cache-first/checkpoint-second gives at-least-once delivery. If checkpoint persistence is interrupted, the old anchor replays changes and UUID reconciliation is idempotent. Persisting the checkpoint first creates an unsafe at-most-once gap where changes can be skipped permanently.
+**Why**: Cache-first/acceptance-invocation-second gives at-least-once delivery. The existing acceptance returns no persistence outcome and can silently no-op, so the cache does not claim confirmed durability. If persistence is interrupted or silently does not advance, the old anchor replays changes and UUID reconciliation is idempotent. Persisting the checkpoint first creates an unsafe at-most-once gap where changes can be skipped permanently.
 
 **Direct-call compatibility**: The existing direct service call shape remains, but it becomes an anchor-free authoritative snapshot with no default-anchor side effect. The cache-facing provider path is the only anchor prepare/accept authority.
 
@@ -125,11 +125,13 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 
 **Why**: Actor serialization makes registration/cancellation/provider-result races deterministic and eliminates the invalidated design's direct second resume, skipped cancelled waiter, and unreachable waiter set.
 
-## Decision 11: Advance one opaque accepted pair
+## Decision 11: Publish one opaque candidate and invoke acceptance
 
-**Chosen**: Build the accepted immutable entry with the prepared candidate checkpoint, publish it, synchronously persist that same checkpoint without suspension, and only then settle success. Never parse or compare checkpoint contents.
+**Chosen**: Build the accepted immutable entry with the prepared candidate checkpoint, publish it, synchronously invoke provider acceptance for that same checkpoint without suspension, and only then settle success. Never parse or compare checkpoint contents.
 
-**Why**: The actor turn provides the observable linearization point. Process failure can leave persistence behind and cause idempotent replay, but no successful caller observes a persisted checkpoint ahead of its matching cache entry.
+**Why**: The actor turn provides the observable cache-acceptance linearization point. T023-001's `Void` acceptance cannot report archive failure, so T023-002 proves invocation ordering rather than durable success. Process failure or silent no-advance leaves the durable anchor behind and causes idempotent replay; it never authorizes a persisted checkpoint ahead of its matching cache entry.
+
+**Rejected for this revision**: Reopening T023-001 so acceptance returns or throws a persistence outcome would require `HealthKitService.swift` and provider-contract-test ownership changes. Team Lead required the existing package/API/file boundaries, so that expansion is not authorized.
 
 ## Decision 12: Repair with vertical RED→GREEN tracer bullets
 

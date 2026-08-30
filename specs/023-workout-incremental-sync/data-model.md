@@ -48,7 +48,7 @@ The request semantic and range together form the in-flight coalescing identity.
 
 - Duplicate ordinary reads may share one owning instance.
 - An explicit refresh creates a new instance even when its fetch key matches the prior refresh.
-- Only the instance still registered for its key may publish, persist a checkpoint, or clear the in-flight slot.
+- Only the instance still registered for its key may publish, invoke checkpoint acceptance, or clear the in-flight slot.
 
 ## Workout Transaction
 
@@ -101,19 +101,21 @@ Actor-owned logical state for one request instance.
 - Queued cancellation/reset removes the request identity and settles callers immediately.
 - Late results must pass generation/key/request currentness before acceptance.
 
-## Accepted Workout Pair
+## Cache Acceptance State
 
 | Field | Meaning |
 |---|---|
-| Immutable cache entry | Records, concrete coverage, provenance, request order, matching checkpoint |
-| Persisted checkpoint | The same opaque checkpoint accepted for that entry |
+| Immutable cache entry | Records, concrete coverage, provenance, request order, and optional cache-accepted candidate checkpoint |
+| Acceptance invocation | Synchronous submission of that same candidate to the provider before caller success |
+| Durable anchor | Provider-owned state that may remain on the prior checkpoint because the `Void` acceptance reports no outcome |
 
 ### Invariants
 
 - Checkpoint contents are never decoded, compared, or ordered by the cache.
-- A current baseline/delta entry records the candidate checkpoint, not the previous checkpoint.
+- A current baseline/delta entry records the cache-accepted candidate checkpoint, not the previous checkpoint; an explicit-range entry records no checkpoint.
 - Entry publication and synchronous provider acceptance occur in one actor turn before success settlement.
-- A process failure may leave persistence behind the cache and replay safely; persisted state never leads an observably successful cache transition.
+- Acceptance invocation is observable to the deterministic provider adapter, but it is not proof of durable persistence.
+- Process failure or silent no-advance may leave durable state behind the cache and replay safely; the cache does not roll back or fail waiters based on an outcome the seam cannot report.
 
 ## Workout Cache Entry
 
@@ -123,6 +125,7 @@ Actor-owned logical state for one request instance.
 | Coverage | The concrete range actually fetched |
 | Provenance | Whether the entry is a default anchored baseline or an explicit range snapshot |
 | Generation | Actor-owned workout state version captured by in-flight work |
+| Accepted checkpoint | Optional opaque candidate submitted to provider acceptance for this entry; present for accepted baseline/delta state and absent for anchor-free explicit-range snapshots |
 
 ### Invariants
 
@@ -132,18 +135,20 @@ Actor-owned logical state for one request instance.
 - A stale generation cannot commit.
 - A default-window entry cannot claim to cover an older/wider range.
 - A range snapshot cannot be used as the base for default anchored changes.
-- The cache may be ahead of the persisted anchor (safe replay), but the persisted anchor must never be ahead of the accepted cache transition.
+- The accepted checkpoint denotes cache acceptance and matching invocation, not confirmed durable persistence.
+- The cache may be ahead of the persisted anchor after interruption or silent no-advance, which is safe replay; the persisted anchor must never be advanced by a rejected cache transition.
 
 ## State Transitions
 
 | Current state | Request/result | Next state |
 |---|---|---|
 | No compatible entry | Baseline snapshot | Replace with default baseline entry |
-| Default baseline | Current anchored changes | Construct reconciled entry with candidate checkpoint; publish and synchronously persist the matching checkpoint; retain coverage/provenance |
+| Default baseline | Current anchored changes | Construct reconciled entry with candidate checkpoint; publish and synchronously invoke matching provider acceptance; retain coverage/provenance |
 | Any state | Explicit-range snapshot | Replace with scoped entry for that exact coverage |
 | Scoped entry | Default request | Rebuild default baseline |
 | Active/queued transaction | Non-owner waiter cancellation | Remove and cancel only that waiter; preserve request and peers |
 | Active/queued transaction | Owner cancellation or supersession | Retire request, release lane, cancel task, settle all attached waiters, start eligible successor |
 | Any state | Invalidate | Advance generation, clear entry, retire/drain active and queued transactions/lanes, then permit fresh work |
-| Any state | Failure, cancellation, stale generation/instance | Preserve last accepted cache/checkpoint pair; reject prepared state and persist no checkpoint |
+| Published candidate, durable anchor unchanged | Silent acceptance no-advance | Keep cache-accepted candidate state; next query reads prior durable anchor, replays idempotently, and resubmits acceptance |
+| Any state | Failure, cancellation, stale generation/instance | Preserve last cache-accepted state and durable anchor; reject prepared state and invoke no acceptance |
 | Terminal transaction | Late or duplicate event | No-op except rejecting a late prepared result |

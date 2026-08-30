@@ -81,14 +81,14 @@ For an anchor-advancing baseline or changes result, acceptance order is:
 1. The provider completes the query and returns records/deletions plus an opaque pending checkpoint without persisting it.
 2. The cache actor validates generation, fetch key, and request instance after the provider await.
 3. The cache actor constructs the new immutable cache entry containing the candidate checkpoint.
-4. The cache publishes that entry and, without suspension, synchronously persists the same checkpoint through provider acceptance.
-5. Only after both sides advance does actor settlement release the lane, remove the owning request, and complete registered success waiters.
+4. The cache publishes that entry and, without suspension, synchronously invokes provider acceptance with the same checkpoint.
+5. Only after the matching invocation returns does actor settlement release the lane, remove the owning request, and complete registered success waiters.
 
 Acceptance uses the prepared result's declared semantic, coverage, and provenance. The requested semantic identifies intent and coalescing, but it does not override the result: when anchored preparation has no persisted anchor and returns a baseline snapshot, the cache publishes that result as a baseline before accepting its matching checkpoint.
 
-A rejected result performs neither step 3 nor step 4. The checkpoint is opaque: cache currentness uses only generation, semantic/range key, and request identity, never checkpoint timestamps, decoded anchor contents, or inferred ordering. This gives at-least-once change delivery: if persistence does not complete after in-memory publication, the previous anchor remains and the next fetch may replay changes, which UUID reconciliation handles idempotently. The unsafe inverse—persisting an anchor before accepting its cache transition—or publishing a new projection while retaining the old checkpoint in that entry is forbidden.
+A rejected result performs neither step 3 nor step 4. The checkpoint is opaque: cache currentness uses only generation, semantic/range key, and request identity, never checkpoint timestamps, decoded anchor contents, or inferred ordering. Provider acceptance returns no outcome and may silently leave durable state unchanged; the cache therefore treats step 4 as an invocation guarantee, not a persistence receipt. The prior durable anchor then drives replay, which UUID reconciliation handles idempotently, and the same candidate may be submitted again. The unsafe inverse—advancing an anchor before accepting its cache transition—or publishing a new projection while retaining the old checkpoint in that entry is forbidden.
 
-The source-compatible direct `HealthKitService.fetchWorkouts(dateRange:)` path is an anchor-free authoritative snapshot. It neither reads nor advances the default workout anchor. Only the deferred provider seam used by the app-owned `HealthDataCache` may prepare and persist a default anchor checkpoint; there is no independent direct-call anchor writer.
+The source-compatible direct `HealthKitService.fetchWorkouts(dateRange:)` path is an anchor-free authoritative snapshot. It neither reads nor advances the default workout anchor. Only the deferred provider seam used by the app-owned `HealthDataCache` may prepare a default checkpoint and receive a cache-authorized synchronous acceptance invocation; there is no independent direct-call anchor writer.
 
 ### Required adversarial sequence
 
@@ -96,10 +96,10 @@ The source-compatible direct `HealthKitService.fetchWorkouts(dateRange:)` path i
 2. Complete a provider query for anchored delta B but hold it before cache acceptance.
 3. Cancel or supersede it with a same-semantic refresh.
 4. Verify the rejected request did not persist its checkpoint or clear the newer in-flight owner.
-5. Run the next accepted request from the prior checkpoint, verify the cache publishes A and B first, then verify the matching new checkpoint is persisted.
-6. Verify success waiters complete only after the accepted entry contains the new checkpoint and the provider has persisted that same opaque checkpoint.
+5. Run the next accepted request from the prior durable checkpoint, verify the cache publishes A and B with candidate c2, then verify provider acceptance receives c2 before caller success.
+6. Configure that acceptance call to leave durable state on c1, run another request from c1, and verify replay is UUID-idempotent and c2 is submitted again without treating the first call as confirmed persistence.
 
-The provider adapter must expose distinct deterministic gates for provider start, query completion, cache acceptance release, and checkpoint acceptance. A gate inside the provider before its method returns is not proof of the provider-complete/cache-not-yet-accepted interval. Snapshot-only requests and cache hits are not substitutes for anchored rejection/replay.
+The provider adapter must expose distinct deterministic gates for provider start, query completion, cache acceptance release, acceptance invocation, and optional durable-anchor advancement. A gate inside the provider before its method returns is not proof of the provider-complete/cache-not-yet-accepted interval. Snapshot-only requests and cache hits are not substitutes for anchored rejection/replay, and an acceptance invocation is not treated as confirmed durability.
 
 ## Compatibility
 

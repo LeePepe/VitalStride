@@ -74,7 +74,7 @@ The prepared result identifies snapshot versus changes. Snapshots report concret
 - Snapshot → replace the single workout cache entry with the authoritative records and coverage.
 - Changes → copy current records into a UUID map, apply upserts, apply deletions last, deterministically sort, then assign one new immutable entry with unchanged coverage.
 - Incompatible query shape → rebuild rather than treating scoped data as global or vice versa.
-- Accepted baseline/changes → construct the next entry with the candidate checkpoint, publish it, synchronously persist that same checkpoint without suspension, and only then settle success waiters; rejected results change neither side.
+- Accepted baseline/changes → construct the next entry with the candidate checkpoint, publish it, synchronously invoke provider acceptance for that same checkpoint without suspension, and only then settle success waiters. Because acceptance returns no outcome, a silent durable no-advance is handled by replay rather than reported as confirmed persistence; rejected results publish no candidate and invoke no acceptance.
 
 ### Actor-isolated request transaction module
 
@@ -101,12 +101,13 @@ The private conceptual interface has three transitions, without prescribing Swif
 - Cancellation, supersession, or invalidation atomically retires active/queued old-generation identities and pumps eligible successor work immediately. It does not wait for a non-cooperative stale provider to return.
 - A late provider result re-enters the actor with its captured generation/key/request identity, fails currentness, is rejected, and cannot clear or publish newer state.
 
-### Atomic accepted pair
+### Cache acceptance and durable lag
 
 - Treat every checkpoint as opaque; `HealthDataCache` does not import checkpoint-owner details, compare timestamps, decode anchors, or infer ordering.
 - Generation, semantic/range key, and request identity are the only currentness authority.
-- For a current prepared baseline or delta, compute one whole immutable entry containing the prepared checkpoint. Assign that entry and synchronously accept/persist the same checkpoint in the same actor turn, with no `await`, lane release, or waiter completion between them.
-- Only after the accepted pair advances does settlement release the provider lane and complete callers. A crash may leave persistence behind and cause safe replay; no successful waiter can observe cache/checkpoint advancement in opposite directions.
+- For a current prepared baseline or delta, compute one whole immutable entry containing the prepared candidate checkpoint. Assign that entry and synchronously invoke provider acceptance with the same candidate in one actor turn, with no `await`, lane release, or waiter completion between them.
+- The package-internal acceptance returns `Void` and its anchor archive path may silently no-op, so T023-002 cannot claim or verify durable persistence. Settlement proves only that the matching acceptance invocation occurred before caller success.
+- If durable state remains on the prior checkpoint, the next provider query reads that prior checkpoint and replays the delta. UUID reconciliation is idempotent; the cache may submit the same candidate again. No rollback or waiter failure is inferred from an unreportable no-advance.
 
 ### Concurrency and invalidation
 
@@ -194,7 +195,7 @@ Task metadata and the acceptance mapping are in `tasks.md`.
 
 1. Preserve Draft PR #423 and the pinned delivery workspace, but treat invalidated SHA `d85372895fd4561aba3185e31605076d9429d517` only as RED evidence.
 2. Run sequential tracer bullets through the public cache seam. For each stage, add one deterministic failing behavior, observe RED against the invalidated design, implement only enough actor-owned behavior for GREEN, then continue; do not bulk-add the full matrix before implementation.
-3. Stage order is: result-semantic/reconciliation foundation; exactly-once coalesced waiter settlement; provider-lane cancellation/reset; atomic checkpoint pair plus anchored rejection/replay; remaining fallback/range/restart/failure/order compatibility matrix.
+3. Stage order is: result-semantic/reconciliation foundation; exactly-once coalesced waiter settlement; provider-lane cancellation/reset; checkpoint publication plus synchronous acceptance invocation and anchored rejection/replay; remaining fallback/range/restart/failure/order compatibility matrix.
 4. Use explicit provider-started, query-complete, cache-acceptance, cancellation, and release gates. Sleeps and `Task.yield` are not synchronization evidence.
 5. Existing HealthKitService tests protect public compatibility and privacy logging.
 6. Required layer gate, from `Packages/HealthKitService`:
@@ -213,16 +214,16 @@ No `xcodebuild` is permitted because implementation scope is package-only.
 | Range snapshot is treated as a global baseline | Result carries semantic/coverage; cache provenance controls compatibility. |
 | Late actor-reentrant task overwrites newer state | Workout generation plus fetch-key/request-instance ownership guards every post-await commit. |
 | Different ranges share an in-flight result | Coalescing key includes semantic and range. |
-| Same-semantic superseded result advances anchor or clears newer ownership | Unique request-instance currentness; only accepted owner publishes cache then persists checkpoint. |
+| Same-semantic superseded result advances anchor or clears newer ownership | Unique request-instance currentness; only accepted owner publishes a candidate then invokes provider acceptance. |
 | Mutable waiter helpers require unsafe Sendable escapes or double-complete | Store plain waiter/transaction state in the actor and route every terminal outcome through remove-before-resume settlement. |
 | Cancellation/invalidation strands provider-turn waits | Queue actor-owned request identities rather than continuations; reset drains identities/waiters and immediately pumps eligible successor work. |
 | Non-cooperative stale provider blocks successor | Logical lane ownership is revocable; late results fail generation/key/request identity and are rejected. |
-| Cache and persisted checkpoint disagree | Publish an entry containing the prepared checkpoint and synchronously persist that same checkpoint before any success settlement. |
+| Cache candidate and durable anchor differ after silent acceptance no-op | Publish the candidate and synchronously invoke matching acceptance before success; explicitly permit durable lag and prove replay from the prior anchor is idempotent. |
 | Opaque checkpoint is misordered by cache heuristics | Never decode or compare it; currentness alone decides acceptance. |
 | Direct service caller advances the anchor outside cache acceptance | Direct entry point is anchor-free snapshot-only; cache-facing prepare/accept is the sole anchor writer. |
 | A package-internal cache seam accidentally widens public service API or crosses task ownership | Keep the capability and conformance in `HealthDataCache.swift`; existing package-internal service witnesses remain owned by T023-001 and require no access change. |
 | Requested anchored changes prepare a baseline because no anchor exists | Drive publication, coverage, and provenance from the prepared result's declared semantic. |
-| Process interruption between cache publish and checkpoint persistence | Previous anchor remains; next fetch safely replays idempotent UUID changes. |
+| Process interruption or silent no-advance after cache publication | Previous durable anchor remains; next fetch safely replays idempotent UUID changes. |
 | Duplicate or unstable projection | UUID map plus explicit sort/tie-breaker. |
 | Logging leaks workout details | Keep only aggregate query type/count/duration and extend existing privacy audit only if needed. |
 | Scope grows into workout persistence/refresh policy | L2 workout persistence, observer sync, and TTL remain explicit non-goals. |
