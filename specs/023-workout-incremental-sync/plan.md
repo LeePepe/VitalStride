@@ -1,13 +1,13 @@
 # Implementation Plan: HealthKit workout incremental sync
 
 **Branch**: `agent/planner-lead/19b63eb88135`
-**Date**: 2026-08-28
+**Date**: 2026-08-31
 **Spec**: `specs/023-workout-incremental-sync/spec.md`
 **Issue**: MY-1477
 
 ## Summary
 
-Repair the workout cache/provider seam inside the `HealthKitService` layer. A package-internal prepared-fetch capability will distinguish an authoritative snapshot with concrete coverage from anchored changes and return any new anchor as an unpersisted checkpoint. `HealthDataCache` will own acceptance: validate generation/key/request identity, publish the immutable UUID-reconciled entry, then synchronously persist the matching checkpoint. Public cache, provider, and direct-service entry points remain source-compatible without widening prepared checkpoint methods into public API.
+Repair the workout cache/provider seam inside the `HealthKitService` layer with one actor-isolated request/transaction module. A package-internal prepared-fetch capability distinguishes snapshots from anchored changes and returns an opaque unpersisted checkpoint. `HealthDataCache` owns request registration, provider-lane scheduling, exactly-once waiter settlement, currentness, immutable UUID reconciliation, and same-turn cache/checkpoint acceptance. Public cache, provider, and direct-service entry points remain source-compatible without unsafe Sendable bypasses or widening prepared checkpoint methods into public API.
 
 ## Technical Context
 
@@ -18,7 +18,7 @@ Repair the workout cache/provider seam inside the `HealthKitService` layer. A pa
 **Target Platform**: iOS 18+, macOS 15+, watchOS 11+ package compatibility
 **Project Type**: Local Swift package in a multiplatform application
 **Performance Goals**: UUID reconciliation is linear in cached records plus changes; no duplicate provider request for the same semantic key
-**Constraints**: Health values never enter logs; whole cache entry replacement; Swift 6 actor safety; no xcodebuild for package-only work
+**Constraints**: Health values never enter logs; whole cache entry replacement; Swift 6 actor isolation with no unsafe Sendable annotations; opaque checkpoints; no xcodebuild for package-only work
 **Scale/Scope**: One package layer, three production files, two primary test files
 
 ## Constitution Check — Before Design
@@ -45,6 +45,14 @@ Repair the workout cache/provider seam inside the `HealthKitService` layer. A pa
 
 Details and alternatives are recorded in `research.md`.
 
+Post-review delivery evidence:
+
+- Draft PR #423 remains open with auto-merge disabled at invalidated exact SHA `d85372895fd4561aba3185e31605076d9429d517`; it is evidence only and is not an implementation authority.
+- The invalidated two-file candidate added three unchecked Sendable waiter/turn helpers, lock-owned mutable state, yield polling, a double-resume cancellation path, provider-turn continuations that invalidation could strand, and cache-side ordering of opaque checkpoints.
+- Its anchored acceptance published the new workout projection with the previous checkpoint while separately persisting the candidate checkpoint, so the accepted pair could disagree.
+- Its green test set did not exercise a completed anchored B/c2 rejected between provider completion and cache acceptance, replay from c1, or the full deterministic fallback/failure/order/range matrix.
+- The metadata-pinned delivery worktree and its current dirty repair must be preserved; Planner changes planning artifacts only.
+
 ## Design
 
 ### Provider contract
@@ -66,17 +74,49 @@ The prepared result identifies snapshot versus changes. Snapshots report concret
 - Snapshot → replace the single workout cache entry with the authoritative records and coverage.
 - Changes → copy current records into a UUID map, apply upserts, apply deletions last, deterministically sort, then assign one new immutable entry with unchanged coverage.
 - Incompatible query shape → rebuild rather than treating scoped data as global or vice versa.
-- Accepted baseline/changes → publish the entry first, then synchronously persist its pending checkpoint in the same actor turn; rejected results persist nothing.
+- Accepted baseline/changes → construct the next entry with the candidate checkpoint, publish it, synchronously persist that same checkpoint without suspension, and only then settle success waiters; rejected results change neither side.
+
+### Actor-isolated request transaction module
+
+Keep all mutable workout orchestration inside the existing `HealthDataCache` actor. Each request transaction is plain actor-owned state: semantic/range key, generation, unique request identity, owner waiter, coalesced waiter identities, provider task/turn phase, and terminal outcome. No independently synchronized waiter or in-flight helper object may own mutable state.
+
+The private conceptual interface has three transitions, without prescribing Swift signatures:
+
+1. **Register** creates a request or joins an eligible same-key request and records the caller waiter.
+2. **Settle** handles prepared/snapshot success, provider failure, caller cancellation, or a stale late event through one terminal funnel.
+3. **Reset** handles refresh supersession, workout invalidation, and full invalidation by advancing generation, retiring affected transactions, releasing lanes, cancelling tasks, and settling waiters.
+
+### Waiter lifecycle
+
+- Every caller, including the request owner, has an actor-owned waiter identity and one pending continuation.
+- The settlement authority removes the waiter before resuming it; every other success/error/cancel path submits an event to that authority and never resumes directly.
+- A cancelled non-owner waiter completes independently and does not cancel the owner or peers.
+- Cancelling the owner retires the request, cancels its provider task, rejects any later prepared result, and completes all attached waiters once so callers may retry against a new request instance.
+- Late cancellation, provider completion, or duplicate settlement after removal is a no-op.
+
+### Provider-turn scheduling
+
+- Represent a provider lane as an actor-owned active request identity plus FIFO queued request identities, not as continuation-holding waiter objects.
+- Baseline and anchored-change work share the default incremental anchor lane; unrelated anchor-free explicit ranges may use independent range lanes.
+- Cancellation, supersession, or invalidation atomically retires active/queued old-generation identities and pumps eligible successor work immediately. It does not wait for a non-cooperative stale provider to return.
+- A late provider result re-enters the actor with its captured generation/key/request identity, fails currentness, is rejected, and cannot clear or publish newer state.
+
+### Atomic accepted pair
+
+- Treat every checkpoint as opaque; `HealthDataCache` does not import checkpoint-owner details, compare timestamps, decode anchors, or infer ordering.
+- Generation, semantic/range key, and request identity are the only currentness authority.
+- For a current prepared baseline or delta, compute one whole immutable entry containing the prepared checkpoint. Assign that entry and synchronously accept/persist the same checkpoint in the same actor turn, with no `await`, lane release, or waiter completion between them.
+- Only after the accepted pair advances does settlement release the provider lane and complete callers. A crash may leave persistence behind and cause safe replay; no successful waiter can observe cache/checkpoint advancement in opposite directions.
 
 ### Concurrency and invalidation
 
 - Key in-flight fetches by request semantic and date range.
 - Give every started fetch a unique request instance and capture a workout-specific generation before awaiting the provider.
 - Ordinary duplicate reads may coalesce onto the owning instance; an explicit refresh supersedes prior work even for the same semantic/range.
-- `invalidateWorkouts()` and `invalidateAll()` bump the workout generation and cancel/clear workout tasks.
-- A fetch commits only if generation, semantic/range key, and request instance remain current; only that instance may clear the in-flight slot.
-- Errors, rejected currentness, and stale completions leave the last accepted cache/anchor pair unchanged.
-- Cache-first/checkpoint-second ordering permits safe idempotent replay if checkpoint persistence does not complete; checkpoint-first ordering is forbidden.
+- `invalidateWorkouts()` and `invalidateAll()` route through the reset transition: bump generation, clear cache, retire active/queued lane state, cancel tasks, and settle every affected caller before discarding indexes.
+- A fetch commits only if generation, semantic/range key, and request instance remain current; only the actor settlement authority may retire that instance or clear its lane.
+- Errors, rejected currentness, cancellation, and stale completions leave the last accepted cache/checkpoint pair unchanged.
+- All mutable request/waiter/turn state remains actor-isolated value state; no lock, unchecked Sendable helper, or yield-polling handshake is used.
 
 ### Ordering
 
@@ -152,10 +192,12 @@ Task metadata and the acceptance mapping are in `tasks.md`.
 
 ## Verification Strategy
 
-1. Provider contract tests prove baseline versus anchored versus explicit-range query behavior, prepared-fetch non-persistence, accepted checkpoint persistence, and source-compatible direct snapshot behavior with no anchor side effect.
-2. Cache tests perform the required red-green regression sequence and the full merge/range/concurrency/invalidation matrix, including the provider-complete/cache-not-yet-accepted supersession interleaving.
-3. Existing HealthKitService tests protect public compatibility and privacy logging.
-4. Required layer gate, from `Packages/HealthKitService`:
+1. Preserve Draft PR #423 and the pinned delivery workspace, but treat invalidated SHA `d85372895fd4561aba3185e31605076d9429d517` only as RED evidence.
+2. Run sequential tracer bullets through the public cache seam. For each stage, add one deterministic failing behavior, observe RED against the invalidated design, implement only enough actor-owned behavior for GREEN, then continue; do not bulk-add the full matrix before implementation.
+3. Stage order is: result-semantic/reconciliation foundation; exactly-once coalesced waiter settlement; provider-lane cancellation/reset; atomic checkpoint pair plus anchored rejection/replay; remaining fallback/range/restart/failure/order compatibility matrix.
+4. Use explicit provider-started, query-complete, cache-acceptance, cancellation, and release gates. Sleeps and `Task.yield` are not synchronization evidence.
+5. Existing HealthKitService tests protect public compatibility and privacy logging.
+6. Required layer gate, from `Packages/HealthKitService`:
 
 ```bash
 swift build && swift test
@@ -172,6 +214,11 @@ No `xcodebuild` is permitted because implementation scope is package-only.
 | Late actor-reentrant task overwrites newer state | Workout generation plus fetch-key/request-instance ownership guards every post-await commit. |
 | Different ranges share an in-flight result | Coalescing key includes semantic and range. |
 | Same-semantic superseded result advances anchor or clears newer ownership | Unique request-instance currentness; only accepted owner publishes cache then persists checkpoint. |
+| Mutable waiter helpers require unsafe Sendable escapes or double-complete | Store plain waiter/transaction state in the actor and route every terminal outcome through remove-before-resume settlement. |
+| Cancellation/invalidation strands provider-turn waits | Queue actor-owned request identities rather than continuations; reset drains identities/waiters and immediately pumps eligible successor work. |
+| Non-cooperative stale provider blocks successor | Logical lane ownership is revocable; late results fail generation/key/request identity and are rejected. |
+| Cache and persisted checkpoint disagree | Publish an entry containing the prepared checkpoint and synchronously persist that same checkpoint before any success settlement. |
+| Opaque checkpoint is misordered by cache heuristics | Never decode or compare it; currentness alone decides acceptance. |
 | Direct service caller advances the anchor outside cache acceptance | Direct entry point is anchor-free snapshot-only; cache-facing prepare/accept is the sole anchor writer. |
 | A package-internal cache seam accidentally widens public service API or crosses task ownership | Keep the capability and conformance in `HealthDataCache.swift`; existing package-internal service witnesses remain owned by T023-001 and require no access change. |
 | Requested anchored changes prepare a baseline because no anchor exists | Drive publication, coverage, and provenance from the prepared result's declared semantic. |
@@ -182,7 +229,7 @@ No `xcodebuild` is permitted because implementation scope is package-only.
 
 ## Constitution Check — After Design
 
-All pre-design gates remain PASS. The design uses one existing layer, preserves dependency direction and public call shapes, keeps the new prepared capability package-internal, adds no unsafe concurrency exception, and defines the exact package-local verification. No constitution exception or ADR is required.
+All pre-design gates remain PASS. The design uses the existing `HealthDataCache` actor as the sole transaction module, preserves dependency direction/public call shapes/file ownership, keeps the prepared capability package-internal, removes the need for unsafe concurrency exceptions, and defines exact package-local verification. No constitution exception or ADR is required.
 
 ## Complexity Tracking
 

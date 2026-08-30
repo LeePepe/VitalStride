@@ -16,7 +16,7 @@ Each executable row uses native Spec Kit syntax: `- [ ] Txxx [US#] Action with e
 **Independent Test**: Run a deterministic provider sequence through `HealthDataCache`; after baseline A, empty changes still return A, and the complete add/update/delete/idempotency/range/invalidation/anchor-acceptance matrix passes without HealthKit hardware.
 
 - [ ] T023-001 [US1] Define source-compatible baseline/changes/explicit-range prepared result types with opaque pending checkpoints plus anchor-free direct snapshot behavior in `Packages/HealthKitService/Sources/HealthKitService/HealthWorkoutRecord.swift` and `Packages/HealthKitService/Sources/HealthKitService/HealthKitService.swift`, with provider behavior tests in `Packages/HealthKitService/Tests/HealthKitServiceTests/HealthWorkoutQueryContractTests.swift`
-- [ ] T023-002 [US1] Add the package-internal cache-facing prepared capability/conformance and snapshot-only compatibility fallback plus the red regression/anchor-cache interleaving matrix, then implement result-semantic-driven UUID reconciliation, concrete coverage/provenance, semantic-plus-range coalescing, request-instance currentness, cache-first/checkpoint-second acceptance, deterministic ordering, and workout-generation guards in `Packages/HealthKitService/Sources/HealthKitService/HealthDataCache.swift` and `Packages/HealthKitService/Tests/HealthKitServiceTests/HealthWorkoutCacheTests.swift`; extend `Packages/HealthKitService/Tests/HealthKitServiceTests/PrivacyLoggingTests.swift` only if aggregate-only audit coverage is missing
+- [ ] T023-002 [US1] Replace the invalidated waiter/turn design with one actor-isolated request transaction and a staged public-cache RED→GREEN matrix: package-internal prepared capability plus snapshot-only fallback, result-semantic UUID reconciliation, exactly-once owner/coalesced waiter settlement, request-ID provider lanes drained by cancellation/invalidation, opaque same-turn cache/checkpoint acceptance, deterministic ordering, and generation/key/request currentness in `Packages/HealthKitService/Sources/HealthKitService/HealthDataCache.swift` and `Packages/HealthKitService/Tests/HealthKitServiceTests/HealthWorkoutCacheTests.swift`; extend `Packages/HealthKitService/Tests/HealthKitServiceTests/PrivacyLoggingTests.swift` only if aggregate-only audit coverage is missing
 
 ### Task Metadata
 
@@ -28,11 +28,39 @@ Each executable row uses native Spec Kit syntax: `- [ ] Txxx [US#] Action with e
 | Blocking tasks | None | T023-001 |
 | Files in scope | `HealthWorkoutRecord.swift`; `HealthKitService.swift`; new `HealthWorkoutQueryContractTests.swift` | `HealthDataCache.swift`; `HealthWorkoutCacheTests.swift`; `PrivacyLoggingTests.swift` only if needed |
 | Files/layers excluded | `HealthDataCache.swift`; AppUI; VitalModels; WatchConnectivity; workout-session/write/delete flows | `HealthKitService.swift`, including public-access changes to prepared witnesses; `HealthWorkoutRecord.swift`; AppUI; VitalModels; WatchConnectivity; workout-session/write/delete flows |
-| Contract impact | Define concrete prepared result/service behavior; direct service calls become anchor-free snapshots while keeping existing public call shapes source-compatible | Add the package-internal prepared capability and HealthKitService conformance in its cache-owned file, consume the prepared result as sole default-anchor acceptance authority, and retain anchor-free snapshot-only fallback for existing public providers; no new public provider/witness or AppUI-facing API |
-| Task-local acceptance | Service tests prove anchor-free baseline preparation, anchored changes preparation, anchor-free explicit range, concrete snapshot coverage, prepared fetch does not persist, explicit acceptance persists, discard does not, and direct call remains source-compatible without reading/advancing the anchor | Red-before-green evidence for A→empty; package build with no T023-002 access edit in `HealthKitService.swift`; actual prepared-result semantic controls baseline/delta acceptance; existing public provider fallback is snapshot-only; UUID add/update/delete; duplicate/idempotent changes; deletion wins; stable ordering; 30-day vs wider range; restart/invalidation rebuild; semantic/range coalescing isolation; same-semantic request supersession; provider-complete/cache-not-yet-accepted delta remains obtainable; stale owner cannot persist/clear newer work; error preserves cache/anchor pair |
+| Contract impact | Define concrete prepared result/service behavior; direct service calls become anchor-free snapshots while keeping existing public call shapes source-compatible | Add the package-internal prepared capability/conformance in its cache-owned file and one actor-owned transaction/settlement/provider-lane module; retain public snapshot-only fallback and introduce no public provider/witness/AppUI API; treat checkpoints as opaque and advance the immutable entry's checkpoint plus provider persistence in one actor turn before caller success |
+| Task-local acceptance | Service tests prove anchor-free baseline preparation, anchored changes preparation, anchor-free explicit range, concrete snapshot coverage, prepared fetch does not persist, explicit acceptance persists, discard does not, and direct call remains source-compatible without reading/advancing the anchor | Per-stage named RED→GREEN evidence; no T023-002 access edit in `HealthKitService.swift`; zero unsafe concurrency annotations in final production/test files and no lock-owned production waiter state/yield polling; actual prepared semantic and public snapshot fallback; exactly-once owner/non-owner/error settlement; active/queued provider lanes drain on cancellation/supersession/invalidation and let a fresh successor start; A/c1→rejected B/c2→replay from c1→accepted A+B/c2 with entry/persistence matched before waiter success; UUID/range/restart/failure/equal-time order matrix |
 | Exact verification | From `Packages/HealthKitService`: `swift build && swift test` | From `Packages/HealthKitService`: `swift build && swift test` |
 
 **Checkpoint**: US1 is complete only after T023-001 and T023-002 both pass the full package gate.
+
+### Sequential TDD Stages Within T023-002
+
+These are one non-parallelizable implementation task because every stage owns the same production/test files and must reuse Draft PR #423 plus the pinned delivery workspace. Within each stage, complete one named RED→GREEN tracer bullet before adding the next.
+
+1. **Stage A — semantic reconciliation foundation**
+   - RED: A→empty delta, prepared anchored intent returning a baseline, then UUID add/update/delete, unknown deletion, duplicate provider UUIDs, deletion-wins, repeated-delta idempotency, empty authoritative snapshot, and equal-time UUID ordering one case at a time.
+   - GREEN: minimal prepared-result semantic transition and whole-entry normalized reconciler.
+   - Gate: focused public-cache behavior passes; no private-state assertion.
+2. **Stage B — exactly-once caller settlement**
+   - RED: coalesced non-owner cancellation, owner cancellation with peers, and provider failure fan-out, each with explicit gates and a bounded no-hang assertion.
+   - GREEN: actor-owned request/waiter registry and single remove-before-resume settlement authority; remove unchecked/lock-owned/yield-polling waiter helpers.
+   - Gate: every registered caller records one terminal outcome and peers follow the specified owner/non-owner behavior.
+3. **Stage C — provider-lane reset**
+   - RED: active request plus queued successor under cancellation, same-key refresh supersession, `invalidateWorkouts()`, `invalidateAll()`, and authorization revocation while the stale provider remains held.
+   - GREEN: actor-owned active/queued request identities, logical turn revocation, reset draining, and successor pump.
+   - Gate: affected callers cancel once, fresh work starts before stale provider release, and late results reject without clearing/publishing.
+4. **Stage D — opaque atomic pair and anchored rejection/replay**
+   - RED: accept A/c1; complete anchored B/c2 and hold before cache acceptance; cancel/supersede; assert c2 rejected; replacement reads c1, publishes A+B with c2, persists c2, then completes callers. Add interrupted persistence/replay next.
+   - GREEN: generation/key/request-only currentness and one same-turn whole-entry/candidate-checkpoint publication plus synchronous provider acceptance; remove checkpoint decoding/comparison.
+   - Gate: observers see only accepted A/c1 or A+B/c2 pairs, never new workouts with old checkpoint or persisted c2 before its entry.
+5. **Stage E — remaining deterministic acceptance matrix**
+   - RED→GREEN individually: explicit-range→default rebuild, default coverage versus wider range, different semantic/range requests not coalescing, persisted-anchor restart baseline rebuild, provider failure preservation, stale completion, legacy snapshot-only compatibility, aggregate-only logging if coverage is missing.
+   - Gate: all thirteen spec scenarios and edge cases pass without timing-based synchronization.
+6. **Stage F — package and diff gate**
+   - From `Packages/HealthKitService`, run `swift build && swift test`.
+   - Diff remains the declared two files unless the conditional privacy audit is required; no `xcodebuild`.
+   - Audit changed code for zero `@unchecked Sendable`, `@preconcurrency`, `nonisolated(unsafe)`, checkpoint ordering/decoding, production locks/`Synchronization`, or `Task.yield` transaction polling.
 
 ## Dependencies & Execution Order
 
@@ -55,6 +83,7 @@ US1
 | AC 6; FR-001/002/007/010/011 | US1 | T023-001 → T023-002 |
 | AC 7-8; FR-002/006/008 | US1 | T023-001 → T023-002 |
 | AC 9-10; FR-008/009/014/015 | US1 | T023-001 → T023-002 |
+| AC 11-13; FR-016/017/018/019 | US1 | T023-002 |
 | FR-013 aggregate-only logging | US1 | T023-001, T023-002; existing privacy audit extended only if needed |
 | SC-006 repository-declared SPM gate | US1 | T023-001, T023-002 |
 | SC-007 scope boundary | US1 | T023-001, T023-002 diff audit |
@@ -72,10 +101,13 @@ swift build && swift test
 
 ## Implementation Handoff Notes
 
-- Tests in T023-002 must be written and observed failing against the old whole-replacement behavior before the production change is completed.
-- The adversarial test must deterministically hold an anchored result after provider query completion but before cache acceptance, supersede it with the same semantic/range, and prove the next accepted read still obtains the delta with cache and anchor aligned.
+- Preserve Draft PR #423 and invalidated SHA `d85372895fd4561aba3185e31605076d9429d517` as evidence; reuse the metadata-pinned dirty worktree without reset. Do not treat the invalidated candidate as a base for isolated line-by-line repair.
+- Follow the sequential stages above. Each behavior must be observed RED before its minimal GREEN implementation; do not bulk-write the matrix horizontally.
+- Test through public cache calls and the prepared-provider system seam. Deterministic adapters use compiler-checked Sendable state and distinct provider-started/query-complete/cache-acceptance/release gates; no sleep or yield synchronization.
+- The adversarial test must hold an anchored result after the provider method completes but before cache acceptance, reject c2, prove the replacement reads from c1, then observe A+B/c2 publication and persistence before caller success.
 - Preserve whole-entry immutable assignment; do not mutate the published workout array in place.
 - Keep the prepared capability/conformance package-internal in `HealthDataCache.swift`; do not widen T023-001's prepared methods or edit their access in excluded `HealthKitService.swift`.
 - Treat legacy public providers as anchor-free snapshot-only adapters, and drive acceptance from the prepared result's actual semantic when an anchored preparation falls back to baseline.
+- Keep all production request/waiter/provider-lane mutation inside `HealthDataCache`; one settlement authority removes before resume, reset drains before discard, and checkpoints remain opaque.
 - Do not add workout L2 persistence, TTL/observer refresh policy, UI changes, or broad sample-cache refactors.
 - If an implementation fact makes the reviewed contract infeasible, stop and return evidence to Team Lead/Planner rather than widening scope.

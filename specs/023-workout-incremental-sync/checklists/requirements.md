@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness before planning review
 **Spec**: `specs/023-workout-incremental-sync/spec.md`
-**Reviewed**: 2026-08-28
+**Reviewed**: 2026-08-31
 
 ## Content Quality
 
@@ -22,6 +22,12 @@
 - [x] Public compatibility, files in scope, files not to touch, and exact package verification are explicit.
 - [x] The prepared-fetch capability is explicitly package-internal, adds no public witness requirement, and preserves snapshot-only fallback for existing public providers.
 - [x] Cache acceptance follows the prepared result's semantic when anchored preparation falls back to a baseline.
+- [x] Mutable request, transaction, waiter, and provider-lane state is actor-isolated with no unsafe Sendable or lock-owned helper escape.
+- [x] Exactly-once remove-before-resume settlement defines owner, non-owner, failure, supersession, and invalidation outcomes.
+- [x] Cancellation/invalidation drains active and queued provider-lane requests and permits a successor before stale provider completion.
+- [x] The accepted cache entry and synchronously persisted opaque checkpoint advance as one same-turn pair before caller success.
+- [x] The adversarial matrix distinguishes provider query completion from cache acceptance and proves c2 rejection, replay from c1, and later A+B/c2 acceptance.
+- [x] The staged breakdown requires one public-cache RED→GREEN tracer bullet at a time and forbids timing-based synchronization evidence.
 - [x] Success criteria are measurable without HealthKit hardware.
 
 ## Readiness Traceability

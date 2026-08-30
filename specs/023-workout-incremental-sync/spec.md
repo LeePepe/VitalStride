@@ -35,6 +35,9 @@ As a workout-list user, I want repeated HealthKit synchronization to retain exis
 8. **Given** an explicit range snapshot, **when** the default workout view is requested later, **then** that scoped snapshot is not treated as the default anchored baseline.
 9. **Given** baseline A and an anchored delta containing B has completed its provider query, **when** that request is cancelled or superseded before cache acceptance, **then** its anchor checkpoint is not persisted, the next read still obtains B from the prior accepted anchor, and the replacement checkpoint advances only after A+B is published.
 10. **Given** an anchored refresh is superseded by another refresh with the same semantic and range, **when** the older request completes late, **then** it cannot publish cache state, persist its checkpoint, or clear the newer request's in-flight ownership.
+11. **Given** callers coalesce on one request, **when** a non-owning caller cancels while the owner continues, **then** only that caller completes with cancellation exactly once and the remaining callers receive the accepted result; when the owning caller cancels, that request is retired and every attached waiter completes exactly once without accepting its result.
+12. **Given** an active provider turn and queued successor work, **when** cancellation, supersession, `invalidateWorkouts()`, or `invalidateAll()` retires the active generation, **then** every affected waiter is released, current-generation successor work can start without waiting for a non-cooperative stale provider, and any late stale result is rejected.
+13. **Given** accepted pair A/c1 and a current anchored result B/c2, **when** the result is accepted, **then** the immutable cache entry records A+B with c2 and the provider persists c2 in the same actor turn before any success waiter completes; c2 is treated as opaque and is never decoded, compared, or ordered by the cache.
 
 ## Edge Cases
 
@@ -46,6 +49,9 @@ As a workout-list user, I want repeated HealthKit synchronization to retain exis
 - In-flight work for different query shapes or ranges must not be coalesced together.
 - Cache invalidation must win over non-cooperative provider cancellation.
 - A checkpoint-persistence failure after cache publication leaves the previous anchor intact; replay from the older anchor is safe because UUID reconciliation is idempotent.
+- Cancellation racing registration or settlement must have one terminal winner; a late or duplicate completion event is a no-op.
+- Invalidation must drain active and queued caller waits before discarding their indexes; no continuation may be orphaned.
+- Forward checkpoint progress is decided by generation/key/request-instance currentness, never by inspecting opaque anchor contents or timestamps.
 
 ## Functional Requirements
 
@@ -63,7 +69,11 @@ As a workout-list user, I want repeated HealthKit synchronization to retain exis
 - **FR-012**: Final workout projections MUST be deterministically ordered by start date descending, then UUID.
 - **FR-013**: Logs and signposts MUST contain only aggregate metadata such as query type, count, and duration; no workout health values or details may be logged.
 - **FR-014**: Provider failure, cancellation, invalidation, or rejected currentness MUST preserve the last accepted cache/anchor pair and surface existing error behavior to the caller.
-- **FR-015**: An anchor-advancing provider fetch MUST be available only through the cache-facing prepare/accept seam and return an opaque pending checkpoint without persisting it; the cache acceptance authority MUST publish the corresponding immutable cache transition before synchronously persisting that checkpoint. A rejected result and the direct snapshot entry point MUST never advance the anchor.
+- **FR-015**: An anchor-advancing provider fetch MUST be available only through the cache-facing prepare/accept seam and return an opaque pending checkpoint without persisting it. For a current result, the cache acceptance authority MUST construct one immutable entry containing the matching candidate checkpoint, publish that entry, and synchronously persist the same checkpoint in one actor turn with no intervening suspension or waiter completion. A rejected result and the direct snapshot entry point MUST never advance either side of the accepted pair.
+- **FR-016**: All mutable workout request, transaction, waiter, and provider-turn state MUST be isolated to `HealthDataCache`. The implementation MUST use compiler-checked Sendable value/task state; the final T023-002 production and test files MUST contain no `@unchecked Sendable`, `@preconcurrency`, or `nonisolated(unsafe)`, and production transaction state MUST contain no lock-owned mutable helper object or yield-based polling.
+- **FR-017**: One actor-isolated settlement authority MUST remove a waiter before resuming it and MUST be the only path that completes caller waits for success, failure, cancellation, supersession, or invalidation. Non-owner cancellation MUST affect only that waiter; owner cancellation MUST retire the request and complete all attached waiters exactly once.
+- **FR-018**: Provider-turn scheduling MUST use actor-owned request identities rather than independently synchronized continuation holders. Cancellation, supersession, and invalidation MUST retire active/queued turns, release every affected caller, and make eligible successor work runnable without awaiting a stale non-cooperative provider.
+- **FR-019**: Pending checkpoints MUST remain opaque to `HealthDataCache`. Cache currentness MUST rely only on generation, semantic/range key, and request-instance identity; the cache MUST NOT parse, compare, timestamp-order, or otherwise infer ordering from checkpoint contents.
 
 ## Key Entities
 
@@ -73,6 +83,10 @@ As a workout-list user, I want repeated HealthKit synchronization to retain exis
 - **Workout fetch key**: Request semantic plus optional date range; identifies coalescible work.
 - **Pending anchor checkpoint**: Opaque continuation state returned by a baseline/delta query and persisted only after the matching cache transition is accepted.
 - **Workout request instance**: Unique identity used with the workout generation and fetch key to reject stale or same-semantic superseded results.
+- **Workout transaction**: Actor-owned request state that binds one request instance, its owner and coalesced waiters, provider task/turn phase, prepared outcome, and terminal result.
+- **Caller waiter**: Actor-owned identity plus pending continuation that can transition once from pending to success, failure, or cancellation.
+- **Provider lane**: Actor-owned active request identity plus queued request identities for one anchor domain; it contains no separately synchronized waiter object.
+- **Accepted workout pair**: One immutable workout cache entry whose recorded checkpoint matches the checkpoint synchronously persisted for the same accepted transaction.
 
 ## Files in Scope
 
@@ -102,13 +116,15 @@ As a workout-list user, I want repeated HealthKit synchronization to retain exis
 
 ## Success Criteria
 
-- **SC-001**: All ten acceptance scenarios are deterministic unit tests and pass without HealthKit hardware.
+- **SC-001**: All thirteen acceptance scenarios are deterministic unit tests and pass without HealthKit hardware.
 - **SC-002**: The original regression sequence (A, then empty anchored changes) returns A after the second fetch.
 - **SC-003**: The add/update/delete/idempotency/order matrix produces the same UUID-ordered projection on every repetition.
 - **SC-004**: A default 30-day snapshot cannot satisfy a wider explicit-range request in tests.
-- **SC-005**: Invalidation and adversarial same-semantic supersession tests prove that stale work cannot repopulate the cache or advance the anchor, and that the next accepted read still obtains the skipped delta.
+- **SC-005**: A query-complete/cache-not-yet-accepted adversarial test proves anchored B/c2 is rejected after cancellation or supersession, the replacement query reads from c1, A+B/c2 becomes the next accepted pair, and the stale request cannot repopulate, persist, or clear newer ownership.
 - **SC-006**: From `Packages/HealthKitService`, `swift build && swift test` exits successfully.
 - **SC-007**: No AppUI, model schema, or generated project file changes appear in the implementation diff.
+- **SC-008**: Cancellation/invalidation tests use explicit gates and prove every owner, coalesced waiter, and queued provider request reaches one terminal outcome without sleeps, yield loops, hangs, or double continuation resume.
+- **SC-009**: The final two-file diff contains no new unsafe concurrency annotation and production `HealthDataCache.swift` contains no checkpoint decoding/ordering or out-of-actor lock-based waiter state.
 
 ## Non-Goals
 
@@ -125,3 +141,5 @@ As a workout-list user, I want repeated HealthKit synchronization to retain exis
 - The existing 30-day default first-sync window remains the product baseline.
 - The workout cache remains process-memory-only; loss of the process cache therefore requires a new baseline even if an anchor persisted.
 - One app-owned `HealthDataCache` is the sole workout-anchor acceptance authority for its provider/device identity.
+- Prepared checkpoint acceptance remains synchronous and non-suspending at the package-internal provider seam.
+- A process failure may leave the persisted anchor behind the in-memory transition, which is safe to replay; observable success must never leave the anchor ahead of the accepted cache entry.

@@ -50,6 +50,71 @@ The request semantic and range together form the in-flight coalescing identity.
 - An explicit refresh creates a new instance even when its fetch key matches the prior refresh.
 - Only the instance still registered for its key may publish, persist a checkpoint, or clear the in-flight slot.
 
+## Workout Transaction
+
+Actor-owned logical state for one request instance.
+
+| Field | Meaning |
+|---|---|
+| Fetch key and generation | Semantic/range identity and invalidation version |
+| Request identity | Unique currentness and late-event rejection token |
+| Owner waiter | Caller whose cancellation retires the request |
+| Coalesced waiter identities | Other callers sharing the observable result |
+| Provider phase | Queued, preparing, prepared, settling, or terminal |
+| Provider task handle | Cancellable work handle; not the source of mutable waiter state |
+
+### Invariants
+
+- All mutable fields are isolated to `HealthDataCache`; helper values do not own locks or use unchecked Sendable conformance.
+- A transaction reaches one terminal outcome through the actor settlement authority.
+- Removing the transaction/waiter precedes continuation completion.
+- A late provider/cancellation event after terminal removal cannot mutate cache, checkpoint, lane, or waiter state.
+
+## Caller Waiter
+
+| Field | Meaning |
+|---|---|
+| Waiter identity | Unique identity used for cancellation/settlement races |
+| Request identity | Transaction whose result it awaits |
+| Role | Owner or coalesced non-owner |
+| Continuation | Pending success/failure result, stored only while registered |
+
+### Invariants
+
+- Pending transitions exactly once to success, failure, or cancellation.
+- Non-owner cancellation affects only that waiter.
+- Owner cancellation retires the request and settles all attached waiters once.
+- Invalidation and supersession drain affected waiters before indexes are discarded.
+
+## Provider Lane
+
+| Field | Meaning |
+|---|---|
+| Lane identity | Default incremental anchor domain or anchor-free explicit range |
+| Active request identity | Logical owner allowed to prepare for the lane |
+| Queued request identities | FIFO successors; no continuation-holder object |
+
+### Invariants
+
+- Baseline and anchored changes serialize through the default anchor lane.
+- Revoking an active logical turn does not wait for a non-cooperative provider; current successor work may start.
+- Queued cancellation/reset removes the request identity and settles callers immediately.
+- Late results must pass generation/key/request currentness before acceptance.
+
+## Accepted Workout Pair
+
+| Field | Meaning |
+|---|---|
+| Immutable cache entry | Records, concrete coverage, provenance, request order, matching checkpoint |
+| Persisted checkpoint | The same opaque checkpoint accepted for that entry |
+
+### Invariants
+
+- Checkpoint contents are never decoded, compared, or ordered by the cache.
+- A current baseline/delta entry records the candidate checkpoint, not the previous checkpoint.
+- Entry publication and synchronous provider acceptance occur in one actor turn before success settlement.
+- A process failure may leave persistence behind the cache and replay safely; persisted state never leads an observably successful cache transition.
+
 ## Workout Cache Entry
 
 | Field | Meaning |
@@ -74,8 +139,11 @@ The request semantic and range together form the in-flight coalescing identity.
 | Current state | Request/result | Next state |
 |---|---|---|
 | No compatible entry | Baseline snapshot | Replace with default baseline entry |
-| Default baseline | Current anchored changes | Publish reconciled UUIDs, then persist pending checkpoint; retain coverage/provenance |
+| Default baseline | Current anchored changes | Construct reconciled entry with candidate checkpoint; publish and synchronously persist the matching checkpoint; retain coverage/provenance |
 | Any state | Explicit-range snapshot | Replace with scoped entry for that exact coverage |
 | Scoped entry | Default request | Rebuild default baseline |
-| Any state | Invalidate | Clear entry/tasks and advance workout generation |
-| Any state | Failure, cancellation, stale generation/instance | Preserve last accepted cache/anchor pair; persist no checkpoint |
+| Active/queued transaction | Non-owner waiter cancellation | Remove and cancel only that waiter; preserve request and peers |
+| Active/queued transaction | Owner cancellation or supersession | Retire request, release lane, cancel task, settle all attached waiters, start eligible successor |
+| Any state | Invalidate | Advance generation, clear entry, retire/drain active and queued transactions/lanes, then permit fresh work |
+| Any state | Failure, cancellation, stale generation/instance | Preserve last accepted cache/checkpoint pair; reject prepared state and persist no checkpoint |
+| Terminal transaction | Late or duplicate event | No-op except rejecting a late prepared result |

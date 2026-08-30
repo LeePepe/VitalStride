@@ -18,6 +18,12 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 | One in-flight workout task is global | `HealthDataCache.swift:766-788` | Different ranges or request semantics can incorrectly share one result. |
 | Workout anchor is saved before the result reaches the cache | `HealthKitService.swift:594-607` | A result rejected after provider completion can advance the anchor past changes that never reached the cache. |
 | T023-001's prepared-fetch methods are package-internal while the cache owns the capability declaration | Post-T023-001 `HealthKitService.swift` and the T023-002 ownership table in `tasks.md` | A public prepared capability would require excluded public witness edits; a package-internal capability can be adopted across files in the same Swift module without widening scope. |
+| Invalidated SHA `d85372895fd4561aba3185e31605076d9429d517` adds three unchecked Sendable mutable helpers | Reviewer FAIL `2b2f618d-9f89-41da-8848-32e8b19bfea2`; `HealthDataCache.swift` waiter/in-flight/provider-turn declarations | Locking mutable classes bypasses the required actor model and still permits double completion and stranded waits. |
+| Coalesced cancellation has more than one continuation-resume path | Reviewer FAIL; invalidated waiter cancellation/registration flow | Cancellation can trap on double resume or skip a marked waiter without completing it. |
+| Provider-turn cancellation removes a queued waiter without resuming it; invalidation does not drain turn state | Reviewer FAIL; invalidated provider-turn and invalidation paths | A cancelled or stale provider can indefinitely block a required successor and orphan callers. |
+| Anchored acceptance records the previous checkpoint while persisting the candidate | Reviewer FAIL; invalidated anchored acceptance path | Cache and persisted checkpoint can advance to different logical states. |
+| Cache-side opaque checkpoint comparison rejects normal forward progress | Reviewer FAIL; invalidated checkpoint-order helper | Anchor contents and timestamps are not a cache ordering contract; request currentness is the authority. |
+| Draft PR #423 is open at the invalidated SHA with auto-merge disabled | GitHub PR state captured during replanning | The PR is preserved as evidence and must not be treated as a shippable or incremental-fix authority. |
 
 ## Decision 1: Make request and result semantics explicit
 
@@ -94,6 +100,42 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 - **Add `HealthKitService.swift` to T023-002**: overlaps T023-001 ownership and expands the reviewed file graph for an access-control issue that can be solved at the owning seam.
 - **Move the capability declaration into `HealthKitService.swift`**: changes file ownership but not Swift module visibility or behavior.
 - **Remove production conformance and use only the public fallback**: bypasses prepared checkpoint acceptance and recreates the independent anchor/cache authority gap.
+
+## Decision 8: Use one actor-owned transaction registry
+
+**Chosen**: Keep request, owner/coalesced waiter, provider task, lane, prepared outcome, and terminal state as plain values owned by `HealthDataCache`. Route registration, settlement, and reset through three conceptual actor transitions.
+
+**Why**: The cache entry, currentness generation, and in-flight ownership already live in this actor. Concentrating the mutable state there maximizes locality and lets Swift enforce isolation without unchecked annotations or independent locks.
+
+### Alternatives compared
+
+- **Separate private coordinator actor**: offers an isolated queue but forces cross-actor coordination around the cache entry and synchronous checkpoint acceptance, creating a shallower interface and another reentrancy seam.
+- **Shared unstructured task values with caller-local cancellation**: keeps the common caller short but cannot centrally express owner versus non-owner cancellation, provider-lane release, or exactly-once continuation settlement.
+- **Selected hybrid — actor registry plus provider adapters**: `HealthDataCache` owns orchestration; HealthKitService and deterministic tests remain adapters at the existing package-internal prepared seam. This keeps two real adapters while hiding transaction complexity.
+
+## Decision 9: Queue request identities, not provider-turn continuations
+
+**Chosen**: Model each provider lane as one active request identity plus queued identities. The actor starts the next eligible provider task; no separately synchronized object waits for a turn.
+
+**Why**: Cancellation and invalidation can delete queued identities, settle their caller waits, revoke an active logical turn, and start a successor without depending on a stale provider's cooperation. A late result is rejected by its captured currentness identity.
+
+## Decision 10: Centralize remove-before-resume settlement
+
+**Chosen**: One actor authority owns all caller continuation completion. It removes each waiter before resuming it and treats later events as no-ops. A non-owner cancellation settles only that waiter; owner cancellation retires the request and settles every attached waiter.
+
+**Why**: Actor serialization makes registration/cancellation/provider-result races deterministic and eliminates the invalidated design's direct second resume, skipped cancelled waiter, and unreachable waiter set.
+
+## Decision 11: Advance one opaque accepted pair
+
+**Chosen**: Build the accepted immutable entry with the prepared candidate checkpoint, publish it, synchronously persist that same checkpoint without suspension, and only then settle success. Never parse or compare checkpoint contents.
+
+**Why**: The actor turn provides the observable linearization point. Process failure can leave persistence behind and cause idempotent replay, but no successful caller observes a persisted checkpoint ahead of its matching cache entry.
+
+## Decision 12: Repair with vertical RED→GREEN tracer bullets
+
+**Chosen**: Work one public-cache behavior at a time in fixed dependency order: reconciliation foundation, waiter settlement, provider-lane reset, atomic rejection/replay, then the remaining deterministic matrix.
+
+**Why**: The invalidated candidate added a large test/implementation batch whose green suite missed the required transaction boundaries. One failing behavior followed by its minimal actor-owned implementation keeps tests sensitive to observable outcomes rather than the private mechanism.
 
 ## Validation Decision
 
