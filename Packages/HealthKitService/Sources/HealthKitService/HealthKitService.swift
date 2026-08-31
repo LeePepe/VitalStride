@@ -556,7 +556,7 @@ public final class HealthKitService: Sendable {
         )
     }
 
-    public func prepareWorkoutSnapshot(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
+    func prepareWorkoutSnapshot(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
         let source: WorkoutAnchorSource = dateRange == nil ? .baselineSnapshot : .explicitRangeSnapshot
         return try await prepareWorkoutFetch(
             dateRange: dateRange,
@@ -565,7 +565,7 @@ public final class HealthKitService: Sendable {
         )
     }
 
-    public func prepareWorkoutChanges(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
+    func prepareWorkoutChanges(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
         if let dateRange {
             return try await prepareWorkoutSnapshot(dateRange: dateRange)
         }
@@ -662,7 +662,7 @@ public final class HealthKitService: Sendable {
         }
     }
 
-    public func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+    func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
         guard let checkpoint = prepared.checkpoint,
               prepared.source == checkpoint.source,
               prepared.source != .explicitRangeSnapshot,
@@ -673,7 +673,7 @@ public final class HealthKitService: Sendable {
         acceptWorkoutCheckpoint(checkpoint)
     }
 
-    public func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+    func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
         _ = prepared
     }
 
@@ -851,7 +851,7 @@ public final class HealthKitService: Sendable {
         return Int(bpm.rounded())
     }
 
-    func persistedWorkoutAnchor() -> HKQueryAnchor? {
+    private func persistedWorkoutAnchor() -> HKQueryAnchor? {
         guard let record = anchorStore.workoutAnchor(for: deviceIdentifier) else { return nil }
         return try? NSKeyedUnarchiver.unarchivedObject(
             ofClass: HKQueryAnchor.self,

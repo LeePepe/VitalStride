@@ -31,17 +31,6 @@ public protocol WorkoutCheckpointTracking: Sendable {
 }
 
 extension HealthKitService: WorkoutDataProviding {}
-extension HealthKitService: WorkoutPreparedDataProviding {}
-extension HealthKitService: WorkoutCheckpointTracking {
-    public func currentWorkoutCheckpoint() -> WorkoutAnchorCheckpoint? {
-        guard let anchor = persistedWorkoutAnchor() else { return nil }
-        return WorkoutAnchorCheckpoint(
-            source: .baselineSnapshot,
-            anchor: anchor,
-            lastSyncDate: Date()
-        )
-    }
-}
 
 // MARK: - AvailableTypesProbing
 
