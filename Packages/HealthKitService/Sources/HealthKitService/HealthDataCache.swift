@@ -126,87 +126,75 @@ public actor HealthDataCache {
         }
     }
 
-    private final class WorkoutFetchWaiter: @unchecked Sendable {
-        var continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>?
-        private let stateLock = NSLock()
-        private var completed = false
-        private var cancelled = false
+    private final class WorkoutFetchWaiter: Sendable {
+        private struct State {
+            var continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>?
+            var completed = false
+            var cancelled = false
+        }
+
+        private let state = Mutex<State>(State())
 
         func markCancelled() {
-            stateLock.lock()
-            guard !completed else {
-                stateLock.unlock()
-                return
+            state.withLock { state in
+                guard !state.completed else { return }
+                state.cancelled = true
             }
-            cancelled = true
-            stateLock.unlock()
         }
 
         func cancel() {
-            stateLock.lock()
-            guard !completed else {
-                stateLock.unlock()
-                return
+            let continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>? = state.withLock { state in
+                guard !state.completed else { return nil }
+                state.completed = true
+                state.cancelled = true
+                let continuation = state.continuation
+                state.continuation = nil
+                return continuation
             }
-            completed = true
-            cancelled = true
-            let continuation = self.continuation
-            self.continuation = nil
-            stateLock.unlock()
             continuation?.resume(throwing: CancellationError())
         }
 
         func setContinuation(_ continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>) {
-            stateLock.lock()
-            if completed {
-                stateLock.unlock()
-                continuation.resume(throwing: CancellationError())
-                return
+            let shouldCancel: Bool = state.withLock { state in
+                if state.completed {
+                    return true
+                }
+                state.continuation = continuation
+                return state.cancelled
             }
-            self.continuation = continuation
-            let shouldCancel = cancelled
-            stateLock.unlock()
             if shouldCancel {
-                self.continuation = nil
                 continuation.resume(throwing: CancellationError())
             }
         }
 
         func isCancelled() -> Bool {
-            stateLock.lock()
-            let cancelled = self.cancelled
-            stateLock.unlock()
-            return cancelled
+            state.withLock { $0.cancelled }
         }
 
         func resolve(_ value: [HealthWorkoutRecord]) {
-            stateLock.lock()
-            guard !completed, !cancelled else {
-                stateLock.unlock()
-                return
+            let continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>? = state.withLock { state in
+                guard !state.completed, !state.cancelled else { return nil }
+                state.completed = true
+                let continuation = state.continuation
+                state.continuation = nil
+                return continuation
             }
-            completed = true
-            let continuation = self.continuation
-            self.continuation = nil
-            stateLock.unlock()
             continuation?.resume(returning: value)
         }
 
         func fail(_ error: any Error) {
-            stateLock.lock()
-            guard !completed, !cancelled else {
-                stateLock.unlock()
-                return
+            let continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>? = state.withLock { state in
+                guard !state.completed, !state.cancelled else { return nil }
+                state.completed = true
+                let continuation = state.continuation
+                state.continuation = nil
+                return continuation
             }
-            completed = true
-            let continuation = self.continuation
-            self.continuation = nil
-            stateLock.unlock()
             continuation?.resume(throwing: error)
         }
     }
 
-    private final class WorkoutInFlightFetch: @unchecked Sendable {
+    private final class WorkoutInFlightFetch: Sendable {
         let requestID: UUID
         let task: Task<[HealthWorkoutRecord], any Error>
         private let waiterLock = Mutex<[WorkoutFetchWaiter]>([])
@@ -294,8 +282,36 @@ public actor HealthDataCache {
         }
     }
 
-    private final class ProviderTurnWaiter: @unchecked Sendable {
-        var continuation: CheckedContinuation<Void, any Error>?
+    private final class ProviderTurnWaiter: Sendable {
+        private struct State {
+            var continuation: CheckedContinuation<Void, any Error>?
+        }
+
+        private let state = Mutex<State>(State())
+
+        func setContinuation(_ continuation: CheckedContinuation<Void, any Error>) {
+            state.withLock { state in
+                state.continuation = continuation
+            }
+        }
+
+        func resume() {
+            let continuation: CheckedContinuation<Void, any Error>? = state.withLock { state in
+                let continuation = state.continuation
+                state.continuation = nil
+                return continuation
+            }
+            continuation?.resume(returning: ())
+        }
+
+        func cancel() {
+            let continuation: CheckedContinuation<Void, any Error>? = state.withLock { state in
+                let continuation = state.continuation
+                state.continuation = nil
+                return continuation
+            }
+            continuation?.resume(throwing: CancellationError())
+        }
     }
 
     private var workoutCache: WorkoutCacheEntry?
@@ -497,6 +513,13 @@ public actor HealthDataCache {
         persistTasks = [:]
         workoutCache = nil
         workoutRequestOrderByKey = [:]
+        workoutProviderTurnInProgress = [:]
+        for waiters in workoutProviderWaiters.values {
+            for waiter in waiters {
+                waiter.cancel()
+            }
+        }
+        workoutProviderWaiters = [:]
         for fetch in workoutInFlightFetches.values {
             fetch.task.cancel()
         }
@@ -706,6 +729,13 @@ public actor HealthDataCache {
         workoutGeneration &+= 1
         workoutCache = nil
         workoutRequestOrderByKey = [:]
+        workoutProviderTurnInProgress = [:]
+        for waiters in workoutProviderWaiters.values {
+            for waiter in waiters {
+                waiter.cancel()
+            }
+        }
+        workoutProviderWaiters = [:]
         for fetch in workoutInFlightFetches.values {
             fetch.task.cancel()
         }
@@ -1107,6 +1137,7 @@ public actor HealthDataCache {
     ) -> Bool {
         guard !Task.isCancelled else { return false }
         guard workoutGeneration == generation else { return false }
+        guard workoutRequestOrder == requestOrder else { return false }
 
         guard let current = workoutInFlightFetches[key] else {
             return false
@@ -1115,6 +1146,33 @@ public actor HealthDataCache {
             return false
         }
         return (workoutRequestOrderByKey[key] ?? requestOrder) == requestOrder
+    }
+
+    private static func checkpointValue(_ checkpoint: WorkoutAnchorCheckpoint?) -> Int64? {
+        guard let checkpoint else { return nil }
+        guard let anchor = checkpoint.anchor else { return nil }
+        let description = String(describing: anchor)
+        let digits = description.filter { $0.isNumber }
+        guard !digits.isEmpty else { return nil }
+        return Int64(digits)
+    }
+
+    private func isOlderWorkoutCheckpoint(
+        _ older: WorkoutAnchorCheckpoint?,
+        than newer: WorkoutAnchorCheckpoint?
+    ) -> Bool {
+        guard let older, let newer else { return false }
+
+        if let olderValue = Self.checkpointValue(older),
+           let newerValue = Self.checkpointValue(newer) {
+            return olderValue < newerValue
+        }
+
+        if older.lastSyncDate != newer.lastSyncDate {
+            return older.lastSyncDate < newer.lastSyncDate
+        }
+
+        return older.anchorData.lexicographicallyPrecedes(newer.anchorData)
     }
 
     private func performWorkoutFetch(
@@ -1251,6 +1309,14 @@ public actor HealthDataCache {
         let previous = workoutCache
         let preparedSource = prepared.source
 
+        if let previousCheckpoint = previous?.checkpoint,
+           let preparedCheckpoint = prepared.checkpoint,
+           isOlderWorkoutCheckpoint(preparedCheckpoint, than: previousCheckpoint) {
+            provider.rejectPreparedWorkoutFetch(prepared)
+            logger.info("healthkit_workout_fetch_rejected_stale_checkpoint")
+            throw CancellationError()
+        }
+
         if preparedSource == .anchoredChanges {
             guard let previous else {
                 provider.rejectPreparedWorkoutFetch(prepared)
@@ -1262,7 +1328,6 @@ public actor HealthDataCache {
                 logger.info("healthkit_workout_fetch_rejected_incompatible_anchored_base")
                 throw CancellationError()
             }
-
             var merged = Dictionary(previous.workouts.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
             for workout in normalized {
                 merged[workout.id] = workout
@@ -1272,35 +1337,16 @@ public actor HealthDataCache {
             }
 
             let nextWorkouts = Self.normalizeWorkoutProjection(Array(merged.values))
-            if let preparedCheckpoint = prepared.checkpoint,
-               let previousCheckpoint = previous.checkpoint,
-               Self.isOlderWorkoutCheckpoint(previousCheckpoint, than: preparedCheckpoint)
-            {
-                provider.rejectPreparedWorkoutFetch(prepared)
-                logger.info("healthkit_workout_fetch_rejected_stale_checkpoint")
-                throw CancellationError()
-            }
-
             let nextEntry = WorkoutCacheEntry(
                 workouts: nextWorkouts,
                 coveredRange: previous.coveredRange,
                 source: previous.source,
                 requestOrder: requestOrder,
-                checkpoint: previous.checkpoint
+                checkpoint: prepared.checkpoint ?? previous.checkpoint
             )
             workoutCache = nextEntry
             provider.acceptPreparedWorkoutFetch(prepared)
             return nextWorkouts
-        }
-
-        if let previous,
-           let preparedCheckpoint = prepared.checkpoint,
-           let previousCheckpoint = previous.checkpoint,
-           Self.isOlderWorkoutCheckpoint(previousCheckpoint, than: preparedCheckpoint)
-        {
-            provider.rejectPreparedWorkoutFetch(prepared)
-            logger.info("healthkit_workout_fetch_rejected_stale_checkpoint")
-            throw CancellationError()
         }
 
         let nextWorkouts: [HealthWorkoutRecord]
@@ -1399,7 +1445,17 @@ public actor HealthDataCache {
         key: WorkoutFetchKey,
         waiter: ProviderTurnWaiter
     ) async {
-        workoutProviderWaiters[key]?.removeAll { $0 === waiter }
+        guard var waiters = workoutProviderWaiters[key] else { return }
+        let wasPresent = waiters.contains { $0 === waiter }
+        waiters.removeAll { $0 === waiter }
+        if wasPresent {
+            waiter.cancel()
+            if waiters.isEmpty {
+                workoutProviderWaiters[key] = nil
+            } else {
+                workoutProviderWaiters[key] = waiters
+            }
+        }
     }
 
     private func claimWorkoutProviderTurn(
@@ -1412,7 +1468,7 @@ public actor HealthDataCache {
             do {
                 try await withTaskCancellationHandler(operation: {
                     try await withCheckedThrowingContinuation { continuation in
-                        waiter.continuation = continuation
+                        waiter.setContinuation(continuation)
                         workoutProviderWaiters[key, default: []].append(waiter)
                     }
                 }, onCancel: {
@@ -1443,38 +1499,8 @@ public actor HealthDataCache {
         workoutProviderTurnInProgress[key] = nil
         let waiters = workoutProviderWaiters.removeValue(forKey: key) ?? []
         for waiter in waiters {
-            if let continuation = waiter.continuation {
-                waiter.continuation = nil
-                continuation.resume(returning: ())
-            }
+            waiter.resume()
         }
-    }
-
-    private static func isOlderWorkoutCheckpoint(
-        _ previous: WorkoutAnchorCheckpoint,
-        than candidate: WorkoutAnchorCheckpoint
-    ) -> Bool {
-        if previous.lastSyncDate < candidate.lastSyncDate {
-            return true
-        }
-        if previous.lastSyncDate > candidate.lastSyncDate {
-            return false
-        }
-        guard let previousAnchor = previous.anchor,
-              let candidateAnchor = candidate.anchor else {
-            return false
-        }
-        let previousValue = Self.anchorOrderValue(for: previousAnchor)
-        let candidateValue = Self.anchorOrderValue(for: candidateAnchor)
-        return previousValue < candidateValue
-    }
-
-    private static func anchorOrderValue(for anchor: HKQueryAnchor) -> UInt64 {
-        let description = String(describing: anchor)
-        let digits = description
-            .split(whereSeparator: { !$0.isNumber })
-            .joined()
-        return UInt64(digits) ?? 0
     }
 
     private func semanticSource(for semantic: WorkoutFetchSemantic) -> WorkoutAnchorSource {
