@@ -921,8 +921,8 @@ public actor HealthDataCache {
                    let currentValue = Self.anchorValue(currentCheckpoint.anchor),
                    let preparedValue = Self.anchorValue(preparedCheckpoint.anchor),
                    preparedValue <= currentValue {
-                preparedProvider.rejectPreparedWorkoutFetch(prepared)
-                throw CancellationError()
+                    preparedProvider.rejectPreparedWorkoutFetch(prepared)
+                    throw CancellationError()
                 }
 
                 let provenance: WorkoutCacheEntry.WorkoutProvenance = switch prepared.source {
