@@ -851,7 +851,7 @@ public final class HealthKitService: Sendable {
         return Int(bpm.rounded())
     }
 
-    private func persistedWorkoutAnchor() -> HKQueryAnchor? {
+    func persistedWorkoutAnchor() -> HKQueryAnchor? {
         guard let record = anchorStore.workoutAnchor(for: deviceIdentifier) else { return nil }
         return try? NSKeyedUnarchiver.unarchivedObject(
             ofClass: HKQueryAnchor.self,

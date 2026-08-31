@@ -38,12 +38,13 @@ actor MockWorkoutProvider: WorkoutDataProviding {
     }
 }
 
-final class MockPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendable {
+final class MockPreparedWorkoutProvider: WorkoutPreparedDataProviding, WorkoutCheckpointTracking, Sendable {
     private let preparedSnapshotState: Mutex<PreparedWorkoutFetch>
     private let preparedChangesState: Mutex<PreparedWorkoutFetch>
     private let acceptedState: Mutex<[PreparedWorkoutFetch]>
     private let rejectedState: Mutex<[PreparedWorkoutFetch]>
     private let fetchResultState: Mutex<WorkoutFetchResult>
+    private let latestAcceptedCheckpointState: Mutex<WorkoutAnchorCheckpoint?>
 
     var preparedSnapshot: PreparedWorkoutFetch {
         preparedSnapshotState.withLock { $0 }
@@ -77,6 +78,7 @@ final class MockPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendable 
         self.acceptedState = Mutex([])
         self.rejectedState = Mutex([])
         self.fetchResultState = Mutex(WorkoutFetchResult(workouts: [], deletedObjectIDs: []))
+        self.latestAcceptedCheckpointState = Mutex(nil)
     }
 
     func setPreparedSnapshot(_ value: PreparedWorkoutFetch) {
@@ -103,8 +105,15 @@ final class MockPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendable 
         preparedChanges
     }
 
+    func currentWorkoutCheckpoint() -> WorkoutAnchorCheckpoint? {
+        latestAcceptedCheckpointState.withLock { $0 }
+    }
+
     func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
         acceptedState.withLock { $0.append(prepared) }
+        if let checkpoint = prepared.checkpoint {
+            latestAcceptedCheckpointState.withLock { $0 = checkpoint }
+        }
     }
 
     func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
@@ -162,7 +171,7 @@ final class RangeAwarePreparedWorkoutProvider: WorkoutPreparedDataProviding, Sen
     }
 }
 
-final class BarrierPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendable {
+final class BarrierPreparedWorkoutProvider: WorkoutPreparedDataProviding, WorkoutCheckpointTracking, Sendable {
     private struct QueuedPrepared {
         let prepared: PreparedWorkoutFetch
         let gate: Bool
@@ -173,6 +182,7 @@ final class BarrierPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendab
     private let releasedGates: Mutex<[String: Int]>
     private let acceptedState: Mutex<[PreparedWorkoutFetch]>
     private let rejectedState: Mutex<[PreparedWorkoutFetch]>
+    private let latestAcceptedCheckpointState: Mutex<WorkoutAnchorCheckpoint?>
 
     init() {
         self.preparedQueue = Mutex([:])
@@ -180,6 +190,7 @@ final class BarrierPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendab
         self.releasedGates = Mutex([:])
         self.acceptedState = Mutex([])
         self.rejectedState = Mutex([])
+        self.latestAcceptedCheckpointState = Mutex(nil)
     }
 
     func register(_ prepared: PreparedWorkoutFetch, for range: DateInterval?, gate: Bool = false) {
@@ -214,10 +225,15 @@ final class BarrierPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendab
         }
 
         if let queued {
-            if queued.gate {
-                try await awaitGateForKey(key)
+            do {
+                if queued.gate {
+                    try await awaitGateForKey(key)
+                }
+                return queued.prepared
+            } catch {
+                rejectPreparedWorkoutFetch(queued.prepared)
+                throw error
             }
-            return queued.prepared
         }
 
         return PreparedWorkoutFetch(workouts: [], deletedObjectIDs: [], source: .baselineSnapshot, checkpoint: nil)
@@ -233,10 +249,15 @@ final class BarrierPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendab
         }
 
         if let queued {
-            if queued.gate {
-                try await awaitGateForKey(key)
+            do {
+                if queued.gate {
+                    try await awaitGateForKey(key)
+                }
+                return queued.prepared
+            } catch {
+                rejectPreparedWorkoutFetch(queued.prepared)
+                throw error
             }
-            return queued.prepared
         }
 
         return PreparedWorkoutFetch(workouts: [], deletedObjectIDs: [], source: .anchoredChanges, checkpoint: nil)
@@ -272,8 +293,15 @@ final class BarrierPreparedWorkoutProvider: WorkoutPreparedDataProviding, Sendab
         WorkoutFetchResult(workouts: [], deletedObjectIDs: [])
     }
 
+    func currentWorkoutCheckpoint() -> WorkoutAnchorCheckpoint? {
+        latestAcceptedCheckpointState.withLock { $0 }
+    }
+
     func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
         acceptedState.withLock { $0.append(prepared) }
+        if let checkpoint = prepared.checkpoint {
+            latestAcceptedCheckpointState.withLock { $0 = checkpoint }
+        }
     }
 
     func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
