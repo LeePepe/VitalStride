@@ -31,6 +31,11 @@
 - [x] Silent acceptance no-advance leaves durable state on the prior checkpoint and is covered by idempotent replay/resubmission rather than rollback or false success evidence.
 - [x] The adversarial matrix distinguishes provider query completion from cache acceptance and proves c2 rejection, replay from c1, and later A+B/c2 acceptance.
 - [x] The staged breakdown requires one public-cache RED→GREEN tracer bullet at a time and forbids timing-based synchronization evidence.
+- [x] Stage 0 pins clean `f5690f…` local/tracking/remote/Draft-PR equality, no active owner, the obsolete-pattern inventory, and unchanged invalidated test blob; divergence stops without reset.
+- [x] Stages A–E have explicit entry, RED, GREEN, replacement, regression, and exit evidence; verification-only Stage F has explicit entry, audit, package/diff/SHA proof, and exit evidence.
+- [x] Removal/replacement mapping covers all repeated five-P1 source/test facts from comments `00966211…` and `9d352f6d…`.
+- [x] Stage F rejects `f5690f…`, `d853728…`, empty/same-tree commits, unchanged mandatory file blobs, focused-only testing, stale patterns, routing errors, and SHA mismatches.
+- [x] Only Fullstack may request review for a genuinely new local/tracking/remote/PR-equal SHA after full package/diff/pattern gates.
 - [x] Success criteria are measurable without HealthKit hardware.
 
 ## Readiness Traceability

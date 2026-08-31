@@ -6,8 +6,20 @@
 - Read `.specify/memory/constitution.md`, `AGENTS.md`, and `Packages/HealthKitService/CONTEXT.md`.
 - Keep the diff within the files declared by `tasks.md`.
 - Do not run `xcodebuild`; this is a package-only change.
-- Preserve Draft PR #423, auto-merge disabled, and invalidated SHA `d85372895fd4561aba3185e31605076d9429d517` as evidence. Reuse the metadata-pinned delivery workspace without resetting its current dirty repair.
+- Preserve Draft PR #423 with auto-merge disabled, historical invalidated SHA `d85372895fd4561aba3185e31605076d9429d517`, and current rejected head `f5690f1461a6cb07504d7f6e945220cb5213b2fb` as evidence. Reuse the clean metadata-pinned delivery workspace without reset or recreation.
 - Planner changes no source file. Fullstack replaces the invalidated transaction/waiter design through the staged public-cache behavior below rather than patching isolated review lines.
+- Before dispatch, the preserved baseline is clean exact SHA `f5690f1461a6cb07504d7f6e945220cb5213b2fb`, equal across local/tracking/remote/Draft PR #423; auto-merge is disabled, no active/orphan process owns the worktree, and MY-1483 points to the latest reviewed planning revision.
+- If the baseline differs, stop and report it. Do not reset, clean, recreate, re-checkout, or otherwise force the workspace back to the expected fingerprint.
+
+## Stage 0 Baseline Packet
+
+Record before editing:
+
+- delivery worktree, branch, local HEAD, tracking OID, pushed remote OID, PR head/target/Draft/auto-merge state;
+- base three-dot file list/stat against `9dfa1fb4317935573c0a2f7c9283d13a40f01104`;
+- exact occurrences of `Synchronization`, Mutex/reference waiter helpers, provider-turn continuation holders, `Task.yield`, request-order state, checkpoint decoding/ordering, prior-checkpoint carry-forward, and unconditional checkpoint acceptance;
+- `HealthWorkoutCacheTests.swift` blob `9bdc7a5fd2b528b8f9273395480d9efa02625616`, identical at invalidated `d853728…` and `f5690f…`;
+- repeated five-P1 verdict comments `00966211-f963-48f7-ac63-8623621e0298` and `9d352f6d-5742-40a7-a047-365e1aae2cea`.
 
 ## Execution Order
 
@@ -15,10 +27,21 @@
 2. Complete T023-002 after T023-001.
 3. **Stage A — result semantics and reconciliation**: add one failing public-cache case for A→empty and anchored-intent→baseline fallback, then implement the minimal whole-entry semantic transition; continue one RED→GREEN case at a time through UUID add/update/delete, unknown deletion, duplicate provider UUIDs, repeated-delta idempotency, deletion-wins, empty authoritative snapshot, and equal-time ordering.
 4. **Stage B — exactly-once caller settlement**: add deterministic failing cases for same-key coalescing, non-owner cancellation, owner cancellation, and shared provider failure; then replace independently synchronized waiter helpers with actor-owned registration/settlement state. Every case must finish without a hang, direct second resume, sleeps, or yield polling.
-5. **Stage C — provider-lane cancellation and reset**: gate one active provider request and one queued successor; observe RED for cancellation, refresh supersession, `invalidateWorkouts()`, and `invalidateAll()`, then implement actor-owned request-ID lanes and reset draining so a fresh successor starts while a stale non-cooperative provider remains held.
+5. **Stage C — provider-lane cancellation and reset**: gate one active provider request and one queued successor; observe RED for cancellation, refresh supersession, `invalidateWorkouts()`, `invalidateAll()`, and authorization revocation, then implement actor-owned request-ID lanes and full-reset draining so a fresh successor starts while a stale non-cooperative provider remains held.
 6. **Stage D — checkpoint publication/invocation and anchored replay**: accept A/c1; hold completed anchored B/c2 before cache acceptance; cancel/supersede it; prove c2 rejection and replay from c1; then implement opaque currentness plus same-turn A+B/c2 publication and synchronous acceptance invocation before success settlement. Next, make the provider silently leave durable state on c1 and prove the following query replays B from c1 and resubmits c2 safely.
 7. **Stage E — remaining deterministic matrix**: one RED→GREEN case at a time for explicit-range→default rebuild, concrete coverage versus wider range, different semantic/range requests not coalescing, persisted-anchor restart baseline rebuild, provider failure preserving cache-accepted state, stale late completion, legacy snapshot-only fallback with checkpoint absent/no acceptance call, and prepared baseline/change with nil checkpoint.
 8. Run focused workout tests after every tracer bullet, then the full repository-declared package gate.
+
+For every stage, entry evidence is the prior stage's exit plus a cleanly named next failing behavior. RED evidence records the test name, exact command, nonzero exit, and observable failure while the relevant production behavior is still unchanged. Exit evidence records the focused GREEN command/exit, the source/test replacement achieved, the prior-stage regression set, and the current allowlisted diff. Accumulate this ledger for the final Fullstack handoff; do not post a progress-only comment.
+
+### Stage-specific entry and exit evidence
+
+- **A entry**: Stage 0 packet captured. **A exit**: every semantic/UUID/empty/order tracer has its own RED then GREEN record.
+- **B entry**: A green plus failing owner/non-owner/failure cases. **B exit**: one terminal outcome per caller; old waiter/in-flight lock state, direct second resume, and production yield polling absent; A+B green.
+- **C entry**: B green plus failing active/queued reset case. **C exit**: no provider-turn continuation holder; cancellation, invalidation, and authorization reset settle all affected callers once; successor starts before stale release; A–C green.
+- **D entry**: C green plus scripted A/c1 and completed B/c2. **D exit**: no checkpoint decoding/order, request order, or prior-checkpoint carry-forward; rejection/replay/invocation/silent-lag transcript; A–D green.
+- **E entry**: D green plus enumerated remaining cases. **E exit**: full matrix green, no sleep/yield timing evidence, and test blob differs from `9bdc7a…`.
+- **F entry**: complete A–E ledger and non-empty deltas for both mandatory files versus `f5690f…`. **F exit**: full package/diff/pattern gates, genuinely new pushed SHA, four-way equality, and Fullstack-authored exact-SHA review request.
 
 ## Required Regression Matrix
 
@@ -57,6 +80,20 @@ swift build && swift test
 ```
 
 Acceptance requires exit code 0 for both commands. Do not substitute an AppUI build or simulator test.
+
+## Removal and New-SHA Gates
+
+Before commit, the production/test audit must show no rejected transaction pattern: no `Synchronization`/Mutex-owned waiter state, continuation-holder provider turn, production or test timing-yield coordination, request-order currentness, checkpoint decoding/ordering, previous-checkpoint carry-forward, or unconditional acceptance for nil candidates.
+
+After commit/push:
+
+- HEAD differs from both invalidated `f5690f1461a6cb07504d7f6e945220cb5213b2fb` and `d85372895fd4561aba3185e31605076d9429d517`;
+- both mandatory file blobs differ from `f5690f…`;
+- local HEAD, tracking OID, pushed remote OID, and PR #423 head are identical;
+- PR remains Draft with auto-merge disabled until exact-SHA content PASS;
+- Fullstack—not PR Manager—authors the review request with planning authority, package gate, and scope/pattern evidence.
+
+Same-SHA/same-tree requests, empty commits, focused-only test evidence, or claims without recorded byte deltas fail the gate.
 
 ## Diff Audit
 

@@ -47,11 +47,19 @@ Details and alternatives are recorded in `research.md`.
 
 Post-review delivery evidence:
 
-- Draft PR #423 remains open with auto-merge disabled at invalidated exact SHA `d85372895fd4561aba3185e31605076d9429d517`; it is evidence only and is not an implementation authority.
+- Draft PR #423 previously preserved invalidated exact SHA `d85372895fd4561aba3185e31605076d9429d517`; that historical tree remains evidence but is not an implementation authority. The current preserved Draft head is recorded below.
 - The invalidated two-file candidate added three unchecked Sendable waiter/turn helpers, lock-owned mutable state, yield polling, a double-resume cancellation path, provider-turn continuations that invalidation could strand, and cache-side ordering of opaque checkpoints.
 - Its anchored acceptance published the new workout projection with the previous checkpoint while separately persisting the candidate checkpoint, so the accepted pair could disagree.
 - Its green test set did not exercise a completed anchored B/c2 rejected between provider completion and cache acceptance, replay from c1, or the full deterministic fallback/failure/order/range matrix.
-- The metadata-pinned delivery worktree and its current dirty repair must be preserved; Planner changes planning artifacts only.
+- The metadata-pinned delivery worktree must be preserved without reset/recreation; Planner changes planning artifacts only. Its current clean `f5690f…` fingerprint is recorded below.
+
+Repeated-candidate readiness evidence:
+
+- Draft PR #423 and the clean metadata-pinned delivery worktree now resolve to invalidated SHA `f5690f1461a6cb07504d7f6e945220cb5213b2fb`; local HEAD, tracking branch, and PR head match, and auto-merge remains disabled.
+- Exact-SHA reviews `00966211-f963-48f7-ac63-8623621e0298` and `9d352f6d-5742-40a7-a047-365e1aae2cea` report the same five P1 findings. The second review proves that the prior Fullstack retry produced no byte change.
+- Relative to delivered base `9dfa1fb4317935573c0a2f7c9283d13a40f01104`, the preserved candidate still changes only `HealthDataCache.swift` and `HealthWorkoutCacheTests.swift`, with 1,737 insertions and 76 deletions.
+- Production still contains `Synchronization`/Mutex-backed reference helpers, continuation-holder provider turns, yield polling, request-order currentness, checkpoint decoding/ordering, and previous-checkpoint carry-forward for nil candidates.
+- The workout-cache test file has blob `9bdc7a5fd2b528b8f9273395480d9efa02625616` at both invalidated `d85372895fd4561aba3185e31605076d9429d517` and `f5690f1461a6cb07504d7f6e945220cb5213b2fb`; the reviewed A–F matrix has not replaced it.
 
 ## Design
 
@@ -84,7 +92,7 @@ The private conceptual interface has three transitions, without prescribing Swif
 
 1. **Register** creates a request or joins an eligible same-key request and records the caller waiter.
 2. **Settle** handles prepared/snapshot success, provider failure, caller cancellation, or a stale late event through one terminal funnel.
-3. **Reset** handles refresh supersession, workout invalidation, and full invalidation by advancing generation, retiring affected transactions, releasing lanes, cancelling tasks, and settling waiters.
+3. **Reset** handles refresh supersession, workout invalidation, full invalidation, and authorization revocation by advancing generation, retiring affected transactions, releasing lanes, cancelling tasks, and settling waiters.
 
 ### Waiter lifecycle
 
@@ -115,7 +123,7 @@ The private conceptual interface has three transitions, without prescribing Swif
 - Key in-flight fetches by request semantic and date range.
 - Give every started fetch a unique request instance and capture a workout-specific generation before awaiting the provider.
 - Ordinary duplicate reads may coalesce onto the owning instance; an explicit refresh supersedes prior work even for the same semantic/range.
-- `invalidateWorkouts()` and `invalidateAll()` route through the reset transition: bump generation, clear cache, retire active/queued lane state, cancel tasks, and settle every affected caller before discarding indexes.
+- `invalidateWorkouts()`, `invalidateAll()`, and authorization revocation route through the reset transition: bump generation, clear cache, retire active/queued lane state, cancel tasks, and settle every affected caller before discarding indexes.
 - A fetch commits only if generation, semantic/range key, and request instance remain current; only the actor settlement authority may retire that instance or clear its lane.
 - Errors, rejected currentness, cancellation, and stale completions leave the last accepted cache/checkpoint pair unchanged.
 - All mutable request/waiter/turn state remains actor-isolated value state; no lock, unchecked Sendable helper, or yield-polling handshake is used.
@@ -194,10 +202,10 @@ Task metadata and the acceptance mapping are in `tasks.md`.
 
 ## Verification Strategy
 
-1. Preserve Draft PR #423 and the pinned delivery workspace, but treat invalidated SHA `d85372895fd4561aba3185e31605076d9429d517` only as RED evidence.
+1. Preserve Draft PR #423 and the pinned delivery workspace; treat invalidated SHAs `d85372895fd4561aba3185e31605076d9429d517` and current `f5690f1461a6cb07504d7f6e945220cb5213b2fb` only as RED evidence.
 2. Run sequential tracer bullets through the public cache seam. For each stage, add one deterministic failing behavior, observe RED against the invalidated design, implement only enough actor-owned behavior for GREEN, then continue; do not bulk-add the full matrix before implementation.
 3. Stage order is: result-semantic/reconciliation foundation; exactly-once coalesced waiter settlement; provider-lane cancellation/reset; checkpoint publication plus synchronous acceptance invocation and anchored rejection/replay; remaining fallback/range/restart/failure/order compatibility matrix.
-4. Use explicit provider-started, query-complete, cache-acceptance, cancellation, and release gates. Sleeps and `Task.yield` are not synchronization evidence.
+4. Use explicit provider-started, query-complete, cache-acceptance, acceptance-invocation, durable-advance, cancellation, and release gates. Sleeps and `Task.yield` are not synchronization evidence.
 5. Existing HealthKitService tests protect public compatibility and privacy logging.
 6. Required layer gate, from `Packages/HealthKitService`:
 
@@ -206,6 +214,59 @@ swift build && swift test
 ```
 
 No `xcodebuild` is permitted because implementation scope is package-only.
+
+## Preserved-Workspace Replacement Protocol
+
+### Dispatch and Stage 0 preconditions
+
+Before Fullstack changes a byte, Team Lead and Fullstack must record one matching baseline packet:
+
+- metadata-pinned worktree and branch identity;
+- no active/orphan process owning the worktree;
+- clean local HEAD, tracking OID, remote branch OID, and Draft PR #423 head all equal `f5690f1461a6cb07504d7f6e945220cb5213b2fb`;
+- PR remains Draft with auto-merge disabled and target `main`;
+- two-file base diff and the exact obsolete-pattern inventory above;
+- test blob `9bdc7a5fd2b528b8f9273395480d9efa02625616` proving the invalidated matrix is unchanged.
+
+If any value differs, stop and report the divergence to Team Lead. Do not reset, clean, recreate, re-checkout, or silently normalize the preserved workspace. No implementation dispatch is ready until the exact reviewed planning revision is recorded in MY-1483.
+
+### Required removal and replacement map
+
+| Rejected source/test state | Must be removed | Reviewed replacement | First exit gate that proves replacement |
+|---|---|---|---|
+| `Synchronization`/Mutex-backed mutable waiter and in-flight reference helpers | Production import, lock-owned helper state, independent completion paths | Plain actor-owned transaction/waiter values plus one remove-before-resume settlement authority | Stage B |
+| Continuation-holder provider-turn objects | Stored provider-turn continuation helpers and remove-without-resume cancellation | Actor-owned active/queued request identities with revocable lane ownership and successor pump | Stage C |
+| `Task.yield`/timing coordination | Production polling and test yield/sleep interleaving evidence | Explicit provider-started, query-complete, cache-acceptance, acceptance-invocation, durable-advance, and release gates | Stages B–E |
+| Request-order cache/currentness state | Entry field, global/per-key order maps, and order comparisons | Generation + semantic/range key + unique request identity in the transaction only | Stages B/D |
+| Checkpoint decoding/ordering | Anchor string/data/timestamp parsing and stale-order heuristics | Opaque candidate; generation/key/request identity alone decides currentness | Stage D |
+| Previous-checkpoint carry-forward and unconditional acceptance | Nil coalescing and acceptance call when no candidate exists | Store exactly the supplied optional candidate; legacy/nil/explicit results stay checkpoint-absent and call no acceptance | Stages D/E |
+| Invalidated insensitive tests | Unchanged test blob and baseline/snapshot/cache-hit substitutes for anchored transaction evidence | Public-cache tracer bullets with explicit gates and recorded terminal outcomes | Stages A–E |
+
+### Stage evidence ledger
+
+Fullstack accumulates this ledger locally and publishes it in the single final implementation handoff; no progress comment substitutes for an exit gate.
+
+| Stage | Entry evidence | RED evidence before production change for that tracer | Exit evidence |
+|---|---|---|---|
+| A — semantic reconciliation | Stage 0 baseline packet; source still at preserved candidate | Named public-cache test, command, nonzero exit, and failing observable for the next semantic/UUID/empty/order case | Each named tracer GREEN before the next; all Stage A cases green; only allowlisted files changed |
+| B — caller settlement | Stage A exit plus named owner/non-owner/failure cases not yet satisfied | Explicit-gate cancellation/failure test fails or reaches its bounded no-hang guard; no direct private-state assertion | All registered callers record one terminal outcome; old waiter/in-flight locks, direct resume paths, and production yield polling absent; Stage A+B focused tests green |
+| C — provider-lane reset | Stage B exit; active/queued request scenario scripted | Cancellation/supersession/invalidation/authorization-reset test proves the preserved design strands or blocks a waiter/successor | Old provider-turn continuation holder absent; affected callers cancel once; successor starts before stale release; late result rejects; A–C green |
+| D — opaque checkpoint/replay | Stage C exit; A/c1 accepted and B/c2 script available | Query-complete B/c2 is held before cache acceptance and the old design fails rejection/replay or candidate semantics | Checkpoint decode/order, request order, and previous-checkpoint carry-forward absent; c2 rejection, replay from c1, matching invocation, and silent durable-lag resubmission transcript recorded; A–D green |
+| E — complete matrix | Stage D exit; remaining scenario list enumerated | One named legacy/nil/range/restart/failure/stale case fails before its minimal implementation | Every spec scenario/edge passes; test blob differs from preserved `9bdc7a…`; no sleep/yield timing evidence; A–E green |
+| F — delivery gate | Complete A–E ledger; both mandatory files differ from `f5690f…`; obsolete-pattern audit clean | Not applicable—F verifies the assembled candidate | Full package gate passes; diff is allowlisted; commit/push produces a non-invalidated SHA; local/remote/PR equality proven; Fullstack requests exact-SHA review itself |
+
+### Genuinely new-SHA gate
+
+A candidate is not reviewable or shippable unless all conditions hold:
+
+- local HEAD is neither `f5690f1461a6cb07504d7f6e945220cb5213b2fb` nor `d85372895fd4561aba3185e31605076d9429d517`;
+- both `HealthDataCache.swift` and `HealthWorkoutCacheTests.swift` have non-empty byte deltas from `f5690f…` (the conditional privacy test may be a third file);
+- the obsolete production/test patterns in the removal map are absent;
+- `swift build && swift test` passes from `Packages/HealthKitService`;
+- local HEAD, tracking branch, pushed remote OID, and PR #423 `headRefOid` are byte-identical at the new SHA;
+- PR #423 remains Draft/auto-merge-disabled until Fullstack obtains an exact-SHA AI Reviewer PASS or PASS WITH FOLLOW-UP.
+
+An empty commit, same-tree commit, same-SHA re-request, focused-test-only result, claimed audit without byte evidence, or request authored by anyone other than Fullstack fails readiness and returns to Team Lead without another implementation review.
 
 ## Risks and Mitigations
 
@@ -228,6 +289,8 @@ No `xcodebuild` is permitted because implementation scope is package-only.
 | Duplicate or unstable projection | UUID map plus explicit sort/tie-breaker. |
 | Logging leaks workout details | Keep only aggregate query type/count/duration and extend existing privacy audit only if needed. |
 | Scope grows into workout persistence/refresh policy | L2 workout persistence, observer sync, and TTL remain explicit non-goals. |
+| Fullstack reports progress or package green without replacing rejected bytes | Stage exit requires named RED/GREEN evidence plus source/test removal proof; Stage F requires both mandatory file blobs to differ from `f5690f…`. |
+| Same invalidated tree is recommitted or re-reviewed | New-SHA gate rejects both invalidated SHAs, empty/same-tree commits, and any review request without four-way equality at a non-invalidated head. |
 
 ## Constitution Check — After Design
 

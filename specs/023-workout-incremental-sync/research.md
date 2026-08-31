@@ -141,6 +141,20 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 
 **Why**: The invalidated candidate added a large test/implementation batch whose green suite missed the required transaction boundaries. One failing behavior followed by its minimal actor-owned implementation keeps tests sensitive to observable outcomes rather than the private mechanism.
 
+## Decision 13: Treat the preserved rejected tree as a fingerprint, not a repair claim
+
+**Evidence**: Repeated exact-SHA reviews `00966211-f963-48f7-ac63-8623621e0298` and `9d352f6d-5742-40a7-a047-365e1aae2cea` found the same five P1s at `f5690f1461a6cb07504d7f6e945220cb5213b2fb`. The second Fullstack handoff reused the same SHA and tree. The test blob is identical to invalidated `d85372895fd4561aba3185e31605076d9429d517`.
+
+**Chosen**: Preserve the clean worktree/branch/Draft PR exactly at `f5690f…` until a reviewed dispatch, then replace the rejected design through A–F without reset or re-checkout. Stage 0 records source-pattern and test-blob fingerprints; every later exit proves an observable RED→GREEN behavior and the required byte removal/replacement.
+
+**Why**: A package-green or audit statement cannot prove a changed tree. Fingerprints make unchanged source and insensitive tests mechanically visible while preserving the evidence chain and workspace continuity.
+
+## Decision 14: Reject same-tree delivery before review
+
+**Chosen**: Final readiness requires both mandatory file blobs to differ from `f5690f…`, the new commit SHA to differ from `f5690f…` and `d853728…`, the obsolete-pattern audit to be empty, the full package gate to pass, and local/tracking/remote/PR head equality at that new SHA. Fullstack must author the exact-SHA review request.
+
+**Why**: The prior same-SHA rerun spent a review cycle without a remediation delta. A new commit hash alone is also insufficient if its tree is unchanged; the mandatory production and test deltas plus pattern audit prove replacement occurred.
+
 ## Validation Decision
 
 All implementation changes are package-only. Repository-declared verification is:
