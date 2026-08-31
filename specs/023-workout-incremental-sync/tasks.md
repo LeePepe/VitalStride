@@ -38,17 +38,19 @@ Each executable row uses native Spec Kit syntax: `- [ ] Txxx [US#] Action with e
 
 These are one non-parallelizable implementation task because every stage owns the same production/test files and must reuse Draft PR #423 plus the pinned delivery workspace. Complete one named test-first tracer before adding the next: RED→GREEN for missing/incorrect behavior or a changing production path, or strengthened characterization-GREEN for an already-correct unchanged path. Never manufacture RED.
 
-**Stage 0A — Team Lead pre-dispatch**: immediately before dispatch, record a timestamped packet attributable to that Team Lead run for the clean preserved workspace at exact rejected SHA `f5690f1461a6cb07504d7f6e945220cb5213b2fb`: local/tracking/remote/PR equality, Draft/no-auto-merge state, no pre-existing active/orphan owner, two-file base diff, obsolete source-pattern inventory, unchanged test blob `9bdc7a5fd2b528b8f9273395480d9efa02625616`, and exact reviewed planning revision. If any value differs, do not dispatch; report it without reset/clean/recheckout.
+**Stage 0A — Team Lead pre-dispatch**: immediately before dispatch, record a timestamped packet attributable to that Team Lead run for base HEAD/tracking/remote/PR `f5690f1461a6cb07504d7f6e945220cb5213b2fb`, Draft/no-auto-merge/`main` state, cancelled owner `1051db56-e454-4640-ac24-6d013586cf49`, no later source-authorized/current process, sole dirty `HealthDataCache.swift`, exact `+4/−207` numstat, dirty blob `7f1f162ef166aa6f841e3746fff3fa3ea40ba069`, committed source blob `be0963652c349210fa39a898cfecf47f13bf710f`, unchanged test blob `9bdc7a5fd2b528b8f9273395480d9efa02625616`, metadata attribution, dirty pattern inventory, and exact reviewed planning revision. If any value differs, do not dispatch; report it without reset/clean/recheckout/restoration.
 
-**Stage 0B — Fullstack post-dispatch/pre-edit**: record a separate timestamped packet attributable to its own current run/task identity as the expected owner, exclude only that run, confirm no competing active/orphan process, and independently recheck every 0A value. Run the declared fail-on-match obsolete-pattern audit and record its exact command, expected nonzero exit, and unsafe-Sendable/Mutex matches as mandatory structural RED; expected matches are fingerprint evidence, while a mismatch from 0A is divergence. If any other value differs, stop before editing, preserve the workspace, and report it; do not terminate an unverified process or normalize the tree. Source work starts only after 0A and 0B agree.
+**Stage 0B — Fullstack post-dispatch/pre-edit**: record a separate timestamped packet attributable to its own current run/task identity as the expected owner, exclude only that run, confirm no competing active/orphan process, and independently recheck every 0A value. Audit committed `f5690f…` for historical unsafe/Mutex structural RED and dirty `7f1f162…` separately for exact partial-removal/surviving-consumer evidence. If any value differs, stop before editing, preserve the workspace, and report it; do not terminate an unverified process, normalize the tree, or restore `be096365…`. Source work starts only after 0A and 0B agree.
+
+All executable evidence runs in the metadata-pinned delivery workspace. At Stage A entry, run `swift build` against exact dirty blob `7f1f162…` and record the actual compiler result. A RED is partial-repair evidence only; a GREEN proves only buildability. If RED, complete the minimum actor-owned compile bridge: replace dangling deleted-helper consumers with plain actor-owned values/request-ID lane identities and reconcile the partial generation rename, without restoring legacy helpers or implementing B settlement, C reset-drain, or D checkpoint outcomes. Make `swift build` green before behavior tracers; the B–D mandatory defects must remain behaviorally RED until their stages.
 
 Each stage starts only after the previous exit. For its next tracer, record either the named RED command/nonzero exit/observable defect before relevant production change, then GREEN; or a named characterization-GREEN command/zero exit/strengthened assertions plus unchanged-path proof. Record the replacement diff and prior-stage regression result. Mandatory RED remains for the five repeated P1 families: unsafe-Sendable/Mutex-owned waiter state (Stage 0 fail-on-match audit), multiple/independent completion (B), stranded continuation-holder lanes (C), previous/candidate entry mismatch (D), and checkpoint decoding/comparison defeating currentness/replay (D). Anchored B/c2 rejection/replay in D is also mandatory RED. Accumulate the ledger for the single final handoff; a progress comment, package-green claim, or audit claim without byte evidence is not an exit.
 
 1. **Stage A — semantic reconciliation foundation**
    - Test-first: A→empty delta, prepared anchored intent returning a baseline, then UUID add/update/delete, unknown deletion, duplicate provider UUIDs, deletion-wins, repeated-delta idempotency, empty authoritative snapshot, and equal-time UUID ordering one case at a time; use RED only if missing/incorrect or changing, otherwise characterization-GREEN.
    - GREEN: minimal prepared-result semantic transition and whole-entry normalized reconciler.
-   - Entry: Stage 0A/0B packets agree and the next public-cache tracer has a declared evidence mode.
-   - Exit: every listed behavior has sequential RED→GREEN or eligible characterization-GREEN evidence; focused Stage A suite passes; diff remains allowlisted.
+   - Entry: Stage 0A/0B packets agree on the dirty snapshot; compiler preflight is recorded; if RED, the minimal in-place actor-owned bridge makes `swift build` green without implementing B–D outcomes; the next public-cache tracer has a declared evidence mode.
+   - Exit: every listed behavior has sequential RED→GREEN or eligible characterization-GREEN evidence; no deleted legacy helper is restored; B–D mandatory defect paths remain RED until their stages; focused Stage A suite passes; diff remains allowlisted.
 2. **Stage B — exactly-once caller settlement**
    - Mandatory RED: an explicit-gate owner/non-owner/error case that exposes multiple/independent completion before replacement; then cover coalescing, non-owner cancellation, owner cancellation with peers, and provider failure fan-out with bounded no-hang assertions.
    - GREEN: actor-owned request/waiter registry and single remove-before-resume settlement authority; remove unchecked/lock-owned/yield-polling waiter helpers.
@@ -71,16 +73,16 @@ Each stage starts only after the previous exit. For its next tracer, record eith
 6. **Stage F — package and diff gate**
    - From `Packages/HealthKitService`, run `swift build && swift test`.
    - Diff remains the declared two files unless the conditional privacy audit is required; no `xcodebuild`.
-   - Entry: complete A–E ledger; non-empty deltas in both `HealthDataCache.swift` and `HealthWorkoutCacheTests.swift` versus `f5690f…`; obsolete-pattern audit empty.
+   - Entry: complete A–E ledger; final source blob differs from committed `be096365…` and dirty `7f1f162…`; final test blob differs from `9bdc7a5…`; both mandatory files differ from `f5690f…`; obsolete-pattern audit empty.
    - Audit changed code for zero `@unchecked Sendable`, `@preconcurrency`, `nonisolated(unsafe)`, checkpoint ordering/decoding, production locks/`Synchronization`, continuation-holder turns, request order, prior-checkpoint carry-forward, or timing yield/sleep coordination.
    - Exit: commit/push a SHA different from `f5690f…` and `d853728…`; prove local/tracking/remote/PR equality with PR still Draft/no-auto-merge; Fullstack requests exact-SHA implementation review itself.
 
 ### Mandatory Removal/Replacement Preconditions
 
-| Must remove from preserved source/tests | Must replace with | Required exit |
+| Rejected state that must not survive or be restored | Must replace with | Required exit |
 |---|---|---|
-| `Synchronization`/Mutex mutable waiter and in-flight reference helpers | Actor-owned transaction/waiter values and one remove-before-resume settlement funnel | B |
-| Continuation-holder provider-turn objects | Actor-owned active/queued request identities and revocable lane pump | C |
+| Historical `Synchronization`/Mutex mutable waiter definitions already deleted by the dirty partial, plus surviving waiter/in-flight consumers | Retain the deletion and replace every consumer with actor-owned transaction/waiter values and one remove-before-resume settlement funnel | B |
+| Historical provider-turn holder definitions already deleted by the dirty partial, plus surviving continuation-holder calls/dictionaries | Retain the deletion and replace every consumer with actor-owned active/queued request identities and revocable lane pump | C |
 | Production/test `Task.yield` or sleep coordination | Explicit provider/query/acceptance/durable/release gates | B–E |
 | Request-order cache/currentness state | Generation + key + request identity in transaction state only | B/D |
 | Checkpoint parsing/comparison | Opaque candidate governed only by currentness | D |
@@ -89,8 +91,10 @@ Each stage starts only after the previous exit. For its next tracer, record eith
 
 ### Genuinely New-SHA Gate
 
+The authorized dirty snapshot is the composite `{base HEAD f5690f…, sole HealthDataCache.swift dirty path, +4/−207, source blob 7f1f162…, test blob 9bdc7a5…}`; no synthetic dirty-tree OID is required.
+
 - Reject HEAD equal to `f5690f1461a6cb07504d7f6e945220cb5213b2fb` or `d85372895fd4561aba3185e31605076d9429d517`.
-- Reject an empty/same-tree commit or any candidate where either mandatory file has no delta from `f5690f…`.
+- Reject an empty commit, a tree equal to committed `f5690f…` or the authorized dirty snapshot, a final source blob equal to `be0963652c349210fa39a898cfecf47f13bf710f` or `7f1f162ef166aa6f841e3746fff3fa3ea40ba069`, a final test blob equal to `9bdc7a5fd2b528b8f9273395480d9efa02625616`, or any candidate where either mandatory file has no delta from `f5690f…`.
 - Reject focused-test-only evidence, non-empty obsolete-pattern audit, non-Fullstack review routing, or mismatched local/tracking/remote/PR OIDs.
 - Only a new equal SHA with full package pass, allowlisted diff, clean pattern audit, Draft/no-auto-merge PR, and Fullstack-authored exact-SHA review request may leave Stage F.
 
@@ -133,7 +137,7 @@ swift build && swift test
 
 ## Implementation Handoff Notes
 
-- Preserve Draft PR #423 and invalidated SHAs `d85372895fd4561aba3185e31605076d9429d517` and `f5690f1461a6cb07504d7f6e945220cb5213b2fb` as evidence; reuse the metadata-pinned worktree without reset. Do not treat either invalidated candidate as a base for isolated line-by-line repair or same-SHA re-review.
+- Preserve Draft PR #423, invalidated SHAs `d85372895fd4561aba3185e31605076d9429d517` / `f5690f1461a6cb07504d7f6e945220cb5213b2fb`, and authorized dirty blob `7f1f162ef166aa6f841e3746fff3fa3ea40ba069` as evidence; reuse the exact metadata-pinned dirty worktree without reset, clean, stash, re-checkout, or restoration to committed source blob `be0963652c349210fa39a898cfecf47f13bf710f`. Do not treat the partial deletion as completed remediation or request same-tree review.
 - Follow the sequential stages above. Missing/incorrect or changing behavior must be observed RED before minimal GREEN; already-correct unchanged behavior gets strengthened characterization-GREEN and ongoing regression coverage. Never manufacture RED or bulk-write the matrix horizontally.
 - Test through public cache calls and the prepared-provider system seam. Deterministic adapters use compiler-checked Sendable state and distinct provider-started/query-complete/cache-acceptance/acceptance-invocation/durable-advance/release gates; no sleep or yield synchronization.
 - The adversarial test must hold an anchored result after the provider method completes but before cache acceptance, reject c2, prove the replacement reads from durable c1, then observe A+B/c2 publication and matching acceptance invocation before caller success. A separate silent-no-advance case must keep durable c1 and prove another idempotent replay/submission.

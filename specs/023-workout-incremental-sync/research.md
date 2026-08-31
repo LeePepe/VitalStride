@@ -141,19 +141,27 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 
 **Why**: The invalidated candidate added a large test/implementation batch whose green suite missed the required transaction boundaries. One failing behavior followed by its minimal actor-owned implementation keeps tests sensitive to observable outcomes rather than the private mechanism.
 
-## Decision 13: Treat the preserved rejected tree as a fingerprint, not a repair claim
+## Decision 13: Treat the attributed dirty partial repair as the preserved fingerprint, not a completion claim
 
-**Evidence**: Repeated exact-SHA reviews `00966211-f963-48f7-ac63-8623621e0298` and `9d352f6d-5742-40a7-a047-365e1aae2cea` found the same five P1s at `f5690f1461a6cb07504d7f6e945220cb5213b2fb`. The second Fullstack handoff reused the same SHA and tree. The test blob is identical to invalidated `d85372895fd4561aba3185e31605076d9429d517`.
+**Evidence**: Repeated exact-SHA reviews `00966211-f963-48f7-ac63-8623621e0298` and `9d352f6d-5742-40a7-a047-365e1aae2cea` found the same five P1s at `f5690f1461a6cb07504d7f6e945220cb5213b2fb`. Cancelled Fullstack task `1051db56-e454-4640-ac24-6d013586cf49` then left one attributable uncommitted partial deletion: `HealthDataCache.swift` blob `7f1f162ef166aa6f841e3746fff3fa3ea40ba069`, `+4/−207` from committed blob `be0963652c349210fa39a898cfecf47f13bf710f`. Tests remain unchanged at `9bdc7a5fd2b528b8f9273395480d9efa02625616`.
 
-**Chosen**: Preserve the clean worktree/branch/Draft PR exactly at `f5690f…` until a reviewed dispatch, then replace the rejected design through A–F without reset or re-checkout. Stage 0A is a timestamped Team Lead packet proving no pre-existing active/orphan owner immediately before dispatch; Stage 0B is a separately attributable Fullstack packet identifying its current run, excluding only that expected run, proving no competing owner, and rechecking the same fingerprint before editing. A 0A divergence blocks dispatch; a 0B divergence stops Fullstack before edit. Neither phase normalizes the workspace. Later exits prove mandatory defect RED→GREEN or eligible characterization-GREEN plus the required byte removal/replacement.
+**Chosen**: Preserve base HEAD/tracking/remote/PR at `f5690f…` plus the sole dirty source path, exact blob/numstat, cancelled owner attribution, unchanged test blob, and Draft state. Stage 0A records that authorized dirty packet and proves no later source-authorized/current process; Stage 0B identifies the dispatched run, excludes only itself, proves no competitor, and matches the packet before editing. A 0A divergence blocks dispatch; a 0B divergence stops Fullstack before edit. Neither phase normalizes or restores the workspace. Later exits prove mandatory defect RED→GREEN or eligible characterization-GREEN plus source evolution beyond both committed and dirty blobs and a changed test blob.
 
-**Why**: A package-green or audit statement cannot prove a changed tree. Fingerprints make unchanged source and insensitive tests mechanically visible while preserving the evidence chain and workspace continuity.
+**Why**: The partial deletion removed declarations while retaining rejected consumers and is not an executable or behavior claim. Exact owner/path/blob/numstat makes it safe to continue without discarding work, while final dual-source-blob and test-blob gates prevent a no-op or incomplete handoff.
 
 ## Decision 14: Reject same-tree delivery before review
 
-**Chosen**: Final readiness requires both mandatory file blobs to differ from `f5690f…`, the new commit SHA to differ from `f5690f…` and `d853728…`, the obsolete-pattern audit to be empty, the full package gate to pass, and local/tracking/remote/PR head equality at that new SHA. Fullstack must author the exact-SHA review request.
+**Chosen**: Final readiness requires both mandatory files to differ from `f5690f…`, final source to differ from committed `be096365…` and dirty `7f1f162…`, final tests to differ from `9bdc7a5…`, the new commit SHA/tree to differ from both invalidated revisions and the dirty snapshot, the obsolete-pattern audit to be empty, the full package gate to pass, and local/tracking/remote/PR head equality at that new SHA. Fullstack must author the exact-SHA review request.
 
 **Why**: The prior same-SHA rerun spent a review cycle without a remediation delta. A new commit hash alone is also insufficient if its tree is unchanged; the mandatory production and test deltas plus pattern audit prove replacement occurred.
+
+## Decision 15: Restore compilation in place without consuming behavior REDs
+
+**Chosen**: Preserve the dirty delivery source byte-for-byte through Stage 0 and run all executable evidence in that exact workspace. Record the initial `swift build` outcome; compile RED proves only partial incompleteness and compile GREEN proves only buildability. If RED, Stage A first completes the minimum actor-owned compile bridge without restoring deleted helpers or implementing B settlement, C reset-drain, or D checkpoint outcomes. After `swift build` is green, every behavior tracer runs in place; B–D mandatory defects must still produce their behavior REDs before their owning replacements.
+
+**Why**: The cancelled partial repair deleted declarations while leaving consumers, so its compiler failure cannot prove any requested behavior. A narrow compile bridge respects the one-workspace rule and preserves test sensitivity by forbidding the bridge from pre-solving later defect outcomes.
+
+The dirty snapshot has no synthetic tree OID. Equality means the composite base HEAD `f5690f…`, sole dirty `HealthDataCache.swift` path, `+4/−207`, source blob `7f1f162…`, and unchanged test blob `9bdc7a5…` all match.
 
 ## Validation Decision
 
