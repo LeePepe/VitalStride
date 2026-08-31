@@ -1,6 +1,4 @@
 import Foundation
-import HealthKit
-import Synchronization
 import os
 
 // MARK: - HealthDataProviding
@@ -20,7 +18,7 @@ public protocol WorkoutDataProviding: Sendable {
     func fetchWorkouts(dateRange: DateInterval?) async throws -> WorkoutFetchResult
 }
 
-protocol WorkoutPreparedDataProviding: WorkoutDataProviding {
+public protocol WorkoutPreparedDataProviding: WorkoutDataProviding, Sendable {
     func prepareWorkoutSnapshot(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch
     func prepareWorkoutChanges(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch
     func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch)
@@ -65,9 +63,6 @@ public actor HealthDataCache {
     private struct WorkoutCacheEntry {
         let workouts: [HealthWorkoutRecord]
         let coveredRange: DateInterval?
-        let source: WorkoutAnchorSource
-        let requestOrder: UInt64
-        let checkpoint: WorkoutAnchorCheckpoint?
     }
 
     private struct FetchKey: Hashable {
@@ -109,222 +104,13 @@ public actor HealthDataCache {
     private var missCounts: [HealthSampleType: Int] = [:]
     private var refreshCounts: [HealthSampleType: Int] = [:]
 
-    private struct WorkoutFetchKey: Hashable {
-        let source: WorkoutAnchorSource
-        let rangeStart: Date?
-        let rangeEnd: Date?
-
-        var dateRange: DateInterval? {
-            guard let rangeStart, let rangeEnd else { return nil }
-            return DateInterval(start: rangeStart, end: rangeEnd)
-        }
-
-        init(source: WorkoutAnchorSource, dateRange: DateInterval?) {
-            self.source = source
-            self.rangeStart = dateRange?.start
-            self.rangeEnd = dateRange?.end
-        }
-    }
-
-    private final class WorkoutFetchWaiter: Sendable {
-        private struct State {
-            var continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>?
-            var completed = false
-            var cancelled = false
-        }
-
-        private let state = Mutex<State>(State())
-
-        func markCancelled() {
-            state.withLock { state in
-                guard !state.completed else { return }
-                state.cancelled = true
-            }
-        }
-
-        func cancel() {
-            let continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>? = state.withLock { state in
-                guard !state.completed else { return nil }
-                state.completed = true
-                state.cancelled = true
-                let continuation = state.continuation
-                state.continuation = nil
-                return continuation
-            }
-            continuation?.resume(throwing: CancellationError())
-        }
-
-        func setContinuation(_ continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>) {
-            let shouldCancel: Bool = state.withLock { state in
-                if state.completed {
-                    return true
-                }
-                state.continuation = continuation
-                return state.cancelled
-            }
-            if shouldCancel {
-                continuation.resume(throwing: CancellationError())
-            }
-        }
-
-        func isCancelled() -> Bool {
-            state.withLock { $0.cancelled }
-        }
-
-        func resolve(_ value: [HealthWorkoutRecord]) {
-            let continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>? = state.withLock { state in
-                guard !state.completed, !state.cancelled else { return nil }
-                state.completed = true
-                let continuation = state.continuation
-                state.continuation = nil
-                return continuation
-            }
-            continuation?.resume(returning: value)
-        }
-
-        func fail(_ error: any Error) {
-            let continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>? = state.withLock { state in
-                guard !state.completed, !state.cancelled else { return nil }
-                state.completed = true
-                let continuation = state.continuation
-                state.continuation = nil
-                return continuation
-            }
-            continuation?.resume(throwing: error)
-        }
-    }
-
-    private final class WorkoutInFlightFetch: Sendable {
-        let requestID: UUID
-        let task: Task<[HealthWorkoutRecord], any Error>
-        private let waiterLock = Mutex<[WorkoutFetchWaiter]>([])
-
-        init(requestID: UUID, task: Task<[HealthWorkoutRecord], any Error>) {
-            self.requestID = requestID
-            self.task = task
-        }
-
-        func addWaiter(_ waiter: WorkoutFetchWaiter) {
-            waiterLock.withLock { waiters in
-                waiters.append(waiter)
-            }
-        }
-
-        func cancelWaiter(_ waiter: WorkoutFetchWaiter) {
-            let shouldCancel = waiterLock.withLock { waiters in
-                let contained = waiters.contains { $0 === waiter }
-                waiters.removeAll { $0 === waiter }
-                return contained
-            }
-            guard shouldCancel else { return }
-            waiter.cancel()
-        }
-
-        func hasWaiters() -> Bool {
-            waiterLock.withLock { waiters in
-                !waiters.isEmpty
-            }
-        }
-
-        func resolveWaiters(with value: [HealthWorkoutRecord]) async {
-            for _ in 0..<3 {
-                await Task.yield()
-            }
-            let waiters = waiterLock.withLock { waiters in
-                let snapshot = waiters
-                waiters.removeAll(keepingCapacity: false)
-                return snapshot
-            }
-
-            for waiter in waiters {
-                if waiter.isCancelled() {
-                    continue
-                }
-                for _ in 0..<8 {
-                    await Task.yield()
-                    if waiter.isCancelled() {
-                        break
-                    }
-                }
-                if waiter.isCancelled() {
-                    continue
-                }
-                do {
-                    try Task.checkCancellation()
-                } catch {
-                    waiter.markCancelled()
-                    continue
-                }
-                waiter.resolve(value)
-            }
-        }
-
-        func failWaiters(_ error: any Error) async {
-            for _ in 0..<3 {
-                await Task.yield()
-            }
-            let waiters = waiterLock.withLock { waiters in
-                let snapshot = waiters
-                waiters.removeAll(keepingCapacity: false)
-                return snapshot
-            }
-
-            for waiter in waiters {
-                if waiter.isCancelled() {
-                    continue
-                }
-                await Task.yield()
-                if waiter.isCancelled() {
-                    continue
-                }
-                waiter.fail(error)
-            }
-        }
-    }
-
-    private final class ProviderTurnWaiter: Sendable {
-        private struct State {
-            var continuation: CheckedContinuation<Void, any Error>?
-        }
-
-        private let state = Mutex<State>(State())
-
-        func setContinuation(_ continuation: CheckedContinuation<Void, any Error>) {
-            state.withLock { state in
-                state.continuation = continuation
-            }
-        }
-
-        func resume() {
-            let continuation: CheckedContinuation<Void, any Error>? = state.withLock { state in
-                let continuation = state.continuation
-                state.continuation = nil
-                return continuation
-            }
-            continuation?.resume(returning: ())
-        }
-
-        func cancel() {
-            let continuation: CheckedContinuation<Void, any Error>? = state.withLock { state in
-                let continuation = state.continuation
-                state.continuation = nil
-                return continuation
-            }
-            continuation?.resume(throwing: CancellationError())
-        }
-    }
-
     private var workoutCache: WorkoutCacheEntry?
-    private var workoutInFlightFetches: [WorkoutFetchKey: WorkoutInFlightFetch] = [:]
-    private var workoutGeneration: UInt64 = 0
-    private var workoutRequestOrder: UInt64 = 0
-    private var workoutRequestOrderByKey: [WorkoutFetchKey: UInt64] = [:]
-    private var workoutProviderTurnInProgress: [WorkoutFetchKey: UInt64] = [:]
-    private var workoutProviderWaiters: [WorkoutFetchKey: [ProviderTurnWaiter]] = [:]
+    private var workoutInFlightFetch: Task<[HealthWorkoutRecord], any Error>?
     private let workoutProvider: (any WorkoutDataProviding)?
     private var workoutHitCount: Int = 0
     private var workoutMissCount: Int = 0
     private var workoutRefreshCount: Int = 0
+    private var workoutGeneration: UInt64 = 0
 
     private var availableTypes: Set<HealthSampleType>?
     private var availableTypesFetchedAt: Date?
@@ -503,7 +289,6 @@ public actor HealthDataCache {
 
     public func invalidateAll() {
         generation &+= 1
-        workoutGeneration &+= 1
         cache = [:]
         for task in inFlightFetches.values { task.cancel() }
         inFlightFetches = [:]
@@ -512,18 +297,8 @@ public actor HealthDataCache {
         for task in persistTasks.values { task.cancel() }
         persistTasks = [:]
         workoutCache = nil
-        workoutRequestOrderByKey = [:]
-        workoutProviderTurnInProgress = [:]
-        for waiters in workoutProviderWaiters.values {
-            for waiter in waiters {
-                waiter.cancel()
-            }
-        }
-        workoutProviderWaiters = [:]
-        for fetch in workoutInFlightFetches.values {
-            fetch.task.cancel()
-        }
-        workoutInFlightFetches = [:]
+        workoutInFlightFetch?.cancel()
+        workoutInFlightFetch = nil
         availableTypes = nil
         availableTypesFetchedAt = nil
         availableTypesProbeTask?.cancel()
@@ -652,20 +427,12 @@ public actor HealthDataCache {
             return []
         }
 
-        if let entry = workoutCache {
-            let defaultBaselineHit = entry.source != .explicitRangeSnapshot
-                && dateRange == nil
-            let rangeHit = dateRange != nil
-                && entry.coveredRange != nil
-                && Self.coversRange(entry.coveredRange, requested: dateRange)
-
-            if defaultBaselineHit || rangeHit {
-                workoutHitCount += 1
-                logger.info(
-                    "healthkit_workout_cache_hit total=\(self.workoutHitCount)"
-                )
-                return Self.filteredWorkouts(entry.workouts, by: dateRange)
-            }
+        if let entry = workoutCache, Self.coversWorkoutRange(entry.coveredRange, requested: dateRange) {
+            workoutHitCount += 1
+            logger.info(
+                "healthkit_workout_cache_hit total=\(self.workoutHitCount)"
+            )
+            return Self.filteredWorkouts(entry.workouts, by: dateRange)
         }
 
         workoutMissCount += 1
@@ -673,14 +440,7 @@ public actor HealthDataCache {
             "healthkit_workout_cache_miss total=\(self.workoutMissCount)"
         )
 
-        let semantic: WorkoutFetchSemantic = selectWorkoutFetchSemantic(dateRange: dateRange)
-        let scheduledGeneration = workoutGeneration
-        let workouts = try await fetchWorkoutCoalesced(
-            dateRange: dateRange,
-            provider: workoutProvider,
-            semantic: semantic,
-            scheduledGeneration: scheduledGeneration
-        )
+        let workouts = try await fetchWorkoutCoalesced(dateRange: dateRange, provider: workoutProvider)
         return Self.filteredWorkouts(workouts, by: dateRange)
     }
 
@@ -693,53 +453,24 @@ public actor HealthDataCache {
             return []
         }
 
-        // Refresh is a higher-priority request for the workout cache. Bump the
-        // generation first so the new request becomes the definitive owner, and
-        // preserve same-key in-flight work long enough for stale-owner rejection
-        // to run. Cancelling it eagerly is what lets a superseded result race
-        // back into the cache before its request-order check can fire.
-        workoutGeneration &+= 1
+        workoutInFlightFetch?.cancel()
+        workoutInFlightFetch = nil
+
         workoutRefreshCount += 1
         logger.info(
             "healthkit_workout_cache_refresh total=\(self.workoutRefreshCount)"
         )
 
-        let semantic: WorkoutFetchSemantic = {
-            if dateRange != nil {
-                return .explicitRangeSnapshot
-            }
-            if workoutCache == nil || workoutCache?.source == .explicitRangeSnapshot {
-                return .baselineSnapshot
-            }
-            return .anchoredChanges
-        }()
-        let scheduledGeneration = workoutGeneration
-        let workouts = try await performWorkoutFetch(
-            dateRange: dateRange,
-            provider: workoutProvider,
-            semantic: semantic,
-            scheduledGeneration: scheduledGeneration
-        )
+        let workouts = try await performWorkoutFetch(dateRange: dateRange, provider: workoutProvider)
         return Self.filteredWorkouts(workouts, by: dateRange)
     }
 
     // MARK: - Workout Invalidation
 
     public func invalidateWorkouts() {
-        workoutGeneration &+= 1
         workoutCache = nil
-        workoutRequestOrderByKey = [:]
-        workoutProviderTurnInProgress = [:]
-        for waiters in workoutProviderWaiters.values {
-            for waiter in waiters {
-                waiter.cancel()
-            }
-        }
-        workoutProviderWaiters = [:]
-        for fetch in workoutInFlightFetches.values {
-            fetch.task.cancel()
-        }
-        workoutInFlightFetches = [:]
+        workoutInFlightFetch?.cancel()
+        workoutInFlightFetch = nil
         logger.info("workout cache invalidated")
     }
 
@@ -1030,7 +761,21 @@ public actor HealthDataCache {
         case (_, nil):
             return false
         case let (cached?, requested?):
-            return cached.start <= requested.start && requested.end <= cached.end
+            return cached.start <= requested.start && cached.end >= requested.end
+        }
+    }
+
+    private static func coversWorkoutRange(
+        _ cached: DateInterval?,
+        requested: DateInterval?
+    ) -> Bool {
+        switch (cached, requested) {
+        case (nil, nil):
+            return true
+        case (nil, _), (_, nil):
+            return false
+        case let (cached?, requested?):
+            return cached.start <= requested.start && cached.end >= requested.end
         }
     }
 
@@ -1041,476 +786,143 @@ public actor HealthDataCache {
 
     // MARK: - Private Workout Helpers
 
-    private enum WorkoutFetchSemantic: Hashable {
-        case baselineSnapshot
-        case explicitRangeSnapshot
-        case anchoredChanges
-    }
-
-    private func selectWorkoutFetchSemantic(dateRange: DateInterval?) -> WorkoutFetchSemantic {
-        if dateRange != nil {
-            return .explicitRangeSnapshot
-        }
-        if let current = workoutCache, current.source != .explicitRangeSnapshot {
-            return .anchoredChanges
-        }
-        return .baselineSnapshot
-    }
-
     private func fetchWorkoutCoalesced(
         dateRange: DateInterval?,
-        provider: any WorkoutDataProviding,
-        semantic: WorkoutFetchSemantic,
-        scheduledGeneration: UInt64
+        provider: any WorkoutDataProviding
     ) async throws -> [HealthWorkoutRecord] {
-        if Task.isCancelled {
-            throw CancellationError()
-        }
-
-        let key = WorkoutFetchKey(source: semanticSource(for: semantic), dateRange: dateRange)
-        if let existing = workoutInFlightFetches[key] {
-            if Task.isCancelled {
-                throw CancellationError()
+        if let existingTask = workoutInFlightFetch {
+            // A cancelled waiter must not cancel the active owner fetch.
+            // Awaiting the shared task directly makes structured cancellation
+            // flow back to the in-flight request, so we observe the result in a
+            // detached task and convert a cancelled waiter into a local
+            // CancellationError without touching the owner task.
+            let waiter = Task.detached(priority: .userInitiated) {
+                try await existingTask.value
             }
-            let waiter = WorkoutFetchWaiter()
-            let result: [HealthWorkoutRecord] = try await withTaskCancellationHandler(operation: {
+            do {
+                let result = try await waiter.value
                 if Task.isCancelled {
-                    waiter.markCancelled()
-                    existing.cancelWaiter(waiter)
                     throw CancellationError()
                 }
-                let value: [HealthWorkoutRecord] = try await withCheckedThrowingContinuation { continuation in
-                    existing.addWaiter(waiter)
-                    waiter.setContinuation(continuation)
-                    if Task.isCancelled {
-                        waiter.markCancelled()
-                        existing.cancelWaiter(waiter)
-                        continuation.resume(throwing: CancellationError())
-                    }
-                }
-                if waiter.isCancelled() || Task.isCancelled {
-                    waiter.markCancelled()
-                    existing.cancelWaiter(waiter)
-                    throw CancellationError()
-                }
-                for _ in 0..<3 {
-                    await Task.yield()
-                    if waiter.isCancelled() || Task.isCancelled {
-                        waiter.markCancelled()
-                        existing.cancelWaiter(waiter)
-                        throw CancellationError()
-                    }
-                }
-                do {
-                    try Task.checkCancellation()
-                } catch {
-                    waiter.markCancelled()
-                    existing.cancelWaiter(waiter)
-                    throw CancellationError()
-                }
-                return value
-            }, onCancel: {
-                waiter.markCancelled()
-                existing.cancelWaiter(waiter)
-            })
-            if Task.isCancelled {
-                throw CancellationError()
+                return result
+            } catch let error as CancellationError {
+                throw error
+            } catch {
+                throw error
             }
-            return result
         }
-        if Task.isCancelled {
-            throw CancellationError()
-        }
-        return try await performWorkoutFetch(
-            dateRange: dateRange,
-            provider: provider,
-            semantic: semantic,
-            scheduledGeneration: scheduledGeneration
-        )
-    }
-
-    private func isCurrentWorkoutFetch(
-        key: WorkoutFetchKey,
-        requestID: UUID,
-        generation: UInt64,
-        requestOrder: UInt64
-    ) -> Bool {
-        guard !Task.isCancelled else { return false }
-        guard workoutGeneration == generation else { return false }
-        guard workoutRequestOrder == requestOrder else { return false }
-
-        guard let current = workoutInFlightFetches[key] else {
-            return false
-        }
-        guard current.requestID == requestID else {
-            return false
-        }
-        return (workoutRequestOrderByKey[key] ?? requestOrder) == requestOrder
-    }
-
-    private static func checkpointValue(_ checkpoint: WorkoutAnchorCheckpoint?) -> Int64? {
-        guard let checkpoint else { return nil }
-        guard let anchor = checkpoint.anchor else { return nil }
-        let description = String(describing: anchor)
-        let digits = description.filter { $0.isNumber }
-        guard !digits.isEmpty else { return nil }
-        return Int64(digits)
-    }
-
-    private func isOlderWorkoutCheckpoint(
-        _ older: WorkoutAnchorCheckpoint?,
-        than newer: WorkoutAnchorCheckpoint?
-    ) -> Bool {
-        guard let older, let newer else { return false }
-
-        if let olderValue = Self.checkpointValue(older),
-           let newerValue = Self.checkpointValue(newer) {
-            return olderValue < newerValue
-        }
-
-        if older.lastSyncDate != newer.lastSyncDate {
-            return older.lastSyncDate < newer.lastSyncDate
-        }
-
-        return older.anchorData.lexicographicallyPrecedes(newer.anchorData)
+        return try await performWorkoutFetch(dateRange: dateRange, provider: provider)
     }
 
     private func performWorkoutFetch(
         dateRange: DateInterval?,
-        provider: any WorkoutDataProviding,
-        semantic: WorkoutFetchSemantic,
-        scheduledGeneration: UInt64
+        provider: any WorkoutDataProviding
     ) async throws -> [HealthWorkoutRecord] {
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("healthkit_workout_fetch", id: signpostID)
         let start = ContinuousClock.now
+        workoutGeneration += 1
         let fetchGeneration = workoutGeneration
-        workoutRequestOrder += 1
-        let requestOrder = workoutRequestOrder
-        let requestID = UUID()
-        let key = WorkoutFetchKey(source: semanticSource(for: semantic), dateRange: dateRange)
-        workoutRequestOrderByKey[key] = requestOrder
 
-        let task = Task { [provider] in
-            await self.claimWorkoutProviderTurn(key: key, requestOrder: requestOrder)
-            defer {
-                Task {
-                    await self.releaseWorkoutProviderTurn(key: key, requestOrder: requestOrder)
-                }
-            }
-
-            guard self.workoutGeneration == scheduledGeneration else {
-                logger.info("healthkit_workout_fetch_stale_scheduled_generation")
-                throw CancellationError()
-            }
-
+        let task = Task { [dateRange, provider] in
             if let preparedProvider = provider as? any WorkoutPreparedDataProviding {
+                let baseline = await self.workoutCache
                 let prepared: PreparedWorkoutFetch
-                switch semantic {
-                case .baselineSnapshot, .explicitRangeSnapshot:
+                if dateRange != nil {
                     prepared = try await preparedProvider.prepareWorkoutSnapshot(dateRange: dateRange)
-                case .anchoredChanges:
-                    prepared = try await preparedProvider.prepareWorkoutChanges(dateRange: dateRange)
+                } else if baseline != nil {
+                    prepared = try await preparedProvider.prepareWorkoutChanges(dateRange: nil)
+                } else {
+                    prepared = try await preparedProvider.prepareWorkoutSnapshot(dateRange: nil)
                 }
-                guard self.workoutGeneration == scheduledGeneration else {
+
+                let merged = Self.applyPreparedWorkoutFetch(
+                    current: baseline,
+                    prepared: prepared,
+                    requestedRange: dateRange
+                )
+
+                guard await self.workoutGeneration == fetchGeneration else {
                     preparedProvider.rejectPreparedWorkoutFetch(prepared)
-                    logger.info("healthkit_workout_fetch_stale_after_provider_ready")
                     throw CancellationError()
                 }
-                return try await self.acceptPreparedWorkoutFetch(
-                    prepared,
-                    provider: preparedProvider,
-                    semantic: semantic,
-                    key: key,
-                    requestID: requestID,
-                    generation: fetchGeneration,
-                    requestOrder: requestOrder
+
+                if prepared.source == .baselineSnapshot || prepared.source == .explicitRangeSnapshot || prepared.source == .anchoredChanges {
+                    preparedProvider.acceptPreparedWorkoutFetch(prepared)
+                }
+                await self.workoutCache = WorkoutCacheEntry(
+                    workouts: merged,
+                    coveredRange: prepared.coverage ?? dateRange
                 )
+                return merged
             }
 
             let result = try await provider.fetchWorkouts(dateRange: dateRange)
-            guard self.workoutGeneration == scheduledGeneration else {
-                logger.info("healthkit_workout_fetch_stale_after_provider_ready")
+            guard await self.workoutGeneration == fetchGeneration else {
                 throw CancellationError()
             }
-            return try await self.acceptWorkoutFetchResult(
-                result,
-                semantic: semantic,
-                key: key,
-                requestID: requestID,
-                generation: fetchGeneration,
-                requestOrder: requestOrder
-            )
+            let workouts = result.workouts
+            await self.workoutCache = WorkoutCacheEntry(workouts: workouts, coveredRange: dateRange)
+            return workouts
         }
-        workoutInFlightFetches[key] = WorkoutInFlightFetch(requestID: requestID, task: task)
+
+        workoutInFlightFetch = task
 
         do {
-            let workouts = try await withTaskCancellationHandler {
-                try await task.value
-            } onCancel: {
-                task.cancel()
-            }
-            if Task.isCancelled {
-                throw CancellationError()
-            }
-            if let fetch = workoutInFlightFetches[key], fetch.requestID == requestID {
-                workoutInFlightFetches[key] = nil
-                for _ in 0..<32 {
-                    if !fetch.hasWaiters() {
-                        break
-                    }
-                    await Task.yield()
-                }
-                await fetch.resolveWaiters(with: workouts)
-            }
-
+            let workouts = try await task.value
+            workoutInFlightFetch = nil
             signposter.endInterval("healthkit_workout_fetch", state)
             logWorkoutFetchDuration(count: workouts.count, start: start)
             return workouts
         } catch {
-            if let fetch = workoutInFlightFetches[key], fetch.requestID == requestID {
-                workoutInFlightFetches[key] = nil
-                for _ in 0..<32 {
-                    if !fetch.hasWaiters() {
-                        break
-                    }
-                    await Task.yield()
-                }
-                await fetch.failWaiters(error)
-            }
+            workoutInFlightFetch = nil
             signposter.endInterval("healthkit_workout_fetch", state)
             throw error
         }
     }
 
-    private func acceptPreparedWorkoutFetch(
-        _ prepared: PreparedWorkoutFetch,
-        provider: any WorkoutPreparedDataProviding,
-        semantic: WorkoutFetchSemantic,
-        key: WorkoutFetchKey,
-        requestID: UUID,
-        generation: UInt64,
-        requestOrder: UInt64
-    ) async throws -> [HealthWorkoutRecord] {
-        let normalized = Self.normalizeWorkoutProjection(prepared.workouts)
-        let staleOwner = !isCurrentWorkoutFetch(
-            key: key,
-            requestID: requestID,
-            generation: generation,
-            requestOrder: requestOrder
-        )
+    private static func applyPreparedWorkoutFetch(
+        current: WorkoutCacheEntry?,
+        prepared: PreparedWorkoutFetch,
+        requestedRange: DateInterval?
+    ) -> [HealthWorkoutRecord] {
+        let base = current?.workouts ?? []
 
-        if staleOwner {
-            provider.rejectPreparedWorkoutFetch(prepared)
-            logger.info("healthkit_workout_fetch_stale")
-            throw CancellationError()
-        }
-
-        let previous = workoutCache
-        let preparedSource = prepared.source
-
-        if let previousCheckpoint = previous?.checkpoint,
-           let preparedCheckpoint = prepared.checkpoint,
-           isOlderWorkoutCheckpoint(preparedCheckpoint, than: previousCheckpoint) {
-            provider.rejectPreparedWorkoutFetch(prepared)
-            logger.info("healthkit_workout_fetch_rejected_stale_checkpoint")
-            throw CancellationError()
-        }
-
-        if preparedSource == .anchoredChanges {
-            guard let previous else {
-                provider.rejectPreparedWorkoutFetch(prepared)
-                logger.info("healthkit_workout_fetch_rejected_missing_baseline")
-                throw CancellationError()
-            }
-            guard previous.source != .explicitRangeSnapshot else {
-                provider.rejectPreparedWorkoutFetch(prepared)
-                logger.info("healthkit_workout_fetch_rejected_incompatible_anchored_base")
-                throw CancellationError()
-            }
-            var merged = Dictionary(previous.workouts.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
-            for workout in normalized {
-                merged[workout.id] = workout
-            }
-            for id in Set(prepared.deletedObjectIDs) {
-                merged[id] = nil
-            }
-
-            let nextWorkouts = Self.normalizeWorkoutProjection(Array(merged.values))
-            let nextEntry = WorkoutCacheEntry(
-                workouts: nextWorkouts,
-                coveredRange: previous.coveredRange,
-                source: previous.source,
-                requestOrder: requestOrder,
-                checkpoint: prepared.checkpoint ?? previous.checkpoint
-            )
-            workoutCache = nextEntry
-            provider.acceptPreparedWorkoutFetch(prepared)
-            return nextWorkouts
-        }
-
-        let nextWorkouts: [HealthWorkoutRecord]
-        let nextCoverage: DateInterval?
-        let nextSource: WorkoutAnchorSource
-
-        nextWorkouts = normalized
-        nextCoverage = prepared.coverage ?? key.dateRange ?? DateInterval(
-            start: Date(timeIntervalSinceNow: -HealthKitService.defaultFirstSyncWindow),
-            end: Date()
-        )
-        nextSource = preparedSource
-
-        if let previous,
-           Self.isIncompatibleWorkoutSnapshot(previous: previous, nextSource: nextSource, nextCoverage: nextCoverage),
-           previous.requestOrder < requestOrder
-        {
-            workoutGeneration &+= 1
-            logger.info("healthkit_workout_fetch_generation_advanced incompatible_snapshot")
-        } else if let previous,
-                  Self.isIncompatibleWorkoutSnapshot(previous: previous, nextSource: nextSource, nextCoverage: nextCoverage),
-                  previous.requestOrder > requestOrder
-        {
-            provider.rejectPreparedWorkoutFetch(prepared)
-            logger.info("healthkit_workout_fetch_rejected_stale_snapshot")
-            throw CancellationError()
-        }
-
-        workoutCache = WorkoutCacheEntry(
-            workouts: nextWorkouts,
-            coveredRange: nextCoverage,
-            source: nextSource,
-            requestOrder: requestOrder,
-            checkpoint: prepared.checkpoint
-        )
-        provider.acceptPreparedWorkoutFetch(prepared)
-        return nextWorkouts
-    }
-
-    private func acceptWorkoutFetchResult(
-        _ result: WorkoutFetchResult,
-        semantic: WorkoutFetchSemantic,
-        key: WorkoutFetchKey,
-        requestID: UUID,
-        generation: UInt64,
-        requestOrder: UInt64
-    ) async throws -> [HealthWorkoutRecord] {
-        let normalized = Self.normalizeWorkoutProjection(result.workouts)
-        let staleOwner = !isCurrentWorkoutFetch(
-            key: key,
-            requestID: requestID,
-            generation: generation,
-            requestOrder: requestOrder
-        )
-
-        if staleOwner {
-            logger.info("healthkit_workout_fetch_stale")
-            throw CancellationError()
-        }
-
-        let previous = workoutCache
-        let nextSource: WorkoutAnchorSource = semantic == .explicitRangeSnapshot
-            ? .explicitRangeSnapshot
-            : .baselineSnapshot
-
-        let nextCoverage = result.coverage ?? key.dateRange ?? DateInterval(
-            start: Date(timeIntervalSinceNow: -HealthKitService.defaultFirstSyncWindow),
-            end: Date()
-        )
-
-        if let previous,
-           Self.isIncompatibleWorkoutSnapshot(previous: previous, nextSource: nextSource, nextCoverage: nextCoverage),
-           previous.requestOrder < requestOrder
-        {
-            workoutGeneration &+= 1
-            logger.info("healthkit_workout_fetch_generation_advanced incompatible_snapshot")
-        } else if let previous,
-                  Self.isIncompatibleWorkoutSnapshot(previous: previous, nextSource: nextSource, nextCoverage: nextCoverage),
-                  previous.requestOrder > requestOrder
-        {
-            logger.info("healthkit_workout_fetch_rejected_stale_snapshot")
-            throw CancellationError()
-        }
-
-        workoutCache = WorkoutCacheEntry(
-            workouts: normalized,
-            coveredRange: nextCoverage,
-            source: nextSource,
-            requestOrder: requestOrder,
-            checkpoint: nil
-        )
-        return normalized
-    }
-
-    private func cancelWorkoutProviderTurnWaiter(
-        key: WorkoutFetchKey,
-        waiter: ProviderTurnWaiter
-    ) async {
-        guard var waiters = workoutProviderWaiters[key] else { return }
-        let wasPresent = waiters.contains { $0 === waiter }
-        waiters.removeAll { $0 === waiter }
-        if wasPresent {
-            waiter.cancel()
-            if waiters.isEmpty {
-                workoutProviderWaiters[key] = nil
-            } else {
-                workoutProviderWaiters[key] = waiters
-            }
-        }
-    }
-
-    private func claimWorkoutProviderTurn(
-        key: WorkoutFetchKey,
-        requestOrder: UInt64
-    ) async {
-        while workoutProviderTurnInProgress[key] != nil,
-              workoutProviderTurnInProgress[key] != requestOrder {
-            let waiter = ProviderTurnWaiter()
-            do {
-                try await withTaskCancellationHandler(operation: {
-                    try await withCheckedThrowingContinuation { continuation in
-                        waiter.setContinuation(continuation)
-                        workoutProviderWaiters[key, default: []].append(waiter)
-                    }
-                }, onCancel: {
-                    Task {
-                        await self.cancelWorkoutProviderTurnWaiter(key: key, waiter: waiter)
-                    }
-                })
-            } catch is CancellationError {
-                return
-            } catch {
-                return
-            }
-            if Task.isCancelled {
-                return
-            }
-        }
-        guard !Task.isCancelled else {
-            return
-        }
-        workoutProviderTurnInProgress[key] = requestOrder
-    }
-
-    private func releaseWorkoutProviderTurn(
-        key: WorkoutFetchKey,
-        requestOrder: UInt64
-    ) async {
-        guard workoutProviderTurnInProgress[key] == requestOrder else { return }
-        workoutProviderTurnInProgress[key] = nil
-        let waiters = workoutProviderWaiters.removeValue(forKey: key) ?? []
-        for waiter in waiters {
-            waiter.resume()
-        }
-    }
-
-    private func semanticSource(for semantic: WorkoutFetchSemantic) -> WorkoutAnchorSource {
-        switch semantic {
+        switch prepared.source {
         case .baselineSnapshot:
-            return .baselineSnapshot
+            let normalized = Self.normalizedWorkoutSet(prepared.workouts)
+            return normalized
         case .explicitRangeSnapshot:
-            return .explicitRangeSnapshot
+            let normalized = Self.normalizedWorkoutSet(prepared.workouts)
+            return normalized
         case .anchoredChanges:
-            return .anchoredChanges
+            if prepared.workouts.isEmpty && prepared.deletedObjectIDs.isEmpty {
+                return Self.normalizedWorkoutSet(base)
+            }
+
+            var byID: [UUID: HealthWorkoutRecord] = [:]
+            for workout in base {
+                byID[workout.id] = workout
+            }
+            for workout in prepared.workouts {
+                byID[workout.id] = workout
+            }
+            for id in prepared.deletedObjectIDs {
+                byID[id] = nil
+            }
+            let merged = byID.values.filter { !prepared.deletedObjectIDs.contains($0.id) }
+            return Self.normalizedWorkoutSet(merged)
+        }
+    }
+
+    private static func normalizedWorkoutSet(
+        _ workouts: [HealthWorkoutRecord]
+    ) -> [HealthWorkoutRecord] {
+        workouts.sorted {
+            if $0.startDate == $1.startDate {
+                return $0.id.uuidString < $1.id.uuidString
+            }
+            return $0.startDate > $1.startDate
         }
     }
 
@@ -1524,32 +936,6 @@ public actor HealthDataCache {
         logger.info(
             "healthkit_workout_fetch_duration_ms ms=\(ms) count=\(count)"
         )
-    }
-
-    private static func normalizeWorkoutProjection(
-        _ workouts: [HealthWorkoutRecord]
-    ) -> [HealthWorkoutRecord] {
-        let unique = Dictionary(workouts.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
-        return Array(unique.values).sorted { lhs, rhs in
-            if lhs.startDate == rhs.startDate {
-                return lhs.id.uuidString < rhs.id.uuidString
-            }
-            return lhs.startDate > rhs.startDate
-        }
-    }
-
-    private static func isIncompatibleWorkoutSnapshot(
-        previous: WorkoutCacheEntry,
-        nextSource: WorkoutAnchorSource,
-        nextCoverage: DateInterval?
-    ) -> Bool {
-        if previous.source != nextSource {
-            return true
-        }
-        if previous.source == .anchoredChanges {
-            return false
-        }
-        return previous.coveredRange != nextCoverage
     }
 
     private static func filteredWorkouts(

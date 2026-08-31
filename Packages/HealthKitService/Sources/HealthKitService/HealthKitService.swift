@@ -556,7 +556,7 @@ public final class HealthKitService: Sendable {
         )
     }
 
-    func prepareWorkoutSnapshot(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
+    public func prepareWorkoutSnapshot(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
         let source: WorkoutAnchorSource = dateRange == nil ? .baselineSnapshot : .explicitRangeSnapshot
         return try await prepareWorkoutFetch(
             dateRange: dateRange,
@@ -565,7 +565,7 @@ public final class HealthKitService: Sendable {
         )
     }
 
-    func prepareWorkoutChanges(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
+    public func prepareWorkoutChanges(dateRange: DateInterval? = nil) async throws -> PreparedWorkoutFetch {
         if let dateRange {
             return try await prepareWorkoutSnapshot(dateRange: dateRange)
         }
@@ -662,7 +662,7 @@ public final class HealthKitService: Sendable {
         }
     }
 
-    func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+    public func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
         guard let checkpoint = prepared.checkpoint,
               prepared.source == checkpoint.source,
               prepared.source != .explicitRangeSnapshot,
@@ -673,7 +673,7 @@ public final class HealthKitService: Sendable {
         acceptWorkoutCheckpoint(checkpoint)
     }
 
-    func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+    public func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
         _ = prepared
     }
 
