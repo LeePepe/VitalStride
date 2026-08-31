@@ -141,27 +141,33 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 
 **Why**: The invalidated candidate added a large test/implementation batch whose green suite missed the required transaction boundaries. One failing behavior followed by its minimal actor-owned implementation keeps tests sensitive to observable outcomes rather than the private mechanism.
 
-## Decision 13: Treat the attributed dirty partial repair as the preserved fingerprint, not a completion claim
+## Decision 13: Treat local commit plus dirty worktree as the forward-only composite
 
-**Evidence**: Repeated exact-SHA reviews `00966211-f963-48f7-ac63-8623621e0298` and `9d352f6d-5742-40a7-a047-365e1aae2cea` found the same five P1s at `f5690f1461a6cb07504d7f6e945220cb5213b2fb`. Cancelled Fullstack task `1051db56-e454-4640-ac24-6d013586cf49` then left one attributable uncommitted partial deletion: `HealthDataCache.swift` blob `7f1f162ef166aa6f841e3746fff3fa3ea40ba069`, `+4/−207` from committed blob `be0963652c349210fa39a898cfecf47f13bf710f`. Tests remain unchanged at `9bdc7a5fd2b528b8f9273395480d9efa02625616`.
+**Evidence**: Owner recovery comment `7c73c678-c3b6-48f3-8eb7-7f272823083a` authorizes preserving local `794624a2516e60c461cb8a598d95c67e7df6b3b5`. Its parent/tracking/remote/PR is `f5690f…`; its cache/service blobs are `7956e0b…`/`77fb965…`; dirty cache/service/test blobs are `206acca…`/`b824427…`/`28f96c…` with exact recorded numstats. Metadata pins local head, dirty cache blob, and owner `113937f4-8a72-44cf-867b-ade6cee55a6e`.
 
-**Chosen**: Preserve base HEAD/tracking/remote/PR at `f5690f…` plus the sole dirty source path, exact blob/numstat, cancelled owner attribution, unchanged test blob, and Draft state. Stage 0A records that authorized dirty packet and proves no later source-authorized/current process; Stage 0B identifies the dispatched run, excludes only itself, proves no competitor, and matches the packet before editing. A 0A divergence blocks dispatch; a 0B divergence stops Fullstack before edit. Neither phase normalizes or restores the workspace. Later exits prove mandatory defect RED→GREEN or eligible characterization-GREEN plus source evolution beyond both committed and dirty blobs and a changed test blob.
+**Chosen**: Stage 0A/0B match the whole commit/worktree/owner/PR composite with no synthetic tree OID. `794624a…` stays in history and all recovery is by forward manual edits/commits. Reset, clean, stash, checkout, revert, amend, and rebase are forbidden.
 
-**Why**: The partial deletion removed declarations while retaining rejected consumers and is not an executable or behavior claim. Exact owner/path/blob/numstat makes it safe to continue without discarding work, while final dual-source-blob and test-blob gates prevent a no-op or incomplete handoff.
+**Why**: This preserves authorized work while making drift and history loss mechanically visible.
 
-## Decision 14: Reject same-tree delivery before review
+## Decision 14: Scrub excluded service forward to exact base
 
-**Chosen**: Final readiness requires both mandatory files to differ from `f5690f…`, final source to differ from committed `be096365…` and dirty `7f1f162…`, final tests to differ from `9bdc7a5…`, the new commit SHA/tree to differ from both invalidated revisions and the dirty snapshot, the obsolete-pattern audit to be empty, the full package gate to pass, and local/tracking/remote/PR head equality at that new SHA. Fullstack must author the exact-SHA review request.
+**Evidence**: Local commit widens four prepared-fetch methods; dirty worktree widens `persistedWorkoutAnchor`. Combined service diff from `f5690f…` is exactly five access-modifier pairs. Cache code widened its capability and added a public checkpoint-tracking seam to consume those witnesses.
 
-**Why**: The prior same-SHA rerun spent a review cycle without a remediation delta. A new commit hash alone is also insufficient if its tree is unchanged; the mandatory production and test deltas plus pattern audit prove replacement occurred.
+**Chosen**: Phase 0C first adds/strengthens and captures mandatory public-cache REDs for previous/candidate mismatch, anchor/timestamp ordering, and held B/c2 rejection/replay, recording the post-RED test blob. It then manually removes the four `public` modifiers and restores `private` on the anchor reader while cache/post-RED tests remain exact. After service hashes to base `4b1f809090c96185a8bf6befe1360bf30c6ec263`, cache returns its prepared capability to package-internal and removes the tracking/ordering seam while service/tests stay fixed. This recovery-only edit does not add service to T023-002 final scope or consume D evidence silently.
 
-## Decision 15: Restore compilation in place without consuming behavior REDs
+**Why**: Package-internal witnesses already satisfy the cache-owned conformance. Widening service API is unnecessary, violates ownership, and leaks checkpoint-owner details into the cache.
 
-**Chosen**: Preserve the dirty delivery source byte-for-byte through Stage 0 and run all executable evidence in that exact workspace. Record the initial `swift build` outcome; compile RED proves only partial incompleteness and compile GREEN proves only buildability. If RED, Stage A first completes the minimum actor-owned compile bridge without restoring deleted helpers or implementing B settlement, C reset-drain, or D checkpoint outcomes. After `swift build` is green, every behavior tracer runs in place; B–D mandatory defects must still produce their behavior REDs before their owning replacements.
+## Decision 15: Make checkpoint currentness wholly opaque
 
-**Why**: The cancelled partial repair deleted declarations while leaving consumers, so its compiler failure cannot prove any requested behavior. A narrow compile bridge respects the one-workspace rule and preserves test sensitivity by forbidding the bridge from pre-solving later defect outcomes.
+**Chosen**: Delete cache `import HealthKit`, `WorkoutCheckpointTracking`, current-anchor reconstruction, anchor-description/archive parsing, anchor comparison, and `lastSyncDate` ordering. Generation + semantic/range key + unique request identity are the only currentness authority. Base service retains its private provider-owned anchor decoding unchanged.
 
-The dirty snapshot has no synthetic tree OID. Equality means the composite base HEAD `f5690f…`, sole dirty `HealthDataCache.swift` path, `+4/−207`, source blob `7f1f162…`, and unchanged test blob `9bdc7a5…` all match.
+**Why**: Checkpoint bytes/timestamps are owner-private and cannot safely establish request freshness; actor transaction identity can.
+
+## Decision 16: Reject every preserved/local/composite tree before review
+
+**Chosen**: Final service equals base; cumulative diff is exactly cache+tests; final cache differs from `be096365…`, `7f1f162…`, `7956e0b…`, and `206acca…`; final tests differ from `9bdc7a5…` and `28f96c…`; `794624a…` remains an ancestor of a new four-way-equal PR head. Full package/pattern and same-head required-check gates pass, Fullstack authors the exact-SHA Multica review request, and PR Manager waits for same-head PASS.
+
+**Why**: A new hash alone cannot prove scope repair, test advancement, opaque currentness, or preservation of the local commit.
 
 ## Validation Decision
 

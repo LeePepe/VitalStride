@@ -6,50 +6,51 @@
 - Read `.specify/memory/constitution.md`, `AGENTS.md`, and `Packages/HealthKitService/CONTEXT.md`.
 - Keep the diff within the files declared by `tasks.md`.
 - Do not run `xcodebuild`; this is a package-only change.
-- Preserve Draft PR #423 with auto-merge disabled, historical invalidated SHA `d85372895fd4561aba3185e31605076d9429d517`, base HEAD `f5690f1461a6cb07504d7f6e945220cb5213b2fb`, and the authorized dirty partial repair as evidence. Reuse that exact metadata-pinned workspace without reset or recreation.
+- Preserve Draft PR #423, local commit `794624a2516e60c461cb8a598d95c67e7df6b3b5`, and the exact three-path worktree as forward-only evidence. Do not reset, clean, stash, checkout, revert, amend, rebase, or recreate it.
 - Planner changes no source file. Fullstack replaces the invalidated transaction/waiter design through the staged public-cache behavior below rather than patching isolated review lines.
-- Immediately before dispatch, Team Lead confirms base HEAD/tracking/remote/PR `f5690f…` equality plus the sole authorized dirty `HealthDataCache.swift` fingerprint: cancelled owner `1051db56-e454-4640-ac24-6d013586cf49`, blob `7f1f162ef166aa6f841e3746fff3fa3ea40ba069`, numstat `+4/−207`, unchanged test blob `9bdc7a5fd2b528b8f9273395480d9efa02625616`, and exact reviewed planning revision.
-- After dispatch but before editing, Fullstack records its current run/task as the expected owner, excludes only itself, confirms no competing active/orphan process, and matches the exact dirty packet. Each phase has the fail-closed handling below; neither may reset, clean, recreate, re-checkout, restore the committed source blob, or force the workspace to match.
+- Immediately before dispatch, Team Lead records local `794624a…`, parent/tracking/remote/PR `f5690f…`, the exact local-commit and three dirty-file blobs/numstats, recovery owner metadata `113937f4-8a72-44cf-867b-ade6cee55a6e`, no active/orphan owner, and the exact reviewed planning revision.
+- After dispatch but before editing, Fullstack identifies/excludes only its own run and rechecks the entire packet. Phase 0C then manually removes every committed/uncommitted excluded service delta before A–F.
 
 ## Stage 0 Baseline Packet
 
 **Phase 0A — Team Lead immediately before dispatch** records a timestamped packet attributable to that Team Lead run:
 
-- delivery worktree, branch, local HEAD, tracking OID, pushed remote OID, PR head/target/Draft/auto-merge state;
-- cancelled source owner task `1051db56-e454-4640-ac24-6d013586cf49`, matching metadata attribution, and absence of any later source-authorized/current process;
-- sole dirty path `Packages/HealthKitService/Sources/HealthKitService/HealthDataCache.swift`, worktree blob `7f1f162ef166aa6f841e3746fff3fa3ea40ba069`, committed blob `be0963652c349210fa39a898cfecf47f13bf710f`, and exact `+4/−207` numstat;
-- base three-dot file list/stat against `9dfa1fb4317935573c0a2f7c9283d13a40f01104`;
-- exact dirty-blob inventory of removed declarations and surviving continuation consumers, three `Task.yield` calls, request-order state, checkpoint decoding/ordering, prior-checkpoint carry-forward, and unconditional checkpoint acceptance;
-- `HealthWorkoutCacheTests.swift` blob `9bdc7a5fd2b528b8f9273395480d9efa02625616`, identical at invalidated `d853728…` and `f5690f…`;
-- repeated five-P1 verdict comments `00966211-f963-48f7-ac63-8623621e0298` and `9d352f6d-5742-40a7-a047-365e1aae2cea`.
+- local HEAD `794624a2516e60c461cb8a598d95c67e7df6b3b5`; parent/tracking/remote/PR `f5690f1461a6cb07504d7f6e945220cb5213b2fb`; PR OPEN Draft → `main`, no auto-merge;
+- local commit paths: cache `+117/−731`, blob `7956e0b06d9d38b73f2ab088ed87f4967b33a961`; excluded service `+4/−4`, blob `77fb965f34cf0da6dab0052ab66630f11ddddf1e`; test blob `9bdc7a5fd2b528b8f9273395480d9efa02625616`;
+- exactly three dirty paths relative to HEAD: cache `+119/−24`, blob `206acca959568e56ca3aaf62ee764f04b0aa2392`; excluded service `+1/−1`, blob `b8244271b30a51da04a41e6eb28d9c5faf6e156e`; tests `+36/−8`, blob `28f96c751553f7bf39d16c62ad5394ebfe74c96d`;
+- metadata local head/dirty cache/owner `794624a…` / `206acca…` / `113937f4…`, owner authority comment `7c73c678-c3b6-48f3-8eb7-7f272823083a`, no active/orphan owner, and current pattern inventory;
+- the exact reviewed planning revision; Team Lead replaces the superseded `stage_0a_packet` only after planning PASS.
 
-If 0A diverges, Team Lead does not dispatch and reports the exact mismatch without changing the workspace.
+If 0A diverges, Team Lead does not dispatch and reports the exact mismatch without changing the workspace or history.
 
-**Phase 0B — dispatched Fullstack before its first edit** records a separate timestamped packet attributable to its current run/task identity, excludes only that expected run from the check, confirms no competing active/orphan owner, and independently rechecks every 0A value. Audit immutable committed `f5690f…` for the historical unsafe/Mutex structural RED, then audit dirty blob `7f1f162…` separately to prove partial removals remain and surviving rejected consumers match 0A. If 0B diverges, Fullstack stops before editing and reports the mismatch; it does not normalize the worktree, restore `be096365…`, or terminate an unverified process. Source work begins only after 0A and 0B agree.
+**Phase 0B — dispatched Fullstack before its first edit** records a separate timestamped packet attributable to its current run/task identity, excludes only that run, proves no competing active/orphan owner, rechecks every 0A field, and proves `794624a…` remains the direct child of `f5690f…`. Any divergence stops before edit without normalization, history rewrite, or unverified-process termination.
 
-The dirty blob is a preservation baseline, not an executable-result claim. All executable evidence runs in the metadata-pinned workspace. First run `swift build` and record the actual outcome. Compiler RED proves only incompleteness and cannot replace a behavior RED; compile GREEN proves only buildability. If RED, complete the minimum actor-owned compile bridge without restoring deleted helpers or implementing B settlement, C reset-drain, or D checkpoint outcomes; make `swift build` green, then run every behavior tracer in place.
+**Phase 0C — forward-only excluded-file scope scrub** first adds/strengthens and runs mandatory REDs for previous/candidate mismatch, cache anchor/timestamp ordering, and held B/c2 rejection/replay, then records the post-RED test blob. While cache `206acca…` and that test blob remain exact, manually remove `public` from four prepared-fetch methods and restore `private` on `persistedWorkoutAnchor`; require service blob `4b1f809090c96185a8bf6befe1360bf30c6ec263` and zero cumulative service diff. With service fixed and post-RED tests unchanged, return cache `WorkoutPreparedDataProviding` to package-internal and delete `import HealthKit`, `WorkoutCheckpointTracking`, its service conformance, anchor reconstruction/description parsing, and `lastSyncDate` comparison. No reset/checkout/stash/revert/amend/rebase; `794624a…` remains an ancestor.
+
+All executable evidence runs in the metadata-pinned workspace after 0C. First record actual `swift build`; compiler status proves no behavior. If RED, repair only `HealthDataCache.swift`, never excluded witness access, before behavior tracers.
 
 ## Execution Order
 
-1. Complete T023-001 and keep the package gate green.
-2. Complete T023-002 after T023-001.
-3. **Stage A — result semantics and reconciliation**: run a strengthened public-cache case for A→empty and anchored-intent→baseline fallback, then continue test-first through UUID add/update/delete, unknown deletion, duplicate provider UUIDs, repeated-delta idempotency, deletion-wins, empty authoritative snapshot, and equal-time ordering. Use RED→GREEN for missing/incorrect behavior or a changing production path; record characterization-GREEN when the behavior is already correct and its path remains unchanged.
-4. **Stage B — exactly-once caller settlement**: first require an explicit-gate RED that exposes multiple/independent completion; then replace independently synchronized waiter helpers with actor-owned registration/settlement state and cover same-key coalescing, non-owner cancellation, owner cancellation, and shared provider failure. Every case must finish without a hang, direct second resume, sleeps, or yield polling.
-5. **Stage C — provider-lane cancellation and reset**: gate one active provider request and one queued successor; require RED for the continuation-holder lane stranding a caller or blocking a successor under cancellation/invalidation, then implement actor-owned request-ID lanes and cover refresh supersession, `invalidateWorkouts()`, `invalidateAll()`, and authorization revocation through full-reset draining while a stale non-cooperative provider remains held.
-6. **Stage D — checkpoint publication/invocation and anchored replay**: require separate RED evidence for previous/candidate mismatch, checkpoint decoding/comparison defeating request-identity currentness, and anchored B/c2 rejection/replay. Then implement opaque currentness plus same-turn A+B/c2 publication and synchronous acceptance invocation before success settlement; make the provider silently leave durable state on c1 and prove the following query replays B from c1 and resubmits c2 safely.
-7. **Stage E — remaining deterministic matrix**: one test-first case at a time for explicit-range→default rebuild, concrete coverage versus wider range, different semantic/range requests not coalescing, persisted-anchor restart baseline rebuild, provider failure preserving cache-accepted state, stale late completion, legacy snapshot-only fallback with checkpoint absent/no acceptance call, and prepared baseline/change with nil checkpoint. Use RED→GREEN only when missing/incorrect or changing; otherwise record strengthened characterization-GREEN.
-8. Run focused workout tests after every tracer bullet, then the full repository-declared package gate.
+1. Confirm delivered T023-001 remains unchanged.
+2. Capture matching Stage 0A/0B packets for the exact local-commit/worktree composite.
+3. **Phase 0C — scope scrub**: capture three D behavior REDs; manually return excluded service to `4b1f809…` while cache/tests are preserved; then remove the cache public tracking/ordering seam while service/tests remain fixed.
+4. **Stage A — result semantics and reconciliation**: record package buildability after 0C; repair compilation only in cache-owned code if needed; then run strengthened public-cache cases for A→empty, anchored-intent→baseline, UUID add/update/delete, unknown deletion, duplicate UUIDs, repeated-delta idempotency, deletion-wins, empty snapshot, and equal-time order.
+5. **Stage B — exactly-once caller settlement**: require explicit-gate RED for multiple/independent completion; then implement actor-owned registration/settlement and cover same-key coalescing, non-owner cancellation, owner cancellation, and shared provider failure without hang, double resume, sleep, or yield polling.
+6. **Stage C — provider-lane cancellation and reset**: require RED for a stranded caller/blocked successor; then implement actor-owned request-ID lanes and cover refresh supersession, workout/full invalidation, and authorization revocation while stale provider work remains held.
+7. **Stage D — checkpoint publication/invocation and anchored replay**: consume the three mandatory 0C REDs, remove remaining request-order/carry-forward behavior, and implement exact opaque candidate publication plus matching acceptance before success; generation + semantic/range key + request identity alone decide currentness.
+8. **Stage E — remaining deterministic matrix**: classify explicit→default rebuild, wider coverage, non-coalescing keys, restart, failure preservation, stale completion, legacy fallback, nil checkpoint, and aggregate-only logging through the existing unchanged privacy suite.
+9. Run focused tests after every tracer, then the full package, exact-two-file, lineage-blob, new-tree, same-head, and Multica review gates.
 
 For every stage, entry evidence is the prior stage's exit plus a named next tracer. Before production change, classify and record exactly one mode: (a) mandatory RED→GREEN with test name, command, nonzero exit, and observable defect when behavior is missing/incorrect or its path will change; or (b) characterization-GREEN with test name, command, zero exit, strengthened observable assertions, and proof that the path remains unchanged. Never introduce a regression or mix in another defect to manufacture RED. Exit evidence records the focused GREEN command/exit, replacement or unchanged-path proof, prior-stage regression set, and current allowlisted diff. Accumulate this ledger for the final Fullstack handoff; do not post a progress-only comment.
 
 ### Stage-specific entry and exit evidence
 
-- **A entry**: both Stage 0 phases match the authorized dirty packet; compiler preflight is recorded; if RED, the minimal in-place actor-owned bridge makes `swift build` green without implementing B–D outcomes. **A exit**: every semantic/UUID/empty/order tracer has RED→GREEN or eligible characterization-GREEN evidence, B–D mandatory defect paths remain RED until their stages, and Stage A is green.
+- **A entry**: 0A/0B match; 0C has D REDs, service blob/base-diff gate, preserved tests, and targeted cache seam cleanup; compiler preflight recorded. **A exit**: semantic/UUID/empty/order tracers have eligible evidence, B/C and remaining D publication outcomes stay unimplemented, Stage A green.
 - **B entry**: A green plus failing owner/non-owner/failure cases. **B exit**: one terminal outcome per caller; old waiter/in-flight lock state, direct second resume, and production yield polling absent; A+B green.
 - **C entry**: B green plus failing active/queued reset case. **C exit**: no provider-turn continuation holder; cancellation, invalidation, and authorization reset settle all affected callers once; successor starts before stale release; A–C green.
-- **D entry**: C green plus scripted A/c1 and completed B/c2. **D exit**: no checkpoint decoding/order, request order, or prior-checkpoint carry-forward; rejection/replay/invocation/silent-lag transcript; A–D green.
-- **E entry**: D green plus enumerated remaining cases. **E exit**: every remaining tracer has RED→GREEN or eligible characterization-GREEN evidence, the full matrix is green, no sleep/yield timing evidence remains, and the test blob differs from `9bdc7a…`.
-- **F entry**: complete A–E ledger; final source blob differs from `be096365…` and dirty `7f1f162…`; final test blob differs from `9bdc7a5…`; both mandatory files differ from `f5690f…`. **F exit**: full package/diff/pattern gates, genuinely new pushed SHA/tree distinct from both preserved baselines, four-way equality, and Fullstack-authored exact-SHA review request.
+- **D entry**: C green plus the three 0C RED transcripts and scripted A/c1→B/c2. **D exit**: tracking/anchor/timestamp seam stays absent; request order/carry-forward removed; generation/key/request identity alone decides currentness; exact candidate rejection/replay/invocation/silent-lag transcript recorded; A–D green.
+- **E entry**: D green plus enumerated remaining cases. **E exit**: full matrix green, existing privacy tests pass unchanged, no timing/yield evidence remains, and test blob differs from `9bdc7a…` and current `28f96c…`.
+- **F entry**: complete A–E ledger; cache differs from `be096365…`, `7f1f162…`, `7956e0b…`, and `206acca…`; tests differ from `9bdc7a5…` and `28f96c…`; service equals `4b1f809…`. **F exit**: cumulative diff exactly cache+tests, full package/pattern gates, new forward SHA descends from `794624a…`, four-way equality, Draft state, Fullstack-authored exact-SHA review, and same-head Multica PASS before PR Manager.
 
 ## Required Regression Matrix
 
@@ -91,29 +92,32 @@ Acceptance requires exit code 0 for both commands. Do not substitute an AppUI bu
 
 ## Removal and New-SHA Gates
 
-Before commit, the production/test audit must show no rejected transaction pattern: no `Synchronization`/Mutex-owned waiter state, continuation-holder provider turn, production or test timing-yield coordination, request-order currentness, checkpoint decoding/ordering, previous-checkpoint carry-forward, or unconditional acceptance for nil candidates.
+Before commit, the cache/test audit must show no rejected transaction pattern: no `Synchronization`/Mutex-owned waiter state, continuation-holder turn, timing-yield coordination, request-order currentness, HealthKit checkpoint tracking/reconstruction, anchor description/archive/timestamp ordering, previous-checkpoint carry-forward, or unconditional acceptance for nil candidates.
 
-The authorized dirty snapshot is the measurable composite `{base HEAD f5690f…, sole HealthDataCache.swift dirty path, +4/−207, source blob 7f1f162…, test blob 9bdc7a5…}`; it has no synthetic tree OID.
+The forward composite has no synthetic tree OID. It is the exact local HEAD/parent/tracking/remote/PR relationship plus the local-commit and three dirty-file blobs/numstats recorded in Stage 0A.
 
 After commit/push:
 
-- HEAD differs from both invalidated `f5690f1461a6cb07504d7f6e945220cb5213b2fb` and `d85372895fd4561aba3185e31605076d9429d517`;
-- both mandatory file blobs differ from `f5690f…`;
-- final source blob differs from committed `be0963652c349210fa39a898cfecf47f13bf710f` and authorized dirty `7f1f162ef166aa6f841e3746fff3fa3ea40ba069`; final test blob differs from `9bdc7a5fd2b528b8f9273395480d9efa02625616`;
+- HEAD differs from `d853728…`, `f5690f…`, and `794624a…`, with `794624a…` retained as an ancestor;
+- final service blob equals base `4b1f809090c96185a8bf6befe1360bf30c6ec263`, and cumulative service diff from `f5690f…` is empty;
+- cumulative diff from `f5690f…` contains exactly cache source and cache tests;
+- final cache differs from `be096365…`, `7f1f162…`, `7956e0b…`, and `206acca…`; final tests differ from `9bdc7a5…` and `28f96c…`;
 - local HEAD, tracking OID, pushed remote OID, and PR #423 head are identical;
-- PR remains Draft with auto-merge disabled until exact-SHA content PASS;
-- Fullstack—not PR Manager—authors the review request with planning authority, package gate, and scope/pattern evidence.
+- repository-required PR checks/reviews are green at that same head;
+- PR remains Draft with auto-merge disabled until same-head Multica PASS;
+- Fullstack—not Planner or PR Manager—authors the exact-SHA review request with planning authority, package, scope, lineage-blob, and same-head evidence;
+- PR Manager is not invoked before the Multica PASS comment names the exact PR head.
 
-Same-SHA requests, trees equal to committed `f5690f…` or the authorized dirty snapshot, unchanged dirty-source/test blobs, empty commits, focused-only test evidence, or claims without recorded byte deltas fail the gate.
+History rewrite, lost `794624a…` ancestry, nonempty service diff, any extra path, composite-equivalent/unchanged current cache or test, same-SHA request, empty commit, focused-only evidence, or PR Manager routing before same-head Multica PASS fails the gate.
 
 ## Diff Audit
 
 Before handoff, confirm:
 
-- only the HealthKitService source/tests named in `tasks.md` changed;
+- cumulative diff from `f5690f…` contains exactly `HealthDataCache.swift` and `HealthWorkoutCacheTests.swift`; `PrivacyLoggingTests.swift` remains unchanged;
 - `workoutData(in:)`, `refreshWorkouts(in:)`, and direct `fetchWorkouts(dateRange:)` call shapes remain source-compatible;
 - direct service fetches are anchor-free snapshots and do not independently read/advance the default workout anchor;
-- the precise prepared-fetch capability/conformance is package-internal in `HealthDataCache.swift`, and `HealthKitService.swift` has no T023-002 public-witness access change;
+- the precise prepared-fetch capability/conformance is package-internal in `HealthDataCache.swift`; `HealthKitService.swift` hashes to `4b1f809…` and has no cumulative T023-002 diff;
 - existing public provider adapters remain snapshot-only, and prepared acceptance uses the result's declared semantic when preparation falls back to a baseline;
 - prepared cache-facing fetches do not persist checkpoints before acceptance;
 - only the current request instance publishes cache state and then synchronously invokes provider acceptance for its checkpoint;
@@ -122,7 +126,7 @@ Before handoff, confirm:
 - legacy fallback and nil-checkpoint prepared results publish checkpoint-absent entries and do not invoke checkpoint acceptance;
 - all request, waiter, and provider-lane mutable state is actor-owned and every continuation completion uses one remove-before-resume authority;
 - cancellation/invalidation drains active and queued callers and a late non-cooperative result is rejected without blocking a successor;
-- production `HealthDataCache.swift` does not decode/order checkpoints or use `Synchronization`, locks, unsafe Sendable annotations, or yield polling for transaction state;
+- production `HealthDataCache.swift` has no `import HealthKit`, `WorkoutCheckpointTracking`, reconstructed anchor, description/archive/timestamp ordering, request order, `Synchronization`, locks, unsafe Sendable annotation, or yield polling for transaction state;
 - changed test support uses compiler-checked Sendable state and explicit gates; the final production and test files contain no `@unchecked Sendable`, `@preconcurrency`, or `nonisolated(unsafe)` bypass;
 - no health values/details were added to logs;
 - no unsafe concurrency annotation was introduced;
