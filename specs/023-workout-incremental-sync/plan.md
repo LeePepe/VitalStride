@@ -202,8 +202,8 @@ Task metadata and the acceptance mapping are in `tasks.md`.
 
 ## Verification Strategy
 
-1. Preserve Draft PR #423 and the pinned delivery workspace; treat invalidated SHAs `d85372895fd4561aba3185e31605076d9429d517` and current `f5690f1461a6cb07504d7f6e945220cb5213b2fb` only as RED evidence.
-2. Run sequential tracer bullets through the public cache seam. For each stage, add one deterministic failing behavior, observe RED against the invalidated design, implement only enough actor-owned behavior for GREEN, then continue; do not bulk-add the full matrix before implementation.
+1. Preserve Draft PR #423 and the pinned delivery workspace; treat invalidated SHAs `d85372895fd4561aba3185e31605076d9429d517` and current `f5690f1461a6cb07504d7f6e945220cb5213b2fb` as rejected-baseline evidence, not proof that every individual behavior is RED.
+2. Run sequential test-first tracer bullets through the public cache seam. First run a strengthened named behavior against the preserved baseline. Use mandatory RED→GREEN when the behavior is missing/incorrect or its production path will change in that tracer; when the behavior is already correct and that path remains unchanged, record characterization-GREEN with strengthened observable assertions and keep it in every later regression set. Never regress code or conflate defects to manufacture RED. Each of the five reviewed P1 defect families still requires its explicit mandatory RED evidence below.
 3. Stage order is: result-semantic/reconciliation foundation; exactly-once coalesced waiter settlement; provider-lane cancellation/reset; checkpoint publication plus synchronous acceptance invocation and anchored rejection/replay; remaining fallback/range/restart/failure/order compatibility matrix.
 4. Use explicit provider-started, query-complete, cache-acceptance, acceptance-invocation, durable-advance, cancellation, and release gates. Sleeps and `Task.yield` are not synchronization evidence.
 5. Existing HealthKitService tests protect public compatibility and privacy logging.
@@ -217,18 +217,28 @@ No `xcodebuild` is permitted because implementation scope is package-only.
 
 ## Preserved-Workspace Replacement Protocol
 
-### Dispatch and Stage 0 preconditions
+### Two-phase dispatch and Stage 0 preconditions
 
-Before Fullstack changes a byte, Team Lead and Fullstack must record one matching baseline packet:
+**Phase 0A — Team Lead immediately before dispatch**:
 
-- metadata-pinned worktree and branch identity;
-- no active/orphan process owning the worktree;
-- clean local HEAD, tracking OID, remote branch OID, and Draft PR #423 head all equal `f5690f1461a6cb07504d7f6e945220cb5213b2fb`;
-- PR remains Draft with auto-merge disabled and target `main`;
-- two-file base diff and the exact obsolete-pattern inventory above;
-- test blob `9bdc7a5fd2b528b8f9273395480d9efa02625616` proving the invalidated matrix is unchanged.
+- timestamp the packet and attribute it to the Team Lead run;
+- confirm the metadata-pinned worktree and branch identity;
+- confirm no pre-existing active or orphan process owns the worktree;
+- record clean local HEAD, tracking OID, remote branch OID, and Draft PR #423 head all equal to `f5690f1461a6cb07504d7f6e945220cb5213b2fb`;
+- record that the PR remains Draft with auto-merge disabled and target `main`;
+- record the two-file base diff, exact obsolete-pattern inventory, and test blob `9bdc7a5fd2b528b8f9273395480d9efa02625616`;
+- confirm MY-1483 names the exact reviewed planning revision.
 
-If any value differs, stop and report the divergence to Team Lead. Do not reset, clean, recreate, re-checkout, or silently normalize the preserved workspace. No implementation dispatch is ready until the exact reviewed planning revision is recorded in MY-1483.
+If Phase 0A differs, Team Lead does not dispatch Fullstack and reports the divergence. Team Lead does not reset, clean, recreate, re-checkout, or silently normalize the preserved workspace.
+
+**Phase 0B — dispatched Fullstack, before its first edit**:
+
+- timestamp a separately attributable packet, record the current Fullstack run/task identity as the expected owner, and exclude only that current run from the ownership check;
+- confirm no competing active or orphan process owns or writes the worktree;
+- independently recheck the clean four-way `f5690f…` equality, Draft/no-auto-merge/target state, two-file diff, obsolete-pattern inventory, test blob, and reviewed planning revision from Phase 0A.
+- run the declared fail-on-match obsolete-pattern audit and record its exact command, expected nonzero exit, and matched unsafe-Sendable/Mutex state as the first mandatory structural RED. Those expected matches are fingerprint evidence; only a mismatch from Phase 0A is divergence.
+
+If Phase 0B differs, Fullstack stops before editing, preserves the workspace unchanged, and reports the exact divergence to Team Lead. It does not reset, clean, recreate, re-checkout, terminate an unverified competing process, or continue with a partial packet. No source byte may change until both phases agree.
 
 ### Required removal and replacement map
 
@@ -244,16 +254,26 @@ If any value differs, stop and report the divergence to Team Lead. Do not reset,
 
 ### Stage evidence ledger
 
-Fullstack accumulates this ledger locally and publishes it in the single final implementation handoff; no progress comment substitutes for an exit gate.
+Fullstack accumulates this ledger locally and publishes it in the single final implementation handoff; no progress comment substitutes for an exit gate. A tracer records exactly one evidence mode before its production change: mandatory RED with named test/command/nonzero exit/observable defect, or characterization-GREEN with named test/command/zero exit/strengthened observable assertions and proof that its production path is not changed by that tracer.
 
-| Stage | Entry evidence | RED evidence before production change for that tracer | Exit evidence |
+| Stage | Entry evidence | Test-first evidence before production change for that tracer | Exit evidence |
 |---|---|---|---|
-| A — semantic reconciliation | Stage 0 baseline packet; source still at preserved candidate | Named public-cache test, command, nonzero exit, and failing observable for the next semantic/UUID/empty/order case | Each named tracer GREEN before the next; all Stage A cases green; only allowlisted files changed |
+| A — semantic reconciliation | Both Stage 0 phases agree; source still at preserved candidate | Mandatory RED for a missing/incorrect or changing production path; otherwise characterization-GREEN with strengthened semantic/UUID/empty/order assertions | Every case has RED→GREEN or characterization-GREEN evidence before the next; all Stage A cases green; only allowlisted files changed |
 | B — caller settlement | Stage A exit plus named owner/non-owner/failure cases not yet satisfied | Explicit-gate cancellation/failure test fails or reaches its bounded no-hang guard; no direct private-state assertion | All registered callers record one terminal outcome; old waiter/in-flight locks, direct resume paths, and production yield polling absent; Stage A+B focused tests green |
 | C — provider-lane reset | Stage B exit; active/queued request scenario scripted | Cancellation/supersession/invalidation/authorization-reset test proves the preserved design strands or blocks a waiter/successor | Old provider-turn continuation holder absent; affected callers cancel once; successor starts before stale release; late result rejects; A–C green |
 | D — opaque checkpoint/replay | Stage C exit; A/c1 accepted and B/c2 script available | Query-complete B/c2 is held before cache acceptance and the old design fails rejection/replay or candidate semantics | Checkpoint decode/order, request order, and previous-checkpoint carry-forward absent; c2 rejection, replay from c1, matching invocation, and silent durable-lag resubmission transcript recorded; A–D green |
-| E — complete matrix | Stage D exit; remaining scenario list enumerated | One named legacy/nil/range/restart/failure/stale case fails before its minimal implementation | Every spec scenario/edge passes; test blob differs from preserved `9bdc7a…`; no sleep/yield timing evidence; A–E green |
+| E — complete matrix | Stage D exit; remaining scenario list enumerated | Mandatory RED for any missing/incorrect or changing path; otherwise characterization-GREEN with strengthened legacy/nil/range/restart/failure/stale assertions | Every spec scenario/edge passes; test blob differs from preserved `9bdc7a…`; no sleep/yield timing evidence; A–E green |
 | F — delivery gate | Complete A–E ledger; both mandatory files differ from `f5690f…`; obsolete-pattern audit clean | Not applicable—F verifies the assembled candidate | Full package gate passes; diff is allowlisted; commit/push produces a non-invalidated SHA; local/remote/PR equality proven; Fullstack requests exact-SHA review itself |
+
+Mandatory defect RED evidence remains non-negotiable for the five repeated P1 families:
+
+1. Stage 0's fail-on-match audit for unsafe-Sendable/Mutex-owned mutable waiter state is structurally RED before Stage B removes that state.
+2. Stage B must expose the multiple/independent waiter-completion path through an explicit-gate public-cache test before centralizing remove-before-resume settlement.
+3. Stage C must expose the continuation-holder lane's stranded caller or blocked successor under cancellation/invalidation before replacing it with revocable request-ID lanes.
+4. Stage D must expose the cache-entry/candidate-checkpoint mismatch caused by previous-checkpoint carry-forward before publishing the exact candidate.
+5. Stage D must expose cache-side checkpoint decoding/comparison defeating request-identity currentness and anchored replay before removing those heuristics.
+
+The anchored B/c2 rejection/replay tracer in Stage D is also mandatory RED. Static pattern evidence alone cannot substitute for the behavior REDs in items 2–5. Characterization-GREEN is permitted only for other already-correct behavior whose production path is unchanged by its tracer.
 
 ### Genuinely new-SHA gate
 
@@ -289,7 +309,7 @@ An empty commit, same-tree commit, same-SHA re-request, focused-test-only result
 | Duplicate or unstable projection | UUID map plus explicit sort/tie-breaker. |
 | Logging leaks workout details | Keep only aggregate query type/count/duration and extend existing privacy audit only if needed. |
 | Scope grows into workout persistence/refresh policy | L2 workout persistence, observer sync, and TTL remain explicit non-goals. |
-| Fullstack reports progress or package green without replacing rejected bytes | Stage exit requires named RED/GREEN evidence plus source/test removal proof; Stage F requires both mandatory file blobs to differ from `f5690f…`. |
+| Fullstack reports progress or package green without replacing rejected bytes | Stage exit requires named RED→GREEN or eligible characterization-GREEN evidence plus source/test removal proof; every repeated P1 retains mandatory RED, and Stage F requires both mandatory file blobs to differ from `f5690f…`. |
 | Same invalidated tree is recommitted or re-reviewed | New-SHA gate rejects both invalidated SHAs, empty/same-tree commits, and any review request without four-way equality at a non-invalidated head. |
 
 ## Constitution Check — After Design

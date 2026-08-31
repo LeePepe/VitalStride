@@ -30,9 +30,9 @@
 - [x] The cache publishes the candidate and synchronously invokes matching provider acceptance before caller success without treating the `Void` call as confirmed persistence.
 - [x] Silent acceptance no-advance leaves durable state on the prior checkpoint and is covered by idempotent replay/resubmission rather than rollback or false success evidence.
 - [x] The adversarial matrix distinguishes provider query completion from cache acceptance and proves c2 rejection, replay from c1, and later A+B/c2 acceptance.
-- [x] The staged breakdown requires one public-cache RED→GREEN tracer bullet at a time and forbids timing-based synchronization evidence.
-- [x] Stage 0 pins clean `f5690f…` local/tracking/remote/Draft-PR equality, no active owner, the obsolete-pattern inventory, and unchanged invalidated test blob; divergence stops without reset.
-- [x] Stages A–E have explicit entry, RED, GREEN, replacement, regression, and exit evidence; verification-only Stage F has explicit entry, audit, package/diff/SHA proof, and exit evidence.
+- [x] The staged breakdown requires one public-cache test-first tracer at a time: mandatory RED→GREEN for missing/incorrect or changing behavior, characterization-GREEN only for already-correct unchanged paths, and no manufactured RED or timing-based synchronization.
+- [x] Stage 0A makes Team Lead prove no pre-existing owner before dispatch; Stage 0B excludes only the expected Fullstack run and proves no competing owner before editing. Both pin clean `f5690f…` four-way equality, fingerprints, and fail-closed divergence without reset.
+- [x] Stages A–E have explicit entry, eligible evidence mode, replacement/unchanged-path proof, regression, and exit evidence; mandatory RED is explicit for unsafe-Sendable/Mutex state, multiple completion, stranded continuation-holder lanes, previous/candidate mismatch, and checkpoint decoding/comparison, while verification-only Stage F has explicit entry, audit, package/diff/SHA proof, and exit evidence.
 - [x] Removal/replacement mapping covers all repeated five-P1 source/test facts from comments `00966211…` and `9d352f6d…`.
 - [x] Stage F rejects `f5690f…`, `d853728…`, empty/same-tree commits, unchanged mandatory file blobs, focused-only testing, stale patterns, routing errors, and SHA mismatches.
 - [x] Only Fullstack may request review for a genuinely new local/tracking/remote/PR-equal SHA after full package/diff/pattern gates.

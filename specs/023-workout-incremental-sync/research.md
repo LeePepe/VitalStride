@@ -135,9 +135,9 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 
 **Rejected for this revision**: Reopening T023-001 so acceptance returns or throws a persistence outcome would require `HealthKitService.swift` and provider-contract-test ownership changes. Team Lead required the existing package/API/file boundaries, so that expansion is not authorized.
 
-## Decision 12: Repair with vertical RED→GREEN tracer bullets
+## Decision 12: Repair with vertical test-first tracer bullets
 
-**Chosen**: Work one public-cache behavior at a time in fixed dependency order: reconciliation foundation, waiter settlement, provider-lane reset, atomic rejection/replay, then the remaining deterministic matrix.
+**Chosen**: Work one public-cache behavior at a time in fixed dependency order: reconciliation foundation, waiter settlement, provider-lane reset, atomic rejection/replay, then the remaining deterministic matrix. A missing/incorrect behavior or a production path changed by that tracer requires RED→GREEN. An already-correct behavior whose path remains unchanged records strengthened characterization-GREEN and stays in the regression set; no artificial regression is allowed. Mandatory RED remains explicit for unsafe-Sendable/Mutex-owned state, multiple waiter completion, stranded continuation-holder lanes, previous/candidate entry mismatch, checkpoint decoding/comparison defeating currentness/replay, and anchored rejection/replay.
 
 **Why**: The invalidated candidate added a large test/implementation batch whose green suite missed the required transaction boundaries. One failing behavior followed by its minimal actor-owned implementation keeps tests sensitive to observable outcomes rather than the private mechanism.
 
@@ -145,7 +145,7 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 
 **Evidence**: Repeated exact-SHA reviews `00966211-f963-48f7-ac63-8623621e0298` and `9d352f6d-5742-40a7-a047-365e1aae2cea` found the same five P1s at `f5690f1461a6cb07504d7f6e945220cb5213b2fb`. The second Fullstack handoff reused the same SHA and tree. The test blob is identical to invalidated `d85372895fd4561aba3185e31605076d9429d517`.
 
-**Chosen**: Preserve the clean worktree/branch/Draft PR exactly at `f5690f…` until a reviewed dispatch, then replace the rejected design through A–F without reset or re-checkout. Stage 0 records source-pattern and test-blob fingerprints; every later exit proves an observable RED→GREEN behavior and the required byte removal/replacement.
+**Chosen**: Preserve the clean worktree/branch/Draft PR exactly at `f5690f…` until a reviewed dispatch, then replace the rejected design through A–F without reset or re-checkout. Stage 0A is a timestamped Team Lead packet proving no pre-existing active/orphan owner immediately before dispatch; Stage 0B is a separately attributable Fullstack packet identifying its current run, excluding only that expected run, proving no competing owner, and rechecking the same fingerprint before editing. A 0A divergence blocks dispatch; a 0B divergence stops Fullstack before edit. Neither phase normalizes the workspace. Later exits prove mandatory defect RED→GREEN or eligible characterization-GREEN plus the required byte removal/replacement.
 
 **Why**: A package-green or audit statement cannot prove a changed tree. Fingerprints make unchanged source and insensitive tests mechanically visible while preserving the evidence chain and workspace continuity.
 
