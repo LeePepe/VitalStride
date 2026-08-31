@@ -31,7 +31,7 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 
 **Why**: The optional date range currently overloads query scope and synchronization meaning. The cache cannot safely decide replacement versus merge from arrays alone.
 
-**Compatibility**: Existing public cache methods and direct `fetchWorkouts(dateRange:)` remain source-compatible. The precise prepared-fetch capability remains package-internal; existing public provider conformers retain anchor-free snapshot-only fallback behavior and require no new public witnesses.
+**Compatibility**: Existing public cache methods and direct `fetchWorkouts(dateRange:)` remain source-compatible. The precise prepared-fetch capability remains package-internal; existing public provider conformers retain anchor-free snapshot-only fallback behavior and require no new public witnesses. Fallback results carry no checkpoint, so the cache publishes checkpoint-absent state and invokes no checkpoint acceptance.
 
 ### Alternatives rejected
 
@@ -130,6 +130,8 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 **Chosen**: Build the accepted immutable entry with the prepared candidate checkpoint, publish it, synchronously invoke provider acceptance for that same checkpoint without suspension, and only then settle success. Never parse or compare checkpoint contents.
 
 **Why**: The actor turn provides the observable cache-acceptance linearization point. T023-001's `Void` acceptance cannot report archive failure, so T023-002 proves invocation ordering rather than durable success. Process failure or silent no-advance leaves the durable anchor behind and causes idempotent replay; it never authorizes a persisted checkpoint ahead of its matching cache entry.
+
+**Checkpoint absence**: A prepared baseline/change may supply no candidate, and a legacy snapshot fallback cannot supply one. Those results still publish valid records/coverage/provenance with checkpoint absent; the cache skips checkpoint acceptance because there is no candidate to submit.
 
 **Rejected for this revision**: Reopening T023-001 so acceptance returns or throws a persistence outcome would require `HealthKitService.swift` and provider-contract-test ownership changes. Team Lead required the existing package/API/file boundaries, so that expansion is not authorized.
 

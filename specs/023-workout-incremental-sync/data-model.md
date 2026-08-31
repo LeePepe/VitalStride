@@ -31,6 +31,7 @@ The request semantic and range together form the in-flight coalescing identity.
 - Changes never widen or shrink coverage.
 - Explicit-range snapshots never advance the default workout anchor.
 - Prepared baseline/change results do not persist their pending checkpoint.
+- A prepared baseline/change may have no pending checkpoint. Nil does not invalidate its records, coverage, or semantic.
 - The direct public service fetch is snapshot-only and has no default-anchor side effect.
 - The precise prepared-fetch capability is package-internal and adds no public witness requirement.
 - Existing public provider conformers remain source-compatible through anchor-free snapshot-only fallback behavior.
@@ -103,16 +104,19 @@ Actor-owned logical state for one request instance.
 
 ## Cache Acceptance State
 
+This is not a second cache-entry shape. It references the one canonical `Workout Cache Entry` defined below. Request generation, fetch key, request identity, and any scheduling order belong only to `Workout Transaction`; none is stored in the cache entry.
+
 | Field | Meaning |
 |---|---|
-| Immutable cache entry | Records, concrete coverage, provenance, request order, and optional cache-accepted candidate checkpoint |
-| Acceptance invocation | Synchronous submission of that same candidate to the provider before caller success |
+| Immutable cache entry | The canonical records, coverage, provenance, and optional accepted-checkpoint value defined below |
+| Acceptance invocation | Synchronous submission before caller success only when that entry has a candidate checkpoint |
 | Durable anchor | Provider-owned state that may remain on the prior checkpoint because the `Void` acceptance reports no outcome |
 
 ### Invariants
 
 - Checkpoint contents are never decoded, compared, or ordered by the cache.
-- A current baseline/delta entry records the cache-accepted candidate checkpoint, not the previous checkpoint; an explicit-range entry records no checkpoint.
+- A current prepared baseline/delta entry records its cache-accepted candidate only when supplied; nil-checkpoint prepared results record no checkpoint.
+- Legacy snapshot fallback and explicit-range entries record no checkpoint and invoke no checkpoint acceptance.
 - Entry publication and synchronous provider acceptance occur in one actor turn before success settlement.
 - Acceptance invocation is observable to the deterministic provider adapter, but it is not proof of durable persistence.
 - Process failure or silent no-advance may leave durable state behind the cache and replay safely; the cache does not roll back or fail waiters based on an outcome the seam cannot report.
@@ -124,8 +128,7 @@ Actor-owned logical state for one request instance.
 | Records | Deduplicated, deterministic `[HealthWorkoutRecord]` projection |
 | Coverage | The concrete range actually fetched |
 | Provenance | Whether the entry is a default anchored baseline or an explicit range snapshot |
-| Generation | Actor-owned workout state version captured by in-flight work |
-| Accepted checkpoint | Optional opaque candidate submitted to provider acceptance for this entry; present for accepted baseline/delta state and absent for anchor-free explicit-range snapshots |
+| Accepted checkpoint | Optional opaque candidate submitted to provider acceptance for this entry; present only when an accepted prepared baseline/change supplied one, and absent for nil-checkpoint prepared results, legacy snapshot fallback, and anchor-free explicit-range snapshots |
 
 ### Invariants
 
@@ -133,6 +136,7 @@ Actor-owned logical state for one request instance.
 - Records are sorted by start date descending, then UUID.
 - Publication replaces the whole entry; no in-place externally visible mutation.
 - A stale generation cannot commit.
+- Generation, fetch key, request identity, and scheduling order are transaction-only currentness state and are not cache-entry fields.
 - A default-window entry cannot claim to cover an older/wider range.
 - A range snapshot cannot be used as the base for default anchored changes.
 - The accepted checkpoint denotes cache acceptance and matching invocation, not confirmed durable persistence.
@@ -142,8 +146,9 @@ Actor-owned logical state for one request instance.
 
 | Current state | Request/result | Next state |
 |---|---|---|
-| No compatible entry | Baseline snapshot | Replace with default baseline entry |
-| Default baseline | Current anchored changes | Construct reconciled entry with candidate checkpoint; publish and synchronously invoke matching provider acceptance; retain coverage/provenance |
+| No compatible entry | Baseline snapshot | Replace with default baseline entry; record and submit a candidate only when supplied |
+| Default baseline | Current anchored changes | Construct reconciled entry; if a candidate exists, record it and synchronously invoke matching provider acceptance; otherwise keep checkpoint absent; retain coverage/provenance |
+| Any compatible state | Legacy snapshot fallback | Publish authoritative snapshot with checkpoint absent; invoke no checkpoint acceptance |
 | Any state | Explicit-range snapshot | Replace with scoped entry for that exact coverage |
 | Scoped entry | Default request | Rebuild default baseline |
 | Active/queued transaction | Non-owner waiter cancellation | Remove and cancel only that waiter; preserve request and peers |

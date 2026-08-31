@@ -86,6 +86,8 @@ For an anchor-advancing baseline or changes result, acceptance order is:
 
 Acceptance uses the prepared result's declared semantic, coverage, and provenance. The requested semantic identifies intent and coalescing, but it does not override the result: when anchored preparation has no persisted anchor and returns a baseline snapshot, the cache publishes that result as a baseline before accepting its matching checkpoint.
 
+Checkpoint absence is valid. If an accepted prepared baseline/change supplies no candidate, the cache publishes its records/coverage/provenance with checkpoint absent and invokes no checkpoint acceptance. The same rule applies to public legacy snapshot fallback results, which cannot carry a checkpoint. Explicit-range snapshots also store no checkpoint. None of these nil cases is rejection or proof of durable state.
+
 A rejected result performs neither step 3 nor step 4. The checkpoint is opaque: cache currentness uses only generation, semantic/range key, and request identity, never checkpoint timestamps, decoded anchor contents, or inferred ordering. Provider acceptance returns no outcome and may silently leave durable state unchanged; the cache therefore treats step 4 as an invocation guarantee, not a persistence receipt. The prior durable anchor then drives replay, which UUID reconciliation handles idempotently, and the same candidate may be submitted again. The unsafe inverse—advancing an anchor before accepting its cache transition—or publishing a new projection while retaining the old checkpoint in that entry is forbidden.
 
 The source-compatible direct `HealthKitService.fetchWorkouts(dateRange:)` path is an anchor-free authoritative snapshot. It neither reads nor advances the default workout anchor. Only the deferred provider seam used by the app-owned `HealthDataCache` may prepare a default checkpoint and receive a cache-authorized synchronous acceptance invocation; there is no independent direct-call anchor writer.
@@ -108,6 +110,8 @@ The provider adapter must expose distinct deterministic gates for provider start
 - Existing callers of `HealthKitService.fetchWorkouts(dateRange:)` require no source changes.
 - Existing direct service callers receive an authoritative snapshot and no default-anchor side effect.
 - Existing public provider conformers add no new witness and receive anchor-free snapshot-only compatibility behavior.
+- Legacy snapshot fallback produces a checkpoint-absent cache entry and no checkpoint acceptance invocation.
+- Prepared baseline/change with a nil candidate remains a valid semantic result, publishes checkpoint-absent state, and invokes no checkpoint acceptance.
 - The prepared-fetch capability adds no AppUI-facing or other public interface; HealthKitService and deterministic cache tests adopt it inside the package.
 - Tests must cover both old call shapes and new precise behavior.
 

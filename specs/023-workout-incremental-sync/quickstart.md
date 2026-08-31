@@ -17,7 +17,7 @@
 4. **Stage B — exactly-once caller settlement**: add deterministic failing cases for same-key coalescing, non-owner cancellation, owner cancellation, and shared provider failure; then replace independently synchronized waiter helpers with actor-owned registration/settlement state. Every case must finish without a hang, direct second resume, sleeps, or yield polling.
 5. **Stage C — provider-lane cancellation and reset**: gate one active provider request and one queued successor; observe RED for cancellation, refresh supersession, `invalidateWorkouts()`, and `invalidateAll()`, then implement actor-owned request-ID lanes and reset draining so a fresh successor starts while a stale non-cooperative provider remains held.
 6. **Stage D — checkpoint publication/invocation and anchored replay**: accept A/c1; hold completed anchored B/c2 before cache acceptance; cancel/supersede it; prove c2 rejection and replay from c1; then implement opaque currentness plus same-turn A+B/c2 publication and synchronous acceptance invocation before success settlement. Next, make the provider silently leave durable state on c1 and prove the following query replays B from c1 and resubmits c2 safely.
-7. **Stage E — remaining deterministic matrix**: one RED→GREEN case at a time for explicit-range→default rebuild, concrete coverage versus wider range, different semantic/range requests not coalescing, persisted-anchor restart baseline rebuild, provider failure preserving cache-accepted state, stale late completion, and legacy snapshot-only fallback.
+7. **Stage E — remaining deterministic matrix**: one RED→GREEN case at a time for explicit-range→default rebuild, concrete coverage versus wider range, different semantic/range requests not coalescing, persisted-anchor restart baseline rebuild, provider failure preserving cache-accepted state, stale late completion, legacy snapshot-only fallback with checkpoint absent/no acceptance call, and prepared baseline/change with nil checkpoint.
 8. Run focused workout tests after every tracer bullet, then the full repository-declared package gate.
 
 ## Required Regression Matrix
@@ -42,6 +42,7 @@
 - Late cancelled or invalidated work → reject only; no stale cache/checkpoint commit or newer ownership cleanup.
 - Provider error → every attached waiter fails once and the prior cache-accepted state remains.
 - Silent no-advance after acceptance invocation → prior durable checkpoint replay is UUID-idempotent and later acceptance invocation may retry c2; no durable-success assertion is made.
+- Legacy snapshot fallback and nil-checkpoint prepared baseline/change → valid records/coverage/provenance, accepted checkpoint absent, and no checkpoint acceptance invocation.
 
 ## Focused Verification
 
@@ -70,6 +71,7 @@ Before handoff, confirm:
 - only the current request instance publishes cache state and then synchronously invokes provider acceptance for its checkpoint;
 - the accepted immutable entry records the same opaque candidate checkpoint submitted to provider acceptance before success settlement; this is not treated as a persistence receipt;
 - a provider adapter that records the acceptance call but deliberately leaves durable state unchanged causes a later query from the prior checkpoint and safe UUID-idempotent replay;
+- legacy fallback and nil-checkpoint prepared results publish checkpoint-absent entries and do not invoke checkpoint acceptance;
 - all request, waiter, and provider-lane mutable state is actor-owned and every continuation completion uses one remove-before-resume authority;
 - cancellation/invalidation drains active and queued callers and a late non-cooperative result is rejected without blocking a successor;
 - production `HealthDataCache.swift` does not decode/order checkpoints or use `Synchronization`, locks, unsafe Sendable annotations, or yield polling for transaction state;

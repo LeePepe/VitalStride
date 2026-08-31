@@ -63,7 +63,7 @@ Add an explicit provider-level request semantic for:
 2. anchored changes from the persisted workout anchor;
 3. explicit-range snapshot.
 
-The prepared result identifies snapshot versus changes. Snapshots report concrete coverage. Changes retain UUID upserts and deleted UUIDs. Baseline/change results carry an opaque pending checkpoint but do not persist it. The prepared capability and its production conformance stay package-internal in the cache-owned file, so T023-001's package-internal preparation/acceptance methods satisfy it without a public access change in `HealthKitService.swift`. Existing public provider conformers use anchor-free snapshot-only fallback behavior. The existing direct service call remains source-compatible but becomes an anchor-free authoritative snapshot, leaving `HealthDataCache` as the sole default-anchor acceptance authority. No implementation-level signature is prescribed here.
+The prepared result identifies snapshot versus changes. Snapshots report concrete coverage. Changes retain UUID upserts and deleted UUIDs. A baseline/change result may carry an opaque pending checkpoint but does not persist it. When no candidate exists, the cache publishes checkpoint-absent state and invokes no checkpoint acceptance. The prepared capability and its production conformance stay package-internal in the cache-owned file, so T023-001's package-internal preparation/acceptance methods satisfy it without a public access change in `HealthKitService.swift`. Existing public provider conformers use anchor-free snapshot-only fallback behavior with no checkpoint. The existing direct service call remains source-compatible but becomes an anchor-free authoritative snapshot, leaving `HealthDataCache` as the sole default-anchor acceptance authority. No implementation-level signature is prescribed here.
 
 ### Cache state transition
 
@@ -106,6 +106,7 @@ The private conceptual interface has three transitions, without prescribing Swif
 - Treat every checkpoint as opaque; `HealthDataCache` does not import checkpoint-owner details, compare timestamps, decode anchors, or infer ordering.
 - Generation, semantic/range key, and request identity are the only currentness authority.
 - For a current prepared baseline or delta, compute one whole immutable entry containing the prepared candidate checkpoint. Assign that entry and synchronously invoke provider acceptance with the same candidate in one actor turn, with no `await`, lane release, or waiter completion between them.
+- If a prepared baseline/delta supplies no checkpoint, or the result came through legacy snapshot-only fallback, publish the semantic records/coverage/provenance with checkpoint absent and skip checkpoint acceptance. Nil is valid absence, not rejection or an inferred durable outcome.
 - The package-internal acceptance returns `Void` and its anchor archive path may silently no-op, so T023-002 cannot claim or verify durable persistence. Settlement proves only that the matching acceptance invocation occurred before caller success.
 - If durable state remains on the prior checkpoint, the next provider query reads that prior checkpoint and replays the delta. UUID reconciliation is idempotent; the cache may submit the same candidate again. No rollback or waiter failure is inferred from an unreportable no-advance.
 
@@ -218,7 +219,7 @@ No `xcodebuild` is permitted because implementation scope is package-only.
 | Mutable waiter helpers require unsafe Sendable escapes or double-complete | Store plain waiter/transaction state in the actor and route every terminal outcome through remove-before-resume settlement. |
 | Cancellation/invalidation strands provider-turn waits | Queue actor-owned request identities rather than continuations; reset drains identities/waiters and immediately pumps eligible successor work. |
 | Non-cooperative stale provider blocks successor | Logical lane ownership is revocable; late results fail generation/key/request identity and are rejected. |
-| Cache candidate and durable anchor differ after silent acceptance no-op | Publish the candidate and synchronously invoke matching acceptance before success; explicitly permit durable lag and prove replay from the prior anchor is idempotent. |
+| Cache candidate and durable anchor differ after silent acceptance no-op | Publish the supplied candidate and synchronously invoke matching acceptance before success; explicitly permit durable lag and prove replay from the prior anchor is idempotent. Nil candidates publish checkpoint-absent state and skip invocation. |
 | Opaque checkpoint is misordered by cache heuristics | Never decode or compare it; currentness alone decides acceptance. |
 | Direct service caller advances the anchor outside cache acceptance | Direct entry point is anchor-free snapshot-only; cache-facing prepare/accept is the sole anchor writer. |
 | A package-internal cache seam accidentally widens public service API or crosses task ownership | Keep the capability and conformance in `HealthDataCache.swift`; existing package-internal service witnesses remain owned by T023-001 and require no access change. |

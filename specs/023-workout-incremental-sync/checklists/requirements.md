@@ -25,7 +25,8 @@
 - [x] Mutable request, transaction, waiter, and provider-lane state is actor-isolated with no unsafe Sendable or lock-owned helper escape.
 - [x] Exactly-once remove-before-resume settlement defines owner, non-owner, failure, supersession, and invalidation outcomes.
 - [x] Cancellation/invalidation drains active and queued provider-lane requests and permits a successor before stale provider completion.
-- [x] The canonical cache-entry model contains an optional opaque cache-accepted candidate checkpoint: present for accepted baseline/delta state and absent for explicit-range snapshots.
+- [x] The canonical cache-entry model contains an optional opaque cache-accepted candidate checkpoint: present only when an accepted prepared baseline/change supplies one; absent for nil-checkpoint prepared results, legacy fallback, and explicit-range snapshots.
+- [x] `Workout Cache Entry` has one field set—records, coverage, provenance, optional accepted checkpoint; generation/key/request identity stay transaction-only and request order is not a contract field.
 - [x] The cache publishes the candidate and synchronously invokes matching provider acceptance before caller success without treating the `Void` call as confirmed persistence.
 - [x] Silent acceptance no-advance leaves durable state on the prior checkpoint and is covered by idempotent replay/resubmission rather than rollback or false success evidence.
 - [x] The adversarial matrix distinguishes provider query completion from cache acceptance and proves c2 rejection, replay from c1, and later A+B/c2 acceptance.
