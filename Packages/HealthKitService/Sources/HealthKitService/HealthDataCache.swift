@@ -19,14 +19,14 @@ public protocol WorkoutDataProviding: Sendable {
     func fetchWorkouts(dateRange: DateInterval?) async throws -> WorkoutFetchResult
 }
 
-public protocol WorkoutPreparedDataProviding: WorkoutDataProviding, Sendable {
+protocol WorkoutPreparedDataProviding: WorkoutDataProviding, Sendable {
     func prepareWorkoutSnapshot(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch
     func prepareWorkoutChanges(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch
     func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch)
     func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch)
 }
 
-public protocol WorkoutCheckpointTracking: Sendable {
+protocol WorkoutCheckpointTracking: Sendable {
     func currentWorkoutCheckpoint() -> WorkoutAnchorCheckpoint?
 }
 
@@ -67,6 +67,15 @@ public actor HealthDataCache {
     private struct WorkoutCacheEntry {
         let workouts: [HealthWorkoutRecord]
         let coveredRange: DateInterval?
+        let provenance: WorkoutProvenance
+        let checkpoint: WorkoutAnchorCheckpoint?
+
+        enum WorkoutProvenance {
+            case baselineSnapshot
+            case anchoredChanges
+            case explicitRangeSnapshot
+            case legacyFetch
+        }
     }
 
     private struct FetchKey: Hashable {
@@ -120,6 +129,11 @@ public actor HealthDataCache {
 
     private var workoutCache: WorkoutCacheEntry?
     private var workoutInFlightFetches: [WorkoutFetchKey: Task<[HealthWorkoutRecord], any Error>] = [:]
+    private var workoutRequestOwners: [WorkoutFetchKey: WorkoutRequestOwner] = [:]
+    private struct WorkoutRequestOwner: Sendable {
+        let generation: UInt64
+        let requestID: UUID
+    }
     private let workoutProvider: (any WorkoutDataProviding)?
     private var workoutHitCount: Int = 0
     private var workoutMissCount: Int = 0
@@ -313,6 +327,7 @@ public actor HealthDataCache {
         workoutCache = nil
         for task in workoutInFlightFetches.values { task.cancel() }
         workoutInFlightFetches = [:]
+        workoutRequestOwners = [:]
         availableTypes = nil
         availableTypesFetchedAt = nil
         availableTypesProbeTask?.cancel()
@@ -482,6 +497,7 @@ public actor HealthDataCache {
             task.cancel()
         }
         workoutInFlightFetches = [:]
+        workoutRequestOwners = [:]
 
         workoutRefreshCount += 1
         logger.info(
@@ -500,6 +516,7 @@ public actor HealthDataCache {
             task.cancel()
         }
         workoutInFlightFetches = [:]
+        workoutRequestOwners = [:]
         logger.info("workout cache invalidated")
     }
 
@@ -833,11 +850,6 @@ public actor HealthDataCache {
     ) async throws -> [HealthWorkoutRecord] {
         let key = WorkoutFetchKey(dateRange)
         if let existingTask = workoutInFlightFetches[key] {
-            // A cancelled waiter must not cancel the active owner fetch.
-            // Awaiting the shared task directly makes structured cancellation
-            // flow back to the in-flight request, so we observe the result in a
-            // detached task and convert a cancelled waiter into a local
-            // CancellationError without touching the owner task.
             let waiter = Task.detached(priority: .userInitiated) {
                 try await existingTask.value
             }
@@ -866,8 +878,10 @@ public actor HealthDataCache {
         workoutGeneration += 1
         let fetchGeneration = workoutGeneration
         let key = WorkoutFetchKey(dateRange)
+        let requestID = UUID()
+        workoutRequestOwners[key] = WorkoutRequestOwner(generation: fetchGeneration, requestID: requestID)
 
-        let task = Task { [dateRange, provider] in
+        let task = Task { [dateRange, provider, requestID, key] in
             if let preparedProvider = provider as? any WorkoutPreparedDataProviding {
                 let baseline = await self.workoutCache
                 let prepared: PreparedWorkoutFetch
@@ -889,7 +903,10 @@ public actor HealthDataCache {
                     requestedRange: dateRange
                 )
 
-                guard await self.workoutGeneration == fetchGeneration else {
+                guard await self.workoutGeneration == fetchGeneration,
+                      await self.workoutRequestOwners[key]?.generation == fetchGeneration,
+                      await self.workoutRequestOwners[key]?.requestID == requestID
+                else {
                     preparedProvider.rejectPreparedWorkoutFetch(prepared)
                     throw CancellationError()
                 }
@@ -901,27 +918,51 @@ public actor HealthDataCache {
 
                 if let currentCheckpoint = (preparedProvider as? any WorkoutCheckpointTracking)?.currentWorkoutCheckpoint(),
                    let preparedCheckpoint = prepared.checkpoint,
-                   Self.isStalePreparedCheckpoint(preparedCheckpoint, comparedTo: currentCheckpoint) {
-                    preparedProvider.rejectPreparedWorkoutFetch(prepared)
-                    throw CancellationError()
+                   let currentValue = Self.anchorValue(currentCheckpoint.anchor),
+                   let preparedValue = Self.anchorValue(preparedCheckpoint.anchor),
+                   preparedValue <= currentValue {
+                preparedProvider.rejectPreparedWorkoutFetch(prepared)
+                throw CancellationError()
                 }
 
-                if prepared.source == .baselineSnapshot || prepared.source == .explicitRangeSnapshot || prepared.source == .anchoredChanges {
-                    preparedProvider.acceptPreparedWorkoutFetch(prepared)
+                let provenance: WorkoutCacheEntry.WorkoutProvenance = switch prepared.source {
+                case .baselineSnapshot:
+                    .baselineSnapshot
+                case .anchoredChanges:
+                    .anchoredChanges
+                case .explicitRangeSnapshot:
+                    .explicitRangeSnapshot
                 }
-                await self.workoutCache = WorkoutCacheEntry(
+                let publishedEntry = WorkoutCacheEntry(
                     workouts: merged,
-                    coveredRange: prepared.coverage ?? dateRange
+                    coveredRange: prepared.coverage ?? dateRange,
+                    provenance: provenance,
+                    checkpoint: prepared.checkpoint
                 )
+                await self.workoutCache = publishedEntry
+                await self.workoutRequestOwners[key] = WorkoutRequestOwner(
+                    generation: fetchGeneration,
+                    requestID: requestID
+                )
+
+                preparedProvider.acceptPreparedWorkoutFetch(prepared)
                 return merged
             }
 
             let result = try await provider.fetchWorkouts(dateRange: dateRange)
-            guard await self.workoutGeneration == fetchGeneration else {
+            guard await self.workoutGeneration == fetchGeneration,
+                  await self.workoutRequestOwners[key]?.generation == fetchGeneration,
+                  await self.workoutRequestOwners[key]?.requestID == requestID
+            else {
                 throw CancellationError()
             }
             let workouts = result.workouts
-            await self.workoutCache = WorkoutCacheEntry(workouts: workouts, coveredRange: dateRange)
+            await self.workoutCache = WorkoutCacheEntry(
+                workouts: workouts,
+                coveredRange: dateRange,
+                provenance: .legacyFetch,
+                checkpoint: nil
+            )
             return workouts
         }
 
@@ -936,11 +977,17 @@ public actor HealthDataCache {
                     task.cancel()
                 }
             )
+            if workoutRequestOwners[key]?.requestID == requestID {
+                workoutRequestOwners[key] = nil
+            }
             workoutInFlightFetches[key] = nil
             signposter.endInterval("healthkit_workout_fetch", state)
             logWorkoutFetchDuration(count: workouts.count, start: start)
             return workouts
         } catch {
+            if workoutRequestOwners[key]?.requestID == requestID {
+                workoutRequestOwners[key] = nil
+            }
             workoutInFlightFetches[key] = nil
             signposter.endInterval("healthkit_workout_fetch", state)
             throw error
@@ -956,11 +1003,9 @@ public actor HealthDataCache {
 
         switch prepared.source {
         case .baselineSnapshot:
-            let normalized = Self.normalizedWorkoutSet(prepared.workouts)
-            return normalized
+            return Self.normalizedWorkoutSet(prepared.workouts)
         case .explicitRangeSnapshot:
-            let normalized = Self.normalizedWorkoutSet(prepared.workouts)
-            return normalized
+            return Self.normalizedWorkoutSet(prepared.workouts)
         case .anchoredChanges:
             if prepared.workouts.isEmpty && prepared.deletedObjectIDs.isEmpty {
                 return Self.normalizedWorkoutSet(base)
@@ -976,7 +1021,7 @@ public actor HealthDataCache {
             for id in prepared.deletedObjectIDs {
                 byID[id] = nil
             }
-            let merged = byID.values.filter { !prepared.deletedObjectIDs.contains($0.id) }
+            let merged = Array(byID.values)
             return Self.normalizedWorkoutSet(merged)
         }
     }
@@ -984,7 +1029,11 @@ public actor HealthDataCache {
     private static func normalizedWorkoutSet(
         _ workouts: [HealthWorkoutRecord]
     ) -> [HealthWorkoutRecord] {
-        workouts.sorted {
+        var deduped: [UUID: HealthWorkoutRecord] = [:]
+        for workout in workouts {
+            deduped[workout.id] = workout
+        }
+        return Array(deduped.values).sorted {
             if $0.startDate == $1.startDate {
                 return $0.id.uuidString < $1.id.uuidString
             }
@@ -1004,22 +1053,11 @@ public actor HealthDataCache {
         )
     }
 
-    private static func anchorOrderValue(_ anchor: HKQueryAnchor?) -> Int? {
+    private static func anchorValue(_ anchor: HKQueryAnchor?) -> Int? {
         guard let anchor else { return nil }
         let description = String(describing: anchor)
         guard let match = description.firstMatch(of: /\d+/) else { return nil }
         return Int(match.0)
-    }
-
-    private static func isStalePreparedCheckpoint(
-        _ prepared: WorkoutAnchorCheckpoint,
-        comparedTo current: WorkoutAnchorCheckpoint
-    ) -> Bool {
-        if let preparedValue = anchorOrderValue(prepared.anchor),
-           let currentValue = anchorOrderValue(current.anchor) {
-            return preparedValue <= currentValue
-        }
-        return prepared.lastSyncDate <= current.lastSyncDate
     }
 
     private static func filteredWorkouts(
