@@ -263,7 +263,7 @@ If Phase 0B differs, Fullstack stops before editing, preserves the workspace unc
 
 If exact service-base equality cannot be reached by those manual edits without changing other excluded behavior, Fullstack stops and reports infeasibility. Phase 0C is the sole permission to edit the excluded file and does not add it to final scope.
 
-All executable evidence must run in the metadata-pinned delivery workspace after Phase 0C. The first Stage A command records the actual `swift build` outcome. A nonzero result is recovery evidence, not a substitute for any behavior RED; a zero proves only buildability. If RED, Fullstack fixes compilation only in `HealthDataCache.swift`; widening excluded witnesses is forbidden. The bridge must not restore legacy helpers or implement B settlement, C reset-drain, or D checkpoint outcomes before their mandatory behavior REDs. `swift build` must be green before Stage A behavior tracers; all later evidence runs in the same workspace.
+The three named public-cache RED tracers above are the sole executable-evidence exception: they run in the metadata-pinned workspace during Phase 0C before any source scrub. All remaining executable evidence runs in that workspace only after 0C exits. The first Stage A command records the actual `swift build` outcome. A nonzero result is recovery evidence, not a substitute for behavior RED; a zero proves only buildability. If RED, Fullstack fixes compilation only in `HealthDataCache.swift`; widening excluded witnesses is forbidden. The bridge must not restore legacy helpers or implement B settlement, C reset-drain, or remaining D publication outcomes before their mandatory evidence. `swift build` must be green before Stage A behavior tracers.
 
 ### Required removal and replacement map
 
@@ -289,7 +289,7 @@ Fullstack accumulates this ledger locally and publishes it in the single final i
 | C — provider-lane reset | Stage B exit; active/queued request scenario scripted | Cancellation/supersession/invalidation/authorization-reset test proves the preserved design strands or blocks a waiter/successor | Old provider-turn continuation holder absent; affected callers cancel once; successor starts before stale release; late result rejects; A–C green |
 | D — opaque checkpoint/replay | Stage C exit plus the three mandatory 0C RED transcripts; A/c1 and B/c2 script available | Reuse exact pre-change RED evidence; add a new RED only for any D behavior not covered by those transcripts | Tracking/anchor/timestamp seam remains absent; request order and carry-forward are removed; generation/key/request identity alone governs currentness; exact candidate publication, rejection/replay/invocation/silent-lag transcript recorded; A–D green |
 | E — complete matrix | Stage D exit; remaining scenario list enumerated | Mandatory RED for any missing/incorrect or changing path; otherwise characterization-GREEN with strengthened legacy/nil/range/restart/failure/stale assertions | Every spec scenario/edge passes; test blob differs from base `9bdc7a5…` and current `28f96c…`; existing privacy suite passes unchanged; no sleep/yield timing evidence; A–E green |
-| F — delivery gate | Complete A–E ledger; final cache differs from `be096365…`, `7f1f162…`, `7956e0b…`, and `206acca…`; final tests differ from `9bdc7a5…` and `28f96c…`; service equals `4b1f809…`; obsolete-pattern audit clean | Not applicable—F verifies the assembled candidate | Full package gate passes; cumulative `f5690f…` diff is exactly cache+tests; new forward SHA descends from `794624a…`; local/tracking/remote/PR equality and Draft state proven; Fullstack requests exact-SHA review and same-head Multica PASS before PR Manager |
+| F — Fullstack delivery gate | Complete A–E ledger; final cache differs from lineage blobs; final tests differ from base/current blobs; service equals `4b1f809…`; obsolete-pattern audit clean | Not applicable—F verifies the assembled implementation candidate | Local package gate passes; cumulative `f5690f…` diff is exactly cache+tests; new forward SHA descends from `794624a…`; local/tracking/remote/PR equality and Draft state proven; Fullstack authors the exact-SHA Multica review request |
 
 Mandatory defect RED evidence remains non-negotiable for the five repeated P1 families:
 
@@ -315,8 +315,9 @@ The forward composite has no synthetic tree OID. Equality means: local HEAD `794
 - the obsolete production/test patterns in the removal map are absent;
 - `swift build && swift test` passes from `Packages/HealthKitService`;
 - local HEAD, tracking branch, pushed remote OID, and PR #423 `headRefOid` are byte-identical at the new SHA;
-- all repository-required PR checks/reviews are green and attached to that same head;
 - PR #423 remains Draft/auto-merge-disabled until Fullstack obtains an exact-SHA Multica AI Reviewer PASS or PASS WITH FOLLOW-UP at that same head; PR Manager is blocked before that verdict.
+
+After same-head Multica PASS, Team Lead hands the unchanged head to PR Manager. PR Manager—not Fullstack—owns repository-required CI/build/test/lint/hook supervision, merge readiness, and shipping. Any head change invalidates the verdict/equality packet and returns the work to Fullstack plus exact-SHA review before PR Manager continues.
 
 An empty commit, history rewrite, loss of `794624a…`, a tree equal to any invalidated/local/composite state, nonempty service diff, unchanged current cache/test blobs, extra path, same-SHA re-request, focused-test-only result, claimed audit without byte evidence, review request authored by anyone other than Fullstack, or PR Manager handoff before same-head Multica PASS fails readiness and returns to Team Lead.
 

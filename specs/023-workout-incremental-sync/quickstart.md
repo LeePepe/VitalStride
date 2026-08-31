@@ -27,7 +27,7 @@ If 0A diverges, Team Lead does not dispatch and reports the exact mismatch witho
 
 **Phase 0C — forward-only excluded-file scope scrub** first adds/strengthens and runs mandatory REDs for previous/candidate mismatch, cache anchor/timestamp ordering, and held B/c2 rejection/replay, then records the post-RED test blob. While cache `206acca…` and that test blob remain exact, manually remove `public` from four prepared-fetch methods and restore `private` on `persistedWorkoutAnchor`; require service blob `4b1f809090c96185a8bf6befe1360bf30c6ec263` and zero cumulative service diff. With service fixed and post-RED tests unchanged, return cache `WorkoutPreparedDataProviding` to package-internal and delete `import HealthKit`, `WorkoutCheckpointTracking`, its service conformance, anchor reconstruction/description parsing, and `lastSyncDate` comparison. No reset/checkout/stash/revert/amend/rebase; `794624a…` remains an ancestor.
 
-All executable evidence runs in the metadata-pinned workspace after 0C. First record actual `swift build`; compiler status proves no behavior. If RED, repair only `HealthDataCache.swift`, never excluded witness access, before behavior tracers.
+The three named public-cache REDs are the sole executable-evidence exception: run them in the metadata-pinned workspace during 0C before source scrub. All remaining executable evidence runs there only after 0C. First record actual `swift build`; compiler status proves no behavior. If RED, repair only `HealthDataCache.swift`, never excluded witness access, before behavior tracers.
 
 ## Execution Order
 
@@ -50,7 +50,7 @@ For every stage, entry evidence is the prior stage's exit plus a named next trac
 - **C entry**: B green plus failing active/queued reset case. **C exit**: no provider-turn continuation holder; cancellation, invalidation, and authorization reset settle all affected callers once; successor starts before stale release; A–C green.
 - **D entry**: C green plus the three 0C RED transcripts and scripted A/c1→B/c2. **D exit**: tracking/anchor/timestamp seam stays absent; request order/carry-forward removed; generation/key/request identity alone decides currentness; exact candidate rejection/replay/invocation/silent-lag transcript recorded; A–D green.
 - **E entry**: D green plus enumerated remaining cases. **E exit**: full matrix green, existing privacy tests pass unchanged, no timing/yield evidence remains, and test blob differs from `9bdc7a…` and current `28f96c…`.
-- **F entry**: complete A–E ledger; cache differs from `be096365…`, `7f1f162…`, `7956e0b…`, and `206acca…`; tests differ from `9bdc7a5…` and `28f96c…`; service equals `4b1f809…`. **F exit**: cumulative diff exactly cache+tests, full package/pattern gates, new forward SHA descends from `794624a…`, four-way equality, Draft state, Fullstack-authored exact-SHA review, and same-head Multica PASS before PR Manager.
+- **F entry**: complete A–E ledger; cache/tests differ from lineage blobs; service equals `4b1f809…`. **Fullstack F exit**: local package/pattern/two-file gates, new forward ancestry, four-way equality, Draft state, and Fullstack-authored exact-SHA Multica review request. Same-head PASS then unlocks Team Lead handoff to PR Manager.
 
 ## Required Regression Matrix
 
@@ -103,12 +103,11 @@ After commit/push:
 - cumulative diff from `f5690f…` contains exactly cache source and cache tests;
 - final cache differs from `be096365…`, `7f1f162…`, `7956e0b…`, and `206acca…`; final tests differ from `9bdc7a5…` and `28f96c…`;
 - local HEAD, tracking OID, pushed remote OID, and PR #423 head are identical;
-- repository-required PR checks/reviews are green at that same head;
 - PR remains Draft with auto-merge disabled until same-head Multica PASS;
 - Fullstack—not Planner or PR Manager—authors the exact-SHA review request with planning authority, package, scope, lineage-blob, and same-head evidence;
-- PR Manager is not invoked before the Multica PASS comment names the exact PR head.
+- PR Manager is not invoked before the Multica PASS comment names the exact PR head; after handoff, PR Manager owns required CI/build/test/lint/hook supervision and shipping readiness.
 
-History rewrite, lost `794624a…` ancestry, nonempty service diff, any extra path, composite-equivalent/unchanged current cache or test, same-SHA request, empty commit, focused-only evidence, or PR Manager routing before same-head Multica PASS fails the gate.
+History rewrite, lost `794624a…` ancestry, nonempty service diff, any extra path, composite-equivalent/unchanged current cache or test, same-SHA request, empty commit, focused-only evidence, or PR Manager routing before same-head Multica PASS fails the Fullstack gate. A PR-head change during PR Manager supervision invalidates the handoff and returns to Fullstack/review.
 
 ## Diff Audit
 

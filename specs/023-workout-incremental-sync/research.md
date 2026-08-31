@@ -165,7 +165,7 @@ Why can a repeated workout synchronization remove previously visible Apple Watch
 
 ## Decision 16: Reject every preserved/local/composite tree before review
 
-**Chosen**: Final service equals base; cumulative diff is exactly cache+tests; final cache differs from `be096365…`, `7f1f162…`, `7956e0b…`, and `206acca…`; final tests differ from `9bdc7a5…` and `28f96c…`; `794624a…` remains an ancestor of a new four-way-equal PR head. Full package/pattern and same-head required-check gates pass, Fullstack authors the exact-SHA Multica review request, and PR Manager waits for same-head PASS.
+**Chosen**: Final service equals base; cumulative diff is exactly cache+tests; final cache/tests differ from every lineage blob; `794624a…` remains an ancestor of a new four-way-equal PR head. Fullstack owns local package/pattern/scope verification, publish/equality proof, and the exact-SHA Multica review request. After same-head PASS, Team Lead hands the unchanged head to PR Manager, which owns required CI/build/test/lint/hook supervision and shipping readiness.
 
 **Why**: A new hash alone cannot prove scope repair, test advancement, opaque currentness, or preservation of the local commit.
 

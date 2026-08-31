@@ -38,8 +38,8 @@
 - [x] Stage D removes cache HealthKit/tracking/anchor reconstruction, description/archive/timestamp ordering, and uses only generation + key + request identity while leaving private provider-owned decoding unchanged.
 - [x] Stage F rejects invalidated/local/composite trees, lost `794624a…` ancestry, any service or extra-file diff, unchanged lineage blobs, focused-only testing, stale patterns, routing errors, and SHA mismatches.
 - [x] Only Fullstack may request review for a genuinely new local/tracking/remote/PR-equal SHA after full package/diff/pattern gates.
-- [x] All executable evidence runs in the metadata-pinned workspace; 0C removes the cache tracking/order seam only after its D REDs, compiler status proves no behavior, and cache-only repair cannot widen service witnesses or pre-implement B/C settlement or remaining D publication outcomes.
-- [x] Stage F requires final cache/test lineage changes, service base equality, exact two-file cumulative diff, full package/pattern gates, same-head required checks green, and same-head Multica PASS before PR Manager.
+- [x] The three named public-cache REDs are the sole executable-evidence exception during 0C before scrub; all remaining executable evidence runs in the metadata-pinned workspace after 0C, and compiler status proves no behavior.
+- [x] Fullstack Stage F ends at local package/pattern/two-file gates, publish/equality proof, and Fullstack-authored exact-SHA Multica review; same-head PASS unlocks Team Lead handoff, then PR Manager owns required-check supervision and shipping readiness.
 - [x] Success criteria are measurable without HealthKit hardware.
 
 ## Readiness Traceability
