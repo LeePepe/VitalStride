@@ -30,7 +30,7 @@ protocol WorkoutCheckpointTracking: Sendable {
     func currentWorkoutCheckpoint() -> WorkoutAnchorCheckpoint?
 }
 
-extension HealthKitService: WorkoutDataProviding {}
+extension HealthKitService: WorkoutDataProviding, WorkoutPreparedDataProviding {}
 
 // MARK: - AvailableTypesProbing
 
@@ -457,21 +457,13 @@ public actor HealthDataCache {
         }
 
         if let entry = workoutCache {
-            if dateRange == nil {
+            let compatible = Self.workoutEntryCompatible(entry, for: dateRange)
+            if compatible {
                 workoutHitCount += 1
                 logger.info(
                     "healthkit_workout_cache_hit total=\(self.workoutHitCount)"
                 )
-                return entry.workouts
-            }
-
-            let coverage = Self.workoutCoverage(for: entry)
-            if let coverage, Self.coversWorkoutRange(coverage, requested: dateRange) {
-                workoutHitCount += 1
-                logger.info(
-                    "healthkit_workout_cache_hit total=\(self.workoutHitCount)"
-                )
-                return Self.filteredWorkouts(entry.workouts, by: dateRange)
+                return dateRange == nil ? entry.workouts : Self.filteredWorkouts(entry.workouts, by: dateRange)
             }
         }
 
@@ -811,6 +803,18 @@ public actor HealthDataCache {
         }
     }
 
+    private static func workoutEntryCompatible(_ entry: WorkoutCacheEntry, for requestedRange: DateInterval?) -> Bool {
+        guard let requestedRange else {
+            return true
+        }
+
+        guard let cachedRange = workoutCoverage(for: entry) else {
+            return false
+        }
+
+        return coversWorkoutRange(cachedRange, requested: requestedRange)
+    }
+
     private static func coversWorkoutRange(
         _ cached: DateInterval?,
         requested: DateInterval?
@@ -918,9 +922,7 @@ public actor HealthDataCache {
 
                 if let currentCheckpoint = (preparedProvider as? any WorkoutCheckpointTracking)?.currentWorkoutCheckpoint(),
                    let preparedCheckpoint = prepared.checkpoint,
-                   let currentValue = Self.anchorValue(currentCheckpoint.anchor),
-                   let preparedValue = Self.anchorValue(preparedCheckpoint.anchor),
-                   preparedValue <= currentValue {
+                   preparedCheckpoint.anchorData.lexicographicallyPrecedes(currentCheckpoint.anchorData) {
                     preparedProvider.rejectPreparedWorkoutFetch(prepared)
                     throw CancellationError()
                 }
@@ -1051,13 +1053,6 @@ public actor HealthDataCache {
         logger.info(
             "healthkit_workout_fetch_duration_ms ms=\(ms) count=\(count)"
         )
-    }
-
-    private static func anchorValue(_ anchor: HKQueryAnchor?) -> Int? {
-        guard let anchor else { return nil }
-        let description = String(describing: anchor)
-        guard let match = description.firstMatch(of: /\d+/) else { return nil }
-        return Int(match.0)
     }
 
     private static func filteredWorkouts(
