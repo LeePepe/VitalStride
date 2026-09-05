@@ -26,7 +26,7 @@
 - [x] ADR-0021 scheduling exception preserves ADR-0019 path classification
 - [x] Files not to touch are explicit
 - [x] Contract/interface impact is explicit
-- [x] Six task-local acceptance criteria are defined
+- [x] Eight task-local acceptance criteria are defined
 - [x] Repository-root verification command is exact
 - [x] Every acceptance scenario maps to US1/T001
 - [x] Task dependency graph is acyclic
