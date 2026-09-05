@@ -26,9 +26,9 @@ supersession, and migration behavior; then run the RepoInfra gate from the repos
 | Immutable inherited PR scope | `specs/025-dev-team-delivery-contract/**`, already committed at `delivery_base_sha`; Fullstack verifies byte identity and does not edit |
 | Files NOT to touch | All other paths, especially `RepoInfra/CONTEXT.md`, ADR-0017/0019/0020 bodies, all `specs/**` except the immutable inherited feature folder, `.github/**`, `scripts/**`, packages, app/test roots, `project.yml`, Xcode project, rulesets, credentials, existing delivery issues, MY-1490 refs, PR #418/#426/#430 |
 | Public interface/contract | Repository delivery-governance contract only; no product/runtime API |
-| Required content | Canonical pipeline; five role boundaries; FS candidate/PR publication vs PR Manager readiness/shipping split; exact-revision and workdir invariants; the nine current required checks; Dev Team parent + final role mention + observed run proof; migration note; recovery/Owner escalation; narrow ADR supersession; bounded RepoInfra scheduling with unchanged support exclusions; constitution 3.1.0 |
+| Required content | Canonical pipeline; five role boundaries; FS candidate/PR publication vs PR Manager readiness/shipping split; clear implementation/check repair loop back through fresh AI review to PR Manager; exceptional/ambiguous failure route to Team Lead; exact-revision and workdir invariants; the nine current required checks; Dev Team parent + final role mention + observed run proof; migration note; recovery/Owner escalation; narrow ADR supersession; bounded RepoInfra scheduling with unchanged support exclusions; constitution 3.1.0 |
 | Explicit exclusions | No implementation code, CI/ruleset/hook change, product behavior, issue mutation, gate weakening, old-state reuse, or layer reclassification |
-| Task-local acceptance | AC-1…AC-7 below and FR-001…FR-016 in `spec.md` all hold at one revision |
+| Task-local acceptance | AC-1…AC-8 below and FR-001…FR-017 in `spec.md` all hold at one revision |
 | Verification | From repository root: `bash scripts/test-repoinfra.sh` |
 | Blocking tasks | None |
 | Entry gates | Exact planning `PASS`/`PASS WITH FOLLOW-UP`; Team Lead readiness acceptance; clean Team Lead-provisioned workdir with all four validated `delivery_*` metadata keys and planning SHA as `delivery_base_sha`; proven queued/dispatched/running Fullstack run |
@@ -54,6 +54,11 @@ supersession, and migration behavior; then run the RepoInfra gate from the repos
 - **AC-7 Planning evidence and candidate identity**: The inherited planning folder is byte-identical
   to `delivery_base_sha`; local `HEAD`, pushed branch OID, and PR `headRefOid` match before review and
   shipping; Fullstack creates/updates the candidate PR but does not own readiness or shipping.
+- **AC-8 Shipping failure routing**: Active governance routes a clear code/build/test/lint/repository-
+  check failure directly from PR Manager to Fullstack Engineer, requires the repaired SHA to complete
+  fresh exact-revision AI review, and returns it to PR Manager; conflicting evidence, ambiguous
+  ownership, policy/content decisions, permissions, infrastructure, repeated repairs, and merge
+  conflicts route to Team Lead.
 
 ## Dependencies & Execution Order
 
@@ -74,6 +79,7 @@ supersession, and migration behavior; then run the RepoInfra gate from the repos
 | Scenario 5 / FR-008–FR-010, FR-014 | US1 | T001 | Fail-closed invariants + RepoInfra gate |
 | Scenario 6 / FR-011–FR-015 | US1 | T001 | ADR status/index/new decision + migration table + diff allowlist |
 | Scenario 7 / FR-016 | US1 | T001 | Reviewed planning SHA as `delivery_base_sha` + immutable inherited PR scope |
+| Scenario 8 / FR-017 | US1 | T001 | Normative repair loop + failure classification + active recovery residue review |
 
 ## Implementation Strategy
 

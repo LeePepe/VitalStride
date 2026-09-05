@@ -11,7 +11,8 @@ updating the constitution and active operator/context documents, and attaching n
 supersession metadata to the two accepted ADRs whose delivery-role clauses are stale. The change is
 one dependency-free RepoInfra governance task over an eight-file support-only allowlist. It does not
 change product behavior, repository automation, required checks, layer routing, or any existing
-delivery state.
+delivery state. It preserves the direct shipping-repair loop for clear implementation/check failures
+and the Team Lead route for exceptional recovery.
 
 ## Technical Context
 
@@ -59,6 +60,8 @@ role instructions.
 
 - `data-model.md` defines the non-persisted handoff evidence model and state boundaries.
 - `contracts/delivery-workflow-contract.md` is the normative behavior and migration contract.
+- The contract classifies shipping failures and defines the conditional
+  `PR Manager → Fullstack Engineer ⇄ AI Reviewer → PR Manager` repair loop.
 - `quickstart.md` gives the implementation sequence, residue review, rollback boundary, and exact
   repository verification.
 - `tasks.md` defines one vertical slice and one layer-scoped task with the eight-file allowlist.
@@ -67,7 +70,7 @@ role instructions.
 
 | Gate | Result | Evidence |
 |---|---|---|
-| Every acceptance criterion maps to a slice and task | PASS | `tasks.md` coverage matrix maps AC-1…AC-7 and FR-001…FR-016 to US1/T001 |
+| Every acceptance criterion maps to a slice and task | PASS | `tasks.md` coverage matrix maps AC-1…AC-8 and FR-001…FR-017 to US1/T001 |
 | Task contains complete DoR fields | PASS | Scope in/out, contract impact, acceptance, dependencies, context, verification |
 | Dependency graph is acyclic | PASS | Single node `T001`, no edges |
 | No compile-level implementation is inlined | PASS | Planning documents use behavioral prose and commands only |
@@ -137,6 +140,9 @@ T001 MUST preserve path classification and MUST NOT change `CONTEXT.md` routing 
   the operator manual; CLAUDE and CONTEXT remain thin active summaries.
 - Live role instructions remain runtime authority; repository documents align to them and do not
   attempt to mutate Multica agent definitions.
+- Shipping-time code/build/test/lint/repository-check failures with clear implementation ownership
+  route directly from PR Manager to Fullstack Engineer, through fresh exact-revision review, and back
+  to PR Manager. Exceptional or ambiguous recovery routes to Team Lead.
 
 ## Planning Publication and Implementation PR Scope
 

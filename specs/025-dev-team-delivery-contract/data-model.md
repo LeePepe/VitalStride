@@ -42,6 +42,16 @@ governance contract and acceptance vocabulary.
 - **Valid when**: all evidence refers to the exact approved candidate or documented merge result
 - **Consumer**: Team Lead for lifecycle closure
 
+## Shipping Failure Classification
+
+- **Implementation-owned**: clear code, build, test, lint, or repository-check failure. PR Manager
+  sends the exact candidate/failure evidence and unchanged scope directly to Fullstack Engineer.
+- **Exceptional/ambiguous**: conflicting CI/review/repository evidence, ambiguous ownership,
+  policy/content decision, permission, infrastructure failure, repeated repair, or merge conflict.
+  PR Manager sends the evidence and required decision to Team Lead.
+- **Repair invariant**: Fullstack reuses the exact delivery workdir, publishes a new SHA, obtains a
+  fresh exact-revision AI Reviewer verdict, and returns a passing candidate to PR Manager.
+
 ## State Sequence
 
 1. Planner Lead authors, commits, and pushes a Planning Revision.
@@ -54,5 +64,9 @@ governance contract and acceptance vocabulary.
 6. Fullstack Engineer proves PR Manager dispatch.
 7. PR Manager supervises and confirms Shipping Evidence.
 8. Team Lead performs Lifecycle Closure.
+
+If step 7 finds an implementation-owned failure, the flow returns to steps 4–7 through fresh review.
+If it finds an exceptional/ambiguous failure, it routes to Team Lead recovery without changing scope
+or weakening a gate.
 
 No state permits a role to infer missing revision, workdir, run, check, or merge evidence.

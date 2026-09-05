@@ -45,6 +45,11 @@ and fail-closed guarantees.
 7. **Given** the planning revision receives a passing exact-revision verdict, **When** Team Lead
    provisions T001, **Then** that planning SHA becomes `delivery_base_sha` and its planning artifacts
    remain immutable inherited scope in the implementation PR.
+8. **Given** PR Manager observes a shipping-time failure, **When** it classifies the evidence,
+   **Then** a clear implementation/check failure routes directly through
+   `PR Manager → Fullstack Engineer ⇄ AI Reviewer → PR Manager`, while conflicting evidence,
+   ownership, policy, permissions, infrastructure, repeated repair, or merge conflicts route to Team
+   Lead for recovery or escalation.
 
 ### Edge Cases
 
@@ -58,6 +63,12 @@ and fail-closed guarantees.
 - A PR is already merged when the new contract is adopted: PR Manager confirms shipping and cleanup
   evidence, then Team Lead closes the lifecycle.
 - A required check is red, missing, or evaluated on a different head: shipping remains blocked.
+- A code, build, test, lint, or repository-check failure is clearly owned by the implementation:
+  PR Manager sends the exact failure evidence and unchanged scope directly to Fullstack Engineer;
+  the repaired SHA requires fresh independent review before returning to PR Manager.
+- A shipping failure is a merge conflict, permission/infrastructure fault, contradictory evidence,
+  ambiguous ownership, repeated repair, or policy/content decision: PR Manager routes the evidence
+  to Team Lead and stops without guessing or weakening the gate.
 - An older accepted ADR contains historical actor wording: its history remains intact and a new ADR
   identifies only the superseded clauses.
 - A governance file is classified as a support exclusion by ADR-0019: the classification remains
@@ -111,6 +122,11 @@ and fail-closed guarantees.
   Team Lead MUST provision T001 with that planning SHA as `delivery_base_sha`; the eventual PR scope
   MUST include the inherited `specs/025-dev-team-delivery-contract/**` artifacts byte-for-byte while
   Fullstack's editable allowlist remains the eight governance files.
+- **FR-017**: Active governance MUST define shipping-time failure classification: clear code, build,
+  test, lint, or repository-check failures owned by implementation route directly from PR Manager to
+  Fullstack Engineer in the same workdir and unchanged scope, then through fresh exact-revision AI
+  review back to PR Manager; conflicting evidence, ambiguous ownership, policy/content decisions,
+  permissions, infrastructure failures, repeated repairs, and merge conflicts route to Team Lead.
 
 ### Key Entities
 
@@ -131,7 +147,7 @@ and fail-closed guarantees.
   ownership boundaries.
 - **SC-002**: Every stale statement identified in `research.md` maps to an authorized replacement,
   an ADR supersession pointer, or an explicit preserved historical statement.
-- **SC-003**: All seven acceptance scenarios map to the single vertical slice and its one RepoInfra
+- **SC-003**: All eight acceptance scenarios map to the single vertical slice and its one RepoInfra
   implementation task.
 - **SC-004**: Fullstack's editable allowlist contains exactly eight governance files and no product,
   test, package, Xcode project, CI workflow, ruleset, credential, or delivery-issue mutation.
@@ -142,6 +158,8 @@ and fail-closed guarantees.
   assign+todo-only dispatch contract.
 - **SC-007**: The implementation PR contains the eight reviewed planning artifacts unchanged from
   `delivery_base_sha` plus changes only to the eight editable T001 governance paths.
+- **SC-008**: Every active shipping-recovery instruction distinguishes the direct Fullstack repair
+  loop from the Team Lead exceptional-recovery route and requires fresh review after candidate change.
 
 ## Assumptions
 

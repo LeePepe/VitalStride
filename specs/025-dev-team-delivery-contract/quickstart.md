@@ -37,7 +37,11 @@ In active documents (`AGENTS.md`, `CLAUDE.md`, `CONTEXT.md`, constitution), conf
 - no instruction tells Team Lead to merge/rebase/watch CI as normal work;
 - no instruction tells Fullstack to hand a passing candidate to Team Lead;
 - no instruction treats assign+todo or a comment alone as proven dispatch;
-- current required-check names and advisory/paused reviewers agree.
+- current required-check names and advisory/paused reviewers agree;
+- a clear code/build/test/lint/repository-check shipping failure routes
+  `PR Manager → Fullstack Engineer ⇄ AI Reviewer → PR Manager`, with unchanged scope and fresh review;
+- conflicting evidence, ambiguous ownership, policy/content decisions, permissions, infrastructure,
+  repeated repair, and merge conflicts route from PR Manager to Team Lead.
 
 Historical ADR bodies may retain superseded actor wording; the status metadata and ADR-0021 identify
 the current decision.

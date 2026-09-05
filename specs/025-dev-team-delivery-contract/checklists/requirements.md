@@ -32,6 +32,7 @@
 - [x] Task dependency graph is acyclic
 - [x] Migration covers every in-flight actor boundary
 - [x] Authority cutoff is deterministic and planning artifacts have an explicit PR path
+- [x] Shipping-time implementation repair and exceptional recovery routes are independently testable
 - [x] Missing `check-tasks-fresh` executable is disclosed
 
 ## Notes

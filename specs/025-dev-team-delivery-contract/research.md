@@ -58,6 +58,15 @@ PR, and valid review evidence. An actor already executing may finish only its cu
 its next handoff uses the new route. A changed SHA requires new review; unchanged valid evidence is
 not repeated.
 
+### D7 — Classify shipping failures before routing
+
+Preserve the live conditional loop. A clear code, build, test, lint, or repository-check failure
+owned by implementation routes `PR Manager → Fullstack Engineer ⇄ AI Reviewer → PR Manager` with
+the same workdir and scope, a new published SHA, and fresh exact-revision review. Contradictory
+CI/review/repository evidence, ambiguous ownership, policy/content decisions, permissions,
+infrastructure failures, repeated repairs, and merge conflicts route to Team Lead for recovery or
+Owner escalation.
+
 ## Complete Conflict Inventory
 
 | Source | Conflicting statement | Resolution in T001 |
@@ -79,6 +88,7 @@ not repeated.
 | Constitution role table | Only FS/TL/Reviewer are shown and TL merges | Add Planner Lead and PR Manager and current ownership boundaries |
 | Constitution Issue Tracker | Hermes writes planning and pipeline ends at Reviewer | Planner Lead owns planning; canonical pipeline includes both review loops, PR Manager, and final Team Lead |
 | Constitution dual approval | Does not distinguish exact review from Team Lead readiness acceptance | AI Reviewer returns an exact-revision verdict; Team Lead accepts readiness and schedules |
+| Constitution Quality Bar J | Correctly separates AI Reviewer content review from PR Manager gate classification and routes patch-induced implementation failures to Fullstack | Preserve this branch and complete it with fresh exact-revision review back to PR Manager; route non-implementation/ambiguous recovery to Team Lead |
 | Constitution recovery | Routine failures require Hermes and a fixed retry path | Team Lead owns recovery and Owner escalation; preserve classification and fail-closed behavior |
 | Constitution startup scan | TL advances/merges open PRs | PR Manager owns shipping; Team Lead owns lifecycle/recovery |
 | Constitution governance roster | Omits Planner/PR Manager and lists stale actors | Name all live delivery roles |
@@ -89,6 +99,7 @@ not repeated.
 | ADR-0017 alternative | Describes Planner as not pushing | Clarify in ADR-0021 that Planner may publish planning documents but never implementation; preserve ADR-0017 D1-D3 unchanged |
 | ADR-0019 / `RepoInfra/CONTEXT.md` | Governance files are support exclusions | Preserve exactly; do not reclassify to satisfy task scheduling |
 | `docs/adr/README.md` | Index omits ADR-0020 and contains historical count/order drift | Add ADR-0020 and ADR-0021 rows only; do not repair unrelated duplicate ADR-0015 |
+| Live PR Manager shipping contract | Clear implementation failures return directly to Fullstack; merge conflicts, permissions, infrastructure, contradictory evidence, ambiguous ownership, repeated repair, and policy/content decisions return to Team Lead | Install both conditional routes in active governance; every candidate repair requires fresh AI review before shipping resumes |
 
 ## Preserved Guarantees
 

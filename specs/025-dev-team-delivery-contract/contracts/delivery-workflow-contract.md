@@ -43,6 +43,35 @@ documentation only and preserves the MY-1537 recovery contract and all issue non
    gate.
 10. Cleanup is limited to task-owned artifacts after delivery is proven.
 
+## Shipping-Time Failure Routing
+
+PR Manager classifies complete current-head failure evidence before routing it.
+
+### Clear implementation/check failure
+
+For a code, build, test, lint, or repository-check failure clearly owned by the implementation:
+
+1. PR Manager posts one structured repair request with the PR, exact failing HEAD, failing checks,
+   concise evidence, unchanged scope, and Fullstack Engineer as the next actor.
+2. Fullstack Engineer reuses the exact `delivery_work_dir`, repairs only the authorized scope,
+   publishes a new exact SHA/PR head, and performs self-review.
+3. Fullstack Engineer requests fresh exact-revision review from AI Reviewer; the prior verdict is
+   stale after any candidate change.
+4. On `PASS` or `PASS WITH FOLLOW-UP`, Fullstack Engineer hands the new reviewed SHA directly back to
+   PR Manager, which restarts shipping supervision.
+
+This conditional loop is
+`PR Manager → Fullstack Engineer ⇄ AI Reviewer → PR Manager`. Team Lead is not a normal hop in a
+clear implementation repair.
+
+### Exceptional or ambiguous failure
+
+PR Manager routes merge conflicts, permissions, infrastructure failures, contradictory
+CI/review/repository evidence, ambiguous ownership, repeated repair failure, and any policy/content
+decision to Team Lead with the exact evidence and required decision. PR Manager stops without
+guessing, widening scope, implementing a repair, or weakening a gate. Team Lead owns recovery,
+re-scope, rerouting, or Owner escalation.
+
 ## Effective Cutover and In-Flight Migration
 
 `AUTH-20260905-01` became effective when approved on 2026-09-05. The governance PR merge records the
@@ -57,6 +86,8 @@ does not recreate or move existing work.
 | Fullstack is implementing or refining | Preserve workdir/branch/commits; create/update the candidate PR, finish exact review with AI Reviewer, then hand `PASS` or `PASS WITH FOLLOW-UP` directly to PR Manager |
 | Implementation `PASS` or `PASS WITH FOLLOW-UP` exists for unchanged SHA | Preserve it; hand the exact candidate to PR Manager without routing through Team Lead |
 | Candidate SHA changed | Treat prior verdict as stale and obtain a fresh exact-revision review |
+| Shipping has a clear implementation/check failure | PR Manager sends exact evidence directly to Fullstack; Fullstack publishes a new SHA, obtains fresh AI review, and returns a passing candidate to PR Manager |
+| Shipping has conflicting evidence, ownership/policy/permission/infrastructure uncertainty, repeated repair, or merge conflict | PR Manager stops and routes exact evidence to Team Lead for recovery or escalation |
 | TL is performing shipping work under old text | Stop shipping mutation; hand exact candidate/PR/gate evidence to PR Manager and verify its run |
 | PR is already merged | PR Manager confirms exact delivery and task cleanup, then hands evidence to Team Lead for closure |
 | Mention/comment produced no run | Treat dispatch as failed; Team Lead recovers or escalates with evidence |
