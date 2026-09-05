@@ -1,6 +1,6 @@
 # ADR-0014: 恢复 Planner Lead 规划审 + AI Reviewer/TL 双批准门
 
-**Status**: Accepted
+**Status**: Accepted (partially superseded by ADR-0021; exact-revision and dispatch clauses replaced by the current Dev Team delivery contract)
 **Date**: 2026-07-24
 **Supersedes**: 部分修正 AI Reviewer 的「Plan/Decomposition Review removed」内部决定
 

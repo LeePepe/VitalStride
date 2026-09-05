@@ -141,19 +141,20 @@ RepoInfra (独立：CI/workflow/hooks/tooling/release/repo policy；无 product 
 
 ### Git: PR-Required Workflow (NON-NEGOTIABLE)
 
-| 角色 | 推到哪 | 推什么 |
-|------|--------|--------|
-| Fullstack (FS) | `github` remote | `agent/<issue-key>-<task-id-short>` + 开 PR (`gh pr create`) |
-| Team Lead (TL) | `github` remote | 审 CI 绿 + review 后 `gh pr merge` |
-| AI Reviewer | （在 PR 上 review） | review PR commits |
+| 角色 | 责任 | 证据/交付 |
+|------|------|-----------|
+| Fullstack (FS) | 实现、提交、在 exact revision 前发布候选 PR，随后更新 PR 直到 exact review 通过 | `agent/<issue-key>-<task-id-short>` + `gh pr create` / `gh pr edit` |
+| AI Reviewer | 审查 exact revision 与规划/DoR 产物 | PR / planning review verdict |
+| PR Manager | 负责 final readiness、required-check 监督、merge/cleanup 与 shipping handoff | PR merge state + final shipping conclusion |
+| Team Lead (TL) | 负责 readiness 接受、调度、恢复、Owner escalation、生命周期关闭与 issue/workdir 失败-闭合 | issue status / recovery evidence |
 
-所有代码只能经 PR 进 `main`。`main` 受 **ruleset**（`main protection`，active）保护：**required status
+所有代码只能经 PR 进 `main`。当前 Dev Team contract（[ADR-0021](../../docs/adr/0021-current-dev-team-delivery-contract.md)）要求：Team Lead 只管理 readiness / 资源 / 恢复，不在正常 shipping 流程中代替 PR Manager merge；Fullstack 只在 exact review 前发布候选 PR，真正的 shipping 由 PR Manager 承担。`main` 受 **ruleset**（`main protection`，active）保护：**required status
 checks** = `Lint & policy` + 6× `SPM …` + `App target` + **一个 Codex required AI
 review**。Claude review 暂停；Kimi review 是 advisory-only，findings 或不可用均不满足也不阻塞
 required gate。Codex 控制面须按 [ADR-0020](../../docs/adr/0020-codex-required-kimi-advisory.md)
 迁移到由默认分支评估的 `pull_request_target` workflow。`scripts/hooks/pre-commit` 禁止直接 commit 到
 main；`pre-push` 只跑 agent-run-safe 的轻量门禁，分钟级 AppUI `xcodebuild` 由 required CI
-不可绕过地执行（本地完整验证由 FS 按风险决定）。详见 [ADR-0009](../../docs/adr/0009-pr-required-workflow.md)、[ADR-0018](../../docs/adr/0018-formal-appui-change-owner-layer.md)、AGENTS.md §Git Workflow。
+不可绕过地执行（本地完整验证由 FS 按风险决定）。详见 [ADR-0009](../../docs/adr/0009-pr-required-workflow.md)、[ADR-0018](../../docs/adr/0018-formal-appui-change-owner-layer.md)、[ADR-0021](../../docs/adr/0021-current-dev-team-delivery-contract.md)、AGENTS.md §Git Workflow。
 
 ### Commit Message 约定
 

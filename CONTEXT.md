@@ -175,7 +175,9 @@ exclusions rather than implicit infrastructure ownership.
 - XcodeGen is retained for managing app targets, entitlements, and package references
 - `VitalStride.xcodeproj/**` is a generated exclusion; `project.yml` remains AppUI-owned
 - Governance/docs/spec/design evidence are support exclusions; caches, logs, local secrets, and signing material are generated/local exclusions
-- AI Reviewer owns content review only; PR Manager owns CI/build/test/lint/hook/shipping state
+- AI Reviewer owns content review only; PR Manager owns CI/build/test/lint/hook/shipping state and final readiness/merge/cleanup
+- Team Lead owns readiness acceptance, scheduling, recovery/Owner escalation, and lifecycle closure; Fullstack publishes the candidate PR before exact review but does not own final shipping
+- Exact-revision, issue workdir metadata, and `delivery_base_sha` proof are fail-closed; missing or mismatched evidence routes back to Team Lead
 - Adding a new AI provider = implementing `AIProvider` protocol in AIService package
 
 ## AI Architecture
@@ -201,25 +203,25 @@ Swappable: ZhipuProvider now, DeepSeek/OpenAI/通义 later — same protocol.
 
 ## Git Workflow (PR-required)
 
-VitalStride uses a **PR-required Git workflow**. Full rationale: [`docs/adr/0009-pr-required-workflow.md`](docs/adr/0009-pr-required-workflow.md) (supersedes ADR-0001). FS/TL command sequences: `AGENTS.md` § Git Workflow.
+VitalStride uses a **PR-required Git workflow**. Full rationale: [`docs/adr/0009-pr-required-workflow.md`](docs/adr/0009-pr-required-workflow.md) and the current contract in [`docs/adr/0021-current-dev-team-delivery-contract.md`](docs/adr/0021-current-dev-team-delivery-contract.md). FS/TL command sequences: `AGENTS.md` § Git Workflow.
 
-**One-line summary**: all code reaches `main` only via a GitHub PR that passes the required
-checks + review. FS pushes `agent/<issue>-<task>` to `github` and opens a PR; TL merges via
-`gh pr merge` after CI is green and the PR is approved.
+**One-line summary**: all code reaches `main` only via a GitHub PR that passes the required checks and review gates. The current Dev Team delivery contract keeps the pipeline as `TL → Planner → FS → AI Reviewer → PR Manager`, with `FS` publishing the candidate PR before exact review and `PR Manager` owning the shipping handoff.
 
 **Roles**:
 
-| Role | Pushes to | Pushes what |
-|------|-----------|-------------|
-| FS | `github` | `agent/<issue-key>-<task-id-short>` + opens PR |
-| TL | — | merges the PR (`gh pr merge`); never pushes `main` directly |
+| Role | Responsibility | Proof / delivery |
+|------|----------------|-----------------|
+| **Planner Lead** | spec-driven feature split / DoR completion | planning package + @mention handoff |
+| **Fullstack Engineer (FS)** | implement, commit, and publish the exact candidate PR before review | `agent/<issue-key>-<task-id-short>` + candidate PR |
+| **AI Reviewer** | review exact revision and planning/DoR artifacts | PR / planning review verdict |
+| **PR Manager** | owns final readiness, required-check supervision, merge/cleanup, and shipping handoff | merge state + final shipping conclusion |
+| **Team Lead (TL)** | readiness acceptance, scheduling, recovery, escalation, lifecycle closure, and fail-closed issue/workdir/branch checks | issue status / recovery evidence |
 
-**Hard rule**: `main` ruleset requires `Lint & policy`, 6× `SPM …`, `App target`, `claude-review`,
-and `codex-review` (10 checks total);
-direct pushes to `main` are rejected — even for admins. The only path to `main` is a merged PR
-whose required checks are green. `pre-commit` also blocks local commits to `main`.
+**Hard rule**: `main` is protected by a ruleset (`main protection`) and requires the required status checks, including the AI review gate. Direct pushes to `main` are rejected; the only legal path is a merged PR whose required checks are green. `pre-commit` also blocks local commits to `main`.
 
-**Conflict policy (B2)**: TL resolves trivial conflicts (different lines, import additions, separate methods, whitespace) inline; semantic conflicts (same line, deletion of changed code, logic-overlap) get reassigned to FS.
+**Exact-revision rule**: the issue must carry the four `delivery_*` fields, the local `HEAD` must match the pushed branch OID and the PR `headRefOid`, and missing or mismatched workdir / SHA proof routes back to Team Lead instead of continuing silently. The planning folder remains immutable at `delivery_base_sha`.
+
+**Conflict policy (B2)**: TL resolves trivial conflicts inline; semantic conflicts, conflicting scope, or mismatched exact-revision evidence are reassigned to FS/Reviewer and then routed back to Team Lead when the evidence remains ambiguous or invalid.
 
 ## Git Hooks
 

@@ -47,6 +47,8 @@ Each ADR is its own file, numbered sequentially: `NNNN-kebab-case-title.md`.
 | [0017](0017-planning-code-inlining-and-visual-acceptance-gates.md) | Planner No-Code-Inlining + Simulator Snapshot for Visual Acceptance | Accepted | 2026-07-31 |
 | [0018](0018-formal-appui-change-owner-layer.md) | Formal AppUI Change-Owner Layer | Accepted | 2026-08-23 |
 | [0019](0019-formal-repoinfra-change-owner-layer.md) | Formal RepoInfra Change-Owner Layer | Accepted | 2026-08-23 |
+| [0020](0020-codex-required-kimi-advisory.md) | Codex required, Kimi advisory, pause Claude review | Accepted | 2026-08-26 |
+| [0021](0021-current-dev-team-delivery-contract.md) | Current Dev Team Delivery Contract | Accepted | 2026-09-05 |
 
 ## Writing a new ADR
 
