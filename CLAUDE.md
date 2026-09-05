@@ -55,16 +55,41 @@ xcodegen generate
 - HealthKit 健康数值禁止出现在任何日志中（隐私合规）
 - 详见 CONTEXT.md 的架构决策
 
-## PR 流程（提交后必须监督到 merge）
+## Git Workflow (PR-required)
 
-**开完 PR 不是终点。** 本 repo 的 PR 走 auto-merge（squash）：CI 全绿 + required review 通过后自动合并。提交 PR 后 agent 必须监督直到 PR 真正 merge，不能开完就撒手。
+**This project uses a PR-required workflow.** `main` is only reached through GitHub Pull Requests that pass the required checks and review gate. The current Dev Team contract is captured in `docs/adr/0021-current-dev-team-delivery-contract.md` and overrides the older shorthand that treated Team Lead as the normal merger.
 
-监督要求：
+### Roles
 
-1. **盯 CI 与 review 直到终态** — 用 `gh pr view <n> --json state,mergeStateStatus,statusCheckRollup,reviewDecision` 轮询，直到 `state == MERGED`（成功）或明确失败需要人工介入。
-2. **required checks**：`codex-review` 与 `claude-review` 是 required，二者 `critical/high` 结论会阻塞 auto-merge。CI job（App target / SPM / Lint & policy）任一失败也阻塞。
-3. **有问题直接修** — CI 失败或 reviewer 提出阻塞项时，直接在分支上改代码 → commit → push（改写已 push 的 commit 用 `git push --force-with-lease`），触发重跑，无需等人。修完继续监督。
-4. **常见阻塞项**：
-   - **XcodeGen drift（宪法 IV）**：不要手动提交 `VitalStride.xcodeproj/project.pbxproj`。它是 `xcodegen generate` 的生成产物；CI 会自己跑 xcodegen（`ci.yml`）从 `project.yml` 的目录源引用（`VitalStrideTests` 等）重新生成。新增测试文件**只提交 `.swift` 源文件**，还原 pbxproj 到 main 版本。
-5. **同步本地** — PR 合并后，把 merge 结果同步回本地（`git fetch github && git switch main && git pull`；worktree 场景收尾时同步主 checkout）。
+| Role | What they do | Where they push |
+|------|--------------|-----------------|
+| **Planner Lead** | spec-driven feature 拆分 / DoR 补全（不写代码；产出契约级描述与 task package） | 不 push；产出 sub-issue + @mention 交回 |
+| **Fullstack Engineer (FS)** | implement code + commit + publish the exact candidate PR before review, then refresh it as the exact revision changes | `github` remote `agent/<issue-key>-<task-id-short>` |
+| **AI Reviewer** | code review（PR）+ planning / DoR review | (approves/comments on PR or planning) |
+| **PR Manager** | owns final readiness, required-check supervision, merge/cleanup, and shipping handoff to the target branch | never pushes product code directly; owns the GitHub PR lifecycle |
+| **Team Lead (TL)** | accepts readiness, schedules work, owns recovery / Owner escalation, and closes lifecycle state; keeps issue/workdir/branch contract fail-closed | never pushes `main` directly |
+
+> **Current Dev Team delivery contract (ADR-0021)**: the single canonical pipeline is `TL → Planner → FS → AI Reviewer → PR Manager`. `FS` publishes the candidate PR before exact review, and `PR Manager` owns the shipping step. Team Lead does not normal-merge or rebase on behalf of shipping work; when the delivery-workdir or SHA proof fails, the issue routes back to Team Lead instead of silent drift.
+
+### Required status gates
+
+- `main` is protected by a ruleset (`main protection`): required checks include `Lint & policy`, 6× `SPM …`, `App target`, and the required AI review gate.
+- `claude-review` is paused; `kimi-review` is advisory-only and does not satisfy the required review gate.
+- `pre-commit` blocks direct commits to `main`; `pre-push` performs the fast, agent-safe validation path.
+- RepoInfra governance work uses `bash scripts/test-repoinfra.sh`; the optional local AppUI `xcodebuild` is not the default shipping proof.
+
+### What this means for work
+
+1. **FS publishes the candidate PR before exact review** — not after a “merge-ready” claim.
+2. **PR Manager owns final shipping** — they supervise required checks and the final merge/cleanup lifecycle.
+3. **TL owns readiness / scheduling / recovery** — not the normal shipping merge path.
+4. **Exact revision proof is mandatory** — local `HEAD`, remote branch OID, and PR `headRefOid` must match before a review or handoff claim is considered valid.
+5. **Issue/workdir/branch validation stays fail-closed** — missing or mismatched `delivery_*` metadata or SHA proof routes back to Team Lead instead of continuing silently.
+
+### Operational guidance
+
+- Keep the issue/workdir/branch metadata coherent with the reviewed delivery contract.
+- Do not treat a comment or assignment as proof of dispatch; cluster-level run evidence must exist.
+- If a validation or review failure occurs, fix within the allowlisted governance files and publish a fresh exact revision instead of silently drifting.
+- After a passing exact-revision verdict, hand the revision directly to PR Manager.
 

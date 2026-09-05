@@ -155,9 +155,12 @@ count is 0. See
 | Role | What they do | Where they push |
 |------|--------------|-----------------|
 | **Planner Lead** | spec-driven feature 拆分 / DoR 补全（**不写代码**：只写契约级描述，禁内联可编译 Swift 片段；引用符号前先 `git show`/`grep` 核验存在，见 Constitution §DoR 硬合同） | 不 push；产出 sub-issue + @mention 交回 |
-| **Fullstack Engineer (FS)** | implement code + commit + open PR | `github` remote `agent/<issue-key>-<task-id-short>`, then `gh pr create` |
-| **Team Lead (TL)** | ensure CI green + review, merge PR, resolve trivial rebase conflicts；规划审是双批准的一方 | merges via `gh pr merge` (never pushes `main` directly) |
+| **Fullstack Engineer (FS)** | implement code + commit + publish the exact candidate PR before review, then refresh it as the exact revision changes | `github` remote `agent/<issue-key>-<task-id-short>` |
 | **AI Reviewer** | **code review**（PR）+ **planning / DoR review**（Planner 产出，ADR-0014） | (approves/comments on PR or planning) |
+| **PR Manager** | owns final readiness, required-check supervision, merge/cleanup, and shipping handoff to the target branch | never pushes product code directly; owns the GitHub PR lifecycle |
+| **Team Lead (TL)** | accepts readiness, schedules work, owns recovery / Owner escalation, and closes lifecycle state; keeps issue/workdir/branch contract fail-closed | never pushes `main` directly |
+
+> **Current Dev Team delivery contract (ADR-0021)**: the single canonical pipeline remains `TL → Planner → FS → AI Reviewer → PR Manager`, with `FS` publishing the candidate PR before exact review and `PR Manager` owning the shipping step. Team Lead does not normal-merge or rebase on behalf of shipping work; when the delivery-workdir or SHA proof fails, the issue routes back to Team Lead instead of silent drift.
 
 > **Planning Review / 双批准门（ADR-0014）**：Planner Lead 对 spec-driven feature 做拆分 / DoR
 > 补全后，下游 stage 派发前须 **AI Reviewer + Team Lead 两方都批准**（同 code review 的
