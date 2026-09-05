@@ -220,9 +220,20 @@ struct ExercisesJSONTests {
             .weighted,
             .other
         ])
-        #expect(counts[.bodyweight] == 376)
-        #expect(counts[.weighted] == 36)
-        #expect(counts[.other] == 96)
+        #expect(counts == [
+            .band: 54,
+            .barbell: 204,
+            .bodyweight: 376,
+            .cable: 196,
+            .dumbbell: 345,
+            .ezBarbell: 23,
+            .kettlebell: 61,
+            .leverageMachine: 81,
+            .machine: 38,
+            .smithMachine: 48,
+            .weighted: 36,
+            .other: 96
+        ])
         #expect(grouped.allSatisfy { section, items in
             !items.isEmpty && items.allSatisfy { $0.section == section }
         })
