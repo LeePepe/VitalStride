@@ -111,6 +111,23 @@ struct ExercisesJSONTests {
         #expect(exercises.count == 1_558)
     }
 
+    @Test("Local calf-raise presets exclude the antagonist tibialis anterior")
+    func calfRaiseSecondaryMuscles() throws {
+        let ids = [
+            "550e8400-e29b-41d4-a716-446655440039",
+            "550e8400-e29b-41d4-a716-446655440199",
+            "550e8400-e29b-41d4-a716-446655440200",
+            "550e8400-e29b-41d4-a716-446655440202",
+        ]
+        for id in ids {
+            let exercise = try #require(exercises.first { $0.id == id })
+            #expect(exercise.primaryMuscles == ["calves"])
+            #expect(exercise.secondaryMuscles.isEmpty)
+        }
+        let donkey = try #require(exercises.first { $0.id == "550e8400-e29b-41d4-a716-446655440201" })
+        #expect(donkey.secondaryMuscles == ["hamstrings", "glutes"])
+    }
+
     @Test("All exercise IDs are unique")
     func uniqueIds() {
         let ids = exercises.map(\.id)
@@ -270,4 +287,3 @@ private func equipment(fromSourceValue sourceValue: String) -> Equipment {
         preconditionFailure("Unsupported exercise equipment in fixture: \(sourceValue)")
     }
 }
-
