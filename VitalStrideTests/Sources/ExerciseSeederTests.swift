@@ -207,6 +207,129 @@ struct ExerciseSeederTests {
         (try? loadBundledCatalog().version) ?? ""
     }
 
+    @Test("Calf correction repairs existing presets without changing identity or user fields", arguments: ["4", "5"])
+    func repairsExistingCalfPresets(storedVersion: String) throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+        let ids = [
+            "550e8400-e29b-41d4-a716-446655440039",
+            "550e8400-e29b-41d4-a716-446655440199",
+            "550e8400-e29b-41d4-a716-446655440200",
+            "550e8400-e29b-41d4-a716-446655440202",
+        ]
+        let catalog = makeCatalogData(version: "5", exercises: ids.map {
+            makeExerciseJSON(id: $0, nameEn: "Calf Raise", muscleGroup: "legs",
+                             primaryMuscles: ["calves"], source: "vitalstride")
+        })
+        var expectedSnapshots: [ExerciseSnapshot] = []
+        var presets: [Exercise] = []
+        for id in ids {
+            let exercise = Exercise(
+                nameEn: "User Renamed", nameZh: "", muscleGroup: .legs, equipment: .machine,
+                primaryMuscles: ["calves"], secondaryMuscles: ["soleus"],
+                isCustom: false, presetId: id, mediaKey: "user-media",
+                defaultWeightLow: 12, defaultWeightMid: 24, defaultWeightHigh: 36,
+                defaultRepsLow: 6, defaultRepsMid: 8, defaultRepsHigh: 10
+            )
+            expectedSnapshots.append(ExerciseSnapshot(exercise))
+            exercise.secondaryMuscles = ["tibialis anterior", "soleus"]
+            context.insert(exercise)
+            presets.append(exercise)
+        }
+        let first = try #require(presets.first)
+        let workout = Workout(type: .strength, startDate: .now,
+                              exercises: [WorkoutExercise(order: 0, exercise: first)])
+        let template = WorkoutTemplate(name: "Calves",
+                                       exercises: [TemplateExercise(exercise: first, targetSets: 3, order: 0)])
+        let custom = Exercise(nameEn: "Calf Raise", nameZh: "", muscleGroup: .legs,
+                              equipment: .machine, secondaryMuscles: ["tibialis anterior"], isCustom: true)
+        context.insert(workout)
+        context.insert(template)
+        context.insert(custom)
+        try context.save()
+        let modelIDs = presets.map(\.persistentModelID)
+        let customSnapshot = ExerciseSnapshot(custom)
+        defaults.set(storedVersion, forKey: ExerciseSeeder.seedVersionKey)
+
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalog)
+        let reloaded = ModelContext(container)
+        for (index, id) in ids.enumerated() {
+            let exercise = try #require(try fetchExercise(presetId: id, context: reloaded))
+            #expect(exercise.persistentModelID == modelIDs[index])
+            #expect(ExerciseSnapshot(exercise) == expectedSnapshots[index])
+        }
+        #expect(first.workoutExercises?.first?.workout?.persistentModelID == workout.persistentModelID)
+        #expect(first.templateExercises?.first?.template?.persistentModelID == template.persistentModelID)
+        #expect(ExerciseSnapshot(custom) == customSnapshot)
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == "5")
+
+        var saveCount = 0
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalog) {
+            saveCount += 1
+            try $0.save()
+        }
+        #expect(saveCount == 0)
+    }
+
+    @Test("Calf correction rolls back a failed same-version save and retries")
+    func calfCorrectionRollsBackAndRetries() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+        let id = "550e8400-e29b-41d4-a716-446655440039"
+        let catalog = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(id: id, nameEn: "Machine Calf Raise", source: "vitalstride"),
+        ])
+        let exercise = Exercise(nameEn: "Machine Calf Raise", nameZh: "", muscleGroup: .legs,
+                                equipment: .machine, secondaryMuscles: ["tibialis anterior"],
+                                isCustom: false, presetId: id)
+        context.insert(exercise)
+        try context.save()
+        defaults.set("5", forKey: ExerciseSeeder.seedVersionKey)
+        do {
+            try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalog) { _ in
+                throw SaveBoundaryError.forced
+            }
+            Issue.record("Expected the correction save to fail")
+        } catch SaveBoundaryError.forced {
+            #expect(exercise.secondaryMuscles == ["tibialis anterior"])
+        }
+        let persisted = try #require(try fetchExercise(presetId: id, context: ModelContext(container)))
+        #expect(persisted.secondaryMuscles == ["tibialis anterior"])
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == "5")
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalog)
+        let repaired = try #require(try fetchExercise(presetId: id, context: ModelContext(container)))
+        #expect(repaired.secondaryMuscles.isEmpty)
+    }
+
+    @Test("Calf correction leaves unrelated and custom presets untouched")
+    func calfCorrectionExclusions() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+        let customID = "550e8400-e29b-41d4-a716-446655440039"
+        let donkeyID = "550e8400-e29b-41d4-a716-446655440201"
+        let catalog = makeCatalogData(version: "5", exercises: [customID, donkeyID].map {
+            makeExerciseJSON(id: $0, nameEn: "Calf Raise", source: "vitalstride")
+        })
+        for id in [customID, donkeyID] {
+            context.insert(Exercise(nameEn: "Calf Raise", nameZh: "", muscleGroup: .legs,
+                                    equipment: .machine, secondaryMuscles: ["tibialis anterior"],
+                                    isCustom: id == customID, presetId: id))
+        }
+        try context.save()
+        defaults.set("5", forKey: ExerciseSeeder.seedVersionKey)
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalog)
+        for id in [customID, donkeyID] {
+            let exercise = try #require(try fetchExercise(presetId: id, context: context))
+            #expect(exercise.secondaryMuscles == ["tibialis anterior"])
+        }
+    }
+
     // MARK: - Full Bundle Tests
 
     @Test("Seeds full bundled catalog into empty container with presetId")

@@ -7,10 +7,11 @@
 Leg Press Calf Raise 四项：移除辅助肌群中的 `tibialis anterior`。
 Donkey Calf Raise 在 v5 中已改为 `hamstrings` / `glutes`，本次保持不变。
 
-范围仅为 bundled catalog 数据修正和历史审计存档，不包含已有安装的 SwiftData 数据回填。
-当前 seeder 在 catalog version 和 ID 集合不变时跳过；四个本地动作也不属于 upstream
-更新路径。因此本次数据修正适用于新插入的预设，已有预设的定向迁移需要单独跟进，
-不能把此提交当作已有用户数据已修复的证据。catalog 保持 v5，避免绕过其专用校验。
+后续提交补齐已有安装的 SwiftData 定向修复：在相同版本的快速跳过路径之前，按这四个
+稳定 ID 匹配非自定义、且在修正后的 v5 catalog 中仍属于本地来源的预设，仅移除
+`tibialis anterior`，保留其余肌群、用户字段及训练/模板关联。重复执行无额外写入，
+保存失败回滚并允许下次重试；旧版本和 ID 尚未匹配的行沿用既有 seeding/migration 流程。
+catalog 保持 v5，避免绕过其专用校验。下方七项有争议建议仍未应用。
 
 ## 原始待复核记录
 
