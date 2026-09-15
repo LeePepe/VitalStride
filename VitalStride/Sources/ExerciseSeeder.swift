@@ -188,7 +188,7 @@ enum ExerciseSeeder {
         for exercise in try context.fetch(descriptor) {
             guard let presetID = exercise.presetId, correctedIDs.contains(presetID),
                   exercise.secondaryMuscles.contains("tibialis anterior") else { continue }
-            exercise.secondaryMuscles.removeAll { $0 == "tibialis anterior" }
+            exercise.secondaryMuscles = exercise.secondaryMuscles.filter { $0 != "tibialis anterior" }
             changed = true
         }
         return changed

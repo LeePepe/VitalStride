@@ -295,7 +295,10 @@ struct ExerciseSeederTests {
             }
             Issue.record("Expected the correction save to fail")
         } catch SaveBoundaryError.forced {
-            #expect(exercise.secondaryMuscles == ["tibialis anterior"])
+            // SwiftData may invalidate cached model values during rollback.
+            // Verify the same-context fetch, persisted state, and retry below.
+            let rolledBack = try #require(try fetchExercise(presetId: id, context: context))
+            #expect(rolledBack.secondaryMuscles == ["tibialis anterior"])
         }
         let persisted = try #require(try fetchExercise(presetId: id, context: ModelContext(container)))
         #expect(persisted.secondaryMuscles == ["tibialis anterior"])
