@@ -217,13 +217,18 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         let cancelButton = app.navigationBars.buttons.matching(
             NSPredicate(format: "label == %@ OR label == %@", "取消", "Cancel")
         ).firstMatch
-        XCTAssertTrue(cancelButton.waitForExistence(timeout: 1.0),
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: UITestTimeout.uiSettle),
                       "Cancel button not found in nav bar")
         cancelButton.tap()
 
-        // Sheet dismissed → search field gone from hierarchy.
-        XCTAssertFalse(searchField.waitForExistence(timeout: 0.5),
-                       "Cancel did not dismiss the picker sheet")
+        // Wait for disappearance. Negating waitForExistence returns immediately
+        // while the field still exists; it does not wait for dismissal to finish.
+        let dismissedField = app.textFields["exercise_picker_search_field"]
+        let sheetDismissed = expectation(for: NSPredicate(format: "exists == false"),
+                                        evaluatedWith: dismissedField,
+                                        handler: nil)
+        wait(for: [sheetDismissed], timeout: UITestTimeout.uiSettle)
+        XCTAssertFalse(dismissedField.exists, "Cancel did not dismiss the picker sheet")
     }
 
     /// T5b: Non-empty search + tap clear button → keyboard collapses,
