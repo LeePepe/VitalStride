@@ -332,31 +332,28 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
 
     // MARK: T5e — MY-1445 regression: clear while already unfocused collapses
 
-    /// T5e: Enter a query → dismiss focus (via return key) while preserving
+    /// T5e: Enter a query → dismiss focus (via grid drag) while preserving
     /// the non-empty query and expanded surface → tap clear while focus is
     /// already false → verify the search collapses to the compact 44pt
     /// trailing button. This is the exact state path fixed by the
     /// `onChange(of: searchText)` collapse branch added in MY-1445.
     @MainActor
     func test_searchFocus_clearWhileUnfocusedCollapsesSearch() throws {
-        let app = launchPicker(mode: "single")
+        let app = launchPicker(mode: "single",
+                               extraArgs: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryM"])
         let searchField = openSearchField(in: app)
 
         // Step 1: Type a non-empty query.
         searchField.typeText("bench")
         usleep(300_000) // > debounce
 
-        // Step 2: Dismiss focus via the keyboard return/search key.
-        // The query remains, and the search stays expanded (non-empty query
-        // keeps isSearchExpanded = true even after blur).
-        let searchKey = app.keyboards.buttons["Search"]
-        if searchKey.exists {
-            searchKey.tap()
-        } else if app.keyboards.buttons["搜索"].exists {
-            app.keyboards.buttons["搜索"].tap()
-        } else {
-            searchField.typeText("\n")
-        }
+        // Step 2: Establish the unfocused precondition with the same grid drag
+        // used by T5c. Keyboard-return behavior is covered independently by T5d;
+        // this regression concerns clearing an already-unfocused query.
+        let window = app.windows.firstMatch
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15))
+        start.press(forDuration: 0.05, thenDragTo: end)
 
         // Wait for keyboard to disappear — confirms focus is dismissed.
         let noKeyboard = expectation(for: NSPredicate(format: "exists == false"),
@@ -364,6 +361,10 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
                                     handler: nil)
         wait(for: [noKeyboard], timeout: UITestTimeout.uiSettle)
 
+        // Confirm actual focus loss and preserved query before exercising clear.
+        XCTAssertFalse(searchField.hasKeyboardFocus,
+                       "Search field must be unfocused before clear")
+        XCTAssertEqual(searchField.value as? String, "bench")
         // Confirm search is still expanded (field still hittable with query).
         XCTAssertTrue(searchField.isHittable,
                       "Search field should remain hittable (expanded) after blur with non-empty query")
