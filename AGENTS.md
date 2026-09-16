@@ -100,11 +100,11 @@ xcodegen generate
 
 测试目录（VitalStrideTests/）使用目录源引用，新增测试文件自动包含，无需手动添加。
 
-## TestFlight 自动发布
+## TestFlight 手动发布
 
-`.github/workflows/testflight.yml` 每 6 小时检查一次 main，若自上次成功发布后有新 commit，就在
-self-hosted runner `vitalstride-mac` 上 build + 上传 TestFlight（内部测试）。手动兜底：Actions →
-testflight → Run workflow（`force=true` 忽略"无新提交"检查）。
+TestFlight 自动发布已暂停。仅在用户明确要求后，通过 Actions → testflight → Run workflow
+手动触发 `.github/workflows/testflight.yml`，在 self-hosted runner `vitalstride-mac` 上构建
+main 并上传 TestFlight（内部测试）。默认检查新提交；`force=true` 忽略"无新提交"检查。
 
 - **发布点记录**：moving tag `testflight/last-released`（累积式；build 失败/关机期间不丢 commit）。
 - **签名**：project.yml 保持 Automatic + `DEVELOPMENT_TEAM 4Z8GG667QD`；archive 用
