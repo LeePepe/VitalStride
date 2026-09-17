@@ -221,7 +221,7 @@ VitalStride uses a **PR-required Git workflow**. Full rationale: [`docs/adr/0009
 
 **Exact-revision rule**: the issue must carry the four `delivery_*` fields, the local `HEAD` must match the pushed branch OID and the PR `headRefOid`, and missing or mismatched workdir / SHA proof routes back to Team Lead instead of continuing silently. The planning folder remains immutable at `delivery_base_sha`.
 
-**Conflict policy (B2)**: TL resolves trivial conflicts inline; semantic conflicts, conflicting scope, or mismatched exact-revision evidence are reassigned to FS/Reviewer and then routed back to Team Lead when the evidence remains ambiguous or invalid.
+**Conflict policy (B2)**: Team Lead keeps the issue/workdir/branch contract fail-closed and routes ambiguous or invalid evidence back to the responsible owner instead of merging or silently continuing. Semantic conflicts, conflicting scope, mismatched exact-revision evidence, or failed dispatch state are reassigned to Fullstack Engineer / AI Reviewer; when the issue remains ambiguous or invalid, Team Lead owns the recovery escalation and required rework. PR Manager owns the final merge-ready/cleanup step after the exact review verdict passes.
 
 ## Git Hooks
 

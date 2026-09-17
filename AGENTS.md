@@ -218,71 +218,48 @@ The Multica daemon already created your worktree at `<task-dir>/workdir/`. **Do 
 **Do** push `agent/*` to `github` and open the candidate PR. **Never** push `main` directly — branch
 protection and the `pre-commit` hook block it. Team Lead owns readiness and recovery; PR Manager owns final shipping and merge/cleanup after the exact review verdict.
 
-### TL workflow (merging FS work into `main`)
+### TL workflow (readiness, recovery, and lifecycle closure)
 
-When you receive an issue with state `in_review` and an FS comment reporting a PR:
+When the issue is in `in_progress` / `in_review` and a candidate PR is present, Team Lead owns the delivery contract proof and recovery loop, not the shipping/merge gate itself:
 
-1. **Locate the PR** for this issue (by branch or the URL in the FS comment):
+1. **Verify the exact candidate and workdir proof**:
    ```bash
-   ISSUE_KEY=$(multica issue get "$ISSUE_UUID" --output json \
-     | python3 -c "import sys,json; print(json.load(sys.stdin)['identifier'].lower())")
-   PR_NUM=$(gh pr list --head "agent/${ISSUE_KEY}-"* --json number -q '.[0].number' \
-     || gh pr list --search "$ISSUE_KEY" --json number -q '.[0].number')
+   git rev-parse HEAD
+   git ls-remote origin "refs/heads/${BRANCH}"
+   gh pr view "$PR_NUM" --json number,headRefName,headRefOid,url
    ```
+   Confirm the exact SHA is the same local HEAD, pushed branch OID, and PR `headRefOid`. If any value mismatches, the issue routes back to FS for a fresh exact candidate and then back to Team Lead for recovery gating.
 
-2. **Check CI status**:
-   ```bash
-   gh pr checks "$PR_NUM"        # all required checks must be green
-   ```
-   Human *approving* review is not required (approving-review count is 0). `codex-review-target` is the
-   required AI check. `kimi-review` is advisory and must not be treated as a merge gate;
-   `claude-review` is paused. If an AI Reviewer left a `CHANGES_REQUESTED` review, honor it before merging;
-   but do **not** block on waiting for an `APPROVED` decision — green required checks are the gate.
-   If checks are red, diagnose (see §Pipeline Recovery) and reassign FS if it's a code problem.
+2. **Check the issue/branch/workdir contract**:
+   - confirm `delivery_repo_url`, `delivery_work_dir`, `delivery_branch`, and `delivery_base_sha` are present and match the preserved worktree
+   - ensure the candidate PR was published from the correct agent branch and not from `main`
+   - confirm the immutable planning folder at `delivery_base_sha` still matches the approved baseline and has not been edited
 
-3. **Rebase conflicts (B2 policy)** — if the PR is behind `main` and conflicts:
-   - **Trivial** (different lines, import additions, separate methods, format-only): resolve on
-     the branch and push the update.
-   - **Semantic** (same line, deletion of changed code, logic-overlapping): comment the conflict
-     details and reassign back to FS:
-     ```bash
-     multica issue comment add "$ISSUE_UUID" --content "Semantic conflict in <file>:<line>; needs FS rework."
-     multica issue assign "$ISSUE_UUID" "Fullstack Engineer"
-     ```
+3. **Coordinate the review handoff**:
+   - Fullstack Engineer publishes the exact candidate PR and repairs supported in-scope findings directly
+   - AI Reviewer owns the exact-revision review and planning/DoR review verdict
+   - PR Manager owns the final shipping/merge/cleanup step after the review verdict is green
+   - Team Lead only closes the lifecycle, keeps the issue fail-closed, and escalates ambiguous or exceptional failures
 
-4. **Merge the PR** (only after required checks are green). Delete the merged branch to keep the remote clean:
-   ```bash
-   gh pr merge "$PR_NUM" --squash --delete-branch
-   ```
-   > `--squash` keeps `main` history linear; use `--merge`/`--rebase` per preference. Consider
-   > enabling **GitHub auto-merge** (`gh pr merge --auto`) so the PR merges itself the moment
-   > checks + review pass (see ADR-0009).
+4. **Recovery and escalation rules**:
+   - if required checks fail, the review is `CHANGES_REQUESTED`, or the dispatch/identity proof is invalid, route back to FS or an explicit recovery path instead of shipping
+   - if the workdir, branch, or SHA proof is mismatched or missing, do not continue silently; re-open the issue under Team Lead recovery and require a fresh exact candidate
+   - PR Manager owns the final merge-ready approval and required cleanup; Team Lead does not own the normal merge gate or clear shipping approvals on behalf of implementation work
+
+> Do not treat Team Lead as the normal merge or shipping owner. The shipping owner is `PR Manager`; Team Lead owns readiness, scheduling, recovery, escalation, and lifecycle closure.
 
 5. **Close the issue**:
    ```bash
    multica issue status "$ISSUE_UUID" done
    ```
 
-> **auto-merge 收尾盲区（CRITICAL, ADR-0014 Decision 5）**：本 repo 用 GitHub auto-merge，PR 常由
-> **机器**在 checks 全绿后自动合并——**没有 agent 被该 merge 事件触发**。所以 TL 不能在 review PASS
-> 后干等自己 `gh pr merge`；必须**主动** `gh pr view <PR#> --json state`，若 `MERGED` 就立刻做 step 5
-> 收尾（issue→done + promote 下一 stage）。PR 已 merged 但 issue 仍 `in_review` = 收尾遗漏，startup
-> scan 要捞（`gh pr list --state merged --search "<issue-key> in:body"`）。`enable-auto-merge` step
-> 已加 retry 消化 GitHub 5xx（避免 504 卡死已通过 review 的 PR）。
-
-> **派 FS 用 assign+todo，不靠裸 @mention（CRITICAL, ADR-0014 Decision 6）**：TL 派实现给
-> Fullstack Engineer 时，裸 @mention 而 `assignee_type=none` **不会 enqueue FS run**（issue 停
-> `todo`、零 run）。可靠派发 = `multica issue assign <key> --to "Dev Team"` + `multica issue status
-> <key> todo`，再 `multica issue runs <uuid>` 验证有 queued/running，零 run 则 `rerun` 兜底。裸
-> @mention 只作人读备注，不是触发器。
+> The repository still requires the exact-revision proof and the PR-required workflow. Team Lead must validate that the worktree, branch, SHA, and review evidence are coherent before closing the lifecycle; no merge or cleanup is performed under the Team Lead role outside the PR Manager gate.
 
 ### Common pitfalls
 
-- **Never push `main` directly** — branch protection (`enforce_admins=true`) rejects it even for
-  admins. Merge via `gh pr merge`.
+- **Never push `main` directly** — branch protection and required PR workflow require the change to be reviewed and merged through the repository's normal PR path.
 - **`MULTICA_TASK_ID`** is provided by the daemon as an env var (full UUID; we use the first 8 chars).
-- **GitHub access tokens** must be valid (FS needs them to push `agent/*` + open PRs; TL to merge).
-  Don't unset `gh` auth.
+- **GitHub access tokens** must be valid (FS needs them to push `agent/*` + open PRs; PR Manager owns the final merge/cleanup gate). Do not unset `gh` auth without a documented repo-identity reason.
 - The `github` remote name is by convention; some clones may use `origin`. Commands accept either
   as long as the URL contains `github.com`.
 
@@ -383,8 +360,8 @@ TL 在 dispatch 任何 stage 前跑：
 # 1. Review 待处理的 open PR（PR 工作流下是正常状态，非违规）
 OPEN_PRS=$(gh pr list --state open --json number,title,updatedAt 2>/dev/null)
 if [ "$(echo "$OPEN_PRS" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))')" -gt 0 ]; then
-  # open PR 是 PR 工作流的常态 —— TL 应推进（CI 绿 + review 后 gh pr merge），停滞过久的 comment 跟进
-  multica issue comment add "$ISSUE_UUID" --content "ℹ️ Startup scan: $OPEN_PRS 个 open PR 待 review/merge。详: $(echo "$OPEN_PRS" | head -200)"
+  # open PR 是 PR 工作流的常态 —— TL 负责检查是否仍处于正确的 review/ship 轨道，必要时催促 PR Manager/FS 完成清晰的 handoff；不得将 merge/cleanup 视为 TL 责任
+  multica issue comment add "$ISSUE_UUID" --content "ℹ️ Startup scan: $OPEN_PRS 个 open PR 正在 review/ship 流程中。详: $(echo "$OPEN_PRS" | head -200)"
 fi
 
 # 2. 检查同 parent 的 sibling sub-issue（防三胞胎）— 详 §Sub-issue 幂等
