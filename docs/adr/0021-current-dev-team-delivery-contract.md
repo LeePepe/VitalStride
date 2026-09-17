@@ -45,6 +45,14 @@ This made the active delivery contract harder to audit, especially for RepoInfra
 
 5. **Repair and migration rules**
    - In-flight planning, implementation, shipping, merged, changed-SHA, failed-dispatch, and mismatched-workdir states each have a forward-only migration boundary; no state is copied or rebuilt from an invalid prior run.
+   - The required next actor/action is explicit for each state:
+     - `planning`: Planner Lead publishes or refines the exact planning revision; then AI Reviewer validates it before Team Lead dispatch.
+     - `implementation`: Fullstack Engineer publishes the exact candidate PR and exact-SHA review request; AI Reviewer validates the exact revision before shipping handoff.
+     - `shipping`: PR Manager owns the final readiness, required-check supervision, merge/cleanup, and shipping handoff after a passing exact-review verdict.
+     - `merged`: Team Lead closes the lifecycle only after PR Manager's verified shipping/cleanup evidence is recorded.
+     - `changed-SHA`: the issue re-enters `implementation` or `failed-dispatch` flow for a fresh exact-candidate publication and a new AI Reviewer request; the old SHA is not reused as valid evidence.
+     - `failed-dispatch`: Team Lead re-classifies the root cause and requires a fresh exact-candidate run; no silent handoff is accepted.
+     - `mismatched-workdir`: the issue routes back to Team Lead recovery and requires a preserved workdir/branch/SHA proof before continued work.
    - A shipping failure or repository-check failure routes `PR Manager → Fullstack Engineer ⇄ AI Reviewer → PR Manager` with the same scope and a fresh exact-revision review.
    - Conflicting evidence, ambiguous ownership, policy/content decisions, permissions, infrastructure, repeated repair, and merge conflicts route to Team Lead.
 

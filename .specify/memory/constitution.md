@@ -182,14 +182,14 @@ main；`pre-push` 只跑 agent-run-safe 的轻量门禁，分钟级 AppUI `xcode
 
 - **Multica** 项目 UUID `7adf8b88`，issue prefix `MY-*`
 - 每个 issue 标题 `[T###] [Story] Brief description`（spec-kit handoff 约定）
-- Hermes 端写 spec/plan/tasks，**`/speckit-implement` 不使用**——tasks.md 通过 `multica-quick-issue` 批量入 Multica，`Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead` 的 canonical pipeline 执行
-- 每 feature 一个 Multica project（不要 phase 多项目）
+- **Planner Lead** 负责 spec/plan/tasks 的 authoring、commit、push 与持续修订；**`/speckit-implement` 不使用**——tasks.md 通过 `multica-quick-issue` 批量入 Multica，`Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead` 的 canonical pipeline 执行
+- **Planner Lead** 仅做规划与 DoR，不拥有实现层代码权限；Fullstack Engineer 负责实现与 candidate PR publication。每 feature 一个 Multica project（不要 phase 多项目）
 
 ### Planning Review / Dual-Approval Gate（ADR-0014）
 
 - **Planner Lead** 对 spec-driven feature 做拆分 / DoR 补全后，**下游 stage 派发前**须过
   **AI Reviewer + Team Lead 双批准门**：两方都 ✅ 才派发；任一方 🟡 CHANGES REQUESTED → 回 Planner
-  Lead 修订。批准后由 **TL** 派发（Planner / Reviewer 均不自行派发）。
+  Lead 修订。批准后由 **TL** 派发（Planner / Reviewer 均不自行派发）；Planner Lead 仍保留规划修订与 publish responsibilities，不接管 FS 实现。
 - AI Reviewer 承担两类 review：**code review**（PR）+ **planning / DoR review**（Planner 产出）。
   规划审的 finding 源同为 §Cross-Cutting Quality Bars。
 - DoR 硬合同（派发前必备）：`Files in scope` / `Files NOT to touch` / `Public signatures` /
@@ -262,9 +262,9 @@ Ship gate（required CI 的 `App target` / `SPM …`）失败时，PR Manager **
 
 `waiting_on=human_triage` 仅在以下场景允许：
 - Constitution P0 违规需人判断（例如隐私越界争议、范围争议）
-- 自动恢复（Hermes）尝试 3 次后仍 fail 同一根因
+- Team Lead 显式恢复流程仍无法证明 workdir / branch / SHA / approval / permission 证据正确时，需要人类决策
 
-其它 infra failure（CLI routing、runtime crash、quarantined flake、限流、网络）一律 Hermes auto-dispatch，TL **禁止**直接打 `human_triage` 标。
+其它 infra failure（CLI routing、runtime crash、quarantined flake、限流、网络）不得被伪造成 normal shipping 路径；应按 Team Lead recovery / FS repair / PR Manager handoff 规则处理，**TL 不得直接代替 PR Manager 进行 merge/cleanup**。
 
 ### PR-2: Sub-issue 幂等
 
@@ -285,9 +285,10 @@ Planner Lead / TL 创建 sub-issue 前必须查同 parent 的 alive (`todo`/`in_
 
 ### PR-5: Startup Scan
 
-TL 每次 pipeline 起手前必须扫描：
-- `gh pr list --state open`：PR 工作流下 open PR 是正常状态 —— TL 应 review 并推进（CI 绿 +
-  review 后 `gh pr merge`），而非视为违规。长时间停滞的 PR 需 comment 跟进。
+TL 每次 pipeline 起手前必须检查：
+- issue 的 `delivery_repo_url` / `delivery_work_dir` / `delivery_branch` / `delivery_base_sha` 是否完整，并与当前 preserved worktree 一致；若缺失或不匹配，回到 Team Lead recovery，而不是继续执行 shipping 或 review
+- local `HEAD` 是否与 remote branch OID 和 PR `headRefOid` 完全一致；只要任一值不匹配，当前 revision 不可视为 valid exact-candidate
+- open PR 是否处于正确的 review/ship 状态；若是，仍必须以 PR Manager 作为最终 shipping/cleanup 责任人，而不是把 open PR 视为 TL 可直接 merge 的授权
 - 同 parent alive sub-issue（PR-2 前置）
 
 ## Governance

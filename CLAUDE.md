@@ -63,13 +63,13 @@ xcodegen generate
 
 | Role | What they do | Where they push |
 |------|--------------|-----------------|
-| **Planner Lead** | spec-driven feature 拆分 / DoR 补全（不写代码；产出契约级描述与 task package） | 不 push；产出 sub-issue + @mention 交回 |
-| **AI Reviewer** | planning / DoR review + exact-candidate code review | reviews planning artifacts and PRs; does not merge |
+| **Planner Lead** | spec-driven feature 拆分 / DoR 补全；**author / commit / push 规划修订**，但不拥有实现权限 | `agent/<issue-key>-<task-id-short>` 规划 revision 或 issue-linked planning branch |
+| **AI Reviewer** | **planning / DoR review** + **exact-candidate code review** | reviews planning artifacts and PRs; does not merge |
 | **Team Lead (TL)** | accepts readiness, schedules work, owns recovery / Owner escalation, and closes lifecycle state; keeps issue/workdir/branch contract fail-closed | never pushes `main` directly |
 | **Fullstack Engineer (FS)** | implement code + commit + publish the exact candidate PR before review, then refresh it as the exact revision changes | `github` remote `agent/<issue-key>-<task-id-short>` |
 | **PR Manager** | owns final readiness, required-check supervision, merge/cleanup, and shipping handoff to the target branch | never pushes product code directly; owns the GitHub PR lifecycle |
 
-> **Current Dev Team delivery contract (ADR-0021)**: the canonical pipeline is `Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead`. Planner and AI Reviewer loop before TL dispatch; Fullstack Engineer publishes the exact candidate PR, refreshes the exact revision, and repairs supported in-scope findings directly; AI Reviewer re-checks the exact revision; PR Manager owns final shipping/merge cleanup; Team Lead owns readiness, scheduling, recovery, and lifecycle closure.
+> **Current Dev Team delivery contract (ADR-0021)**: the canonical pipeline is `Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead`. Planner Lead authors, commits, pushes, and refines the exact planning revision without implementation authority; AI Reviewer validates the planning package and the exact candidate revision; Team Lead owns readiness, scheduling, recovery, and lifecycle closure; Fullstack Engineer publishes the exact candidate PR, refreshes the exact revision, and repairs supported in-scope findings directly; PR Manager owns final shipping, required-check supervision, merge/cleanup, and handoff. Missing workdir/branch/SHA proof, failed dispatch, or mismatched exact revision routes back to Team Lead instead of silent drift.
 
 ### Required status gates
 
