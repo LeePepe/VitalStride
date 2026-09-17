@@ -205,7 +205,7 @@ Swappable: ZhipuProvider now, DeepSeek/OpenAI/通义 later — same protocol.
 
 VitalStride uses a **PR-required Git workflow**. Full rationale: [`docs/adr/0009-pr-required-workflow.md`](docs/adr/0009-pr-required-workflow.md) and the current contract in [`docs/adr/0021-current-dev-team-delivery-contract.md`](docs/adr/0021-current-dev-team-delivery-contract.md). FS/TL command sequences: `AGENTS.md` § Git Workflow.
 
-**One-line summary**: all code reaches `main` only via a GitHub PR that passes the required checks and review gates. The current Dev Team delivery contract keeps the pipeline as `TL → Planner → FS → AI Reviewer → PR Manager`, with `FS` publishing the candidate PR before exact review and `PR Manager` owning the shipping handoff.
+**One-line summary**: all code reaches `main` only via a GitHub PR that passes the required checks and review gates. The current Dev Team delivery contract keeps the canonical pipeline as `Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead`, with `Fullstack Engineer` publishing the exact candidate PR, repairing supported in-scope findings, and `PR Manager` owning the final shipping handoff.
 
 **Roles**:
 

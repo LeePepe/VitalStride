@@ -19,12 +19,12 @@ This made the active delivery contract harder to audit, especially for RepoInfra
 ## Decision
 
 1. **Single canonical pipeline**
-   - The active delivery pipeline is: `TL → Planner → FS → AI Reviewer → PR Manager`.
+   - The active delivery pipeline is: `Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead`.
+   - `Planner Lead` owns planning/DoR work and loops with `AI Reviewer` before handoff to `Team Lead`.
    - `Team Lead` owns readiness acceptance, scheduling, recovery, Owner escalation, and lifecycle closure.
-   - `Planner Lead` owns the planning/DoR package but does not implement product code.
-   - `Fullstack Engineer` owns the implementation, exact-candidate publication, and exact revision refresh, but does not own final shipping/merge readiness.
-   - `AI Reviewer` owns exact-revision review and planning/DoR review.
-   - `PR Manager` owns required-check supervision, final readiness, merge/cleanup, and shipping handoff.
+   - `Fullstack Engineer` owns the implementation, exact-candidate publication, exact revision refresh, and supported in-scope repair loops.
+   - `AI Reviewer` owns planning/DoR review and exact-revision review.
+   - `PR Manager` owns required-check supervision, final readiness, merge/cleanup, and shipping handoff back to `Team Lead` for closure.
 
 2. **Exact-revision and workdir fail-closed proof**
    - The issue must carry the four `delivery_*` keys: `delivery_repo_url`, `delivery_work_dir`, `delivery_branch`, and `delivery_base_sha`.

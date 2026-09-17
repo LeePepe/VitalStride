@@ -155,12 +155,12 @@ count is 0. See
 | Role | What they do | Where they push |
 |------|--------------|-----------------|
 | **Planner Lead** | spec-driven feature 拆分 / DoR 补全（**不写代码**：只写契约级描述，禁内联可编译 Swift 片段；引用符号前先 `git show`/`grep` 核验存在，见 Constitution §DoR 硬合同） | 不 push；产出 sub-issue + @mention 交回 |
-| **Fullstack Engineer (FS)** | implement code + commit + publish the exact candidate PR before review, then refresh it as the exact revision changes | `github` remote `agent/<issue-key>-<task-id-short>` |
-| **AI Reviewer** | **code review**（PR）+ **planning / DoR review**（Planner 产出，ADR-0014） | (approves/comments on PR or planning) |
-| **PR Manager** | owns final readiness, required-check supervision, merge/cleanup, and shipping handoff to the target branch | never pushes product code directly; owns the GitHub PR lifecycle |
+| **AI Reviewer** | **planning / DoR review** + **exact-candidate code review**（ADR-0014 / ADR-0021） | reviews planning artifacts and PRs; does not merge |
 | **Team Lead (TL)** | accepts readiness, schedules work, owns recovery / Owner escalation, and closes lifecycle state; keeps issue/workdir/branch contract fail-closed | never pushes `main` directly |
+| **Fullstack Engineer (FS)** | implement code + commit + publish the exact candidate PR before review, then refresh it as the exact revision changes | `github` remote `agent/<issue-key>-<task-id-short>` |
+| **PR Manager** | owns final readiness, required-check supervision, merge/cleanup, and shipping handoff to the target branch | never pushes product code directly; owns the GitHub PR lifecycle |
 
-> **Current Dev Team delivery contract (ADR-0021)**: the single canonical pipeline remains `TL → Planner → FS → AI Reviewer → PR Manager`, with `FS` publishing the candidate PR before exact review and `PR Manager` owning the shipping step. Team Lead does not normal-merge or rebase on behalf of shipping work; when the delivery-workdir or SHA proof fails, the issue routes back to Team Lead instead of silent drift.
+> **Current Dev Team delivery contract (ADR-0021)**: the canonical pipeline is `Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead`. Planner and AI Reviewer loop before TL dispatch; Fullstack Engineer publishes the exact candidate PR, refreshes the exact revision, and repairs in-scope review findings directly; AI Reviewer re-checks the exact revision; PR Manager owns final shipping/merge cleanup; Team Lead owns readiness, scheduling, recovery, and lifecycle closure. Missing workdir/branch/SHA proof or a failed dispatch routes back to Team Lead instead of silent drift.
 
 > **Planning Review / 双批准门（ADR-0014）**：Planner Lead 对 spec-driven feature 做拆分 / DoR
 > 补全后，下游 stage 派发前须 **AI Reviewer + Team Lead 两方都批准**（同 code review 的
@@ -209,15 +209,14 @@ The Multica daemon already created your worktree at `<task-dir>/workdir/`. **Do 
    The pre-push hook runs fast touched-package/Prototype/RepoInfra validation and lint. It does not run the
    minutes-scale AppUI `xcodebuild` unless `RUN_XCODEBUILD=1`; required CI always runs `App target`.
 
-4. **Comment the PR link + assign back to TL**:
+4. **Publish the candidate PR and hand off to AI Reviewer / PR Manager**:
    ```bash
    PR_URL=$(gh pr view "$BRANCH" --json url -q .url)
-   multica issue comment add "$ISSUE_UUID" --content "Opened PR: ${PR_URL}. Ready for review + merge."
-   multica issue assign "$ISSUE_UUID" "Team Lead"
+   multica issue comment add "$ISSUE_UUID" --content "Opened candidate PR: ${PR_URL}. Awaiting exact revision review and PR Manager shipping handoff."
    ```
 
-**Do** push `agent/*` to `github` and open a PR. **Never** push `main` directly — branch
-protection and the `pre-commit` hook block it.
+**Do** push `agent/*` to `github` and open the candidate PR. **Never** push `main` directly — branch
+protection and the `pre-commit` hook block it. Team Lead owns readiness and recovery; PR Manager owns final shipping and merge/cleanup after the exact review verdict.
 
 ### TL workflow (merging FS work into `main`)
 
@@ -442,7 +441,7 @@ VitalStride 使用 [spec-kit](https://github.com/github/spec-kit) 管理产品 s
 5. **`docs/adr/`** —— 9 个已落地的架构决策记录。新方向冲突时先写新 ADR 推翻。
 6. 本文件（`AGENTS.md`）—— build/test/git 操作手册。
 
-**新 feature 流程**：`/speckit-specify` → `/speckit-plan` → `/speckit-tasks`，然后通过 `multica-quick-issue` 入 Multica project `7adf8b88`。**`/speckit-implement` 不使用** —— 实现由 Multica TL → FS → Reviewer pipeline 完成（Constitution §Development Workflow）。若新功能已列在 `001-future-roadmap` roadmap 里，从 `001` **fork**（复制方向性 FR 到 `specs/002+`）而非从零 specify。
+**新 feature 流程**：`/speckit-specify` → `/speckit-plan` → `/speckit-tasks`，然后通过 `multica-quick-issue` 入 Multica project `7adf8b88`。**`/speckit-implement` 不使用** —— 实现由 `Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead` 的 canonical Dev Team pipeline 完成（Constitution §Development Workflow）。若新功能已列在 `001-future-roadmap` roadmap 里，从 `001` **fork**（复制方向性 FR 到 `specs/002+`）而非从零 specify。
 
 **写 spec/plan/tasks 必须**：reference Constitution 章节，不要重述规则。issue 标题 `[T###] [Story] Brief description`。
 <!-- SPECKIT END -->

@@ -182,7 +182,7 @@ main；`pre-push` 只跑 agent-run-safe 的轻量门禁，分钟级 AppUI `xcode
 
 - **Multica** 项目 UUID `7adf8b88`，issue prefix `MY-*`
 - 每个 issue 标题 `[T###] [Story] Brief description`（spec-kit handoff 约定）
-- Hermes 端写 spec/plan/tasks，**`/speckit-implement` 不使用**——tasks.md 通过 `multica-quick-issue` 批量入 Multica，`TL → Planner → FS → Reviewer` pipeline 执行
+- Hermes 端写 spec/plan/tasks，**`/speckit-implement` 不使用**——tasks.md 通过 `multica-quick-issue` 批量入 Multica，`Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead` 的 canonical pipeline 执行
 - 每 feature 一个 Multica project（不要 phase 多项目）
 
 ### Planning Review / Dual-Approval Gate（ADR-0014）
@@ -300,7 +300,7 @@ TL 每次 pipeline 起手前必须扫描：
   - MAJOR — 删除/反转原则；MINOR — 新增原则/新 Quality Bar；PATCH — 文字澄清不改语义
 - 与本宪法相关：AGENTS.md（agent 操作手册）、CONTEXT.md（数据架构细节）、`docs/adr/`（决策档案）、`scripts/hooks/`（强制规则机器实现）。
 
-**Version**: 3.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-08-26
+**Version**: 3.1.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-09-05
 
 > 2.7.2（PATCH，补齐 schedulable ownership）：新增独立 `RepoInfra` change-owner layer，覆盖
 > repository automation/config，并以 machine-readable support/generated exclusions 划清非 schedulable
@@ -313,6 +313,8 @@ TL 每次 pipeline 起手前必须扫描：
 > （[ADR-0018](../../docs/adr/0018-formal-appui-change-owner-layer.md)）。
 
 > 3.0.0（MAJOR，required AI review policy）：暂停 Claude required review；Codex 成为唯一 required AI gate；新增 tool-less Kimi K3 advisory review。Codex workflow 以两阶段 bootstrap 迁移到 `pull_request_target`，Kimi findings/故障均不参与 merge gate（[ADR-0020](../../docs/adr/0020-codex-required-kimi-advisory.md)）。
+
+> 3.1.0（MINOR，current Dev Team delivery-contract cutover）：确立 `Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead` 的 canonical pipeline；要求 exact-SHA / workdir / run-proof fail-closed，保留 `delivery_base_sha` immutable planning baseline，并通过 ADR-0021 统一管理 planning / implementation / shipping / changed-SHA / failed-dispatch / mismatched-workdir 的恢复规则。
 
 > 2.7.0（MINOR，新增 Quality Bar K + 收紧 DoR 硬合同）：两条 pipeline 质量改进，源自 MY-1369 规划递归与 MY-1352 真机门死结的复盘。(1) **DoR 硬合同**新增两条红线——Planner 不内联实现级可编译代码（只写契约级描述，实现细节留 GREEN 由编译器兜底）、引用符号前须 `grep`/`git show` 核验存在（规划审一次性全量核验，不做增量逐个抓）；修正 planner 把编译级自查外包给 reviewer、导致 R4/R5 逐轮抓 `init` 标签 / 枚举 case 的递归浪费。(2) **Quality Bar K**：纯视觉改动的 before/after 验收默认走 iPhone Simulator light/dark 截图或 SnapshotTesting，禁写死真机；修正 keyboard stage 因 runtime 无真机造出的「永远升级 human」死结。同步收紧 AGENTS.md 的 human 升级措辞与 Planner Lead 职责行（[ADR-0017](../../docs/adr/0017-planning-code-inlining-and-visual-acceptance-gates.md)）。
 
