@@ -412,13 +412,14 @@ struct HealthWorkoutCacheTests {
     @Test("Prepared provider results are accepted through the cache checkpoint boundary")
     func preparedProviderAcceptancePublishesAndAccepts() async throws {
         let provider = MockPreparedWorkoutProvider()
+        let checkpoint = makeCheckpoint(source: .baselineSnapshot, value: 42)
         provider.setPreparedSnapshot(
             PreparedWorkoutFetch(
                 workouts: [makeWorkout(date: Date())],
                 deletedObjectIDs: [],
                 source: .baselineSnapshot,
                 coverage: DateInterval(start: Date().addingTimeInterval(-3600), end: Date()),
-                checkpoint: nil
+                checkpoint: checkpoint
             )
         )
         let cache = HealthDataCache(
@@ -441,13 +442,15 @@ struct HealthWorkoutCacheTests {
         let provider = MockPreparedWorkoutProvider()
         let initial = makeWorkout(date: Date().addingTimeInterval(-3600))
         let updated = makeWorkout(date: Date())
+        let checkpoint1 = makeCheckpoint(source: .baselineSnapshot, value: 10)
+        let checkpoint2 = makeCheckpoint(source: .anchoredChanges, value: 20)
         provider.setPreparedSnapshot(
             PreparedWorkoutFetch(
                 workouts: [initial],
                 deletedObjectIDs: [],
                 source: .baselineSnapshot,
                 coverage: DateInterval(start: initial.startDate, end: initial.endDate),
-                checkpoint: nil
+                checkpoint: checkpoint1
             )
         )
         provider.setPreparedChanges(
@@ -456,7 +459,7 @@ struct HealthWorkoutCacheTests {
                 deletedObjectIDs: [],
                 source: .anchoredChanges,
                 coverage: DateInterval(start: initial.startDate, end: updated.endDate),
-                checkpoint: nil
+                checkpoint: checkpoint2
             )
         )
 
@@ -545,13 +548,15 @@ struct HealthWorkoutCacheTests {
     func anchoredEmptyChangesPreserveCurrentBaseline() async throws {
         let baselineWorkout = makeWorkout(date: Date().addingTimeInterval(-3600))
         let provider = MockPreparedWorkoutProvider()
+        let checkpoint1 = makeCheckpoint(source: .baselineSnapshot, value: 50)
+        let checkpoint2 = makeCheckpoint(source: .anchoredChanges, value: 60)
         provider.setPreparedSnapshot(
             PreparedWorkoutFetch(
                 workouts: [baselineWorkout],
                 deletedObjectIDs: [],
                 source: .baselineSnapshot,
                 coverage: DateInterval(start: baselineWorkout.startDate, end: baselineWorkout.endDate),
-                checkpoint: nil
+                checkpoint: checkpoint1
             )
         )
         provider.setPreparedChanges(
@@ -560,7 +565,7 @@ struct HealthWorkoutCacheTests {
                 deletedObjectIDs: [],
                 source: .anchoredChanges,
                 coverage: DateInterval(start: baselineWorkout.startDate, end: baselineWorkout.endDate),
-                checkpoint: nil
+                checkpoint: checkpoint2
             )
         )
 
@@ -684,20 +689,30 @@ struct HealthWorkoutCacheTests {
     func rejectedCheckpointReplayPreservesPreviouslyAcceptedAnchor() async throws {
         let base = Date()
         let range = DateInterval(start: base.addingTimeInterval(-4 * 60 * 60), end: base)
+        let acceptedWorkout = makeWorkout(date: base.addingTimeInterval(-90 * 60))
+        let staleWorkout = makeWorkout(date: base.addingTimeInterval(-30 * 60))
+        let newerWorkout = makeWorkout(date: base.addingTimeInterval(-10 * 60))
         let provider = BarrierPreparedWorkoutProvider()
         let acceptedPrepared = PreparedWorkoutFetch(
-            workouts: [makeWorkout(date: base.addingTimeInterval(-90 * 60))],
+            workouts: [acceptedWorkout],
             deletedObjectIDs: [],
             source: .baselineSnapshot,
             coverage: range,
             checkpoint: makeCheckpoint(value: 77)
         )
         let stalePrepared = PreparedWorkoutFetch(
-            workouts: [makeWorkout(date: base.addingTimeInterval(-30 * 60))],
+            workouts: [staleWorkout],
             deletedObjectIDs: [],
             source: .baselineSnapshot,
             coverage: range,
             checkpoint: makeCheckpoint(value: 66)
+        )
+        let newerPrepared = PreparedWorkoutFetch(
+            workouts: [newerWorkout],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: range,
+            checkpoint: makeCheckpoint(value: 88)
         )
         provider.register(acceptedPrepared, for: range, gate: false)
 
@@ -710,7 +725,10 @@ struct HealthWorkoutCacheTests {
         #expect(accepted.count == 1)
 
         provider.register(stalePrepared, for: range, gate: true)
+        provider.register(newerPrepared, for: range, gate: false)
         let staleRequest = Task { try await cache.refreshWorkouts(in: range) }
+        await Task.yield()
+        let supersedingRequest = Task { try await cache.refreshWorkouts(in: range) }
         await Task.yield()
         provider.release(for: range)
 
@@ -720,10 +738,13 @@ struct HealthWorkoutCacheTests {
         } catch is CancellationError {
         }
 
-        #expect(provider.rejected.last?.checkpoint?.anchorData == stalePrepared.checkpoint?.anchorData)
+        let supersedingResult = try await supersedingRequest.value
+        #expect(supersedingResult.count == 1)
+        #expect(supersedingResult.first?.id == newerWorkout.id)
+        #expect(provider.rejected.contains { $0.checkpoint?.anchorData == stalePrepared.checkpoint?.anchorData })
         #expect(await cache.hasWorkoutCache())
         let replay = try await cache.workoutData(in: range)
-        #expect(replay.first?.id == accepted.first?.id)
+        #expect(replay.first?.id == newerWorkout.id)
     }
 
     @Test("Persisted anchor restart rebuilds from the last accepted checkpoint on a new cache instance")
@@ -798,8 +819,7 @@ struct HealthWorkoutCacheTests {
         }
 
         #expect(ownerResult.count == 1)
-        #expect(provider.accepted.count == 1)
-        #expect(provider.accepted.last?.checkpoint?.anchorData == prepared.checkpoint?.anchorData)
+        #expect(provider.accepted.isEmpty) // explicitRangeSnapshot is not accepted into durable anchors
     }
 
     @Test("Owner cancellation fails owner and attached coalesced waiters while rejecting unaccepted prepared fetch")

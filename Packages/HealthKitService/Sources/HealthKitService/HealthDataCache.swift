@@ -857,21 +857,6 @@ public actor HealthDataCache {
         Date().timeIntervalSince(fetchedAt) > ttl
     }
 
-    private static func isCheckpointStale(
-        candidate: WorkoutAnchorCheckpoint,
-        current: WorkoutAnchorCheckpoint
-    ) -> Bool {
-        // Deterministic anchor ordering is the sole stale signal here. A stale
-        // prepared result may be produced by a prior request that was issued on a
-        // different cadence, and we must not allow a newer wall-clock timestamp to
-        // mask an older anchor pair. The cache treats an older anchor pair as stale
-        // even when the sampled `lastSyncDate` differs only by timing noise.
-        if candidate.anchorData == current.anchorData {
-            return false
-        }
-        return candidate.anchorData.lexicographicallyPrecedes(current.anchorData)
-    }
-
     // MARK: - Private Workout Helpers
 
     private func fetchWorkoutCoalesced(
@@ -881,7 +866,7 @@ public actor HealthDataCache {
         let baseline = self.workoutCache
         let semantic: WorkoutAnchorSource = if dateRange != nil {
             .explicitRangeSnapshot
-        } else if baseline != nil {
+        } else if let baseline, baseline.provenance != .explicitRangeSnapshot {
             .anchoredChanges
         } else {
             .baselineSnapshot
@@ -912,7 +897,7 @@ public actor HealthDataCache {
         let baseline = self.workoutCache
         let semantic: WorkoutAnchorSource = if dateRange != nil {
             .explicitRangeSnapshot
-        } else if baseline != nil {
+        } else if let baseline, baseline.provenance != .explicitRangeSnapshot {
             .anchoredChanges
         } else {
             .baselineSnapshot
@@ -928,7 +913,7 @@ public actor HealthDataCache {
                 do {
                     if dateRange != nil {
                         prepared = try await preparedProvider.prepareWorkoutSnapshot(dateRange: dateRange)
-                    } else if baseline != nil {
+                    } else if let baseline, baseline.provenance != .explicitRangeSnapshot {
                         prepared = try await preparedProvider.prepareWorkoutChanges(dateRange: nil)
                     } else {
                         prepared = try await preparedProvider.prepareWorkoutSnapshot(dateRange: nil)
@@ -942,15 +927,6 @@ public actor HealthDataCache {
                     prepared: prepared,
                     requestedRange: dateRange
                 )
-
-                let currentCheckpoint = self.workoutCache?.checkpoint
-                    ?? (provider as? any WorkoutCheckpointTracking)?.currentWorkoutCheckpoint()
-                if let currentCheckpoint,
-                   let preparedCheckpoint = prepared.checkpoint,
-                   Self.isCheckpointStale(candidate: preparedCheckpoint, current: currentCheckpoint) {
-                    preparedProvider.rejectPreparedWorkoutFetch(prepared)
-                    throw CancellationError()
-                }
 
                 guard self.workoutGeneration == fetchGeneration,
                       self.workoutRequestOwners[key]?.generation == fetchGeneration,
@@ -985,7 +961,10 @@ public actor HealthDataCache {
                     requestID: requestID
                 )
 
-                preparedProvider.acceptPreparedWorkoutFetch(prepared)
+                if prepared.checkpoint != nil,
+                   (prepared.source == .baselineSnapshot || prepared.source == .anchoredChanges) {
+                    preparedProvider.acceptPreparedWorkoutFetch(prepared)
+                }
                 return merged
             }
 
@@ -1019,16 +998,16 @@ public actor HealthDataCache {
             })
             if workoutRequestOwners[key]?.requestID == requestID {
                 workoutRequestOwners[key] = nil
+                workoutInFlightFetches[key] = nil
             }
-            workoutInFlightFetches[key] = nil
             signposter.endInterval("healthkit_workout_fetch", state)
             logWorkoutFetchDuration(count: workouts.count, start: start)
             return workouts
         } catch {
             if workoutRequestOwners[key]?.requestID == requestID {
                 workoutRequestOwners[key] = nil
+                workoutInFlightFetches[key] = nil
             }
-            workoutInFlightFetches[key] = nil
             signposter.endInterval("healthkit_workout_fetch", state)
             throw error
         }
