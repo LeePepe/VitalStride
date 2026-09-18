@@ -80,7 +80,7 @@ xcodegen generate
 
 ### What this means for work
 
-1. **This repository task remains within the current issue's authorized governance paths** — the allowlisted files are the bounded exception for this RepoInfra task, not a blank check for future product or infrastructure work.
+1. **This T001 / MY-1539 RepoInfra task remains within the current issue's authorized governance paths** — the eight allowlisted governance files are the bounded exception for this task only, not a blanket change permit for future product or infrastructure work.
 2. **FS publishes the candidate PR before exact review** — not after a “merge-ready” claim.
 3. **PR Manager owns final shipping** — they supervise required checks and the final merge/cleanup lifecycle.
 4. **TL owns readiness / scheduling / recovery** — not the normal shipping merge path.
@@ -91,6 +91,6 @@ xcodegen generate
 
 - Keep the issue/workdir/branch metadata coherent with the reviewed delivery contract.
 - Do not treat a comment or assignment as proof of dispatch; cluster-level run evidence must exist.
-- If a validation or review failure occurs, fix within the allowlisted governance files and publish a fresh exact revision instead of silently drifting.
+- If a validation or review failure occurs within this T001 / MY-1539 task, fix only within the current issue's authorized governance paths and owning layer, then publish a fresh exact revision instead of silently drifting.
 - After a passing exact-revision verdict, hand the revision directly to PR Manager.
 
