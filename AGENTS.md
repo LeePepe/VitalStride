@@ -195,15 +195,15 @@ The Multica daemon already created the preserved worktree at the task's `deliver
    cd "$DELIVERY_WORK_DIR" || exit 1
    CURRENT_ORIGIN=$(git remote get-url origin)
    CURRENT_BRANCH=$(git branch --show-current)
-   python3 -c "import sys,re
+   python3 -c 'import sys,re
 def parse_github_repo(u):
     u = u.strip()
-    m = re.match(r'^(?:https?://github\.com/|git@github\.com:|ssh://git@github\.com/)([\w.-]+)/([\w.-]+?)(?:\.git)?/?$', u)
+    m = re.match(r"^(?:https?://github\.com/|git@github\.com:|ssh://git@github\.com/)([\w.-]+)/([\w.-]+?)(?:\.git)?/?$", u)
     return (m.group(1).lower(), m.group(2).lower()) if m else None
 orig = parse_github_repo(sys.argv[1])
 decl = parse_github_repo(sys.argv[2])
 sys.exit(0 if orig and decl and orig == decl else 1)
-" "$CURRENT_ORIGIN" "$DELIVERY_REPO_URL" || exit 1
+' "$CURRENT_ORIGIN" "$DELIVERY_REPO_URL" || exit 1
    [ "$CURRENT_BRANCH" = "$DELIVERY_BRANCH" ] || exit 1
    git diff --quiet "$DELIVERY_BASE_SHA" -- specs/025-dev-team-delivery-contract || exit 1
    
@@ -277,27 +277,27 @@ sys.exit(0 if orig and decl and orig == decl else 1)
    # Verify that the triggering comment contains a valid passing AI Reviewer verdict for LOCAL_SHA
    LOCAL_SHA=$(git rev-parse HEAD)
    TRIGGER_COMMENTS_JSON=$(multica issue comment list "$ISSUE_UUID" --thread "$CURRENT_TRIGGER_ID" --tail 30 --compact --output json)
-   printf '%s' "$TRIGGER_COMMENTS_JSON" | python3 -c "import json,sys,re
+   printf '%s' "$TRIGGER_COMMENTS_JSON" | python3 -c 'import json,sys,re
 comments = json.load(sys.stdin)
 if not isinstance(comments, list): comments = [comments]
 target_id = sys.argv[1]
 local_sha = sys.argv[2]
-target = next((c for c in comments if c.get('id') == target_id), None)
+target = next((c for c in comments if c.get("id") == target_id), None)
 if not target:
     sys.exit(1)
-if target.get('author_id') != '24ff66eb-ee5c-4ab4-bd40-5714b6a789f9':
+if target.get("author_id") != "24ff66eb-ee5c-4ab4-bd40-5714b6a789f9":
     sys.exit(1)
-content = target.get('content', '')
-verdict_matches = re.findall(r'(?m)^(?:[-*]\s*)?\*{0,2}Verdict:?\*{0,2}\s*:?\s*\*{0,2}(.*?)\*{0,2}\s*$', content)
+content = target.get("content", "")
+verdict_matches = re.findall(r"(?m)^(?:[-*]\s*)?\*{0,2}Verdict:?\*{0,2}\s*:?\s*\*{0,2}(.*?)\*{0,2}\s*$", content)
 if len(verdict_matches) != 1:
     sys.exit(1)
-verdict = verdict_matches[0].strip(' *`')
-if verdict not in ('PASS', 'PASS WITH FOLLOW-UP'):
+verdict = verdict_matches[0].strip(" *`")
+if verdict not in ("PASS", "PASS WITH FOLLOW-UP"):
     sys.exit(1)
-rev_matches = re.findall(r'(?m)^(?:[-*]\s*)?\*{0,2}Reviewed revision:?\*{0,2}\s*:?\s*\*{0,2}`?([a-f0-9]{40})`?\*{0,2}\s*$', content)
+rev_matches = re.findall(r"(?m)^(?:[-*]\s*)?\*{0,2}Reviewed revision:?\*{0,2}\s*:?\s*\*{0,2}`?([a-f0-9]{40})`?\*{0,2}\s*$", content)
 if len(rev_matches) != 1 or rev_matches[0] != local_sha:
     sys.exit(1)
-" "$CURRENT_TRIGGER_ID" "$LOCAL_SHA" || exit 1
+' "$CURRENT_TRIGGER_ID" "$LOCAL_SHA" || exit 1
    
    # Preflight checks: compare local HEAD, remote branch OID, PR headRefOid, and verify parent Dev Team assignment
    REMOTE_SHA=$(git ls-remote origin "refs/heads/${DELIVERY_BRANCH}" | awk '{print $1}')
