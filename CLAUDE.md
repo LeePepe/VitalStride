@@ -80,11 +80,12 @@ xcodegen generate
 
 ### What this means for work
 
-1. **FS publishes the candidate PR before exact review** — not after a “merge-ready” claim.
-2. **PR Manager owns final shipping** — they supervise required checks and the final merge/cleanup lifecycle.
-3. **TL owns readiness / scheduling / recovery** — not the normal shipping merge path.
-4. **Exact revision proof is mandatory** — local `HEAD`, remote branch OID, and PR `headRefOid` must match before a review or handoff claim is considered valid.
-5. **Issue/workdir/branch validation stays fail-closed** — missing or mismatched `delivery_*` metadata or SHA proof routes back to Team Lead instead of continuing silently.
+1. **This repository task remains within the current issue's authorized governance paths** — the allowlisted files are the bounded exception for this RepoInfra task, not a blank check for future product or infrastructure work.
+2. **FS publishes the candidate PR before exact review** — not after a “merge-ready” claim.
+3. **PR Manager owns final shipping** — they supervise required checks and the final merge/cleanup lifecycle.
+4. **TL owns readiness / scheduling / recovery** — not the normal shipping merge path.
+5. **Exact revision proof is mandatory** — local `HEAD`, remote branch OID, and PR `headRefOid` must match before a review or handoff claim is considered valid.
+6. **Issue/workdir/branch validation stays fail-closed** — missing or mismatched `delivery_*` metadata or SHA proof routes back to Team Lead instead of continuing silently.
 
 ### Operational guidance
 

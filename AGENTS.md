@@ -177,117 +177,131 @@ count is 0. See
 
 ### FS workflow
 
-The Multica daemon already created your worktree at `<task-dir>/workdir/`. **Do NOT create another worktree.** Just `cd` into the workdir and work there.
+The Multica daemon already created the preserved worktree at the task's `delivery_work_dir`. **Do NOT create another worktree.** Work only in that preserved checkout.
 
-1. **Resolve issue identifier**:
+1. **Resolve the persisted delivery identity**
    ```bash
-   ISSUE_UUID=$(grep "Issue ID:" .agent_context/issue_context.md | awk '{print $3}')
-   ISSUE_KEY=$(multica issue get "$ISSUE_UUID" --output json \
-     | python3 -c "import sys,json; print(json.load(sys.stdin)['identifier'].lower())")
-   TASK_ID_SHORT=${MULTICA_TASK_ID:0:8}
-   BRANCH="agent/${ISSUE_KEY}-${TASK_ID_SHORT}"
+   ISSUE_UUID="<issue-id>"
+   ISSUE_JSON=$(multica issue get "$ISSUE_UUID" --output json)
+   DELIVERY_WORK_DIR=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('metadata',{}).get('delivery_work_dir',''))")
+   DELIVERY_REPO_URL=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('metadata',{}).get('delivery_repo_url',''))")
+   DELIVERY_BRANCH=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('metadata',{}).get('delivery_branch',''))")
+   DELIVERY_BASE_SHA=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('metadata',{}).get('delivery_base_sha',''))")
+   cd "$DELIVERY_WORK_DIR"
+   git rev-parse --verify HEAD
+   git remote get-url origin
+   git branch --show-current
    ```
+   If any `delivery_*` value is missing or mismatched, stop and return the issue to Team Lead recovery; do not synthesize a new branch or drift away from the preserved worktree.
 
-2. **Implement + commit** as usual on whatever branch the daemon checked out for you (it's already a fresh branch off `origin/main`).
-
-   **Commit message 建议**（非强制）在 subject 或 body 引用 issue key（如 `MY-852`），方便 retro/审计工具用 grep `MY-\d+` 关联 commit ↔ issue。分支名 `agent/<issue-key>-<task-id>` 已带 issue key，即使 commit 未引用也可追溯。**hook / CI 不再校验 commit message 是否含 key。**
-
+2. **Implement and commit inside the preserved branch**
    ```bash
-   git commit -m "feat: ExercisePickerView 多选批量添加 (MY-852)"
-   # 或 body 引用:
-   git commit -m "feat: 多选 picker" -m "Implements MY-852."
+   git status --short
+   git add <files>
+   git commit -m "docs: repair delivery governance wording"
    ```
+   Keep the diff within the issue's authorized paths only; do not touch product code, live role config, or any inherited planning artifacts.
 
-3. **Push your branch to `github` and open a PR**:
+3. **Push the preserved branch and publish the candidate PR**
    ```bash
-   git push -u github HEAD:$BRANCH
-   gh pr create --base main --head "$BRANCH" \
-     --title "<type>: <summary> (MY-XXX)" \
-     --body "Implements MY-XXX. <what changed + test plan>"
+   git push -u origin "$DELIVERY_BRANCH"
+   gh pr view --json number,headRefName,headRefOid,url --repo LeePepe/VitalStride
    ```
-   The pre-push hook runs fast touched-package/Prototype/RepoInfra validation and lint. It does not run the
-   minutes-scale AppUI `xcodebuild` unless `RUN_XCODEBUILD=1`; required CI always runs `App target`.
+   The PR is the candidate PR; it is not a shipping approval. Required checks run in CI, while the exact-review gate remains independent.
 
-4. **Publish the candidate PR and then the exact-SHA reviewer request**:
+4. **Publish the exact-SHA AI Reviewer request, then verify its run**
    ```bash
-   PR_URL=$(gh pr view "$BRANCH" --json url -q .url)
+   TRIGGER_ID="<trigger-comment-id>"  # use the active thread's comment ID for this run; do not reuse a prior parent from another turn
    SHA=$(git rev-parse HEAD)
-   multica issue comment add "$ISSUE_UUID" --parent <trigger-comment-id> --content-file ./reply.md
+   printf '%s\n' \
+     "Candidate revision: $SHA" \
+     "Preserved delivery proof:" \
+     "- workdir: $DELIVERY_WORK_DIR" \
+     "- repo: $DELIVERY_REPO_URL" \
+     "- branch: $DELIVERY_BRANCH" \
+     "- base: $DELIVERY_BASE_SHA" \
+     "- local HEAD = remote branch OID = PR headRefOid" \
+     "This is the exact-candidate review request." \
+     "" \
+     "[@AI Reviewer](mention://agent/24ff66eb-ee5c-4ab4-bd40-5714b6a789f9)" > reply.md
+   multica issue comment add "$ISSUE_UUID" --parent "$TRIGGER_ID" --content-file ./reply.md
    rm ./reply.md
    ```
-   The exact-review request must include the candidate SHA, the current workdir / branch / PR identity proof, and a final AI Reviewer mention. The generic PR URL alone is not valid proof of dispatch. The run must be visible as queued, dispatched, or running before the issue is treated as review-ready.
+   The exact-review request must carry the candidate SHA and the identity proof; a generic PR URL or bare assignment is not valid proof of dispatch. The mention must create a queued/dispatched/running Reviewer run before the issue is treated as review-ready, and the parent must be the current trigger comment rather than a stale ID from an earlier turn.
 
-**Do** push `agent/*` to `github` and open the candidate PR. **Never** push `main` directly — branch
-protection and the `pre-commit` hook block it. Team Lead owns readiness and recovery; PR Manager owns final shipping and merge/cleanup only after a passing exact-revision verdict.
+5. **After a passing verdict, recheck the reviewed SHA and hand off to PR Manager**
+   ```bash
+   git rev-parse HEAD
+   git ls-remote origin "refs/heads/${DELIVERY_BRANCH}"
+   gh pr view <PR_NUM> --json number,headRefName,headRefOid,url
+   ```
+   Only after the local SHA, remote branch OID, and PR `headRefOid` match the approved review does Fullstack Engineer hand the exact reviewed revision to PR Manager.
+
+**Do** use the preserved `delivery_branch` and exact-candidate worktree. **Never** push `main` directly, and never claim review or shipping PASS without the exact-SHA proof and a real downstream run.
 
 ### TL workflow (readiness, recovery, and lifecycle closure)
 
-When the issue is in `in_progress` / `in_review` and a candidate PR is present, Team Lead owns the delivery contract proof and recovery loop, not the shipping/merge gate itself:
+When the issue is in `in_progress` / `in_review`, Team Lead owns the delivery contract proof and recovery loop, not the normal merge gate:
 
-1. **Verify the exact candidate and workdir proof**:
+1. **Verify the exact candidate and workdir proof**
    ```bash
    git rev-parse HEAD
-   git ls-remote origin "refs/heads/${BRANCH}"
-   gh pr view "$PR_NUM" --json number,headRefName,headRefOid,url
+   git ls-remote origin "refs/heads/${DELIVERY_BRANCH}"
+   gh pr view <PR_NUM> --json number,headRefName,headRefOid,url
    ```
    Confirm the exact SHA is the same local HEAD, pushed branch OID, and PR `headRefOid`. If any value mismatches, the issue routes back to FS for a fresh exact candidate and then back to Team Lead for recovery gating.
 
-2. **Check the issue/branch/workdir contract**:
-   - confirm `delivery_repo_url`, `delivery_work_dir`, `delivery_branch`, and `delivery_base_sha` are present and match the preserved worktree
-   - ensure the candidate PR was published from the correct agent branch and not from `main`
-   - confirm the immutable planning folder at `delivery_base_sha` still matches the approved baseline and has not been edited
+2. **Check the issue/branch/workdir contract**
+   - confirm `delivery_repo_url`, `delivery_work_dir`, `delivery_branch`, and `delivery_base_sha` exist and match the preserved worktree
+   - confirm the candidate PR was published from the correct agent branch and not from `main`
+   - confirm the immutable planning folder at `delivery_base_sha` still matches the approved baseline and has not changed
 
-3. **Coordinate the review handoff**:
-   - Fullstack Engineer publishes the exact candidate PR, posts the exact-SHA AI Reviewer request, and repairs supported in-scope findings directly
+3. **Coordinate the review handoff**
+   - Fullstack Engineer publishes the exact candidate PR and exact-SHA AI Reviewer request, then repairs supported in-scope findings directly
    - AI Reviewer owns the exact-revision review and planning/DoR review verdict
    - PR Manager owns the final shipping/merge/cleanup step only after a passing exact-revision verdict
    - Team Lead keeps the issue fail-closed, verifies the downstream run exists, and escalates ambiguous or exceptional failures
 
-4. **Recovery and escalation rules**:
-   - if required checks fail, the review is `CHANGES_REQUESTED`, or the dispatch/identity proof is invalid, route back to FS or an explicit Team Lead recovery path instead of shipping
-   - if the workdir, branch, or SHA proof is mismatched or missing, do not continue silently; re-open the issue under Team Lead recovery and require a fresh exact candidate
-   - conflicting evidence, policy disagreements, permission or infrastructure problems, repeated repair, failed dispatch, and merge conflicts go directly to Team Lead escalation; they are not treated as normal shipping work
-   - PR Manager owns the final merge-ready approval and required cleanup; Team Lead does not own the normal merge gate or clear shipping approvals on behalf of implementation work
-   - a candidate PR alone is not closure evidence; only a verified PR Manager handoff proving delivery and task cleanup may close the lifecycle
+4. **Recovery and escalation rules**
+   - if workdir metadata, branch identity, or SHA proof is missing or mismatched, route back to Team Lead recovery and require a fresh exact candidate before continuing
+   - if dispatch fails, a review is `CHANGES_REQUESTED`, or the evidence is conflicting/ambiguous, route back to FS or a Team Lead recovery path instead of shipping
+   - conflicting evidence, policy disagreements, permission/infrastructure issues, repeated repair, failed dispatch, and merge conflicts go directly to Team Lead escalation; they are not treated as normal shipping work
+   - PR Manager owns the final merge-ready approval and required cleanup; Team Lead does not own the normal merge gate or suppress the final handoff to PR Manager
+   - a candidate PR alone is not closure evidence; only a verified PR Manager handoff proving delivery and cleanup may close the lifecycle
 
-> Do not treat Team Lead as the normal merge or shipping owner. The shipping owner is `PR Manager`; Team Lead owns readiness, scheduling, recovery, escalation, and lifecycle closure.
+> Team Lead is not the normal merge or shipping owner. The shipping owner is `PR Manager`; Team Lead owns readiness, scheduling, recovery, escalation, and lifecycle closure.
 
-5. **Close the issue only after PR Manager delivery evidence**:
+5. **Close the issue only after PR Manager delivery evidence**
    ```bash
    multica issue status "$ISSUE_UUID" done
    ```
    This status is allowed only after the issue has a passing exact-revision verdict and a verified PR Manager handoff proving the reviewed SHA was shipped and cleaned up. If the review or dispatch is still blocked, keep the issue in `blocked`/`in_progress` and escalate instead of closing.
 
-> The repository still requires the exact-revision proof and the PR-required workflow. Team Lead must validate that the worktree, branch, SHA, dispatch, review, and final PR Manager handoff are coherent before closing the lifecycle; no merge or cleanup is performed under the Team Lead role outside the PR Manager gate.
-
 ### Common pitfalls
 
-- **Never push `main` directly** — branch protection and required PR workflow require the change to be reviewed and merged through the repository's normal PR path.
-- **`MULTICA_TASK_ID`** is provided by the daemon as an env var (full UUID; we use the first 8 chars).
-- **GitHub access tokens** must be valid (FS needs them to push `agent/*` + open PRs; PR Manager owns the final merge/cleanup gate). Do not unset `gh` auth without a documented repo-identity reason.
-- The `github` remote name is by convention; some clones may use `origin`. Commands accept either
-  as long as the URL contains `github.com`.
+- **Never push `main` directly** — branch protection and the PR-required contract require shipping through the repository's normal PR path.
+- **Persisted delivery metadata is authoritative** — do not rederive a new branch from `MULTICA_TASK_ID` when the issue already includes `delivery_branch` and `delivery_work_dir`.
+- **GitHub access tokens** must be valid; do not unset `gh` auth without a documented repo-identity reason.
+- The `github` remote name is by convention; some clones use `origin`, and either is valid as long as the repository URL remains the same.
 
 ## Pipeline Recovery
 
-> This section defines the fail-closed recovery path for repository governance and shipping failures. The canonical rule remains: fix the invalid state within the approved delivery contract, keep the exact-SHA / issue / workdir proofs intact, and route any conflicting evidence or authority problem back to Team Lead recovery instead of creating a silent merge path.
+> This section defines the fail-closed recovery path for repository governance and shipping failures. The canonical rule remains: fix the invalid state within the approved delivery contract, keep the exact-SHA / issue / workdir proofs intact, and route conflicting evidence or authority problems back to Team Lead recovery instead of creating a silent merge path.
 
 ### Required recovery routing
 
-For normal delivery work:
-
 - **Patch-induced or review-induced failures**: Fullstack Engineer repairs the in-scope findings and publishes a fresh exact candidate revision. The review cycle repeats with the same scope and exact SHA proof.
-- **Conflicting evidence, policy disagreement, permission/infrastructure issues, repeated repair, or failed dispatch**: Team Lead owns the recovery escalation and requires a fresh exact candidate before continuing.
+- **Conflict, policy disagreement, permission/infrastructure issues, repeated repair, or failed dispatch**: Team Lead owns the recovery escalation and requires a fresh exact candidate before continuing.
 - **PR Manager shipping/cleanup**: only after a passing exact-revision verdict and a verified PR handoff proving the reviewed SHA was shipped and cleaned up.
-- **No normal Team Lead merge/cleanup ownership**: Team Lead validates readiness, scheduling, recovery, and lifecycle closure; PR Manager owns shipping. There is no alternate secret merge path.
+- **No normal Team Lead merge/cleanup ownership**: Team Lead validates readiness, scheduling, recovery, and lifecycle closure; PR Manager owns shipping and cleanup. There is no alternate merge path.
 
 ### Exact-revision proof required before any handoff
 
-Before a review or handoff claim is treated as valid, the issue must still satisfy all of the following:
+Before a review or handoff claim is treated as valid, the issue must satisfy all of the following:
 
 - `delivery_repo_url`, `delivery_work_dir`, `delivery_branch`, and `delivery_base_sha` are present and match the preserved worktree
 - local `HEAD` equals the remote branch OID and the PR `headRefOid`
-- the candidate branch is the agent branch, not `main`
+- the candidate branch is the preserved agent branch, not `main`
 - the immutable planning baseline at `delivery_base_sha` remains unchanged
 
 If any proof is missing or mismatched, stop and route the issue back to Team Lead recovery instead of continuing silently.
@@ -296,13 +310,13 @@ If any proof is missing or mismatched, stop and route the issue back to Team Lea
 
 When required checks fail:
 
-- treat the failure as a patch-induced gate issue and route back to Fullstack Engineer for a direct repair when the diff or adjacent module clearly caused it
-- treat the failure as an open governance / policy / infrastructure issue when the evidence is ambiguous, unrelated to the patch, or blocked by a repo identity / dispatch / review mismatch
-- never turn a failed gate into a Team Lead merge path or a silent approval; only a verified PR Manager handoff proves final shipping and cleanup
+- treat the failure as a patch-induced gate issue and route back to Fullstack Engineer for direct repair when the diff or adjacent module clearly caused it
+- treat the failure as an open governance / policy / infrastructure issue when the evidence is ambiguous, unrelated to the patch, or blocked by repo identity / dispatch / review mismatches
+- never turn a failed gate into a Team Lead merge path or silent approval; only a verified PR Manager handoff proves final shipping and cleanup
 
 ### Lifecycle closure
 
-The issue remains `in_progress` or `blocked` until the following are all true:
+The issue remains `in_progress` or `blocked` until all of the following are true:
 
 1. the exact revision has passed independent AI review
 2. the local/remote/PR SHA proof still matches the reviewed revision

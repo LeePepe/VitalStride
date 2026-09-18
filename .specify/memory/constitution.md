@@ -143,6 +143,7 @@ RepoInfra (独立：CI/workflow/hooks/tooling/release/repo policy；无 product 
 
 | 角色 | 责任 | 证据/交付 |
 |------|------|-----------|
+| Planner Lead | 负责 spec-driven 拆分 / DoR 补全，作者/提交/推送规划修订，但不拥有实现权限 | `agent/<issue-key>-<task-id-short>` 规划 revision 或 issue-linked planning branch |
 | Fullstack (FS) | 实现、提交、在 exact revision 前发布候选 PR，随后更新 PR 直到 exact review 通过 | `agent/<issue-key>-<task-id-short>` + `gh pr create` / `gh pr edit` |
 | AI Reviewer | 审查 exact revision 与规划/DoR 产物 | PR / planning review verdict |
 | PR Manager | 负责 final readiness、required-check 监督、merge/cleanup 与 shipping handoff | PR merge state + final shipping conclusion |
@@ -241,7 +242,7 @@ main；`pre-push` 只跑 agent-run-safe 的轻量门禁，分钟级 AppUI `xcode
 Ship gate（required CI 的 `App target` / `SPM …`）失败时，PR Manager **必须**先判定失败是否由当前 patch 引入。AI Reviewer 只审内容，不执行或判断 build/test/lint/hook/CI gate；TL 仅处理证据冲突、恢复和升级：
 
 - **Patch-induced**：失败 test 文件 ∈ `git diff github/main...HEAD --name-only`，或失败 test 所属 module 有源码改动 → 阻止 shipping，由 PR Manager 带证据直接请求 FS 修复
-- **Pre-existing flake**：失败 test 与当前 patch 无源码关联 → 不改变 AI Reviewer 的内容 verdict；由 PR Manager 走 AGENTS.md §Pipeline Recovery → Quarantine 路径
+- **Pre-existing flake**：失败 test 与当前 patch 无源码关联 → 不改变 AI Reviewer 的内容 verdict；由 PR Manager 走 `AGENTS.md` §Pipeline Recovery → Team Lead recovery / FS repair / PR Manager handoff 路径
 
 把 gate state 写进 AI Reviewer verdict，或让 Reviewer/TL 代替 PR Manager 监督 CI，均为职责边界违规。
 
@@ -293,7 +294,7 @@ TL 每次 pipeline 起手前必须检查：
 
 ## Governance
 
-本宪法管辖 VitalStride 所有开发工作。所有 AI/人类贡献者（FS/TL/Reviewer，含 Codex/Claude/Hermes 子代理）必须读取并遵守。
+本宪法管辖 VitalStride 所有开发工作。所有 AI/人类贡献者（Planner Lead / Fullstack Engineer / Team Lead / AI Reviewer / PR Manager）必须读取并遵守。当前 active role model 需要在所有 governance 文档中显式列出这五个角色，并保持 Planner Lead 仅负责规划修订发布、不接管实现权限。
 
 - 任何与本宪法冲突的 PR 必须修改 PR 或修宪法（先 ADR）。
 - **修改宪法**：新 ADR + 本文件 patch + 版本 bump + 在 PR 描述 link 到 ADR。

@@ -219,9 +219,11 @@ VitalStride uses a **PR-required Git workflow**. Full rationale: [`docs/adr/0009
 
 **Hard rule**: `main` is protected by a ruleset (`main protection`) and requires the required status checks, including the AI review gate. Direct pushes to `main` are rejected; the only legal path is a merged PR whose required checks are green. `pre-commit` also blocks local commits to `main`.
 
+**Required check list**: the current contract names the required checks explicitly: `codex-review-target`, `claude-review-target`, `kimi-review-target`, `lint-policy`, `swift-format-policy`, `spm-build-app-target`, `spm-build-logic-target`, `spm-test-app-target`, and `spm-test-logic-target`. `codex-review-target` is the required AI review gate; `claude-review` remains paused and `kimi-review` is advisory-only.
+
 **Exact-revision rule**: the issue must carry the four `delivery_*` fields, the local `HEAD` must match the pushed branch OID and the PR `headRefOid`, and missing or mismatched workdir / SHA proof routes back to Team Lead instead of continuing silently. The planning folder remains immutable at `delivery_base_sha`.
 
-**Conflict policy (B2)**: Team Lead keeps the issue/workdir/branch contract fail-closed and routes ambiguous or invalid evidence back to the responsible owner instead of merging or silently continuing. Semantic conflicts, conflicting scope, mismatched exact-revision evidence, or failed dispatch state are reassigned to Fullstack Engineer / AI Reviewer; when the issue remains ambiguous or invalid, Team Lead owns the recovery escalation and required rework. PR Manager owns the final merge-ready/cleanup step after the exact review verdict passes.
+**Conflict policy (B2)**: Team Lead keeps the issue/workdir/branch contract fail-closed and routes ambiguous or invalid evidence back to the responsible owner instead of merging or silently continuing. Semantic conflicts, conflicting scope, mismatched exact-revision evidence, or failed dispatch state are escalated directly to Team Lead recovery; implementation-owned code/build/test/lint/check failures remain in the `Fullstack Engineer ⇄ AI Reviewer → PR Manager` loop. PR Manager owns the final merge-ready/cleanup step after the exact review verdict passes.
 
 ## Git Hooks
 
