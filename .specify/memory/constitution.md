@@ -141,19 +141,21 @@ RepoInfra (独立：CI/workflow/hooks/tooling/release/repo policy；无 product 
 
 ### Git: PR-Required Workflow (NON-NEGOTIABLE)
 
-| 角色 | 推到哪 | 推什么 |
-|------|--------|--------|
-| Fullstack (FS) | `github` remote | `agent/<issue-key>-<task-id-short>` + 开 PR (`gh pr create`) |
-| Team Lead (TL) | `github` remote | 审 CI 绿 + review 后 `gh pr merge` |
-| AI Reviewer | （在 PR 上 review） | review PR commits |
+| 角色 | 责任 | 证据/交付 |
+|------|------|-----------|
+| Planner Lead | 负责 spec-driven 拆分 / DoR 补全，作者/提交/推送规划修订，但不拥有实现权限 | `agent/<issue-key>-<task-id-short>` 规划 revision 或 issue-linked planning branch |
+| Fullstack (FS) | 实现、提交、在 exact revision 前发布候选 PR，随后更新 PR 直到 exact review 通过 | `agent/<issue-key>-<task-id-short>` + `gh pr create` / `gh pr edit` |
+| AI Reviewer | 审查 exact revision 与规划/DoR 产物 | PR / planning review verdict |
+| PR Manager | 负责 final readiness、required-check 监督、merge/cleanup 与 shipping handoff | PR merge state + final shipping conclusion |
+| Team Lead (TL) | 负责 readiness 接受、调度、恢复、Owner escalation、生命周期关闭与 issue/workdir 失败-闭合 | issue status / recovery evidence |
 
-所有代码只能经 PR 进 `main`。`main` 受 **ruleset**（`main protection`，active）保护：**required status
+所有代码只能经 PR 进 `main`。当前 Dev Team contract（[ADR-0021](../../docs/adr/0021-current-dev-team-delivery-contract.md)）要求：Team Lead 只管理 readiness / 资源 / 恢复，不在正常 shipping 流程中代替 PR Manager merge；Fullstack 只在 exact review 前发布候选 PR，真正的 shipping 由 PR Manager 承担。`main` 受 **ruleset**（`main protection`，active）保护：**required status
 checks** = `Lint & policy` + 6× `SPM …` + `App target` + **一个 Codex required AI
 review**。Claude review 暂停；Kimi review 是 advisory-only，findings 或不可用均不满足也不阻塞
 required gate。Codex 控制面须按 [ADR-0020](../../docs/adr/0020-codex-required-kimi-advisory.md)
 迁移到由默认分支评估的 `pull_request_target` workflow。`scripts/hooks/pre-commit` 禁止直接 commit 到
 main；`pre-push` 只跑 agent-run-safe 的轻量门禁，分钟级 AppUI `xcodebuild` 由 required CI
-不可绕过地执行（本地完整验证由 FS 按风险决定）。详见 [ADR-0009](../../docs/adr/0009-pr-required-workflow.md)、[ADR-0018](../../docs/adr/0018-formal-appui-change-owner-layer.md)、AGENTS.md §Git Workflow。
+不可绕过地执行（本地完整验证由 FS 按风险决定）。详见 [ADR-0009](../../docs/adr/0009-pr-required-workflow.md)、[ADR-0018](../../docs/adr/0018-formal-appui-change-owner-layer.md)、[ADR-0021](../../docs/adr/0021-current-dev-team-delivery-contract.md)、AGENTS.md §Git Workflow。
 
 ### Commit Message 约定
 
@@ -181,14 +183,14 @@ main；`pre-push` 只跑 agent-run-safe 的轻量门禁，分钟级 AppUI `xcode
 
 - **Multica** 项目 UUID `7adf8b88`，issue prefix `MY-*`
 - 每个 issue 标题 `[T###] [Story] Brief description`（spec-kit handoff 约定）
-- Hermes 端写 spec/plan/tasks，**`/speckit-implement` 不使用**——tasks.md 通过 `multica-quick-issue` 批量入 Multica，`TL → Planner → FS → Reviewer` pipeline 执行
-- 每 feature 一个 Multica project（不要 phase 多项目）
+- **Planner Lead** 负责 spec/plan/tasks 的 authoring、commit、push 与持续修订；**`/speckit-implement` 不使用**——tasks.md 通过 `multica-quick-issue` 批量入 Multica，`Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead` 的 canonical pipeline 执行
+- **Planner Lead** 仅做规划与 DoR，不拥有实现层代码权限；Fullstack Engineer 负责实现与 candidate PR publication。每 feature 一个 Multica project（不要 phase 多项目）
 
 ### Planning Review / Dual-Approval Gate（ADR-0014）
 
 - **Planner Lead** 对 spec-driven feature 做拆分 / DoR 补全后，**下游 stage 派发前**须过
   **AI Reviewer + Team Lead 双批准门**：两方都 ✅ 才派发；任一方 🟡 CHANGES REQUESTED → 回 Planner
-  Lead 修订。批准后由 **TL** 派发（Planner / Reviewer 均不自行派发）。
+  Lead 修订。批准后由 **TL** 派发（Planner / Reviewer 均不自行派发）；Planner Lead 仍保留规划修订与 publish responsibilities，不接管 FS 实现。
 - AI Reviewer 承担两类 review：**code review**（PR）+ **planning / DoR review**（Planner 产出）。
   规划审的 finding 源同为 §Cross-Cutting Quality Bars。
 - DoR 硬合同（派发前必备）：`Files in scope` / `Files NOT to touch` / `Public signatures` /
@@ -240,7 +242,7 @@ main；`pre-push` 只跑 agent-run-safe 的轻量门禁，分钟级 AppUI `xcode
 Ship gate（required CI 的 `App target` / `SPM …`）失败时，PR Manager **必须**先判定失败是否由当前 patch 引入。AI Reviewer 只审内容，不执行或判断 build/test/lint/hook/CI gate；TL 仅处理证据冲突、恢复和升级：
 
 - **Patch-induced**：失败 test 文件 ∈ `git diff github/main...HEAD --name-only`，或失败 test 所属 module 有源码改动 → 阻止 shipping，由 PR Manager 带证据直接请求 FS 修复
-- **Pre-existing flake**：失败 test 与当前 patch 无源码关联 → 不改变 AI Reviewer 的内容 verdict；由 PR Manager 走 AGENTS.md §Pipeline Recovery → Quarantine 路径
+- **Pre-existing flake**：失败 test 与当前 patch 无源码关联 → 不改变 AI Reviewer 的内容 verdict；由 PR Manager 走 `AGENTS.md` §Pipeline Recovery → Team Lead exceptional recovery 路径
 
 把 gate state 写进 AI Reviewer verdict，或让 Reviewer/TL 代替 PR Manager 监督 CI，均为职责边界违规。
 
@@ -261,9 +263,9 @@ Ship gate（required CI 的 `App target` / `SPM …`）失败时，PR Manager **
 
 `waiting_on=human_triage` 仅在以下场景允许：
 - Constitution P0 违规需人判断（例如隐私越界争议、范围争议）
-- 自动恢复（Hermes）尝试 3 次后仍 fail 同一根因
+- Team Lead 显式恢复流程仍无法证明 workdir / branch / SHA / approval / permission 证据正确时，需要人类决策
 
-其它 infra failure（CLI routing、runtime crash、quarantined flake、限流、网络）一律 Hermes auto-dispatch，TL **禁止**直接打 `human_triage` 标。
+其它 infra failure（CLI routing、runtime crash、quarantined flake、限流、网络）不得被伪造成 normal shipping 路径；应按 Team Lead recovery / FS repair / PR Manager handoff 规则处理，**TL 不得直接代替 PR Manager 进行 merge/cleanup**。
 
 ### PR-2: Sub-issue 幂等
 
@@ -284,14 +286,15 @@ Planner Lead / TL 创建 sub-issue 前必须查同 parent 的 alive (`todo`/`in_
 
 ### PR-5: Startup Scan
 
-TL 每次 pipeline 起手前必须扫描：
-- `gh pr list --state open`：PR 工作流下 open PR 是正常状态 —— TL 应 review 并推进（CI 绿 +
-  review 后 `gh pr merge`），而非视为违规。长时间停滞的 PR 需 comment 跟进。
+TL 每次 pipeline 起手前必须检查：
+- issue 的 `delivery_repo_url` / `delivery_work_dir` / `delivery_branch` / `delivery_base_sha` 是否完整，并与当前 preserved worktree 一致；若缺失或不匹配，回到 Team Lead recovery，而不是继续执行 shipping 或 review
+- local `HEAD` 是否与 remote branch OID 和 PR `headRefOid` 完全一致；只要任一值不匹配，当前 revision 不可视为 valid exact-candidate
+- open PR 是否处于正确的 review/ship 状态；若是，仍必须以 PR Manager 作为最终 shipping/cleanup 责任人，而不是把 open PR 视为 TL 可直接 merge 的授权
 - 同 parent alive sub-issue（PR-2 前置）
 
 ## Governance
 
-本宪法管辖 VitalStride 所有开发工作。所有 AI/人类贡献者（FS/TL/Reviewer，含 Codex/Claude/Hermes 子代理）必须读取并遵守。
+本宪法管辖 VitalStride 所有开发工作。所有 AI/人类贡献者（Planner Lead / Fullstack Engineer / Team Lead / AI Reviewer / PR Manager）必须读取并遵守。当前 active role model 需要在所有 governance 文档中显式列出这五个角色，并保持 Planner Lead 仅负责规划修订发布、不接管实现权限。
 
 - 任何与本宪法冲突的 PR 必须修改 PR 或修宪法（先 ADR）。
 - **修改宪法**：新 ADR + 本文件 patch + 版本 bump + 在 PR 描述 link 到 ADR。
@@ -299,7 +302,7 @@ TL 每次 pipeline 起手前必须扫描：
   - MAJOR — 删除/反转原则；MINOR — 新增原则/新 Quality Bar；PATCH — 文字澄清不改语义
 - 与本宪法相关：AGENTS.md（agent 操作手册）、CONTEXT.md（数据架构细节）、`docs/adr/`（决策档案）、`scripts/hooks/`（强制规则机器实现）。
 
-**Version**: 3.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-08-26
+**Version**: 3.1.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-09-05
 
 > 2.7.2（PATCH，补齐 schedulable ownership）：新增独立 `RepoInfra` change-owner layer，覆盖
 > repository automation/config，并以 machine-readable support/generated exclusions 划清非 schedulable
@@ -312,6 +315,8 @@ TL 每次 pipeline 起手前必须扫描：
 > （[ADR-0018](../../docs/adr/0018-formal-appui-change-owner-layer.md)）。
 
 > 3.0.0（MAJOR，required AI review policy）：暂停 Claude required review；Codex 成为唯一 required AI gate；新增 tool-less Kimi K3 advisory review。Codex workflow 以两阶段 bootstrap 迁移到 `pull_request_target`，Kimi findings/故障均不参与 merge gate（[ADR-0020](../../docs/adr/0020-codex-required-kimi-advisory.md)）。
+
+> 3.1.0（MINOR，current Dev Team delivery-contract cutover）：确立 `Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead` 的 canonical pipeline；要求 exact-SHA / workdir / run-proof fail-closed，保留 `delivery_base_sha` immutable planning baseline，并通过 ADR-0021 统一管理 planning / implementation / shipping / changed-SHA / failed-dispatch / mismatched-workdir 的恢复规则。
 
 > 2.7.0（MINOR，新增 Quality Bar K + 收紧 DoR 硬合同）：两条 pipeline 质量改进，源自 MY-1369 规划递归与 MY-1352 真机门死结的复盘。(1) **DoR 硬合同**新增两条红线——Planner 不内联实现级可编译代码（只写契约级描述，实现细节留 GREEN 由编译器兜底）、引用符号前须 `grep`/`git show` 核验存在（规划审一次性全量核验，不做增量逐个抓）；修正 planner 把编译级自查外包给 reviewer、导致 R4/R5 逐轮抓 `init` 标签 / 枚举 case 的递归浪费。(2) **Quality Bar K**：纯视觉改动的 before/after 验收默认走 iPhone Simulator light/dark 截图或 SnapshotTesting，禁写死真机；修正 keyboard stage 因 runtime 无真机造出的「永远升级 human」死结。同步收紧 AGENTS.md 的 human 升级措辞与 Planner Lead 职责行（[ADR-0017](../../docs/adr/0017-planning-code-inlining-and-visual-acceptance-gates.md)）。
 

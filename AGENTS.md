@@ -154,278 +154,273 @@ count is 0. See
 
 | Role | What they do | Where they push |
 |------|--------------|-----------------|
-| **Planner Lead** | spec-driven feature 拆分 / DoR 补全（**不写代码**：只写契约级描述，禁内联可编译 Swift 片段；引用符号前先 `git show`/`grep` 核验存在，见 Constitution §DoR 硬合同） | 不 push；产出 sub-issue + @mention 交回 |
-| **Fullstack Engineer (FS)** | implement code + commit + open PR | `github` remote `agent/<issue-key>-<task-id-short>`, then `gh pr create` |
-| **Team Lead (TL)** | ensure CI green + review, merge PR, resolve trivial rebase conflicts；规划审是双批准的一方 | merges via `gh pr merge` (never pushes `main` directly) |
-| **AI Reviewer** | **code review**（PR）+ **planning / DoR review**（Planner 产出，ADR-0014） | (approves/comments on PR or planning) |
+| **Planner Lead** | spec-driven feature 拆分 / DoR 补全（**不写代码**：只写契约级描述，禁内联可编译 Swift 片段；引用符号前先 `git show`/`grep` 核验存在，见 Constitution §DoR 硬合同）；**author / commit / push 规划修订**，但不拥有实现权限 | `agent/<issue-key>-<task-id-short>` 规划 revision 或 issue-linked planning branch |
+| **AI Reviewer** | **planning / DoR review** + **exact-candidate code review**（ADR-0014 / ADR-0021） | reviews planning artifacts and PRs; does not merge |
+| **Team Lead (TL)** | accepts readiness, schedules work, owns recovery / Owner escalation, and closes lifecycle state; keeps issue/workdir/branch contract fail-closed | never pushes `main` directly |
+| **Fullstack Engineer (FS)** | implement code + commit + publish the exact candidate PR before review, then refresh it as the exact revision changes | `github` remote `agent/<issue-key>-<task-id-short>` |
+| **PR Manager** | owns final readiness, required-check supervision, merge/cleanup, and shipping handoff to the target branch | never pushes product code directly; owns the GitHub PR lifecycle |
+
+> **Current Dev Team delivery contract (ADR-0021)**: the canonical pipeline is `Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead`. Planner Lead authors, commits, pushes, and refines the exact planning revision without implementation authority; AI Reviewer validates the planning package and the exact candidate revision; Team Lead owns readiness, scheduling, recovery, and lifecycle closure; Fullstack Engineer publishes the exact candidate PR, refreshes the exact revision, and repairs supported in-scope findings directly; PR Manager owns final shipping, required-check supervision, merge/cleanup, and handoff. Missing workdir/branch/SHA proof, failed dispatch, or mismatched exact revision routes back to Team Lead instead of silent drift.
 
 > **Planning Review / 双批准门（ADR-0014）**：Planner Lead 对 spec-driven feature 做拆分 / DoR
 > 补全后，下游 stage 派发前须 **AI Reviewer + Team Lead 两方都批准**（同 code review 的
 > ✅ APPROVED / 🟡 CHANGES REQUESTED verdict）。任一方 CHANGES REQUESTED → 回 Planner 修订。
-> 批准后由 **TL 派发**（Planner/Reviewer 不自行派发）。bug-fix fast-path（TL 直接拆）不走此门。
+> 批准后由 **TL 派发**（Planner/Reviewer 不自行派发）；Planner Lead 仍保留规划修订发布责任，不在实现层接管 FS 代码。bug-fix fast-path（TL 直接拆）不走此门。
 > **谁触发 Planner**：spec-driven issue 缺 spec/plan/tasks 或跨 layer 需拆分时，**TL @mention
-> Planner Lead** 去做 speckit 拆分——不升级给 human owner、不 @Hermes（本 workspace 无 Hermes）。
-> 只有本质需要人的任务才升级 human。**"物理设备验证" 不是纯视觉改动的默认门**：token 迁移 / 配色 / 圆角 / 间距
+> Planner Lead** 去做 speckit 拆分。只有本质需要人的任务才升级 human。**"物理设备验证" 不是纯视觉改动的默认门**：token 迁移 / 配色 / 圆角 / 间距
 > 等无逻辑变更，验收走**模拟器 light/dark 截图或 SnapshotTesting**（Constitution §Quality Bars K），不写死真机、不因
 > "无真机" 升级 human。真机升级仅限模拟器测不了的能力（触觉 / 传感器 / 后台唤醒 / 真机性能）。详见 Constitution
 > §Issue Tracker、`docs/adr/0014-restore-planner-review-dual-approval.md`。
 
 > `main` cannot be pushed to directly (branch protection + `pre-commit` block). The only path to
-> `main` is a merged PR whose required checks are green.
+> `main` is a merged PR whose required checks are green, and the final merge/cleanup phase is owned by PR Manager.
 
 ### FS workflow
 
-The Multica daemon already created your worktree at `<task-dir>/workdir/`. **Do NOT create another worktree.** Just `cd` into the workdir and work there.
+The Multica daemon already created the preserved worktree at the task's `delivery_work_dir`. **Do NOT create another worktree.** Work only in that preserved checkout.
 
-1. **Resolve issue identifier**:
+1. **Resolve and verify the persisted delivery identity**
    ```bash
-   ISSUE_UUID=$(grep "Issue ID:" .agent_context/issue_context.md | awk '{print $3}')
-   ISSUE_KEY=$(multica issue get "$ISSUE_UUID" --output json \
-     | python3 -c "import sys,json; print(json.load(sys.stdin)['identifier'].lower())")
-   TASK_ID_SHORT=${MULTICA_TASK_ID:0:8}
-   BRANCH="agent/${ISSUE_KEY}-${TASK_ID_SHORT}"
+   ISSUE_UUID="<issue-id>"
+   ISSUE_JSON=$(multica issue get "$ISSUE_UUID" --output json)
+   DELIVERY_WORK_DIR=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('metadata',{}).get('delivery_work_dir',''))")
+   DELIVERY_REPO_URL=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('metadata',{}).get('delivery_repo_url',''))")
+   DELIVERY_BRANCH=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('metadata',{}).get('delivery_branch',''))")
+   DELIVERY_BASE_SHA=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('metadata',{}).get('delivery_base_sha',''))")
+   
+   # Verify all metadata values exist
+   [ -n "$DELIVERY_WORK_DIR" ] && [ -n "$DELIVERY_REPO_URL" ] && [ -n "$DELIVERY_BRANCH" ] && [ -n "$DELIVERY_BASE_SHA" ] || exit 1
+   
+   # Compare workdir, normalized repository identity, branch, and base planning tree
+   cd "$DELIVERY_WORK_DIR" || exit 1
+   CURRENT_ORIGIN=$(git remote get-url origin)
+   CURRENT_BRANCH=$(git branch --show-current)
+   python3 -c 'import sys,re
+def parse_github_repo(u):
+    u = u.strip()
+    m = re.match(r"^(?:https?://github\.com/|git@github\.com:|ssh://git@github\.com/)([\w.-]+)/([\w.-]+?)(?:\.git)?/?$", u)
+    return (m.group(1).lower(), m.group(2).lower()) if m else None
+orig = parse_github_repo(sys.argv[1])
+decl = parse_github_repo(sys.argv[2])
+sys.exit(0 if orig and decl and orig == decl else 1)
+' "$CURRENT_ORIGIN" "$DELIVERY_REPO_URL" || exit 1
+   [ "$CURRENT_BRANCH" = "$DELIVERY_BRANCH" ] || exit 1
+   git diff --quiet "$DELIVERY_BASE_SHA" -- specs/025-dev-team-delivery-contract || exit 1
+   
+   # Verify parent issue assignment remains Dev Team squad
+   PARENT_ID=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('parent_issue_id',''))")
+   [ -n "$PARENT_ID" ] || exit 1
+   PARENT_JSON=$(multica issue get "$PARENT_ID" --output json)
+   PARENT_ASSIGNEE_TYPE=$(printf '%s' "$PARENT_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('assignee_type',''))")
+   PARENT_ASSIGNEE_ID=$(printf '%s' "$PARENT_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('assignee_id',''))")
+   [ "$PARENT_ASSIGNEE_TYPE" = "squad" ] && [ "$PARENT_ASSIGNEE_ID" = "741fb417-c6b0-4df7-b505-03396ccbf77b" ] || exit 1
    ```
+   If any `delivery_*` value is missing or mismatched, or parent assignment is lost, stop and return the issue to Team Lead recovery; do not synthesize a new branch or drift away from the preserved worktree.
 
-2. **Implement + commit** as usual on whatever branch the daemon checked out for you (it's already a fresh branch off `origin/main`).
-
-   **Commit message 建议**（非强制）在 subject 或 body 引用 issue key（如 `MY-852`），方便 retro/审计工具用 grep `MY-\d+` 关联 commit ↔ issue。分支名 `agent/<issue-key>-<task-id>` 已带 issue key，即使 commit 未引用也可追溯。**hook / CI 不再校验 commit message 是否含 key。**
-
+2. **Implement and commit inside the preserved branch**
    ```bash
-   git commit -m "feat: ExercisePickerView 多选批量添加 (MY-852)"
-   # 或 body 引用:
-   git commit -m "feat: 多选 picker" -m "Implements MY-852."
+   git status --short
+   git add <files>
+   git commit -m "docs: repair delivery governance wording"
    ```
+   Keep the diff within the issue's authorized paths only; do not touch product code, live role config, or any inherited planning artifacts.
 
-3. **Push your branch to `github` and open a PR**:
+3. **Push the preserved branch and publish or update the candidate PR**
    ```bash
-   git push -u github HEAD:$BRANCH
-   gh pr create --base main --head "$BRANCH" \
-     --title "<type>: <summary> (MY-XXX)" \
-     --body "Implements MY-XXX. <what changed + test plan>"
+   git push -u origin "$DELIVERY_BRANCH"
+   PR_NUM=$(gh pr view --json number --repo LeePepe/VitalStride --jq '.number' 2>/dev/null || true)
+   if [ -n "$PR_NUM" ] && [ "$PR_NUM" != "null" ]; then
+     gh pr edit "$PR_NUM" --base main --repo LeePepe/VitalStride
+   else
+     gh pr create --base main --head "$DELIVERY_BRANCH" --fill --repo LeePepe/VitalStride
+   fi
+   gh pr view --json number,headRefName,headRefOid,url --repo LeePepe/VitalStride
    ```
-   The pre-push hook runs fast touched-package/Prototype/RepoInfra validation and lint. It does not run the
-   minutes-scale AppUI `xcodebuild` unless `RUN_XCODEBUILD=1`; required CI always runs `App target`.
+   The PR is the candidate PR; it is not a shipping approval. Required checks run in CI, while the exact-review gate remains independent. The create-or-update flow must exist before exact review; a branch push alone is not a valid candidate PR publication.
 
-4. **Comment the PR link + assign back to TL**:
+4. **Publish the exact-SHA AI Reviewer request, then verify its run**
    ```bash
-   PR_URL=$(gh pr view "$BRANCH" --json url -q .url)
-   multica issue comment add "$ISSUE_UUID" --content "Opened PR: ${PR_URL}. Ready for review + merge."
-   multica issue assign "$ISSUE_UUID" "Team Lead"
+   CURRENT_TRIGGER_ID="<current-trigger-comment-id>"  # resolve from the active turn's trigger comment; do not reuse a prior parent from another turn
+   
+   # Preflight checks: compare local HEAD, remote branch OID, PR headRefOid, and verify parent Dev Team assignment
+   LOCAL_SHA=$(git rev-parse HEAD)
+   REMOTE_SHA=$(git ls-remote origin "refs/heads/${DELIVERY_BRANCH}" | awk '{print $1}')
+   PR_HEAD_SHA=$(gh pr view --json headRefOid --repo LeePepe/VitalStride --jq '.headRefOid')
+   [ "$LOCAL_SHA" = "$REMOTE_SHA" ] && [ "$LOCAL_SHA" = "$PR_HEAD_SHA" ] || exit 1
+   git diff --quiet "$DELIVERY_BASE_SHA" -- specs/025-dev-team-delivery-contract || exit 1
+   
+   PARENT_JSON=$(multica issue get "$PARENT_ID" --output json)
+   [ "$(printf '%s' "$PARENT_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('assignee_id',''))")" = "741fb417-c6b0-4df7-b505-03396ccbf77b" ] || exit 1
+   
+   printf '%s\n' \
+     "Candidate revision: $LOCAL_SHA" \
+     "Preserved delivery proof:" \
+     "- workdir: $DELIVERY_WORK_DIR" \
+     "- repo: $DELIVERY_REPO_URL" \
+     "- branch: $DELIVERY_BRANCH" \
+     "- base: $DELIVERY_BASE_SHA" \
+     "- local HEAD = remote branch OID = PR headRefOid" \
+     "This is the exact-candidate review request." \
+     "" \
+     "[@AI Reviewer](mention://agent/24ff66eb-ee5c-4ab4-bd40-5714b6a789f9)" > reply.md
+   RESULT=$(multica issue comment add "$ISSUE_UUID" --parent "$CURRENT_TRIGGER_ID" --content-file ./reply.md --output json)
+   rm ./reply.md
+   # Verify that AI Reviewer run reaches queued, dispatched, or running; stop and route exact failure evidence to Team Lead if not reached
+   echo "$RESULT" | jq -e '.trigger_outcomes[] | select(.target_id == "24ff66eb-ee5c-4ab4-bd40-5714b6a789f9" and (.status == "queued" or .status == "dispatched" or .status == "running"))'
    ```
+   The exact-review request must carry the candidate SHA and the identity proof; a generic PR URL or bare assignment is not valid proof of dispatch. The mention must create a queued/dispatched/running Reviewer run before the candidate is treated as review-ready, and the parent must be the current trigger comment rather than a stale ID from an earlier turn. If dispatch fails or trigger outcome is missing, preserve valid state and route exact evidence to Team Lead.
 
-**Do** push `agent/*` to `github` and open a PR. **Never** push `main` directly — branch
-protection and the `pre-commit` hook block it.
-
-### TL workflow (merging FS work into `main`)
-
-When you receive an issue with state `in_review` and an FS comment reporting a PR:
-
-1. **Locate the PR** for this issue (by branch or the URL in the FS comment):
+5. **After a passing verdict, recheck the reviewed SHA and hand off to PR Manager**
    ```bash
-   ISSUE_KEY=$(multica issue get "$ISSUE_UUID" --output json \
-     | python3 -c "import sys,json; print(json.load(sys.stdin)['identifier'].lower())")
-   PR_NUM=$(gh pr list --head "agent/${ISSUE_KEY}-"* --json number -q '.[0].number' \
-     || gh pr list --search "$ISSUE_KEY" --json number -q '.[0].number')
+   CURRENT_TRIGGER_ID="<current-trigger-comment-id>"  # resolve from this turn's trigger comment; do not reuse the earlier step 4 trigger
+   
+   # Verify that the triggering comment contains a valid passing AI Reviewer verdict for LOCAL_SHA
+   LOCAL_SHA=$(git rev-parse HEAD)
+   TRIGGER_COMMENTS_JSON=$(multica issue comment list "$ISSUE_UUID" --thread "$CURRENT_TRIGGER_ID" --tail 30 --compact --output json)
+   printf '%s' "$TRIGGER_COMMENTS_JSON" | python3 -c 'import json,sys,re
+comments = json.load(sys.stdin)
+if not isinstance(comments, list): comments = [comments]
+target_id = sys.argv[1]
+local_sha = sys.argv[2]
+target = next((c for c in comments if c.get("id") == target_id), None)
+if not target:
+    sys.exit(1)
+if target.get("author_id") != "24ff66eb-ee5c-4ab4-bd40-5714b6a789f9":
+    sys.exit(1)
+content = target.get("content", "")
+verdict_matches = re.findall(r"(?m)^(?:[-*]\s*)?\*{0,2}Verdict:?\*{0,2}\s*:?\s*\*{0,2}(.*?)\*{0,2}\s*$", content)
+if len(verdict_matches) != 1:
+    sys.exit(1)
+verdict = verdict_matches[0].strip(" *`")
+if verdict not in ("PASS", "PASS WITH FOLLOW-UP"):
+    sys.exit(1)
+rev_matches = re.findall(r"(?m)^(?:[-*]\s*)?\*{0,2}Reviewed revision:?\*{0,2}\s*:?\s*\*{0,2}`?([a-f0-9]{40})`?\*{0,2}\s*$", content)
+if len(rev_matches) != 1 or rev_matches[0] != local_sha:
+    sys.exit(1)
+' "$CURRENT_TRIGGER_ID" "$LOCAL_SHA" || exit 1
+   
+   # Preflight checks: compare local HEAD, remote branch OID, PR headRefOid, and verify parent Dev Team assignment
+   REMOTE_SHA=$(git ls-remote origin "refs/heads/${DELIVERY_BRANCH}" | awk '{print $1}')
+   PR_HEAD_SHA=$(gh pr view --json headRefOid --repo LeePepe/VitalStride --jq '.headRefOid')
+   [ "$LOCAL_SHA" = "$REMOTE_SHA" ] && [ "$LOCAL_SHA" = "$PR_HEAD_SHA" ] || exit 1
+   git diff --quiet "$DELIVERY_BASE_SHA" -- specs/025-dev-team-delivery-contract || exit 1
+   
+   PARENT_JSON=$(multica issue get "$PARENT_ID" --output json)
+   [ "$(printf '%s' "$PARENT_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('assignee_id',''))")" = "741fb417-c6b0-4df7-b505-03396ccbf77b" ] || exit 1
+   
+   printf '%s\n' \
+     "Reviewed revision: $LOCAL_SHA" \
+     "Identity proof:" \
+     "- workdir: $DELIVERY_WORK_DIR" \
+     "- repo: $DELIVERY_REPO_URL" \
+     "- branch: $DELIVERY_BRANCH" \
+     "- base: $DELIVERY_BASE_SHA" \
+     "- local HEAD = remote branch OID = PR headRefOid" \
+     "This is the final exact-SHA handoff to PR Manager." \
+     "" \
+     "[@PR Manager](mention://agent/2cb1cc4f-c50d-40d8-b75b-f29c66552de1)" > reply.md
+   RESULT=$(multica issue comment add "$ISSUE_UUID" --parent "$CURRENT_TRIGGER_ID" --content-file ./reply.md --output json)
+   rm ./reply.md
+   # Verify that PR Manager run reaches queued, dispatched, or running; stop and route exact failure evidence to Team Lead if not reached
+   echo "$RESULT" | jq -e '.trigger_outcomes[] | select(.target_id == "2cb1cc4f-c50d-40d8-b75b-f29c66552de1" and (.status == "queued" or .status == "dispatched" or .status == "running"))'
    ```
+   Only after verifying a genuine AI Reviewer PASS / PASS WITH FOLLOW-UP verdict for `LOCAL_SHA` and confirming that local SHA, remote branch OID, and PR `headRefOid` match the approved review does Fullstack Engineer hand the exact reviewed revision to PR Manager. The handoff must be an explicit PR Manager mention with the exact SHA, parent Dev Team preservation, and verified downstream run evidence; a generic statement about “handing off” is not sufficient. If dispatch fails, preserve valid state and route exact evidence to Team Lead.
 
-2. **Check CI status**:
+**Do** use the preserved `delivery_branch` and exact-candidate worktree. **Never** push `main` directly, and never claim review or shipping PASS without the exact-SHA proof and a real downstream run.
+
+### TL workflow (readiness, recovery, and lifecycle closure)
+
+When the issue is in `in_progress` / `in_review`, Team Lead owns the delivery contract proof and recovery loop, not the normal merge gate:
+
+1. **Verify the exact candidate and workdir proof**
    ```bash
-   gh pr checks "$PR_NUM"        # all required checks must be green
+   git rev-parse HEAD
+   git ls-remote origin "refs/heads/${DELIVERY_BRANCH}"
+   gh pr view <PR_NUM> --json number,headRefName,headRefOid,url
    ```
-   Human *approving* review is not required (approving-review count is 0). `codex-review-target` is the
-   required AI check. `kimi-review` is advisory and must not be treated as a merge gate;
-   `claude-review` is paused. If an AI Reviewer left a `CHANGES_REQUESTED` review, honor it before merging;
-   but do **not** block on waiting for an `APPROVED` decision — green required checks are the gate.
-   If checks are red, diagnose (see §Pipeline Recovery) and reassign FS if it's a code problem.
+   Confirm the exact SHA is the same local HEAD, pushed branch OID, and PR `headRefOid`. If any value mismatches, or if dispatch failed on an unchanged candidate, the issue routes directly to Team Lead recovery. Team Lead recovers and revalidates proof/run evidence for unchanged candidates, while a fresh exact candidate SHA is required only after authorized content changes.
 
-3. **Rebase conflicts (B2 policy)** — if the PR is behind `main` and conflicts:
-   - **Trivial** (different lines, import additions, separate methods, format-only): resolve on
-     the branch and push the update.
-   - **Semantic** (same line, deletion of changed code, logic-overlapping): comment the conflict
-     details and reassign back to FS:
-     ```bash
-     multica issue comment add "$ISSUE_UUID" --content "Semantic conflict in <file>:<line>; needs FS rework."
-     multica issue assign "$ISSUE_UUID" "Fullstack Engineer"
-     ```
+2. **Check the issue/branch/workdir contract**
+   - confirm `delivery_repo_url`, `delivery_work_dir`, `delivery_branch`, and `delivery_base_sha` exist and match the preserved worktree
+   - confirm the candidate PR was published from the correct agent branch and not from `main`
+   - confirm the immutable planning folder at `delivery_base_sha` still matches the approved baseline and has not changed
 
-4. **Merge the PR** (only after required checks are green). Delete the merged branch to keep the remote clean:
-   ```bash
-   gh pr merge "$PR_NUM" --squash --delete-branch
-   ```
-   > `--squash` keeps `main` history linear; use `--merge`/`--rebase` per preference. Consider
-   > enabling **GitHub auto-merge** (`gh pr merge --auto`) so the PR merges itself the moment
-   > checks + review pass (see ADR-0009).
+3. **Coordinate the review handoff**
+   - Fullstack Engineer publishes the exact candidate PR and exact-SHA AI Reviewer request, then repairs supported in-scope findings directly
+   - AI Reviewer owns the exact-revision review and planning/DoR review verdict
+   - PR Manager owns the final shipping/merge/cleanup step only after a passing exact-revision verdict
+   - Team Lead keeps the issue fail-closed, verifies the downstream run exists, and escalates ambiguous or exceptional failures
 
-5. **Close the issue**:
+4. **Recovery and escalation rules**
+   - if workdir metadata, branch identity, or SHA proof is missing or mismatched, or if dispatch fails, preserve valid state and route directly to Team Lead recovery
+   - supported in-scope review findings (`CHANGES_REQUESTED` or `FAIL`) route directly through the `Fullstack Engineer ⇄ AI Reviewer` refinement loop without Team Lead intervention
+   - conflicting evidence, policy disagreements, permission/infrastructure issues, repeated repair, failed dispatch, and merge conflicts go directly to Team Lead escalation; they are not treated as normal shipping work
+   - PR Manager owns the final merge-ready approval and required cleanup; Team Lead does not own the normal merge gate or suppress the final handoff to PR Manager
+   - a candidate PR alone is not closure evidence; only a verified PR Manager handoff proving delivery and cleanup may close the lifecycle
+
+> Team Lead is not the normal merge or shipping owner. The shipping owner is `PR Manager`; Team Lead owns readiness, scheduling, recovery, escalation, and lifecycle closure.
+
+5. **Close the issue only after PR Manager delivery evidence**
    ```bash
    multica issue status "$ISSUE_UUID" done
    ```
-
-> **auto-merge 收尾盲区（CRITICAL, ADR-0014 Decision 5）**：本 repo 用 GitHub auto-merge，PR 常由
-> **机器**在 checks 全绿后自动合并——**没有 agent 被该 merge 事件触发**。所以 TL 不能在 review PASS
-> 后干等自己 `gh pr merge`；必须**主动** `gh pr view <PR#> --json state`，若 `MERGED` 就立刻做 step 5
-> 收尾（issue→done + promote 下一 stage）。PR 已 merged 但 issue 仍 `in_review` = 收尾遗漏，startup
-> scan 要捞（`gh pr list --state merged --search "<issue-key> in:body"`）。`enable-auto-merge` step
-> 已加 retry 消化 GitHub 5xx（避免 504 卡死已通过 review 的 PR）。
-
-> **派 FS 用 assign+todo，不靠裸 @mention（CRITICAL, ADR-0014 Decision 6）**：TL 派实现给
-> Fullstack Engineer 时，裸 @mention 而 `assignee_type=none` **不会 enqueue FS run**（issue 停
-> `todo`、零 run）。可靠派发 = `multica issue assign <key> --to "Dev Team"` + `multica issue status
-> <key> todo`，再 `multica issue runs <uuid>` 验证有 queued/running，零 run 则 `rerun` 兜底。裸
-> @mention 只作人读备注，不是触发器。
+   This status is allowed only after the issue has a passing exact-revision verdict and a verified PR Manager handoff proving the reviewed SHA was shipped and cleaned up. If the review or dispatch is still blocked, keep the issue in `blocked`/`in_progress` and escalate instead of closing.
 
 ### Common pitfalls
 
-- **Never push `main` directly** — branch protection (`enforce_admins=true`) rejects it even for
-  admins. Merge via `gh pr merge`.
-- **`MULTICA_TASK_ID`** is provided by the daemon as an env var (full UUID; we use the first 8 chars).
-- **GitHub access tokens** must be valid (FS needs them to push `agent/*` + open PRs; TL to merge).
-  Don't unset `gh` auth.
-- The `github` remote name is by convention; some clones may use `origin`. Commands accept either
-  as long as the URL contains `github.com`.
+- **Never push `main` directly** — branch protection and the PR-required contract require shipping through the repository's normal PR path.
+- **Persisted delivery metadata is authoritative** — do not rederive a new branch from `MULTICA_TASK_ID` when the issue already includes `delivery_branch` and `delivery_work_dir`.
+- **GitHub access tokens** must be valid; do not unset `gh` auth without a documented repo-identity reason.
+- The `github` remote name is by convention; some clones use `origin`, and either is valid as long as the repository URL remains the same.
 
 ## Pipeline Recovery
 
-> 这一节定义 pipeline 失败时的恢复路径。**所有失败路径都自动化，禁止 `waiting_on: human_triage`**。
-> 唯一例外：constitution P0 违规（例如健康数据隐私破坏）才升人工。其它一律走 Hermes auto-dispatch。
+> This section defines the fail-closed recovery path for repository governance and shipping failures. The canonical rule remains: fix the invalid state within the approved delivery contract, keep the exact-SHA / issue / workdir proofs intact, and route conflicting evidence or authority problems back to Team Lead recovery instead of creating a silent merge path.
 
-### Ship-gate flake quarantine（required CI test 失败）
+### Required recovery routing
 
-required CI 的 `App target` / `SPM …` check 失败时**不要无脑 retry / 不要回 FS**——先判定是不是当前 patch 引入的：
+- **Review-induced findings (`CHANGES_REQUESTED` / `FAIL`)**: Fullstack Engineer repairs supported in-scope findings directly and publishes a fresh exact candidate revision. The review cycle repeats through `Fullstack Engineer ⇄ AI Reviewer` with the same scope and exact SHA proof.
+- **Missing or mismatched identity proof, failed dispatch, conflicting evidence, permissions/infrastructure issues, policy disagreement, repeated repair, or merge/branch ambiguity**: Team Lead owns the recovery escalation. Preserve valid candidate state and worktree evidence; revalidate proof and downstream runs without invalidating unchanged worktree/commit/PR content, and reserve new candidate SHAs for authorized content repairs. Do not silently drift to a new branch or duplicate candidate PR.
+- **Clear implementation-owned code / build / test / lint / required-check failures after a passing exact review**: route through `PR Manager → Fullstack Engineer ⇄ AI Reviewer → PR Manager` as the normal shipping repair loop. Team Lead stays in the recovery path only for governance, permission, identity, dispatch, policy, or repeated-repair issues.
+- **PR Manager shipping/cleanup**: only after a passing exact-revision verdict and a verified PR handoff proving the reviewed SHA was shipped and cleaned up.
+- **No normal Team Lead merge/cleanup ownership**: Team Lead validates readiness, scheduling, recovery, and lifecycle closure; PR Manager owns shipping and cleanup. There is no alternate merge path.
 
-```bash
-# 1. 拿到当前 ship 范围（FS branch vs github/main）
-git fetch github main
-CHANGED_FILES=$(git diff --name-only github/main...HEAD)
+### PR-2 / PR-3 operational controls
 
-# 2. 解析 hook 输出，找到失败 test 所属的文件路径
-#    （xcodebuild test 输出形如 "FILE:LINE: error: -[Suite testMethod] : ..."）
-FAILED_TEST_FILES=$(grep -oE '/[^ ]+\.swift' .ship-gate.log | sort -u)
+- **PR-2: sub-issue idempotency / duplicate sibling prevention**: before creating sub-issues, Planner Lead / Team Lead must check all alive (`todo`/`in_progress`/`in_review`/`blocked`) sub-issues under the same parent. If scope overlaps (same branch, matching title trim, or ≥80% overlapping files), reuse the existing sub-issue rather than creating a duplicate sibling.
+- **PR-3: run-count guard classification (`run_attempts` vs `infra_failures`)**:
+  - `run_attempts` (budgeted, default 15): code-review iterations, patch-induced test/build failures, and implementation refinements.
+  - `infra_failures` (unbudgeted): CLI routing errors, runtime crashes, quarantined flakes, auth, network, and platform infrastructure faults.
+  Do not count infrastructure failures against the implementation run-attempt budget.
 
-# 3. 判定 patch-induced vs pre-existing flake
-PATCH_INDUCED=0
-for f in $FAILED_TEST_FILES; do
-  REL=$(echo "$f" | sed "s|$(git rev-parse --show-toplevel)/||")
-  if echo "$CHANGED_FILES" | grep -qx "$REL"; then PATCH_INDUCED=1; break; fi
-  # 同 module 下源码改动也算 patch-induced
-  MOD=$(dirname "$REL" | sed 's|/Tests/.*||; s|Tests/.*||')
-  if echo "$CHANGED_FILES" | grep -q "^$MOD/"; then PATCH_INDUCED=1; break; fi
-done
-```
+### Exact-revision proof required before any handoff
 
-**分支决策**：
+Before a review or handoff claim is treated as valid, the issue must satisfy all of the following:
 
-- `PATCH_INDUCED=1` → 正常 retry（最多 5 次 in 同 issue），重复失败回 FS
-- `PATCH_INDUCED=0` → **Quarantine 路径**：
-  1. **不**计入当前 issue 的 run-count budget
-  2. 在 Multica 开新 issue `[Flake] <test_name> in <test_file>`，description 引用失败日志、所属 module、最近一次让它过的 commit
-  3. 把当前 issue 的 metadata 设为 `pipeline_status=blocked_pretest_flake`，`waiting_on=auto:hermes:<new_flake_issue_id>`
-  4. 自动触发 Hermes（见下节）去处理新 flake issue
-  5. 当前 ship issue 在 flake issue done 后由 cron 自动 unblock 重 dispatch（不要让 TL 阻塞）
+- `delivery_repo_url`, `delivery_work_dir`, `delivery_branch`, and `delivery_base_sha` are present and match the preserved worktree
+- local `HEAD` equals the remote branch OID and the PR `headRefOid`
+- the candidate branch is the preserved agent branch, not `main`
+- the immutable planning baseline at `delivery_base_sha` remains unchanged
 
-### Infra-failure auto-escalation（Hermes 接管）
+If any proof is missing or mismatched, stop and route the issue back to Team Lead recovery instead of continuing silently.
 
-下列错误是 **infra failure**，不算 code 问题，**不计入 run-count guard**：
+### Ship-gate failure classification
 
-- CLI routing failure（Copilot/Codex CLI 返回非业务错误：路由 timeout、provider 限流、subprocess crash、`exit 128`）
-- Multica runtime crash / 任务卡死 > 1h 未推进
-- ship-gate flake quarantine 路径（见上一节）
-- Network / DNS / 认证 token 过期
+When required checks fail:
 
-**处理**：TL 不打 human_triage，而是 dispatch Hermes 子代理处理。Hermes 已安装在 `/Users/tianpli/.local/bin/hermes`（v0.11.5，model `claude-opus-4.7` via GitHub Copilot），支持非交互式 `hermes -z` 单 prompt 调用。
+- treat the failure as a patch-induced gate issue and route back to Fullstack Engineer for direct repair when the diff or adjacent module clearly caused it
+- treat the failure as an open governance / policy / infrastructure issue when the evidence is ambiguous, unrelated to the patch, or blocked by repo identity / dispatch / review mismatches
+- never turn a failed gate into a Team Lead merge path or silent approval; only a verified PR Manager handoff proves final shipping and cleanup
 
-```bash
-# 在 TL 工作区根目录运行
-HERMES_PROMPT="VitalStride Multica issue $ISSUE_KEY ($ISSUE_UUID) 触发 infra failure。
-错误类型: $FAIL_TYPE
-错误日志摘要: $LOG_TAIL_500
-最近 run: $LAST_RUN_INFO
+### Lifecycle closure
 
-请按以下顺序处理:
-1. 读 .specify/memory/constitution.md §Pipeline Recovery Protocols
-2. 读 AGENTS.md §Pipeline Recovery
-3. 诊断 root cause（区分 transient vs persistent）
-4. transient: 等 60s 后用 'multica issue rerun $ISSUE_UUID' 重 dispatch，最多 3 次
-5. persistent: 修底层问题（CLI 配置、token、runtime config），修复后 rerun
-6. 全过程 comment 到 issue: multica issue comment add $ISSUE_UUID --content '...'
-完成后退出，不要等人工回复。"
+The issue remains `in_progress` or `blocked` until all of the following are true:
 
-nohup hermes -z "$HERMES_PROMPT" --yolo --ignore-rules \
-  > "/tmp/hermes-infra-$ISSUE_KEY-$(date +%s).log" 2>&1 &
-HERMES_PID=$!
+1. the exact revision has passed independent AI review
+2. the local/remote/PR SHA proof still matches the reviewed revision
+3. PR Manager has produced the verified shipping/cleanup handoff for the same SHA
 
-multica issue metadata set "$ISSUE_UUID" \
-  pipeline_status=infra_failure_auto_recover \
-  waiting_on="auto:hermes:pid=$HERMES_PID" \
-  hermes_log="/tmp/hermes-infra-$ISSUE_KEY-$(date +%s).log"
-```
-
-**Hermes 失败兜底**：Hermes 进程退出但 issue 仍是 `infra_failure_auto_recover` 状态超 30 min → cron 升级为 `waiting_on=human`（这才是允许人工介入的唯一时机）。
-
-### Run-count guard 分类
-
-`run_count_guard` 区分两类计数器：
-
-| Counter | 触发条件 | 默认 budget | 超限行为 |
-|---------|----------|-------------|---------|
-| `run_attempts` | code-review iterate、test 失败、patch-induced ship-gate fail | 15 | 升 `pipeline_status=blocked_iterate_budget` + Hermes auto-dispatch 重新评估方案（拆任务 / 换思路 / 改 spec） |
-| `infra_failures` | CLI routing fail、runtime crash、quarantined flake、network/auth | ∞（不计） | 永远走 Hermes auto-recover，不阻塞 issue |
-
-TL dispatch 前必须把失败归类到正确 counter，并在 `multica issue runs` 评估时只比对 `run_attempts`。
-
-### Startup scan（每次 pipeline 起手）
-
-TL 在 dispatch 任何 stage 前跑：
-
-```bash
-# 1. Review 待处理的 open PR（PR 工作流下是正常状态，非违规）
-OPEN_PRS=$(gh pr list --state open --json number,title,updatedAt 2>/dev/null)
-if [ "$(echo "$OPEN_PRS" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))')" -gt 0 ]; then
-  # open PR 是 PR 工作流的常态 —— TL 应推进（CI 绿 + review 后 gh pr merge），停滞过久的 comment 跟进
-  multica issue comment add "$ISSUE_UUID" --content "ℹ️ Startup scan: $OPEN_PRS 个 open PR 待 review/merge。详: $(echo "$OPEN_PRS" | head -200)"
-fi
-
-# 2. 检查同 parent 的 sibling sub-issue（防三胞胎）— 详 §Sub-issue 幂等
-```
-
-### Sub-issue 幂等
-
-任何阶段（Planner Lead 拆分、TL fast-path bug-fix 拆分、补救新 issue）创建 sub-issue 前都要：
-
-```bash
-PARENT_UUID="$1"
-PROPOSED_TITLE="$2"
-PROPOSED_BRANCH="$3"   # 可选
-
-# 查同 parent 的所有 alive sub-issue
-ALIVE=$(multica issue list --output json --limit 200 \
-  | python3 -c "
-import json, sys
-parent = '$PARENT_UUID'
-proposed_branch = '$PROPOSED_BRANCH'
-data = json.load(sys.stdin)
-alive_statuses = {'todo', 'in_progress', 'in_review', 'blocked'}
-matches = []
-for i in data['issues']:
-    if i.get('parent_issue_id') != parent: continue
-    if i.get('status') not in alive_statuses: continue
-    desc = i.get('description','') or ''
-    title = i.get('title','') or ''
-    if proposed_branch and proposed_branch in desc: matches.append(i['identifier'])
-    elif title.strip() == '$PROPOSED_TITLE'.strip(): matches.append(i['identifier'])
-print(','.join(matches))
-")
-
-if [ -n "$ALIVE" ]; then
-  echo "复用已有 sub-issue: $ALIVE（跳过创建）" >&2
-  exit 0  # 上层应 reassign 而非 create
-fi
-```
-
-Scope 同一性判定（任一即视为重复）：
-1. 同 `Branch:` 字段
-2. 同 title（trim 后）
-3. Files-in-scope 重合度 ≥ 80%（拆分阶段才有这个字段）
+Only then is a terminal lifecycle change allowed. Otherwise, keep the issue open and escalate.
 
 <!-- SPECKIT START -->
 ## Spec-Driven Development (spec-kit)
@@ -439,7 +434,7 @@ VitalStride 使用 [spec-kit](https://github.com/github/spec-kit) 管理产品 s
 5. **`docs/adr/`** —— 9 个已落地的架构决策记录。新方向冲突时先写新 ADR 推翻。
 6. 本文件（`AGENTS.md`）—— build/test/git 操作手册。
 
-**新 feature 流程**：`/speckit-specify` → `/speckit-plan` → `/speckit-tasks`，然后通过 `multica-quick-issue` 入 Multica project `7adf8b88`。**`/speckit-implement` 不使用** —— 实现由 Multica TL → FS → Reviewer pipeline 完成（Constitution §Development Workflow）。若新功能已列在 `001-future-roadmap` roadmap 里，从 `001` **fork**（复制方向性 FR 到 `specs/002+`）而非从零 specify。
+**新 feature 流程**：`/speckit-specify` → `/speckit-plan` → `/speckit-tasks`，然后通过 `multica-quick-issue` 入 Multica project `7adf8b88`。**`/speckit-implement` 不使用** —— 实现由 `Planner Lead ⇄ AI Reviewer → Team Lead → Fullstack Engineer ⇄ AI Reviewer → PR Manager → Team Lead` 的 canonical Dev Team pipeline 完成（Constitution §Development Workflow）。若新功能已列在 `001-future-roadmap` roadmap 里，从 `001` **fork**（复制方向性 FR 到 `specs/002+`）而非从零 specify。
 
 **写 spec/plan/tasks 必须**：reference Constitution 章节，不要重述规则。issue 标题 `[T###] [Story] Brief description`。
 <!-- SPECKIT END -->
