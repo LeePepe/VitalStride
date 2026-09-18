@@ -288,10 +288,14 @@ if not target:
 if target.get('author_id') != '24ff66eb-ee5c-4ab4-bd40-5714b6a789f9':
     sys.exit(1)
 content = target.get('content', '')
-if not re.search(r'Verdict:\s*\*{0,2}(PASS|PASS WITH FOLLOW-UP)\b', content):
+verdict_matches = re.findall(r'(?m)^(?:[-*]\s*)?\*{0,2}Verdict:?\*{0,2}\s*:?\s*\*{0,2}(.*?)\*{0,2}\s*$', content)
+if len(verdict_matches) != 1:
     sys.exit(1)
-rev_match = re.search(r'Reviewed revision:\s*\*{0,2}`?([a-f0-9]{40})`?', content)
-if not rev_match or rev_match.group(1) != local_sha:
+verdict = verdict_matches[0].strip(' *`')
+if verdict not in ('PASS', 'PASS WITH FOLLOW-UP'):
+    sys.exit(1)
+rev_matches = re.findall(r'(?m)^(?:[-*]\s*)?\*{0,2}Reviewed revision:?\*{0,2}\s*:?\s*\*{0,2}`?([a-f0-9]{40})`?\*{0,2}\s*$', content)
+if len(rev_matches) != 1 or rev_matches[0] != local_sha:
     sys.exit(1)
 " "$CURRENT_TRIGGER_ID" "$LOCAL_SHA" || exit 1
    
