@@ -191,11 +191,14 @@ The Multica daemon already created the preserved worktree at the task's `deliver
    # Verify all metadata values exist
    [ -n "$DELIVERY_WORK_DIR" ] && [ -n "$DELIVERY_REPO_URL" ] && [ -n "$DELIVERY_BRANCH" ] && [ -n "$DELIVERY_BASE_SHA" ] || exit 1
    
-   # Compare workdir, repository origin, branch, and base planning tree
+   # Compare workdir, normalized repository identity, branch, and base planning tree
    cd "$DELIVERY_WORK_DIR" || exit 1
    CURRENT_ORIGIN=$(git remote get-url origin)
    CURRENT_BRANCH=$(git branch --show-current)
-   [ "$CURRENT_ORIGIN" = "$DELIVERY_REPO_URL" ] || exit 1
+   python3 -c "import sys,re
+f = lambda u: re.sub(r'^(git@github\.com:|https?://github\.com/|/)(.+?)(?:\.git)?/?$', r'\2', u.strip()).lower()
+sys.exit(0 if f(sys.argv[1]) == f(sys.argv[2]) and f(sys.argv[1]) else 1)
+" "$CURRENT_ORIGIN" "$DELIVERY_REPO_URL" || exit 1
    [ "$CURRENT_BRANCH" = "$DELIVERY_BRANCH" ] || exit 1
    git diff --quiet "$DELIVERY_BASE_SHA" -- specs/025-dev-team-delivery-contract || exit 1
    
@@ -266,8 +269,24 @@ The Multica daemon already created the preserved worktree at the task's `deliver
    ```bash
    CURRENT_TRIGGER_ID="<current-trigger-comment-id>"  # resolve from this turn's trigger comment; do not reuse the earlier step 4 trigger
    
-   # Preflight checks: compare local HEAD, remote branch OID, PR headRefOid, and verify parent Dev Team assignment
+   # Verify that the triggering comment contains a valid passing AI Reviewer verdict for LOCAL_SHA
    LOCAL_SHA=$(git rev-parse HEAD)
+   TRIGGER_COMMENT_JSON=$(multica issue comment get "$ISSUE_UUID" "$CURRENT_TRIGGER_ID" --output json 2>/dev/null || multica issue comment list "$ISSUE_UUID" --thread "$CURRENT_TRIGGER_ID" --tail 1 --compact --output json | jq -e '.[0] // .')
+   printf '%s' "$TRIGGER_COMMENT_JSON" | python3 -c "import json,sys,re
+d = json.load(sys.stdin)
+if isinstance(d, list): d = d[0] if d else {}
+author = d.get('author_id','')
+content = d.get('content','')
+if author != '24ff66eb-ee5c-4ab4-bd40-5714b6a789f9':
+    sys.exit(1)
+if not re.search(r'Verdict:\s*\*{0,2}(PASS|PASS WITH FOLLOW-UP)\b', content):
+    sys.exit(1)
+rev_match = re.search(r'Reviewed revision:\s*\*{0,2}`?([a-f0-9]{40})`?', content)
+if not rev_match or rev_match.group(1) != sys.argv[1]:
+    sys.exit(1)
+" "$LOCAL_SHA" || exit 1
+   
+   # Preflight checks: compare local HEAD, remote branch OID, PR headRefOid, and verify parent Dev Team assignment
    REMOTE_SHA=$(git ls-remote origin "refs/heads/${DELIVERY_BRANCH}" | awk '{print $1}')
    PR_HEAD_SHA=$(gh pr view --json headRefOid --repo LeePepe/VitalStride --jq '.headRefOid')
    [ "$LOCAL_SHA" = "$REMOTE_SHA" ] && [ "$LOCAL_SHA" = "$PR_HEAD_SHA" ] || exit 1
@@ -292,7 +311,7 @@ The Multica daemon already created the preserved worktree at the task's `deliver
    # Verify that PR Manager run reaches queued, dispatched, or running; stop and route exact failure evidence to Team Lead if not reached
    echo "$RESULT" | jq -e '.trigger_outcomes[] | select(.target_id == "2cb1cc4f-c50d-40d8-b75b-f29c66552de1" and (.status == "queued" or .status == "dispatched" or .status == "running"))'
    ```
-   Only after the local SHA, remote branch OID, and PR `headRefOid` match the approved review does Fullstack Engineer hand the exact reviewed revision to PR Manager. The handoff must be an explicit PR Manager mention with the exact SHA, parent Dev Team preservation, and verified downstream run evidence; a generic statement about “handing off” is not sufficient. If dispatch fails, preserve valid state and route exact evidence to Team Lead.
+   Only after verifying a genuine AI Reviewer PASS / PASS WITH FOLLOW-UP verdict for `LOCAL_SHA` and confirming that local SHA, remote branch OID, and PR `headRefOid` match the approved review does Fullstack Engineer hand the exact reviewed revision to PR Manager. The handoff must be an explicit PR Manager mention with the exact SHA, parent Dev Team preservation, and verified downstream run evidence; a generic statement about “handing off” is not sufficient. If dispatch fails, preserve valid state and route exact evidence to Team Lead.
 
 **Do** use the preserved `delivery_branch` and exact-candidate worktree. **Never** push `main` directly, and never claim review or shipping PASS without the exact-SHA proof and a real downstream run.
 
