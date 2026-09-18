@@ -157,16 +157,14 @@ struct ActiveWorkoutView: View {
 
         let topContent: AnyView
         if layoutPolicy.usesTopPresentation {
-            let topSnackbar = ActiveWorkoutSnackbarLayout.topLayout(
+            let content = ActiveWorkoutSnackbarLayout.topComposition(
                 snackbarSlot: snackbarSlot,
+                infoBand: infoBand,
                 undoContent: undoContent,
                 restContent: restContent
             )
-            let content = VStack(spacing: 0) {
-                infoBand()
-                topSnackbar
-                    .modifier(ActiveWorkoutFrameCollectorModifier(id: "topPresentation", onFrame: topFrameProbe))
-            }
+            .modifier(ActiveWorkoutFrameCollectorModifier(id: "topPresentation", onFrame: topFrameProbe))
+
             if let topFocused {
                 topContent = AnyView(
                     content
@@ -184,7 +182,7 @@ struct ActiveWorkoutView: View {
         }
 
         let bottomContent: AnyView
-        let bottomSnackbar = ActiveWorkoutSnackbarLayout.slotEnvelope(
+        let bottomPresentation = ActiveWorkoutSnackbarLayout.slotEnvelope(
             snackbarSlot: snackbarSlot,
             undoContent: undoContent,
             restContent: restContent
@@ -200,21 +198,16 @@ struct ActiveWorkoutView: View {
         )
         .padding(.horizontal, Space.cardPadding)
         .padding(.bottom, Space.cardPadding)
-        .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0.001)
-        .allowsHitTesting(layoutPolicy.bottomSafeAreaVisible)
-
-        let fabView = fab()
-            .modifier(ActiveWorkoutFrameCollectorModifier(id: "fab", onFrame: fabFrameProbe))
-            .opacity(layoutPolicy.fabVisible ? 1 : 0)
-            .allowsHitTesting(layoutPolicy.fabVisible)
+        .modifier(ActiveWorkoutFrameCollectorModifier(id: "bottomPresentation", onFrame: bottomFrameProbe))
 
         let bottomSafeAreaLayout = VStack(spacing: 0) {
-            fabView
-            bottomSnackbar
+            fab()
+                .modifier(ActiveWorkoutFrameCollectorModifier(id: "fab", onFrame: fabFrameProbe))
+                .opacity(layoutPolicy.fabVisible ? 1 : 0)
+                .allowsHitTesting(layoutPolicy.fabVisible)
+            bottomPresentation
         }
-        .frame(maxWidth: .infinity, alignment: .bottom)
-        .modifier(ActiveWorkoutFrameCollectorModifier(id: "bottomPresentation", onFrame: bottomFrameProbe))
-        .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0.001)
+        .opacity(layoutPolicy.bottomSafeAreaVisible ? 1 : 0)
         .allowsHitTesting(layoutPolicy.bottomSafeAreaVisible)
 
         if let bottomFocused {

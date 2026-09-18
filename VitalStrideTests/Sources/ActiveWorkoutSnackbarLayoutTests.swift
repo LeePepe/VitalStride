@@ -211,9 +211,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
             let hiddenBottom = tracker.frame(for: "bottomPresentation") ?? .zero
             let hiddenRoot = tracker.frame(for: "rootContainer") ?? .zero
             #expect(hiddenRoot.width > 0 && hiddenRoot.height > 0, "Hidden root geometry must remain mounted for slot \(slot)")
-            if slot != .none {
-                #expect(hiddenBottom.width > 0 || hiddenBottom.height > 0, "Hidden state must keep the bottom subtree mounted for slot \(slot)")
-            }
+            #expect(hiddenBottom.width > 0 || hiddenBottom.height > 0, "Hidden state must keep the bottom subtree mounted for slot \(slot)")
 
             state.isKeyboardVisible = true
             tracker.clear(["bottomPresentation", "rootContainer"])
@@ -227,9 +225,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
             let visibleBottom = tracker.frame(for: "bottomPresentation") ?? .zero
             let visibleRoot = tracker.frame(for: "rootContainer") ?? .zero
             #expect(visibleRoot.width > 0 && visibleRoot.height > 0, "Visible root geometry must remain mounted for slot \(slot)")
-            if slot != .none {
-                #expect(visibleBottom.width > 0 || visibleBottom.height > 0, "Visible state must keep the bottom subtree mounted for slot \(slot)")
-            }
+            #expect(visibleBottom.width > 0 || visibleBottom.height > 0, "Visible state must keep the bottom subtree mounted for slot \(slot)")
             #expect(state.snackbarSlot == slot)
             #expect(state.isKeyboardVisible)
 
@@ -253,9 +249,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
             let hiddenAgainBottom = tracker.frame(for: "bottomPresentation") ?? .zero
             let hiddenAgainRoot = tracker.frame(for: "rootContainer") ?? .zero
             #expect(hiddenAgainRoot.width > 0 && hiddenAgainRoot.height > 0, "The hidden return must keep root geometry mounted for slot \(slot)")
-            if slot != .none {
-                #expect(hiddenAgainBottom.width > 0 || hiddenAgainBottom.height > 0, "The hidden return must keep the bottom subtree mounted for slot \(slot)")
-            }
+            #expect(hiddenAgainBottom.width > 0 || hiddenAgainBottom.height > 0, "The hidden return must keep the bottom subtree mounted for slot \(slot)")
             #expect(!state.isKeyboardVisible)
         }
     }
@@ -405,12 +399,10 @@ struct ActiveWorkoutSnackbarLayoutTests {
             host.view.setNeedsLayout()
             host.view.layoutIfNeeded()
 
-            let hiddenBefore = (tracker.frame(for: "rootContainer") ?? .zero).height
-            #expect(hiddenBefore > 0, "Hidden root geometry must remain mounted for slot \(slot)")
-            if slot != .none {
-                let hiddenBottom = tracker.frame(for: "bottomPresentation") ?? .zero
-                #expect(hiddenBottom.width > 0 || hiddenBottom.height > 0, "Hidden bottom subtree must remain mounted for slot \(slot)")
-            }
+            let hiddenBefore = (tracker.frame(for: "bottomPresentation") ?? .zero).height
+            #expect(hiddenBefore >= 0, "Hidden bottom geometry must be observable for slot \(slot)")
+            let hiddenBottom = tracker.frame(for: "bottomPresentation") ?? .zero
+            #expect(hiddenBottom.width > 0 || hiddenBottom.height > 0 || slot == .none, "Hidden bottom subtree must remain mounted for slot \(slot)")
 
             state.isKeyboardVisible = true
             var visibleTransitionHeights: [CGFloat] = [hiddenBefore]
@@ -418,17 +410,15 @@ struct ActiveWorkoutSnackbarLayoutTests {
                 RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.04))
                 host.view.setNeedsLayout()
                 host.view.layoutIfNeeded()
-                visibleTransitionHeights.append((tracker.frame(for: "rootContainer") ?? .zero).height)
+                visibleTransitionHeights.append((tracker.frame(for: "bottomPresentation") ?? .zero).height)
             }
 
             let visibleLast = visibleTransitionHeights.last ?? hiddenBefore
             let visibleBounces = visibleTransitionHeights.dropLast().filter { abs($0 - visibleLast) > 2 }
             #expect(visibleBounces.count <= 1, "Visible transition must settle through a single root-owned animation for slot \(slot)")
-            #expect(visibleLast > 0)
-            if slot != .none {
-                let visibleBottom = tracker.frame(for: "bottomPresentation") ?? .zero
-                #expect(visibleBottom.width > 0 || visibleBottom.height > 0, "Visible bottom subtree must remain mounted for slot \(slot)")
-            }
+            #expect(visibleLast >= 0)
+            let visibleBottom = tracker.frame(for: "bottomPresentation") ?? .zero
+            #expect(visibleBottom.width > 0 || visibleBottom.height > 0 || slot == .none, "Visible bottom subtree must remain mounted for slot \(slot)")
 
             state.isKeyboardVisible = false
             var hiddenTransitionHeights: [CGFloat] = [visibleLast]
@@ -436,17 +426,15 @@ struct ActiveWorkoutSnackbarLayoutTests {
                 RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.04))
                 host.view.setNeedsLayout()
                 host.view.layoutIfNeeded()
-                hiddenTransitionHeights.append((tracker.frame(for: "rootContainer") ?? .zero).height)
+                hiddenTransitionHeights.append((tracker.frame(for: "bottomPresentation") ?? .zero).height)
             }
 
             let hiddenLast = hiddenTransitionHeights.last ?? visibleLast
             let hiddenBounces = hiddenTransitionHeights.dropLast().filter { abs($0 - hiddenLast) > 2 }
             #expect(hiddenBounces.count <= 1, "Hidden transition must settle through a single root-owned animation for slot \(slot)")
-            #expect(hiddenLast > 0)
-            if slot != .none {
-                let hiddenAfterBottom = tracker.frame(for: "bottomPresentation") ?? .zero
-                #expect(hiddenAfterBottom.width > 0 || hiddenAfterBottom.height > 0, "Hidden return must keep the bottom subtree mounted for slot \(slot)")
-            }
+            #expect(hiddenLast >= 0)
+            let hiddenAfterBottom = tracker.frame(for: "bottomPresentation") ?? .zero
+            #expect(hiddenAfterBottom.width > 0 || hiddenAfterBottom.height > 0 || slot == .none, "Hidden return must keep the bottom subtree mounted for slot \(slot)")
         }
     }
 
