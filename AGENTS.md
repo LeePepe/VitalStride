@@ -217,7 +217,9 @@ The Multica daemon already created the preserved worktree at the task's `deliver
 
 4. **Publish the exact-SHA AI Reviewer request, then verify its run**
    ```bash
-   TRIGGER_ID="<trigger-comment-id>"  # use the active thread's comment ID for this run; do not reuse a prior parent from another turn
+   CURRENT_TRIGGER_ID="<current-trigger-comment-id>"  # resolve from the active turn's trigger comment; do not reuse a prior parent from another turn
+   # Verify parent assignment remains Dev Team
+   multica issue get "$ISSUE_UUID" --output json | jq -e '.assignee_id != null'
    SHA=$(git rev-parse HEAD)
    printf '%s\n' \
      "Candidate revision: $SHA" \
@@ -230,13 +232,18 @@ The Multica daemon already created the preserved worktree at the task's `deliver
      "This is the exact-candidate review request." \
      "" \
      "[@AI Reviewer](mention://agent/24ff66eb-ee5c-4ab4-bd40-5714b6a789f9)" > reply.md
-   multica issue comment add "$ISSUE_UUID" --parent "$TRIGGER_ID" --content-file ./reply.md
+   RESULT=$(multica issue comment add "$ISSUE_UUID" --parent "$CURRENT_TRIGGER_ID" --content-file ./reply.md --output json)
    rm ./reply.md
+   # Verify that AI Reviewer run reaches queued, dispatched, or running; stop and route exact failure evidence to Team Lead if not reached
+   echo "$RESULT" | jq -e '.trigger_outcomes[] | select(.target_id == "24ff66eb-ee5c-4ab4-bd40-5714b6a789f9" and (.status == "queued" or .status == "dispatched" or .status == "running"))'
    ```
-   The exact-review request must carry the candidate SHA and the identity proof; a generic PR URL or bare assignment is not valid proof of dispatch. The mention must create a queued/dispatched/running Reviewer run before the issue is treated as review-ready, and the parent must be the current trigger comment rather than a stale ID from an earlier turn.
+   The exact-review request must carry the candidate SHA and the identity proof; a generic PR URL or bare assignment is not valid proof of dispatch. The mention must create a queued/dispatched/running Reviewer run before the candidate is treated as review-ready, and the parent must be the current trigger comment rather than a stale ID from an earlier turn. If dispatch fails or trigger outcome is missing, preserve valid state and route exact evidence to Team Lead.
 
 5. **After a passing verdict, recheck the reviewed SHA and hand off to PR Manager**
    ```bash
+   CURRENT_TRIGGER_ID="<current-trigger-comment-id>"  # resolve from this turn's trigger comment; do not reuse the earlier step 4 trigger
+   # Verify parent assignment remains Dev Team
+   multica issue get "$ISSUE_UUID" --output json | jq -e '.assignee_id != null'
    git rev-parse HEAD
    git ls-remote origin "refs/heads/${DELIVERY_BRANCH}"
    gh pr view <PR_NUM> --json number,headRefName,headRefOid,url
@@ -252,10 +259,12 @@ The Multica daemon already created the preserved worktree at the task's `deliver
      "This is the final exact-SHA handoff to PR Manager." \
      "" \
      "[@PR Manager](mention://agent/2cb1cc4f-c50d-40d8-b75b-f29c66552de1)" > reply.md
-   multica issue comment add "$ISSUE_UUID" --parent "$TRIGGER_ID" --content-file ./reply.md
+   RESULT=$(multica issue comment add "$ISSUE_UUID" --parent "$CURRENT_TRIGGER_ID" --content-file ./reply.md --output json)
    rm ./reply.md
+   # Verify that PR Manager run reaches queued, dispatched, or running; stop and route exact failure evidence to Team Lead if not reached
+   echo "$RESULT" | jq -e '.trigger_outcomes[] | select(.target_id == "2cb1cc4f-c50d-40d8-b75b-f29c66552de1" and (.status == "queued" or .status == "dispatched" or .status == "running"))'
    ```
-   Only after the local SHA, remote branch OID, and PR `headRefOid` match the approved review does Fullstack Engineer hand the exact reviewed revision to PR Manager. The handoff must be an explicit PR Manager mention with the exact SHA and verified downstream run evidence; a generic statement about “handing off” is not sufficient.
+   Only after the local SHA, remote branch OID, and PR `headRefOid` match the approved review does Fullstack Engineer hand the exact reviewed revision to PR Manager. The handoff must be an explicit PR Manager mention with the exact SHA, parent Dev Team preservation, and verified downstream run evidence; a generic statement about “handing off” is not sufficient. If dispatch fails, preserve valid state and route exact evidence to Team Lead.
 
 **Do** use the preserved `delivery_branch` and exact-candidate worktree. **Never** push `main` directly, and never claim review or shipping PASS without the exact-SHA proof and a real downstream run.
 
@@ -283,8 +292,8 @@ When the issue is in `in_progress` / `in_review`, Team Lead owns the delivery co
    - Team Lead keeps the issue fail-closed, verifies the downstream run exists, and escalates ambiguous or exceptional failures
 
 4. **Recovery and escalation rules**
-   - if workdir metadata, branch identity, or SHA proof is missing or mismatched, route directly to Team Lead recovery and require a fresh exact candidate before continuing
-   - if dispatch fails, a review is `CHANGES_REQUESTED`, or the evidence is conflicting/ambiguous, route directly to Team Lead recovery instead of shipping
+   - if workdir metadata, branch identity, or SHA proof is missing or mismatched, or if dispatch fails, preserve valid state and route directly to Team Lead recovery
+   - supported in-scope review findings (`CHANGES_REQUESTED` or `FAIL`) route directly through the `Fullstack Engineer ⇄ AI Reviewer` refinement loop without Team Lead intervention
    - conflicting evidence, policy disagreements, permission/infrastructure issues, repeated repair, failed dispatch, and merge conflicts go directly to Team Lead escalation; they are not treated as normal shipping work
    - PR Manager owns the final merge-ready approval and required cleanup; Team Lead does not own the normal merge gate or suppress the final handoff to PR Manager
    - a candidate PR alone is not closure evidence; only a verified PR Manager handoff proving delivery and cleanup may close the lifecycle
@@ -310,16 +319,19 @@ When the issue is in `in_progress` / `in_review`, Team Lead owns the delivery co
 
 ### Required recovery routing
 
-- **Patch-induced or review-induced failures**: Fullstack Engineer repairs the in-scope findings and publishes a fresh exact candidate revision. The review cycle repeats with the same scope and exact SHA proof.
-- **Missing or mismatched identity proof, failed dispatch, conflicting evidence, permissions/infrastructure issues, policy disagreement, repeated repair, or merge/branch ambiguity**: Team Lead owns the recovery escalation and requires a fresh exact candidate before continuing. Preserve valid state and do not silently drift to a new branch or duplicate candidate PR.
-- **Clear implementation-owned code / build / test / lint / required-check failures after a passing exact review**: route through `PR Manager → Fullstack Engineer ⇄ AI Reviewer → PR Manager` as the normal shipping loop. Team Lead stays in the recovery path only for governance, permission, identity, dispatch, or repeated-repair issues.
+- **Review-induced findings (`CHANGES_REQUESTED` / `FAIL`)**: Fullstack Engineer repairs supported in-scope findings directly and publishes a fresh exact candidate revision. The review cycle repeats through `Fullstack Engineer ⇄ AI Reviewer` with the same scope and exact SHA proof.
+- **Missing or mismatched identity proof, failed dispatch, conflicting evidence, permissions/infrastructure issues, policy disagreement, repeated repair, or merge/branch ambiguity**: Team Lead owns the recovery escalation and requires a fresh exact candidate before continuing. Preserve valid candidate state and worktree evidence; do not silently drift to a new branch or duplicate candidate PR.
+- **Clear implementation-owned code / build / test / lint / required-check failures after a passing exact review**: route through `PR Manager → Fullstack Engineer ⇄ AI Reviewer → PR Manager` as the normal shipping repair loop. Team Lead stays in the recovery path only for governance, permission, identity, dispatch, policy, or repeated-repair issues.
 - **PR Manager shipping/cleanup**: only after a passing exact-revision verdict and a verified PR handoff proving the reviewed SHA was shipped and cleaned up.
 - **No normal Team Lead merge/cleanup ownership**: Team Lead validates readiness, scheduling, recovery, and lifecycle closure; PR Manager owns shipping and cleanup. There is no alternate merge path.
 
 ### PR-2 / PR-3 operational controls
 
-- **PR-2: idempotent recovery / sub-issue repair**: when a recovery path reuses a frozen delivery branch or reissues a review request, the same issue must not create a duplicate repair stream. Reuse the preserved branch, update the same PR, and classify the run as a repair of the current candidate rather than a new workstream; this is the constitutional sub-issue idempotency control.
-- **PR-3: run-count classification**: count each retry as a distinct `run_attempts` record only when it changes the candidate SHA or the preserved branch state; classify repeated infrastructure or permission failures as `infra_failures` and keep them separate from the valid candidate PR run so the workflow stays deterministic and the issue does not silently drift.
+- **PR-2: sub-issue idempotency / duplicate sibling prevention**: before creating sub-issues, Planner Lead / Team Lead must check all alive (`todo`/`in_progress`/`in_review`/`blocked`) sub-issues under the same parent. If scope overlaps (same branch, matching title trim, or ≥80% overlapping files), reuse the existing sub-issue rather than creating a duplicate sibling.
+- **PR-3: run-count guard classification (`run_attempts` vs `infra_failures`)**:
+  - `run_attempts` (budgeted, default 15): code-review iterations, patch-induced test/build failures, and implementation refinements.
+  - `infra_failures` (unbudgeted): CLI routing errors, runtime crashes, quarantined flakes, auth, network, and platform infrastructure faults.
+  Do not count infrastructure failures against the implementation run-attempt budget.
 
 ### Exact-revision proof required before any handoff
 

@@ -29,7 +29,8 @@ This made the active delivery contract harder to audit, especially for RepoInfra
 2. **Exact-revision and workdir fail-closed proof**
    - The issue must carry the four `delivery_*` keys: `delivery_repo_url`, `delivery_work_dir`, `delivery_branch`, and `delivery_base_sha`.
    - `delivery_base_sha` must be the reviewed planning SHA and must remain the immutable planning baseline for the inherited `specs/025-dev-team-delivery-contract/**` folder.
-   - Before any review or shipping handoff, the local `HEAD` must match the pushed branch OID and the PR `headRefOid`; mismatches are blockers, not warnings.
+   - For planning review, the exact published planning revision SHA is required without requiring a planning PR.
+   - Before implementation review and shipping handoff, the local `HEAD` must match the pushed branch OID and the PR `headRefOid`; mismatches are blockers, not warnings.
    - Missing or mismatched workdir metadata, branch identity, or exact SHA causes the issue to route back to Team Lead instead of silently moving forward.
 
 3. **Dispatch proof is run evidence, not assignment text**
@@ -53,8 +54,8 @@ This made the active delivery contract harder to audit, especially for RepoInfra
      - `changed-SHA`: the issue re-enters `implementation` or `failed-dispatch` flow for a fresh exact-candidate publication and a new AI Reviewer request; the old SHA is not reused as valid evidence.
      - `failed-dispatch`: Team Lead re-classifies the root cause and requires a fresh exact-candidate run; no silent handoff is accepted.
      - `mismatched-workdir`: the issue routes back to Team Lead recovery and requires a preserved workdir/branch/SHA proof before continued work.
-   - A shipping failure or repository-check failure routes `PR Manager → Fullstack Engineer ⇄ AI Reviewer → PR Manager` with the same scope and a fresh exact-revision review.
-   - Conflicting evidence, ambiguous ownership, policy/content decisions, permissions, infrastructure, repeated repair, and merge conflicts route to Team Lead.
+   - A clearly implementation-owned code, build, test, lint, or required-check shipping failure routes `PR Manager → Fullstack Engineer ⇄ AI Reviewer → PR Manager` with the same scope and a fresh exact-revision review.
+   - Conflicting evidence, ambiguous ownership, policy/content decisions, permissions, infrastructure, failed dispatch, identity mismatch, repeated repair, and merge conflicts route directly to Team Lead.
 
 ## Consequences
 
