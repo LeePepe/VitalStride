@@ -179,7 +179,7 @@ count is 0. See
 
 The Multica daemon already created the preserved worktree at the task's `delivery_work_dir`. **Do NOT create another worktree.** Work only in that preserved checkout.
 
-1. **Resolve the persisted delivery identity**
+1. **Resolve and verify the persisted delivery identity**
    ```bash
    ISSUE_UUID="<issue-id>"
    ISSUE_JSON=$(multica issue get "$ISSUE_UUID" --output json)
@@ -187,12 +187,27 @@ The Multica daemon already created the preserved worktree at the task's `deliver
    DELIVERY_REPO_URL=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('metadata',{}).get('delivery_repo_url',''))")
    DELIVERY_BRANCH=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('metadata',{}).get('delivery_branch',''))")
    DELIVERY_BASE_SHA=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('metadata',{}).get('delivery_base_sha',''))")
-   cd "$DELIVERY_WORK_DIR"
-   git rev-parse --verify HEAD
-   git remote get-url origin
-   git branch --show-current
+   
+   # Verify all metadata values exist
+   [ -n "$DELIVERY_WORK_DIR" ] && [ -n "$DELIVERY_REPO_URL" ] && [ -n "$DELIVERY_BRANCH" ] && [ -n "$DELIVERY_BASE_SHA" ] || exit 1
+   
+   # Compare workdir, repository origin, branch, and base planning tree
+   cd "$DELIVERY_WORK_DIR" || exit 1
+   CURRENT_ORIGIN=$(git remote get-url origin)
+   CURRENT_BRANCH=$(git branch --show-current)
+   [ "$CURRENT_ORIGIN" = "$DELIVERY_REPO_URL" ] || exit 1
+   [ "$CURRENT_BRANCH" = "$DELIVERY_BRANCH" ] || exit 1
+   git diff --quiet "$DELIVERY_BASE_SHA" -- specs/025-dev-team-delivery-contract || exit 1
+   
+   # Verify parent issue assignment remains Dev Team squad
+   PARENT_ID=$(printf '%s' "$ISSUE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('parent_issue_id',''))")
+   [ -n "$PARENT_ID" ] || exit 1
+   PARENT_JSON=$(multica issue get "$PARENT_ID" --output json)
+   PARENT_ASSIGNEE_TYPE=$(printf '%s' "$PARENT_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('assignee_type',''))")
+   PARENT_ASSIGNEE_ID=$(printf '%s' "$PARENT_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('assignee_id',''))")
+   [ "$PARENT_ASSIGNEE_TYPE" = "squad" ] && [ "$PARENT_ASSIGNEE_ID" = "741fb417-c6b0-4df7-b505-03396ccbf77b" ] || exit 1
    ```
-   If any `delivery_*` value is missing or mismatched, stop and return the issue to Team Lead recovery; do not synthesize a new branch or drift away from the preserved worktree.
+   If any `delivery_*` value is missing or mismatched, or parent assignment is lost, stop and return the issue to Team Lead recovery; do not synthesize a new branch or drift away from the preserved worktree.
 
 2. **Implement and commit inside the preserved branch**
    ```bash
@@ -218,11 +233,19 @@ The Multica daemon already created the preserved worktree at the task's `deliver
 4. **Publish the exact-SHA AI Reviewer request, then verify its run**
    ```bash
    CURRENT_TRIGGER_ID="<current-trigger-comment-id>"  # resolve from the active turn's trigger comment; do not reuse a prior parent from another turn
-   # Verify parent assignment remains Dev Team
-   multica issue get "$ISSUE_UUID" --output json | jq -e '.assignee_id != null'
-   SHA=$(git rev-parse HEAD)
+   
+   # Preflight checks: compare local HEAD, remote branch OID, PR headRefOid, and verify parent Dev Team assignment
+   LOCAL_SHA=$(git rev-parse HEAD)
+   REMOTE_SHA=$(git ls-remote origin "refs/heads/${DELIVERY_BRANCH}" | awk '{print $1}')
+   PR_HEAD_SHA=$(gh pr view --json headRefOid --repo LeePepe/VitalStride --jq '.headRefOid')
+   [ "$LOCAL_SHA" = "$REMOTE_SHA" ] && [ "$LOCAL_SHA" = "$PR_HEAD_SHA" ] || exit 1
+   git diff --quiet "$DELIVERY_BASE_SHA" -- specs/025-dev-team-delivery-contract || exit 1
+   
+   PARENT_JSON=$(multica issue get "$PARENT_ID" --output json)
+   [ "$(printf '%s' "$PARENT_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('assignee_id',''))")" = "741fb417-c6b0-4df7-b505-03396ccbf77b" ] || exit 1
+   
    printf '%s\n' \
-     "Candidate revision: $SHA" \
+     "Candidate revision: $LOCAL_SHA" \
      "Preserved delivery proof:" \
      "- workdir: $DELIVERY_WORK_DIR" \
      "- repo: $DELIVERY_REPO_URL" \
@@ -242,14 +265,19 @@ The Multica daemon already created the preserved worktree at the task's `deliver
 5. **After a passing verdict, recheck the reviewed SHA and hand off to PR Manager**
    ```bash
    CURRENT_TRIGGER_ID="<current-trigger-comment-id>"  # resolve from this turn's trigger comment; do not reuse the earlier step 4 trigger
-   # Verify parent assignment remains Dev Team
-   multica issue get "$ISSUE_UUID" --output json | jq -e '.assignee_id != null'
-   git rev-parse HEAD
-   git ls-remote origin "refs/heads/${DELIVERY_BRANCH}"
-   gh pr view <PR_NUM> --json number,headRefName,headRefOid,url
-   SHA=$(git rev-parse HEAD)
+   
+   # Preflight checks: compare local HEAD, remote branch OID, PR headRefOid, and verify parent Dev Team assignment
+   LOCAL_SHA=$(git rev-parse HEAD)
+   REMOTE_SHA=$(git ls-remote origin "refs/heads/${DELIVERY_BRANCH}" | awk '{print $1}')
+   PR_HEAD_SHA=$(gh pr view --json headRefOid --repo LeePepe/VitalStride --jq '.headRefOid')
+   [ "$LOCAL_SHA" = "$REMOTE_SHA" ] && [ "$LOCAL_SHA" = "$PR_HEAD_SHA" ] || exit 1
+   git diff --quiet "$DELIVERY_BASE_SHA" -- specs/025-dev-team-delivery-contract || exit 1
+   
+   PARENT_JSON=$(multica issue get "$PARENT_ID" --output json)
+   [ "$(printf '%s' "$PARENT_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('assignee_id',''))")" = "741fb417-c6b0-4df7-b505-03396ccbf77b" ] || exit 1
+   
    printf '%s\n' \
-     "Reviewed revision: $SHA" \
+     "Reviewed revision: $LOCAL_SHA" \
      "Identity proof:" \
      "- workdir: $DELIVERY_WORK_DIR" \
      "- repo: $DELIVERY_REPO_URL" \
@@ -278,7 +306,7 @@ When the issue is in `in_progress` / `in_review`, Team Lead owns the delivery co
    git ls-remote origin "refs/heads/${DELIVERY_BRANCH}"
    gh pr view <PR_NUM> --json number,headRefName,headRefOid,url
    ```
-   Confirm the exact SHA is the same local HEAD, pushed branch OID, and PR `headRefOid`. If any value mismatches, the issue routes directly to Team Lead recovery and requires a fresh exact candidate before continuing.
+   Confirm the exact SHA is the same local HEAD, pushed branch OID, and PR `headRefOid`. If any value mismatches, or if dispatch failed on an unchanged candidate, the issue routes directly to Team Lead recovery. Team Lead recovers and revalidates proof/run evidence for unchanged candidates, while a fresh exact candidate SHA is required only after authorized content changes.
 
 2. **Check the issue/branch/workdir contract**
    - confirm `delivery_repo_url`, `delivery_work_dir`, `delivery_branch`, and `delivery_base_sha` exist and match the preserved worktree
@@ -320,7 +348,7 @@ When the issue is in `in_progress` / `in_review`, Team Lead owns the delivery co
 ### Required recovery routing
 
 - **Review-induced findings (`CHANGES_REQUESTED` / `FAIL`)**: Fullstack Engineer repairs supported in-scope findings directly and publishes a fresh exact candidate revision. The review cycle repeats through `Fullstack Engineer ⇄ AI Reviewer` with the same scope and exact SHA proof.
-- **Missing or mismatched identity proof, failed dispatch, conflicting evidence, permissions/infrastructure issues, policy disagreement, repeated repair, or merge/branch ambiguity**: Team Lead owns the recovery escalation and requires a fresh exact candidate before continuing. Preserve valid candidate state and worktree evidence; do not silently drift to a new branch or duplicate candidate PR.
+- **Missing or mismatched identity proof, failed dispatch, conflicting evidence, permissions/infrastructure issues, policy disagreement, repeated repair, or merge/branch ambiguity**: Team Lead owns the recovery escalation. Preserve valid candidate state and worktree evidence; revalidate proof and downstream runs without invalidating unchanged worktree/commit/PR content, and reserve new candidate SHAs for authorized content repairs. Do not silently drift to a new branch or duplicate candidate PR.
 - **Clear implementation-owned code / build / test / lint / required-check failures after a passing exact review**: route through `PR Manager → Fullstack Engineer ⇄ AI Reviewer → PR Manager` as the normal shipping repair loop. Team Lead stays in the recovery path only for governance, permission, identity, dispatch, policy, or repeated-repair issues.
 - **PR Manager shipping/cleanup**: only after a passing exact-revision verdict and a verified PR handoff proving the reviewed SHA was shipped and cleaned up.
 - **No normal Team Lead merge/cleanup ownership**: Team Lead validates readiness, scheduling, recovery, and lifecycle closure; PR Manager owns shipping and cleanup. There is no alternate merge path.
