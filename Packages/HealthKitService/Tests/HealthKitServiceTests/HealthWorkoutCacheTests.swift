@@ -802,6 +802,50 @@ struct HealthWorkoutCacheTests {
         #expect(provider.accepted.last?.checkpoint?.anchorData == prepared.checkpoint?.anchorData)
     }
 
+    @Test("Owner cancellation fails owner and attached coalesced waiters while rejecting unaccepted prepared fetch")
+    func ownerCancellationFailsOwnerAndWaiters() async throws {
+        let base = Date()
+        let range = DateInterval(start: base.addingTimeInterval(-2 * 3600), end: base)
+        let prepared = PreparedWorkoutFetch(
+            workouts: [makeWorkout(date: base.addingTimeInterval(-1800))],
+            deletedObjectIDs: [],
+            source: .explicitRangeSnapshot,
+            coverage: range,
+            checkpoint: makeCheckpoint(value: 123)
+        )
+        let provider = BarrierPreparedWorkoutProvider()
+        provider.register(prepared, for: range, gate: true)
+
+        let cache = HealthDataCache(
+            dataProvider: makeMockDataProvider(),
+            workoutProvider: provider
+        )
+
+        let ownerTask = Task { try await cache.workoutData(in: range) }
+        await Task.yield()
+        let waiterTask = Task { try await cache.workoutData(in: range) }
+        await Task.yield()
+
+        ownerTask.cancel()
+        provider.release(for: range)
+
+        do {
+            _ = try await ownerTask.value
+            Issue.record("cancelled owner should throw CancellationError")
+        } catch is CancellationError {
+        }
+
+        do {
+            _ = try await waiterTask.value
+            Issue.record("waiter attached to cancelled owner should throw CancellationError")
+        } catch is CancellationError {
+        }
+
+        #expect(provider.rejected.count == 1)
+        #expect(provider.accepted.isEmpty)
+        #expect(await !cache.hasWorkoutCache())
+    }
+
     @Test("Failure preserves the previously accepted cache and checkpoint pair")
     func failurePreservesPreviouslyAcceptedCacheAndCheckpoint() async throws {
         let baseline = makeWorkout(date: Date().addingTimeInterval(-120))

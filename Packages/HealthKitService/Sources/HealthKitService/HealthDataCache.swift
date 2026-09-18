@@ -91,10 +91,12 @@ public actor HealthDataCache {
     }
 
     private struct WorkoutFetchKey: Hashable {
+        let semantic: WorkoutAnchorSource
         let rangeStart: Date?
         let rangeEnd: Date?
 
-        init(_ dateRange: DateInterval?) {
+        init(semantic: WorkoutAnchorSource, dateRange: DateInterval?) {
+            self.semantic = semantic
             self.rangeStart = dateRange?.start
             self.rangeEnd = dateRange?.end
         }
@@ -804,15 +806,25 @@ public actor HealthDataCache {
     }
 
     private static func workoutEntryCompatible(_ entry: WorkoutCacheEntry, for requestedRange: DateInterval?) -> Bool {
-        guard let requestedRange else {
-            return true
+        if requestedRange == nil {
+            switch entry.provenance {
+            case .baselineSnapshot, .anchoredChanges, .legacyFetch:
+                return true
+            case .explicitRangeSnapshot:
+                return false
+            }
         }
 
         guard let cachedRange = workoutCoverage(for: entry) else {
             return false
         }
 
-        return coversWorkoutRange(cachedRange, requested: requestedRange)
+        switch entry.provenance {
+        case .explicitRangeSnapshot:
+            return coversWorkoutRange(cachedRange, requested: requestedRange)
+        case .baselineSnapshot, .anchoredChanges, .legacyFetch:
+            return coversWorkoutRange(cachedRange, requested: requestedRange)
+        }
     }
 
     private static func coversWorkoutRange(
@@ -845,6 +857,20 @@ public actor HealthDataCache {
         Date().timeIntervalSince(fetchedAt) > ttl
     }
 
+    private static func isCheckpointStale(
+        candidate: WorkoutAnchorCheckpoint,
+        current: WorkoutAnchorCheckpoint
+    ) -> Bool {
+        // Deterministic anchor ordering is the sole stale signal here. A stale
+        // prepared result may be produced by a prior request that was issued on a
+        // different cadence, and we must not allow a newer wall-clock timestamp to
+        // mask an older anchor pair. The cache treats an older anchor pair as stale
+        // even when the sampled `lastSyncDate` differs only by timing noise.
+        if candidate.anchorData == current.anchorData {
+            return false
+        }
+        return candidate.anchorData.lexicographicallyPrecedes(current.anchorData)
+    }
 
     // MARK: - Private Workout Helpers
 
@@ -852,22 +878,24 @@ public actor HealthDataCache {
         dateRange: DateInterval?,
         provider: any WorkoutDataProviding
     ) async throws -> [HealthWorkoutRecord] {
-        let key = WorkoutFetchKey(dateRange)
+        let baseline = self.workoutCache
+        let semantic: WorkoutAnchorSource = if dateRange != nil {
+            .explicitRangeSnapshot
+        } else if baseline != nil {
+            .anchoredChanges
+        } else {
+            .baselineSnapshot
+        }
+        let key = WorkoutFetchKey(semantic: semantic, dateRange: dateRange)
         if let existingTask = workoutInFlightFetches[key] {
-            let waiter = Task.detached(priority: .userInitiated) {
-                try await existingTask.value
-            }
-            do {
-                let result = try await waiter.value
-                if Task.isCancelled {
-                    throw CancellationError()
-                }
-                return result
-            } catch let error as CancellationError {
-                throw error
-            } catch {
-                throw error
-            }
+            return try await withTaskCancellationHandler(operation: {
+                try Task.checkCancellation()
+                let value = try await existingTask.value
+                try Task.checkCancellation()
+                return value
+            }, onCancel: {
+                // Coalesced waiters cancel themselves without disrupting the owning fetch.
+            })
         }
         return try await performWorkoutFetch(dateRange: dateRange, provider: provider)
     }
@@ -881,13 +909,21 @@ public actor HealthDataCache {
         let start = ContinuousClock.now
         workoutGeneration += 1
         let fetchGeneration = workoutGeneration
-        let key = WorkoutFetchKey(dateRange)
+        let baseline = self.workoutCache
+        let semantic: WorkoutAnchorSource = if dateRange != nil {
+            .explicitRangeSnapshot
+        } else if baseline != nil {
+            .anchoredChanges
+        } else {
+            .baselineSnapshot
+        }
+        let key = WorkoutFetchKey(semantic: semantic, dateRange: dateRange)
         let requestID = UUID()
         workoutRequestOwners[key] = WorkoutRequestOwner(generation: fetchGeneration, requestID: requestID)
 
-        let task = Task { [dateRange, provider, requestID, key] in
+        let task = Task { [dateRange, provider, requestID, key, fetchGeneration] in
             if let preparedProvider = provider as? any WorkoutPreparedDataProviding {
-                let baseline = await self.workoutCache
+                let baseline = self.workoutCache
                 let prepared: PreparedWorkoutFetch
                 do {
                     if dateRange != nil {
@@ -907,22 +943,24 @@ public actor HealthDataCache {
                     requestedRange: dateRange
                 )
 
-                guard await self.workoutGeneration == fetchGeneration,
-                      await self.workoutRequestOwners[key]?.generation == fetchGeneration,
-                      await self.workoutRequestOwners[key]?.requestID == requestID
+                let currentCheckpoint = self.workoutCache?.checkpoint
+                    ?? (provider as? any WorkoutCheckpointTracking)?.currentWorkoutCheckpoint()
+                if let currentCheckpoint,
+                   let preparedCheckpoint = prepared.checkpoint,
+                   Self.isCheckpointStale(candidate: preparedCheckpoint, current: currentCheckpoint) {
+                    preparedProvider.rejectPreparedWorkoutFetch(prepared)
+                    throw CancellationError()
+                }
+
+                guard self.workoutGeneration == fetchGeneration,
+                      self.workoutRequestOwners[key]?.generation == fetchGeneration,
+                      self.workoutRequestOwners[key]?.requestID == requestID
                 else {
                     preparedProvider.rejectPreparedWorkoutFetch(prepared)
                     throw CancellationError()
                 }
 
                 if Task.isCancelled {
-                    preparedProvider.rejectPreparedWorkoutFetch(prepared)
-                    throw CancellationError()
-                }
-
-                if let currentCheckpoint = (preparedProvider as? any WorkoutCheckpointTracking)?.currentWorkoutCheckpoint(),
-                   let preparedCheckpoint = prepared.checkpoint,
-                   preparedCheckpoint.anchorData.lexicographicallyPrecedes(currentCheckpoint.anchorData) {
                     preparedProvider.rejectPreparedWorkoutFetch(prepared)
                     throw CancellationError()
                 }
@@ -941,8 +979,8 @@ public actor HealthDataCache {
                     provenance: provenance,
                     checkpoint: prepared.checkpoint
                 )
-                await self.workoutCache = publishedEntry
-                await self.workoutRequestOwners[key] = WorkoutRequestOwner(
+                self.workoutCache = publishedEntry
+                self.workoutRequestOwners[key] = WorkoutRequestOwner(
                     generation: fetchGeneration,
                     requestID: requestID
                 )
@@ -952,14 +990,17 @@ public actor HealthDataCache {
             }
 
             let result = try await provider.fetchWorkouts(dateRange: dateRange)
-            guard await self.workoutGeneration == fetchGeneration,
-                  await self.workoutRequestOwners[key]?.generation == fetchGeneration,
-                  await self.workoutRequestOwners[key]?.requestID == requestID
+            guard self.workoutGeneration == fetchGeneration,
+                  self.workoutRequestOwners[key]?.generation == fetchGeneration,
+                  self.workoutRequestOwners[key]?.requestID == requestID
             else {
                 throw CancellationError()
             }
+            if Task.isCancelled {
+                throw CancellationError()
+            }
             let workouts = result.workouts
-            await self.workoutCache = WorkoutCacheEntry(
+            self.workoutCache = WorkoutCacheEntry(
                 workouts: workouts,
                 coveredRange: dateRange,
                 provenance: .legacyFetch,
@@ -971,14 +1012,11 @@ public actor HealthDataCache {
         workoutInFlightFetches[key] = task
 
         do {
-            let workouts = try await withTaskCancellationHandler(
-                operation: {
-                    try await task.value
-                },
-                onCancel: {
-                    task.cancel()
-                }
-            )
+            let workouts = try await withTaskCancellationHandler(operation: {
+                try await task.value
+            }, onCancel: {
+                task.cancel()
+            })
             if workoutRequestOwners[key]?.requestID == requestID {
                 workoutRequestOwners[key] = nil
             }
