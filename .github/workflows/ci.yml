@@ -111,6 +111,8 @@ jobs:
       # content survives rendering intact.
       - name: review prompt contract regression
         run: bash scripts/ci/review-prompt.contract.test.sh
+      - name: review prompt transport contract
+        run: python3 scripts/ci/tests/test_review_prompt.py
       # review CLI 必须有有界、非交互 stdin。codex 即使已拿到 prompt 位置
       # 参数仍会读 stdin;CI step 没有 EOF → 无限阻塞 → job timeout 后报
       # `cancelled`,日志上长得跟「正在认真审一个大 diff」一模一样。
