@@ -12,19 +12,19 @@
 #   - 有 blocker(P0/严重) → 更新 sticky comment,exit 1(check 红 → 挡 auto-merge)
 #   - 任何工具异常          → exit 1(fail closed,宁可卡住也不放行未审的 diff)
 #
-# 依赖:git, gh(runner 环境自带 GITHUB_TOKEN), jq, codex(已订阅登录)。
+# 依赖:git, gh(runner 环境自带 GITHUB_TOKEN), jq, python3 >= 3.11, codex。
 # 需要的环境变量(workflow 注入):
 #   PR_NUMBER, BASE_SHA, HEAD_SHA, BASE_REPO, GH_TOKEN
 #
-# 认证:与 claude-review 对等——用 ChatGPT 订阅凭证(落磁盘),不依赖任何 API key。
-# 凭证放在独立的 CODEX_HOME(默认 ~/.codex-review),与 cmux 日常用的 ~/.codex 隔离,
-# 互不影响。该目录的 config.toml 已关 hooks / 清空 MCP / 只读沙箱。
+# Raven 连接元数据取自日常 provider;客户端 key 只从 runner 环境读取。
+# 独立 review home 保留原 model/effort、关闭 hooks/MCP 和只读沙箱配置。
+# 运维与 trusted-base 迁移顺序见 raven-review-operations.md。
 
 set -uo pipefail
 
 # 独立 CODEX_HOME:review 门专用,不碰用户日常的 ~/.codex(raven/cmux)。
-export CODEX_HOME="${CODEX_HOME:-$HOME/.codex-review}"
-# 用标准 codex 二进制(runner PATH 里可能有 cmux shim,显式指定避免走到 raven)。
+export CODEX_HOME="${CODEX_REVIEW_HOME:-$HOME/.codex-review}"
+# 用标准 codex 二进制;Raven 路由由受信任的 provider helper 显式注入。
 CODEX_BIN="${CODEX_BIN:-/opt/homebrew/bin/codex}"
 command -v "$CODEX_BIN" >/dev/null 2>&1 || CODEX_BIN="codex"
 
@@ -211,7 +211,7 @@ echo "[codex-review] running codex on PR #$PR_NUMBER ($(printf '%s\n' "$CHANGED"
 # 这一段本身**没有**单独的超时:整个 gate 已被脚本顶部的 supervisor 看门狗包住
 # (含本阶段),超时会连同进程树一起收口并报出 stage=codex-exec。
 stage codex-exec
-"$CODEX_BIN" exec \
+python3 "$SCRIPT_DIR/review-raven.py" "$CODEX_BIN" \
     --output-schema "$SCHEMA_FILE" \
     -o "$OUT_FILE" \
     --skip-git-repo-check \
