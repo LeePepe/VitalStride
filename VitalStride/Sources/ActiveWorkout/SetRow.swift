@@ -55,11 +55,35 @@ private struct NormalModeHitTargetPadding: ViewModifier {
     }
 }
 
+struct SetRowIdentity: Equatable {
+    let displayedMainSetNumber: Int
+    let currentSetType: SetType
+    let isSubSet: Bool
+
+    var accessibilityLabel: String {
+        let setTypeDescription = currentSetType.displayName
+        let deleteLabel = String(localized: "删除", comment: "Delete action")
+        if isSubSet {
+            return String(localized: "第 \(displayedMainSetNumber) 组\(setTypeDescription)子组，\(deleteLabel)", comment: "Sub-set delete accessibility label")
+        }
+        return String(localized: "第 \(displayedMainSetNumber) 组\(deleteLabel)", comment: "Main-set delete accessibility label")
+    }
+
+    var menuLabel: String {
+        let setTypeDescription = currentSetType.displayName
+        if isSubSet {
+            return String(localized: "第 \(displayedMainSetNumber) 组\(setTypeDescription)子组设置", comment: "Sub-set row menu accessibility label")
+        }
+        return String(localized: "第 \(displayedMainSetNumber) 组设置", comment: "Main-set row menu accessibility label")
+    }
+}
+
 struct SetRow: View {
     let index: Int
     let exerciseSet: ExerciseSet
     let weightUnit: WeightUnit
     let canDelete: Bool
+    let rowIdentity: SetRowIdentity?
     /// Optional exercise context for the keyboard's preset resolver.
     let exercise: Exercise?
     /// Most recent same-exercise weight (kg) for the preset fallback chain.
@@ -88,6 +112,7 @@ struct SetRow: View {
         exercise: Exercise?,
         recentWeightKg: Double?,
         previousSet: ExerciseSet? = nil,
+        rowIdentity: SetRowIdentity? = nil,
         onToggleCompleted: @escaping (_ wasCompleted: Bool) -> Void,
         onDelete: @escaping () -> Void,
         onAddSubSet: @escaping (_ type: SetType) -> Void,
@@ -100,6 +125,7 @@ struct SetRow: View {
         self.exercise = exercise
         self.recentWeightKg = recentWeightKg
         self.previousSet = previousSet
+        self.rowIdentity = rowIdentity
         self.onToggleCompleted = onToggleCompleted
         self.onDelete = onDelete
         self.onAddSubSet = onAddSubSet
@@ -300,6 +326,7 @@ struct SetRow: View {
                             systemImage: "trash"
                         )
                     }
+                    .accessibilityLabel(rowIdentity?.accessibilityLabel ?? String(localized: "第 \(index + 1) 组删除", comment: "Delete set menu item a11y label"))
                 }
 
                 Divider()
@@ -350,7 +377,7 @@ struct SetRow: View {
                     .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
                     .contentShape(Rectangle())
             }
-            .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration menu a11y label"))
+            .accessibilityLabel(rowIdentity?.menuLabel ?? String(localized: "第 \(index + 1) 组设置", comment: "Set configuration menu a11y label"))
             .accessibilityValue(
                 exerciseSet.isUnilateral
                     // swiftlint:disable:next line_length
