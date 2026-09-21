@@ -39,6 +39,12 @@ VitalStride is a **health data collection + AI analysis** app. Strength training
 - **Workout Data (训练数据)**: Detailed exercise/set/rep data from in-app strength training sessions. Stored in SwiftData because HealthKit cannot represent per-set detail. Displayed in the Workout Tab.
 - **Data Tab (数据 Tab)**: Tab 3 — a health data dashboard showing a summary card + grouped list of data types. NOT a training-specific view.
 
+### Exercise Catalog Language
+
+- **Equipment (原始器械标签)**: The catalog taxonomy preserved from an exercise's source. It describes source data and is not the product-facing picker grouping.
+- **Exercise Section (动作选择分区)**: A stable, product-facing grouping derived from Equipment. Multiple Equipment values may share one Exercise Section; search and muscle filters may suppress empty sections but never reclassify an exercise.
+- **Other Section (其他分区)**: The explicit fallback Exercise Section for Equipment values that do not warrant their own product-facing group. Membership is maintained by a reviewed mapping, never a runtime frequency threshold.
+
 ## Data Architecture Decisions
 
 ### HealthKit data caching: two-layer architecture

@@ -5,7 +5,7 @@ import Testing
 @Suite("ExerciseSection Tests")
 struct ExerciseSectionTests {
 
-    @Test("ExerciseSection exposes the stable 17 picker sections")
+    @Test("ExerciseSection exposes the stable 17 picker sections with Other last")
     func stableSectionCount() {
         let expected: [String] = [
             "assisted",
@@ -19,17 +19,18 @@ struct ExerciseSectionTests {
             "leverage_machine",
             "machine",
             "medicine_ball",
-            "other",
             "rope",
             "sled_machine",
             "smith_machine",
             "stability_ball",
             "weighted",
+            "other",
         ]
 
         let actual = ExerciseSection.allCases.map(\.rawValue)
+        #expect(actual == expected)
         #expect(actual.count == 17)
-        #expect(Set(actual) == Set(expected))
+        #expect(actual.last == "other")
     }
 
     @Test("ExerciseSection Codable round-trips every case without data loss")
@@ -46,7 +47,7 @@ struct ExerciseSectionTests {
 
     @Test("Equipment resolves the stable section mapping and pushes low-frequency equipment into other")
     func equipmentSectionMapping() {
-        #expect(Equipment.assisted.section == .assisted)
+        #expect(Equipment.assisted.section == .bodyweight)
         #expect(Equipment.band.section == .band)
         #expect(Equipment.barbell.section == .barbell)
         #expect(Equipment.bodyweight.section == .bodyweight)
@@ -56,11 +57,11 @@ struct ExerciseSectionTests {
         #expect(Equipment.kettlebell.section == .kettlebell)
         #expect(Equipment.leverageMachine.section == .leverageMachine)
         #expect(Equipment.machine.section == .machine)
-        #expect(Equipment.medicineBall.section == .medicineBall)
-        #expect(Equipment.rope.section == .rope)
-        #expect(Equipment.sledMachine.section == .sledMachine)
+        #expect(Equipment.medicineBall.section == .other)
+        #expect(Equipment.rope.section == .other)
+        #expect(Equipment.sledMachine.section == .other)
         #expect(Equipment.smithMachine.section == .smithMachine)
-        #expect(Equipment.stabilityBall.section == .stabilityBall)
+        #expect(Equipment.stabilityBall.section == .other)
         #expect(Equipment.weighted.section == .weighted)
 
         #expect(Equipment.bosuBall.section == .other)
@@ -70,7 +71,6 @@ struct ExerciseSectionTests {
         #expect(Equipment.resistanceBand.section == .other)
         #expect(Equipment.roller.section == .other)
         #expect(Equipment.skiergMachine.section == .other)
-        #expect(Equipment.sledMachine.section == .sledMachine)
         #expect(Equipment.stationaryBike.section == .other)
         #expect(Equipment.stepmillMachine.section == .other)
         #expect(Equipment.tire.section == .other)
