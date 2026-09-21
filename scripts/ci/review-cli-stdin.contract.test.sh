@@ -50,13 +50,13 @@ if [ ! -f "$CODEX_SH" ]; then
 else
     # 正对照:先确认这个文件里确实有 codex exec 调用。若这条都取不到,说明
     # 调用形态变了,下面的断言即使「通过」也毫无意义（零命中 == 通过,同形）。
-    if ! grep -q 'exec \\' "$CODEX_SH"; then
+    if ! grep -Fq 'python3 "$SCRIPT_DIR/review-raven.py" "$CODEX_BIN"' "$CODEX_SH"; then
         fail "codex-review.sh 里找不到 \`exec \\\` 调用 —— 正对照失败,断言不可信"
     else
         pass "正对照:codex-review.sh 含 codex exec 调用"
 
-        # 取 `"$CODEX_BIN" exec \` 起、到第一个不以反斜杠结尾的行为止的整段调用
-        INVOCATION="$(awk '/^"\$CODEX_BIN" exec \\/{f=1} f{print; if($0 !~ /\\$/) exit}' "$CODEX_SH")"
+        # Provider helper execs Codex; retain the entire invocation's stdin contract.
+        INVOCATION="$(awk '/^python3 .*review-raven.py.*CODEX_BIN/{f=1} f{print; if($0 !~ /\\$/) exit}' "$CODEX_SH")"
         if [ -z "$INVOCATION" ]; then
             fail "无法提取 codex exec 调用块 —— 拒绝判 PASS"
         elif printf '%s' "$INVOCATION" | grep -q '</dev/null'; then
