@@ -105,13 +105,15 @@ struct ActiveExerciseSection: View {
                     SubSetRow(
                         exerciseSet: exerciseSet,
                         weightUnit: weightUnit,
-                        isLast: ctx.isLastSubSet,
                         parentSetNumber: ctx.mainSetNumber,
                         onToggleCompleted: { wasCompleted in
                             if !wasCompleted { onSetCompleted() }
                         },
                         onDelete: {
                             requestDelete(exerciseSet)
+                        },
+                        onCopyToNext: {
+                            copyToNext(from: exerciseSet)
                         }
                     )
                     .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
@@ -261,7 +263,19 @@ struct ActiveExerciseSection: View {
                     String(localized: "删除", comment: "Delete confirmation button"),
                     role: .destructive
                 ) {
-                    performDelete(request.exerciseSet)
+                    handleDeleteOutcome(
+                        Self.executeDeleteRequest(
+                            for: request.exerciseSet,
+                            in: workoutExercise,
+                            rowContexts: rowContexts,
+                            using: modelContext,
+                            undoController: undoController,
+                            setPendingCascadeDeletion: { pendingCascadeDeletion = $0 },
+                            setFocusedRowID: { focusedRowID = $0 },
+                            onSetDeleted: onSetDeleted,
+                            forceImmediate: true
+                        )
+                    )
                 }
                 Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {}
             } message: { request in
@@ -402,34 +416,108 @@ struct ActiveExerciseSection: View {
     /// row + sub-set row). Routes through `SetDeletionPolicy` so the confirm
     /// vs delete-now decision lives in one testable place.
     private func requestDelete(_ exerciseSet: ExerciseSet) {
-        switch SetDeletionPolicy.intent(for: exerciseSet, in: workoutExercise) {
-        case .confirm(let childCount, let kind):
-            pendingCascadeDeletion = CascadeDeletionRequest(
-                exerciseSet: exerciseSet,
-                setNumber: displaySetNumber(of: exerciseSet),
-                childCount: childCount,
-                childKind: kind
+        handleDeleteOutcome(
+            Self.executeDeleteRequest(
+                for: exerciseSet,
+                in: workoutExercise,
+                rowContexts: rowContexts,
+                using: modelContext,
+                undoController: undoController,
+                setPendingCascadeDeletion: { pendingCascadeDeletion = $0 },
+                setFocusedRowID: { focusedRowID = $0 },
+                onSetDeleted: onSetDeleted
             )
-        case .immediate:
-            performDelete(exerciseSet)
+        )
+    }
+
+    private func handleDeleteOutcome(_ outcome: DeleteRequestOutcome) {
+        switch outcome {
+        case .confirmation(let request):
+            pendingCascadeDeletion = request
+        case .deleted(let focusTarget):
+            focusedRowID = focusTarget
+        case .refused:
+            break
         }
     }
 
-    /// Deletes for real and arms the undo window.
-    ///
-    /// The snapshot is captured *before* `WorkoutSetManager.deleteSet` runs,
-    /// because the manager both deletes the rows and renumbers the survivors —
-    /// after it returns there is nothing left to read. The delete itself stays
-    /// entirely the manager's: the min-one-set guard and the parent→sub-set
-    /// cascade are never re-derived here, so the UI cannot drift from the data
-    /// layer's rules (it may legitimately refuse, hence the `didDelete` gate).
-    private func performDelete(_ exerciseSet: ExerciseSet) {
+    enum DeleteRequestOutcome {
+        case confirmation(CascadeDeletionRequest)
+        case deleted(PersistentIdentifier?)
+        case refused
+    }
+
+    @MainActor
+    static func executeDeleteRequest(
+        for exerciseSet: ExerciseSet,
+        in workoutExercise: WorkoutExercise,
+        rowContexts: [RowContext],
+        using modelContext: ModelContext,
+        undoController: SetDeletionUndoController,
+        setPendingCascadeDeletion: (CascadeDeletionRequest?) -> Void,
+        setFocusedRowID: (PersistentIdentifier?) -> Void,
+        onSetDeleted: @escaping () -> Void,
+        forceImmediate: Bool = false
+    ) -> DeleteRequestOutcome {
+        if forceImmediate {
+            return performDelete(
+                exerciseSet,
+                in: workoutExercise,
+                rowContexts: rowContexts,
+                using: modelContext,
+                undoController: undoController,
+                setPendingCascadeDeletion: setPendingCascadeDeletion,
+                setFocusedRowID: setFocusedRowID,
+                onSetDeleted: onSetDeleted
+            )
+        }
+
+        switch SetDeletionPolicy.intent(for: exerciseSet, in: workoutExercise) {
+        case .confirm(let childCount, let kind):
+            let request = CascadeDeletionRequest(
+                exerciseSet: exerciseSet,
+                setNumber: ActiveExerciseSection.displaySetNumber(of: exerciseSet, in: rowContexts),
+                childCount: childCount,
+                childKind: kind
+            )
+            setPendingCascadeDeletion(request)
+            return .confirmation(request)
+        case .immediate:
+            let outcome = performDelete(
+                exerciseSet,
+                in: workoutExercise,
+                rowContexts: rowContexts,
+                using: modelContext,
+                undoController: undoController,
+                setPendingCascadeDeletion: setPendingCascadeDeletion,
+                setFocusedRowID: setFocusedRowID,
+                onSetDeleted: onSetDeleted
+            )
+            return outcome
+        }
+    }
+
+    private static func displaySetNumber(of exerciseSet: ExerciseSet, in rowContexts: [RowContext]) -> Int {
+        guard let ctx = rowContexts.first(where: { $0.exerciseSet.persistentModelID == exerciseSet.persistentModelID }) else { return 1 }
+        return exerciseSet.setType.isSubSet ? ctx.mainSetNumber : ctx.mainSetNumber + 1
+    }
+
+    private static func performDelete(
+        _ exerciseSet: ExerciseSet,
+        in workoutExercise: WorkoutExercise,
+        rowContexts: [RowContext],
+        using modelContext: ModelContext,
+        undoController: SetDeletionUndoController,
+        setPendingCascadeDeletion: (CascadeDeletionRequest?) -> Void,
+        setFocusedRowID: (PersistentIdentifier?) -> Void,
+        onSetDeleted: @escaping () -> Void
+    ) -> DeleteRequestOutcome {
         let contexts = rowContexts
         let targets = WorkoutSetTree.deletionTargets(for: exerciseSet, in: workoutExercise)
         let targetIDs = Set(targets.map(\.persistentModelID))
         let snapshots = SetDeletionUndo.snapshots(for: targets, in: workoutExercise)
         let isSubSet = exerciseSet.setType.isSubSet
-        let setNumber = displaySetNumber(of: exerciseSet)
+        let setNumber = displaySetNumber(of: exerciseSet, in: rowContexts)
         let setType = exerciseSet.setType
 
         let deletedIndices = Set(contexts.indices.filter {
@@ -441,9 +529,9 @@ struct ActiveExerciseSection: View {
         ).map { contexts[$0].exerciseSet.persistentModelID }
 
         let didDelete = WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
-        guard didDelete else { return }
+        guard didDelete else { return .refused }
 
-        pendingCascadeDeletion = nil
+        setPendingCascadeDeletion(nil)
         undoController.record(
             snapshots: snapshots,
             workoutExercise: workoutExercise,
@@ -458,11 +546,9 @@ struct ActiveExerciseSection: View {
                 isSubSet: isSubSet
             )
         )
-        // VoiceOver focus is moved explicitly: the focused row just vanished,
-        // and left alone the system either drops focus or lands it somewhere
-        // unrelated.
-        focusedRowID = focusTarget
+        setFocusedRowID(focusTarget)
         onSetDeleted()
+        return .deleted(focusTarget)
     }
 
     /// 1-based display number of the main set this row belongs to — the row's
@@ -584,9 +670,17 @@ private struct AddSetButtonPreviewWrapper: View {
         set1.workoutExercise = workoutExercise
         context.insert(set1)
 
-        let set2 = ExerciseSet(order: 1, weight: 62.5, reps: 8, setType: .working)
+        let pyramidSet = ExerciseSet(order: 1, weight: 62.5, reps: 8, setType: .pyramid)
+        pyramidSet.workoutExercise = workoutExercise
+        context.insert(pyramidSet)
+
+        let set2 = ExerciseSet(order: 2, weight: 65, reps: 6, setType: .working)
         set2.workoutExercise = workoutExercise
         context.insert(set2)
+
+        let dropSet = ExerciseSet(order: 3, weight: 70, reps: 5, setType: .dropSet)
+        dropSet.workoutExercise = workoutExercise
+        context.insert(dropSet)
 
         return List {
             ActiveExerciseSection(
