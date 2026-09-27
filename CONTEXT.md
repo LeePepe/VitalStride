@@ -14,7 +14,7 @@ routes:
   - paths: [.github, scripts, fastlane, .gitignore, .gitleaks.toml, .swiftlint.yml, .swiftlint-baseline.json, .specify/extensions.yml, .specify/extensions, .specify/init-options.json, .specify/integration.json, .specify/integrations, .specify/scripts, .specify/templates, .specify/workflows]
     context: RepoInfra/CONTEXT.md
     kind: layer
-support_excludes: [AGENTS.md, CLAUDE.md, CONTEXT.md, README.md, '**/CONTEXT.md', design, docs, specs, .specify/memory]
+support_excludes: [AGENTS.md, CLAUDE.md, CONTEXT.md, LICENSE, README.md, '**/CONTEXT.md', design, docs, specs, .specify/memory]
 generated_excludes: [VitalStride.xcodeproj, build, .build, '**/.build', DerivedData, derived-data, .agent_context, '*.log', '*.xcresult', '*.xcuserdata', '*.xcworkspace/xcuserdata', xcuserdata, Package.resolved, '*.ipa', '*.dSYM', '*.dSYM.zip', '**/.swiftpm', 'Prototype/*.xcodeproj', scripts/i18n_check_lproj_parity.report.md, scripts/i18n_extract_hardcoded.report.md, local, fastlane/report.xml, fastlane/Preview.html, fastlane/test_output, .env, '.env.*', '*.p8', 'AuthKey_*.p8', '*.mobileprovision', 'AppStore_*.mobileprovision', .DS_Store, .Trashes, Thumbs.db, '*.swp', '*~', .idea, .vscode, __pycache__, '**/__pycache__', '*.pyc', '*.pyo', .claude, .claude-flow, .swarm, ruvector.db]
 # Intra-layer stereotype order (class-role dependency axis), NOT package deps.
 # Package deps live in each Packages/<X>/CONTEXT.md `depends_on`.
