@@ -403,7 +403,33 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
                       "Collapsed magnifier button should be hittable after collapse")
     }
 
-    // MARK: T7 — MY-1445 screenshot evidence (collapsed + expanded)
+    // MARK: T7 — tap readiness red / screenshot evidence
+
+    @MainActor
+    func test_searchFieldTapReadiness_rejectsEmptyFrame() throws {
+        let windowFrame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let fieldFrame = CGRect.zero
+        XCTAssertFalse(
+            searchFieldTapReadiness(fieldExists: true,
+                                    fieldFrame: fieldFrame,
+                                    windowFrame: windowFrame,
+                                    isHittable: true),
+            "Empty frame should not be treated as ready for tap"
+        )
+    }
+
+    @MainActor
+    func test_searchFieldTapReadiness_rejectsOffWindowFrame() throws {
+        let windowFrame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let fieldFrame = CGRect(x: 1_000, y: 1_000, width: 44, height: 44)
+        XCTAssertFalse(
+            searchFieldTapReadiness(fieldExists: true,
+                                    fieldFrame: fieldFrame,
+                                    windowFrame: windowFrame,
+                                    isHittable: true),
+            "Off-window frame should not be treated as ready for tap"
+        )
+    }
 
     /// Captures iPhone 16 screenshots of both collapsed and expanded search
     /// states as XCTest attachments. These serve as the required Quality Bar K
@@ -412,35 +438,40 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
     func test_MY1445_captureSearchStateScreenshots() throws {
         let app = launchPicker(mode: "single")
 
-        // Wait for the picker sheet to appear
-        _ = app.navigationBars.firstMatch.waitForExistence(timeout: 5.0)
+        // Wait for the picker sheet to appear.
+        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
+                      "Picker sheet did not appear")
 
-        // 1. Collapsed state screenshot — the search pill should be visible
-        //    as a 44pt trailing-aligned magnifier button.
-        usleep(500_000) // allow layout to settle
+        // 1. Collapsed state screenshot — wait for the compact magnifier button to
+        //    be present and geometry-ready before capturing.
+        let collapsedButton = app.buttons["exercise_picker_search_expand"]
+        XCTAssertTrue(collapsedButton.waitForExistence(timeout: UITestTimeout.uiSettle),
+                      "Collapsed search button did not appear")
+        XCTAssertTrue(waitForElementTapReadiness(in: app, element: collapsedButton),
+                      "Collapsed search button was not geometry-ready for screenshot")
         let collapsedScreenshot = XCUIScreen.main.screenshot()
         let collapsedAttachment = XCTAttachment(screenshot: collapsedScreenshot)
         collapsedAttachment.name = "MY-1445_collapsed_search_iPhone16"
         collapsedAttachment.lifetime = .keepAlways
         add(collapsedAttachment)
 
-        // 2. Expand the search field
+        // 2. Expand the search field and wait for the current field to become
+        //    tap-ready, focused, and backed by an active keyboard before capturing.
         let searchField = openSearchField(in: app)
         searchField.typeText("bench")
-        usleep(500_000) // allow debounce + layout
+        XCTAssertTrue(waitForExpandedSearchFieldReady(in: app, text: "bench"),
+                      "Expanded search field was not ready with 'bench' before capture")
 
-        // 3. Expanded state screenshot — the search field should span full width
         let expandedScreenshot = XCUIScreen.main.screenshot()
         let expandedAttachment = XCTAttachment(screenshot: expandedScreenshot)
         expandedAttachment.name = "MY-1445_expanded_search_iPhone16"
         expandedAttachment.lifetime = .keepAlways
         add(expandedAttachment)
 
-        // Assert both states are functional
-        XCTAssertTrue(app.keyboards.firstMatch.exists,
-                      "Keyboard should be visible in expanded state")
         XCTAssertTrue(searchField.hasKeyboardFocus,
                       "Search field should have focus in expanded state")
+        XCTAssertTrue(app.keyboards.firstMatch.exists,
+                      "Keyboard should be visible in expanded state")
     }
 
     // MARK: helpers
@@ -461,40 +492,118 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
     /// collapsed state the ZStack is constrained to 44pt and the expanded
     /// TextField surface has hit-testing disabled (opacity 0 +
     /// allowsHitTesting(false)), so it may not be hittable. We check
-    /// `isHittable` rather than just `exists` to decide whether the
-    /// magnifier button tap is needed to expand.
+    /// `isHittable` only after confirming the live frame geometry is valid
+    /// and intersects the current app window, so we never tap a stale or
+    /// off-screen field.
     @MainActor
     private func openSearchField(in app: XCUIApplication) -> XCUIElement {
-        // Wait for the picker sheet to appear (navigation title present).
-        _ = app.navigationBars.firstMatch.waitForExistence(timeout: 5.0)
+        _ = app.navigationBars.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle)
 
-        // Try the expanded field directly first — must both exist AND be
-        // hittable. MY-1445: the TextField is always mounted but is not
-        // hittable when collapsed (hit-testing disabled + opacity 0).
-        var field = app.textFields["exercise_picker_search_field"]
-        let fieldReady = field.waitForExistence(timeout: 1.0) && field.isHittable
-        if !fieldReady {
-            // Not expanded (or not hittable) — tap the collapsed magnifier
-            // button by a11y label ("搜索动作" / "Search exercises").
-            let magnifier = app.buttons["exercise_picker_search_expand"]
-            if magnifier.waitForExistence(timeout: UITestTimeout.uiSettle) {
-                magnifier.tap()
+        let initialField = app.textFields["exercise_picker_search_field"]
+        let initialWindow = app.windows.firstMatch
+        let initialReady = searchFieldTapReadiness(
+            fieldExists: initialField.exists,
+            fieldFrame: initialField.frame,
+            windowFrame: initialWindow.exists ? initialWindow.frame : .zero,
+            isHittable: initialField.isHittable
+        )
+
+        if !initialReady {
+            let expandButton = app.buttons["exercise_picker_search_expand"]
+            if expandButton.waitForExistence(timeout: UITestTimeout.uiSettle) {
+                expandButton.tap()
             }
-            field = app.textFields["exercise_picker_search_field"]
-            let expanded = NSPredicate(format: "isHittable == true")
-            let hittableExpectation = expectation(for: expanded,
-                                                  evaluatedWith: field,
-                                                  handler: nil)
-            wait(for: [hittableExpectation], timeout: UITestTimeout.uiSettle)
         }
 
-        // Ensure focus by tapping.
-        if !field.hasKeyboardFocus {
-            field.tap()
+        let deadline = Date().addingTimeInterval(UITestTimeout.uiSettle)
+        var lastFieldExists = false
+        var lastFieldFrame: CGRect = .zero
+        var lastWindowExists = false
+        var lastWindowFrame: CGRect = .zero
+        var readyField: XCUIElement?
+
+        while Date() < deadline {
+            let currentField = app.textFields["exercise_picker_search_field"]
+            let currentWindow = app.windows.firstMatch
+            lastFieldExists = currentField.exists
+            lastFieldFrame = currentField.frame
+            lastWindowExists = currentWindow.exists
+            lastWindowFrame = currentWindow.exists ? currentWindow.frame : .zero
+
+            if searchFieldTapReadiness(fieldExists: lastFieldExists,
+                                       fieldFrame: lastFieldFrame,
+                                       windowFrame: lastWindowFrame,
+                                       isHittable: currentField.isHittable) {
+                readyField = currentField
+                break
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+
+        guard let targetField = readyField else {
+            XCTFail("Search field not ready within \(UITestTimeout.uiSettle)s: fieldExists=\(lastFieldExists), fieldFrame=\(lastFieldFrame), windowExists=\(lastWindowExists), windowFrame=\(lastWindowFrame)")
+            return app.textFields["exercise_picker_search_field"]
+        }
+
+        if !targetField.hasKeyboardFocus {
+            targetField.tap()
         }
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
                       "Keyboard did not appear after focusing search field")
-        return field
+        return targetField
+    }
+
+    @MainActor
+    private func waitForElementTapReadiness(in app: XCUIApplication, element: XCUIElement) -> Bool {
+        let deadline = Date().addingTimeInterval(UITestTimeout.uiSettle)
+        while Date() < deadline {
+            let window = app.windows.firstMatch
+            let windowFrame = window.exists ? window.frame : .zero
+            let frame = element.frame
+            if isFiniteAndNonEmpty(frame), isFiniteAndNonEmpty(windowFrame),
+               !frame.intersection(windowFrame).isEmpty, element.isHittable {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        return false
+    }
+
+    @MainActor
+    private func waitForExpandedSearchFieldReady(in app: XCUIApplication, text: String) -> Bool {
+        let deadline = Date().addingTimeInterval(UITestTimeout.uiSettle)
+        while Date() < deadline {
+            let currentField = app.textFields["exercise_picker_search_field"]
+            let currentWindow = app.windows.firstMatch
+            let windowFrame = currentWindow.exists ? currentWindow.frame : .zero
+            if searchFieldTapReadiness(fieldExists: currentField.exists,
+                                       fieldFrame: currentField.frame,
+                                       windowFrame: windowFrame,
+                                       isHittable: currentField.isHittable),
+               currentField.hasKeyboardFocus,
+               ((currentField.value as? String)?.contains(text) ?? false),
+               app.keyboards.firstMatch.exists {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        return false
+    }
+
+    private func searchFieldTapReadiness(fieldExists: Bool,
+                                        fieldFrame: CGRect,
+                                        windowFrame: CGRect,
+                                        isHittable: @autoclosure () -> Bool = true) -> Bool {
+        guard fieldExists else { return false }
+        guard isFiniteAndNonEmpty(fieldFrame), isFiniteAndNonEmpty(windowFrame) else { return false }
+        let intersection = fieldFrame.intersection(windowFrame)
+        guard isFiniteAndNonEmpty(intersection) else { return false }
+        return isHittable()
+    }
+
+    private func isFiniteAndNonEmpty(_ rect: CGRect) -> Bool {
+        let finiteValues = [rect.minX, rect.minY, rect.width, rect.height]
+        return finiteValues.allSatisfy { $0.isFinite } && rect.width > 0 && rect.height > 0
     }
 
     /// Type text char-by-char, waiting past the 200ms debounce after each
