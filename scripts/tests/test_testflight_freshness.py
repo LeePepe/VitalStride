@@ -1,4 +1,4 @@
-"""Guard TestFlight's manual-only entry point without building or uploading."""
+"""Guard TestFlight's manual-only entry point and in-run profile reuse without building or uploading."""
 from pathlib import Path
 import re
 import unittest
@@ -10,6 +10,8 @@ while not (ROOT / ".github/workflows/testflight.yml").is_file():
         raise RuntimeError("TestFlight workflow not found")
     ROOT = ROOT.parent
 WORKFLOW = ROOT / ".github/workflows/testflight.yml"
+FASTFILE = ROOT / "fastlane/Fastfile"
+PROJECT_YML = ROOT / "project.yml"
 
 
 class TestFlightManualOnlyTests(unittest.TestCase):
@@ -38,6 +40,110 @@ class TestFlightManualOnlyTests(unittest.TestCase):
     def test_release_still_uses_main_without_interrupting_uploads(self):
         self.assertIn("          ref: main", self.release)
         self.assertRegex(self.workflow, r"(?m)^  cancel-in-progress: false(?: |$)")
+
+
+class TestFlightProfileHandoffTests(unittest.TestCase):
+    def setUp(self):
+        self.fastfile = FASTFILE.read_text(encoding="utf-8")
+        self.project_yml = PROJECT_YML.read_text(encoding="utf-8")
+
+    def test_both_targets_fetch_forced_appstore_profiles_with_installation(self):
+        app_fetch = re.search(
+            r"get_provisioning_profile\s*\(\s*[^)]*app_identifier:\s*APP_IDENTIFIER[^)]*\)",
+            self.fastfile,
+            re.S
+        )
+        self.assertIsNotNone(app_fetch, "App provisioning profile fetch not found in Fastfile")
+        self.assertIn("force: true", app_fetch.group(0))
+        self.assertIn("skip_install: false", app_fetch.group(0))
+
+        widget_fetch = re.search(
+            r"get_provisioning_profile\s*\(\s*[^)]*app_identifier:\s*WIDGET_IDENTIFIER[^)]*\)",
+            self.fastfile,
+            re.S
+        )
+        self.assertIsNotNone(widget_fetch, "Widget provisioning profile fetch not found in Fastfile")
+        self.assertIn("force: true", widget_fetch.group(0))
+        self.assertIn("skip_install: false", widget_fetch.group(0))
+
+    def test_canonical_profile_names_resolved_and_fail_closed_before_build_app(self):
+        self.assertIn('sigh_#{APP_IDENTIFIER}_appstore_profile-name', self.fastfile)
+        self.assertIn('sigh_#{WIDGET_IDENTIFIER}_appstore_profile-name', self.fastfile)
+
+        self.assertNotRegex(
+            self.fastfile,
+            r'ENV\.fetch\(\s*["\']sigh_#\{APP_IDENTIFIER\}_appstore_profile-name["\']\s*,\s*app_profile\s*\)',
+            "Fastfile still uses action return fallback for app profile"
+        )
+        self.assertNotRegex(
+            self.fastfile,
+            r'ENV\.fetch\(\s*["\']sigh_#\{WIDGET_IDENTIFIER\}_appstore_profile-name["\']\s*,\s*widget_profile\s*\)',
+            "Fastfile still uses action return fallback for widget profile"
+        )
+
+        build_app_idx = self.fastfile.find("build_app(")
+        self.assertNotEqual(build_app_idx, -1, "build_app call not found in Fastfile")
+        pre_build_app = self.fastfile[:build_app_idx]
+
+        self.assertRegex(
+            pre_build_app,
+            r'app_profile_name\.(?:nil\?|strip\.empty\?|empty\?)',
+            "Missing nil/empty check for app profile name before build_app"
+        )
+        self.assertRegex(
+            pre_build_app,
+            r'widget_profile_name\.(?:nil\?|strip\.empty\?|empty\?)',
+            "Missing nil/empty check for widget profile name before build_app"
+        )
+        self.assertRegex(
+            pre_build_app,
+            r'app_profile_name\s*==\s*widget_profile_name',
+            "Missing distinctness check between app and widget profile names before build_app"
+        )
+
+    def test_archive_transports_target_specific_keys_shell_safely(self):
+        self.assertIn("VITALSTRIDE_APP_PROFILE_SPECIFIER=", self.fastfile)
+        self.assertIn("VITALSTRIDE_WIDGET_PROFILE_SPECIFIER=", self.fastfile)
+
+        self.assertRegex(
+            self.fastfile,
+            r'Shellwords\.(?:escape|shellescape)|(?:app_profile_name|widget_profile_name)\.shellescape',
+            "Fastfile does not shell-escape profile names transported into xcargs"
+        )
+
+        xcargs_match = re.search(r"xcargs:\s*(.+?)(?=\n\s*[a-z_]+:|\n\s*\))", self.fastfile, re.S)
+        if xcargs_match:
+            self.assertNotRegex(
+                xcargs_match.group(1),
+                r'(?<![A-Z0-9_])PROVISIONING_PROFILE_SPECIFIER=',
+                "Found forbidden global PROVISIONING_PROFILE_SPECIFIER override in xcargs"
+            )
+
+    def test_export_options_reuses_exact_resolved_profile_variables(self):
+        export_match = re.search(
+            r"export_options:\s*\{[^}]*provisioningProfiles:\s*\{([^}]+)\}",
+            self.fastfile,
+            re.S
+        )
+        self.assertIsNotNone(export_match, "export_options provisioningProfiles not found in Fastfile")
+        prov_profiles = export_match.group(1)
+        self.assertRegex(
+            prov_profiles,
+            r'APP_IDENTIFIER\s*=>\s*app_profile_name',
+            "export_options must directly reuse app_profile_name"
+        )
+        self.assertRegex(
+            prov_profiles,
+            r'WIDGET_IDENTIFIER\s*=>\s*widget_profile_name',
+            "export_options must directly reuse widget_profile_name"
+        )
+
+    def test_project_yml_release_signing_consumes_dynamic_specifiers_without_fixed_names(self):
+        self.assertIn('PROVISIONING_PROFILE_SPECIFIER: "$(VITALSTRIDE_APP_PROFILE_SPECIFIER)"', self.project_yml)
+        self.assertIn('PROVISIONING_PROFILE_SPECIFIER: "$(VITALSTRIDE_WIDGET_PROFILE_SPECIFIER)"', self.project_yml)
+
+        self.assertNotIn("com.leepepe.vitalstride AppStore", self.project_yml)
+        self.assertNotIn("com.leepepe.vitalstride.widgets AppStore", self.project_yml)
 
 
 if __name__ == "__main__":
