@@ -2,6 +2,13 @@
 
 No product entity, persisted schema, or user data changes. The relevant model is ephemeral release state.
 
+## Generated Project States
+
+1. **Reviewed checkout**: exact reviewed planning revision whose non-planning product tree is `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`; tracked project is stale.
+2. **Baseline reconciled**: T000 has applied only the exact generated membership manifest in the handoff contract; no source/config content changed.
+3. **Signing seam synchronized**: T001 has added only the two target-specific profile-setting substitutions relative to the reconciled state.
+4. **Generation idempotent**: a second XcodeGen run leaves the assembled project unchanged.
+
 ## Values
 
 - **App fetched profile name**: opaque display name published by the app bundle's forced fetch.
@@ -44,3 +51,6 @@ When signing is explicitly disabled, the generated Release project can move dire
 - Static/unsigned verification → implied Owner consent.
 - Draft or unlabeled implementation PR → production validation.
 - Workflow success before Apple processing completion → US2/AC5 satisfied.
+- Stale reviewed checkout → settings-only hand edit that retains `VitalStride/Sources/WorkoutSetManager.swift`.
+- Divergent historical project tree or unreviewed implementation commit → substituted implementation base.
+- Baseline reconciliation → any source/test edit or generated membership outside the exact handoff manifest.

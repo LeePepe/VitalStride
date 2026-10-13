@@ -26,14 +26,18 @@ bash scripts/test-repoinfra.sh
 
 Expected: path/frontmatter checks, shell/Python syntax checks, and all auto-discovered RepoInfra tests pass.
 
-## XcodeGen synchronization
+## XcodeGen baseline reconciliation and idempotency
+
+The exact reviewed planning revision is the implementation checkout base. Its product/source tree is `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`; do not substitute the divergent `84a153962b50f10cd2f49717c4443fb6e953d4ce` tree or treat `5b81d9c9d5f4acb5b8b0d2a31b1e6158b91f7cf1` as reviewed.
 
 ```bash
 xcodegen generate
 git diff --check
 ```
 
-Expected: the tracked Xcode project reflects only the intended Release build-setting changes and the diff has no whitespace errors. On a committed candidate, regenerating again must leave `VitalStride.xcodeproj/project.pbxproj` unchanged.
+Expected T000 evidence: only `VitalStride.xcodeproj/project.pbxproj` changes; its 101 additions/5 deletions match the exact membership/resource/removal manifest in `contracts/testflight-profile-handoff.md`; no source, test, context, package, or `project.yml` content changes. The stale app-target `WorkoutSetManager.swift` reference is absent and the package implementation remains present.
+
+Expected assembled T000+T001 evidence: the generated-project diff from the checkout base is 103 additions/7 deletions—the authorized T000 baseline reconciliation plus exactly two target-specific Release-setting substitutions. Run `xcodegen generate` again on the assembled candidate; `VitalStride.xcodeproj/project.pbxproj` must remain unchanged.
 
 ## Unsigned Release compatibility
 
@@ -50,6 +54,8 @@ xcodebuild build \
 ```
 
 Expected: the Release build completes without Apple credentials, installed profiles, dynamic profile values, or real signing.
+
+This build also proves the synchronized project no longer requests deleted `VitalStride/Sources/WorkoutSetManager.swift` and continues to compile against the package-owned implementation.
 
 ## Candidate PR evidence
 

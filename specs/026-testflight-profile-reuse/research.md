@@ -3,6 +3,7 @@
 ## Evidence
 
 - Planning base: `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`.
+- Reviewed planning revision `b26401eb2aabd0c41e412ffb904b270e67109650` is a direct child of that product base and changes only this feature's eight planning artifacts; it does not repair the stale project.
 - `fastlane/Fastfile` regenerates the Xcode project, fetches separate app and widget App Store profiles with `force: true` and installation enabled, then invokes `build_app`.
 - Archive-time `xcargs` currently contains build number, team, and telemetry values but no target-specific provisioning-profile inputs.
 - Export mapping reads the canonical Fastlane profile-name environment outputs but falls back to the provisioning action return values.
@@ -10,6 +11,8 @@
 - `.github/workflows/testflight.yml` is manual-only, checks out `main`, retains `force=false` by default, skips when no new commit exists unless forced, and never cancels an in-progress upload.
 - `scripts/tests/test_testflight_freshness.py` already has four passing static tests for those workflow invariants. `scripts/test-repoinfra.sh` auto-discovers that module and the PR `Lint & policy` job invokes the complete gate.
 - A real lane run queries ASC, can regenerate Developer Portal profiles, archives, uploads, distributes to internal groups, and advances the release tag. It is not a safe implementation test.
+- Exact-ref audit found no usable synchronized descendant of `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`. Historical generated commit `84a153962b50f10cd2f49717c4443fb6e953d4ce` has the same `project.yml` blob and the required membership result, but diverges from the product base by 93 files and therefore cannot be substituted. Local implementation commit `5b81d9c9d5f4acb5b8b0d2a31b1e6158b91f7cf1` is unreviewed and is evidence only.
+- Regenerating from the exact unchanged product tree produces the 101-addition/5-deletion T000 baseline. The generated membership additions select accepted files already declared by `project.yml`; the only removed membership is the stale app-target reference to `VitalStride/Sources/WorkoutSetManager.swift`, whose implementation already moved to `Packages/VitalModels/Sources/VitalModels/Repo/WorkoutSetManager.swift` under accepted commit `cc3078c64dd2556fa4cdaa38266b80aba1b71029`. Adding T001's two Release-setting substitutions makes the assembled base-to-candidate project delta 103 additions/7 deletions.
 
 ## Decision 1: One target-specific two-value interface
 
@@ -59,6 +62,18 @@
 
 **Rationale**: This repair follows existing AppUI/RepoInfra ownership, XcodeGen truth-source, manual TestFlight, and PR-required decisions. It introduces no durable product terminology, dependency direction, public interface, or architecture reversal.
 
+## Decision 6: Synchronize the generated baseline before changing Release settings
+
+**Decision**: Add a distinct AppUI prerequisite that runs XcodeGen from the exact reviewed planning checkout, authorizes only the contract's deterministic `project.pbxproj` membership delta, proves idempotency and unsigned Release compatibility, and then evaluates the existing signing-seam task as only the two profile-setting substitutions relative to that synchronized state. One exact candidate may carry both serialized diff components; no history rewrite is required merely to manufacture separate commits.
+
+**Rationale**: Constitution Principle IV forbids a hand-edited settings-only project, while using a divergent historical tree would discard accepted product work. Separating baseline reconciliation from the feature setting change makes both scopes independently reviewable and preserves the exact product base.
+
+**Alternatives considered**:
+
+- Use `84a153962b50f10cd2f49717c4443fb6e953d4ce` as the implementation base. Rejected because it is not an ancestor/descendant of the current product base and carries 93 files of unrelated tree difference.
+- Accept `5b81d9c9d5f4acb5b8b0d2a31b1e6158b91f7cf1` as-is. Rejected because it combines the prerequisite and feature changes and has no passing exact-revision review.
+- Hand-edit only the two profile settings. Rejected because it leaves the deleted app `WorkoutSetManager.swift` reference, fails the unsigned build, and violates the XcodeGen source-of-truth rule.
+
 ## No open clarification
 
-MY-1606 revision 3 and the Team Lead handoff settle target behavior, compatibility, scope, PR constraints, and the Owner-consent boundary. No product or authority choice remains for implementation; only T004 stays intentionally blocked until the Owner supplies the required external consent.
+MY-1606 revision 3, the Team Lead handoff, Constitution Principle IV, the AppUI context, and accepted source history settle target behavior, compatibility, generated membership scope, PR constraints, and the Owner-consent boundary. No product or authority choice remains for implementation; only T004 stays intentionally blocked until the Owner supplies the required external consent.

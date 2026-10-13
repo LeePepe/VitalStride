@@ -1,5 +1,48 @@
 # Contract: TestFlight profile handoff
 
+## Exact Base and Generated-Project Prerequisite
+
+- Product/source base: `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`.
+- Implementation checkout base: the exact reviewed planning revision published for this repaired package; outside `specs/026-testflight-profile-reuse/**`, its tree is byte-identical to the product/source base.
+- No synchronized exact base exists on or after the product/source base. `84a153962b50f10cd2f49717c4443fb6e953d4ce` is a divergent historical evidence tree, and `5b81d9c9d5f4acb5b8b0d2a31b1e6158b91f7cf1` is an unreviewed candidate; neither is an authorized base.
+- T000 runs before the profile-setting change and may write only `VitalStride.xcodeproj/project.pbxproj`. It changes no `project.yml`, source, test, context, package, workflow, or release file.
+- The T000 generated delta is 101 additions/5 deletions in `project.pbxproj`. Combined with T001's two Release-setting substitutions, the assembled generated-project delta from the checkout base is 103 additions/7 deletions.
+
+### Authorized generated membership manifest
+
+`VitalStride` gains generated source membership for these existing files:
+
+- `VitalStride/Sources/AI/AIRouterFactory.swift`
+- `VitalStride/Sources/AI/RoutingSignalStore.swift`
+- `VitalStride/Sources/AI/RoutingSignalStoreEnvironment.swift`
+- `VitalStride/Sources/ActiveWorkout/ActiveWorkoutSnackbarLayout.swift`
+- `VitalStride/Sources/ActiveWorkout/RestCompletedPresenter.swift`
+- `VitalStride/Sources/ActiveWorkout/SetDeletionFocusTarget.swift`
+- `VitalStride/Sources/ActiveWorkout/SetDeletionPolicy.swift`
+- `VitalStride/Sources/ActiveWorkout/SetDeletionUndoController.swift`
+- `VitalStride/Sources/ExercisePickerSectionGrouping.swift`
+- `VitalStride/Sources/RouterBackedProvider.swift`
+
+`VitalStrideMac` gains generated source membership for the already-declared shared paths `AIRouterFactory.swift`, `RouterBackedProvider.swift`, `RoutingSignalStore.swift`, and `RoutingSignalStoreEnvironment.swift` above.
+
+`VitalStrideTests` gains generated source membership for these existing tests:
+
+- `VitalStrideTests/Sources/ActiveExerciseSectionAddSetHeaderTests.swift`
+- `VitalStrideTests/Sources/ActiveWorkoutSnackbarLayoutTests.swift`
+- `VitalStrideTests/Sources/ActiveWorkoutSnackbarSafeAreaTests.swift`
+- `VitalStrideTests/Sources/ExercisePickerSearchLayoutTests.swift`
+- `VitalStrideTests/Sources/ExercisePickerSectionGroupingTests.swift`
+- `VitalStrideTests/Sources/RestCompletedPresenterTests.swift`
+- `VitalStrideTests/Sources/RouterBackedProviderTests.swift`
+- `VitalStrideTests/Sources/SetDeletionUndoLocalizationTests.swift`
+- `VitalStrideTests/Sources/SubSetDeletionUndoTests.swift`
+
+`VitalStrideUITests` gains generated source membership for `VitalStrideUITests/Sources/SnackbarAccessibilityUITests.swift`. The `VitalStride` resource phase gains the already-selected `VitalStride/CONTEXT.md` resource. `VitalStrideWatchTests` may receive only XcodeGen's structural group-order normalization; no watch test membership is added or removed.
+
+The only removed membership is the stale `VitalStride` app-target reference to deleted `VitalStride/Sources/WorkoutSetManager.swift`. `Packages/VitalModels/Sources/VitalModels/Repo/WorkoutSetManager.swift` and its tests remain untouched.
+
+No other membership, resource, target, build phase, setting, or file content change is authorized by T000. A second generation over the assembled T000+T001 output must leave `project.pbxproj` unchanged.
+
 ## Target Map
 
 | Release target | Bundle identifier | Canonical fetched-name source | Archive interface key |
@@ -63,3 +106,4 @@ The test performs no environment-secret read, ASC request, profile installation,
 
 - Preserve manual-only workflow dispatch, force default and branch, `main` checkout, concurrency, build-number computation, telemetry build inputs, upload, internal-group distribution, and release-tag behavior.
 - Preserve all existing TestFlight freshness assertions; no deletion or weakening is allowed.
+- Preserve all source/test contents named in the generated membership manifest and the package-owned `WorkoutSetManager` implementation. The prerequisite reconciles generated membership only.
