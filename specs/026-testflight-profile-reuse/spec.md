@@ -14,7 +14,8 @@
 - **DEC-026-002 — Compatibility preservation**: MY-1606 revision 3 requires both forced profile refreshes, distinct app/widget profiles, unsigned build compatibility, secret non-disclosure, and the current manual release behavior to remain intact.
 - **DEC-026-003 — Owner-controlled production proof**: MY-1606 revision 3 requires explicit Owner consent before a real TestFlight upload. Static and unsigned verification never imply that consent.
 - **DEC-026-004 — Fail-closed handoff**: Planning research chooses one two-value handoff from the fetched profile-name outputs to both archive and export. If either output is absent, the release fails before archive or upload rather than using a different fallback source.
-- **DEC-026-005 — Generated-project baseline reconciliation**: Constitution Principle IV and the AppUI context make `project.yml` authoritative. Because the exact product base `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` has a stale tracked project and no descendant/ref supplies a usable synchronized base, implementation MUST first establish the deterministic XcodeGen membership reconciliation declared in the handoff contract as a distinct candidate diff component. The divergent historical generated commit `84a153962b50f10cd2f49717c4443fb6e953d4ce` and the unreviewed implementation commit `5b81d9c9d5f4acb5b8b0d2a31b1e6158b91f7cf1` are evidence only, not authorized bases.
+- **DEC-026-005 — Generated-project baseline reconciliation**: Constitution Principle IV and the AppUI context make `project.yml` authoritative. Because the exact product base `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` has a stale tracked project and no descendant/ref supplies a usable synchronized base, the AppUI task that owns `project.yml` MUST first establish the handoff contract's semantic XcodeGen membership reconciliation as a distinct generated-evidence component before evaluating its two Release-setting substitutions. `VitalStride.xcodeproj/**` remains an unschedulable generated exclusion. The divergent historical generated commit `84a153962b50f10cd2f49717c4443fb6e953d4ce` and the unreviewed implementation commit `5b81d9c9d5f4acb5b8b0d2a31b1e6158b91f7cf1` are evidence only, not authorized bases.
+- **DEC-026-006 — Scoped prepublication review**: The Owner-approved VitalStride delivery override requires the Fullstack Engineer to freeze the local uncommitted candidate and obtain exact AI Reviewer content `PASS` plus explicit publication permission before commit, push, or PR creation/update. Publication metadata and required-check handoff follow that permission; any content change invalidates it and returns the candidate to freeze/review.
 
 ## User Scenarios & Testing
 
@@ -32,7 +33,7 @@ As the release operator, I need the app and widget archive to consume their own 
 2. **US1/AC2** — **Given** either fetched profile-name output is missing or empty, **When** the release reaches the profile handoff, **Then** it terminates before archive, upload, distribution, or release-tag mutation and identifies which target has no usable name without printing credential material.
 3. **US1/AC3** — **Given** the two fetched profile names contain whitespace or shell-significant characters, **When** they cross the archive handoff, **Then** each complete value reaches only its matching target and cannot be split, interpreted, or swapped.
 4. **US1/AC4** — **Given** a pull request has no Apple credentials or installed profiles and signing is explicitly disabled, **When** the Release configuration is generated and built, **Then** the build does not require either dynamic profile value and does not fall back to a fixed profile display name.
-5. **US1/AC5** — **Given** the exact implementation checkout has the `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` product tree and its stale tracked Xcode project, **When** the prerequisite XcodeGen synchronization is established before the profile-setting component, **Then** its generated membership delta matches `contracts/testflight-profile-handoff.md` exactly, removes only the stale app-target `WorkoutSetManager.swift` reference, changes no source/test file, and a second generation is clean.
+5. **US1/AC5** — **Given** the exact implementation checkout has the `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` product tree and its stale tracked Xcode project, **When** T001 captures the baseline component before evaluating the profile-setting component, **Then** the generated output matches the semantic membership/resource/removal manifest in `contracts/testflight-profile-handoff.md`, removes only the stale app-target `WorkoutSetManager.swift` reference, changes no source/test file, records the installed XcodeGen version, and a second generation with that same executable is clean. PBXProject target-reference ordering and line counts are diagnostic only within the contract's permitted variants.
 
 ---
 
@@ -48,7 +49,7 @@ As the delivery owner, I need every pull request to check the profile handoff wi
 
 1. **US2/AC1** — **Given** a pull request changes release signing configuration, **When** the PR-time repository gate runs, **Then** it verifies two forced installed fetches, two distinct target-specific archive inputs, and reuse of those exact values in export without reading credentials, signing, uploading, or changing Developer Portal state.
 2. **US2/AC2** — **Given** a contributor reintroduces either historical fixed display name or makes archive and export consume different sources, **When** the focused regression runs, **Then** the regression fails with the violated app or widget contract identified.
-3. **US2/AC3** — **Given** the fix is proposed for delivery, **When** the candidate PR is opened, **Then** it is non-Draft, carries the `owner-review` label, documents the new-runner revalidation procedure, and does not claim real-upload evidence.
+3. **US2/AC3** — **Given** the fix is proposed for delivery, **When** the Fullstack Engineer freezes the uncommitted local candidate, **Then** exact AI Reviewer content `PASS` and explicit publication permission are recorded before any commit, push, or PR creation/update; only afterward is the unchanged reviewed tree published as a non-Draft `owner-review` PR whose description documents the new-runner revalidation procedure and does not claim real-upload evidence.
 4. **US2/AC4** — **Given** the implementation has passed exact-revision review and required PR gates but the Owner has not explicitly consented to an upload, **When** delivery reaches production validation, **Then** the real TestFlight workflow remains untriggered and the validation slice remains explicitly blocked on that consent.
 5. **US2/AC5** — **Given** the Owner explicitly consents after the reviewed change is available on `main`, **When** the manual TestFlight workflow is triggered, **Then** the build archives with the in-run app/widget profiles, uploads successfully, and reaches Apple processing completion. **Manual evidence**: the consent record, GitHub Actions run URL, and processed TestFlight build identifier; no secret values or signing material are attached.
 
@@ -75,9 +76,9 @@ As the delivery owner, I need every pull request to check the profile handoff wi
 - **FR-008**: A credential-free static regression MUST cover FR-001 through FR-007 and MUST be auto-discovered by the existing PR-time repository validation path.
 - **FR-009**: The workflow MUST preserve manual-only dispatch, `force=false` by default, force-or-new-commit gating, `main` checkout, non-cancelling release concurrency, current build-number behavior, upload/distribution behavior, and release-tag mutation semantics.
 - **FR-010**: No real TestFlight lane or equivalent workflow dispatch may be used as implementation or review verification before explicit Owner consent.
-- **FR-011**: The implementation PR MUST be non-Draft, MUST carry `owner-review`, and MUST describe the manual new-runner validation steps and the Owner-consent prerequisite.
+- **FR-011**: Before commit, push, or PR creation/update, the frozen uncommitted candidate MUST receive exact AI Reviewer content `PASS` and explicit publication permission. After permission, the unchanged reviewed tree MUST be published as a non-Draft `owner-review` PR that describes the manual new-runner validation steps and the Owner-consent prerequisite; any content change MUST return to freeze/review.
 - **FR-012**: After explicit Owner consent and merge to `main`, the manual validation MUST record that the uploaded build reached Apple processing completion without exposing ASC keys, certificate data, keychain passwords, or provisioning-profile contents.
-- **FR-013**: Before the dynamic profile-setting change, implementation MUST reconcile the tracked Xcode project from the exact reviewed planning checkout, using the unchanged `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` product tree. That prerequisite MAY change only `VitalStride.xcodeproj/project.pbxproj`, MUST match the exact generated-membership manifest in the handoff contract, and MUST NOT add, delete, or edit any source, test, context, or `project.yml` content.
+- **FR-013**: Within the AppUI task that owns `project.yml`, implementation MUST first capture the semantic generated-project baseline from the exact reviewed planning checkout and unchanged `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` product tree, then apply only the two dynamic Release-setting changes to `project.yml` and regenerate. The generated evidence MUST match the handoff manifest and MUST NOT add, delete, or edit any source, test, or context content; `VitalStride.xcodeproj/**` remains generated output rather than a separately schedulable path.
 
 ## Existing Behaviour
 
@@ -85,9 +86,9 @@ As the delivery owner, I need every pull request to check the profile handoff wi
 - The lane regenerates the Xcode project, computes a globally monotonic build number, and fetches/installs separate app and widget App Store profiles with forced refresh.
 - Export mapping reads in-run profile-name outputs, but archive selection still reads fixed app and widget display names from Release project configuration. A new profile with a timestamp suffix therefore works for export but cannot be selected for archive.
 - Debug inherits Automatic signing. Pull-request CI regenerates the project and performs credential-free simulator and repository checks.
-- At the product base `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`, `project.yml` already declares directory/path membership for accepted app and test files, but the tracked generated project predates part of that tree. Regeneration with the unchanged product configuration therefore produces the 101-addition/5-deletion T000 baseline in `project.pbxproj`, including current source/test/resource memberships and removal of the deleted app-target `WorkoutSetManager.swift` reference. The assembled T000+T001 project delta is 103 additions/7 deletions after the two profile-setting substitutions are included.
+- At the product base `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`, `project.yml` already declares directory/path membership for accepted app and test files, but the tracked generated project predates part of that tree. The same semantic baseline is observed as 100 additions/4 deletions when the existing WatchTests/Widgets target-reference order is retained or 101 additions/5 deletions when those unchanged references normalize. Adding the two Release-setting substitutions produces 102/6 or 103/7 respectively; these line counts are diagnostic, not acceptance criteria.
 - `WorkoutSetManager` behavior already lives at `Packages/VitalModels/Sources/VitalModels/Repo/WorkoutSetManager.swift`; accepted mainline commit `cc3078c64dd2556fa4cdaa38266b80aba1b71029` removed the obsolete `VitalStride/Sources/WorkoutSetManager.swift`. A settings-only project edit keeps the stale reference and the unsigned Release build fails.
-- No usable synchronized exact base exists on or after `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`. Historical commit `84a153962b50f10cd2f49717c4443fb6e953d4ce` demonstrates the same deterministic XcodeGen membership result but is a divergent 93-file tree, so it cannot replace the approved base.
+- No usable synchronized exact base exists on or after `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`. Historical commit `84a153962b50f10cd2f49717c4443fb6e953d4ce` demonstrates the same semantic XcodeGen membership result but is a divergent 93-file tree, so it cannot replace the approved base. CI installs XcodeGen without a version pin, so cross-version blob or ordering identity is not promised.
 
 ## Compatibility
 
@@ -97,8 +98,9 @@ As the delivery owner, I need every pull request to check the profile handoff wi
 - Preserve secret handling: ASC key material remains environment-provided and is never written into the repository, logs, fixtures, or generated planning evidence.
 - Preserve existing TestFlight freshness regression coverage; strengthen it without deleting or weakening an assertion.
 - Preserve every accepted app/package source and test file. The baseline synchronization changes generated membership only; it does not restore the deleted app `WorkoutSetManager.swift`, move the package implementation, or edit any newly included file.
-- Preserve the exact reviewed planning checkout as the implementation checkout base. Its product content remains byte-identical to `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`; the XcodeGen synchronization prerequisite is a distinct, reviewable AppUI diff component before the profile-setting component and does not require rewriting a preserved candidate solely to split commits.
+- Preserve the exact reviewed planning checkout as the implementation checkout base. Its product content remains byte-identical to `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`; T001 presents the XcodeGen baseline and profile-setting output as distinct reviewable components without scheduling the generated exclusion or requiring a history rewrite solely to split commits.
 - Preserve PR-required delivery: implementation reaches `main` only through a non-Draft reviewed PR and the required checks in Constitution §Development Workflow.
+- Preserve the scoped prepublication order: freeze and review the uncommitted local candidate, receive explicit publication permission, publish the unchanged tree, then hand the PR to PR Manager.
 
 ## Removed Behaviour
 
@@ -106,6 +108,7 @@ As the delivery owner, I need every pull request to check the profile handoff wi
 - **RB-002**: Remove export fallback from a missing canonical profile-name output to the provisioning action's return value; missing canonical output now fails closed before archive. **Authority**: DEC-026-004.
 - **RB-003**: Remove no tests and weaken no existing assertion. Any proposed test deletion or release-gate weakening is outside this specification and requires a new decision. **Authority**: DEC-026-002.
 - **RB-004**: Remove the stale generated app-target reference to the deleted `VitalStride/Sources/WorkoutSetManager.swift`; retain the package implementation and all of its behavior/tests. **Authority**: DEC-026-005 plus accepted migration commit `cc3078c64dd2556fa4cdaa38266b80aba1b71029`.
+- **RB-005**: Remove commit, push, and PR creation/update before exact content `PASS` and explicit publication permission for the frozen candidate. **Authority**: DEC-026-006 and the Owner-approved VitalStride delivery override.
 
 ## Scope Boundaries
 
@@ -115,8 +118,8 @@ As the delivery owner, I need every pull request to check the profile handoff wi
 - The Fastlane profile-name resolution, archive injection, and export mapping.
 - Credential-free static regression coverage through the existing PR repository gate.
 - Generated Xcode project synchronization required by Constitution Principle IV.
-- A separate generated-project baseline prerequisite whose only writable path is `VitalStride.xcodeproj/project.pbxproj` and whose exact membership manifest is fixed by `contracts/testflight-profile-handoff.md`.
-- Non-Draft PR instructions and the separate Owner-controlled TestFlight validation evidence.
+- An ordered, separately reviewable generated-project baseline component inside the AppUI `project.yml` task; the semantic manifest is fixed by `contracts/testflight-profile-handoff.md`, while the generated path remains unschedulable.
+- Prepublication freeze/review/permission evidence, post-permission non-Draft PR instructions, and the separate Owner-controlled TestFlight validation evidence.
 
 ### Non-goals
 
@@ -137,7 +140,7 @@ As the delivery owner, I need every pull request to check the profile handoff wi
 - **SC-003**: XcodeGen regeneration is synchronized and an unsigned generic-iOS Release build completes with no Apple credentials or profiles.
 - **SC-004**: Required PR checks are green on a non-Draft `owner-review` candidate; CI state is shipping evidence owned by PR Manager, not an AI Reviewer content verdict.
 - **SC-005**: Only after explicit Owner consent, one manual TestFlight run on `main` reaches Apple processing completion using the two profiles fetched in that run.
-- **SC-006**: The baseline synchronization component changes only `VitalStride.xcodeproj/project.pbxproj`, matches the declared membership manifest, is idempotent under a second `xcodegen generate`, and permits the unsigned generic-iOS Release build before the profile-setting component is evaluated.
+- **SC-006**: T001's generated baseline component matches the semantic membership/resource/removal manifest, permits only the declared WatchTests/Widgets ordering variants, is idempotent under a second run with the recorded same XcodeGen executable, changes no source/test content, and permits the unsigned generic-iOS Release build.
 
 ## Assumptions
 

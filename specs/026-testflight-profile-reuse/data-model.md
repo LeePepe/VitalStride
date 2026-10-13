@@ -5,9 +5,9 @@ No product entity, persisted schema, or user data changes. The relevant model is
 ## Generated Project States
 
 1. **Reviewed checkout**: exact reviewed planning revision whose non-planning product tree is `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`; tracked project is stale.
-2. **Baseline reconciled**: T000 has applied only the exact generated membership manifest in the handoff contract; no source/config content changed.
-3. **Signing seam synchronized**: T001 has added only the two target-specific profile-setting substitutions relative to the reconciled state.
-4. **Generation idempotent**: a second XcodeGen run leaves the assembled project unchanged.
+2. **Semantic baseline captured**: inside T001, generated evidence matches the handoff manifest irrespective of the permitted WatchTests/Widgets target-reference order; no source/config content changed and `VitalStride.xcodeproj/**` acquired no layer ownership.
+3. **Signing seam synchronized**: T001 has changed only the two target-specific `project.yml` profile settings and regenerated exactly two corresponding setting substitutions beyond the semantic baseline.
+4. **Generation idempotent**: a second run with the recorded same installed XcodeGen executable leaves the assembled project blob unchanged; cross-version blob/order identity is not implied.
 
 ## Values
 
@@ -44,6 +44,13 @@ When signing is explicitly disabled, the generated Release project can move dire
 - **Consent recorded**: after reviewed merge to `main`, one manual workflow run may proceed.
 - **Processed proof recorded**: the run URL and TestFlight build identifier show Apple processing completion without including secret or signing artifacts.
 
+## Publication States
+
+1. **Candidate frozen**: the uncommitted local tree, complete candidate manifest, semantic generated-project comparison, and credential-free results are immutable review inputs; no commit, push, or PR creation/update has occurred.
+2. **Publication permitted**: exact AI Reviewer content `PASS` and explicit permission identify that frozen tree. Any content change returns to **Candidate frozen** after new evidence is produced.
+3. **Candidate published**: Fullstack has committed and pushed only the reviewed tree and created or updated the non-Draft `owner-review` PR; reviewed tree = commit tree and local SHA = remote branch OID = PR `headRefOid`.
+4. **PR Manager handoff recorded**: the published mapping and a verified PR Manager run transfer required-check, merge, and cleanup ownership.
+
 ## Forbidden Transitions
 
 - Missing profile output → archive using an action-return fallback.
@@ -53,4 +60,7 @@ When signing is explicitly disabled, the generated Release project can move dire
 - Workflow success before Apple processing completion → US2/AC5 satisfied.
 - Stale reviewed checkout → settings-only hand edit that retains `VitalStride/Sources/WorkoutSetManager.swift`.
 - Divergent historical project tree or unreviewed implementation commit → substituted implementation base.
-- Baseline reconciliation → any source/test edit or generated membership outside the exact handoff manifest.
+- Semantic baseline reconciliation → any source/test edit, generated membership outside the handoff manifest, or structural change other than the permitted unchanged WatchTests/Widgets target-reference order.
+- Frozen candidate without exact content `PASS` and publication permission → commit, push, or PR creation/update.
+- Reviewed frozen candidate → changed content while retaining prior publication permission.
+- Published candidate → commit tree or local/remote/PR identity different from the reviewed manifest.

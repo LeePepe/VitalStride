@@ -1,12 +1,13 @@
 # Contract: TestFlight profile handoff
 
-## Exact Base and Generated-Project Prerequisite
+## Exact Base and Ordered Generated Evidence
 
 - Product/source base: `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`.
 - Implementation checkout base: the exact reviewed planning revision published for this repaired package; outside `specs/026-testflight-profile-reuse/**`, its tree is byte-identical to the product/source base.
 - No synchronized exact base exists on or after the product/source base. `84a153962b50f10cd2f49717c4443fb6e953d4ce` is a divergent historical evidence tree, and `5b81d9c9d5f4acb5b8b0d2a31b1e6158b91f7cf1` is an unreviewed candidate; neither is an authorized base.
-- T000 runs before the profile-setting change and may write only `VitalStride.xcodeproj/project.pbxproj`. It changes no `project.yml`, source, test, context, package, workflow, or release file.
-- The T000 generated delta is 101 additions/5 deletions in `project.pbxproj`. Combined with T001's two Release-setting substitutions, the assembled generated-project delta from the checkout base is 103 additions/7 deletions.
+- T001 is the sole AppUI task and owns only the schedulable truth source `project.yml`. `VitalStride.xcodeproj/project.pbxproj` is its required generated evidence/output under Constitution IV, remains an unschedulable exclusion, and may never be hand-edited or assigned separate layer ownership.
+- T001 first records the installed XcodeGen version and captures the semantic baseline below before evaluating its `project.yml` setting edit. It then changes only the two target-specific Release profile specifiers and regenerates the project.
+- The semantic membership/resource/removal manifest below is authoritative. Numstat and PBXProject target-reference order are diagnostic only: the baseline may be 100 additions/4 deletions when `VitalStrideWatchTests` remains before `VitalStrideWidgets`, or 101/5 when those two unchanged target references are reordered. T001's two Release-setting substitutions contribute exactly 2/2, so the assembled output may be 102/6 or 103/7.
 
 ### Authorized generated membership manifest
 
@@ -37,11 +38,11 @@
 - `VitalStrideTests/Sources/SetDeletionUndoLocalizationTests.swift`
 - `VitalStrideTests/Sources/SubSetDeletionUndoTests.swift`
 
-`VitalStrideUITests` gains generated source membership for `VitalStrideUITests/Sources/SnackbarAccessibilityUITests.swift`. The `VitalStride` resource phase gains the already-selected `VitalStride/CONTEXT.md` resource. `VitalStrideWatchTests` may receive only XcodeGen's structural group-order normalization; no watch test membership is added or removed.
+`VitalStrideUITests` gains generated source membership for `VitalStrideUITests/Sources/SnackbarAccessibilityUITests.swift`. The `VitalStride` resource phase gains the already-selected `VitalStride/CONTEXT.md` resource. The only permitted structural variation is whether the unchanged `VitalStrideWatchTests` target reference appears before or after `VitalStrideWidgets`; no watch/widget target or test membership is added, removed, or changed by that ordering.
 
 The only removed membership is the stale `VitalStride` app-target reference to deleted `VitalStride/Sources/WorkoutSetManager.swift`. `Packages/VitalModels/Sources/VitalModels/Repo/WorkoutSetManager.swift` and its tests remain untouched.
 
-No other membership, resource, target, build phase, setting, or file content change is authorized by T000. A second generation over the assembled T000+T001 output must leave `project.pbxproj` unchanged.
+No other membership, resource, target, build phase, setting, or file content change is authorized by T001's baseline component. A second generation over the assembled output using the recorded same XcodeGen executable must produce the same `project.pbxproj` blob; no cross-version blob/order identity is required.
 
 ## Target Map
 
@@ -97,8 +98,9 @@ The test performs no environment-secret read, ASC request, profile installation,
 
 ## Delivery Contract
 
-- Candidate PR: non-Draft, `owner-review` label, required checks, and description of the manual new-runner procedure.
-- Before explicit Owner consent: static/syntax/RepoInfra/XcodeGen/unsigned evidence only.
+- Prepublication: freeze the uncommitted local candidate tree, semantic manifest evidence, and credential-free results. Commit, push, and PR creation/update are forbidden until exact AI Reviewer content `PASS` and explicit publication permission are recorded for that tree. Any content change invalidates permission and returns to freeze/review.
+- Post-permission: commit and push only the unchanged reviewed tree; create or update a non-Draft `owner-review` PR; include the manual new-runner procedure; prove reviewed tree = commit tree and local SHA = remote branch OID = PR `headRefOid`; then hand the published mapping to PR Manager for required-check supervision and merge.
+- Before explicit Owner consent: static/syntax/RepoInfra/XcodeGen/unsigned evidence only; no TestFlight dispatch or upload.
 - After reviewed merge plus explicit Owner consent: one manual TestFlight run on `main` may establish production proof.
 - Production proof: consent record, GitHub Actions run URL, successful terminal run, and processed TestFlight build identifier. Secret values and signing artifacts are excluded.
 
@@ -106,4 +108,4 @@ The test performs no environment-secret read, ASC request, profile installation,
 
 - Preserve manual-only workflow dispatch, force default and branch, `main` checkout, concurrency, build-number computation, telemetry build inputs, upload, internal-group distribution, and release-tag behavior.
 - Preserve all existing TestFlight freshness assertions; no deletion or weakening is allowed.
-- Preserve all source/test contents named in the generated membership manifest and the package-owned `WorkoutSetManager` implementation. The prerequisite reconciles generated membership only.
+- Preserve all source/test contents named in the generated membership manifest and the package-owned `WorkoutSetManager` implementation. T001's baseline component reconciles generated membership only.

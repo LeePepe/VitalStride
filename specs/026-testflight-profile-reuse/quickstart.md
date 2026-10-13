@@ -31,13 +31,17 @@ Expected: path/frontmatter checks, shell/Python syntax checks, and all auto-disc
 The exact reviewed planning revision is the implementation checkout base. Its product/source tree is `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`; do not substitute the divergent `84a153962b50f10cd2f49717c4443fb6e953d4ce` tree or treat `5b81d9c9d5f4acb5b8b0d2a31b1e6158b91f7cf1` as reviewed.
 
 ```bash
+xcodegen --version
 xcodegen generate
 git diff --check
+git hash-object VitalStride.xcodeproj/project.pbxproj
+xcodegen generate
+git hash-object VitalStride.xcodeproj/project.pbxproj
 ```
 
-Expected T000 evidence: only `VitalStride.xcodeproj/project.pbxproj` changes; its 101 additions/5 deletions match the exact membership/resource/removal manifest in `contracts/testflight-profile-handoff.md`; no source, test, context, package, or `project.yml` content changes. The stale app-target `WorkoutSetManager.swift` reference is absent and the package implementation remains present.
+Expected T001 baseline evidence: the generated output matches the semantic membership/resource/removal manifest in `contracts/testflight-profile-handoff.md`; no source, test, context, or package content changes. Baseline 100 additions/4 deletions with the existing WatchTests/Widgets order or 101/5 with their unchanged references reordered are the only permitted diagnostic variants. The stale app-target `WorkoutSetManager.swift` reference is absent and the package implementation remains present.
 
-Expected assembled T000+T001 evidence: the generated-project diff from the checkout base is 103 additions/7 deletions—the authorized T000 baseline reconciliation plus exactly two target-specific Release-setting substitutions. Run `xcodegen generate` again on the assembled candidate; `VitalStride.xcodeproj/project.pbxproj` must remain unchanged.
+Expected assembled T001 evidence: the semantic baseline plus exactly two target-specific Release-setting substitutions (2 additions/2 deletions), yielding diagnostic 102/6 or 103/7. The two hashes from consecutive generations with the recorded same XcodeGen executable must be equal. Cross-version blob/order identity is not required.
 
 ## Unsigned Release compatibility
 
@@ -57,12 +61,21 @@ Expected: the Release build completes without Apple credentials, installed profi
 
 This build also proves the synchronized project no longer requests deleted `VitalStride/Sources/WorkoutSetManager.swift` and continues to compile against the package-owned implementation.
 
-## Candidate PR evidence
+## Frozen candidate evidence before publication
 
+- Rerun every credential-free command above and `git diff --check` against the complete local candidate.
+- Record the uncommitted candidate manifest: relative path, tracked/untracked status, and content hash/blob identity for every candidate file, plus the generated semantic-manifest comparison and verification results.
+- Freeze that exact tree. Do not commit, push, or create/update a PR.
+- Obtain exact AI Reviewer content `PASS` and explicit publication permission for the frozen manifest. Any content change invalidates the permission and requires a new freeze/review.
+
+## Candidate PR evidence after publication permission
+
+- Commit and push only the unchanged reviewed tree; prove the committed tree matches the reviewed manifest.
 - PR is non-Draft.
 - PR has the `owner-review` label.
 - PR description lists the new-runner manual validation procedure and states that explicit Owner consent is required before dispatch.
-- Required PR checks are recorded by PR Manager under the normal delivery contract.
+- Local commit SHA, remote branch OID, and PR `headRefOid` are identical.
+- The published mapping is handed to PR Manager, who owns required-check evidence and merge readiness.
 - No comment claims a real upload occurred during implementation verification.
 
 ## Forbidden during implementation and review

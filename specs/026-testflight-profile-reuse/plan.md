@@ -6,7 +6,7 @@
 
 ## Summary
 
-First reconcile the stale tracked Xcode project from the authoritative `project.yml` on the exact reviewed planning checkout. That ordered AppUI prerequisite authorizes only the deterministic generated-membership manifest in the handoff contract and changes no source/test content. Then replace the two fixed Release profile display names with a small two-value signing interface: `project.yml` gives the app and widget distinct dynamic inputs; the release lane resolves the two canonical profile-name outputs produced by the forced fetches, fails closed if either is unusable, shell-escapes them for archive, and reuses the same values for export. Extend the existing TestFlight freshness test so the `Lint & policy` PR gate rejects any archive/export drift without credentials, signing, Developer Portal access, or upload.
+Within the AppUI task that owns `project.yml`, first capture the stale tracked project's semantic XcodeGen membership reconciliation as an ordered generated-evidence component, then replace the two fixed Release profile display names with a small two-value signing interface. The generated project remains an unschedulable exclusion and is never hand-edited. The release lane resolves the two canonical profile-name outputs produced by the forced fetches, fails closed if either is unusable, shell-escapes them for archive, and reuses the same values for export. Extend the existing TestFlight freshness test so the `Lint & policy` PR gate rejects archive/export drift without credentials or external mutation, then freeze the local candidate for exact content review before any publication.
 
 ## Technical Context
 
@@ -26,7 +26,7 @@ First reconcile the stale tracked Xcode project from the authoritative `project.
 
 **Constraints**: Preserve both `force: true` fetches, target distinction, manual Release/Automatic Debug signing, unsigned builds, all workflow freshness/upload behavior, and secret non-disclosure; do not perform a real upload without explicit Owner consent
 
-**Scale/Scope**: One audited generated-project baseline reconciliation, two bundle identifiers, two dynamic build-setting keys, one release lane, one existing static-test module, and one post-setting idempotency check
+**Scale/Scope**: One semantic generated-project baseline component inside T001, two bundle identifiers, two dynamic build-setting keys, one release lane, one existing static-test module, one same-installed-generator idempotency check, and one prepublication freeze/review gate
 
 ## Evidence Baseline
 
@@ -37,7 +37,8 @@ First reconcile the stale tracked Xcode project from the authoritative `project.
 - `project.yml` Release configuration contains the two fixed display names that currently control archive selection.
 - `scripts/tests/test_testflight_freshness.py` already locks the manual workflow, force/new-commit gate, `main` checkout, and non-cancelling release behavior.
 - `scripts/test-repoinfra.sh` auto-discovers `scripts/tests/test_*.py`, and `.github/workflows/ci.yml` invokes it from the PR-required `Lint & policy` job.
-- The tracked `project.pbxproj` at the product base is stale. Full XcodeGen output is 103 additions/7 deletions when combined with the two intended setting replacements: 101 additions/5 deletions are the audited baseline membership reconciliation, and 2 additions/2 deletions are the profile-setting substitutions.
+- The tracked `project.pbxproj` at the product base is stale. The semantic baseline is observed as 100 additions/4 deletions with the existing WatchTests/Widgets target-reference order or 101/5 when those unchanged references normalize. T001's two Release-setting substitutions are exactly 2/2, so the assembled diagnostic numstat is 102/6 or 103/7. Semantic manifest equality, not numstat or target-list order, is authoritative.
+- CI installs XcodeGen without a version pin. Two-run blob equality therefore proves idempotency only for the recorded same installed executable; it does not impose cross-version ordering/blob identity.
 - No usable synchronized exact base exists. `84a153962b50f10cd2f49717c4443fb6e953d4ce` carries the same historical membership result but is a divergent 93-file tree; `5b81d9c9d5f4acb5b8b0d2a31b1e6158b91f7cf1` is the unreviewed implementation candidate and is not a base.
 - Accepted commit `cc3078c64dd2556fa4cdaa38266b80aba1b71029` removed `VitalStride/Sources/WorkoutSetManager.swift`; the implementation remains in `Packages/VitalModels/Sources/VitalModels/Repo/WorkoutSetManager.swift`. The stale generated reference is the cause of the settings-only unsigned-build failure.
 
@@ -45,11 +46,11 @@ First reconcile the stale tracked Xcode project from the authoritative `project.
 
 ### Before design
 
-- Constitution Principle IV / Quality Bar E: PASS. Long-lived target signing shape remains in `project.yml`; the full deterministic XcodeGen membership reconciliation is explicitly authorized as an ordered AppUI prerequisite, and hand-edited settings-only output is forbidden.
-- Constitution Principle III and ADR-0018/0019: PASS. App target configuration is AppUI-owned; Fastlane, workflow comments, and regression tests are RepoInfra-owned, so implementation is split by layer.
+- Constitution Principle IV / Quality Bar E: PASS. Long-lived target signing shape remains in `project.yml`; T001 captures the semantic baseline and regenerates the tracked output, while hand-edited settings-only output is forbidden.
+- Constitution Principle III and ADR-0018/0019: PASS. `project.yml` is the only schedulable AppUI path; `VitalStride.xcodeproj/**` remains a generated exclusion used only as required evidence/output. Fastlane, workflow comments, and regression tests are RepoInfra-owned.
 - Quality Bars A and I: PASS. Exact paths and exclusions are declared below, and the defect receives PR-time deterministic regression coverage.
 - Quality Bar J: PASS. Required CI state belongs to PR Manager; the content plan does not make AI Reviewer responsible for CI supervision.
-- Constitution Development Workflow / ADR-0021: PASS. Planner publishes an exact planning revision; no implementation starts before AI Reviewer and Team Lead approval.
+- Constitution Development Workflow / ADR-0021: PASS. Planner publishes an exact planning revision and no implementation starts before planning approval. For this Owner-approved VitalStride scope, the workspace prepublication override additionally requires a frozen uncommitted implementation candidate, exact AI Reviewer content `PASS`, and explicit publication permission before commit/push/PR; ADR-0021 resumes for post-publication PR Manager ownership.
 - Secret/privacy posture: PASS. Tests consume source text and representative non-secret names only; no credentials, profile contents, certificates, or HealthKit values are introduced.
 
 ### After design
@@ -58,7 +59,7 @@ First reconcile the stale tracked Xcode project from the authoritative `project.
 - The interface is deep and local: two target-specific values determine both archive and export behavior, while callers need no Developer Portal naming convention.
 - Automatic Debug and explicit unsigned Release paths do not require the dynamic values.
 - No existing workflow trigger, force branch, build-number calculation, upload/distribution step, tag mutation, public product interface, or persisted schema changes.
-- Existing source/test content does not change. The generated prerequisite adds only the exact current memberships in the handoff contract, removes only the stale app-target `WorkoutSetManager.swift` reference, and preserves the package implementation.
+- Existing source/test content does not change. T001's semantic generated baseline component adds only the current memberships in the handoff contract, removes only the stale app-target `WorkoutSetManager.swift` reference, permits only the declared target-reference ordering variant, and preserves the package implementation.
 - No constitution change, domain terminology change, or durable architecture reversal is introduced; no ADR or `CONTEXT.md` update is required.
 
 ## Project Structure
@@ -96,7 +97,10 @@ scripts/tests/test_testflight_freshness.py
 ### AppUI task
 
 - `project.yml`
-- `VitalStride.xcodeproj/project.pbxproj` — first the exact audited baseline membership reconciliation, then the two target-specific Release setting substitutions; no handwritten edit
+
+### Required generated evidence
+
+- `VitalStride.xcodeproj/project.pbxproj` — regenerated and committed under Constitution IV to show the semantic baseline plus the two target-specific Release-setting substitutions; generated exclusion, not a separately schedulable/owned path; no handwritten edit
 
 ### RepoInfra task
 
@@ -136,26 +140,27 @@ No public Swift, product, package, workflow input, or external API signature cha
 ### Generated-project baseline contract
 
 - The exact reviewed planning revision is the immutable implementation checkout base; its product/source tree is `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`.
-- Before evaluating the two profile-setting substitutions, XcodeGen output must include exactly the membership reconciliation declared in `contracts/testflight-profile-handoff.md` and no source/test edit.
+- Before evaluating the two profile-setting substitutions, T001's generated evidence must match the semantic membership/resource/removal manifest in `contracts/testflight-profile-handoff.md` and include no source/test edit.
 - The stale app-target `WorkoutSetManager.swift` reference is removed; the package implementation remains untouched.
-- After the baseline reconciliation is established, the profile-setting portion of `project.pbxproj` is exactly the two target-specific substitutions. A second `xcodegen generate` on the assembled candidate is clean.
+- The unchanged WatchTests/Widgets target-reference order may remain or normalize; no membership changes with it. Baseline 100/4 versus 101/5 and assembled 102/6 versus 103/7 are diagnostic variants, not acceptance.
+- After the semantic baseline is established, the profile-setting portion of `project.pbxproj` is exactly the two target-specific 2/2 substitutions. A second generation with the recorded same XcodeGen executable produces the same blob.
 
 ## Dependency Strategy
 
 ```text
-T000 AppUI generated-project baseline reconciliation
-  └─> T001 AppUI two-key Release seam
-        └─> T002 RepoInfra contract test + lane reuse
-              └─> T003 credential-free integration evidence
-                    └─> reviewed non-Draft PR merged to main
-                          └─> explicit Owner consent
-                                └─> T004 manual TestFlight processing proof
+T001 AppUI truth-source edit + ordered generated evidence
+  └─> T002 RepoInfra contract test + lane reuse
+        └─> T003-A freeze uncommitted candidate + credential-free evidence
+              └─> exact AI Reviewer PASS + publication permission
+                    └─> T003-B commit/push/non-Draft PR + identity proof
+                          └─> PR Manager required checks + merge
+                                └─> explicit Owner consent
+                                      └─> T004 manual TestFlight processing proof
 ```
 
-- T000 is the explicit AppUI synchronization prerequisite. It authorizes the full audited generated-membership delta and no source/config edit; its acceptance can be demonstrated as a distinct diff component in the same exact candidate without treating the current unreviewed implementation commit as a base.
-- T001 remains AppUI-owned and depends on T000; relative to the synchronized state its generated setting change is limited to the two profile specifiers.
+- T001 is AppUI-owned because `project.yml` is its only schedulable/writable layer path. Its baseline and setting portions are separately reviewable generated-evidence components without scheduling the generated exclusion or treating the current unreviewed implementation commit as a base.
 - T002 is a separate RepoInfra task and depends on the exact two-key contract established by T001.
-- T003 is an integration/test-layer verification task and changes no source. It proves the assembled contract without Apple access.
+- T003 is an integration/delivery verification task and changes no source. Stage A freezes the uncommitted tree and proves the assembled contract without Apple access; Stage B is blocked until exact content `PASS` and publication permission for that tree, then publishes it and proves reviewed-tree/local/remote/PR identity before PR Manager handoff.
 - T004 is a separate production-validation slice, changes no source, and is explicitly blocked until the reviewed delivery is on `main` and the Owner supplies fresh upload consent.
 - No task may treat assignment, a static check, or an unsigned build as Owner consent.
 
@@ -164,8 +169,8 @@ T000 AppUI generated-project baseline reconciliation
 Run implementation verification from the repository root.
 
 1. Confirm the checkout is the exact reviewed planning revision and record that its product tree is `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`.
-2. Establish and inspect the T000 baseline reconciliation with `xcodegen generate`; compare `VitalStride.xcodeproj/project.pbxproj` against the exact membership manifest in the handoff contract, confirm no source/test path changes, and run `git diff --check`.
-3. Verify the T001 assembled project with a second `xcodegen generate`; it must be idempotent, and the profile-setting component relative to the synchronized baseline must contain only the app/widget substitutions.
+2. Record `xcodegen --version`; establish and inspect T001's semantic baseline component, compare `VitalStride.xcodeproj/project.pbxproj` against the handoff manifest and permitted WatchTests/Widgets ordering variant, confirm no source/test path changes, and run `git diff --check`.
+3. Verify T001's assembled output contributes only the two app/widget setting substitutions beyond that baseline; record the project blob, rerun the same XcodeGen executable, and require the blob to remain equal.
 4. Focused credential-free contract:
    `python3 -B -m unittest scripts.tests.test_testflight_freshness`
 5. Fastfile syntax:
@@ -177,7 +182,7 @@ Run implementation verification from the repository root.
 8. Candidate hygiene:
    `git diff --check`
 
-The focused regression must be red-capable: it fails against the historical fixed-name/fallback configuration and passes only when project, archive, and export share the two-key contract. Required PR checks remain `Lint & policy`, `App target`, the six SPM checks, and the required review gate; PR Manager owns their shipping interpretation.
+The focused regression must be red-capable: it fails against the historical fixed-name/fallback configuration and passes only when project, archive, and export share the two-key contract. Before publication, T003 freezes this local evidence and obtains exact AI Reviewer content `PASS` plus explicit permission. Only then may Fullstack commit/push/create-or-update the non-Draft `owner-review` PR and prove the reviewed tree matches local HEAD, remote branch OID, and PR `headRefOid`. Required checks remain `Lint & policy`, `App target`, the six SPM checks, and the required review gate; PR Manager owns their post-publication shipping interpretation.
 
 ### Commands forbidden before Owner consent
 
@@ -187,8 +192,8 @@ The focused regression must be red-capable: it fails against the historical fixe
 
 ### Owner-controlled evidence after consent
 
-The PR description records the manual new-runner procedure but does not execute it. After the reviewed non-Draft `owner-review` PR is merged and fresh Owner consent is recorded, T004 may use the manual workflow on `main`. Evidence is limited to the consent record, run URL, terminal workflow state, and processed TestFlight build identifier; secret values and signing artifacts are excluded.
+After publication permission, the PR description records the manual new-runner procedure but does not execute it. After the non-Draft `owner-review` PR is merged by PR Manager and fresh Owner consent is recorded, T004 may use the manual workflow on `main`. Evidence is limited to the consent record, run URL, terminal workflow state, and processed TestFlight build identifier; secret values and signing artifacts are excluded.
 
 ## Complexity Tracking
 
-No constitutional exception, new dependency, new layer, or ADR is required. T000 is a prerequisite within the existing AppUI layer and does not authorize product-source changes.
+No constitutional exception, new dependency, new layer, or ADR is required. The baseline is an ordered evidence component inside T001, not a generated-output owner layer or independently schedulable task. The scoped workspace override controls prepublication ordering for this VitalStride delivery.
