@@ -89,7 +89,7 @@ platform :ios do
       UI.user_error!("Missing canonical widget profile name (sigh_#{WIDGET_IDENTIFIER}_appstore_profile-name) for VITALSTRIDE_WIDGET_PROFILE_SPECIFIER")
     end
     if app_profile_name == widget_profile_name
-      UI.user_error!("App and widget profile names must be distinct, both resolved to: #{app_profile_name}")
+      UI.user_error!("App and widget profile names must be distinct for VITALSTRIDE_APP_PROFILE_SPECIFIER and VITALSTRIDE_WIDGET_PROFILE_SPECIFIER")
     end
 
     build_app(

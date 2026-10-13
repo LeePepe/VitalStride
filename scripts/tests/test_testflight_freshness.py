@@ -1,6 +1,7 @@
 """Guard TestFlight's manual-only entry point and in-run profile reuse without building or uploading."""
 from pathlib import Path
 import re
+import shlex
 import unittest
 
 
@@ -67,9 +68,19 @@ class TestFlightProfileHandoffTests(unittest.TestCase):
         self.assertIn("skip_install: false", widget_fetch.group(0))
 
     def test_canonical_profile_names_resolved_and_fail_closed_before_build_app(self):
-        self.assertIn('sigh_#{APP_IDENTIFIER}_appstore_profile-name', self.fastfile)
-        self.assertIn('sigh_#{WIDGET_IDENTIFIER}_appstore_profile-name', self.fastfile)
+        # Exact assignment assertions
+        self.assertRegex(
+            self.fastfile,
+            r'app_profile_name\s*=\s*ENV\["sigh_#\{APP_IDENTIFIER\}_appstore_profile-name"\]',
+            "app_profile_name is not assigned from exact canonical app environment variable"
+        )
+        self.assertRegex(
+            self.fastfile,
+            r'widget_profile_name\s*=\s*ENV\["sigh_#\{WIDGET_IDENTIFIER\}_appstore_profile-name"\]',
+            "widget_profile_name is not assigned from exact canonical widget environment variable"
+        )
 
+        # Absence of action return fallback
         self.assertNotRegex(
             self.fastfile,
             r'ENV\.fetch\(\s*["\']sigh_#\{APP_IDENTIFIER\}_appstore_profile-name["\']\s*,\s*app_profile\s*\)',
@@ -85,33 +96,50 @@ class TestFlightProfileHandoffTests(unittest.TestCase):
         self.assertNotEqual(build_app_idx, -1, "build_app call not found in Fastfile")
         pre_build_app = self.fastfile[:build_app_idx]
 
+        # Fatal error branches before build_app
         self.assertRegex(
             pre_build_app,
-            r'app_profile_name\.(?:nil\?|strip\.empty\?|empty\?)',
-            "Missing nil/empty check for app profile name before build_app"
+            r'if\s+app_profile_name\.(?:nil\?|strip\.empty\?|empty\?)\s*\|\|\s*app_profile_name\.(?:nil\?|strip\.empty\?|empty\?)\s*\n\s*UI\.user_error!\(',
+            "Missing fatal UI.user_error! for missing/empty app profile before build_app"
         )
         self.assertRegex(
             pre_build_app,
-            r'widget_profile_name\.(?:nil\?|strip\.empty\?|empty\?)',
-            "Missing nil/empty check for widget profile name before build_app"
+            r'if\s+widget_profile_name\.(?:nil\?|strip\.empty\?|empty\?)\s*\|\|\s*widget_profile_name\.(?:nil\?|strip\.empty\?|empty\?)\s*\n\s*UI\.user_error!\(',
+            "Missing fatal UI.user_error! for missing/empty widget profile before build_app"
         )
         self.assertRegex(
             pre_build_app,
-            r'app_profile_name\s*==\s*widget_profile_name',
-            "Missing distinctness check between app and widget profile names before build_app"
+            r'if\s+app_profile_name\s*==\s*widget_profile_name\s*\n\s*UI\.user_error!\(',
+            "Missing fatal UI.user_error! for equal profile names before build_app"
+        )
+
+        # Failure messages must not interpolate or leak resolved profile values
+        self.assertNotRegex(
+            pre_build_app,
+            r'UI\.user_error!\([^)]*#\{app_profile_name\}',
+            "Profile failure message interpolates and leaks resolved app profile name"
+        )
+        self.assertNotRegex(
+            pre_build_app,
+            r'UI\.user_error!\([^)]*#\{widget_profile_name\}',
+            "Profile failure message interpolates and leaks resolved widget profile name"
         )
 
     def test_archive_transports_target_specific_keys_shell_safely(self):
-        self.assertIn("VITALSTRIDE_APP_PROFILE_SPECIFIER=", self.fastfile)
-        self.assertIn("VITALSTRIDE_WIDGET_PROFILE_SPECIFIER=", self.fastfile)
-
+        # Target-scoped xcargs bindings
         self.assertRegex(
             self.fastfile,
-            r'Shellwords\.(?:escape|shellescape)|(?:app_profile_name|widget_profile_name)\.shellescape',
-            "Fastfile does not shell-escape profile names transported into xcargs"
+            r'VITALSTRIDE_APP_PROFILE_SPECIFIER=#\{Shellwords\.escape\(app_profile_name\)\}',
+            "VITALSTRIDE_APP_PROFILE_SPECIFIER is not bound to Shellwords.escape(app_profile_name)"
+        )
+        self.assertRegex(
+            self.fastfile,
+            r'VITALSTRIDE_WIDGET_PROFILE_SPECIFIER=#\{Shellwords\.escape\(widget_profile_name\)\}',
+            "VITALSTRIDE_WIDGET_PROFILE_SPECIFIER is not bound to Shellwords.escape(widget_profile_name)"
         )
 
         xcargs_match = re.search(r"xcargs:\s*(.+?)(?=\n\s*[a-z_]+:|\n\s*\))", self.fastfile, re.S)
+        self.assertIsNotNone(xcargs_match, "xcargs parameter not found in Fastfile")
         if xcargs_match:
             self.assertNotRegex(
                 xcargs_match.group(1),
@@ -138,12 +166,48 @@ class TestFlightProfileHandoffTests(unittest.TestCase):
             "export_options must directly reuse widget_profile_name"
         )
 
-    def test_project_yml_release_signing_consumes_dynamic_specifiers_without_fixed_names(self):
-        self.assertIn('PROVISIONING_PROFILE_SPECIFIER: "$(VITALSTRIDE_APP_PROFILE_SPECIFIER)"', self.project_yml)
-        self.assertIn('PROVISIONING_PROFILE_SPECIFIER: "$(VITALSTRIDE_WIDGET_PROFILE_SPECIFIER)"', self.project_yml)
+    def test_project_yml_signing_configuration_and_dynamic_specifiers(self):
+        # Verify base settings retain Automatic signing
+        base_settings = self.project_yml.split("settings:\n  base:\n", 1)[1].split("packages:\n", 1)[0]
+        self.assertIn("CODE_SIGN_STYLE: Automatic", base_settings)
 
-        self.assertNotIn("com.leepepe.vitalstride AppStore", self.project_yml)
-        self.assertNotIn("com.leepepe.vitalstride.widgets AppStore", self.project_yml)
+        # Extract target sections
+        targets = self.project_yml.split("targets:\n", 1)[1]
+        app_target = targets.split("VitalStride:\n", 1)[1].split("\n  VitalStrideMac:\n", 1)[0]
+        widget_target = targets.split("VitalStrideWidgets:\n", 1)[1].split("\n  VitalStrideWatchTests:\n", 1)[0]
+
+        # Verify App Target Release configuration
+        app_release = app_target.split("Release:\n", 1)[1].split("base:\n", 1)[0]
+        self.assertIn("CODE_SIGN_STYLE: Manual", app_release)
+        self.assertIn("CODE_SIGN_IDENTITY: Apple Distribution", app_release)
+        self.assertIn('PROVISIONING_PROFILE_SPECIFIER: "$(VITALSTRIDE_APP_PROFILE_SPECIFIER)"', app_release)
+        self.assertNotIn("VITALSTRIDE_WIDGET_PROFILE_SPECIFIER", app_release)
+        self.assertNotIn("com.leepepe.vitalstride AppStore", app_release)
+
+        # Verify Widget Target Release configuration
+        widget_release = widget_target.split("Release:\n", 1)[1].split("base:\n", 1)[0]
+        self.assertIn("CODE_SIGN_STYLE: Manual", widget_release)
+        self.assertIn("CODE_SIGN_IDENTITY: Apple Distribution", widget_release)
+        self.assertIn('PROVISIONING_PROFILE_SPECIFIER: "$(VITALSTRIDE_WIDGET_PROFILE_SPECIFIER)"', widget_release)
+        self.assertNotIn("VITALSTRIDE_APP_PROFILE_SPECIFIER", widget_release)
+        self.assertNotIn("com.leepepe.vitalstride.widgets AppStore", widget_release)
+
+    def test_opaque_names_with_whitespace_and_shell_metacharacters(self):
+        opaque_app = "Match AppStore com.leepepe.vitalstride (2026-10-13) $`'\"\\!"
+        opaque_widget = 'Match AppStore com.leepepe.vitalstride.widgets (2026-10-13) $`\'"\\!'
+
+        escaped_app = shlex.quote(opaque_app)
+        escaped_widget = shlex.quote(opaque_widget)
+
+        simulated_xcargs = (
+            f"VITALSTRIDE_APP_PROFILE_SPECIFIER={escaped_app} "
+            f"VITALSTRIDE_WIDGET_PROFILE_SPECIFIER={escaped_widget}"
+        )
+
+        parsed_tokens = shlex.split(simulated_xcargs)
+        self.assertEqual(len(parsed_tokens), 2)
+        self.assertEqual(parsed_tokens[0], f"VITALSTRIDE_APP_PROFILE_SPECIFIER={opaque_app}")
+        self.assertEqual(parsed_tokens[1], f"VITALSTRIDE_WIDGET_PROFILE_SPECIFIER={opaque_widget}")
 
 
 if __name__ == "__main__":
