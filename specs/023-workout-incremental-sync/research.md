@@ -1,83 +1,93 @@
-# Research: HealthKit workout incremental sync
+# Research: HealthKit workout incremental sync successor
 
 ## Question
 
-Why can a repeated workout synchronization remove previously visible Apple Watch workouts, and what is the smallest durable seam that preserves snapshot, range, and invalidation correctness?
+What is the smallest repository-owned module change, starting from exact current `main`, that satisfies deterministic workout reconciliation, caller settlement, provider-lane reset, and checkpoint replay without widening T023-001 or reusing the exhausted MY-1483 delivery?
 
-## Evidence
+## Baseline Evidence
 
-| Observation | Repository evidence | Consequence |
+| Observation at `e8cfc19…` | Repository evidence | Consequence |
 |---|---|---|
-| Default workout fetch uses the persisted workout anchor | `HealthKitService.swift:565-591` | Later calls return changes, not a complete list. |
-| Explicit date range uses no anchor | `HealthKitService.swift:568-584` | The same provider method also returns authoritative range snapshots. |
-| Deleted UUIDs are returned | `HealthKitService.swift:606-607`; `HealthWorkoutRecord.swift:122-130` | The cache has enough deletion data but does not consume it. |
-| Cache extracts only workouts | `HealthDataCache.swift:785-795` | Empty delta replaces the cached baseline with an empty array. |
-| Default baseline is 30 days | `HealthKitService.swift:365,571-574` | A default result is bounded even though the cache records nil coverage. |
-| Nil coverage claims every request is covered | `HealthDataCache.swift:745-755` | A later 90-day request can be incorrectly satisfied by 30 days of data. |
-| Workout cache is memory-only; anchor persists | Cache state in `HealthDataCache.swift`; workout anchor in `HealthKitAnchorStore.swift:46-74` | A process restart can receive changes without a base snapshot. |
-| One in-flight workout task is global | `HealthDataCache.swift:766-788` | Different ranges or request semantics can incorrectly share one result. |
-| Workout anchor is saved before the result reaches the cache | `HealthKitService.swift:594-607` | A result rejected after provider completion can advance the anchor past changes that never reached the cache. |
+| T023-001 precise provider operations are delivered and unchanged after `9dfa1fb…` | `HealthKitService.swift` prepared snapshot/changes and accept/reject methods; provider contract tests | The successor consumes the delivered contract and does not edit its files. |
+| The public compatibility witness returns `WorkoutFetchResult` | `HealthDataCache.swift` `WorkoutDataProviding` | Legacy providers remain source-compatible but expose snapshot-only fallback. |
+| One cache entry stores records plus optional coverage only | `HealthDataCache.swift` `WorkoutCacheEntry` | Provenance and optional accepted candidate must be added inside the cache-owned entry. |
+| One global workout task coalesces all work | `workoutInFlightFetch`, `fetchWorkoutCoalesced`, `performWorkoutFetch` | Default and unrelated ranges cannot express real active/queued lane lifecycles. |
+| Nil coverage is treated as covering every request | `coversRange` | A bounded default or scoped snapshot may incorrectly satisfy a wider/default request. |
+| Provider results replace the whole cache and ignore deletions | `performWorkoutFetch` reads only `.workouts` | Empty anchored changes erase history; UUID reconciliation is absent. |
+| Refresh/reset cancel the task and clear references directly | `refreshWorkouts`, `invalidateWorkouts`, `invalidateAll` | Callers and successors have no centralized exactly-once settlement lifecycle. |
+| Tests use unchecked Sendable, NSLock, and sleeps | `HealthWorkoutCacheTests.swift` baseline mock and invalidation test | Timing green cannot prove query-complete/cache-acceptance/replay or reset-successor order. |
 
-## Decision 1: Make request and result semantics explicit
+## Decision 1: Preserve T023-001 and use a cache-owned internal capability
 
-**Chosen**: Distinguish baseline snapshot, anchored changes, and explicit-range snapshot at the provider seam. Identify snapshot versus changes in the result and give snapshots concrete coverage.
+**Chosen**: Keep `WorkoutDataProviding` public and unchanged for legacy fallback. In `HealthDataCache.swift`, define only the package-internal capability/conformance needed to call the already-delivered prepared operations. Production `HealthKitService` and deterministic test providers are the two adapters at this internal seam.
 
-**Why**: The optional date range currently overloads query scope and synchronization meaning. The cache cannot safely decide replacement versus merge from arrays alone.
+**Why**: It preserves compatibility, keeps the prepared interface out of AppUI/public witness requirements, and confines the successor to the HealthKitService Service role.
 
-**Compatibility**: Existing public cache methods and direct `fetchWorkouts(dateRange:)` remain source-compatible. Provider/result extensions need defaults and tests for existing conformers.
+**Rejected**: Editing `HealthKitService.swift`, `HealthWorkoutRecord.swift`, or provider-contract tests; making new prepared witnesses public; copying the PR #423 candidate.
 
-### Alternatives rejected
+## Decision 2: Keep one deep `HealthDataCache` module
 
-- **Treat every nil request as a delta when cache exists**: fails after process restart because the anchor persists but the base does not.
-- **Infer snapshot from empty cache**: a persisted-anchor delta can arrive to an empty cache and be mistaken for a complete baseline.
-- **Reset the anchor on every read**: correct but discards the benefit of anchored synchronization and broadens anchor lifecycle changes.
-- **Persist workout records in L2**: larger schema/privacy scope not required to fix MY-1477.
+**Chosen**: Put request, owner/coalesced waiter, provider task, lane, prepared outcome, cache application, and terminal state behind the existing public cache interface as actor-owned plain values.
 
-## Decision 2: Keep one authoritative workout cache entry
+**Why**: Cache state and the synchronous acceptance linearization point already belong to this actor. A separate coordinator actor would create another reentrancy seam and expose more interface without increasing leverage.
 
-**Chosen**: A snapshot replaces the entry for its declared provenance/coverage. Anchored changes reconcile only into a compatible default baseline. Switching between incompatible default/range shapes rebuilds rather than claiming false coverage.
+## Decision 3: Centralize remove-before-resume settlement
 
-**Why**: This keeps the current cache topology and avoids a new multi-range cache policy. Correctness is preferred over retaining every prior query shape in memory.
+**Chosen**: One actor operation removes a waiter before continuation resume and is the only completion route for success, failure, cancellation, supersession, and invalidation. Non-owner cancellation settles only that waiter; owner cancellation retires the request and settles every attached waiter.
 
-### Alternatives rejected
+**Why**: Actor serialization gives registration/cancellation/provider-result races one terminal winner. A late event finds no registered waiter/request and cannot double-resume.
 
-- **Merge arbitrary range snapshots into one interval**: can claim unfetched gaps are covered.
-- **Introduce a persistent or multi-segment workout cache**: unnecessary architecture growth for this bug.
+**Rejected**: Caller-local direct cancellation resume, provider-task direct success/failure resume, and separate drain-specific resume loops.
 
-## Decision 3: Reconcile changes by UUID with immutable publication
+## Decision 4: Separate lane domain from fetch key
 
-**Chosen**: Build a new UUID-keyed collection from the prior entry, apply upserts, apply deletions last, sort deterministically, and assign one new entry.
+**Chosen**: The default baseline/anchored domain has one lane. Each exact explicit range has its own independent lane. A lane stores an active request identity and FIFO queued identities; fetch semantic/range key still controls coalescing and currentness.
 
-**Why**: UUID is already the record identity and deleted-object identity. Whole-entry assignment preserves the package red line against in-place cache mutation.
+**Why**: Baseline and changes share one durable anchor and must serialize. Anchor-free ranges do not share that state and must not be invalidated or blocked by unrelated ranges. Separating lane identity from fetch key avoids the rejected candidate's empty queue and per-request global-generation staling.
 
-**Conflict rule**: If one delta both upserts and deletes a UUID, deletion wins.
+**Rejected**: One global lane, one lane per full semantic key that lets baseline/changes race, or a continuation-holder provider turn.
 
-## Decision 4: Defer checkpoint persistence to cache acceptance
+## Decision 5: Distinguish same-generation retirement from reset
 
-**Chosen**: A prepared baseline/change fetch returns an opaque pending checkpoint and does not persist it. The cache actor validates currentness, publishes the corresponding whole cache entry, then synchronously persists the checkpoint without an intervening suspension point.
+**Chosen**: Owner cancellation and refresh supersession retire affected same-generation requests, settle callers, release lane ownership, and pump the next eligible queued successor without waiting for stale provider return. Workout/global invalidation and authorization reset instead advance generation, settle and remove every old active/queued request, and carry no queue identity forward. A request newly registered after reset may start in the new generation before an old stale provider returns.
 
-**Why**: Cache-first/checkpoint-second gives at-least-once delivery. If checkpoint persistence is interrupted, the old anchor replays changes and UUID reconciliation is idempotent. Persisting the checkpoint first creates an unsafe at-most-once gap where changes can be skipped permanently.
+**Why**: HealthKit/provider cancellation is cooperative, so scheduling cannot depend on stale return. At the same time, reset is an authorization/cache-boundary event: pumping pre-reset queued intent would violate its generation. Late return is rejected by generation/key/request identity in both cases.
 
-**Direct-call compatibility**: The existing direct service call shape remains, but it becomes an anchor-free authoritative snapshot with no default-anchor side effect. The cache-facing provider path is the only anchor prepare/accept authority.
+## Decision 6: Apply changes only to a compatible default baseline
 
-### Alternatives rejected
+**Chosen**: Prepared anchored changes require a cache entry with default provenance. They preserve that entry's concrete coverage/provenance. Missing or scoped state rejects the changes and rebuilds a default baseline. Cache application follows the prepared result's actual semantic, so an anchored intent that returns a baseline is published as a baseline.
 
-- **Provider persists before returning, cache clears anchor when rejecting**: a process crash between persistence and cleanup still loses the delta.
-- **Persist checkpoint and cache entry concurrently**: has no ordering guarantee and recreates the unsafe state.
-- **Allow direct service calls to commit independently**: creates a second anchor writer outside cache acceptance and can move the anchor past an unaccepted cache transition.
-- **Persist cache workouts alongside the anchor**: introduces workout L2 persistence and schema/privacy scope not required by MY-1477.
+**Why**: Deltas have meaning only relative to their anchor-compatible base. Requested intent cannot override a provider-reported baseline fallback.
 
-## Decision 5: Key coalescing and add request-instance currentness
+## Decision 7: Normalize every snapshot, including legacy fallback
 
-**Chosen**: Key in-flight work by request semantic plus date range, and give each owning fetch a unique request instance. Add a workout-specific generation that changes on invalidation and incompatible snapshot operations. An explicit refresh creates a new owner even when its key matches the prior refresh.
+**Chosen**: Deduplicate by UUID with the final provider-result occurrence winning, then sort by start date descending and UUID before whole-entry publication. Legacy provenance comes from the request: nil is default; an explicit interval is scoped. Preserve provider-reported coverage. When coverage is absent, use the exact explicit request or, for a default request, the existing 30-day window ending at the transaction's captured request-start instant.
 
-**Why**: Actor isolation does not prevent stale writes after an `await`; cooperative cancellation alone cannot guarantee invalidation wins. Generation/key checks alone also cannot distinguish two same-semantic refreshes.
+**Why**: Legacy public providers cannot report prepared semantics or checkpoints, but their snapshots still must obey cache invariants and cannot make scoped data default-compatible.
 
-## Decision 6: Keep logs aggregate-only
+## Decision 8: Keep checkpoints opaque and optional
 
-**Chosen**: Query semantic, count, duration, and cache outcome may be logged. Workout values, timestamps tied to a record, source details, and identifiers may not be logged.
+**Chosen**: A current prepared baseline/change may supply a candidate. Publish one immutable entry containing that exact candidate, synchronously invoke provider acceptance for it, then settle success. Nil candidates, legacy fallback, and explicit-range snapshots publish checkpoint-absent state and invoke no acceptance.
 
-**Why**: Constitution §I permits aggregate operational metadata but prohibits actual health values/details.
+**Why**: Generation/key/request identity is the currentness authority. Checkpoint archive contents, timestamps, and prior values are provider concerns and cannot safely establish cache ordering.
+
+## Decision 9: Treat acceptance as invocation, not durable receipt
+
+**Chosen**: The delivered `Void` acceptance proves only ordered invocation. Deterministic tests model durable state separately: after A/c1 and B/c2 cache acceptance, durable state may silently remain c1; the next query replays B and safely resubmits c2.
+
+**Why**: Claiming persistence success would exceed the interface. UUID reconciliation supplies at-least-once replay safety without reopening T023-001.
+
+## Decision 10: Use distinct observable gates
+
+**Chosen**: Deterministic test adapters expose provider-started, query-complete, cache-acceptance, acceptance-invocation, durable-anchor, reset-successor, and stale-release gates/events. State is actor-owned or equivalently compiler-checked Sendable.
+
+**Why**: An in-provider release gate does not observe the post-query/pre-acceptance boundary. Sleep/yield timing cannot prove successor pumping or settlement completeness.
+
+## Decision 11: One clean successor from current main
+
+**Chosen**: T023-003 depends only on delivered T023-001 and starts from exact `main` SHA `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`. Cancelled T023-002, PR #423, and `a0d8…` remain cited evidence only.
+
+**Why**: The Owner stopped the exhausted delivery and authorized a normal independent successor. Reusing its branch/workspace/content would turn the successor into another repair round and violate the stated base.
 
 ## Validation Decision
 
@@ -88,4 +98,4 @@ cd Packages/HealthKitService
 swift build && swift test
 ```
 
-`xcodebuild` is forbidden for this scope.
+`xcodebuild` is forbidden for this scope. A final source/diff audit is also required because full tests alone do not prove the unique-resume site, two-file allowlist, or absence of checkpoint/timing/concurrency anti-patterns.

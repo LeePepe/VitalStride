@@ -1,103 +1,134 @@
-# Contract: Workout snapshot and anchored changes
+# Contract: Workout snapshot, changes, settlement, and lanes
 
 ## Purpose
 
-Remove ambiguity between authoritative workout snapshots and HealthKit anchored changes while preserving existing public call sites.
+Complete the cache-side transaction contract delivered by T023-001 while preserving existing public call sites and confining the successor to `HealthDataCache` plus its public-interface tests.
 
-## Request Semantics
+## Request and Result Semantics
 
 ### Baseline snapshot
 
-- Used whenever the cache has no compatible default baseline, including after process restart or invalidation.
-- Executes an anchor-free query for the existing default first-sync window.
-- Returns concrete coverage and an authoritative record set.
-- Returns an opaque pending anchor checkpoint; the provider does not persist it during the prepared fetch.
+- Used whenever the cache has no compatible default baseline, including after process restart, scoped-cache replacement, or invalidation.
+- Executes anchor-free for the existing default first-sync window.
+- Returns concrete coverage, authoritative records, and an optional opaque candidate.
 
 ### Anchored changes
 
 - Used only when a compatible default baseline exists.
-- Executes with the persisted workout anchor.
-- Returns UUID upserts and deleted UUIDs.
-- Returns an opaque pending anchor checkpoint without persisting it.
-- An empty response means no change, not an empty snapshot.
+- Executes from provider-owned durable anchor state.
+- Returns UUID upserts, deleted UUIDs, and an optional opaque candidate.
+- Empty changes preserve records, coverage, and provenance.
 
 ### Explicit-range snapshot
 
-- Used for a caller-supplied date range when the cache cannot truthfully cover it, and for explicit range refresh.
-- Executes with no anchor.
-- Returns an authoritative record set for exactly that range.
-- Does not read or advance the default incremental anchor.
+- Used for an exact caller-supplied range that the current entry cannot truthfully cover and for explicit-range refresh.
+- Executes anchor-free and never accepts a default candidate.
+- Publishes scoped provenance for exactly the provider-reported or requested range.
 
-## Cache Application
+### Legacy fallback snapshot
 
-### Snapshot
+- Uses the unchanged public `WorkoutDataProviding` witness.
+- Is always authoritative snapshot behavior with no candidate and no acceptance invocation.
+- Derives default/scoped provenance from the request and preserves provider-reported coverage.
+- When coverage is absent, an explicit request uses its exact range; a default request uses the existing 30-day default window ending at the transaction's captured request-start instant.
 
-- Replace the single workout cache entry with the authoritative records, concrete coverage, and matching provenance.
-- Deduplicate and deterministically sort before publication.
-- An empty snapshot is a valid empty cache entry.
+## Snapshot and Change Application
 
-### Changes
+### Snapshot normalization
 
-- Reject changes as a cache base when no compatible default baseline exists; request a baseline instead.
-- Upsert records by UUID.
-- Apply deleted UUIDs after upserts; deletion wins on conflict.
+- Collapse repeated UUIDs before publication; the final occurrence in the provider result wins.
+- Sort by start date descending, then UUID.
+- Publish one newly constructed whole entry with matching default/scoped provenance.
+- An empty snapshot is a valid empty entry.
+
+### Anchored reconciliation
+
+- Reject changes when no compatible default baseline exists; request a baseline instead.
+- Copy prior records into a UUID map, apply upserts, then deletions; deletion wins.
 - Unknown deletions are no-ops.
-- Preserve the baseline coverage/provenance.
-- Publish one newly constructed whole entry.
+- Preserve baseline coverage and default provenance.
+- Normalize/sort and publish one newly constructed whole entry.
+- Follow the prepared result's actual semantic; a baseline returned for anchored intent is a baseline, not changes.
 
-## Coalescing and Commit Rules
+## Caller Waiter Lifecycle
 
-- Only identical semantic-plus-range requests may share an in-flight task.
-- Every newly started fetch owns a unique request instance in addition to its semantic-plus-range key and captured workout generation.
-- Ordinary duplicate reads may coalesce onto the owning request instance; an explicit refresh supersedes prior work even when semantic and range are identical.
-- Invalidation and incompatible snapshot transitions advance the workout generation.
-- A result is current only when generation, fetch key, and request instance all still match; a stale request cannot clear a newer in-flight owner.
-- Failure, cancellation, or a stale completion preserves the last accepted cache/anchor pair.
+- Every caller registers one actor-owned waiter identity before suspension.
+- One actor settlement authority handles success, failure, cancellation, supersession, and invalidation. It removes each waiter before resuming it; no other path resumes a caller continuation directly.
+- A non-owner cancellation settles only that waiter and preserves the owner and remaining coalesced callers.
+- An owner cancellation retires the request, cancels its provider task, releases its logical lane turn, and settles every attached waiter exactly once.
+- Registration/cancellation/provider-result races are actor-serialized. Once removed, late or duplicate terminal events are no-ops.
 
-## Anchor/Cache Transaction Authority
+## Provider Lane Lifecycle
 
-The cache actor is the sole acceptance authority for provider results used by `HealthDataCache`.
+- The default baseline/anchored domain has one logical provider lane.
+- Every exact anchor-free explicit range has an independent range lane; different ranges may progress concurrently.
+- A lane stores an active request identity plus FIFO queued identities, never a separately synchronized continuation holder.
+- Ordinary identical reads may coalesce on one request. An explicit refresh supersedes the prior same-key request and becomes an eligible queued/current successor in the same lane.
+- Owner cancellation and refresh supersession remove affected same-generation identities, cancel task handles, settle callers, release logical ownership, and pump the next eligible queued successor.
+- `invalidateWorkouts()`, `invalidateAll()`, and authorization reset advance generation, revoke and settle every old active/queued request, and carry none of that queued work forward. A fresh request registered after reset may start immediately in the new generation.
+- Logical revocation does not await non-cooperative provider return. A late result fails generation/key/request currentness and cannot publish, invoke acceptance, or clear newer ownership.
 
-For an anchor-advancing baseline or changes result, acceptance order is:
+## Cache/Checkpoint Acceptance
 
-1. The provider completes the query and returns records/deletions plus an opaque pending checkpoint without persisting it.
-2. The cache actor validates generation, fetch key, and request instance after the provider await.
-3. The cache actor constructs and publishes the new immutable cache entry.
-4. Without another suspension point, the accepted checkpoint is synchronously persisted.
-5. Only the owning request instance clears its in-flight slot and returns the accepted projection.
+The cache actor is the sole acceptance authority for prepared results used by `HealthDataCache`.
 
-A rejected result performs neither step 3 nor step 4. This gives at-least-once change delivery: if checkpoint persistence cannot complete after cache publication, the previous anchor remains and the next fetch may replay changes, which UUID reconciliation handles idempotently. The unsafe inverse—persisting an anchor before accepting its cache transition—is forbidden.
+For a current prepared baseline/change with a candidate:
 
-The source-compatible direct `HealthKitService.fetchWorkouts(dateRange:)` path is an anchor-free authoritative snapshot. It neither reads nor advances the default workout anchor. Only the deferred provider seam used by the app-owned `HealthDataCache` may prepare and persist a default anchor checkpoint; there is no independent direct-call anchor writer.
+1. Provider query completes without persisting the candidate.
+2. The actor validates reset generation, semantic/range key, request identity, lane ownership, and baseline compatibility.
+3. The actor constructs the normalized immutable entry containing that exact opaque candidate.
+4. The actor publishes the entry and, without suspension, synchronously invokes provider acceptance for the matching candidate.
+5. Only after invocation returns does the actor release/pump the lane, retire the request, and settle success waiters.
 
-### Required adversarial sequence
+A rejected or stale result performs neither publication nor acceptance. A prepared baseline/change with no candidate, legacy fallback, and explicit-range snapshot publish checkpoint-absent state and invoke no acceptance.
 
-1. Accept baseline A and its checkpoint.
-2. Complete a provider query for anchored delta B but hold it before cache acceptance.
-3. Cancel or supersede it with a same-semantic refresh.
-4. Verify the rejected request did not persist its checkpoint or clear the newer in-flight owner.
-5. Run the next accepted request from the prior checkpoint, verify the cache publishes A and B first, then verify the matching new checkpoint is persisted.
+Checkpoint contents are opaque. Cache currentness uses generation/key/request identity only; the cache never decodes, compares, timestamps, orders, or carries forward a prior checkpoint. The delivered `Void` acceptance guarantees invocation order, not durable persistence. Durable state may silently remain at c1, so a later query may replay B and resubmit c2; UUID reconciliation makes this safe.
+
+The direct public `HealthKitService.fetchWorkouts(dateRange:)` path remains an anchor-free authoritative snapshot and never becomes a second default-anchor writer.
+
+## Required Deterministic Sequences
+
+### Settlement sequence — AC-S1
+
+Exercise owner/coalesced waiters through success, provider error, non-owner cancellation, owner cancellation, supersession, workout invalidation, and global invalidation. Assert one terminal outcome per waiter and verify the production source has one continuation-resume site.
+
+### Lane/reset sequence — AC-S2
+
+1. Hold an active default request and queue a same-generation same-lane successor.
+2. Start distinct explicit-range requests and observe independent lane progress.
+3. Supersede or owner-retire the default request and observe the eligible queued successor start before stale release.
+4. In a separate reset case, hold old-generation active and queued requests, invalidate/authorize-reset, and observe every old caller settle and every old queue identity disappear.
+5. Register a new post-reset request and observe it start before the old stale provider is released.
+6. Release each stale provider and verify it cannot publish, accept, or clear newer ownership.
+
+### Compatible-baseline sequence — AC-S3
+
+Apply anchored changes against no entry and a scoped entry and observe rejection plus default rebuild. Apply the same shape against a default baseline and observe UUID reconciliation with unchanged baseline coverage/provenance.
+
+### Legacy sequence — AC-S4
+
+Return unsorted duplicate-UUID snapshots through a legacy provider for default and explicit requests. Observe deterministic normalized output and request-derived provenance. Preserve provider coverage when present; when absent, observe the exact explicit range or the existing 30-day default window ending at that transaction's captured request-start instant. Then prove explicit-to-default rebuild.
+
+### Replay sequence — AC-S5
+
+1. Accept baseline A/c1 and advance durable state to c1.
+2. Complete anchored query B/c2 and hold after query completion before cache acceptance.
+3. Cancel or supersede it; verify c2 is rejected and newer lane ownership remains.
+4. Replacement reads durable c1 and returns B/c2.
+5. Publish A+B/c2; observe matching acceptance invocation before owner/coalesced success.
+6. In one case advance durable state to c2. In another, silently retain c1 and prove the next request replays B and resubmits c2 safely.
+7. In a separate reset sequence, prove all old-generation active/queued callers terminate once, register a fresh post-reset request, and observe it start before old stale release.
+
+The gates for provider started, query complete, cache acceptance, acceptance invocation, durable anchor, reset successor, and stale release are distinct. An in-provider release gate is insufficient.
 
 ## Compatibility
 
-- Existing callers of `HealthDataCache.workoutData(in:)` require no source changes.
-- Existing callers of `HealthDataCache.refreshWorkouts(in:)` require no source changes.
+- Existing callers of `HealthDataCache.workoutData(in:)` and `refreshWorkouts(in:)` require no source changes.
 - Existing callers of `HealthKitService.fetchWorkouts(dateRange:)` require no source changes.
-- Existing direct service callers receive an authoritative snapshot and no default-anchor side effect.
-- Existing provider conformers receive compatibility behavior for any newly explicit request/acceptance semantic.
-- Tests must cover both old call shapes and new precise behavior.
+- Existing public provider conformers add no witness and receive snapshot-only fallback behavior.
+- T023-001 source and provider-contract tests remain unchanged.
+- Existing cache telemetry, filtering, no-provider empty result, error propagation, invalidation, and authorization-revocation behavior remain covered.
 
-## Privacy
+## Privacy and Logging
 
-Allowed operational logging:
-
-- request semantic;
-- aggregate result count;
-- elapsed duration;
-- cache hit/miss/refresh category.
-
-Forbidden logging:
-
-- heart rate, energy, distance, duration, or other workout health values;
-- record identifiers;
-- record-specific timestamps or source details.
+Allowed: semantic, aggregate count, duration, and cache outcome. Forbidden: workout health values, record identifiers, record-specific timestamps, source details, or checkpoint contents.
