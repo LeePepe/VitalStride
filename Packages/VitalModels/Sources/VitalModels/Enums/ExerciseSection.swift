@@ -12,12 +12,12 @@ public enum ExerciseSection: String, Codable, CaseIterable, Sendable {
     case leverageMachine = "leverage_machine"
     case machine
     case medicineBall = "medicine_ball"
-    case other
     case rope
     case sledMachine = "sled_machine"
     case smithMachine = "smith_machine"
     case stabilityBall = "stability_ball"
     case weighted
+    case other
 
     public var localizedName: String {
         switch self {
