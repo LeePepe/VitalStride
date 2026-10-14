@@ -30,11 +30,11 @@ description: "Layer-scoped task graph for MY-1473"
 | Layer context | `VitalStride/CONTEXT.md`; repository terminology in `CONTEXT.md`; constitution quality bars in `.specify/memory/constitution.md` |
 | Vertical slice | `US1` — Reorder whole exercise sections |
 | Internal task edges | None; one mergeable AppUI slice |
-| Dispatch blockers | MY-1486 is cancelled and successor MY-1706 is complete in current `main`; preserve that current-base behavior. Team Lead must make MY-1484's still-active shared AppUI/Xcode validation lane quiescent, provision the reviewed planning revision as MY-1567's delivery base, and recheck this allowlist for later drift before dispatch/build. |
+| Dispatch blockers | MY-1486 is cancelled and successor MY-1706 is complete in current `main`; preserve that current-base behavior. Team Lead must make MY-1484's still-active shared AppUI/Xcode validation lane quiescent and supply the sole Fullstack implementer with the verified repository, approved exact reviewed ref, scope, acceptance, dependency state, and this allowlist for a later-drift recheck. Fullstack owns first-preparation classification and eligible initialization/registration. |
 | Files in scope | `VitalStride/Sources/ActiveWorkoutView.swift`; `VitalStride/Sources/VitalStrideApp.swift` (DEBUG-only harness); `VitalStrideTests/Sources/ExerciseManagementTests.swift`; `VitalStrideUITests/Sources/ActiveWorkoutSectionReorderUITests.swift` |
 | Interface impact | Internal-only. No public API change. One production-owned app-internal reorder/renumber seam may be extracted in `ActiveWorkoutView.swift`; one launch-argument-gated DEBUG test entry/fixture and stable outer-exercise selectors may be added. Implementation owns final Swift signatures. |
 | Contract pointer | `contracts/exercise-section-reorder.md` |
-| Exact workdir | VitalStride repository root |
+| Exact workdir | Registered MY-1567 `delivery_work_dir` repository root, established or reused and read back by the sole Fullstack implementer under the scoped VitalStride preparation protocol |
 | Required CI | AppUI gate declared by `VitalStride/CONTEXT.md` on iPhone 17 Simulator |
 
 #### Files NOT to touch
@@ -116,7 +116,9 @@ Required CI then runs the current AppUI layer command from `VitalStride/CONTEXT.
 
 - `T001` has no internal upstream task and no parallel sibling.
 - MY-1486 is cancelled; completed successor MY-1706 is part of the current base and contributes a compatibility constraint, not a pending task edge.
-- Before dispatch, Team Lead must make MY-1484's `in_review` AppUI/Xcode validation lane quiescent, then provision the authoritative MY-1567 delivery workspace/base at this reviewed planning revision.
+- Before dispatch, Team Lead must make MY-1484's `in_review` AppUI/Xcode validation lane quiescent and hand the sole Fullstack implementer the verified repository, approved exact reviewed planning ref, scope, acceptance, dependency state, and allowlist.
+- Fullstack must inspect MY-1567 history, runs, metadata, candidate/PR evidence, the daemon task root, and expected paths before mutation. Existing delivery state is reused and validated; partial, missing, or conflicting state returns to Team Lead for recovery. Only genuinely new state may be initialized from the daemon task root with `multica repo checkout` at the approved exact ref.
+- After eligible initialization, Fullstack verifies repository identity, task branch, clean initial state, HEAD, and exact reviewed artifacts; persists and reads back `delivery_work_dir`, `delivery_repo_url`, `delivery_branch`, and `delivery_base_sha`; and runs all T001 commands from that registered workspace while continuing the same implementation run.
 - Within `T001`, DEBUG harness/test setup precedes behavioral RED capture; RED precedes GREEN; GREEN precedes the unit invariant and full automated/interactive verification.
 - No cross-layer edge exists. `Packages/**` remains excluded.
 - Team Lead dispatches implementation only after the exact planning revision receives AI Reviewer PASS and Team Lead approval.

@@ -70,9 +70,9 @@
 
 ## Decision 10 — External serialization gates
 
-**Decision**: Retire MY-1486 as a gate, treat completed successor MY-1706 as current compatibility baseline, and retain MY-1484 as the Team Lead pre-dispatch shared-lane gate rather than a product or cross-layer dependency.
+**Decision**: Retire MY-1486 as a gate, treat completed successor MY-1706 as current compatibility baseline, and retain MY-1484 as the Team Lead pre-dispatch shared-lane gate rather than a product or cross-layer dependency. For this verified VitalStride issue, Team Lead supplies readiness while the sole Fullstack implementer owns first delivery-workspace classification and eligible initialization/registration.
 
-**Rationale**: MY-1486 is cancelled and MY-1706 is complete at the verified current base. MY-1706 changed the same source file but not the reorder symbols; its policy-driven snackbar/FAB/animation behavior is now compatibility surface, not an unresolved branch. MY-1484 does not overlap this four-file allowlist but remains `in_review` and shares AppUI/Xcode simulator build state. Team Lead must make that lane quiescent and use task-local build artifacts before Fullstack dispatch.
+**Rationale**: MY-1486 is cancelled and MY-1706 is complete at the verified current base. MY-1706 changed the same source file but not the reorder symbols; its policy-driven snackbar/FAB/animation behavior is now compatibility surface, not an unresolved branch. MY-1484 does not overlap this four-file allowlist but remains `in_review` and shares AppUI/Xcode simulator build state. Team Lead must make that lane quiescent and hand Fullstack the verified repository, approved exact reviewed ref, scope, acceptance, and dependency state. Fullstack must reuse and validate any existing delivery state, return partial or conflicting state for Team Lead recovery, and initialize/register a task-local workspace plus build artifacts only when the state is genuinely new.
 
 ## Decision 11 — Reconcile against current main without changing the solution
 
