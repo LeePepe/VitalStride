@@ -17,7 +17,8 @@ once.
 ## Decision
 
 - Add one cross-platform `AppUI` change-owner layer. Its explicit `paths` cover all app production
-  roots, app test roots, `project.yml`, and the generated Xcode project exactly once.
+  roots, app test roots, and `project.yml` exactly once. ADR-0019 later classified the generated
+  Xcode project as an exclusion while retaining `project.yml` as the owned source of truth.
 - Shared source consumption by Mac/Watch/Widget remains inside `AppUI`; it does not create duplicate
   target-specific layer ownership.
 - `AppUI` depends on the six production package layers. Package `depended_by` mirrors include it.

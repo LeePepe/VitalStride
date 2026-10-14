@@ -170095,9 +170095,7 @@
       "primaryMuscles": [
         "calves"
       ],
-      "secondaryMuscles": [
-        "tibialis anterior"
-      ],
+      "secondaryMuscles": [],
       "defaultWeightLow": 100.0,
       "defaultWeightMid": 75.0,
       "defaultWeightHigh": 50.0,
@@ -172423,9 +172421,7 @@
       "primaryMuscles": [
         "calves"
       ],
-      "secondaryMuscles": [
-        "tibialis anterior"
-      ],
+      "secondaryMuscles": [],
       "defaultWeightLow": 120.0,
       "defaultWeightMid": 90.0,
       "defaultWeightHigh": 60.0,
@@ -172440,9 +172436,7 @@
       "primaryMuscles": [
         "calves"
       ],
-      "secondaryMuscles": [
-        "tibialis anterior"
-      ],
+      "secondaryMuscles": [],
       "defaultWeightLow": 100.0,
       "defaultWeightMid": 75.0,
       "defaultWeightHigh": 50.0,
@@ -172457,9 +172451,7 @@
       "primaryMuscles": [
         "calves"
       ],
-      "secondaryMuscles": [
-        "tibialis anterior"
-      ],
+      "secondaryMuscles": [],
       "defaultWeightLow": 100.0,
       "defaultWeightMid": 75.0,
       "defaultWeightHigh": 50.0,

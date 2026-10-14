@@ -20,17 +20,20 @@ final class RestTimerController {
     let completedDisplayDuration: TimeInterval
     private let notificationScheduler: any RestNotificationScheduling
     private let liveActivityManager: any RestLiveActivityManaging
+    private let telemetry: TelemetryService
     private var restGeneration = 0
     private var liveActivityStartTask: Task<Void, Never>?
 
     init(
         completedDisplayDuration: TimeInterval = 2,
         notificationScheduler: any RestNotificationScheduling = RestNotificationScheduler(),
-        liveActivityManager: any RestLiveActivityManaging = RestLiveActivityManager()
+        liveActivityManager: any RestLiveActivityManaging = RestLiveActivityManager(),
+        telemetry: TelemetryService = .shared
     ) {
         self.completedDisplayDuration = completedDisplayDuration
         self.notificationScheduler = notificationScheduler
         self.liveActivityManager = liveActivityManager
+        self.telemetry = telemetry
     }
 
     func startRest(duration: TimeInterval = 60) {
@@ -54,7 +57,7 @@ final class RestTimerController {
                 endDate: endDate
             )
         }
-        TelemetryService.shared.trackNonisolated(
+        telemetry.trackNonisolated(
             .restTimerStarted(durationSeconds: max(0, Int(duration)))
         )
     }
@@ -107,7 +110,7 @@ final class RestTimerController {
         }
         logger.info("rest_notification_cancelled reason=skip")
         if wasResting {
-            TelemetryService.shared.trackNonisolated(.restTimerSkipped)
+            telemetry.trackNonisolated(.restTimerSkipped)
         }
     }
 
@@ -145,7 +148,7 @@ final class RestTimerController {
         guard restEndDate == restEnd else { return }
         phase = .completed
         await liveActivityManager.endActivity(reason: .completed)
-        TelemetryService.shared.trackNonisolated(.restTimerCompleted)
+        telemetry.trackNonisolated(.restTimerCompleted)
         do {
             try await Task.sleep(for: .seconds(completedDisplayDuration))
         } catch { return }

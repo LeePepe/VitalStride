@@ -21,6 +21,9 @@ was unmapped or owned by two layers.
   spec-kit paths under `.specify`.
 - Keep `project.yml` in AppUI because it is the XcodeGen target source of truth. Classify the derived
   `VitalStride.xcodeproj/**` as a generated exclusion rather than layer content.
+- Route progressively from top-level `CONTEXT.md`: `Packages/**` descends through
+  `Packages/CONTEXT.md`, while AppUI, Prototype, and RepoInfra descend directly to leaf contexts.
+  Each context owns only its local routes or leaf facts; no central registry duplicates the tree.
 - Declare governance/agent documentation, specs, design evidence, and general documentation as
   support exclusions. Declare build/cache/log/local-secret/signing paths as generated/local
   exclusions. Exclusions carve files out before owner matching.
@@ -36,8 +39,9 @@ was unmapped or owned by two layers.
 - Repository automation changes have a formal owner, red-lines, and focused validation command.
 - New tracked tooling cannot silently land outside the formal layer universe.
 - Support and generated artifacts remain intentionally unschedulable and visibly classified.
-- The root ownership/exclusion lists require maintenance when a new top-level path category is
-  introduced; the fail-closed check makes that maintenance immediate.
+- Adding a package normally changes only `Packages/CONTEXT.md` and the new leaf context. Root routes
+  change only when a new outer scope is introduced; fail-closed checks make either maintenance
+  immediate.
 
 ## Implementation references
 

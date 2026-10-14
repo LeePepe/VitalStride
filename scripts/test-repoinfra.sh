@@ -16,5 +16,6 @@ while IFS= read -r script; do
 done < <(find scripts .specify/extensions .specify/scripts -type f -name '*.py' -print | sort)
 
 python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
+bash scripts/ci/kimi-review.contract.test.sh
 
 echo "✅ RepoInfra fast validation passed."

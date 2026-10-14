@@ -1,6 +1,10 @@
 ---
 layer: AIService
 role: AI 推理 Provider 抽象层；定义 AIProvider 协议 + ProviderChain + 输出结构（不含缓存）
+paths: [Packages/AIService]
+test_paths: [Packages/AIService/Tests]
+gate_tier: local-fast
+build: swift build --package-path Packages/AIService
 depends_on: []
 depended_by: [AppUI]
 red_lines:

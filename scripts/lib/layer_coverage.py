@@ -1,86 +1,324 @@
 #!/usr/bin/env python3
-"""Validate exhaustive, non-overlapping formal-layer path ownership."""
+"""Resolve repository paths through recursively linked CONTEXT.md files."""
 
 from __future__ import annotations
 
 import argparse
 import fnmatch
+import json
+import shlex
 import subprocess
 import sys
 from pathlib import PurePosixPath
 
-from frontmatter import parse_list, parse_scalar, read_frontmatter
+from frontmatter import parse_block_list, parse_list, parse_routes, parse_scalar, read_frontmatter
+
+
+ROOT_CONTEXT = "CONTEXT.md"
+TRUSTED_BASH_COMMANDS = {
+    ("bash", "-n", "scripts/test-repoinfra.sh"),
+    ("bash", "scripts/test-repoinfra.sh"),
+}
+TRUSTED_SWIFT_COMMANDS = {
+    ("swift", "build", "--package-path", "Prototype"),
+    ("swift", "build", "--package-path", "Packages/AIService"),
+    ("swift", "test", "--package-path", "Packages/AIService"),
+    ("swift", "build", "--package-path", "Packages/DesignKit"),
+    ("swift", "test", "--package-path", "Packages/DesignKit"),
+    ("swift", "build", "--package-path", "Packages/HealthKitService"),
+    ("swift", "test", "--package-path", "Packages/HealthKitService"),
+    ("swift", "build", "--package-path", "Packages/TelemetryKit"),
+    ("swift", "test", "--package-path", "Packages/TelemetryKit"),
+    ("swift", "build", "--package-path", "Packages/VitalModels"),
+    ("swift", "test", "--package-path", "Packages/VitalModels"),
+    ("swift", "build", "--package-path", "Packages/VitalUI"),
+    ("swift", "test", "--package-path", "Packages/VitalUI"),
+}
+TRUSTED_XCODEBUILD_COMMANDS = {
+    (
+        "xcodebuild",
+        "build",
+        "-project",
+        "VitalStride.xcodeproj",
+        "-scheme",
+        "VitalStride",
+        "-destination",
+        "generic/platform=iOS Simulator",
+        "-skipPackagePluginValidation",
+    ),
+    (
+        "xcodebuild",
+        "test",
+        "-project",
+        "VitalStride.xcodeproj",
+        "-scheme",
+        "VitalStride",
+        "-destination",
+        "platform=iOS Simulator,name=iPhone 17",
+        "-skipPackagePluginValidation",
+    ),
+}
+
+
+class RouteError(ValueError):
+    pass
 
 
 def matches(path: str, pattern: str) -> bool:
-    """Match an exact path, directory root, or explicit glob pattern."""
     if any(char in pattern for char in "*?["):
         return fnmatch.fnmatchcase(path, pattern) or PurePosixPath(path).match(pattern)
     return path == pattern or path.startswith(pattern.rstrip("/") + "/")
 
 
-def classify(files: list[str], contexts: list[str]) -> list[str]:
-    owners: list[tuple[str, str]] = []
-    support_excludes: list[str] = []
-    generated_excludes: list[str] = []
-    errors: list[str] = []
+def load_context(path: str) -> dict:
+    fm = read_frontmatter(path)
+    if fm is None:
+        raise RouteError(f"{path}: missing frontmatter")
+    return {
+        "path": path,
+        "scope": parse_scalar(fm, "scope"),
+        "layer": parse_scalar(fm, "layer"),
+        "paths": parse_list(fm, "paths"),
+        "test_paths": parse_list(fm, "test_paths"),
+        "routes": parse_routes(fm),
+        "support_excludes": parse_list(fm, "support_excludes"),
+        "generated_excludes": parse_list(fm, "generated_excludes"),
+        "gate_tier": parse_scalar(fm, "gate_tier"),
+        "build": parse_scalar(fm, "build"),
+        "test": parse_scalar(fm, "test"),
+        "depends_on": parse_list(fm, "depends_on"),
+        "red_lines": parse_block_list(fm, "red_lines"),
+    }
 
-    for context in contexts:
-        fm = read_frontmatter(context)
-        if fm is None:
-            errors.append(f"{context}: missing frontmatter")
-            continue
-        layer = parse_scalar(fm, "layer")
-        paths = parse_list(fm, "paths")
-        if not paths and context.startswith("Packages/"):
-            paths = [context.split("/", 2)[0] + "/" + context.split("/", 2)[1]]
-        for path in paths:
-            owners.append((layer, path))
-        support_excludes.extend(parse_list(fm, "support_excludes"))
-        generated_excludes.extend(parse_list(fm, "generated_excludes"))
 
-    for path in files:
-        exclusions = [
-            pattern
-            for pattern in support_excludes + generated_excludes
-            if matches(path, pattern)
-        ]
-        matched_owners = sorted({layer for layer, pattern in owners if matches(path, pattern)})
-        if exclusions:
-            # Exclusions carve support/generated files out of otherwise owned
-            # directory roots (for example Packages/X/CONTEXT.md). They are
-            # classified as exclusions, never as layer content.
-            continue
-        if not matched_owners:
-            errors.append(f"unmapped tracked path: {path}")
-        elif len(matched_owners) > 1:
-            errors.append(f"owner overlap: {path} -> {matched_owners}")
-    return errors
+def resolve(path: str, context_path: str = ROOT_CONTEXT, stack: tuple[str, ...] = ()) -> dict:
+    if context_path in stack:
+        raise RouteError(f"context cycle: {' -> '.join(stack + (context_path,))}")
+    node = load_context(context_path)
+    exclusions = [
+        pattern
+        for pattern in node["support_excludes"] + node["generated_excludes"]
+        if matches(path, pattern)
+    ]
+    if exclusions:
+        return {"path": path, "excluded": exclusions, "context_chain": stack + (context_path,)}
+
+    if node["routes"]:
+        routes = [route for route in node["routes"] if any(matches(path, p) for p in route["paths"])]
+        if not routes:
+            raise RouteError(f"unmapped at {context_path}: {path}")
+        if len(routes) > 1:
+            raise RouteError(f"route overlap at {context_path}: {path} -> {[r['context'] for r in routes]}")
+        route = routes[0]
+        child = route.get("context", "")
+        if not child:
+            raise RouteError(f"{context_path}: route for {path} has no context")
+        result = resolve(path, child, stack + (context_path,))
+        if route.get("kind") == "layer" and not result.get("layer") and not result.get("excluded"):
+            raise RouteError(f"{context_path}: layer route for {path} did not end at a layer")
+        return result
+
+    owners = [pattern for pattern in node["paths"] + node["test_paths"] if matches(path, pattern)]
+    if not node["layer"]:
+        raise RouteError(f"{context_path}: terminal context has no layer")
+    if not owners:
+        raise RouteError(f"parent/leaf mismatch at {context_path}: {path}")
+    return {
+        "path": path,
+        "layer": node["layer"],
+        "context": context_path,
+        "context_chain": stack + (context_path,),
+    }
 
 
 def tracked_files() -> list[str]:
-    result = subprocess.run(
-        ["git", "ls-files", "-z"], check=True, stdout=subprocess.PIPE
-    )
+    result = subprocess.run(["git", "ls-files", "-z"], check=True, stdout=subprocess.PIPE)
     return [item.decode() for item in result.stdout.split(b"\0") if item]
+
+
+def walk_contexts(context_path: str = ROOT_CONTEXT, stack: tuple[str, ...] = ()):
+    if context_path in stack:
+        raise RouteError(f"context cycle: {' -> '.join(stack + (context_path,))}")
+    node = load_context(context_path)
+    yield node
+    for route in node["routes"]:
+        child = route.get("context", "")
+        if not child:
+            raise RouteError(f"{context_path}: route missing context")
+        yield from walk_contexts(child, stack + (context_path,))
+
+
+def audit(files: list[str]) -> list[str]:
+    errors = []
+    layers = {}
+    try:
+        for node in walk_contexts():
+            layer = node["layer"]
+            if layer:
+                if layer in layers and layers[layer] != node["path"]:
+                    errors.append(f"duplicate layer id: {layer} -> {layers[layer]}, {node['path']}")
+                layers[layer] = node["path"]
+                if node["gate_tier"] not in {"local-fast", "ci-only"}:
+                    errors.append(f"{node['path']}: invalid gate_tier {node['gate_tier']!r}")
+    except (OSError, RouteError) as exc:
+        errors.append(str(exc))
+        return errors
+    for path in files:
+        try:
+            resolve(path)
+        except (OSError, RouteError) as exc:
+            errors.append(str(exc))
+    return sorted(set(errors))
+
+
+def find_layer(layer_id: str) -> dict:
+    matches_ = [node for node in walk_contexts() if node["layer"] == layer_id]
+    if len(matches_) != 1:
+        raise RouteError(f"layer id {layer_id!r} resolved to {len(matches_)} contexts")
+    return matches_[0]
+
+
+def read_paths(args) -> list[str]:
+    if args.stdin:
+        return [line.strip() for line in sys.stdin if line.strip()]
+    return args.paths
+
+
+def emit_run_failure(node: dict, action: str, code: int) -> None:
+    signal = {
+        "layer": node["layer"],
+        "path": node["path"],
+        "kind": action,
+        "detail": f"{action} command exited {code}",
+        "red_lines": node["red_lines"],
+    }
+    print("::layered-signal::" + json.dumps(signal, ensure_ascii=False))
+
+
+def _reject_untrusted_path(path: str) -> None:
+    if not path or not path.strip():
+        raise ValueError(f"unsafe path rejected: {path!r}")
+    if path.startswith("/") or path.startswith("~") or path.startswith("$"):
+        raise ValueError(f"unsafe path rejected: {path!r}")
+    if ".." in PurePosixPath(path).parts:
+        raise ValueError(f"path traversal rejected: {path!r}")
+    if "\\" in path:
+        raise ValueError(f"unsafe path rejected: {path!r}")
+
+
+def _validate_bash_argv(argv: list[str]) -> None:
+    if tuple(argv) not in TRUSTED_BASH_COMMANDS:
+        raise ValueError(f"untrusted bash argv rejected: {argv!r}")
+
+
+def _validate_swift_argv(argv: list[str]) -> None:
+    if tuple(argv) not in TRUSTED_SWIFT_COMMANDS:
+        raise ValueError(f"untrusted swift argv rejected: {argv!r}")
+
+
+def _validate_xcodebuild_argv(argv: list[str]) -> None:
+    if tuple(argv) not in TRUSTED_XCODEBUILD_COMMANDS:
+        raise ValueError(f"untrusted xcodebuild argv rejected: {argv!r}")
+
+
+def parse_run_argv(command: str) -> list[str]:
+    if not isinstance(command, str):
+        raise ValueError("run command must be a string")
+    text = command.strip()
+    if not text:
+        raise ValueError("run command is empty")
+    try:
+        argv = shlex.split(text, posix=True)
+    except ValueError as exc:
+        raise ValueError(f"malformed run command: {exc}") from exc
+    if not argv or not argv[0].strip():
+        raise ValueError("run command is empty")
+
+    executable = argv[0]
+    if executable == "bash":
+        _validate_bash_argv(argv)
+    elif executable == "swift":
+        _validate_swift_argv(argv)
+    elif executable == "xcodebuild":
+        _validate_xcodebuild_argv(argv)
+    else:
+        raise ValueError(f"untrusted executable rejected: {executable!r}")
+
+    blocked = {"&&", "||", ";", "|", "&", "<", ">", "$", "`"}
+    for token in argv:
+        if any(char in token for char in ("$", "`")):
+            raise ValueError(f"shell expansion rejected: {token!r}")
+        if any(char in token for char in ("&", "|", ";", "<", ">")):
+            raise ValueError(f"shell control rejected: {token!r}")
+        if token in blocked:
+            raise ValueError(f"shell control rejected: {token!r}")
+    return argv
 
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("contexts", nargs="+")
-    parser.add_argument("--files-from", help="newline-delimited fixture paths")
+    sub = parser.add_subparsers(dest="command", required=True)
+    audit_parser = sub.add_parser("audit")
+    audit_parser.add_argument("--files-from")
+    for name in ("resolve", "layers"):
+        command = sub.add_parser(name)
+        command.add_argument("paths", nargs="*")
+        command.add_argument("--stdin", action="store_true")
+    field = sub.add_parser("field")
+    field.add_argument("layer")
+    field.add_argument("field")
+    run = sub.add_parser("run")
+    run.add_argument("layer")
+    run.add_argument("action", choices=("build", "test"))
+    sub.add_parser("contexts")
     args = parser.parse_args(argv)
-    if args.files_from:
-        with open(args.files_from, encoding="utf-8") as handle:
-            files = [line.strip() for line in handle if line.strip()]
-    else:
-        files = tracked_files()
-    errors = classify(files, args.contexts)
-    if errors:
-        print("\n".join(f"❌ {error}" for error in errors))
+
+    try:
+        if args.command == "audit":
+            files = tracked_files()
+            if args.files_from:
+                with open(args.files_from, encoding="utf-8") as handle:
+                    files = [line.strip() for line in handle if line.strip()]
+            errors = audit(files)
+            if errors:
+                print("\n".join(f"❌ {error}" for error in errors))
+                return 1
+            print(f"✅ recursive layer coverage: {len(files)} tracked paths classified")
+            return 0
+        if args.command in {"resolve", "layers"}:
+            results = [resolve(path) for path in read_paths(args)]
+            if args.command == "resolve":
+                for result in results:
+                    print(json.dumps(result, ensure_ascii=False))
+            else:
+                for layer in sorted({result["layer"] for result in results if result.get("layer")}):
+                    print(layer)
+            return 0
+        if args.command == "contexts":
+            for node in walk_contexts():
+                if node["layer"]:
+                    print(node["path"])
+            return 0
+        node = find_layer(args.layer)
+        if args.command == "field":
+            value = node["path"] if args.field == "context" else node.get(args.field, "")
+            print(json.dumps(value, ensure_ascii=False) if isinstance(value, list) else value)
+            return 0
+        command = node.get(args.action, "")
+        if not command:
+            return 0
+        try:
+            argv = parse_run_argv(command)
+        except ValueError as exc:
+            print(f"❌ {exc}")
+            return 1
+        completed = subprocess.run(argv, shell=False)
+        if completed.returncode:
+            emit_run_failure(node, args.action, completed.returncode)
+        return completed.returncode
+    except (OSError, RouteError) as exc:
+        print(f"❌ {exc}")
         return 1
-    print(f"✅ layer path coverage: {len(files)} tracked paths classified")
-    return 0
 
 
 if __name__ == "__main__":

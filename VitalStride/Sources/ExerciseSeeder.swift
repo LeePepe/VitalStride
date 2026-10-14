@@ -124,21 +124,25 @@ enum ExerciseSeeder {
         try validateCatalogIfNeeded(catalog)
         let catalogIDs = Set(catalog.exercises.map(\.id))
 
-        if storedVersion == catalog.version {
-            let presetDescriptor = FetchDescriptor<Exercise>(
-                predicate: #Predicate { $0.presetId != nil }
-            )
-            let existingPresets = try context.fetch(presetDescriptor)
-            let existingIDs = Set(existingPresets.compactMap(\.presetId))
-            if existingPresets.count == catalogIDs.count, existingIDs == catalogIDs {
-                logger.debug("Seed skipped: version \(catalog.version) unchanged")
-                return
-            }
-        }
-
         do {
             if storedVersion == nil {
                 try migrateExistingPresets(context: context, dtos: catalog.exercises)
+            }
+
+            // Run before the same-version fast path so existing v5 installations
+            // and later CloudKit arrivals receive the narrowly scoped correction.
+            let repairedCalfMuscles = try repairCalfRaiseMuscles(context: context, catalog: catalog)
+            if storedVersion == catalog.version {
+                let presetDescriptor = FetchDescriptor<Exercise>(
+                    predicate: #Predicate { $0.presetId != nil }
+                )
+                let existingPresets = try context.fetch(presetDescriptor)
+                let existingIDs = Set(existingPresets.compactMap(\.presetId))
+                if existingPresets.count == catalogIDs.count, existingIDs == catalogIDs {
+                    if repairedCalfMuscles { try save(context) }
+                    logger.debug("Seed skipped: version \(catalog.version) unchanged")
+                    return
+                }
             }
 
             if catalog.version == "5" {
@@ -161,6 +165,33 @@ enum ExerciseSeeder {
             context.rollback()
             throw error
         }
+    }
+
+    private static func repairCalfRaiseMuscles(context: ModelContext, catalog: ExerciseCatalog) throws -> Bool {
+        guard catalog.version == "5" else { return false }
+        let affectedIDs: Set<String> = [
+            "550e8400-e29b-41d4-a716-446655440039",
+            "550e8400-e29b-41d4-a716-446655440199",
+            "550e8400-e29b-41d4-a716-446655440200",
+            "550e8400-e29b-41d4-a716-446655440202",
+        ]
+        let correctedIDs = Set(catalog.exercises.filter {
+            affectedIDs.contains($0.id) && $0.source == vitalStrideSource
+                && !$0.secondaryMuscles.contains("tibialis anterior")
+        }.map(\.id))
+        guard !correctedIDs.isEmpty else { return false }
+
+        let descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.presetId != nil && $0.isCustom == false }
+        )
+        var changed = false
+        for exercise in try context.fetch(descriptor) {
+            guard let presetID = exercise.presetId, correctedIDs.contains(presetID),
+                  exercise.secondaryMuscles.contains("tibialis anterior") else { continue }
+            exercise.secondaryMuscles = exercise.secondaryMuscles.filter { $0 != "tibialis anterior" }
+            changed = true
+        }
+        return changed
     }
 
     private static func migrateExistingPresets(

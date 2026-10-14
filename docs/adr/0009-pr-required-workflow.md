@@ -1,6 +1,6 @@
 # ADR-0009: PR-Required Git Workflow
 
-**Status**: Accepted (amended 2026-07-04)
+**Status**: Accepted (partially superseded by ADR-0021; delivery-role clauses replaced by the current Dev Team delivery contract)
 **Date**: 2026-07-03
 **Deciders**: tianpli (project owner)
 **Supersedes**: [ADR-0001](0001-no-pr-workflow.md)

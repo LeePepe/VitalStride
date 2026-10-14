@@ -1,6 +1,10 @@
 ---
 layer: VitalUI
 role: 跨 app target 共享的 SwiftUI 组件；轻量，仅含不依赖业务逻辑的通用 UI
+paths: [Packages/VitalUI]
+test_paths: [Packages/VitalUI/Tests]
+gate_tier: local-fast
+build: swift build --package-path Packages/VitalUI
 depends_on: [VitalModels]
 depended_by: [AppUI]
 red_lines:

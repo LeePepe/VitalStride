@@ -85,6 +85,16 @@ final class TestRestCompletedClock: RestCompletedClock {
 @Suite("RestCompletedPresenter lifecycle (MY-1446)")
 struct RestCompletedPresenterLifecycleTests {
 
+    @MainActor
+    private func waitFor(_ condition: () -> Bool) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(5))
+        while !condition(), clock.now < deadline {
+            await Task.yield()
+        }
+        #expect(condition(), "Expected lifecycle state was not reached before the deadline")
+    }
+
     // MARK: - Test 1: Buffer capture
 
     @MainActor
@@ -115,8 +125,9 @@ struct RestCompletedPresenterLifecycleTests {
         #expect(presenter.isBuffered)
 
         // Occlude — deadline cancels but buffer survives
+        await waitFor { clock.pendingCount == 1 }
         presenter.markOccluded()
-        await Task.yield()
+        await waitFor { clock.pendingCount == 0 }
         #expect(presenter.isBuffered, "Buffer must survive occlusion")
     }
 
@@ -139,9 +150,9 @@ struct RestCompletedPresenterLifecycleTests {
 
         // Advance the single deadline sleep
         await Task.yield()
+        await waitFor { clock.pendingCount == 1 }
         clock.advance()
-        await Task.yield()
-        await Task.yield()
+        await waitFor { !presenter.isBuffered }
 
         #expect(!presenter.isBuffered, "Buffer should be cleared after full visibility")
         #expect(dismissed, "onDismiss should have been called")
@@ -166,9 +177,9 @@ struct RestCompletedPresenterLifecycleTests {
         let genBefore = presenter.visibilityGeneration
 
         // Occlude — cancels the deadline, bumps generation
+        await waitFor { clock.pendingCount == 1 }
         presenter.markOccluded()
-        await Task.yield()
-        await Task.yield()
+        await waitFor { clock.pendingCount == 0 }
         #expect(presenter.visibilityGeneration > genBefore, "Generation must increment on occlusion")
         #expect(presenter.isBuffered, "Buffer stays during undo occlusion")
         #expect(!dismissed, "Must not dismiss while occluded")
@@ -178,9 +189,9 @@ struct RestCompletedPresenterLifecycleTests {
         await Task.yield()
 
         // Advance the fresh deadline
+        await waitFor { clock.pendingCount == 1 }
         clock.advance()
-        await Task.yield()
-        await Task.yield()
+        await waitFor { !presenter.isBuffered }
 
         #expect(!presenter.isBuffered, "Buffer should clear after fresh full visibility")
         #expect(dismissed, "onDismiss fires after fresh uninterrupted window")
@@ -202,18 +213,19 @@ struct RestCompletedPresenterLifecycleTests {
         presenter.captureCompleted()
 
         // Rapid transition: visible → occluded → visible (sub-tick, no clock advance)
+        await waitFor { clock.pendingCount == 1 }
         presenter.markOccluded()
         presenter.markVisible()
 
-        await Task.yield()
+        await waitFor { clock.sleepCallCount == 2 && clock.pendingCount == 1 }
         // The first deadline was cancelled by markOccluded, a new one started by markVisible.
         // Generation is now +2 from the original — the old deadline (if it somehow resolved)
         // would see a generation mismatch and not fire.
 
         // Advance the new deadline
+        await waitFor { clock.pendingCount == 1 }
         clock.advance()
-        await Task.yield()
-        await Task.yield()
+        await waitFor { !presenter.isBuffered }
 
         // The dismiss should fire because the NEW deadline ran for full duration
         #expect(!presenter.isBuffered, "Fresh deadline should dismiss after full duration")
@@ -271,9 +283,9 @@ struct RestCompletedPresenterLifecycleTests {
         #expect(presenter.isBuffered)
 
         // Phase 2: undo appears — occlude
+        await waitFor { clock.pendingCount == 1 }
         presenter.markOccluded()
-        await Task.yield()
-        await Task.yield()
+        await waitFor { clock.pendingCount == 0 }
         #expect(!dismissed, "Must NOT dismiss during undo occlusion")
         #expect(presenter.isBuffered)
 
@@ -282,9 +294,9 @@ struct RestCompletedPresenterLifecycleTests {
         await Task.yield()
 
         // Phase 4: fresh full deadline completes
+        await waitFor { clock.pendingCount == 1 }
         clock.advance()
-        await Task.yield()
-        await Task.yield()
+        await waitFor { !presenter.isBuffered }
 
         #expect(!presenter.isBuffered, "Buffer clears after fresh full visibility")
         #expect(dismissed, "Dismiss fires after uninterrupted fresh window")
@@ -304,14 +316,13 @@ struct RestCompletedPresenterLifecycleTests {
         presenter.captureCompleted()
 
         // One sleep should be pending (the deadline)
-        await Task.yield()
+        await waitFor { clock.pendingCount == 1 }
         #expect(clock.pendingCount == 1, "Deadline sleep should be pending")
 
         // Cancel — the identity-based handler drains the specific continuation
+        await waitFor { clock.pendingCount == 1 }
         presenter.cancel()
-        await Task.yield()
-        await Task.yield()
-        await Task.yield()
+        await waitFor { clock.pendingCount == 0 }
 
         #expect(
             clock.pendingCount == 0,
@@ -347,14 +358,15 @@ struct RestCompletedPresenterLifecycleTests {
         #expect(presenter.isBuffered)
 
         // New rest starts — captureCompleted again resets deadline
+        await waitFor { clock.pendingCount == 1 }
         presenter.captureCompleted()
         #expect(presenter.isBuffered)
 
-        await Task.yield()
+        await waitFor { clock.sleepCallCount == 2 && clock.pendingCount == 1 }
         // Advance the fresh deadline
+        await waitFor { clock.pendingCount == 1 }
         clock.advance()
-        await Task.yield()
-        await Task.yield()
+        await waitFor { !presenter.isBuffered }
 
         #expect(!presenter.isBuffered)
         #expect(dismissCount == 1, "Should dismiss exactly once for the new completion")
@@ -379,9 +391,9 @@ struct RestCompletedPresenterLifecycleTests {
         #expect(presenter.isBuffered)
 
         // Phase 2: view disappears — cancel() preserves buffer
+        await waitFor { clock.pendingCount == 1 }
         presenter.cancel()
-        await Task.yield()
-        await Task.yield()
+        await waitFor { clock.pendingCount == 0 }
         #expect(presenter.isBuffered, "Buffer must survive cancel()")
         #expect(!dismissed, "Must not dismiss on cancel()")
 
@@ -391,9 +403,9 @@ struct RestCompletedPresenterLifecycleTests {
         await Task.yield()
 
         // Advance the resumed deadline
+        await waitFor { clock.pendingCount == 1 }
         clock.advance()
-        await Task.yield()
-        await Task.yield()
+        await waitFor { !presenter.isBuffered }
 
         #expect(!presenter.isBuffered, "Buffer should clear after resumed countdown completes")
         #expect(dismissed, "onDismiss should fire after full interval post-resume")
@@ -416,20 +428,20 @@ struct RestCompletedPresenterLifecycleTests {
         await Task.yield()
 
         // First deadline is sleeping — cancel it
+        await waitFor { clock.pendingCount == 1 }
         presenter.cancel()
-        await Task.yield()
-        await Task.yield()
+        await waitFor { clock.pendingCount == 0 }
         #expect(clock.pendingCount == 0, "Cancel should drain the pending sleep")
 
         // Start a new deadline via resume
         presenter.resume()
-        await Task.yield()
+        await waitFor { clock.pendingCount == 1 }
         #expect(clock.pendingCount == 1, "Resume should start a new sleep")
 
         // The old cancel already drained — verify advancing fires only the new one
+        await waitFor { clock.pendingCount == 1 }
         clock.advance()
-        await Task.yield()
-        await Task.yield()
+        await waitFor { !presenter.isBuffered }
 
         #expect(!presenter.isBuffered, "New deadline should fire correctly")
         #expect(dismissed, "Dismiss fires from the replacement, not the stale cancel")

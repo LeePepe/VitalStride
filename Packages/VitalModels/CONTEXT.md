@@ -1,6 +1,10 @@
 ---
 layer: VitalModels
 role: SwiftData @Model 定义 + 枚举 + ModelContainer 配置；全项目数据层基础
+paths: [Packages/VitalModels]
+test_paths: [Packages/VitalModels/Tests]
+gate_tier: local-fast
+build: swift build --package-path Packages/VitalModels
 depends_on: []
 depended_by: [HealthKitService, VitalUI, AppUI]
 red_lines:

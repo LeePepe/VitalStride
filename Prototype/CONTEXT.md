@@ -2,6 +2,9 @@
 layer: Prototype
 role: 与生产 app 隔离的 SwiftUI 视觉原型与截图导出 layer
 paths: [Prototype]
+test_paths: []
+gate_tier: local-fast
+build: swift build --package-path Prototype
 depends_on: [DesignKit]
 depended_by: []
 red_lines:

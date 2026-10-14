@@ -50,13 +50,13 @@ if [ ! -f "$CODEX_SH" ]; then
 else
     # 正对照:先确认这个文件里确实有 codex exec 调用。若这条都取不到,说明
     # 调用形态变了,下面的断言即使「通过」也毫无意义（零命中 == 通过,同形）。
-    if ! grep -q 'exec \\' "$CODEX_SH"; then
+    if ! grep -Fq 'python3 "$SCRIPT_DIR/review-raven.py" "$CODEX_BIN"' "$CODEX_SH"; then
         fail "codex-review.sh 里找不到 \`exec \\\` 调用 —— 正对照失败,断言不可信"
     else
         pass "正对照:codex-review.sh 含 codex exec 调用"
 
-        # 取 `"$CODEX_BIN" exec \` 起、到第一个不以反斜杠结尾的行为止的整段调用
-        INVOCATION="$(awk '/^"\$CODEX_BIN" exec \\/{f=1} f{print; if($0 !~ /\\$/) exit}' "$CODEX_SH")"
+        # Provider helper execs Codex; retain the entire invocation's stdin contract.
+        INVOCATION="$(awk '/^python3 .*review-raven.py.*CODEX_BIN/{f=1} f{print; if($0 !~ /\\$/) exit}' "$CODEX_SH")"
         if [ -z "$INVOCATION" ]; then
             fail "无法提取 codex exec 调用块 —— 拒绝判 PASS"
         elif printf '%s' "$INVOCATION" | grep -q '</dev/null'; then
@@ -148,7 +148,7 @@ fi
 # PR #393 初版的看门狗只包住 codex exec 之后半段,对 line 99 的 heredoc 死锁完全
 # 无效 —— 那次死锁发生在 exec **之前**。所以这里锁的是「整个 gate 被包住」,
 # 不只是「有个看门狗」。
-CODEX_YML="$SCRIPT_DIR/../../.github/workflows/codex-review.yml"
+CODEX_YML="$SCRIPT_DIR/../../.github/workflows/codex-review-target.yml"
 if ! grep -q 'GATE_TIMEOUT_SECONDS' "$CODEX_SH" 2>/dev/null; then
     fail "codex-review.sh 缺 GATE_TIMEOUT_SECONDS 看门狗 —— 挂死会退回「静默 cancelled、零证据」"
 else
@@ -214,11 +214,10 @@ else
     fi
 fi
 
-# ---- Track 5: 两道 review 门必须 checkout base 而非 PR head ------------------
+# ---- Track 5: active required review 必须 checkout base 而非 PR head --------
 # 安全红线:评审脚本来自可信 base。若改成 checkout PR head,同仓库分支 PR 就能
 # 改 scripts/ci/*.sh 在维护者机器上跑任意代码。
-for yml in "$SCRIPT_DIR/../../.github/workflows/codex-review.yml" \
-           "$SCRIPT_DIR/../../.github/workflows/claude-review.yml"; do
+for yml in "$SCRIPT_DIR/../../.github/workflows/codex-review-target.yml"; do
     yname="$(basename "$yml")"
     if [ ! -f "$yml" ]; then
         fail "$yname 不存在（路径漂移？）"

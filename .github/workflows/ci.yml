@@ -39,15 +39,10 @@ jobs:
         run: swift test
 
   # ---- Job B (REQUIRED): app target — xcodegen + xcodebuild test on iPhone 17 ----
-  # This is the sole enforcement point for the app-target full xcodebuild test:
-  # pre-push deliberately no longer runs it (that ~92s gate outlived agent-pipeline
-  # runs and stalled PR handoff — cf. MY-1150), so merge protection lives here.
-  # Runs on macos-26 (Xcode 26.5) to match the local toolchain: the app-target
-  # tests hit Swift-6 actor-isolation compile errors under the older Xcode 16.4
-  # on macos-15, which is why this job could never go green / required before.
-  # Known-flaky OverviewHealthSnapshotTests.loadAllMetrics is quarantined via
-  # retry-until-green so green CI != flake masking. Drop the quarantine +
-  # -skip-testing once G-09 is fixed.
+  # This is the sole enforcement point for the app-target full xcodebuild test.
+  # pre-push deliberately no longer runs it, so merge protection lives here.
+  # Runs on macos-26 (Xcode 26.5) to match the local toolchain and preserves the
+  # current quarantine boundary while keeping the gate fail-closed.
   app:
     name: App target
     runs-on: macos-26
@@ -59,35 +54,8 @@ jobs:
         run: brew install xcodegen
       - name: Generate project
         run: xcodegen generate
-      - name: xcodebuild test (flake quarantined via retry)
-        run: |
-          set -o pipefail
-          QUARANTINE="OverviewHealthSnapshotTests/loadAllMetrics"
-          attempt=1
-          max=3
-          until [ "$attempt" -gt "$max" ]; do
-            echo "::group::xcodebuild test attempt $attempt/$max"
-            # Full output saved to a log so compile errors aren't lost to `tail`
-            # (a truncated tail hid the real actor-isolation errors during triage).
-            if xcodebuild test \
-                 -project VitalStride.xcodeproj \
-                 -scheme VitalStride \
-                 -destination 'platform=iOS Simulator,name=iPhone 17' \
-                 -skipPackagePluginValidation \
-                 -skip-testing:"VitalStrideTests/$QUARANTINE" \
-                 2>&1 | tee /tmp/xcb-attempt-$attempt.log | tail -60; then
-              echo "::endgroup::"
-              echo "xcodebuild test passed on attempt $attempt"
-              exit 0
-            fi
-            echo "::endgroup::"
-            attempt=$((attempt + 1))
-          done
-          echo "xcodebuild test failed after $max attempts"
-          echo "::group::compile/test errors (grepped from full log)"
-          grep -E "error:|Testing failed|actor-isolated|BUILD FAILED|Unable to find" /tmp/xcb-attempt-*.log | sort -u | head -60 || true
-          echo "::endgroup::"
-          exit 1
+      - name: App target runner
+        run: bash scripts/ci/run-app-target-tests.sh
 
   # ---- Job C (REQUIRED): lint + policy gates (mirrors pre-push, server-side) ----
   policy:
@@ -143,14 +111,16 @@ jobs:
       # content survives rendering intact.
       - name: review prompt contract regression
         run: bash scripts/ci/review-prompt.contract.test.sh
-      # 两道 review 门调用 CLI 时必须提供 stdin。codex 即使已拿到 prompt 位置
+      - name: review prompt transport contract
+        run: python3 scripts/ci/tests/test_review_prompt.py
+      # review CLI 必须有有界、非交互 stdin。codex 即使已拿到 prompt 位置
       # 参数仍会读 stdin;CI step 没有 EOF → 无限阻塞 → job timeout 后报
       # `cancelled`,日志上长得跟「正在认真审一个大 diff」一模一样。
       # PR #391 因此连挂两次、白等 40 分钟才定位。
       - name: review CLI stdin contract regression
         run: bash scripts/ci/review-cli-stdin.contract.test.sh
       # Large diffs containing multi-byte text must be truncated on a valid
-      # UTF-8 boundary so both required review gates can render their prompt.
+      # UTF-8 boundary so the required gate can render its prompt.
       - name: review UTF-8 truncation contract regression
         run: bash scripts/ci/review-utf8-truncation.contract.test.sh
       # spec 019 FR-017 / SC-007 ship-gate。Stage 6e 已把 RoutingSignalEntry 的

@@ -33,7 +33,12 @@ CANON="$(python3 "$PARSER" canon "$TOP_CONTEXT")"
 [ -n "$CANON" ] || { echo "❌ $TOP_CONTEXT: 缺 canonical_roles"; exit 1; }
 
 fail=0
-CONTEXTS=(Packages/*/CONTEXT.md VitalStride/CONTEXT.md Prototype/CONTEXT.md RepoInfra/CONTEXT.md)
+COVERAGE="scripts/lib/layer_coverage.py"
+[ -f "$COVERAGE" ] || { echo "❌ 缺递归 layer resolver $COVERAGE"; exit 1; }
+CONTEXTS=()
+while IFS= read -r context; do
+  [ -n "$context" ] && CONTEXTS+=("$context")
+done < <(python3 "$COVERAGE" contexts)
 for tc in "${CONTEXTS[@]}"; do
   [ -f "$tc" ] || continue
   dir="$(dirname "$tc")"; pkg="$(basename "$dir")"
@@ -45,12 +50,7 @@ for tc in "${CONTEXTS[@]}"; do
   paths="$(echo "$parsed"  | sed -n 's/^PATHS=//p')"
   testcmd="$(echo "$parsed"| sed -n 's/^TEST=//p')"
 
-  # ① layer/context identity + logical-layer path ownership.
-  expected="$pkg"
-  [ "$tc" = "VitalStride/CONTEXT.md" ] && expected="AppUI"
-  [ "$tc" = "RepoInfra/CONTEXT.md" ] && expected="RepoInfra"
-  [ "$layer" = "$expected" ] || { echo "❌ $tc: layer='$layer' ≠ 期望 '$expected'"; fail=1; }
-
+  # ① Leaf ownership. Context location does not define layer identity.
   if [ -n "$paths" ]; then
     while IFS= read -r owned; do
       [ -z "$owned" ] && continue
@@ -80,10 +80,7 @@ for tc in "${CONTEXTS[@]}"; do
   # frontmatter（含 `*`）在拆分时被展开成文件名而静默改变判定结果。
   set -f
   for d in $(printf '%s' "$deps" | tr ',' ' '); do [ -z "$d" ] && continue
-    depctx="Packages/$d/CONTEXT.md"
-    [ "$d" = "AppUI" ] && depctx="VitalStride/CONTEXT.md"
-    [ "$d" = "Prototype" ] && depctx="Prototype/CONTEXT.md"
-    [ "$d" = "RepoInfra" ] && depctx="RepoInfra/CONTEXT.md"
+    depctx="$(python3 "$COVERAGE" field "$d" context 2>/dev/null || true)"
     [ -f "$depctx" ] || { echo "❌ $tc: depends_on '$d' 是幽灵层（无 CONTEXT.md）"; fail=1; continue; }
     printf '%s\n' "$declared" | grep -qx "$d" || { echo "❌ $tc: depends_on 写了 '$d' 但代码/配置没声明"; fail=1; }
 
@@ -98,10 +95,7 @@ for tc in "${CONTEXTS[@]}"; do
 
   set -f
   for consumer in $(printf '%s' "$by" | tr ',' ' '); do [ -z "$consumer" ] && continue
-    consumerctx="Packages/$consumer/CONTEXT.md"
-    [ "$consumer" = "AppUI" ] && consumerctx="VitalStride/CONTEXT.md"
-    [ "$consumer" = "Prototype" ] && consumerctx="Prototype/CONTEXT.md"
-    [ "$consumer" = "RepoInfra" ] && consumerctx="RepoInfra/CONTEXT.md"
+    consumerctx="$(python3 "$COVERAGE" field "$consumer" context 2>/dev/null || true)"
     if [ ! -f "$consumerctx" ]; then
       echo "❌ $tc: depended_by '$consumer' 是幽灵层（无 CONTEXT.md）"; fail=1; continue
     fi
@@ -140,14 +134,8 @@ for required in "${APPUI_REQUIRED[@]}"; do
     || { echo "❌ VitalStride/CONTEXT.md: AppUI paths 漏写 '$required'"; fail=1; }
 done
 
-# Every tracked path is either owned once in the schedulable universe or is an
-# explicit support/generated exclusion. This makes new top-level tooling fail
-# closed instead of silently living outside the layer model.
-COVERAGE="scripts/lib/layer_coverage.py"
-if [ ! -f "$COVERAGE" ]; then
-  echo "❌ 缺 path coverage checker $COVERAGE"
-  fail=1
-elif ! python3 "$COVERAGE" "${CONTEXTS[@]}"; then
+# Recursively audit every root-to-leaf route and tracked path.
+if ! python3 "$COVERAGE" audit; then
   fail=1
 fi
 

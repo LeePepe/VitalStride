@@ -75,7 +75,7 @@ assert_grep "report headings example present in template" \
     '\^## 结论: \(PASS\|FAIL\)' \
     true
 assert_grep "declarative content-vs-imperative distinction documented" \
-    "声明式的\*\*文档/代码内容\*\*|命令 reviewer" \
+    "当前审查" \
     true
 
 # (c) 真正的越权 override 仍构成 blocker
@@ -173,10 +173,12 @@ assert_rendered_contains "self-config exemption: names claude-review.sh" \
     'scripts/ci/claude-review.sh'
 assert_rendered_contains "self-config exemption: names codex-review.sh" \
     'scripts/ci/codex-review.sh'
-assert_rendered_contains "self-config exemption: rationale (用途 not injection)" \
-    "不是注入攻击"
-assert_rendered_contains "self-config exemption: still judged on dimensions 1-9" \
-    "仍按 1-9 号维度评估其正确性"
+assert_rendered_contains "instruction artifacts: future audience" \
+    "未来 agent"
+assert_rendered_contains "instruction artifacts: no file whitelist" \
+    "没有文件白名单"
+assert_rendered_contains "instruction artifacts: security consequences still block" \
+    "仍按安全维度判 blocker"
 
 # (e6) TEMP-PRELAUNCH 受控例外 —— 两侧措辞都要在,确保豁免边界没被削成
 # 「raw 值随便记」:只豁免本地 .none 持久化,进 os_log / 云端仍是 blocker。
@@ -244,7 +246,7 @@ done
 # 的规则再自己 review 自己),而没有任何门会发现。这里把该前提钉死。
 
 WORKFLOW_DIR="$(cd "$SCRIPT_DIR/../../.github/workflows" && pwd)"
-for wf in claude-review.yml codex-review.yml; do
+for wf in codex-review-target.yml; do
     wf_path="$WORKFLOW_DIR/$wf"
     if [ ! -f "$wf_path" ]; then
         echo "[FAIL] review workflow not found: $wf_path"

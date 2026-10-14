@@ -2,6 +2,9 @@
 layer: AppUI
 role: iOS/macOS/watchOS/widget 的平台入口、应用编排与 UI；共享 app 源码的唯一 change owner
 paths: [VitalStride, VitalStrideMac, VitalStrideWatch Watch App, VitalStrideWidgets, VitalStrideTests, VitalStrideUITests, VitalStrideWatchTests, project.yml]
+test_paths: [VitalStrideTests, VitalStrideUITests, VitalStrideWatchTests]
+gate_tier: ci-only
+build: xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
 depends_on: [VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit, DesignKit]
 depended_by: []
 red_lines:

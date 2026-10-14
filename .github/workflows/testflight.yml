@@ -1,10 +1,7 @@
 name: testflight
 
-# 定时把 main 打包上传 TestFlight（内部测试）。
-#   - schedule: 每天凌晨 3 点（CST）检查一次；仅当 main 自上次成功发布后有新 commit 才 build。
-#     "上次发布点" 记录在 moving tag `testflight/last-released`（累积式：build 失败
-#     或机器关机期间不丢 commit，下次开机的 cron 会把攒的一起发）。
-#   - workflow_dispatch: 手动触发兜底，force=true 可忽略"无新提交"检查强制发。
+# 仅通过 workflow_dispatch 手动构建 main 并上传 TestFlight（内部测试）。
+# 自动发布已暂停。force=true 可忽略“无新提交”检查；发布标记仍记录成功版本。
 #
 # 跑在 self-hosted `vitalstride-mac`（复用 auto-review-merge 那台）：Distribution
 # 证书已在登录钥匙串，签名走 project.yml 的 Automatic + API key，无需证书 Secret。
@@ -13,8 +10,6 @@ name: testflight
 # push tag 不触发 ci.yml（其 push 过滤是 branches:[main]），无副作用。
 
 on:
-  schedule:
-    - cron: "0 19 * * *" # 每天 19:00 UTC = 03:00 CST
   workflow_dispatch:
     inputs:
       force:
@@ -32,6 +27,7 @@ permissions:
 jobs:
   release:
     name: Build & upload to TestFlight
+    if: github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, vitalstride-mac]
     timeout-minutes: 40
     steps:

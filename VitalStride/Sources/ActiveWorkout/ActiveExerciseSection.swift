@@ -168,9 +168,8 @@ struct ActiveExerciseSection: View {
                     }
                 }
             }
-            addSetButton
         } header: {
-            HStack {
+            HStack(alignment: .center, spacing: 8) {
                 Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
                     // MY-1263 (D2): compact semibold body header in normal mode
                     // (SwiftUI's default `List` section header uses a larger
@@ -183,6 +182,9 @@ struct ActiveExerciseSection: View {
                         ? LargeWorkoutFonts.exerciseName(large: true)
                         : Font.system(.body, design: .default).weight(.semibold))
                     .foregroundStyle(theme.neutrals.text1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .contextMenu {
                         Button {
                             onSubstitute()
@@ -205,7 +207,7 @@ struct ActiveExerciseSection: View {
                     }
                     // swiftlint:disable:next line_length
                     .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
-                Spacer()
+                addSetButton
                 Menu {
                     Button {
                         onSubstitute()
@@ -297,14 +299,40 @@ struct ActiveExerciseSection: View {
     }
 
     // MY-1348 (spec 017): visual redesign — subtle-fill inline button.
-    // Direction (a) from the spec: `theme.primary.primarySubtle` background
-    // + `Radius.inner` (10pt) rounded corner + `theme.primary.primaryText`
-    // foreground + `plus.circle.fill` icon at `theme.primary.primary`.
-    // Frozen contract preserved: `addSet()` on tap, a11y label + hint
-    // strings unchanged, hit target raised 36 → 44pt (HIG floor).
-    // Interaction feedback delivered via `AddSetButtonStyle` (opacity +
-    // scale on press) since `.borderless` had no pressed state and read
-    // as flat/data-row.
+    // Kept in the section header alongside the exercise title + menu, not as a
+    // list row. The row-only spacing/background/separator modifiers are removed so
+    // the control cannot receive list edit/move behavior while preserving the
+    // frozen a11y label/hint and ≥44pt hit target contract.
+    // The append source stays on the last main set even when a trailing sub-set
+    // exists, so the add-set default remains tied to the final visible main-set
+    // contract rather than the temporary sub-set tail.
+    nonisolated static func appendedMainSet(in workoutExercise: WorkoutExercise) -> ExerciseSet {
+        let sortedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
+        let lastMainSet = sortedSets.last(where: { !$0.setType.isSubSet })
+        let order = sortedSets.count
+        return ExerciseSet(
+            order: order,
+            weight: lastMainSet?.weight ?? 0,
+            reps: lastMainSet?.reps ?? 0,
+            setType: lastMainSet?.setType ?? .working,
+            isUnilateral: lastMainSet?.isUnilateral ?? false,
+            weightRight: lastMainSet?.weightRight
+        )
+    }
+
+    /// Exercises the complete append contract used by `addSet()`: construct the
+    /// default main set, attach it to the owning workout exercise, and insert it
+    /// into the relationship so tests can lock the real mutation path.
+    nonisolated static func insertAppendedMainSet(
+        in workoutExercise: WorkoutExercise,
+        using modelContext: ModelContext
+    ) -> ExerciseSet {
+        let newSet = Self.appendedMainSet(in: workoutExercise)
+        newSet.workoutExercise = workoutExercise
+        modelContext.insert(newSet)
+        return newSet
+    }
+
     private var addSetButton: some View {
         Button {
             addSet()
@@ -316,7 +344,6 @@ struct ActiveExerciseSection: View {
                     .foregroundStyle(theme.primary.primaryText)
             }
             .font(.callout.weight(.medium))
-            .frame(maxWidth: .infinity, alignment: .center)
             .frame(minHeight: 44)
             .padding(.horizontal, 12)
             .padding(.vertical, largeMode ? 10 : 6)
@@ -327,30 +354,12 @@ struct ActiveExerciseSection: View {
             .contentShape(RoundedRectangle(cornerRadius: Radius.inner))
         }
         .buttonStyle(AddSetButtonStyle())
-        // MY-1348: subtle-fill chip needs its own visual band separated from
-        // SetRow data rows. Bump vertical padding slightly in Large Mode; in
-        // normal mode keep the row visually compact so the section rhythm
-        // established by MY-1263 (D2) is preserved.
-        .listRowInsets(EdgeInsets(top: largeMode ? 6 : 4, leading: 16, bottom: largeMode ? 6 : 4, trailing: 16))
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
         .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
         .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
     }
 
     private func addSet() {
-        let lastMainSet = sortedSets.last(where: { !$0.setType.isSubSet })
-        let order = workoutExercise.sets?.count ?? 0
-        let newSet = ExerciseSet(
-            order: order,
-            weight: lastMainSet?.weight ?? 0,
-            reps: lastMainSet?.reps ?? 0,
-            setType: lastMainSet?.setType ?? .working,
-            isUnilateral: lastMainSet?.isUnilateral ?? false,
-            weightRight: lastMainSet?.weightRight
-        )
-        newSet.workoutExercise = workoutExercise
-        modelContext.insert(newSet)
+        _ = Self.insertAppendedMainSet(in: workoutExercise, using: modelContext)
     }
 
     private func addSubSet(after parentSet: ExerciseSet, type: SetType) {
@@ -538,8 +547,8 @@ private struct AddSetButtonStyle: ButtonStyle {
 // MARK: - Previews (MY-1348 spec 017 — 4-state coverage)
 //
 // Preview matrix required by `tasks.md` §Preview Coverage: `{normal, large}
-// × {light, dark}`, each with ≥ 2 sets so the `addSetButton` sits next to
-// SetRows and its visual separation from data rows is directly comparable.
+// × {light, dark}`, each with ≥ 2 sets so the shared exercise header is shown
+// alongside the title/menu and two set rows as the visual context.
 // Uses the same in-memory `ModelContainerConfiguration.makeTestContainer()`
 // harness as `SetRow` previews.
 
@@ -596,22 +605,22 @@ private struct AddSetButtonPreviewWrapper: View {
     }
 }
 
-#Preview("AddSetButton - Normal Light") {
+#Preview("Header add-set - Normal Light") {
     AddSetButtonPreviewWrapper(largeMode: false)
         .preferredColorScheme(.light)
 }
 
-#Preview("AddSetButton - Normal Dark") {
+#Preview("Header add-set - Normal Dark") {
     AddSetButtonPreviewWrapper(largeMode: false)
         .preferredColorScheme(.dark)
 }
 
-#Preview("AddSetButton - Large Light") {
+#Preview("Header add-set - Large Light") {
     AddSetButtonPreviewWrapper(largeMode: true)
         .preferredColorScheme(.light)
 }
 
-#Preview("AddSetButton - Large Dark") {
+#Preview("Header add-set - Large Dark") {
     AddSetButtonPreviewWrapper(largeMode: true)
         .preferredColorScheme(.dark)
 }
