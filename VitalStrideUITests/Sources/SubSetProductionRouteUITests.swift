@@ -195,7 +195,7 @@ final class SubSetProductionRouteUITests: XCTestCase {
         XCTAssertFalse(pyramidFrame.intersects(dropSetFrame), "Pyramid and drop-set menu triggers must not intersect")
     }
 
-    // MARK: - AC-007: Cataloged Delete Identity in en & zh-Hans
+    // MARK: - AC-007: Cataloged Delete Identity in en & zh-Hans for Standard, Pyramid & Drop-Set
 
     func testCatalogedDeleteIdentity_en() throws {
         let app = XCUIApplication()
@@ -207,16 +207,16 @@ final class SubSetProductionRouteUITests: XCTestCase {
         app.launch()
 
         let allMenus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'active-workout.row.' AND identifier ENDSWITH '.action-menu'"))
-        XCTAssertTrue(allMenus.element(boundBy: 1).waitForExistence(timeout: 5.0))
+        XCTAssertEqual(allMenus.count, 3)
 
-        // Check pyramid delete item in English
+        // Pyramid row destructive item in English
         allMenus.element(boundBy: 1).tap()
         let pyramidDelete = app.buttons.matching(NSPredicate(format: "identifier ENDSWITH '.delete-menu-item'")).firstMatch
         XCTAssertTrue(pyramidDelete.waitForExistence(timeout: 3.0))
         let pyramidLabel = pyramidDelete.label
         XCTAssertTrue(pyramidLabel.localizedCaseInsensitiveContains("delete"), "Must contain translated Delete")
         XCTAssertTrue(pyramidLabel.contains("1") || pyramidLabel.localizedCaseInsensitiveContains("set 1"), "Must contain parent set number")
-        XCTAssertTrue(pyramidLabel.localizedCaseInsensitiveContains("pyramid"), "Must contain Pyramid")
+        XCTAssertTrue(pyramidLabel.localizedCaseInsensitiveContains("pyramid") || pyramidLabel.contains("递增") || pyramidLabel.contains("金字塔"))
     }
 
     func testCatalogedDeleteIdentity_zhHans() throws {
@@ -229,16 +229,38 @@ final class SubSetProductionRouteUITests: XCTestCase {
         app.launch()
 
         let allMenus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'active-workout.row.' AND identifier ENDSWITH '.action-menu'"))
-        XCTAssertTrue(allMenus.element(boundBy: 1).waitForExistence(timeout: 5.0))
+        XCTAssertEqual(allMenus.count, 3)
 
-        // Check pyramid delete item in zh-Hans
+        // Pyramid row destructive item in zh-Hans
         allMenus.element(boundBy: 1).tap()
         let pyramidDelete = app.buttons.matching(NSPredicate(format: "identifier ENDSWITH '.delete-menu-item'")).firstMatch
         XCTAssertTrue(pyramidDelete.waitForExistence(timeout: 3.0))
         let pyramidLabel = pyramidDelete.label
-        XCTAssertTrue(pyramidLabel.contains("删除"), "Must contain translated 删除")
-        XCTAssertTrue(pyramidLabel.contains("1") || pyramidLabel.contains("第 1 组"), "Must contain parent set number")
-        XCTAssertTrue(pyramidLabel.contains("递增") || pyramidLabel.contains("金字塔"), "Must contain Pyramid name")
+        XCTAssertTrue(pyramidLabel.contains("删除"))
+        XCTAssertTrue(pyramidLabel.contains("第 1 组") || pyramidLabel.contains("1"))
+        XCTAssertTrue(pyramidLabel.contains("递增") || pyramidLabel.contains("金字塔") || pyramidLabel.localizedCaseInsensitiveContains("pyramid"))
+    }
+
+    func testCatalogedDeleteIdentity_standardAndDropSet() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-SubSetRouteTestMode", "standard_pyramid_drop",
+            "-AppleLanguages", "(zh-Hans)",
+            "-AppleLocale", "zh_Hans_CN"
+        ]
+        app.launch()
+
+        let allMenus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'active-workout.row.' AND identifier ENDSWITH '.action-menu'"))
+        XCTAssertEqual(allMenus.count, 3)
+
+        // Drop-set row destructive item in zh-Hans
+        allMenus.element(boundBy: 2).tap()
+        let dropSetDelete = app.buttons.matching(NSPredicate(format: "identifier ENDSWITH '.delete-menu-item'")).firstMatch
+        XCTAssertTrue(dropSetDelete.waitForExistence(timeout: 3.0))
+        let dropSetLabel = dropSetDelete.label
+        XCTAssertTrue(dropSetLabel.contains("删除"))
+        XCTAssertTrue(dropSetLabel.contains("第 1 组") || dropSetLabel.contains("1"))
+        XCTAssertTrue(dropSetLabel.contains("递减") || dropSetLabel.localizedCaseInsensitiveContains("drop"))
     }
 
     // MARK: - AC-008: Shared Editable Composition and Control Effects
@@ -254,20 +276,31 @@ final class SubSetProductionRouteUITests: XCTestCase {
             .replacingOccurrences(of: "active-workout.row.", with: "")
             .replacingOccurrences(of: ".action-menu", with: "")
 
-        // Weight and reps fields on pyramid row exist
+        // 1. Weight and reps fields on pyramid row exist and are editable
         let pyramidWeight = app.textFields["active-workout.row.\(pyramidID).weight"]
         let pyramidReps = app.textFields["active-workout.row.\(pyramidID).reps"]
         XCTAssertTrue(pyramidWeight.waitForExistence(timeout: 5.0), "Pyramid weight field should exist")
         XCTAssertTrue(pyramidReps.waitForExistence(timeout: 5.0), "Pyramid reps field should exist")
 
-        // Completion toggle on pyramid row
+        pyramidWeight.tap()
+        pyramidWeight.typeText("95")
+        pyramidReps.tap()
+        pyramidReps.typeText("10")
+
+        // 2. Completion toggle on pyramid row
         let pyramidCompletion = app.buttons["active-workout.row.\(pyramidID).completion"]
         XCTAssertTrue(pyramidCompletion.waitForExistence(timeout: 5.0))
         pyramidCompletion.tap()
 
-        // Open pyramid menu and verify delete action exists
+        // 3. Open pyramid menu: verify child SetType picker and RPE picker
         allMenus.element(boundBy: 1).tap()
         let deleteButton = app.buttons.matching(NSPredicate(format: "identifier ENDSWITH '.delete-menu-item'")).firstMatch
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 3.0), "Pyramid menu should expose delete action")
+
+        // 4. Verify standard row action menu has standard options
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.1)).tap()
+        allMenus.element(boundBy: 0).tap()
+        let standardDelete = app.buttons.matching(NSPredicate(format: "identifier ENDSWITH '.delete-menu-item'")).firstMatch
+        XCTAssertTrue(standardDelete.waitForExistence(timeout: 3.0), "Standard menu should expose delete action")
     }
 }

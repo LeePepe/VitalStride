@@ -10,6 +10,31 @@ import Observation
 import SwiftData
 import VitalModels
 
+extension PersistentIdentifier {
+    var stableStringIdentifier: String {
+        if let data = try? JSONEncoder().encode(self),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let impl = obj["implementation"] as? [String: Any],
+           let uri = impl["uriRepresentation"] as? String {
+            let components = uri.split(separator: "/")
+            if components.count >= 2 {
+                return "\(components[components.count - 2])_\(components[components.count - 1])"
+            }
+            return uri
+        }
+        let desc = String(describing: self)
+        if let match = desc.range(of: "x-coredata://[^>]+", options: .regularExpression) {
+            let uri = String(desc[match])
+            let components = uri.split(separator: "/")
+            if components.count >= 2 {
+                return "\(components[components.count - 2])_\(components[components.count - 1])"
+            }
+            return uri
+        }
+        return "\(self.hashValue)"
+    }
+}
+
 /// A main-set delete parked behind cascade confirmation, carrying the resolved
 /// child count and kind so the confirmation dialog names the actual consequence.
 struct CascadeDeletionRequest: Identifiable, Equatable {

@@ -411,40 +411,44 @@ private struct SubSetRouteTestHost: View {
                 // Probe readout card
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text("Requests: \(probe.requestCount)")
+                        Text(verbatim: "Requests: \(probe.requestCount)")
                             .accessibilityIdentifier("subset_probe_request_count")
-                        Text("Seam: \(probe.seamTraversalCount)")
+                        Text(verbatim: "Seam: \(probe.seamTraversalCount)")
                             .accessibilityIdentifier("subset_probe_seam_count")
-                        Text("Callbacks: \(probe.callbackCount)")
+                        Text(verbatim: "Callbacks: \(probe.callbackCount)")
                             .accessibilityIdentifier("subset_probe_callback_count")
                     }
                     .font(.caption2)
 
                     HStack {
-                        Text("LastID: \(probe.lastRequestedSetID.map { String(format: "%016llx", UInt64(bitPattern: Int64($0.hashValue))) } ?? "none")")
+                        Text(verbatim: "LastID: \(probe.lastRequestedSetID?.stableStringIdentifier ?? "none")")
                             .accessibilityIdentifier("subset_probe_last_set_id")
-                        Text("LastType: \(probe.lastRequestedSetType?.displayName ?? "none")")
+                        Text(verbatim: "LastType: \(probe.lastRequestedSetType?.displayName ?? "none")")
                             .accessibilityIdentifier("subset_probe_last_set_type")
-                        Text("Undo: \(undoController.hasPendingUndo ? "available" : "none")")
+                        Text(verbatim: "Undo: \(undoController.hasPendingUndo ? "available" : "none")")
                             .accessibilityIdentifier("subset_probe_undo_state")
                     }
                     .font(.caption2)
 
                     HStack {
-                        Text("Announcement: \(undoController.lastAnnouncement?.message ?? "none")")
+                        Text(verbatim: "Announcement: \(undoController.lastAnnouncement?.message ?? "none")")
                             .accessibilityIdentifier("subset_probe_last_announcement")
                     }
                     .font(.caption2)
 
                     HStack {
                         if undoController.hasPendingUndo {
-                            Button("Undo Action") {
+                            Button(action: {
                                 _ = undoController.undo(using: modelContext)
+                            }) {
+                                Text(verbatim: "Undo Action")
                             }
                             .accessibilityIdentifier("subset_probe_undo_button")
                         }
-                        Button("Reset Probe") {
+                        Button(action: {
                             probe.reset()
+                        }) {
+                            Text(verbatim: "Reset Probe")
                         }
                         .accessibilityIdentifier("subset_probe_reset_button")
                     }
@@ -452,7 +456,7 @@ private struct SubSetRouteTestHost: View {
                 .padding(8)
                 .background(Color.gray.opacity(0.1))
             }
-            .navigationTitle("SubSet Acceptance Host")
+            .navigationTitle(Text(verbatim: "SubSet Acceptance Host"))
             .onAppear {
                 seedFixture()
             }
@@ -462,7 +466,7 @@ private struct SubSetRouteTestHost: View {
     private func seedFixture() {
         let exercise = Exercise(
             nameEn: "Bench Press",
-            nameZh: String(localized: "exercise.bench_press", comment: "Bench press exercise name in test harness fixture"),
+            nameZh: "Bench Press",
             muscleGroup: .chest,
             equipment: .barbell
         )

@@ -120,7 +120,7 @@ struct SetRow: View {
     }
 
     private var stableIdentifier: String {
-        stableRowID ?? String(format: "%016llx", UInt64(bitPattern: Int64(exerciseSet.persistentModelID.hashValue)))
+        stableRowID ?? exerciseSet.persistentModelID.stableStringIdentifier
     }
 
     @State private var weightText: String = ""
@@ -397,21 +397,14 @@ struct SetRow: View {
             format: String(localized: "第 %lld 组", comment: "Set index format"),
             Int64(displayIndex)
         )
-        if isSubSet {
-            return "\(deleteText), \(setLabel) \(exerciseSet.setType.displayName)"
-        } else {
-            return "\(deleteText), \(setLabel)"
-        }
+        return "\(deleteText), \(setLabel) \(exerciseSet.setType.displayName)"
     }
 
     private var menuAccessibilityLabel: String {
-        if isSubSet {
-            return String(
-                localized: "第 \(displayIndex) 组\(exerciseSet.setType.displayName)子组操作菜单",
-                comment: "Sub-set action menu a11y label"
-            )
-        }
-        return String(localized: "第 \(displayIndex) 组设置", comment: "Set configuration menu a11y label")
+        String(
+            format: String(localized: "第 %lld 组设置", comment: "Set configuration menu a11y label"),
+            Int64(displayIndex)
+        )
     }
 
     private var menuAccessibilityValue: String {
@@ -586,13 +579,10 @@ struct SetRow: View {
     }
 
     private var repsAccessibilityLabel: String {
-        if isSubSet {
-            return String(
-                localized: "第 \(displayIndex) 组\(exerciseSet.setType.displayName)子组次数",
-                comment: "SubSet reps a11y label"
-            )
-        }
-        return String(localized: "第 \(displayIndex) 组次数", comment: "Set reps a11y label")
+        String(
+            format: String(localized: "第 %lld 组次数", comment: "Set reps a11y label"),
+            Int64(displayIndex)
+        )
     }
 
     private var completionButton: some View {
@@ -640,13 +630,11 @@ struct SetRow: View {
         let status = exerciseSet.isCompleted
             ? String(localized: "已完成", comment: "Set completion status: completed")
             : String(localized: "未完成", comment: "Set completion status: incomplete")
-        if isSubSet {
-            return String(
-                localized: "第 \(displayIndex) 组\(exerciseSet.setType.displayName)子组，\(status)",
-                comment: "A11y label composing parent set index and completion status"
-            )
-        }
-        return String(localized: "第 \(displayIndex) 组，\(status)", comment: "A11y label composing set index and completion status")
+        return String(
+            format: String(localized: "第 %lld 组，%@", comment: "A11y label composing set index and completion status"),
+            Int64(displayIndex),
+            status
+        )
     }
 
     // MARK: - Previous-set caption (MY-1161 / spec 004-previous-set-hint T005)

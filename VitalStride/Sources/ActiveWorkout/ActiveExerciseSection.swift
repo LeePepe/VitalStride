@@ -98,7 +98,7 @@ struct ActiveExerciseSection: View {
                 mainSetNumber: mainsBefore,
                 isLastSubSet: isLastSub,
                 recentWeightKg: lastMainWeight,
-                stableRowID: String(format: "%016llx", UInt64(bitPattern: Int64(set.persistentModelID.hashValue)))
+                stableRowID: set.persistentModelID.stableStringIdentifier
             ))
             if !isSub {
                 mainsBefore += 1
