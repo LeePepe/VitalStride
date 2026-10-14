@@ -40,7 +40,7 @@ When signing is explicitly disabled, the generated Release project can move dire
 
 ## External Authorization State
 
-- **Consent absent**: no real workflow dispatch is allowed; T004 remains blocked.
+- **Consent absent**: no real workflow dispatch is allowed; T005 remains blocked.
 - **Consent recorded**: after reviewed merge to `main`, one manual workflow run may proceed.
 - **Processed proof recorded**: the run URL and TestFlight build identifier show Apple processing completion without including secret or signing artifacts.
 
