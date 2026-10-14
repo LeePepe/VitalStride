@@ -115,6 +115,43 @@ enum ActiveWorkoutSnackbarLayout {
         isKeyboardVisible ? .top : .bottom
     }
 
+    // MARK: - Production Animation Modifiers (MY-1706)
+
+    /// ViewModifier applying root geometry animations driven by the policy.
+    @MainActor
+    struct RootAnimationModifier: ViewModifier {
+        let policy: AnimationPolicy
+
+        func body(content: Content) -> some View {
+            content
+                .animation(policy.rootAnimation, value: policy.isKeyboardVisible)
+                .animation(policy.rootAnimation, value: policy.snackbarSlot)
+        }
+    }
+
+    /// ViewModifier applying child geometry animation and transition driven by the policy.
+    /// In production policy, childAnimation is nil and hasChildTransition is false (no-op).
+    @MainActor
+    struct ChildAnimationModifier: ViewModifier {
+        let policy: AnimationPolicy
+
+        @ViewBuilder
+        func body(content: Content) -> some View {
+            if policy.hasChildTransition {
+                content
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .animation(policy.childAnimation, value: policy.isKeyboardVisible)
+                    .animation(policy.childAnimation, value: policy.snackbarSlot)
+            } else if let childAnimation = policy.childAnimation {
+                content
+                    .animation(childAnimation, value: policy.isKeyboardVisible)
+                    .animation(childAnimation, value: policy.snackbarSlot)
+            } else {
+                content
+            }
+        }
+    }
+
     // MARK: - Shared slot envelope (MY-1446)
 
     /// Shared constant-height envelope used by both bottom and top snackbar
@@ -163,6 +200,8 @@ enum ActiveWorkoutSnackbarLayout {
     /// When keyboard is hidden, renders FAB and bottom snackbar envelope.
     /// When keyboard is visible, keeps the root safe area structurally mounted
     /// without extra height/chrome.
+    /// Applies `ChildAnimationModifier` derived from the policy to ensure child
+    /// animation and transition ownership are governed by the single-owner invariant.
     @ViewBuilder
     @MainActor
     static func bottomSafeAreaContent<UndoContent: View, RestContent: View, FAB: View>(
@@ -171,13 +210,24 @@ enum ActiveWorkoutSnackbarLayout {
         @ViewBuilder restContent: () -> RestContent,
         @ViewBuilder fab: () -> FAB
     ) -> some View {
-        bottomSafeAreaContent(
-            snackbarSlot: policy.bottomSlot,
-            isKeyboardVisible: policy.isKeyboardVisible,
-            undoContent: undoContent,
-            restContent: restContent,
-            fab: fab
-        )
+        VStack(spacing: 0) {
+            if !policy.isKeyboardVisible {
+                fab()
+                slotEnvelope(snackbarSlot: policy.bottomSlot, undoContent: undoContent, restContent: restContent)
+                    .padding(.horizontal, Space.cardPadding)
+                    .padding(.vertical, Space.gap)
+                    .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                    .background(policy.bottomSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .shadow(
+                        color: policy.bottomSlot != .none ? .black.opacity(0.15) : .clear,
+                        radius: 8, y: 4
+                    )
+                    .padding(.horizontal, Space.cardPadding)
+                    .padding(.bottom, Space.cardPadding)
+            }
+        }
+        .modifier(ChildAnimationModifier(policy: policy))
     }
 
     /// Renders the combined bottom layout for the `safeAreaInset(edge: .bottom)`.
@@ -551,5 +601,21 @@ enum ActiveWorkoutFABContainer {
         @ViewBuilder content: () -> Content
     ) -> some View {
         content()
+    }
+}
+
+// MARK: - View Extension for Animation Policy (MY-1706)
+
+extension View {
+    /// Applies root geometry animations driven by the ActiveWorkout layout policy.
+    @MainActor
+    func activeWorkoutRootAnimation(policy: ActiveWorkoutSnackbarLayout.AnimationPolicy) -> some View {
+        modifier(ActiveWorkoutSnackbarLayout.RootAnimationModifier(policy: policy))
+    }
+
+    /// Applies child geometry animation and transition driven by the ActiveWorkout layout policy.
+    @MainActor
+    func activeWorkoutChildAnimation(policy: ActiveWorkoutSnackbarLayout.AnimationPolicy) -> some View {
+        modifier(ActiveWorkoutSnackbarLayout.ChildAnimationModifier(policy: policy))
     }
 }

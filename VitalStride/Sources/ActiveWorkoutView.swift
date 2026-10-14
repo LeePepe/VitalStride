@@ -146,8 +146,7 @@ struct ActiveWorkoutView: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityFocused($isBottomSnackbarFocused)
             }
-            .animation(policy.rootAnimation, value: isKeyboardVisible)
-            .animation(policy.rootAnimation, value: bottomSnackbarSlot)
+            .activeWorkoutRootAnimation(policy: policy)
             .navigationTitle(String(localized: "训练中", comment: "Active workout navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

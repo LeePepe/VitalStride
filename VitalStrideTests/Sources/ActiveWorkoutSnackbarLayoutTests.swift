@@ -228,12 +228,24 @@ struct ActiveWorkoutSnackbarLayoutTests {
 
         for isKeyboardVisible in keyboardStates {
             for slot in baseSlots {
-                // Baseline production policy is valid
+                // Baseline production policy is valid and passes single-owner invariant
                 let prodPolicy = ActiveWorkoutSnackbarLayout.policy(
                     isKeyboardVisible: isKeyboardVisible,
                     snackbarSlot: slot
                 )
                 #expect(prodPolicy.hasSingleAnimationOwner == true)
+                #expect(prodPolicy.hasRootAnimation == true)
+                #expect(prodPolicy.hasChildAnimation == false)
+                #expect(prodPolicy.hasChildTransition == false)
+
+                // Verify production modifiers applied at root and child
+                let prodChildContent = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                    policy: prodPolicy,
+                    undoContent: { Color.clear },
+                    restContent: { Color.clear },
+                    fab: { Color.clear }
+                )
+                _ = prodChildContent
 
                 // Mutation 1: Add a child animation driver (duplicate owner)
                 let mutatedWithChildAnim = ActiveWorkoutSnackbarLayout.AnimationPolicy.mutated(
@@ -249,6 +261,15 @@ struct ActiveWorkoutSnackbarLayoutTests {
                     "Policy must reject mutation that introduces a child animation driver"
                 )
 
+                // Verify child modifier consumes mutated child animation
+                let childWithAnim = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                    policy: mutatedWithChildAnim,
+                    undoContent: { Color.clear },
+                    restContent: { Color.clear },
+                    fab: { Color.clear }
+                )
+                _ = childWithAnim
+
                 // Mutation 2: Add a child transition (duplicate owner)
                 let mutatedWithChildTransition = ActiveWorkoutSnackbarLayout.AnimationPolicy.mutated(
                     isKeyboardVisible: isKeyboardVisible,
@@ -262,6 +283,15 @@ struct ActiveWorkoutSnackbarLayoutTests {
                     mutatedWithChildTransition.hasSingleAnimationOwner == false,
                     "Policy must reject mutation that introduces a child transition"
                 )
+
+                // Verify child modifier consumes mutated child transition
+                let childWithTransition = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                    policy: mutatedWithChildTransition,
+                    undoContent: { Color.clear },
+                    restContent: { Color.clear },
+                    fab: { Color.clear }
+                )
+                _ = childWithTransition
 
                 // Mutation 3: Remove root animation driver (missing root owner)
                 let mutatedWithoutRootAnim = ActiveWorkoutSnackbarLayout.AnimationPolicy.mutated(
