@@ -132,7 +132,7 @@ No public Swift, product, package, workflow input, or external API signature cha
 | `VitalStrideWidgets` | `sigh_com.leepepe.vitalstride.widgets_appstore_profile-name` | `VITALSTRIDE_WIDGET_PROFILE_SPECIFIER` | `com.leepepe.vitalstride.widgets` |
 
 - `project.yml` Release `PROVISIONING_PROFILE_SPECIFIER` for each target references only its matching interface key.
-- The release lane resolves both canonical sources after the forced fetches, rejects missing/empty/equal values before `build_app`, treats each name as opaque shell data for `xcargs`, and uses the same resolved variables in export mapping.
+- The release lane resolves both canonical sources after the forced fetches; rejects absent/nil values, values whose validation-only whitespace-stripped views are empty, and non-distinct preserved raw values before `build_app`; then treats each original nonblank name as verbatim opaque shell data for `xcargs` and uses the same original variables in export mapping.
 - The action return values are not an alternate name source.
 - When signing is explicitly disabled, absent interface values do not block the unsigned Release build.
 
@@ -147,24 +147,65 @@ No public Swift, product, package, workflow input, or external API signature cha
 ```text
 T001 AppUI baseline reconciliation + two-key Release seam
   └─> T002 RepoInfra contract test + lane reuse
-        └─> T003 frozen-tree review + replacement publication evidence
-              ├─> PR Manager closes #441 with the published replacement link
-              └─> MY-1675 / PR #442 exact-head bootstrap merge
-                    └─> T004 fresh eligible pull_request_target + real passing codex-review-target
-                          └─> PR Manager ships replacement
-                                └─> explicit Owner consent
-                                      └─> T005 manual TestFlight processing proof
+        └─> T003 frozen-tree review + replacement publication ─────────────┐
+              └─> PR Manager closes #441 with replacement link            │
+MY-1675 / PR #442 exact-head bootstrap merge                              │
+  └─> fresh event base/default-branch SHA on main contains #442 fix ──────┤
+                                                                          └─> T004 fresh eligible pull_request_target + real passing codex-review-target
+                                                                                └─> PR Manager ships replacement
+                                                                                      └─> explicit Owner consent
+                                                                                            └─> T005 manual TestFlight processing proof
 ```
 
 - T001 and T002 are separate Fullstack tasks and commits because they own different layers. T001 includes ordered baseline-reconciliation and signing-seam components inside AppUI; T002 depends on the exact two-key contract established by T001.
 - T003 is an integration/delivery verification task and changes no source. It freezes the uncommitted tree for exact content review, permits publication only after PASS, and proves the replacement contains clean AppUI then RepoInfra commits. PR #441 remains untouched until replacement publication, after which PR Manager closes it with the replacement link.
-- T004 is an external shipping verification edge, not an implementation task or source commit. Replacement preparation may proceed, but shipping is blocked until #442 merges and the replacement obtains its own fresh real review result.
+- T004 is an external shipping-verification join, not an implementation task or source commit. Replacement publication and #442 merge progress independently. The replacement retains immutable ancestry from `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`; the distinct trusted event base is the fresh event's `github.event.pull_request.base.sha` on `main` containing #442. Shipping is blocked until both prerequisites converge and the replacement obtains its own fresh real review result.
 - T005 is a separate production-validation slice, changes no source, and is explicitly blocked until the reviewed delivery is on `main` and the Owner supplies fresh upload consent.
 - No task may treat assignment, a static check, or an unsigned build as Owner consent.
 
 ## Verification Strategy
 
-Run implementation verification from the repository root.
+Run implementation verification from the repository root. After the candidate regression is authored and before T002 production edits, capture the required historical red proof against an isolated immutable-base overlay; this does not revert T001 or mutate tracked files:
+
+```bash
+(
+  set -o pipefail
+  red_fixture="$(mktemp -d "${TMPDIR:-/tmp}/my1660-red.XXXXXX")" || exit 1
+  test -d "$red_fixture" || exit 1
+  case "$red_fixture" in
+    */my1660-red.*) ;;
+    *) exit 1 ;;
+  esac
+  red_log="$red_fixture/historical-red.log"
+  cleanup_red_fixture() {
+    case "${red_fixture:-}" in
+      */my1660-red.*) rm -rf -- "$red_fixture" ;;
+    esac
+  }
+  trap cleanup_red_fixture EXIT HUP INT TERM
+  git archive e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b -- \
+    .github/workflows/testflight.yml fastlane/Fastfile project.yml \
+    | tar -x -C "$red_fixture" || exit 1
+  mkdir -p "$red_fixture/scripts/tests" || exit 1
+  cp scripts/tests/test_testflight_freshness.py \
+    "$red_fixture/scripts/tests/test_testflight_freshness.py" || exit 1
+  if (
+    cd "$red_fixture" || exit 1
+    python3 -B -m unittest scripts.tests.test_testflight_freshness
+  ) >"$red_log" 2>&1; then
+    printf '%s\n' 'historical fixed-name/fallback fixture unexpectedly passed' >&2
+    exit 1
+  else
+    red_status=$?
+  fi
+  awk '{ print }' "$red_log"
+  test "$red_status" -ne 0 || exit 1
+  rg -F 'HISTORICAL_FIXED_PROFILE_NAMES_REJECTED' "$red_log" >/dev/null || exit 1
+  rg -F 'HISTORICAL_ACTION_RETURN_FALLBACK_REJECTED' "$red_log" >/dev/null || exit 1
+)
+```
+
+The candidate assertions use stable markers `HISTORICAL_FIXED_PROFILE_NAMES_REJECTED` and `HISTORICAL_ACTION_RETURN_FALLBACK_REJECTED`. The guarded command accepts red proof only when the unittest run is nonzero and both markers appear; a setup, import, fixture, or unrelated error therefore fails the proof. Then run the separate final-green commands against the repaired working tree:
 
 1. Focused credential-free contract:
    `python3 -B -m unittest scripts.tests.test_testflight_freshness`
@@ -179,7 +220,7 @@ Run implementation verification from the repository root.
 6. Candidate hygiene:
    `git diff --check`
 
-The focused regression must be red-capable: it fails against the historical fixed-name/fallback configuration and passes only when project, archive, and export share the two-key contract. Required PR checks remain `Lint & policy`, `App target`, the six SPM checks, and the required review gate; PR Manager owns their shipping interpretation. For the replacement, review-gate evidence is valid only after #442 has merged into the trusted base and a fresh eligible `pull_request_target` event produces a real schema-valid, passing `codex-review-target` result for the current replacement head.
+The focused regression must distinguish absent/nil and whitespace-only failure from successful verbatim transport of nonblank whitespace-containing names. It fails against the isolated historical fixed-name/fallback overlay and passes only when project, archive, and export share the two-key contract. Required PR checks remain `Lint & policy`, `App target`, the six SPM checks, and the required review gate; PR Manager owns their shipping interpretation. For the replacement, review-gate evidence is valid only after #442 has merged into `main` and a fresh eligible `pull_request_target` event uses a `github.event.pull_request.base.sha` containing that fix to produce a real schema-valid, passing `codex-review-target` result for the current replacement head. That event-base identity does not alter the replacement's immutable source ancestry.
 
 ### Commands forbidden before Owner consent
 

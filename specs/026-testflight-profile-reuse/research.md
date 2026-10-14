@@ -13,6 +13,7 @@
 - A real lane run queries ASC, can regenerate Developer Portal profiles, archives, uploads, distributes to internal groups, and advances the release tag. It is not a safe implementation test.
 - The Owner-authorized recovery preserves PR #441, uses the preserved delivery workspace on a new branch from `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`, and requires clean AppUI/RepoInfra commits without force-push.
 - MY-1675 / PR #442 carries the trusted `codex-review-target` control-plane repair. Its one-time human bootstrap is bound to the exact #442 head and cannot be reused by the MY-1660 replacement.
+- The trusted workflow checks out and evaluates `github.event.pull_request.base.sha`; for T004 this is the fresh eligible `pull_request_target` event's default-branch `main` base revision, not the replacement branch's immutable source base.
 
 ## Decision 1: One target-specific two-value interface
 
@@ -28,9 +29,9 @@
 
 ## Decision 2: Canonical outputs fail closed and drive archive plus export
 
-**Decision**: After both forced fetches, resolve the existing canonical profile-name outputs, require both non-empty target-distinct values, shell-escape them for archive arguments, and reuse the same resolved variables in export mapping.
+**Decision**: After both forced fetches, resolve the existing canonical profile-name outputs. Reject an absent/nil output or one whose validation-only whitespace-stripped view is empty, compare the preserved raw values for target distinction, shell-safely transport each original nonblank value to archive, and reuse the same original variables in export mapping.
 
-**Rationale**: Archive and export cannot drift when both cross the same interface. Failing before `build_app` is safer and more diagnosable than accepting an action return value whose meaning differs from the canonical display-name output. Opaque escaping prevents whitespace or metacharacters from changing argument structure.
+**Rationale**: Archive and export cannot drift when both cross the same interface. Failing before `build_app` is safer and more diagnosable than accepting an action return value whose meaning differs from the canonical display-name output. A stripped view distinguishes an unusable whitespace-only output without mutating a valid opaque name containing leading, trailing, or embedded whitespace. Opaque escaping prevents that original whitespace or shell metacharacters from changing argument structure.
 
 **Alternatives considered**:
 
@@ -40,9 +41,9 @@
 
 ## Decision 3: Extend the existing PR static contract
 
-**Decision**: Extend `scripts/tests/test_testflight_freshness.py` to inspect `fastlane/Fastfile` and `project.yml` in addition to the workflow, preserving its existing assertions.
+**Decision**: Extend `scripts/tests/test_testflight_freshness.py` to inspect `fastlane/Fastfile` and `project.yml` in addition to the workflow, preserving its existing assertions. After authoring the candidate regression but before T002 production edits, copy that test over an isolated temporary archive of the exact immutable-base workflow, Fastfile, and project file; require a captured nonzero run that identifies both historical fixed-name and action-return-fallback violations. Run the final green commands separately on the repaired working tree.
 
-**Rationale**: The module already owns TestFlight release-policy freshness, is auto-discovered by the fast RepoInfra gate, and runs on every pull request. Static contract coverage can prove the two fetches, canonical sources, two project keys, target mapping, shell-safe handoff, fail-closed behavior, and absence of fixed names/fallback without Apple access.
+**Rationale**: The module already owns TestFlight release-policy freshness, is auto-discovered by the fast RepoInfra gate, and runs on every pull request. Static contract coverage can prove the two fetches, canonical sources, two project keys, target mapping, shell-safe handoff, whitespace-only rejection, verbatim nonblank transport, and absence of fixed names/fallback without Apple access. The immutable-base overlay preserves T001→T002 ordering: it reproduces the full historical source state without reverting T001, changing tracked files, or crossing layer ownership.
 
 **Alternatives considered**:
 
@@ -70,9 +71,9 @@
 
 ## Decision 6: Preserve forward-only replacement history and require a fresh trusted review event
 
-**Decision**: Freeze and independently review the uncommitted replacement tree, then publish it as one AppUI commit followed by one RepoInfra commit on a new branch from the approved base. Keep PR #441 unchanged until the replacement exists. Block shipping until #442 merges through its one-time exact-head bootstrap and a fresh eligible `pull_request_target` event produces a real schema-valid, passing `codex-review-target` result for the replacement head.
+**Decision**: Freeze and independently review the uncommitted replacement tree, then publish it as one AppUI commit followed by one RepoInfra commit on a new branch whose immutable source/ancestry base is `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`. Keep PR #441 unchanged until the replacement exists. Independently, #442 must merge through its one-time exact-head bootstrap so default branch `main` contains the fix. T004 joins replacement publication with that dependency through a fresh eligible `pull_request_target` event; the event's trusted base is `github.event.pull_request.base.sha` on `main`, and it must produce a real schema-valid, passing `codex-review-target` result for the replacement head.
 
-**Rationale**: A replacement avoids rewriting PR #441's mixed-layer history, while the post-#442 event ensures the replacement uses the repaired trusted control plane. A bootstrap exception is not a transferable review result.
+**Rationale**: A replacement avoids rewriting PR #441's mixed-layer history, while the post-#442 event ensures the replacement uses the repaired trusted control plane. Source ancestry and event trust are separate identities: advancing the event base cannot rebase or rewrite the replacement. Replacement publication and #442 merge can progress independently and converge only at T004. A bootstrap exception is not a transferable review result.
 
 **Alternatives considered**:
 

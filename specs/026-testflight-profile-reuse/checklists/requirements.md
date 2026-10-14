@@ -17,7 +17,8 @@
 
 - [x] No `NEEDS CLARIFICATION`, optional alternative, or unresolved product choice remains.
 - [x] Stable IDs cover every functional requirement and acceptance scenario.
-- [x] Acceptance covers both app and widget, missing output, target crossing, shell-safe values, unsigned builds, PR regression, and the Owner-consent gate.
+- [x] Acceptance distinguishes absent/nil and whitespace-only output from nonblank names containing leading/trailing/embedded whitespace; valid original values remain verbatim through archive and export.
+- [x] Acceptance covers both app and widget, unusable output, target crossing, shell-safe values, unsigned builds, PR regression, and the Owner-consent gate.
 - [x] Force behavior, manual Release signing, Automatic Debug signing, secret handling, workflow freshness, upload/distribution, and release-tag compatibility are preserved.
 - [x] The real-upload evidence form is explicitly manual and cannot be substituted by static or unsigned checks.
 - [x] Success criteria are measurable and distinguish implementation proof from Owner-controlled production proof.
@@ -26,6 +27,7 @@
 - [x] Forward-only recovery preserves PR #441 until replacement publication, forbids force-push/history rewrite, and then requires PR Manager to close #441 with the replacement link.
 - [x] MY-1675 / PR #442 must merge through its one-time exact-head human bootstrap before MY-1660 can satisfy its separate trusted-review shipping gate.
 - [x] MY-1660 cannot reuse the #442 bypass; its replacement requires a fresh eligible post-fix `pull_request_target` event and a real schema-valid passing `codex-review-target` result for its current head.
+- [x] The immutable `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` replacement source/ancestry base is explicitly distinct from the fresh event's trusted `github.event.pull_request.base.sha` on #442-fixed `main`.
 
 ## Readiness Traceability
 
@@ -33,7 +35,8 @@
 - [x] The required DoR fields will be completed in `plan.md` and task metadata: exact scope, exclusions, interface impact, acceptance, commands, working directory, and dependencies.
 - [x] The cross-layer handoff is defined as one two-value interface rather than duplicated signing rules.
 - [x] No actual ASC call, Developer Portal mutation, signing operation, upload, or workflow dispatch is required for implementation review.
-- [x] The T001–T005 graph separates implementation, frozen-tree publication, T004 trusted-review shipping proof, and T005 Owner-controlled production proof without broadening implementation scope.
+- [x] The newly authored regression has a fail-closed immutable-base overlay procedure that mechanically requires stable fixed-name and action-return-fallback assertion markers without reverting T001, followed by separate final-green commands.
+- [x] The T001–T005 graph separates implementation, frozen-tree publication, T004 trusted-review shipping proof, and T005 Owner-controlled production proof; it models replacement publication and the independent #442-fixed event base as a T004 join without broadening implementation scope.
 
 ## Result
 

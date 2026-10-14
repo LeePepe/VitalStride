@@ -2,7 +2,7 @@
 
 ## AppUI Truth-Source Reconciliation
 
-- The approved product/source base is `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`.
+- The immutable replacement source/ancestry base is `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`; it is distinct from the later trusted event-base revision used by T004.
 - T001 owns one AppUI `project.yml` commit with three authorized truth-source edits: first add `CONTEXT.md` to the `VitalStride` source-entry exclusions as baseline reconciliation, then replace the app and widget fixed Release profile specifiers with their target-specific interface keys.
 - The baseline component excludes the unchanged support document `VitalStride/CONTEXT.md` from `VitalStride` target file/resource membership. It does not edit that document, any app/package source or test, or any RepoInfra path.
 - `VitalStride.xcodeproj/project.pbxproj` is generated synchronization evidence under Constitution Principle IV. It is regenerated from `project.yml`, contains no `VitalStride/CONTEXT.md` file or resource-build reference, and is never hand-edited or assigned independent layer ownership.
@@ -24,8 +24,9 @@
 
 ## Validation Contract
 
-- Each canonical source must be present and non-empty.
-- The two resolved values must remain target-distinct.
+- Each canonical source must be present/non-nil, and its validation-only whitespace-stripped view must be non-empty.
+- Validation must retain the original raw value: it may inspect a stripped view for blankness but may not replace, trim, or normalize any nonblank name.
+- The two preserved raw values must remain target-distinct.
 - A validation failure is terminal before `build_app`, upload, distribution, or release-tag mutation.
 - Failure evidence names the affected target/interface key but excludes ASC values, key material, certificates, keychain data, and profile contents.
 
@@ -33,7 +34,7 @@
 
 - The app Release `PROVISIONING_PROFILE_SPECIFIER` consumes only `VITALSTRIDE_APP_PROFILE_SPECIFIER`.
 - The widget Release `PROVISIONING_PROFILE_SPECIFIER` consumes only `VITALSTRIDE_WIDGET_PROFILE_SPECIFIER`.
-- The release lane transports both opaque names through shell-safe target-specific build arguments.
+- The release lane transports both original opaque names verbatim through shell-safe target-specific build arguments, including leading, trailing, or embedded whitespace and shell-significant characters.
 - A global `PROVISIONING_PROFILE_SPECIFIER` archive override is forbidden.
 - Base/Debug Automatic signing and Release Manual/Apple Distribution signing remain unchanged.
 - Explicit signing-disabled Release builds do not require either interface value.
@@ -49,10 +50,10 @@
 The credential-free regression proves from repository source that:
 
 1. both target-specific forced installed fetches remain;
-2. both canonical fetched-name sources are required and fail closed;
+2. both canonical fetched-name sources are required; absent/nil and whitespace-only outputs fail closed before `build_app`;
 3. fixed profile display names are absent from Release target configuration;
 4. the two interface keys are distinct and mapped to the correct targets;
-5. archive transport is shell-safe and target-specific;
+5. archive transport is shell-safe and target-specific, and nonblank whitespace-containing raw values are preserved verbatim rather than replaced by their validation views;
 6. export reuses the exact resolved app/widget variables;
 7. the action-return fallback and global profile override are absent;
 8. base Automatic and Release Manual signing remain;
@@ -60,9 +61,11 @@ The credential-free regression proves from repository source that:
 
 The test performs no environment-secret read, ASC request, profile installation, signing, upload, workflow dispatch, or external mutation.
 
+After the candidate regression is authored, historical red proof uses an isolated temporary overlay rather than reverting T001 or mutating the working tree. Export `.github/workflows/testflight.yml`, `fastlane/Fastfile`, and `project.yml` from the immutable source base, copy only the candidate `scripts/tests/test_testflight_freshness.py` into that overlay, and run the candidate profile-handoff suite there. The fail-closed command must complete setup, exit nonzero for the unittest run, and find stable assertion markers `HISTORICAL_FIXED_PROFILE_NAMES_REJECTED` and `HISTORICAL_ACTION_RETURN_FALLBACK_REJECTED`; setup/import/fixture failures are not red evidence. Final-green focused and complete RepoInfra commands run separately in the repaired working tree. The validated temporary overlay is the only disposable path.
+
 ## Delivery Contract
 
-- Recovery is forward-only from `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` in the preserved delivery workspace on a new branch. T001 publishes one AppUI commit and T002 publishes one RepoInfra commit; integration and shipping verification add no source commit.
+- Recovery is forward-only from immutable replacement source/ancestry base `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` in the preserved delivery workspace on a new branch. T001 publishes one AppUI commit and T002 publishes one RepoInfra commit; integration and shipping verification add no source commit.
 - Freeze the local uncommitted candidate and obtain exact AI Reviewer content `PASS` plus publication permission before commit, push, or PR creation/update. Publish only the unchanged reviewed tree.
 - Candidate PR: replacement for #441, non-Draft, `owner-review` label, required checks, clean layer-scoped history, and description of the manual new-runner procedure.
 - PR #441 and its branch remain unchanged until the replacement is published; PR Manager then closes #441 with the replacement link. No force-push or history rewrite is authorized.
@@ -72,10 +75,11 @@ The test performs no environment-secret read, ASC request, profile installation,
 
 ## Trusted Review Shipping Contract
 
-- MY-1675 / PR #442 must merge first through its one-time exact-head human bootstrap.
+- Before T004 can accept shipping evidence, MY-1675 / PR #442 must have merged through its one-time exact-head human bootstrap.
 - The #442 bootstrap is scoped only to that exact #442 head. It cannot be copied, referenced, or treated as a bypass for MY-1660.
-- After the trusted base contains the merged #442 fix, the replacement PR must receive a fresh eligible `pull_request_target` event.
-- Shipping evidence must include a real schema-valid, passing `codex-review-target` result for that fresh event and the replacement head. A stale result, a pre-fix event, a synthetic result, or the #442 bypass does not satisfy the gate.
+- Replacement publication and the independently progressing #442 merge are separate prerequisites that join at T004.
+- T004's trusted event base is the fresh eligible `pull_request_target` event's `github.event.pull_request.base.sha` on default branch `main`; that exact revision must contain the merged #442 fix. It is not the immutable replacement source base, and advancing it must not rebase or rewrite replacement ancestry.
+- Shipping evidence must include a real schema-valid, passing `codex-review-target` result for that fresh event and the replacement head. A stale result, a pre-fix event base, a synthetic result, or the #442 bypass does not satisfy the gate.
 
 ## Compatibility Contract
 

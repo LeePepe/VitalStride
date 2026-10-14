@@ -13,14 +13,15 @@ No product entity, persisted schema, or user data changes. The relevant model is
 
 - **App fetched profile name**: opaque display name published by the app bundle's forced fetch.
 - **Widget fetched profile name**: opaque display name published by the widget bundle's forced fetch.
-- **App archive input**: the app fetched name after validation and shell-safe transport.
-- **Widget archive input**: the widget fetched name after validation and shell-safe transport.
-- **Export mapping**: bundle identifier to the same validated value used by its archive input.
+- **Blankness validation view**: an ephemeral whitespace-stripped view used only to decide whether a fetched value is unusable; it is never transported or stored in place of the original.
+- **App archive input**: the original app fetched name after blankness validation and shell-safe transport, preserved verbatim.
+- **Widget archive input**: the original widget fetched name after blankness validation and shell-safe transport, preserved verbatim.
+- **Export mapping**: bundle identifier to the same preserved raw value used by its archive input.
 
 ## Release States
 
 1. **Profiles requested**: both target-specific forced fetches are invoked with installation enabled.
-2. **Profiles resolved**: both canonical profile-name outputs exist, are non-empty, and are target-distinct.
+2. **Profiles resolved**: both canonical profile-name outputs exist, their validation-only whitespace-stripped views are non-empty, and their preserved raw values are target-distinct.
 3. **Archive configured**: both opaque values are attached to their matching target-specific build-setting keys.
 4. **Archive completed**: the signed archive succeeds with those values.
 5. **Export completed**: export maps each bundle identifier to the same value used for its archive target.
@@ -28,8 +29,8 @@ No product entity, persisted schema, or user data changes. The relevant model is
 
 ## Failure States
 
-- **App name missing**: terminate before archive; identify the app target without printing credentials.
-- **Widget name missing**: terminate before archive; identify the widget target without printing credentials.
+- **App name unusable**: terminate before `build_app` when the app output is absent/nil or its validation-only whitespace-stripped view is empty; identify the app target without printing credentials.
+- **Widget name unusable**: terminate before `build_app` when the widget output is absent/nil or its validation-only whitespace-stripped view is empty; identify the widget target without printing credentials.
 - **Names not target-distinct**: terminate before archive; do not map one profile to both targets.
 - **Transport invalid**: terminate before archive if an opaque value cannot be represented safely.
 - **Archive/export failure**: preserve the existing lane's terminal behavior; do not advance upload, distribution, or release tag.
@@ -47,15 +48,17 @@ When signing is explicitly disabled, the generated Release project can move dire
 ## Recovery and Trusted Review States
 
 1. **Planning approved**: the exact repaired planning revision has independent AI Reviewer PASS and Team Lead approval.
-2. **Replacement candidate frozen**: the preserved delivery workspace starts from `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`; the uncommitted tree is split by AppUI/RepoInfra scope for review, while PR #441 remains unchanged.
+2. **Replacement candidate frozen**: the preserved delivery workspace starts from immutable replacement source/ancestry base `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`; the uncommitted tree is split by AppUI/RepoInfra scope for review, while PR #441 remains unchanged.
 3. **Replacement published**: only the reviewed tree is committed as clean layer-scoped commits and published on a new branch; PR #441 is then eligible for PR Manager closure with the replacement link.
-4. **Bootstrap dependency satisfied**: MY-1675 / PR #442 has merged through its one-time exact-head human bootstrap and the trusted base contains that fix.
-5. **Fresh review event accepted**: the replacement receives a fresh eligible `pull_request_target` event after state 4 and records a real schema-valid, passing `codex-review-target` result for its current head.
+4. **Bootstrap dependency satisfied independently**: MY-1675 / PR #442 has merged through its one-time exact-head human bootstrap and default branch `main` contains that fix; this state need not wait for states 2–3.
+5. **Fresh review join accepted**: replacement publication (state 3) and bootstrap dependency (state 4) converge at a fresh eligible `pull_request_target` event. Its trusted event base is `github.event.pull_request.base.sha` on `main`, that revision contains the #442 fix, and the event records a real schema-valid, passing `codex-review-target` result for the replacement head. The trusted event base does not replace or alter the immutable replacement source base.
 6. **Shipping eligible**: required checks, including state 5, are valid for the replacement head; no #442 bypass has been reused.
 
 ## Forbidden Transitions
 
 - Missing profile output → archive using an action-return fallback.
+- Whitespace-only profile output → archive or export.
+- Nonblank raw profile name → trimmed or normalized archive/export value.
 - App profile value → widget archive or widget export mapping.
 - Static/unsigned verification → implied Owner consent.
 - Draft or unlabeled implementation PR → production validation.
@@ -65,3 +68,4 @@ When signing is explicitly disabled, the generated Release project can move dire
 - PR #441 → rewritten history, force-push, or closure before the replacement link is published.
 - PR #442 bootstrap → authorization for MY-1660 to bypass `codex-review-target`.
 - Pre-fix, stale, synthetic, or ineligible review event → replacement shipping evidence.
+- Trusted event-base advance → rebase, rewrite, or substitution of the immutable replacement source ancestry.

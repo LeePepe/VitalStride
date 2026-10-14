@@ -2,13 +2,57 @@
 
 Run implementation verification from the repository root.
 
-## Focused credential-free regression
+## Historical red proof (T002, expected historical failure)
+
+After the candidate regression has been authored but before the T002 Fastfile/workflow-comment edits, run it against an isolated overlay of the immutable replacement source base. This leaves T001 and every tracked file unchanged:
+
+```bash
+(
+  set -o pipefail
+  red_fixture="$(mktemp -d "${TMPDIR:-/tmp}/my1660-red.XXXXXX")" || exit 1
+  test -d "$red_fixture" || exit 1
+  case "$red_fixture" in
+    */my1660-red.*) ;;
+    *) exit 1 ;;
+  esac
+  red_log="$red_fixture/historical-red.log"
+  cleanup_red_fixture() {
+    case "${red_fixture:-}" in
+      */my1660-red.*) rm -rf -- "$red_fixture" ;;
+    esac
+  }
+  trap cleanup_red_fixture EXIT HUP INT TERM
+  git archive e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b -- \
+    .github/workflows/testflight.yml fastlane/Fastfile project.yml \
+    | tar -x -C "$red_fixture" || exit 1
+  mkdir -p "$red_fixture/scripts/tests" || exit 1
+  cp scripts/tests/test_testflight_freshness.py \
+    "$red_fixture/scripts/tests/test_testflight_freshness.py" || exit 1
+  if (
+    cd "$red_fixture" || exit 1
+    python3 -B -m unittest scripts.tests.test_testflight_freshness
+  ) >"$red_log" 2>&1; then
+    printf '%s\n' 'historical fixed-name/fallback fixture unexpectedly passed' >&2
+    exit 1
+  else
+    red_status=$?
+  fi
+  awk '{ print }' "$red_log"
+  test "$red_status" -ne 0 || exit 1
+  rg -F 'HISTORICAL_FIXED_PROFILE_NAMES_REJECTED' "$red_log" >/dev/null || exit 1
+  rg -F 'HISTORICAL_ACTION_RETURN_FALLBACK_REJECTED' "$red_log" >/dev/null || exit 1
+)
+```
+
+Expected: the candidate suite exits nonzero and its captured unittest output includes both stable assertion markers: `HISTORICAL_FIXED_PROFILE_NAMES_REJECTED` for the fixed-name project configuration and `HISTORICAL_ACTION_RETURN_FALLBACK_REJECTED` for the Fastfile fallback. The guarded setup and marker checks reject archive, extraction, copy, import, fixture, and unrelated failures. The only deleted path is the non-empty temporary directory returned by successful `mktemp`.
+
+## Final focused credential-free regression
 
 ```bash
 python3 -B -m unittest scripts.tests.test_testflight_freshness
 ```
 
-Expected: existing workflow-freshness cases and the new app/widget profile-handoff cases pass without credentials, profiles, signing, network access, or upload.
+Expected: existing workflow-freshness cases and the new app/widget profile-handoff cases pass without credentials, profiles, signing, network access, or upload. Red-capable cases reject absent/nil and whitespace-only outputs while accepting distinct nonblank names with leading, trailing, or embedded whitespace and preserving each original value verbatim through archive and export.
 
 ## Fastfile syntax
 
@@ -61,7 +105,7 @@ Expected: the Release build completes without Apple credentials, installed profi
 
 - Before any commit, push, or PR publication, freeze the local candidate tree and obtain an exact-tree AI Reviewer content PASS with explicit publication permission. Any content change invalidates that permission.
 - After publication permission, preserve one AppUI commit for the `project.yml` baseline/profile edits plus generated synchronization and one separate RepoInfra commit for the regression/lane repair.
-- Publish from `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` on a new replacement branch in the preserved delivery workspace. Do not force-push or rewrite PR #441.
+- Publish from immutable replacement source/ancestry base `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` on a new replacement branch in the preserved delivery workspace. Do not force-push, rewrite PR #441, or substitute the later trusted event base for this ancestry.
 - PR is non-Draft.
 - PR has the `owner-review` label.
 - PR description lists the new-runner manual validation procedure and states that explicit Owner consent is required before dispatch.
@@ -70,14 +114,14 @@ Expected: the Release build completes without Apple credentials, installed profi
 
 ## Trusted-review shipping gate (T004)
 
-The replacement may be prepared and published while this external dependency is blocked, but PR Manager must not ship it until all of the following evidence exists:
+Replacement publication and the #442 merge may progress independently, but PR Manager must not ship until both paths converge at T004 and all of the following evidence exists:
 
 1. MY-1675 / PR #442 merged through its one-time human bootstrap bound to the exact authorized #442 head.
-2. The trusted base used for the replacement contains the #442 fix.
-3. The replacement's current head received a fresh eligible `pull_request_target` event (`opened`, `synchronize`, or `reopened`) after that merge.
-4. That event produced a real, schema-valid, passing `codex-review-target` result for the replacement head.
+2. Default branch `main` contains the merged #442 fix.
+3. The replacement's current head received a fresh eligible `pull_request_target` event (`opened`, `synchronize`, or `reopened`) whose trusted event base, `github.event.pull_request.base.sha`, is that fixed `main` revision.
+4. That event produced a real, schema-valid, passing `codex-review-target` result for the replacement head while the replacement retained its immutable `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` source ancestry.
 
-The #442 bootstrap is not reusable by MY-1660. A stale, pre-fix, synthetic, manual, or schema-invalid result does not satisfy this gate. Record the #442 merge/bootstrap identity, trusted-base revision, replacement event/base/head, and check-run URL/app/head/schema/conclusion; do not edit the workflow or review scripts as part of this feature.
+The immutable replacement source base and the trusted event base are separate identities; advancing `main` to the #442-fixed event base never authorizes a rebase or history rewrite. The #442 bootstrap is not reusable by MY-1660. A stale, pre-fix, synthetic, manual, or schema-invalid result does not satisfy this gate. Record the source-base SHA, #442 merge/bootstrap identity, trusted event-base revision, replacement event/base/head, and check-run URL/app/head/schema/conclusion; do not edit the workflow or review scripts as part of this feature.
 
 ## Forbidden during implementation and review
 
