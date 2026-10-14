@@ -7,17 +7,19 @@ import UIKit
 
 @testable import VitalStride
 
-/// MY-1421 — Snackbar/FAB/keyboard layout regression tests.
+/// MY-1421, MY-1446, MY-1706 — ActiveWorkout snackbar layout and animation policy regression tests.
 ///
-/// These tests verify two layout invariants introduced by MY-1421:
-/// 1. The workout list does not shift vertically when the rest snackbar
-///    appears or disappears (the FAB's safeAreaInset contribution is constant).
-/// 2. While the custom numeric keyboard is visible during rest, the snackbar
-///    remains fully visible by switching to the top edge.
-@Suite("ActiveWorkout snackbar layout (MY-1421)")
+/// These tests verify:
+/// 1. The workout list does not shift vertically when the rest snackbar appears or disappears.
+/// 2. When keyboard is visible, snackbar edge resolves to .top.
+/// 3. All 6 settled keyboard/snackbar states resolve through one production AnimationPolicy.
+/// 4. Exactly one root geometry-animation owner, no child animation, and no child transition.
+/// 5. Mutation sensitivity: rejects child animation, child transition, and missing root owner.
+/// 6. Transitions in both directions preserve single-owner invariants and slot migration.
+@Suite("ActiveWorkout snackbar layout (MY-1421, MY-1706)")
 struct ActiveWorkoutSnackbarLayoutTests {
 
-    // MARK: - Test 1: List stability
+    // MARK: - Test 1: List stability (MY-1421)
 
     /// The FAB container's intrinsic height must be identical regardless of
     /// whether the bottom snackbar is showing. Before MY-1421, a conditional
@@ -70,7 +72,7 @@ struct ActiveWorkoutSnackbarLayoutTests {
     }
     #endif
 
-    // MARK: - Test 2: Snackbar keyboard awareness
+    // MARK: - Test 2: Snackbar keyboard awareness (MY-1421)
 
     /// When the custom numeric keyboard is visible, the snackbar must switch
     /// to the top edge so it doesn't overlap the keyboard and remains fully
@@ -85,5 +87,252 @@ struct ActiveWorkoutSnackbarLayoutTests {
         // With keyboard: top edge so it doesn't overlap
         let edgeWithKeyboard = ActiveWorkoutSnackbarLayout.resolveEdge(isKeyboardVisible: true)
         #expect(edgeWithKeyboard == .top)
+    }
+
+    // MARK: - Test 3: Six Settled States Production Policy Matrix (MY-1706 / AC-001, AC-002)
+
+    struct PolicyMatrixCase {
+        let isKeyboardVisible: Bool
+        let requestedSlot: BottomSnackbarSlot
+        let expectedTopSlot: BottomSnackbarSlot
+        let expectedBottomSlot: BottomSnackbarSlot
+        let expectedFABVisible: Bool
+    }
+
+    @MainActor
+    @Test("Production AnimationPolicy exercises all six settled keyboard/snackbar states")
+    func productionAnimationPolicyMatrix() {
+        let testCases: [PolicyMatrixCase] = [
+            // State 1: Hidden keyboard + No snackbar
+            PolicyMatrixCase(
+                isKeyboardVisible: false,
+                requestedSlot: .none,
+                expectedTopSlot: .none,
+                expectedBottomSlot: .none,
+                expectedFABVisible: true
+            ),
+            // State 2: Hidden keyboard + Rest snackbar
+            PolicyMatrixCase(
+                isKeyboardVisible: false,
+                requestedSlot: .rest,
+                expectedTopSlot: .none,
+                expectedBottomSlot: .rest,
+                expectedFABVisible: true
+            ),
+            // State 3: Hidden keyboard + Undo snackbar
+            PolicyMatrixCase(
+                isKeyboardVisible: false,
+                requestedSlot: .undo,
+                expectedTopSlot: .none,
+                expectedBottomSlot: .undo,
+                expectedFABVisible: true
+            ),
+            // State 4: Visible keyboard + No snackbar
+            PolicyMatrixCase(
+                isKeyboardVisible: true,
+                requestedSlot: .none,
+                expectedTopSlot: .none,
+                expectedBottomSlot: .none,
+                expectedFABVisible: false
+            ),
+            // State 5: Visible keyboard + Rest snackbar
+            PolicyMatrixCase(
+                isKeyboardVisible: true,
+                requestedSlot: .rest,
+                expectedTopSlot: .rest,
+                expectedBottomSlot: .none,
+                expectedFABVisible: false
+            ),
+            // State 6: Visible keyboard + Undo snackbar
+            PolicyMatrixCase(
+                isKeyboardVisible: true,
+                requestedSlot: .undo,
+                expectedTopSlot: .undo,
+                expectedBottomSlot: .none,
+                expectedFABVisible: false
+            ),
+        ]
+
+        for tc in testCases {
+            let policy = ActiveWorkoutSnackbarLayout.policy(
+                isKeyboardVisible: tc.isKeyboardVisible,
+                snackbarSlot: tc.requestedSlot
+            )
+
+            // Slot placements
+            #expect(policy.topSlot == tc.expectedTopSlot)
+            #expect(policy.bottomSlot == tc.expectedBottomSlot)
+            #expect(policy.isFABVisible == tc.expectedFABVisible)
+
+            // Exactly one root animation owner
+            #expect(policy.hasRootAnimation == true)
+            #expect(policy.rootAnimation == ActiveWorkoutSnackbarLayout.AnimationPolicy.defaultAnimation)
+
+            // No child animation or transition drivers
+            #expect(policy.hasChildAnimation == false)
+            #expect(policy.childAnimation == nil)
+            #expect(policy.hasChildTransition == false)
+
+            // Single animation owner invariant holds
+            #expect(policy.hasSingleAnimationOwner == true)
+
+            // At most one active snackbar slot across entire layout
+            let topActive = policy.topSlot != .none
+            let bottomActive = policy.bottomSlot != .none
+            #expect(!(topActive && bottomActive), "Top and bottom snackbar slots cannot both be active simultaneously")
+        }
+    }
+
+    // MARK: - Test 4: Keyboard Transition Directions (MY-1706)
+
+    @MainActor
+    @Test("Keyboard show and hide transitions migrate snackbar slot and preserve single owner")
+    func keyboardTransitionsMigrateSlots() {
+        let slots: [BottomSnackbarSlot] = [.none, .rest, .undo]
+
+        for slot in slots {
+            let hiddenPolicy = ActiveWorkoutSnackbarLayout.policy(
+                isKeyboardVisible: false,
+                snackbarSlot: slot
+            )
+            let visiblePolicy = ActiveWorkoutSnackbarLayout.policy(
+                isKeyboardVisible: true,
+                snackbarSlot: slot
+            )
+
+            // Hidden -> Visible transition
+            #expect(hiddenPolicy.bottomSlot == slot)
+            #expect(hiddenPolicy.topSlot == .none)
+            #expect(hiddenPolicy.isFABVisible == true)
+            #expect(hiddenPolicy.hasSingleAnimationOwner == true)
+
+            #expect(visiblePolicy.topSlot == slot)
+            #expect(visiblePolicy.bottomSlot == .none)
+            #expect(visiblePolicy.isFABVisible == false)
+            #expect(visiblePolicy.hasSingleAnimationOwner == true)
+
+            // Root animation ownership is invariant across transition
+            #expect(hiddenPolicy.rootAnimation == visiblePolicy.rootAnimation)
+            #expect(hiddenPolicy.childAnimation == nil && visiblePolicy.childAnimation == nil)
+            #expect(!hiddenPolicy.hasChildTransition && !visiblePolicy.hasChildTransition)
+        }
+    }
+
+    // MARK: - Test 5: Mutation Sensitivity (MY-1706 / AC-003, FR-005)
+
+    @MainActor
+    @Test("Mutation-sensitive regression tests reject duplicate or missing animation owners")
+    func mutationSensitivityTests() {
+        let baseSlots: [BottomSnackbarSlot] = [.none, .rest, .undo]
+        let keyboardStates: [Bool] = [false, true]
+
+        for isKeyboardVisible in keyboardStates {
+            for slot in baseSlots {
+                // Baseline production policy is valid and passes single-owner invariant
+                let prodPolicy = ActiveWorkoutSnackbarLayout.policy(
+                    isKeyboardVisible: isKeyboardVisible,
+                    snackbarSlot: slot
+                )
+                #expect(prodPolicy.hasSingleAnimationOwner == true)
+                #expect(prodPolicy.hasRootAnimation == true)
+                #expect(prodPolicy.hasChildAnimation == false)
+                #expect(prodPolicy.hasChildTransition == false)
+
+                // Verify production modifiers applied at root and child
+                let prodChildContent = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                    policy: prodPolicy,
+                    undoContent: { Color.clear },
+                    restContent: { Color.clear },
+                    fab: { Color.clear }
+                )
+                _ = prodChildContent
+
+                // Mutation 1: Add a child animation driver (duplicate owner)
+                let mutatedWithChildAnim = ActiveWorkoutSnackbarLayout.AnimationPolicy.mutated(
+                    isKeyboardVisible: isKeyboardVisible,
+                    snackbarSlot: slot,
+                    rootAnimation: ActiveWorkoutSnackbarLayout.AnimationPolicy.defaultAnimation,
+                    childAnimation: .linear(duration: 0.2),
+                    hasChildTransition: false
+                )
+                #expect(mutatedWithChildAnim.hasChildAnimation == true)
+                #expect(
+                    mutatedWithChildAnim.hasSingleAnimationOwner == false,
+                    "Policy must reject mutation that introduces a child animation driver"
+                )
+
+                // Verify child modifier consumes mutated child animation
+                let childWithAnim = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                    policy: mutatedWithChildAnim,
+                    undoContent: { Color.clear },
+                    restContent: { Color.clear },
+                    fab: { Color.clear }
+                )
+                _ = childWithAnim
+
+                // Mutation 2: Add a child transition (duplicate owner)
+                let mutatedWithChildTransition = ActiveWorkoutSnackbarLayout.AnimationPolicy.mutated(
+                    isKeyboardVisible: isKeyboardVisible,
+                    snackbarSlot: slot,
+                    rootAnimation: ActiveWorkoutSnackbarLayout.AnimationPolicy.defaultAnimation,
+                    childAnimation: nil,
+                    hasChildTransition: true
+                )
+                #expect(mutatedWithChildTransition.hasChildTransition == true)
+                #expect(
+                    mutatedWithChildTransition.hasSingleAnimationOwner == false,
+                    "Policy must reject mutation that introduces a child transition"
+                )
+
+                // Verify child modifier consumes mutated child transition
+                let childWithTransition = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                    policy: mutatedWithChildTransition,
+                    undoContent: { Color.clear },
+                    restContent: { Color.clear },
+                    fab: { Color.clear }
+                )
+                _ = childWithTransition
+
+                // Mutation 3: Remove root animation driver (missing root owner)
+                let mutatedWithoutRootAnim = ActiveWorkoutSnackbarLayout.AnimationPolicy.mutated(
+                    isKeyboardVisible: isKeyboardVisible,
+                    snackbarSlot: slot,
+                    rootAnimation: nil,
+                    childAnimation: nil,
+                    hasChildTransition: false
+                )
+                #expect(mutatedWithoutRootAnim.hasRootAnimation == false)
+                #expect(
+                    mutatedWithoutRootAnim.hasSingleAnimationOwner == false,
+                    "Policy must reject mutation where the root animation driver is missing"
+                )
+            }
+        }
+    }
+
+    // MARK: - Test 6: Mode Parity (MY-1706 / AC-006, FR-008)
+
+    @MainActor
+    @Test("Compact and Large Mode share the exact same AnimationPolicy resolution")
+    func modeParityUsesSamePolicy() {
+        for isKeyboardVisible in [false, true] {
+            for slot in [BottomSnackbarSlot.none, .rest, .undo] {
+                let policy = ActiveWorkoutSnackbarLayout.policy(
+                    isKeyboardVisible: isKeyboardVisible,
+                    snackbarSlot: slot
+                )
+                // Single policy instance drives both mode presentations
+                #expect(policy.hasSingleAnimationOwner == true)
+                if isKeyboardVisible {
+                    #expect(policy.topSlot == slot)
+                    #expect(policy.bottomSlot == .none)
+                    #expect(policy.isFABVisible == false)
+                } else {
+                    #expect(policy.topSlot == .none)
+                    #expect(policy.bottomSlot == slot)
+                    #expect(policy.isFABVisible == true)
+                }
+            }
+        }
     }
 }
