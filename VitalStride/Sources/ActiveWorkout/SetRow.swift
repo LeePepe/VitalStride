@@ -73,6 +73,9 @@ struct SetRow: View {
     /// `nil` so existing call sites (ActiveExerciseSection, previews) remain
     /// source-compatible until T006 wires the lookup through.
     let previousSet: ExerciseSet?
+    let isSubSet: Bool
+    let parentSetNumber: Int?
+    let stableRowID: String?
     let onToggleCompleted: (_ wasCompleted: Bool) -> Void
     let onDelete: () -> Void
     let onAddSubSet: (_ type: SetType) -> Void
@@ -88,6 +91,9 @@ struct SetRow: View {
         exercise: Exercise?,
         recentWeightKg: Double?,
         previousSet: ExerciseSet? = nil,
+        isSubSet: Bool = false,
+        parentSetNumber: Int? = nil,
+        stableRowID: String? = nil,
         onToggleCompleted: @escaping (_ wasCompleted: Bool) -> Void,
         onDelete: @escaping () -> Void,
         onAddSubSet: @escaping (_ type: SetType) -> Void,
@@ -100,10 +106,25 @@ struct SetRow: View {
         self.exercise = exercise
         self.recentWeightKg = recentWeightKg
         self.previousSet = previousSet
+        self.isSubSet = isSubSet
+        self.parentSetNumber = parentSetNumber
+        self.stableRowID = stableRowID
         self.onToggleCompleted = onToggleCompleted
         self.onDelete = onDelete
         self.onAddSubSet = onAddSubSet
         self.onCopyToNext = onCopyToNext
+    }
+
+    private var displayIndex: Int {
+        parentSetNumber ?? (index + 1)
+    }
+
+    private var stableIdentifier: String {
+        if let stableRowID { return stableRowID }
+        if isSubSet {
+            return exerciseSet.setType == .pyramid ? "pyramid" : "dropSet"
+        }
+        return "standard"
     }
 
     @State private var weightText: String = ""
@@ -184,10 +205,10 @@ struct SetRow: View {
                     rowContent(variant: .normal)
                 }
             }
-            if let previousSet {
+            if !isSubSet, let previousSet {
                 previousSetCaption(previousSet)
             }
-            if let advice = smartProgressionAdvice() {
+            if !isSubSet, let advice = smartProgressionAdvice() {
                 smartProgressionChip(advice)
             }
         }
@@ -228,7 +249,7 @@ struct SetRow: View {
         let isLarge = variant != .normal
         HStack(spacing: LargeWorkoutFieldWidth.rowSpacing(variant)) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(index + 1)")
+                Text("\(displayIndex)")
                     .font(LargeWorkoutFonts.setIndex(large: isLarge))
                     .fontWeight(.bold)
                     .foregroundStyle(theme.neutrals.text1)
@@ -243,14 +264,15 @@ struct SetRow: View {
                 // left-weight / right-weight × reps. Reps stays at the tail so
                 // the visual/accessibility sequence is consistent across modes.
                 weightField(
-                    binding: $weightText,
+                    binding: $weightRightText,
                     field: .weight,
                     width: LargeWorkoutFieldWidth.unilateralWeight(variant),
                     a11yLabel: String(
-                        localized: "第 \(index + 1) 组左侧重量",
+                        localized: "第 \(displayIndex) 组左侧重量",
                         comment: "Left weight input a11y label"
                     ),
-                    a11yHint: String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint")
+                    a11yHint: String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint"),
+                    fieldIdentifier: "active-workout.row.\(stableIdentifier).weight-left"
                 )
 
                 Text("/")
@@ -262,10 +284,11 @@ struct SetRow: View {
                     field: .weightRight,
                     width: LargeWorkoutFieldWidth.unilateralWeight(variant),
                     a11yLabel: String(
-                        localized: "第 \(index + 1) 组右侧重量",
+                        localized: "第 \(displayIndex) 组右侧重量",
                         comment: "Right weight input a11y label"
                     ),
-                    a11yHint: String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint")
+                    a11yHint: String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint"),
+                    fieldIdentifier: "active-workout.row.\(stableIdentifier).weight-right"
                 )
 
                 Text("×")
@@ -278,10 +301,11 @@ struct SetRow: View {
                     field: .weight,
                     width: LargeWorkoutFieldWidth.bilateralWeight(variant),
                     a11yLabel: String(
-                        localized: "第 \(index + 1) 组重量",
+                        localized: "第 \(displayIndex) 组重量",
                         comment: "Total weight input a11y label"
                     ),
-                    a11yHint: String(localized: "输入重量数值", comment: "Total weight input a11y hint")
+                    a11yHint: String(localized: "输入重量数值", comment: "Total weight input a11y hint"),
+                    fieldIdentifier: "active-workout.row.\(stableIdentifier).weight"
                 )
 
                 Text("×")
@@ -296,19 +320,21 @@ struct SetRow: View {
                         onDelete()
                     } label: {
                         Label(
-                            String(localized: "删除", comment: "Delete set menu item"),
+                            destructiveAccessibilityLabel,
                             systemImage: "trash"
                         )
                     }
+                    .accessibilityIdentifier("active-workout.row.\(stableIdentifier).delete-menu-item")
                 }
 
                 Divider()
 
+                let availableSetTypes: [SetType] = isSubSet ? [.pyramid, .dropSet] : SetType.allCases
                 Picker(selection: Binding(
                     get: { exerciseSet.setType },
                     set: { exerciseSet.setType = $0 }
                 )) {
-                    ForEach(SetType.allCases, id: \.self) { type in
+                    ForEach(availableSetTypes, id: \.self) { type in
                         Text(type.displayName).tag(type)
                     }
                 } label: {
@@ -350,19 +376,49 @@ struct SetRow: View {
                     .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
                     .contentShape(Rectangle())
             }
-            .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration menu a11y label"))
-            .accessibilityValue(
-                exerciseSet.isUnilateral
-                    // swiftlint:disable:next line_length
-                    ? "\(exerciseSet.setType.displayName)，\(String(localized: "单侧重量", comment: "Unilateral weight a11y value"))"
-                    // swiftlint:disable:next line_length
-                    : "\(exerciseSet.setType.displayName)，\(String(localized: "总重量", comment: "Total weight a11y value"))"
-            )
+            .accessibilityIdentifier("active-workout.row.\(stableIdentifier).action-menu")
+            .accessibilityLabel(menuAccessibilityLabel)
+            .accessibilityValue(menuAccessibilityValue)
 
             Spacer()
 
             completionButton
         }
+    }
+
+    private var destructiveMenuTitle: String {
+        String(localized: "删除", comment: "Delete set menu item")
+    }
+
+    private var destructiveAccessibilityLabel: String {
+        let deleteText = String(localized: "删除", comment: "Delete set menu item")
+        let setLabel = String(
+            format: String(localized: "第 %lld 组", comment: "Set index format"),
+            Int64(displayIndex)
+        )
+        if isSubSet {
+            return "\(deleteText), \(setLabel) \(exerciseSet.setType.displayName)"
+        } else {
+            return "\(deleteText), \(setLabel)"
+        }
+    }
+
+    private var menuAccessibilityLabel: String {
+        if isSubSet {
+            return String(
+                localized: "第 \(displayIndex) 组\(exerciseSet.setType.displayName)子组操作菜单",
+                comment: "Sub-set action menu a11y label"
+            )
+        }
+        return String(localized: "第 \(displayIndex) 组设置", comment: "Set configuration menu a11y label")
+    }
+
+    private var menuAccessibilityValue: String {
+        exerciseSet.isUnilateral
+            // swiftlint:disable:next line_length
+            ? "\(exerciseSet.setType.displayName)，\(String(localized: "单侧重量", comment: "Unilateral weight a11y value"))"
+            // swiftlint:disable:next line_length
+            : "\(exerciseSet.setType.displayName)，\(String(localized: "总重量", comment: "Total weight a11y value"))"
     }
 
     // MARK: - Row styling helpers
@@ -421,7 +477,8 @@ struct SetRow: View {
         field: SetField,
         width: CGFloat,
         a11yLabel: String,
-        a11yHint: String
+        a11yHint: String,
+        fieldIdentifier: String
     ) -> some View {
         #if canImport(UIKit) && !os(macOS)
         SelectAllTextField(
@@ -440,6 +497,7 @@ struct SetRow: View {
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
+        .accessibilityIdentifier(fieldIdentifier)
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
@@ -461,6 +519,7 @@ struct SetRow: View {
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
+        .accessibilityIdentifier(fieldIdentifier)
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
@@ -495,7 +554,8 @@ struct SetRow: View {
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
-        .accessibilityLabel(String(localized: "第 \(index + 1) 组次数", comment: "Set reps a11y label"))
+        .accessibilityIdentifier("active-workout.row.\(stableIdentifier).reps")
+        .accessibilityLabel(repsAccessibilityLabel)
         .accessibilityHint(String(localized: "输入次数", comment: "Enter reps hint"))
         .onChange(of: repsText) { _, newValue in
             let filtered = newValue.filter { $0.isNumber }
@@ -512,7 +572,8 @@ struct SetRow: View {
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
-        .accessibilityLabel(String(localized: "第 \(index + 1) 组次数", comment: "Set reps a11y label"))
+        .accessibilityIdentifier("active-workout.row.\(stableIdentifier).reps")
+        .accessibilityLabel(repsAccessibilityLabel)
         .accessibilityHint(String(localized: "输入次数", comment: "Enter reps hint"))
         .onChange(of: repsText) { _, newValue in
             let filtered = newValue.filter { $0.isNumber }
@@ -521,6 +582,16 @@ struct SetRow: View {
             noteSuggestionFieldEdit()
         }
         #endif
+    }
+
+    private var repsAccessibilityLabel: String {
+        if isSubSet {
+            return String(
+                localized: "第 \(displayIndex) 组\(exerciseSet.setType.displayName)子组次数",
+                comment: "SubSet reps a11y label"
+            )
+        }
+        return String(localized: "第 \(displayIndex) 组次数", comment: "Set reps a11y label")
     }
 
     private var completionButton: some View {
@@ -559,8 +630,22 @@ struct SetRow: View {
         // button's layout claim.
         .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
         .contentShape(Rectangle())
-        .accessibilityLabel(String(localized: "第 \(index + 1) 组，\(exerciseSet.isCompleted ? String(localized: "已完成", comment: "Set completion status: completed") : String(localized: "未完成", comment: "Set completion status: incomplete"))", comment: "A11y label composing set index and completion status"))
+        .accessibilityIdentifier("active-workout.row.\(stableIdentifier).completion")
+        .accessibilityLabel(completionAccessibilityLabel)
         .accessibilityHint(String(localized: "双击切换完成状态", comment: "A11y hint"))
+    }
+
+    private var completionAccessibilityLabel: String {
+        let status = exerciseSet.isCompleted
+            ? String(localized: "已完成", comment: "Set completion status: completed")
+            : String(localized: "未完成", comment: "Set completion status: incomplete")
+        if isSubSet {
+            return String(
+                localized: "第 \(displayIndex) 组\(exerciseSet.setType.displayName)子组，\(status)",
+                comment: "A11y label composing parent set index and completion status"
+            )
+        }
+        return String(localized: "第 \(displayIndex) 组，\(status)", comment: "A11y label composing set index and completion status")
     }
 
     // MARK: - Previous-set caption (MY-1161 / spec 004-previous-set-hint T005)
@@ -643,6 +728,7 @@ struct SetRow: View {
     /// filtered out by `PreviousSetLookup.previousMainSet`, so the collected
     /// sequence is main-set only by construction.
     private func smartProgressionAdvice() -> ProgressionAdvice? {
+        guard !isSubSet else { return nil }
         guard let workout = exerciseSet.workoutExercise?.workout else { return nil }
         guard let boundExercise = exercise else { return nil }
 
@@ -848,11 +934,13 @@ struct SetRow: View {
     private func handleLeftAction(_ action: LeftKeyAction, field: SetField) {
         switch action {
         case .addPyramid:
+            guard !isSubSet else { return }
             #if canImport(UIKit) && !os(macOS)
             HapticManager.trigger(.exerciseAdded)
             #endif
             onAddSubSet(.pyramid)
         case .addDropSet:
+            guard !isSubSet else { return }
             #if canImport(UIKit) && !os(macOS)
             HapticManager.trigger(.exerciseAdded)
             #endif
@@ -1275,4 +1363,105 @@ private struct SmartProgressionPreviewWrapper: View {
 
 #Preview("Row - Smart Progression (no history, no chip)") {
     SmartProgressionPreviewWrapper(state: .noHistoryNoChip)
+}
+
+// MARK: - Adjacent Standard, Pyramid, Drop-Set Preview Matrix (AC-010 / spec 026)
+
+private struct AdjacentRowsPreviewWrapper: View {
+    let largeMode: Bool
+
+    init(largeMode: Bool) {
+        self.largeMode = largeMode
+        UserDefaults.standard.set(largeMode, forKey: "activeWorkoutLargeMode")
+    }
+
+    var body: some View {
+        let exercise = Exercise(
+            nameEn: "Bench Press",
+            nameZh: String(localized: "卧推", comment: ""),
+            muscleGroup: .chest,
+            equipment: .barbell
+        )
+        let set1 = ExerciseSet(order: 0, weight: 80, reps: 8, setType: .working)
+        let set2 = ExerciseSet(order: 1, weight: 92, reps: 8, setType: .pyramid)
+        let set3 = ExerciseSet(order: 2, weight: 68, reps: 8, setType: .dropSet)
+
+        List {
+            Section {
+                SetRow(
+                    index: 0,
+                    exerciseSet: set1,
+                    weightUnit: .kg,
+                    canDelete: true,
+                    exercise: exercise,
+                    recentWeightKg: nil,
+                    isSubSet: false,
+                    onToggleCompleted: { _ in },
+                    onDelete: {},
+                    onAddSubSet: { _ in },
+                    onCopyToNext: {}
+                )
+                .listRowInsets(EdgeInsets(top: largeMode ? 2 : 1, leading: 16, bottom: largeMode ? 2 : 1, trailing: 16))
+
+                SetRow(
+                    index: 0,
+                    exerciseSet: set2,
+                    weightUnit: .kg,
+                    canDelete: true,
+                    exercise: nil,
+                    recentWeightKg: nil,
+                    isSubSet: true,
+                    parentSetNumber: 1,
+                    onToggleCompleted: { _ in },
+                    onDelete: {},
+                    onAddSubSet: { _ in },
+                    onCopyToNext: {}
+                )
+                .listRowInsets(EdgeInsets(top: largeMode ? 2 : 1, leading: 16, bottom: largeMode ? 2 : 1, trailing: 16))
+
+                SetRow(
+                    index: 0,
+                    exerciseSet: set3,
+                    weightUnit: .kg,
+                    canDelete: true,
+                    exercise: nil,
+                    recentWeightKg: nil,
+                    isSubSet: true,
+                    parentSetNumber: 1,
+                    onToggleCompleted: { _ in },
+                    onDelete: {},
+                    onAddSubSet: { _ in },
+                    onCopyToNext: {}
+                )
+                .listRowInsets(EdgeInsets(top: largeMode ? 2 : 1, leading: 16, bottom: largeMode ? 2 : 1, trailing: 16))
+            } header: {
+                Text(exercise.localizedName)
+                    .font(LargeWorkoutFonts.exerciseName(large: largeMode))
+            }
+        }
+        .listStyle(.plain)
+        .frame(width: 375)
+        .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+        .designThemePreview()
+    }
+}
+
+#Preview("Adjacent Rows - Normal Light") {
+    AdjacentRowsPreviewWrapper(largeMode: false)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Adjacent Rows - Normal Dark") {
+    AdjacentRowsPreviewWrapper(largeMode: false)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Adjacent Rows - Large Light") {
+    AdjacentRowsPreviewWrapper(largeMode: true)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Adjacent Rows - Large Dark") {
+    AdjacentRowsPreviewWrapper(largeMode: true)
+        .preferredColorScheme(.dark)
 }

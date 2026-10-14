@@ -56,11 +56,19 @@ struct VitalStrideApp: App {
         #endif
 
         #if DEBUG
+        let isUITest = ProcessInfo.processInfo.arguments.contains("-ExercisePickerTestMode")
+            || ProcessInfo.processInfo.arguments.contains("-SnackbarA11yTestMode")
+            || ProcessInfo.processInfo.arguments.contains("-SubSetRouteTestMode")
         let isExercisePickerUITest = ProcessInfo.processInfo.arguments.contains(
             "-ExercisePickerTestMode"
         )
+        let isSubSetRouteUITest = ProcessInfo.processInfo.arguments.contains(
+            "-SubSetRouteTestMode"
+        )
         #else
+        let isUITest = false
         let isExercisePickerUITest = false
+        let isSubSetRouteUITest = false
         #endif
 
         do {
@@ -68,7 +76,7 @@ struct VitalStrideApp: App {
             // CloudKit store being available on a freshly booted CI
             // simulator. Use the same in-memory container for app startup,
             // the harness seed, and ExercisePickerView's @Query.
-            let modelContainer = if isExercisePickerUITest {
+            let modelContainer = if isUITest {
                 try ModelContainerConfiguration.makeTestContainer()
             } else {
                 try ModelContainerConfiguration.makeContainer()
@@ -91,7 +99,7 @@ struct VitalStrideApp: App {
             let context = modelContainer.mainContext
 
             Task {
-                if !isExercisePickerUITest {
+                if !isUITest {
                     ExerciseSeeder.seedIfNeeded(context: context)
                 }
                 let status = try? await service.authorizationStatus()
@@ -141,6 +149,9 @@ struct VitalStrideApp: App {
             // regression. Presents slotEnvelope with known labels so XCUI
             // can verify the accessibility tree membership contract.
             .modifier(SnackbarA11yTestHarnessModifier())
+            // spec 026: XCUITest entry point for SubSet route, full swipe,
+            // refusal, geometry, and catalog identity acceptance.
+            .modifier(SubSetRouteTestHarnessModifier(container: container))
             #endif
         }
     }
@@ -332,6 +343,160 @@ private struct SnackbarA11yTestHost: View {
             }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Sub-Set Route and Production Deletion XCUITest harness (spec 026)
+
+private struct SubSetRouteTestHarnessModifier: ViewModifier {
+    let container: ModelContainer?
+    @State private var testMode: SubSetRouteTestMode? = SubSetRouteTestMode.fromLaunchArguments()
+
+    func body(content: Content) -> some View {
+        if let testMode, let container {
+            SubSetRouteTestHost(mode: testMode)
+                .modelContainer(container)
+        } else {
+            content
+        }
+    }
+}
+
+private enum SubSetRouteTestMode: String {
+    case standardPyramidDrop = "standard_pyramid_drop"
+    case singleMainWithChild = "single_main_with_child"
+
+    static func fromLaunchArguments() -> SubSetRouteTestMode? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let idx = args.firstIndex(of: "-SubSetRouteTestMode") else { return nil }
+        if idx + 1 < args.count {
+            switch args[idx + 1] {
+            case "single_main_with_child": return .singleMainWithChild
+            default: return .standardPyramidDrop
+            }
+        }
+        return .standardPyramidDrop
+    }
+}
+
+private struct SubSetRouteTestHost: View {
+    let mode: SubSetRouteTestMode
+    @Environment(\.modelContext) private var modelContext
+    @State private var workoutExercise: WorkoutExercise?
+    @State private var undoController = SetDeletionUndoController()
+    @State private var probe = SetDeletionRequestProbe()
+    @State private var setDeletedCount = 0
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                if let workoutExercise {
+                    List {
+                        ActiveExerciseSection(
+                            workoutExercise: workoutExercise,
+                            onSetCompleted: {},
+                            onSetDeleted: {
+                                setDeletedCount += 1
+                            },
+                            onReplace: {},
+                            onSubstitute: {},
+                            onDelete: {},
+                            undoController: undoController,
+                            requestHandler: probe
+                        )
+                    }
+                    .listStyle(.plain)
+                }
+
+                // Probe readout card
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Requests: \(probe.requestCount)")
+                            .accessibilityIdentifier("subset_probe_request_count")
+                        Text("Seam: \(probe.seamTraversalCount)")
+                            .accessibilityIdentifier("subset_probe_seam_count")
+                        Text("Callbacks: \(probe.callbackCount)")
+                            .accessibilityIdentifier("subset_probe_callback_count")
+                    }
+                    .font(.caption2)
+
+                    HStack {
+                        Text("LastType: \(probe.lastRequestedSetType?.displayName ?? "none")")
+                            .accessibilityIdentifier("subset_probe_last_set_type")
+                        Text("Undo: \(undoController.hasPendingUndo ? "available" : "none")")
+                            .accessibilityIdentifier("subset_probe_undo_state")
+                    }
+                    .font(.caption2)
+
+                    HStack {
+                        if undoController.hasPendingUndo {
+                            Button("Undo Action") {
+                                _ = undoController.undo(using: modelContext)
+                            }
+                            .accessibilityIdentifier("subset_probe_undo_button")
+                        }
+                        Button("Reset Probe") {
+                            probe.reset()
+                        }
+                        .accessibilityIdentifier("subset_probe_reset_button")
+                    }
+                }
+                .padding(8)
+                .background(Color.gray.opacity(0.1))
+            }
+            .navigationTitle("SubSet Acceptance Host")
+            .onAppear {
+                seedFixture()
+            }
+        }
+    }
+
+    private func seedFixture() {
+        let exercise = Exercise(
+            nameEn: "Bench Press",
+            nameZh: "平板卧推",
+            muscleGroup: .chest,
+            equipment: .barbell
+        )
+        modelContext.insert(exercise)
+
+        let workout = Workout(type: .strength, startDate: Date())
+        modelContext.insert(workout)
+
+        let we = WorkoutExercise(order: 0, exercise: exercise)
+        we.workout = workout
+        modelContext.insert(we)
+
+        switch mode {
+        case .standardPyramidDrop:
+            let s1 = ExerciseSet(order: 0, weight: 80, reps: 8, setType: .working)
+            s1.workoutExercise = we
+            modelContext.insert(s1)
+
+            let s2 = ExerciseSet(order: 1, weight: 92, reps: 8, setType: .pyramid)
+            s2.workoutExercise = we
+            modelContext.insert(s2)
+
+            let s3 = ExerciseSet(order: 2, weight: 68, reps: 8, setType: .dropSet)
+            s3.workoutExercise = we
+            modelContext.insert(s3)
+
+        case .singleMainWithChild:
+            let s1 = ExerciseSet(order: 0, weight: 80, reps: 8, setType: .working)
+            s1.workoutExercise = we
+            modelContext.insert(s1)
+
+            let s2 = ExerciseSet(order: 1, weight: 68, reps: 8, setType: .dropSet)
+            s2.workoutExercise = we
+            modelContext.insert(s2)
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            print("[SubSetRouteTestHost] seed save failed: \(error)")
+        }
+        self.workoutExercise = we
     }
 }
 #endif
