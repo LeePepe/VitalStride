@@ -1,153 +1,115 @@
-# Tasks: TestFlight auto-release after verified main CI
+# Tasks: Minimal automatic TestFlight release after main CI
 
-**Input**: Design documents from `/specs/027-testflight-auto-release/`
+**Planning version**: v3
+**Layer**: dependency-free `RepoInfra`
+**Implementation ceiling**: `.github/workflows/testflight.yml`, `fastlane/Fastfile`, `scripts/tests/test_testflight_freshness.py`
+**Expected changed paths**: workflow and classifier test only
+**Scheduling**: Team Lead only, after exact-revision planning PASS
 
-**Prerequisites**: `spec.md`, `plan.md`, `research.md`, `data-model.md`, `contracts/testflight-auto-release.md`, `quickstart.md`
+## T001 — Minimal workflow and classifier implementation
 
-**Constitution**: `.specify/memory/constitution.md` Development Workflow and Quality Bars A/J; `RepoInfra/CONTEXT.md`
-
-**Delivery shape**: One goal, one RepoInfra implementation PR, one exact reviewed candidate. Tasks are serialized because they share files.
-
-## Phase 1: US1 — Exact automatic candidate and marker-range eligibility (P1)
-
-**Goal**: A successful app-relevant `CI` push run on `main` selects one exact candidate; marker/bootstrap relation and accumulated relevance decide safely without auxiliary durable state.
-
-**Independent Test**: Credential-free tests cover automatic source, exact SHA, empty-tree bootstrap, marker ancestry/equality/stale/divergence, accumulated path records including all four exact `VitalStrideWidgets/**` predicates plus non-widget resource negatives, irrelevant→relevant and failure→later-pickup sequences, concurrency, and summaries.
-
-- [ ] T001 [US1] Write red-first automatic marker-range coverage and implement exact-CI candidate capture, accumulated eligibility, sole-marker relation, one app concurrency group, and safe summaries in `scripts/tests/test_testflight_freshness.py` and `.github/workflows/testflight.yml`
-
-### T001 metadata
+- [ ] T001 [US1] Add classifier-first coverage and implement the verified-main automatic gate, accumulated marker-range relevance, existing-lane invocation, and upload-success marker ordering.
 
 | Field | Contract |
 |---|---|
 | Owning layer | `RepoInfra` |
-| Context | `RepoInfra/CONTEXT.md`; Constitution Development Workflow and Quality Bars A/J |
-| Files in scope | `scripts/tests/test_testflight_freshness.py`; `.github/workflows/testflight.yml` |
-| Files out of scope | `fastlane/Fastfile` until T002; all other `.github/**`, scripts/tests, product/app/package/Prototype paths, `project.yml`, CODEOWNERS/rulesets/secrets |
-| Interface impact | Adds exact completed-`CI` automatic event; preserves manual input; adds sole-marker bootstrap/relation and exclusion-first accumulated relevance; keeps one non-cancelling group |
-| Task-local acceptance | Red tests fail against the manual-only base; only exact `CI`/push/main/success proceeds; automatic checkout/diff/summary reuse one SHA; marker absence uses empty tree; ancestor range evaluates; equal/covered candidate skips; divergence fails; path positives/exclusions cover docs, package tests/contexts, mixed, deletion, and rename/copy endpoints; tests exercise each exact `VitalStrideWidgets/**/*.swift`, `VitalStrideWidgets/**/*.plist`, `VitalStrideWidgets/**/*.entitlements`, and `VitalStrideWidgets/**/*.xcassets/**` positive and prove matching `.plist`, `.entitlements`, and `.xcassets/**` paths outside `VitalStrideWidgets/**` stay negative unless another listed app predicate qualifies; irrelevant skips write no state; irrelevant→relevant and failed-relevant→later-candidate sequences retain accumulated eligibility; tests assert no per-SHA history/custom durable queue/cursor/journal/recovery refs; no rejected input reaches the lane; safe reason codes remain non-secret |
-| Verification | From repo root: `python3 -B -m unittest scripts.tests.test_testflight_freshness`; inspect the two-file diff; `git diff --check` |
-| Blocking edges | No predecessor. Blocks T002; T003 is transitively blocked. |
+| Files in scope | `.github/workflows/testflight.yml`; `scripts/tests/test_testflight_freshness.py` |
+| Read-only compatibility path | `fastlane/Fastfile` |
+| Files out of scope | Every other path, including any fourth implementation path, app/package/AppUI/Prototype/project/generated/policy/CODEOWNERS/ruleset/secret/signing path |
+| Interface impact | Adds successful `CI` `workflow_run` automation; automatic candidate is exact `head_sha`; classifies `testflight/last-released..candidate`; invokes existing lane; updates sole marker after upload |
+| Required permission/concurrency | Job-level `contents: write`; one stable app-scoped group; `cancel-in-progress: false` |
+| Forbidden state/behavior | Per-SHA records, second marker, queue/cursor, CAS/lease, journal, pending/resolved/recovery state, automatic retry, rollback, second lane |
+| Compatibility | Preserve manual entry point and existing Fastlane signing, secrets, version/build, runner, telemetry, and safe-log behavior without shadow-policy tests |
+| Feature-specific verification | From repo root: `python3 -B -m unittest scripts.tests.test_testflight_freshness`; `actionlint .github/workflows/testflight.yml` |
+| Mandatory repository gate | From repo root: `bash scripts/test-repoinfra.sh`; read full output and require zero failures/errors |
+| Blocking edge | No predecessor; blocks T002 |
 
-## Phase 2: US2 — Versioned fail-closed lane and final marker (P1)
+### T001 acceptance
 
-**Goal**: One candidate-PR-derived marketing version and global build number flow through the critical lane; the sole marker advances and reads back only after earlier success.
+- Red-first classifier cases demonstrate the base lacks exact automatic source/candidate and accepted-range behavior before production edits.
+- Only completed successful `CI` / `push` / `main` input enters the automatic lane; checkout, diff, lane, and marker target reuse exactly one `head_sha`.
+- The marker must resolve as a candidate ancestor; invalid/missing marker fails closed.
+- Classifier cases cover the exact positive roots, endpoint-first exclusions, docs, package tests/contexts, mixed records, deletion, and rename/copy endpoints.
+- Widget positives separately exercise `VitalStrideWidgets/**/*.swift`, `VitalStrideWidgets/**/*.plist`, `VitalStrideWidgets/**/*.entitlements`, and `VitalStrideWidgets/**/*.xcassets/**`; matching suffixes outside `VitalStrideWidgets/**` remain negative unless another accepted predicate qualifies.
+- Entitlement coverage proves `VitalStride/*.entitlements`, `VitalStrideMac/*.entitlements`, and `VitalStrideWatch Watch App/*.entitlements` are root-only positives, with one nested-entitlement negative case under each app root.
+- An irrelevant range skips without state mutation; a later candidate still sees the accumulated range.
+- A relevant range calls the existing `fastlane ios beta` lane. Marker update is unreachable until lane/upload success and targets the candidate.
+- Failures before marker update leave the marker unchanged. No automatic retry/rollback or auxiliary durable state is added.
+- The implementation changes only the workflow and classifier test. A need to edit Fastfile blocks and returns to Team Lead/Planner rather than expanding T001.
 
-**Independent Test**: Credential-free tests and Ruby syntax cover candidate-PR/version resolution, build output, signing/profile compatibility, strict critical phases, final marker sequencing/failure, and safe evidence.
+## T002 — Frozen candidate publication, exact review, and PR Manager handoff
 
-- [ ] T002 [US2] Write red-first version/failure coverage and implement resolved version input, build output, strict release result, and final `testflight/last-released` update/readback in `scripts/tests/test_testflight_freshness.py`, `.github/workflows/testflight.yml`, and `fastlane/Fastfile`
-
-### T002 metadata
-
-| Field | Contract |
-|---|---|
-| Owning layer | `RepoInfra` |
-| Context | `RepoInfra/CONTEXT.md`; `contracts/testflight-auto-release.md`; existing profile-reuse compatibility contract |
-| Files in scope | `scripts/tests/test_testflight_freshness.py`; `.github/workflows/testflight.yml`; `fastlane/Fastfile` |
-| Files out of scope | All other workflow/Fastlane/script/test files; `project.yml`; generated project; product/package tests; Portal objects; new secrets |
-| Interface impact | Both sources resolve exactly one candidate PR/label and uniform project version; Fastlane consumes one runtime marketing version and exposes app-wide build number; reviewed release phases become critical; only `last-released` is written/read |
-| Task-local acceptance | Tests fail against hardcoded version and weakened critical results; zero/multiple candidate PR or invalid project versions fail before archive; exact candidate `release:minor` alone drives a per-run minor; archive/lookup/distribution/evidence share one version; global max+1 remains and is emitted; dynamic app/widget profiles, signing, telemetry, TEMP-PRELAUNCH warning, group mapping, and secret handling remain; internal distribution/dSYM failure cannot reach marker step; marker command is unreachable until all earlier critical phases succeed; exact readback is required for success; update/readback failure records safe evidence and creates no auxiliary state/retry/rollback; existing profile/log assertions remain |
-| Verification | From repo root: focused Python unittest; `ruby -c fastlane/Fastfile`; inspect three-file diff; `git diff --check` |
-| Blocking edges | Depends on T001 because files overlap and version follows eligibility. Blocks T003; T004 is transitively blocked. |
-
-## Phase 3: US3 — Bounded manual force (P2)
-
-**Goal**: Manual dispatch may pick up exact current `main` when normal relevance skips or a prior release failed, but force bypasses relevance only.
-
-**Independent Test**: Credential-free tests cover default false, marker-range relevance, force-only bypass, same-released/covered skip, invalid marker rejection, and failed-current-main pickup.
-
-- [ ] T003 [US3] Write red-first bounded-force cases and complete shared automatic/manual gate behavior in `scripts/tests/test_testflight_freshness.py` and `.github/workflows/testflight.yml`
-
-### T003 metadata
+- [ ] T002 [US1] Freeze and verify the complete two-path candidate; commit, push, and publish it as the single non-Draft PR; prove local `HEAD` = remote branch OID = PR `headRefOid`; request exact-candidate review for that published SHA; after PASS, re-prove identity and hand the same SHA to PR Manager.
 
 | Field | Contract |
 |---|---|
-| Owning layer | `RepoInfra` |
-| Context | `RepoInfra/CONTEXT.md`; DEC-027-005 |
-| Files in scope | `scripts/tests/test_testflight_freshness.py`; `.github/workflows/testflight.yml` |
-| Files out of scope | `fastlane/Fastfile` except read-only verification; every other repository path; real tag mutation/upload during tests |
-| Interface impact | Retains boolean manual `force=false`; candidate is captured current remote `main`; force changes only path relevance |
-| Task-local acceptance | `force=false` uses bootstrap/marker-range relevance; `force=true` may release exact current main only when marker relation is valid/ahead; either value skips equal/covered candidates and rejects invalid marker/identity/PR/version/signing/critical failures; both use the same exact candidate-PR `release:minor` policy; after a failed release left current main ahead of marker, later manual dispatch may pick it up because no lifetime attempt state exists; summary distinguishes manual force from automatic eligibility |
-| Verification | From repo root: focused Python unittest; inspect manual trigger/gate sections; `git diff --check` |
-| Blocking edges | Depends directly on T002; T001 is transitive. Blocks T004. |
+| Owning layer | `RepoInfra` delivery verification; no source-repair ownership |
+| Read-only implementation paths | `.github/workflows/testflight.yml`; `scripts/tests/test_testflight_freshness.py`; verify `fastlane/Fastfile` unchanged |
+| Allowed outputs | Frozen manifest/revision/tree; classifier-test, workflow-lint, and mandatory RepoInfra outputs; commit/push/non-Draft PR metadata; pre-review and post-PASS three-way identity proofs; exact review and PR Manager handoff evidence |
+| Files out of scope | Any source repair in T002; fourth path; Fastfile edit; real dispatch/upload/tag mutation; secret/signing output; Owner-approval substitution |
+| Feature-specific verification | From repo root, only `python3 -B -m unittest scripts.tests.test_testflight_freshness` and `actionlint .github/workflows/testflight.yml` |
+| Mandatory repository gate | From repo root: `bash scripts/test-repoinfra.sh`; read full output and require zero failures/errors |
+| Delivery sequence | Freeze/check → commit/push/create-or-update one non-Draft PR → prove local/remote/PR SHA identity → exact review of that published SHA → after PASS re-prove identity → hand the same SHA to PR Manager |
+| Owner gate | Explicit Owner approval for `.github/workflows/testflight.yml` remains separately required before merge; AI review and CI cannot substitute |
+| Blocking edge | Depends on T001; after PASS and identity re-proof, PR Manager owns required checks/merge |
 
-## Phase 4: Assembled Candidate and Publication Gate
+### T002 acceptance
 
-- [ ] T004 [US2] Verify and freeze the complete RepoInfra candidate for `.github/workflows/testflight.yml`, `fastlane/Fastfile`, and `scripts/tests/test_testflight_freshness.py`, then publish only the exact reviewed SHA through the Owner-gated non-Draft PR path
+- Fresh classifier tests and workflow lint both report success; the separate mandatory RepoInfra gate also reports zero failures/errors when its full output is read. All outputs are retained.
+- Candidate manifest contains exactly the workflow and classifier-test paths, while `fastlane/Fastfile` is unchanged.
+- Static candidate inspection records exact `head_sha` reuse, accepted marker range, one non-cancelling group, job-level `contents: write`, existing-lane call, post-upload marker ordering, and absence of auxiliary state/retry/rollback.
+- The frozen candidate is committed, pushed, and published in the single non-Draft PR before review; local `HEAD`, remote branch OID, and PR `headRefOid` are identical before the exact-candidate request.
+- Independent content review binds to that published SHA. A finding returns content repair to T001; any change produces a fresh SHA that must be republished, identity-proven, and reviewed.
+- After PASS, local `HEAD`, remote branch OID, and PR `headRefOid` are re-proven equal to the reviewed SHA before that same SHA is handed to PR Manager.
+- AI review and CI do not satisfy the explicit Owner approval required for the workflow. PR Manager owns required-check and merge state.
 
-### T004 metadata
-
-| Field | Contract |
-|---|---|
-| Owning layer | `RepoInfra` integration/delivery verification; no source repair ownership |
-| Context | `quickstart.md`; Constitution Workflow/Quality Bar J; MY-1766 Owner boundary |
-| Files in scope | Read-only verification of three implementation paths; frozen manifest; after exact content PASS, normal commit/push/PR metadata |
-| Files out of scope | Source repair in T004; fourth implementation path; real TestFlight dispatch; Owner-approval substitution; secret/signing material |
-| Interface impact | None; proves assembled contract and delivery identity |
-| Task-local acceptance | Fresh focused tests, Ruby syntax, complete RepoInfra output, and whitespace report zero failures/errors; diff is exactly three paths; static inspection proves exact CI/current-main identity, empty-tree bootstrap, marker relation, accumulated classifier, skipped/failed pickup, sole durable marker, one group/no custom queue, bounded force, candidate-PR version/global build, critical ordering, final marker readback, no auxiliary state/retry/rollback, and preserved signing/secrets/safe logs; exact pre-push content verdict binds to frozen candidate; published SHA/tree matches; PR is non-Draft; explicit Owner approval is recorded before merge; required checks/shipping go to PR Manager |
-| Verification | From repo root: focused Python unittest; `ruby -c fastlane/Fastfile`; `bash scripts/test-repoinfra.sh`; `git diff --check`; `git status --short`; exact local/remote/PR SHA proof |
-| Blocking edges | Depends directly on T003. Content failure routes to owning task. Owner approval and required checks block merge. |
-
-## Phase 5: Post-merge Outcome Evidence
-
-- [ ] T005 [US1] Record the first eligible successful exact-main TestFlight outcome from `.github/workflows/testflight.yml` on MY-1766 with run, version, build, and sole-marker evidence
-
-### T005 metadata
-
-| Field | Contract |
-|---|---|
-| Owning layer | `RepoInfra` operational acceptance; execution-only, no repository edit |
-| Context | MY-1766 Evidence requirement; contract Evidence section |
-| Files in scope | Observation of `.github/workflows/testflight.yml`; safe MY-1766 evidence comment |
-| Files out of scope | Workflow/Fastfile/test repair; marker rollback; secret/profile/certificate/keychain disclosure |
-| Interface impact | None; consumes reviewed release evidence |
-| Task-local acceptance | Implementation PR merged with explicit Owner approval; an eligible successful `CI` main candidate has a successful terminal TestFlight run; evidence records exact SHA, run URL, marketing version, unique build number, and confirmed `last-released` equal to candidate without sensitive material. Failure records phase/reason and last safe marker as incident only, leaves T005/MY-1766 incomplete, and proceeds through a later eligible merge or manual current-main run rather than automatic retry. |
-| Verification | GitHub Actions run and remote sole-marker evidence for exact candidate; MY-1766 safe evidence comment |
-| Blocking edges | Depends on T004, PR Manager merge, successful main CI, and eligible range. No dry run substitutes. |
-
-## Dependencies and Execution Order
+## Dependency graph
 
 ```text
-T001 exact automatic candidate + marker-range eligibility
-  └─> T002 version/build + fail-closed lane + final marker
-        └─> T003 bounded manual force
-              └─> T004 assembled verification/review/Owner-gated PR
-                    └─> PR Manager required checks + merge
-                          └─> T005 first eligible production success evidence
+T001 minimal workflow + classifier implementation
+  -> T002 freeze/check + publish non-Draft PR + three-way identity proof + exact review + post-PASS identity re-proof
+       -> PR Manager
 ```
 
-- No task is `[P]`: T001–T003 edit overlapping files.
-- T004 performs no content repair; findings return to the owning task.
-- T005 performs no repository write.
-- Team Lead schedules the reviewed graph; this document assigns no implementation role.
+- No task is parallel because T002 consumes T001's frozen candidate.
+- T002 findings return to T001; T002 does not repair source.
+- No v3 task owns production workflow execution or outcome evidence.
+- Team Lead schedules both rows; this plan starts neither.
 
-## Acceptance Traceability
+## Existing child reconciliation after planning PASS
 
-| Spec acceptance / requirement | Slice | Tasks | Verification surface |
-|---|---|---|---|
-| US1/AC1, US1/AC4; FR-001, FR-002; RB-001, RB-002 | US1 | T001, T004 | Automatic source/exact-SHA tests and static inspection |
-| US1/AC2; FR-003, FR-004; RB-004 | US1 | T001, T004 | Accumulated NUL-safe path/exclusion/mixed/delete/rename matrices |
-| US1/AC3; FR-006, FR-007, FR-008; RB-003 | US1 | T001, T002, T004, T005 | Marker relations, failed-range pickup, final update/readback, production marker evidence |
-| US1/AC5 | US1 | T001, T002, T004 | Empty-tree bootstrap/invalid marker plus exact candidate PR/version failure |
-| US2/AC1; FR-010 | US2 | T001, T004 | Single group/non-cancellation/no-custom-queue assertions |
-| US2/AC2; FR-012, FR-015 | US2 | T002, T004, T005 | App-wide counter, safe output, production evidence |
-| US2/AC3, US2/AC4; FR-013–FR-015; RB-006 | US2 | T002, T004, T005 | Exact candidate PR/label/project-version matrix and handoff |
-| US2/AC5; FR-008, FR-009, FR-016, FR-017; RB-005 | US2 | T002, T004, T005 | Critical ordering, marker-step failure, no state/retry/rollback, incident evidence |
-| US2/AC6; FR-016, FR-021 | US2 | T002, T005 | Safe success summary, exact marker, MY-1766 record |
-| US3/AC1, US3/AC2, US3/AC3; FR-005, FR-006, FR-007, FR-008; RB-003 | US3 | T003, T004 | Manual range/default/force/same-released/failure-pickup matrix |
-| US3/AC4; FR-013, FR-014 | US3 | T002, T003, T004 | Shared exact candidate-PR label policy |
-| FR-011, FR-018, FR-019; RB-008 | Cross-cutting | T001–T004 | Existing secrets/runner/profile/signing/telemetry assertions |
-| FR-020; RB-007; SC-007 | Delivery | T004 | Exact diff, content review, non-Draft PR, explicit Owner approval |
-| SC-001, SC-002 | Credential-free | T001–T004 | Focused unittest, Ruby syntax, full RepoInfra, whitespace/static review |
-| SC-003, SC-004 | Production/final marker | T002, T004, T005 | Success-only marker ordering/readback and operational evidence |
-| SC-005 | Eligibility | T001, T003, T005 | Excluded skip/no-state, accumulated pickup, bounded force |
-| SC-006 | Failure safety | T001, T002, T003, T005 | No pre-final mutation/automatic retry/rollback/auxiliary state; later fresh-run pickup |
+| Existing child | v3 disposition |
+|---|---|
+| MY-1772 / old T001 | Retain as v3 T001; replace v2 planning pin, title, outcome, scope, acceptance, verification, and dependency |
+| MY-1773 / old T002 | Retain as v3 T002; replace version/Fastfile work with frozen-candidate verification/publication/identity/review/handoff |
+| MY-1774 / old T003 | Cancel as superseded by the minimal-shape decision; manual-force slice removed |
+| MY-1775 / old T004 | Cancel as superseded; its minimal candidate-publication/review/handoff responsibility moves into v3 T002 |
+| MY-1776 / old T005 | Cancel as superseded; production-success evidence is no longer a v3 gate |
 
-## Completion Conditions
+All five rows remain parked while planning is under review. Reconciliation occurs only after exact-revision PASS and does not assign or start implementation.
 
-- Every task stays in its owned paths/layer and fulfills metadata.
-- All 51 stable US/AC, FR, RB, and SC IDs map above to task/evidence surfaces.
-- Tests are red-first and final full outputs report zero failures/errors.
-- Any candidate content SHA change invalidates exact review.
-- Owner approval for `.github/**` remains required after content PASS and before merge.
-- Final outcome requires successful T005 evidence. Failure evidence never closes it; later eligible merge/manual pickup is permitted but no automatic retry is configured.
+## Acceptance traceability
+
+| Active identifiers | Task | Evidence surface |
+|---|---|---|
+| US1/AC1; FR-001, FR-002; RB-003 | T001, T002 | source-guard/exact-candidate classifier cases; frozen workflow inspection |
+| US1/AC2; FR-003, FR-004, FR-005, FR-006 | T001, T002 | marker-range and exact path classifier matrices |
+| US1/AC3; FR-007, FR-008; RB-001, RB-004 | T001, T002 | existing-lane call and post-upload marker ordering |
+| US1/AC4; FR-004, FR-009, FR-011 | T001, T002 | fail-closed cases and absence of auxiliary state/retry/rollback |
+| US1/AC5; FR-010 | T001, T002 | workflow lint and static candidate evidence |
+| US1/AC6; FR-011, FR-014; RB-006 | T001, T002 | two-path manifest, three-path ceiling, review and Owner gate |
+| FR-012; RB-002 | T001, T002 | unchanged Fastfile and preserved workflow compatibility surfaces |
+| FR-013; RB-005 | T001, T002 | exactly two feature-specific checks plus the unchanged mandatory RepoInfra repository gate; removed-suite absence |
+| SC-001 | T001, T002 | classifier unit-test output |
+| SC-002 | T001, T002 | `actionlint` output |
+| SC-003 | T002 | full mandatory RepoInfra output, frozen manifest, and static delivery evidence |
+| SC-004 | T002 | pre-review published-SHA identity, exact review, post-PASS identity re-proof/PR Manager handoff, explicit Owner approval |
+
+## Completion conditions
+
+- The implementation diff remains exactly two paths inside the three-path ceiling.
+- Only the classifier unit tests and workflow lint are feature-specific checks; `bash scripts/test-repoinfra.sh` remains the separate mandatory repository gate.
+- Every active US/AC, FR, RB, and SC identifier maps above.
+- Exact content review is invalidated by any candidate content change.
+- Explicit Owner approval remains required for the workflow before merge.
+- No upload, marker mutation, or production-success evidence is required to complete the v3 implementation task graph.

@@ -1,47 +1,43 @@
-# Requirements Checklist: TestFlight auto-release after verified main CI
+# Requirements Checklist: Minimal automatic TestFlight release
 
-**Purpose**: Validate specification completeness before plan/tasks review.
-
+**Purpose**: validate v3 specification completeness before independent exact-revision review.
 **Created**: 2026-10-15
-
 **Feature**: [spec.md](../spec.md)
 
-## Intent and authority
+## Authority and scope
 
-- [x] CHK001 Exact issue revision, Owner decisions, target repository, and product base SHA are recorded.
-- [x] CHK002 Automatic release, bounded manual force, and post-merge success evidence are stated as outcomes.
-- [x] CHK003 `.github/**` explicit Owner approval is separate from AI review and CI.
+- [x] CHK001 Product base, v2 predecessor, Lead direction, and Team Lead handoff are recorded.
+- [x] CHK002 v3 is limited to successful-main automatic orchestration, accumulated relevance, existing lane invocation, and post-upload sole-marker advance.
+- [x] CHK003 The three-path ownership ceiling and expected two-path patch are explicit.
+- [x] CHK004 Explicit Owner approval for `.github/workflows/testflight.yml` remains separate from AI review and CI.
 
-## Behaviour contract
+## Existing, compatible, and removed behaviour
 
-- [x] CHK004 Existing behaviour is evidence-based and names the current trigger, sole marker, runner/concurrency, versioning, signing, and tests.
-- [x] CHK005 Compatibility preserves every unaffected signing/profile/telemetry/release behaviour and the single existing marker.
-- [x] CHK006 Every removed behaviour cites a Decision ID or Owner authority, and superseded v1 planning is distinguished from product-base behaviour.
-- [x] CHK007 No test deletion or unrelated assertion weakening is authorized.
+- [x] CHK005 Existing manual workflow, marker, runner/group, lane, regression surface, and signing/secret boundary are evidence-based.
+- [x] CHK006 Existing Fastlane build/upload, signing, version/build, telemetry, runner, and safe-log behaviour are compatibility surfaces, not new shadow-test requirements.
+- [x] CHK007 Removed v2 planning behavior is distinguished from unchanged product-base behavior and cites current authority.
+- [x] CHK008 Candidate-PR/version, bounded manual force, bootstrap/relation/readback expansion, recovery/CAS state, broad shadow suites, and production evidence are absent from active requirements.
 
-## Acceptance and edge cases
+## Automatic contract
 
-- [x] CHK008 Every acceptance scenario has a stable `USx/ACy` identifier and objective evidence surface.
-- [x] CHK009 Automatic source/event, exact SHA, accumulated path, marker relation, force, version label, concurrency, failure, and summary cases are covered.
-- [x] CHK010 Missing/equal/ahead/ancestor/divergent marker, ambiguous automatic/manual candidate PR, malformed version, secret failure, critical-phase failure, and final marker update/readback failure are explicit and fail closed where required.
+- [x] CHK009 Exact successful `CI` / `push` / `main` source and immutable `workflow_run.head_sha` reuse are objective.
+- [x] CHK010 Relevance is literally `git diff testflight/last-released..head_sha`; invalid marker fails closed.
+- [x] CHK011 App predicates are identical between spec and contract, including root-only app entitlement families and all four fully prefixed `VitalStrideWidgets/**` families.
+- [x] CHK012 NUL-safe mixed, deletion, rename/copy endpoint, exclusion precedence, accumulated irrelevant-range cases, and one nested-entitlement negative per app root are testable.
+- [x] CHK013 Existing lane invocation precedes the sole marker update; pre-marker failure leaves it unchanged; no automatic retry/rollback exists.
+- [x] CHK014 One app group, non-cancellation, job-level `contents: write`, and no broader permission are explicit.
+- [x] CHK015 No per-SHA, second-marker, queue, cursor, CAS/lease, journal, pending/resolved, or recovery state is authorized.
 
-## Scope and feasibility
+## Verification and delivery
 
-- [x] CHK011 Exact three implementation files and explicit exclusions are present.
-- [x] CHK012 All implementation paths map to dependency-free RepoInfra and no AppUI/package/product change is implied.
-- [x] CHK013 Verification commands have an exact working directory/evidence contract and require full-output inspection.
-- [x] CHK014 Real upload and tag mutation are excluded from planning/pre-merge verification and retained as post-merge evidence.
-
-## Quality
-
-- [x] CHK015 No placeholder, `NEEDS CLARIFICATION`, optional branch, or unstated product/authority choice remains.
-- [x] CHK016 Requirements trace to vertical slices/tasks, and every task is schedulable or explicitly blocked.
-- [x] CHK017 Constitution checks pass before and after design without exception.
-- [x] CHK018 Path classification is deterministic for NUL-safe records, exclusions, mixed diffs, deletion, both rename/copy endpoints, all four fully prefixed `VitalStrideWidgets/**` predicates, and matching resource suffixes outside that root as negative cases.
-- [x] CHK019 The sole-marker model covers irrelevant→relevant and failure→later-candidate accumulation, same/already-covered protection, and explicitly excludes durable per-SHA attempt/skip state.
-- [x] CHK020 Final marker mutation follows every earlier critical phase; exact readback alone is terminal success; update/readback ambiguity creates no auxiliary state or unobservable-state claim; the next invocation re-reads the remote marker; no automatic retry/rollback exists.
-- [x] CHK021 Manual label policy, US1/AC5 task ownership, the five-row graph, and T005 success-only completion agree across every artifact.
+- [x] CHK016 Feature-specific verification is exactly classifier unit tests plus `actionlint` workflow lint; the separate mandatory `bash scripts/test-repoinfra.sh` repository gate remains unchanged.
+- [x] CHK017 `actionlint` is identified as an executor prerequisite because the pinned repository has no native workflow linter.
+- [x] CHK018 Full mandatory RepoInfra output is required; standalone Ruby, XcodeGen/xcodebuild/SwiftPM, Fastlane execution, upload/tag mutation, production evidence, and feature-specific shadow-policy suites are explicitly excluded.
+- [x] CHK019 Every active US/AC, FR, RB, and SC identifier has semantic task traceability.
+- [x] CHK020 The task graph is exactly T001 implementation → T002 freeze/check → publish one non-Draft PR → three-way SHA proof → exact review → post-PASS SHA re-proof → PR Manager.
+- [x] CHK021 Child reconciliation keeps two rows and supersedes three only after planning PASS, without starting implementation.
+- [x] CHK022 Preserved candidate reuse is same-workspace fast-forward with identity/non-overlap proof and a fail-closed recovery path.
 
 ## Notes
 
-- Completion marks require a fresh read of the final artifacts, not author intent.
+Completion marks reflect a fresh read of all eight v3 artifacts. Any content change requires this checklist to be read again before requesting review.

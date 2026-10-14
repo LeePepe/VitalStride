@@ -1,172 +1,128 @@
-# Feature Specification: TestFlight auto-release after verified main CI
+# Feature Specification: Minimal automatic TestFlight release after main CI
 
-**Feature Branch**: `027-testflight-auto-release`
+**Planning version**: v3
+**Target**: VitalStride `main`
+**Product base**: `a6e31c6f44797fd95ebe50b96fe2310a3e52d789`
+**Supersedes planning revision**: `73dd9ffd2f7cb1980cbe986d0ea9cd3442ecff85`
+**Authority**: 2026-10-15 Lead direction `01a13cc2-e475-758b-b825-a9f622ca117a` and Team Lead handoff `01a13cc7-9937-74fb-bdc7-4f9a10aaa98d`
 
-**Created**: 2026-10-15
+## Intent
 
-**Status**: Ready for independent planning review
+After the repository's `CI` workflow succeeds for a push to `main`, evaluate the verified `workflow_run.head_sha` against the changes accumulated since `testflight/last-released`. If the range contains an accepted app path, invoke the existing release lane to build and upload TestFlight, then move the sole marker only after that upload succeeds.
 
-**Input**: MY-1766 Owner decision dated 2026-10-14, Owner follow-up `01a13b86-1f43-7964-b7e7-013db4029fe3`, delegated Owner decision `01a13b86-1ed5-7b57-b69a-3deaa4299249`, and Team Lead marker-only handoff `01a13b8b-7541-7ef5-b7c9-ae16701118bb`, planned from exact VitalStride `main` base `a6e31c6f44797fd95ebe50b96fe2310a3e52d789`.
+This version deliberately specifies the smallest accepted shape. It does not redesign the release lane, version policy, signing, secret handling, recovery, or production-observation process.
 
-## Decision Register
+## Owner decisions
 
-- **DEC-027-001 — Automatic release source**: After a successful `CI` push run for `main`, release the exact `workflow_run.head_sha`; never substitute a later moving `main` SHA. Authority: MY-1766 Owner decision.
-- **DEC-027-002 — App-relevance boundary**: Automatic eligibility is the accumulated diff from `testflight/last-released` to the exact candidate and is limited to narrow shipped package manifests/sources/plugins, shipped app sources/resources/assets/configuration, `project.yml`, and the two release-lane files `fastlane/Fastfile` and `fastlane/Appfile`. Classification consumes NUL-safe change records; exclusions are evaluated per endpoint before positive matching; either relevant endpoint makes a rename/copy relevant. Documentation, contexts, specs, tests, generated output, workflow-only changes, and CI-only scripts do not independently trigger a release. Authority: MY-1766 Owner decision.
-- **DEC-027-003 — Single durable release marker**: `testflight/last-released` is the only durable release state. No per-SHA attempt/skip record, queue/cursor ref, compare-and-swap lease, transaction journal, or auxiliary recovery ref is created or consulted. Skipped and failed commits remain represented implicitly by the unchanged `marker..candidate` range. Authority: Owner follow-up and delegated Owner decision `01a13b86-1ed5-7b57-b69a-3deaa4299249`, adopted for VitalStride by Team Lead.
-- **DEC-027-004 — Version policy**: The build number remains the App Store Connect app-wide maximum plus one. The marketing version is the uniform shipping-target value in `project.yml`, except the exact candidate's uniquely associated merged PR receives a per-run minor increment when it carries case-sensitive `release:minor`. Earlier PRs merely accumulated in `marker..candidate` do not change the candidate's label decision. Authority: MY-1766 Owner decision and the preserved reviewed v1 version policy.
-- **DEC-027-005 — Manual force semantics**: `workflow_dispatch` remains. Its candidate is the exact current remote `main`. `force=true` bypasses only app relevance; it does not bypass current-main identity, an invalid/divergent marker, candidate-equals-marker protection, unique PR/version resolution, signing/secrets, or release-critical failures. Authority: delegated Owner decision and Team Lead handoff.
-- **DEC-027-006 — Fail-closed release and final marker ordering**: One app-scoped concurrency group serializes active release lanes without cancelling an in-progress lane. Candidate/marker, PR/version, signing, archive, upload, Apple processing, internal-group distribution, dSYM publication, and final marker update/readback are release-critical. The workflow attempts the sole marker update only after every earlier critical phase succeeds. Any earlier failure invokes no marker mutation, records safe phase/reason evidence, and performs no automatic retry or rollback. If the final marker update or its readback fails, the run fails, writes no auxiliary state, performs no retry/rollback, and the next invocation re-reads the remote marker as the sole authority; the design does not claim an unobservable remote write stayed unchanged. Authority: MY-1766 fail-closed decision refined by the marker-only Owner decision.
-- **DEC-027-007 — Owner approval for `.github/**`**: The implementation PR changes one `.github/**` file and requires explicit Owner approval before merge. No tracked `CODEOWNERS` rule enforces this on the planning base; AI Reviewer PASS and CI do not substitute for the explicit approval.
-- **DEC-027-008 — Marker bootstrap and ordering**: When `testflight/last-released` is absent, eligibility uses the Git empty tree as an ephemeral baseline and evaluates the candidate snapshot without creating bootstrap state. When the marker equals or is a descendant of the candidate, the candidate is already covered and skips; when the marker is an ancestor, the normal range is evaluated; divergence, an unreadable marker, or a non-commit marker fails closed. Authority: Team Lead's requirement for explicit marker-absent bootstrap and the no-new-state constraint.
+- **DEC-027-001 — Verified automatic candidate**: automatic evaluation starts only from a completed, successful `workflow_run` for workflow `CI`, event `push`, branch `main`; the candidate is that run's `head_sha`.
+- **DEC-027-002 — Accumulated relevance**: automatic relevance is the accepted-path result of `git diff testflight/last-released..head_sha`. The marker must resolve as a commit ancestor of the candidate; otherwise the run fails closed before release.
+- **DEC-027-003 — Existing lane**: the existing release lane remains responsible for build and upload. This feature adds orchestration around it, not a second lane or a lane redesign.
+- **DEC-027-004 — Sole success marker**: `testflight/last-released` is the only durable release state and is advanced to the candidate only after the existing lane reports successful upload. Any earlier failure leaves it unchanged. There is no automatic retry or rollback.
+- **DEC-027-005 — Minimal serialization and permission**: one app-scoped concurrency group uses `cancel-in-progress: false`; the release job has job-level `contents: write` and no broader GitHub permission.
+- **DEC-027-006 — Narrow feature verification with mandatory repository gate**: feature-specific verification consists only of classifier unit tests and workflow lint. The repository-mandated `bash scripts/test-repoinfra.sh` remains a separate, non-waivable RepoInfra gate whose full output must report no failure/error. No shadow-policy, release-policy mirror, Ruby-only, upload, tag-mutation, or production-run suite is added by this feature.
+- **DEC-027-007 — Ownership boundary**: the implementation ceiling remains `.github/workflows/testflight.yml`, `fastlane/Fastfile`, and `scripts/tests/test_testflight_freshness.py`. The expected minimal patch changes only the workflow and classifier test; `fastlane/Fastfile` is a read-only compatibility surface unless an independently approved revision proves a necessary in-ceiling edit. Any merge containing `.github/**` still requires explicit Owner approval; AI review and CI do not substitute.
 
-## User Scenarios & Testing
+## Existing behaviour
 
-### User Story 1 - Publish an eligible verified merge automatically (Priority: P1)
+At the product base:
 
-As the app owner, I want a successful main-branch CI result to publish the exact verified app-relevant candidate while accumulated skipped or failed changes remain eligible until a release succeeds.
-
-**Why this priority**: Automatic post-merge publication is the requested outcome and must not race ahead of CI or lose relevant changes behind irrelevant merges.
-
-**Independent Test**: Credential-free tests present automatic events, marker relations, bootstrap state, and NUL-safe change records and prove only a successful exact `CI` main candidate with an eligible accumulated range reaches the release lane.
-
-**Acceptance Scenarios**:
-
-1. **US1/AC1** — **Given** workflow `CI` completed successfully for a `push` to `main` at SHA `S`, the remote marker is an ancestor of `S`, and `marker..S` contains an app-relevant path, **When** the release workflow runs, **Then** it checks out and releases exactly `S`, never a later moving `main` SHA.
-2. **US1/AC2** — **Given** one or more accumulated merges since the marker contain only excluded paths, **When** automatic eligibility is evaluated, **Then** no build/upload starts, no skip state is written, and the job summary records a path-ineligible reason; a later relevant candidate evaluates the entire still-unreleased range.
-3. **US1/AC3** — **Given** a relevant candidate fails before the final marker update, **When** a later main candidate arrives, **Then** the unchanged marker makes the later candidate's accumulated range include the failed changes. A candidate equal to or already covered by the marker skips, including manual `force=true`.
-4. **US1/AC4** — **Given** the source workflow is a PR run, manual CI run, failed run, non-`main` run, or a workflow other than exact `CI`, **When** it completes, **Then** no automatic release job reaches checkout or upload.
-5. **US1/AC5** — **Given** the marker is absent, **When** the first candidate is evaluated, **Then** the empty-tree bootstrap applies without durable bootstrap state. An unreadable/divergent marker or ambiguous exact-candidate PR/version fails before archive/upload with safe evidence.
-
-### User Story 2 - Preserve release semantics and advance one marker only after success (Priority: P1)
-
-As the release operator, I need serialized releases to preserve runner, signing, monotonic versioning, and distribution behavior while the sole marker advances only after the complete critical lane succeeds.
-
-**Why this priority**: Automation increases release frequency; existing release safety must remain intact without adding a second durable state machine.
-
-**Independent Test**: Static and unit-level coverage proves concurrency, runner, secrets, profile reuse, version derivation, fail-closed critical ordering, final marker sequencing, and safe summaries without contacting Apple or mutating GitHub.
-
-**Acceptance Scenarios**:
-
-1. **US2/AC1** — **Given** multiple release events exist, **When** they target VitalStride, **Then** one app-scoped concurrency group permits at most one active release lane and never cancels an in-progress run; no durable FIFO queue or cursor is promised.
-2. **US2/AC2** — **Given** App Store Connect reports app-wide maximum build number `N`, **When** a release archives, **Then** it uses build `N+1`, reports that value, and no later successful run reuses it.
-3. **US2/AC3** — **Given** all shipping targets declare marketing version `M` and the exact candidate's merged PR lacks `release:minor`, **When** inputs are assembled, **Then** archive and post-upload lookup use `M` without repository mutation.
-4. **US2/AC4** — **Given** the exact candidate's uniquely associated merged PR has case-sensitive `release:minor`, **When** inputs are assembled, **Then** archive and post-upload lookup use the next minor derived from `M` for that run only.
-5. **US2/AC5** — **Given** any critical phase before final marker update fails, **When** the run terminates, **Then** it does not invoke marker mutation, performs no automatic retry/rollback, and records the failed phase. If marker update/readback itself fails, it records that terminal phase without auxiliary recovery state and the next invocation uses the freshly fetched remote marker as truth.
-6. **US2/AC6** — **Given** every release-critical phase and final marker readback succeeds, **When** the run finishes, **Then** `testflight/last-released` equals the exact candidate and the summary records exact SHA, run URL, marketing version, and build number without exposing secrets or signing material.
-
-### User Story 3 - Retain bounded manual force (Priority: P2)
-
-As the owner, I want manual dispatch with an explicit force option so I can pick up the exact current-main candidate after filtering or failure, without weakening identity, version, signing, or final-marker ordering.
-
-**Why this priority**: Manual control is a compatibility surface and the explicit forward path after a failed release; it must remain narrowly bounded.
-
-**Independent Test**: Credential-free cases cover default false, accumulated relevance, force-only relevance bypass, same-released protection, and a failed current-main candidate picked up by a later manual run.
-
-**Acceptance Scenarios**:
-
-1. **US3/AC1** — **Given** exact current `main` is ahead of a valid marker, **When** manual dispatch uses `force=false`, **Then** it applies the same accumulated marker-range relevance rule as automatic release.
-2. **US3/AC2** — **Given** exact current `main` is ahead of a valid marker but the range is path-ineligible, **When** manual dispatch uses `force=true`, **Then** it may release current `main` while all non-relevance gates still apply.
-3. **US3/AC3** — **Given** current `main` equals or is already covered by the marker, **When** manual dispatch uses either force value, **Then** it skips before upload. Given a prior failed run left current `main` ahead of the marker, a later manual dispatch may pick it up because no lifetime attempt record exists.
-4. **US3/AC4** — **Given** current `main` has exactly one associated merged PR, **When** manual dispatch evaluates it, **Then** it applies the same exact-candidate `release:minor` decision as automatic release; zero or multiple matches fail before the release lane.
-
-### Edge Cases
-
-- An exact automatic candidate is older than a marker advanced by another completed run in the same app group: it skips as already covered. A protected-history divergence fails closed.
-- The marker is absent: use empty-tree-to-candidate classification for this invocation only; create no bootstrap ref or cursor.
-- Several irrelevant candidates skip without state; the next relevant candidate evaluates all changes since the unchanged marker and releases the newest exact candidate.
-- A relevant candidate fails before final marker update; a later eligible merge or manual current-main run picks up its changes. This is a new event/run, not an automatic retry of the failed job.
-- The final marker command/readback fails after release-critical work: fail the run, record the phase and last safely observed marker, and create no journal/recovery ref. The next run reads the remote marker and follows equality/ancestry rules.
-- Multiple or zero merged PRs are associated with the exact automatic or manual candidate: version-label resolution is ambiguous and fails before archive.
-- An earlier PR inside the accumulated range carries `release:minor` but the exact candidate PR does not: the candidate PR alone decides the marketing version.
-- Shipping target versions disagree or are not numeric major/minor values: fail before archive; do not guess.
-- App Store Connect or GitHub is unavailable: record the phase and stop; do not auto-retry or roll back.
-- A relevant source is deleted or renamed to/from an excluded test/context path: deletion remains relevant; either relevant rename/copy endpoint qualifies after exclusions. A mixed diff releases when any record is relevant.
-- A secret is absent: fail before signing/upload and report only the secret name, never its value.
-
-## Requirements
-
-### Functional Requirements
-
-- **FR-001**: The workflow MUST listen for completed workflow `CI` runs and automatically proceed only when `workflow_run.event == push`, `head_branch == main`, and `conclusion == success`.
-- **FR-002**: Automatic release MUST bind candidate identity, checkout, relevance, marker decisions, summary, and upload evidence to the exact 40-character `workflow_run.head_sha`; manual release MUST capture exact current remote `main` once and reuse it.
-- **FR-003**: App relevance MUST use NUL-safe change records from the selected baseline to candidate against only: `Packages/*/Package.swift`, `Packages/*/Sources/**`, `Packages/*/Plugins/**`; `VitalStride/Sources/**`, `VitalStride/Resources/**`, `VitalStride/Assets.xcassets/**`, `VitalStride/*.entitlements`; equivalent `VitalStrideMac/**` and `VitalStrideWatch Watch App/**` shipped source/resource/asset/entitlement families; `VitalStrideWidgets/**/*.swift`, `VitalStrideWidgets/**/*.plist`, `VitalStrideWidgets/**/*.entitlements`, `VitalStrideWidgets/**/*.xcassets/**`; and exact `project.yml`, `fastlane/Fastfile`, `fastlane/Appfile`. Matching is repository-root-relative and `**` matches zero or more segments.
-- **FR-004**: Exclusions MUST apply per endpoint before positives. Documentation/context, `specs/**`, `Packages/*/Tests/**`, app test roots, `Prototype/**`, `VitalStride.xcodeproj/**`, `.github/**`, CI-only scripts, and unlisted paths MUST NOT independently qualify. Relevant deletion qualifies; either relevant rename/copy endpoint qualifies; excluded records do not veto a co-changed relevant record.
-- **FR-005**: The workflow MUST preserve boolean manual `force` default `false`; `force=true` MAY bypass only FR-003/FR-004 for exact current `main`.
-- **FR-006**: `testflight/last-released` MUST be the only durable release state. Missing marker MUST select the Git empty tree as ephemeral baseline; marker ancestor of candidate MUST select `marker..candidate`; candidate equal to or ancestor of marker MUST skip as already covered; unreadable/non-commit/divergent marker MUST fail closed.
-- **FR-007**: The workflow MUST NOT create or consult durable per-SHA attempt/skip history, queue/cursor refs, transaction journals, CAS/lease state, or auxiliary marker-recovery refs. A skipped or failed range remains pending solely because `testflight/last-released` did not advance.
-- **FR-008**: The workflow MUST attempt to advance `testflight/last-released` to candidate only after every earlier critical phase succeeds, then freshly read the remote marker. Exact candidate readback is required for terminal success. Marker update/readback failure MUST fail the run with safe evidence and MUST NOT trigger a second overwrite attempt, retry, rollback, or auxiliary-state creation.
-- **FR-009**: Critical phases MUST include source/candidate/marker validation, unique candidate-PR/label resolution, version derivation, signing/profile setup, archive, binary upload, Apple processing, internal-group distribution, dSYM publication, and final marker update/readback. TEMP-PRELAUNCH remains warning-only under its existing narrower policy.
-- **FR-010**: The workflow MUST use one VitalStride TestFlight concurrency group with `cancel-in-progress: false` on `[self-hosted, vitalstride-mac]`; it MUST NOT add a custom durable queue or claim FIFO execution of pending platform runs.
-- **FR-011**: The workflow MUST reuse existing ASC API key, keychain, GlitchTip, Aptabase, signing-profile, and GitHub token inputs and MUST introduce no new secret.
-- **FR-012**: Build number MUST remain maximum TestFlight build across all marketing versions plus one, be emitted as safe evidence, and not be written to `project.yml`.
-- **FR-013**: Automatic and manual releases MUST resolve exactly one merged PR associated with the exact candidate and based on `main` before the release lane; force MUST NOT bypass it.
-- **FR-014**: Without `release:minor`, marketing version MUST equal the uniform shipping-target value in `project.yml`; with the exact candidate label, increment minor and reset an existing patch to zero. Do not edit tracked files.
-- **FR-015**: The lane MUST consume one resolved marketing version for archive, lookup, distribution, and evidence; the build query MUST remain app-wide.
-- **FR-016**: Each skip/failure MUST write candidate SHA, source, decision/phase, stable reason code, and safe next action. Codes MUST distinguish bootstrap, path-ineligible, already-covered, marker-invalid, release-phase failure, and marker-update failure. Success MUST additionally include run URL, marketing version, build number, and confirmed marker SHA. No secret/profile/certificate/keychain value or health value may appear.
-- **FR-017**: The workflow MUST configure no automatic retry or rollback. A later successful main-CI event or manual dispatch is a new run that re-evaluates the unchanged marker range; the system MUST NOT persist lifetime same-SHA attempt prohibition.
-- **FR-018**: The workflow MUST run on existing labels `[self-hosted, vitalstride-mac]` and preserve one non-cancelling app group.
-- **FR-019**: Existing dynamic app/widget profile reuse, manual Release signing, ASC processing wait, internal group targeting, optional Aptabase behavior, GlitchTip inputs, and non-secret telemetry/logging safeguards MUST remain unless FR-009 deliberately makes a formerly best-effort failure release-critical.
-- **FR-020**: Implementation MUST modify only `.github/workflows/testflight.yml`, `fastlane/Fastfile`, and `scripts/tests/test_testflight_freshness.py`; the non-Draft PR MUST receive exact content review, required checks, and explicit Owner approval for `.github/**` before merge.
-- **FR-021**: After merge, MY-1766 MUST record the first eligible successful run's exact SHA, run URL, terminal conclusion, marketing version, build number, and confirmed `testflight/last-released` state. Failure evidence is incident-only and does not complete the outcome.
-
-## Existing Behaviour
-
-- At the product base, `.github/workflows/testflight.yml` is manual-only, checks out moving `main`, compares only HEAD with `testflight/last-released`, and lets `force=true` bypass its no-new-commit gate.
-- It already uses runner `[self-hosted, vitalstride-mac]`, concurrency group `testflight`, and `cancel-in-progress: false`.
-- `testflight/last-released` is the only existing release marker and moves after the lane/ancillary steps.
-- Fastlane queries the app-wide TestFlight maximum plus one, hardcodes marketing version `1.1`, uses dynamic target-specific profiles/manual signing, waits for processing, and distributes to the internal group.
-- Internal-group distribution and dSYM publication include best-effort behavior at the base; the new fail-closed contract deliberately removes that weakening under DEC-027-006.
-- The focused regression suite asserts the manual-only trigger, force gate, secrets/shell safety, profile reuse, and Fastlane behavior.
+- `.github/workflows/testflight.yml` is manually dispatched and runs the existing Fastlane release lane on the `self-hosted` / `vitalstride-mac` runner.
+- `fastlane/Fastfile` owns the established archive/upload behaviour, build-number selection, processing/distribution behaviour, and existing signing/secret integrations.
+- `testflight/last-released` is the existing release marker.
+- `scripts/tests/test_testflight_freshness.py` is the credential-free regression surface for workflow classification.
+- Repository release documentation and the workflow already define signing, App Store Connect secrets, telemetry inputs, and safe-log boundaries.
 
 ## Compatibility
 
-- Preserve manual dispatch and its boolean input, the runner/group, exact existing secret names, keychain and dynamic profile handoff, signing identities, ASC app-wide build counter, Apple processing, internal group, TEMP-PRELAUNCH warning policy, optional telemetry inputs, and non-secret summaries.
-- Preserve one moving `testflight/last-released` marker; no other durable release ref is introduced.
-- Preserve `project.yml` as read-only version truth and do not alter app/package/product interfaces.
-- Preserve all unrelated regression assertions; add red-first coverage without deleting or weakening baseline signing/profile/security checks.
+- Preserve the existing release lane's build/upload call and all unaffected signing, profiles, keychain, App Store Connect, telemetry, runner-label, and non-secret logging behaviour.
+- Add no secret, service, workflow, runner, schedule, source/package/app change, project configuration edit, CODEOWNERS edit, or ruleset edit.
+- Preserve the existing manual entry point as baseline compatibility; v3 adds no manual-force acceptance contract and does not require a manual-policy test matrix.
+- Preserve the accepted app-path predicates below and treat unlisted paths as irrelevant to automatic release.
+- Preserve a single delivery goal and a single implementation PR.
 
-## Removed Behaviour
+## Removed behaviour
 
-- **RB-001**: Remove manual-only TestFlight publication; successful eligible `CI` push runs on `main` now trigger automatically while manual dispatch remains. **Authority**: DEC-027-001 and the MY-1766 Owner decision, superseding 026's manual-only non-goal.
-- **RB-002**: Remove moving-`main` substitution for automatic release; the exact successful CI SHA is authoritative. **Authority**: DEC-027-001.
-- **RB-003**: Remove force's ability to bypass the current successful-marker protection; force bypasses only path relevance and cannot release a candidate equal to or already covered by `testflight/last-released`. **Authority**: DEC-027-003/005 and delegated Owner decision `01a13b86-1ed5-7b57-b69a-3deaa4299249`.
-- **RB-004**: Remove the manual default's ability to treat every fresh SHA as releasable without app-path classification; automatic and `force=false` manual runs use the accumulated marker range, while bounded `force=true` retains the explicit relevance-only override. **Authority**: DEC-027-002/005.
-- **RB-005**: Remove best-effort continuation for release-critical internal-group distribution and dSYM publication failures; those phases fail closed before the final marker step. **Authority**: DEC-027-006 and the original fail-closed Owner requirement.
-- **RB-006**: Remove hardcoded Fastlane marketing-version selection as an independent source; the lane receives the value resolved from uniform `project.yml` targets plus the exact candidate-PR label decision. **Authority**: DEC-027-004.
-- **RB-007**: Remove per-upload Owner confirmation from 026; explicit Owner approval is required for the `.github/**` implementation PR, after which eligible uploads are automatic. **Authority**: the MY-1766 Owner decision and DEC-027-007.
-- **RB-008**: Remove no existing test and weaken no unrelated signing/profile/security assertion; any additional deletion or weakening requires a new Owner decision. **Authority**: compatibility contract and Constitution Quality Bar A.
+The following are removed from active v3 planning by DEC-027-001 through DEC-027-007 and the cited Lead/Team Lead authority:
 
-The marker-only Owner decision also supersedes unimplemented v1 planning for per-SHA claims, queue/cursor state, CAS/lease mutation, pending/resolved refs, recovery dispositions, distinct-SHA-only forward progress, and lifetime attempt prohibition. Those were never product-base behaviour. **Authority**: DEC-027-003/006 and delegated Owner decision `01a13b86-1ed5-7b57-b69a-3deaa4299249`.
+- v2 candidate-PR lookup, `release:minor`, project-version parsing, runtime marketing-version handoff, and build-number shadow assertions;
+- v2 bounded manual-force acceptance and its cross-source policy matrix;
+- v2 empty-tree bootstrap, already-covered/ahead taxonomy, exact readback protocol, critical-phase shadow model, safe-summary schema, and post-merge production-evidence task;
+- v2 Fastfile modification requirement, Ruby-only feature gate, and broad signing/profile/telemetry shadow-policy tests; the mandatory repository-level RepoInfra gate remains unchanged;
+- any CAS/lease boundary, per-SHA attempt/skip state, queue, cursor, journal, pending/resolved state, recovery ref, automatic retry, or rollback.
 
-## Scope
+These removals supersede planning requirements, not unrelated product-base behaviour. Existing lane internals remain compatible unless the minimal contract directly requires a workflow orchestration change.
 
-### In Scope
+## User story 1 — Release relevant verified main changes (P1)
 
-- Exact successful main-CI candidate capture and exact checkout.
-- Single-marker bootstrap/order validation, accumulated relevance, bounded manual force, shared version/build policy, serialized critical lane, final marker update/readback, and safe evidence.
-- Credential-free regression coverage plus post-merge production evidence.
+As the repository owner, I want one automatic TestFlight run after successful main CI when changes since the last successful release affect accepted app paths, so verified changes can use the existing release lane without auxiliary release state.
 
-### Out of Scope
+### Acceptance scenarios
 
-- Any durable release state other than `testflight/last-released`.
-- New workflow, secret, release service, runner, schedule, CODEOWNERS/ruleset/policy change, or per-upload Owner prompt.
-- `project.yml`, generated project, app/package/test/Prototype source, Developer Portal changes, or a fourth implementation path.
-- Real upload during planning/pre-merge verification.
+- **US1/AC1 — Exact source and candidate**: a completed `CI` workflow with conclusion `success`, source event `push`, and head branch `main` proceeds using exactly its verified `head_sha`; any other workflow, conclusion, event, or branch does not enter the release lane.
+- **US1/AC2 — Accumulated relevance**: with `testflight/last-released` resolving to an ancestor commit, the classifier evaluates the NUL-safe change records for `marker..candidate`; any accepted path makes the range relevant and an all-irrelevant range skips the lane.
+- **US1/AC3 — Existing lane and success marker**: a relevant range invokes the existing release lane once. Only after its upload succeeds may the workflow move `testflight/last-released` to the candidate.
+- **US1/AC4 — Failure boundary**: source, marker, diff, classification, build, or upload failure does not run the marker-update step. The run fails without automatic retry or rollback.
+- **US1/AC5 — Concurrency and permission**: the release job uses one stable app-scoped concurrency group with `cancel-in-progress: false` and declares job-level `contents: write`.
+- **US1/AC6 — Minimal state and scope**: the workflow creates no auxiliary durable release state and the implementation remains inside the three-path ceiling, with explicit Owner approval required for the workflow change.
 
-## Success Criteria
+## App relevance
 
-- **SC-001**: Credential-free tests cover exact source/SHA, empty-tree bootstrap, marker ancestry/equality/stale/divergence, accumulated irrelevant→relevant ranges, relevant failure→later pickup, path matrices, concurrency, bounded force, version policy, final marker ordering, and safe summaries.
-- **SC-002**: Focused unittest, Ruby syntax, full RepoInfra output, and whitespace check report zero failures/errors when their full output is read.
-- **SC-003**: The first eligible successful production candidate produces one successful TestFlight workflow run whose exact SHA, URL, marketing version, unique build number, and confirmed final marker are recorded on MY-1766.
-- **SC-004**: Static/test evidence proves no marker mutation command can execute before every earlier critical phase succeeds and terminal success requires exact marker readback.
-- **SC-005**: Excluded-only automatic ranges produce no archive/upload or durable skip state; the next relevant candidate sees accumulated changes, while manual force bypasses only relevance.
-- **SC-006**: Every tested critical failure stops, records safe evidence, initiates no pre-final marker mutation, automatic retry, rollback, or auxiliary state; later merge/manual pickup is a fresh evaluation.
-- **SC-007**: The implementation diff is exactly the three authorized RepoInfra paths, gets exact content review, required checks, and explicit Owner approval before merge.
+Change records are parsed NUL-safely. For rename/copy records, either endpoint may qualify. A relevant deletion qualifies. A mixed range qualifies when at least one record is relevant.
 
-## Assumptions
+Positive shipped paths are:
 
-- This workflow is the sole authorized automated writer of `testflight/last-released`; external/manual tag mutation is outside its serialization guarantee and is handled by the next run's fail-closed relation check.
-- Protected PR-only `main` normally yields exactly one merged PR for the candidate. Zero/multiple matches remain a designed failure.
-- Empty-tree bootstrap is computational only and creates no durable state.
-- Candidate-associated PR alone controls `release:minor`, even when the accumulated range contains earlier PRs.
-- No local `xcodebuild` or package build is warranted for a RepoInfra-only implementation diff.
+- `Packages/*/Package.swift`, `Packages/*/Sources/**`, `Packages/*/Plugins/**`
+- `VitalStride/Sources/**`, `VitalStride/Resources/**`, `VitalStride/Assets.xcassets/**`, `VitalStride/*.entitlements`
+- `VitalStrideMac/Sources/**`, `VitalStrideMac/Resources/**`, `VitalStrideMac/Assets.xcassets/**`, `VitalStrideMac/*.entitlements`
+- `VitalStrideWatch Watch App/Sources/**`, `VitalStrideWatch Watch App/Resources/**`, `VitalStrideWatch Watch App/Assets.xcassets/**`, `VitalStrideWatch Watch App/*.entitlements`
+- `VitalStrideWidgets/**/*.swift`, `VitalStrideWidgets/**/*.plist`, `VitalStrideWidgets/**/*.entitlements`, `VitalStrideWidgets/**/*.xcassets/**`
+- exact `project.yml`, `fastlane/Fastfile`, and `fastlane/Appfile`
+
+Documentation/context, specs, package/app tests, `Prototype/**`, generated project output, `.github/**`, CI-only scripts, and every unlisted path are irrelevant by themselves. Exclusion wins for an endpoint before positive matching.
+
+## Functional requirements
+
+- **FR-001**: The automatic trigger MUST be a completed successful `workflow_run` for `CI`, source event `push`, and head branch `main`.
+- **FR-002**: Every automatic checkout, diff, lane invocation, and marker target MUST use the same verified `workflow_run.head_sha`.
+- **FR-003**: The workflow MUST fetch enough history and tags to resolve `testflight/last-released` and evaluate `testflight/last-released..candidate`.
+- **FR-004**: A missing, unreadable, non-commit, non-ancestor, or otherwise invalid marker MUST fail closed before the release lane.
+- **FR-005**: Relevance MUST use the accepted predicates and NUL-safe add/modify/delete/rename/copy handling defined above.
+- **FR-006**: An irrelevant accumulated range MUST skip the release lane and MUST NOT mutate the marker.
+- **FR-007**: A relevant range MUST call the existing release lane for build and upload without introducing a second release implementation.
+- **FR-008**: The marker-update step MUST be ordered after successful upload and MUST target the exact candidate.
+- **FR-009**: Failure before marker update MUST leave the marker unchanged; the workflow MUST configure no automatic retry or rollback.
+- **FR-010**: The release job MUST declare job-level `contents: write`, one app-scoped concurrency group, and `cancel-in-progress: false`.
+- **FR-011**: The workflow MUST create no per-SHA state, queue, cursor, CAS/lease, journal, pending/resolved state, or recovery ref.
+- **FR-012**: Existing lane signing, secrets, runner, telemetry, and safe-log behaviour MUST remain compatible.
+- **FR-013**: Feature-specific verification MUST be limited to classifier unit tests and workflow lint; neither may contact GitHub for writes, App Store Connect, signing services, or TestFlight. Separately, the mandatory repository-level `bash scripts/test-repoinfra.sh` gate MUST run with full output inspected and no failure/error.
+- **FR-014**: Implementation MUST remain within the three-path ceiling, and `.github/workflows/testflight.yml` MUST receive explicit Owner approval before merge.
+
+## Requirements by compatibility class
+
+- **RB-001 — Preserve**: existing release lane and manual entry point remain available.
+- **RB-002 — Preserve**: signing, secret, runner, telemetry, and safe-log boundaries remain unchanged.
+- **RB-003 — Change**: add verified successful-main automatic orchestration and accumulated relevance.
+- **RB-004 — Change**: advance the sole marker only after successful upload.
+- **RB-005 — Remove from v3**: heavier v2 version/manual/recovery/shadow-policy and production-evidence contracts are not implementation requirements.
+- **RB-006 — Protect**: three-path ceiling and explicit Owner approval remain mandatory.
+
+## Success criteria
+
+- **SC-001**: Classifier unit tests pass for source guards, exact candidate reuse, accepted-path positives, exclusions, mixed/deletion/rename/copy records, and marker-range skip/release/failure decisions.
+- **SC-002**: Workflow lint passes for `.github/workflows/testflight.yml`.
+- **SC-003**: The mandatory `bash scripts/test-repoinfra.sh` gate reports no failure/error when full output is read, and static delivery evidence shows the candidate diff stays within the three-path ceiling, uses one non-cancelling concurrency group, has job-level `contents: write`, orders marker update after the existing lane, and contains no auxiliary state/retry/rollback implementation.
+- **SC-004**: The frozen candidate is committed, pushed, and published as the single non-Draft PR; local `HEAD`, remote branch OID, and PR `headRefOid` are proven identical before exact-candidate review, then re-proven after PASS before the same SHA is handed to PR Manager. Explicit Owner approval remains a separate pre-merge requirement.
+
+## Out of scope
+
+- Running or observing a real TestFlight upload, mutating a production marker during verification, or requiring a first-production-run record.
+- Redesigning or shadow-testing Fastlane versioning, build-number, signing, processing, distribution, dSYM, telemetry, or secret behaviour.
+- Manual-force product policy, candidate PR/label lookup, marketing-version policy, or repository version edits.
+- Auxiliary release state, custom queuing, CAS/lease semantics, recovery workflows, retry, or rollback.
+- Any fourth implementation path or any app/package/Prototype/project/ruleset/CODEOWNERS change.
+
+## Evidence required for readiness
+
+- Exact planning revision, tree, artifact paths, and blob SHAs with independent AI Reviewer verdict.
+- Reconciled task graph and child rows, kept parked until Team Lead schedules implementation.
+- Safe reuse instructions for the preserved Fullstack candidate; Planner Lead does not mutate that workspace.

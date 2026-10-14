@@ -1,63 +1,66 @@
-# Research: TestFlight auto-release after verified main CI
+# Research: Minimal automatic TestFlight release after main CI
 
-**Exact base**: `a6e31c6f44797fd95ebe50b96fe2310a3e52d789`
+**Planning version**: v3
+**Exact product base**: `a6e31c6f44797fd95ebe50b96fe2310a3e52d789`
+**Authority**: Lead direction `01a13cc2-e475-758b-b825-a9f622ca117a`; Team Lead handoff `01a13cc7-9937-74fb-bdc7-4f9a10aaa98d`
 
-**Current authority**: MY-1766 Owner decision plus comments `01a13b86-1f43-7964-b7e7-013db4029fe3`, `01a13b86-1ed5-7b57-b69a-3deaa4299249`, and Team Lead handoff `01a13b8b-7541-7ef5-b7c9-ae16701118bb`.
+## R1 — Verified source and immutable candidate
 
-## R1 — Trigger and candidate identity
+**Decision**: consume completed workflow `CI` through `workflow_run`; accept only conclusion `success`, source event `push`, and head branch `main`. Capture and reuse `workflow_run.head_sha`.
 
-**Decision**: Consume completed workflow `CI` through `workflow_run`; accept only successful `push` runs whose head branch is `main`; bind every automatic decision to `workflow_run.head_sha`. Manual dispatch captures current remote `main` once.
+**Evidence**: the base CI workflow is named `CI` and runs for pushes to `main`. The current TestFlight workflow checks out moving `main`, which is not the verified upstream candidate.
 
-**Why**: A direct push trigger does not prove required CI passed for that SHA. Checking out moving `main` may release a later unverified commit.
+**Rejected**: direct `push` trigger; moving-main checkout; a branch-name-only or success-only guard.
 
-**Rejected**: direct `push: main`; workflow-name/conclusion checks without event/branch guards; moving-main checkout.
+## R2 — Literal accumulated range
 
-## R2 — Accumulated app relevance and bootstrap
+**Decision**: fetch history/tags, resolve `testflight/last-released` as an ancestor commit, and classify NUL-safe records in `testflight/last-released..candidate` against the accepted app predicates. An irrelevant range skips and leaves the marker unchanged, so a later candidate naturally includes it.
 
-**Decision**: With a valid ancestor marker, classify NUL-safe records in `testflight/last-released..candidate`. With no marker, classify empty-tree-to-candidate as an ephemeral bootstrap. Use narrow shipped path predicates with endpoint-first exclusions. A relevant deletion or either relevant rename/copy endpoint qualifies; a mixed diff qualifies when any record is relevant.
+**Evidence**: `workflow_run` has no usable repository path filter for this contract. The existing moving marker already defines the last successful release point.
 
-**Why**: `workflow_run` offers no useful path filter. Keeping the marker unchanged makes skipped and failed changes accumulate naturally without a cursor or skip record. Empty-tree bootstrap allows first use without an out-of-band tag or second state.
+**Rejected**: per-event changed files; exact candidate's merged PR; broad `Packages/**`; empty-tree bootstrap; a second cursor/skip marker. Missing, invalid, or non-ancestor marker state fails closed.
 
-**Ordering**: marker equal to or ahead of candidate means already covered and skips; marker ancestor of candidate evaluates normally; unreadable/non-commit/divergent marker fails closed.
+## R3 — Existing release lane and sole marker
 
-**Rejected**: trigger-time paths; merged-PR-only diff; broad `Packages/**`; treating every commit as relevant; a durable bootstrap/cursor ref.
+**Decision**: keep `fastlane ios beta` unchanged as the build/upload lane. After it succeeds, move the sole `testflight/last-released` marker to the captured candidate. Any earlier failure reaches no marker-update command.
 
-## R3 — One success marker and no automatic retry
+**Evidence**: the base workflow already calls the lane and then moves the marker. The Fastfile already generates, signs, builds, and uploads. No Fastfile redesign is needed.
 
-**Decision**: `testflight/last-released` is the sole persistent release state and advances only after the critical lane succeeds. Do not persist per-SHA attempt/skip history, a custom queue/cursor, a transaction journal, compare-and-swap lease, or recovery refs. A failure before the final marker step leaves the marker untouched. A later main-CI event or manual dispatch re-evaluates the unchanged range as a new run.
+**Rejected**: second release lane; Fastfile version/signing/distribution redesign; pre-upload marker movement; auxiliary success/attempt state.
 
-**Why**: The delegated Owner decision deliberately chooses the smallest model. Accumulated range evaluation preserves skipped/failed changes without auxiliary state. One app concurrency group serializes active lanes; it is not a durable FIFO queue and does not promise every platform-pending event runs in arrival order.
+## R4 — Failure semantics
 
-**Final marker failure**: The marker update/readback is terminal. If either fails, record the phase and last safely observed value, write no compensating state, and do not retry or roll back. A later invocation freshly fetches the remote marker as sole truth. Without the removed journal/lease machinery, the plan intentionally does not claim that a lost remote acknowledgement proves the tag stayed unchanged.
+**Decision**: add no automatic retry or rollback. A failure before marker update leaves the marker unchanged. Add no per-SHA record, queue, cursor, CAS/lease, journal, pending/resolved state, or recovery ref.
 
-**Rejected**: immutable attempt tags; queue/skip/cursor refs; marker transaction pairs; lifetime same-SHA prohibition; distinct-SHA-only recovery; automatic retry or rollback.
+**Why**: the accepted minimal contract intentionally uses a single marker and GitHub's one non-cancelling app group. It does not model transactional recovery or guarantee durable FIFO processing.
 
-## R4 — Version seam
+**Rejected**: every heavier v1/v2 recovery or attempt model.
 
-**Decision**: Read and validate one uniform project marketing version. Resolve the exact candidate's uniquely associated merged PR for both automatic and manual candidates; case-sensitive `release:minor` makes a per-run minor increment. Earlier PR labels in the accumulated range do not affect this candidate. Pass one resolved value to Fastlane. Keep the existing app-wide ASC maximum-plus-one build counter and expose it safely.
+## R5 — Permission, concurrency, and approval
 
-**Why**: Fastfile's hardcoded value drifts from `project.yml`. Repository writes from the release runner would violate PR-required delivery and XcodeGen ownership.
+**Decision**: declare `contents: write` at the release job, retain one app-scoped concurrency group with `cancel-in-progress: false`, and add no broader permission. Keep explicit Owner approval for `.github/workflows/testflight.yml`.
 
-**Rejected**: committing a version bump; keeping hardcoded Fastfile version; applying labels from any earlier range PR; scoping build counter by marketing version; GitHub run number.
+**Evidence**: the base already has one non-cancelling group but declares write permission at workflow scope. No tracked enforcement can substitute for the explicit Owner boundary.
 
-## R5 — Fail-closed release phases and final marker ordering
+**Rejected**: workflow-wide write permission; multiple groups/custom queue; AI Reviewer PASS or CI as Owner approval; CODEOWNERS/ruleset expansion.
 
-**Decision**: Candidate/marker/PR/version validation, signing, archive, upload, Apple processing, internal distribution, dSYM publication, marker update, and marker readback are critical. No marker command runs until every earlier critical phase succeeds. Exact marker readback is required for terminal success. Each failure records a safe phase/reason and performs no automatic retry/rollback. TEMP-PRELAUNCH remains warning-only under its accepted internal-TestFlight policy.
+## R6 — Verification boundary
 
-**Why**: The base contains best-effort distribution/dSYM behavior that could advance the marker after incomplete release work. The original Owner requirement is fail closed. The final marker is the only completion boundary in the simplified model.
+**Decision**: run only the classifier unit test and semantic workflow lint as feature-specific checks:
 
-**Rejected**: moving marker before the lane; rescue-and-continue for critical phases; writing a second state to resolve marker ambiguity; asserting unobservable remote state.
+```bash
+python3 -B -m unittest scripts.tests.test_testflight_freshness
+actionlint .github/workflows/testflight.yml
+```
 
-## R6 — Approval and permission boundary
+The classifier module is trimmed to the v3 contract. `actionlint` is an executor prerequisite because the pinned repository contains no native workflow linter.
 
-**Decision**: Limit implementation to one workflow, the existing Fastfile, and its existing regression module. Require explicit Owner approval before merge. GitHub permissions cover only exact PR-label reads and the sole moving marker write/read; add no secret.
+The repository's mandatory layer gate remains separate and unchanged: `bash scripts/test-repoinfra.sh`. Its full output must report zero failures/errors; its exit code alone is insufficient. It supplements the feature checks and is not a workflow linter or v2 shadow-policy acceptance suite.
 
-**Why**: No tracked CODEOWNERS or machine-enforced code-owner review exists on the planning base. Owner approval remains separate from AI content review and CI.
+**Rejected as feature-specific gates**: standalone Ruby/Fastfile syntax, XcodeGen/xcodebuild/SwiftPM, Fastlane execution, upload/tag mutation, production evidence, and signing/profile/version/telemetry shadow-policy suites. The mandatory RepoInfra repository gate is not rejected or waived.
 
-**Rejected**: CODEOWNERS/ruleset expansion; AI PASS as Owner approval; a second release workflow/service.
+## R7 — Scope and preserved candidate
 
-## R7 — Verification boundary
+**Decision**: retain the three-path ownership ceiling but expect a two-path patch. Keep `fastlane/Fastfile` unchanged. Publish v3 as a planning-only descendant of the reviewed v2 revision so the preserved local implementation candidate can later be fast-forwarded in place after identity and non-overlap checks.
 
-**Decision**: Use credential-free contract tests for event identity, exact SHA, bootstrap/marker ordering, accumulated path matrices, irrelevant→relevant accumulation, failure→later pickup, stale/divergent events, bounded force, shared version policy, concurrency, final marker ordering, and safe summaries. Add Fastfile syntax, complete RepoInfra output, whitespace/static inspection, and one post-merge operational record. Planning and pre-merge checks never upload or mutate tags.
-
-**Baseline note**: The focused base test reports 10/10 passing. The full RepoInfra wrapper previously returned zero while nested Python output contained one failure and one error under Xcode Python 3.9; completion evidence must inspect full output, not exit code alone.
+**Rejected**: a sibling planning commit that prevents fast-forward reuse; new checkout; reset/clean/stash-copy migration; silent conflict resolution; any fourth implementation path.

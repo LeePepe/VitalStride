@@ -1,69 +1,81 @@
-# Quickstart: TestFlight auto-release implementation verification
+# Quickstart: Minimal automatic TestFlight release verification
 
 ## Preconditions
 
-- Work from the exact Team Lead-approved implementation base containing the independently reviewed `specs/027-testflight-auto-release/**` revision.
-- Confirm the implementation diff is limited to `.github/workflows/testflight.yml`, `fastlane/Fastfile`, and `scripts/tests/test_testflight_freshness.py`.
-- Treat `testflight/last-released` as the only durable release state; do not add an attempt/skip ref, queue/cursor, lease/CAS record, journal, pending/resolved ref, or recovery ref.
-- Do not dispatch TestFlight, read secret values, mutate tags, or contact App Store Connect during local verification.
-- Publication of `.github/workflows/testflight.yml` requires explicit Owner approval; content review and CI do not grant it.
+- Work only in the registered delivery workspace and branch supplied by Team Lead.
+- Base implementation on the exact independently reviewed v3 planning revision.
+- Confirm repository identity, branch, base, and local candidate before mutation.
+- Confirm the candidate changes only `.github/workflows/testflight.yml` and `scripts/tests/test_testflight_freshness.py`; `fastlane/Fastfile` remains unchanged.
+- Treat `testflight/last-released` as the only durable release state.
+- Do not dispatch TestFlight, mutate a tag, read secret values, sign, or contact App Store Connect during local verification.
+- Ensure `actionlint` is available as an executor prerequisite.
+- Preserve the explicit Owner approval boundary for the workflow.
 
-## Red-first contract cycle
+## Red-first implementation cycle
 
-1. Add credential-free tests for the selected task contract.
-2. Run the focused suite and capture the expected contract failure before production edits.
-3. Change only the task-owned RepoInfra paths.
-4. Rerun until the focused suite reports zero failures/errors.
+1. Trim the existing test module to the v3 classifier contract.
+2. Add cases for source/candidate, literal marker range, accepted/excluded paths, lane decision, post-upload marker ordering, concurrency/permission, and forbidden auxiliary state.
+3. Run the focused unit test against the unmodified workflow and retain the expected failures.
+4. Modify only the workflow and classifier test.
+5. Rerun the two feature-specific commands until both succeed.
 
-## Required local evidence
+## Complete local verification
 
-From repository root:
+From repository root, run the two feature-specific checks:
 
 ```bash
 python3 -B -m unittest scripts.tests.test_testflight_freshness
-ruby -c fastlane/Fastfile
-bash scripts/test-repoinfra.sh
-git diff --check
-git status --short
+actionlint .github/workflows/testflight.yml
 ```
 
-Read the full RepoInfra output. Exit code alone is insufficient because the planning environment previously exposed nested Python failures while the wrapper returned zero.
+These are the only feature-specific v3 checks. Read their full output.
 
-No `xcodebuild` or package build/test is part of this RepoInfra-only verification. If the diff enters AppUI or `Packages/**`, stop as out of scope instead of expanding the command set.
+Then run the independently mandatory repository gate:
 
-## Static inspection
+```bash
+bash scripts/test-repoinfra.sh
+```
 
-- Automatic candidate is the exact successful `CI` push/main head SHA; manual candidate is current remote `main` captured once.
-- Full-history/tag fetch precedes marker and diff decisions.
-- Missing marker selects the Git empty tree ephemerally; marker-ancestor selects `marker..candidate`; equal or marker-ahead candidates skip as already covered; invalid/divergent markers fail closed.
-- NUL-safe path classification uses the contract's narrow positives and endpoint-first exclusions. Package tests/contexts and documentation remain negative; relevant deletion, mixed diffs, and either relevant rename/copy endpoint qualify.
-- Skips and pre-marker failures write no durable state. A later executed candidate sees every still-unreleased change through the unchanged marker range.
-- One app-scoped group has `cancel-in-progress: false`; no custom durable queue or FIFO promise is introduced.
-- Manual `force=true` bypasses relevance only. It cannot bypass current-main identity, already-covered/invalid marker state, candidate PR/version resolution, signing, or a critical failure.
-- Automatic and manual candidates use the same exact candidate-PR and case-sensitive `release:minor` policy. Earlier PR labels in the accumulated range do not apply.
-- One resolved marketing version is reused across archive, lookup, distribution, and evidence. The build-number query remains app-wide and its selected value reaches safe evidence.
-- Every earlier critical phase succeeds before the sole marker mutation command can run. Exact fresh `testflight/last-released` readback is required for success.
-- Marker update/readback failure is terminal, creates no auxiliary state, performs no retry/rollback, and makes no assertion about an unobservable remote acknowledgement; a later invocation freshly reads the remote marker.
-- Existing runner, dynamic profile/signing, secret names, processing wait, internal group, telemetry inputs, and non-secret logging boundaries remain.
-- Only the three implementation paths changed.
+Read its full output and require zero failures/errors; exit code alone is insufficient. This gate is not a third feature-specific check and does not restore v2 shadow-policy acceptance.
 
-## Review and publication evidence
+Do not add standalone Ruby syntax, XcodeGen, xcodebuild, SwiftPM, Fastlane execution, signing/profile feature checks, upload, tag mutation, production evidence, or any feature-specific shadow-policy suite.
 
-- Freeze the exact local candidate and capture its SHA, tree, three-path manifest, and fresh verification output.
-- Obtain independent AI Reviewer content verdict for that exact candidate under the Dev Team pre-publication flow.
-- Publish only the reviewed candidate through the normal non-Draft PR path.
-- Record explicit Owner approval for the `.github/**` change before merge.
-- PR Manager owns required-check and merge/shipping state; Team Lead owns scheduling, recovery, and exceptions.
+## Candidate inspection
 
-## Post-merge operational evidence
+Record, without running another product gate:
 
-For the first eligible successful main-CI candidate, record on MY-1766:
+- automatic source is exact successful `CI` / `push` / `main`;
+- checkout, diff, lane context, and marker target reuse `workflow_run.head_sha`;
+- the diff range is exactly `testflight/last-released..candidate`;
+- path classification matches the contract's exact positives and exclusions;
+- irrelevant range skips and invalid marker fails before lane;
+- relevant range invokes the unchanged `fastlane ios beta` lane;
+- marker update follows successful lane/upload and targets the candidate;
+- failures before marker update do not reach it;
+- one group has `cancel-in-progress: false`;
+- the release job declares `contents: write`;
+- no per-SHA/second-marker/queue/cursor/CAS/lease/journal/pending/resolved/recovery state, automatic retry, rollback, or second lane exists;
+- candidate manifest is exactly the workflow and classifier test.
 
-- exact candidate/CI SHA;
-- TestFlight workflow run URL and terminal conclusion;
-- runtime marketing version and unique build number;
-- freshly confirmed remote `testflight/last-released` equal to the candidate.
+## Candidate publication and review
 
-Do not attach secrets, `.p8` material, profiles, certificates, keychain output, health values, or unredacted sensitive logs.
+1. Freeze the local candidate and record revision/tree/path manifest, both feature-specific outputs, and the full mandatory RepoInfra output.
+2. Commit, push, and create/update the single non-Draft candidate PR.
+3. Prove local `HEAD`, remote branch OID, and PR `headRefOid` are identical.
+4. Request independent exact-candidate AI Reviewer content review for that published SHA.
+5. After PASS, re-prove the same three-way identity and hand that same SHA to PR Manager for required-check and merge supervision.
+6. Keep explicit Owner approval for `.github/workflows/testflight.yml` as a separate pre-merge gate; AI review and CI cannot substitute.
 
-A failed run is incident evidence only and does not complete T005 or MY-1766 outcome acceptance. The marker-only contract configures no automatic retry or rollback. A later eligible main-CI event or manual current-main dispatch is a new evaluation of the then-current remote marker and accumulated range.
+No real release run or post-merge production evidence is a v3 completion condition.
+
+## Preserved candidate reuse
+
+For the existing registered Fullstack workspace, reuse is allowed only after Team Lead dispatch:
+
+1. Re-read the issue metadata and verify the exact workdir, origin, branch, and current v2 base.
+2. Prove the local diff is still exactly the workflow and classifier test.
+3. Fetch the exact reviewed v3 planning revision.
+4. Prove `73dd9ffd2f7cb1980cbe986d0ea9cd3442ecff85..v3` changes planning artifacts only.
+5. Fast-forward the same branch/workspace to v3; do not reset, clean, create another checkout, copy changes, or resolve overlap silently.
+6. Re-read status and prove the two local implementation paths are preserved.
+7. If fast-forward or non-overlap proof fails, stop and return evidence to Team Lead recovery.
