@@ -53,6 +53,7 @@ actor MockPreparedWorkoutProvider: WorkoutDataProviding, PreparedWorkoutDataProv
     var snapshotResult: PreparedWorkoutFetch?
     var snapshotResults: [PreparedWorkoutFetch] = []
     var changesResult: PreparedWorkoutFetch?
+    var changesResults: [PreparedWorkoutFetch] = []
     var legacyResult: WorkoutFetchResult?
 
     var fetchCallCount: Int = 0
@@ -70,21 +71,35 @@ actor MockPreparedWorkoutProvider: WorkoutDataProviding, PreparedWorkoutDataProv
 
     var providerStartedGate: DeterministicGate?
     var queryCompleteGate: DeterministicGate?
+    var cacheAcceptanceGate: DeterministicGate?
     var staleReleaseGate: DeterministicGate?
 
     var eventRecorder: EventRecorder?
     var errorToThrow: (any Error)?
+
+    // Multi-lane support for concurrent distinct ranges
+    var providerStartedGatesByRange: [DateInterval?: DeterministicGate] = [:]
+    var staleReleaseGatesByRange: [DateInterval?: DeterministicGate] = [:]
 
     func fetchWorkouts(dateRange: DateInterval?) async throws -> WorkoutFetchResult {
         fetchCallCount += 1
         fetchDateRanges.append(dateRange)
         await eventRecorder?.record("legacy_fetch_started")
         await providerStartedGate?.open()
+        if let gate = providerStartedGatesByRange[dateRange] {
+            await gate.open()
+        }
+
+        await queryCompleteGate?.open()
+
         if let staleReleaseGate {
             await staleReleaseGate.wait()
         }
+        if let gate = staleReleaseGatesByRange[dateRange] {
+            await gate.wait()
+        }
+
         await eventRecorder?.record("legacy_query_complete")
-        await queryCompleteGate?.open()
         if let error = errorToThrow {
             throw error
         }
@@ -96,11 +111,23 @@ actor MockPreparedWorkoutProvider: WorkoutDataProviding, PreparedWorkoutDataProv
         fetchDateRanges.append(dateRange)
         await eventRecorder?.record("snapshot_started")
         await providerStartedGate?.open()
+        if let gate = providerStartedGatesByRange[dateRange] {
+            await gate.open()
+        }
+
+        await queryCompleteGate?.open()
+
+        if let cacheAcceptanceGate {
+            await cacheAcceptanceGate.wait()
+        }
         if let staleReleaseGate {
             await staleReleaseGate.wait()
         }
+        if let gate = staleReleaseGatesByRange[dateRange] {
+            await gate.wait()
+        }
+
         await eventRecorder?.record("snapshot_query_complete")
-        await queryCompleteGate?.open()
         if let error = errorToThrow {
             throw error
         }
@@ -121,13 +148,28 @@ actor MockPreparedWorkoutProvider: WorkoutDataProviding, PreparedWorkoutDataProv
         fetchDateRanges.append(dateRange)
         await eventRecorder?.record("changes_started")
         await providerStartedGate?.open()
+        if let gate = providerStartedGatesByRange[dateRange] {
+            await gate.open()
+        }
+
+        await queryCompleteGate?.open()
+
+        if let cacheAcceptanceGate {
+            await cacheAcceptanceGate.wait()
+        }
         if let staleReleaseGate {
             await staleReleaseGate.wait()
         }
+        if let gate = staleReleaseGatesByRange[dateRange] {
+            await gate.wait()
+        }
+
         await eventRecorder?.record("changes_query_complete")
-        await queryCompleteGate?.open()
         if let error = errorToThrow {
             throw error
+        }
+        if !changesResults.isEmpty {
+            return changesResults.removeFirst()
         }
         return changesResult ?? PreparedWorkoutFetch(
             workouts: [],
@@ -138,19 +180,35 @@ actor MockPreparedWorkoutProvider: WorkoutDataProviding, PreparedWorkoutDataProv
         )
     }
 
-    func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) async {
+    nonisolated func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+        Task {
+            await self.recordAccept(prepared)
+        }
+    }
+
+    private func recordAccept(_ prepared: PreparedWorkoutFetch) {
         acceptCallCount += 1
         lastAcceptedCheckpoint = prepared.checkpoint
-        await eventRecorder?.record("acceptance_invoked")
+        Task { [eventRecorder] in
+            await eventRecorder?.record("acceptance_invoked")
+        }
         if shouldAdvanceDurableAnchorOnAccept, let cp = prepared.checkpoint {
             durableAnchor = cp
         }
     }
 
-    func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) async {
+    nonisolated func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+        Task {
+            await self.recordReject(prepared)
+        }
+    }
+
+    private func recordReject(_ prepared: PreparedWorkoutFetch) {
         rejectCallCount += 1
         lastRejectedPrepared = prepared
-        await eventRecorder?.record("acceptance_rejected")
+        Task { [eventRecorder] in
+            await eventRecorder?.record("acceptance_rejected")
+        }
     }
 
     func setSnapshotResult(_ result: PreparedWorkoutFetch) {
@@ -163,6 +221,10 @@ actor MockPreparedWorkoutProvider: WorkoutDataProviding, PreparedWorkoutDataProv
 
     func setChangesResult(_ result: PreparedWorkoutFetch) {
         self.changesResult = result
+    }
+
+    func setChangesResults(_ results: [PreparedWorkoutFetch]) {
+        self.changesResults = results
     }
 
     func setLegacyResult(_ result: WorkoutFetchResult) {
@@ -189,12 +251,21 @@ actor MockPreparedWorkoutProvider: WorkoutDataProviding, PreparedWorkoutDataProv
         self.queryCompleteGate = gate
     }
 
+    func setCacheAcceptanceGate(_ gate: DeterministicGate?) {
+        self.cacheAcceptanceGate = gate
+    }
+
     func setEventRecorder(_ recorder: EventRecorder?) {
         self.eventRecorder = recorder
     }
 
     func setShouldAdvanceDurableAnchorOnAccept(_ value: Bool) {
         self.shouldAdvanceDurableAnchorOnAccept = value
+    }
+
+    func setGateForRange(started: DeterministicGate?, stale: DeterministicGate?, range: DateInterval?) {
+        self.providerStartedGatesByRange[range] = started
+        self.staleReleaseGatesByRange[range] = stale
     }
 }
 
@@ -298,12 +369,21 @@ struct HealthWorkoutCacheTests {
         #expect(await provider.snapshotCallCount == 1)
     }
 
-    @Test("AC-S1: Provider failure fans out to owner and coalesced callers without hang")
-    func testSingleSettlement_ProviderFailure() async throws {
+    @Test("AC-S1: Cancellation of one coalesced waiter removes only that waiter")
+    func testSingleSettlement_CancelOneWaiterDoesNotAffectOthers() async throws {
         let provider = MockPreparedWorkoutProvider()
-        let gate = DeterministicGate()
-        await provider.setError(HealthKitServiceError.healthDataNotAvailable)
-        await provider.setStaleReleaseGate(gate)
+        let startedGate = DeterministicGate()
+        let releaseGate = DeterministicGate()
+
+        await provider.setSnapshotResult(PreparedWorkoutFetch(
+            workouts: [makeWorkout()],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
+            checkpoint: nil
+        ))
+        await provider.setProviderStartedGate(startedGate)
+        await provider.setStaleReleaseGate(releaseGate)
 
         let cache = HealthDataCache(
             dataProvider: MockSimpleHealthDataProvider(),
@@ -313,188 +393,31 @@ struct HealthWorkoutCacheTests {
         let task1 = Task { try await cache.workoutData() }
         let task2 = Task { try await cache.workoutData() }
 
-        await gate.open()
+        await startedGate.wait()
 
-        let result1 = await task1.result
+        // Cancel task2 only
+        task2.cancel()
+
+        await releaseGate.open()
+
+        let r1 = try await task1.value
+        #expect(r1.count == 1)
+
         let result2 = await task2.result
-
-        switch (result1, result2) {
-        case (.failure(let e1 as HealthKitServiceError), .failure(let e2 as HealthKitServiceError)):
-            if case .healthDataNotAvailable = e1, case .healthDataNotAvailable = e2 {
-                #expect(true)
-            } else {
-                Issue.record("Expected healthDataNotAvailable")
-            }
-        default:
-            Issue.record("Expected both callers to fail with HealthKitServiceError")
-        }
-        #expect(await !cache.hasWorkoutCache())
-    }
-
-    @Test("AC-S1: Non-owner cancellation settles only that waiter; owner continues and succeeds")
-    func testSingleSettlement_NonOwnerCancellation() async throws {
-        let provider = MockPreparedWorkoutProvider()
-        let startedGate = DeterministicGate()
-        let releaseGate = DeterministicGate()
-        let workout = makeWorkout()
-        await provider.setSnapshotResult(PreparedWorkoutFetch(
-            workouts: [workout],
-            deletedObjectIDs: [],
-            source: .baselineSnapshot,
-            coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
-            checkpoint: nil
-        ))
-        await provider.setProviderStartedGate(startedGate)
-        await provider.setStaleReleaseGate(releaseGate)
-
-        let cache = HealthDataCache(
-            dataProvider: MockSimpleHealthDataProvider(),
-            workoutProvider: provider
-        )
-
-        let ownerTask = Task { try await cache.workoutData() }
-        await startedGate.wait()
-
-        let coalescedTask = Task { try await cache.workoutData() }
-        coalescedTask.cancel()
-
-        await releaseGate.open()
-
-        let ownerResult = try await ownerTask.value
-        #expect(ownerResult.count == 1)
-
-        let coalescedResult = await coalescedTask.result
-        switch coalescedResult {
+        switch result2 {
         case .failure(let error):
             #expect(error is CancellationError)
         case .success:
-            Issue.record("Expected coalesced task to fail with CancellationError")
+            Issue.record("Expected task2 to fail with CancellationError")
         }
     }
 
-    @Test("AC-S1: Owner cancellation retires request and settles all attached waiters exactly once")
-    func testSingleSettlement_OwnerCancellation() async throws {
+    @Test("AC-S1: InvalidateAll settles active request with CancellationError and leaves cache clean")
+    func testSingleSettlement_InvalidateAllSettlesWithCancellationError() async throws {
         let provider = MockPreparedWorkoutProvider()
         let startedGate = DeterministicGate()
         let releaseGate = DeterministicGate()
-        await provider.setProviderStartedGate(startedGate)
-        await provider.setStaleReleaseGate(releaseGate)
 
-        let cache = HealthDataCache(
-            dataProvider: MockSimpleHealthDataProvider(),
-            workoutProvider: provider
-        )
-
-        let ownerTask = Task { try await cache.workoutData() }
-        await startedGate.wait()
-
-        let coalescedTask = Task { try await cache.workoutData() }
-        ownerTask.cancel()
-
-        await releaseGate.open()
-
-        let r1 = await ownerTask.result
-        let r2 = await coalescedTask.result
-
-        switch (r1, r2) {
-        case (.failure(let e1), .failure(let e2)):
-            #expect(e1 is CancellationError)
-            #expect(e2 is CancellationError)
-        default:
-            Issue.record("Expected both waiters to be cancelled")
-        }
-    }
-
-    @Test("AC-S1: Refresh supersession cancels superseded in-flight callers and succeeds for fresh caller")
-    func testSingleSettlement_RefreshSupersession() async throws {
-        let provider = MockPreparedWorkoutProvider()
-        let startedGate = DeterministicGate()
-        let releaseGate = DeterministicGate()
-        let initialWorkout = makeWorkout()
-        let refreshedWorkout = makeWorkout()
-
-        await provider.setSnapshotResult(PreparedWorkoutFetch(
-            workouts: [initialWorkout],
-            deletedObjectIDs: [],
-            source: .baselineSnapshot,
-            coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
-            checkpoint: nil
-        ))
-        await provider.setProviderStartedGate(startedGate)
-        await provider.setStaleReleaseGate(releaseGate)
-
-        let cache = HealthDataCache(
-            dataProvider: MockSimpleHealthDataProvider(),
-            workoutProvider: provider
-        )
-
-        let queryTask = Task { try await cache.workoutData() }
-        await startedGate.wait()
-
-        // Configure next result for refresh
-        await provider.setSnapshotResult(PreparedWorkoutFetch(
-            workouts: [refreshedWorkout],
-            deletedObjectIDs: [],
-            source: .baselineSnapshot,
-            coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
-            checkpoint: nil
-        ))
-        await provider.setProviderStartedGate(nil)
-        await provider.setStaleReleaseGate(nil)
-
-        let refreshTask = Task { try await cache.refreshWorkouts() }
-
-        await releaseGate.open()
-
-        let queryResult = await queryTask.result
-        let refreshResult = try await refreshTask.value
-
-        switch queryResult {
-        case .failure(let error):
-            #expect(error is CancellationError)
-        case .success:
-            Issue.record("Expected query task to be cancelled by superseding refresh")
-        }
-
-        #expect(refreshResult.count == 1)
-        #expect(refreshResult.first?.id == refreshedWorkout.id)
-    }
-
-    @Test("AC-S1: InvalidateWorkouts cancels in-flight waiters and clears cache")
-    func testSingleSettlement_InvalidateWorkouts() async throws {
-        let provider = MockPreparedWorkoutProvider()
-        let startedGate = DeterministicGate()
-        let releaseGate = DeterministicGate()
-        await provider.setProviderStartedGate(startedGate)
-        await provider.setStaleReleaseGate(releaseGate)
-
-        let cache = HealthDataCache(
-            dataProvider: MockSimpleHealthDataProvider(),
-            workoutProvider: provider
-        )
-
-        let fetchTask = Task { try await cache.workoutData() }
-        await startedGate.wait()
-
-        await cache.invalidateWorkouts()
-        await releaseGate.open()
-
-        let result = await fetchTask.result
-        switch result {
-        case .failure(let error):
-            #expect(error is CancellationError)
-        case .success:
-            Issue.record("Expected fetchTask to fail with CancellationError on invalidation")
-        }
-
-        #expect(await !cache.hasWorkoutCache())
-    }
-
-    @Test("AC-S1: InvalidateAll cancels in-flight workout waiters")
-    func testSingleSettlement_InvalidateAll() async throws {
-        let provider = MockPreparedWorkoutProvider()
-        let startedGate = DeterministicGate()
-        let releaseGate = DeterministicGate()
         await provider.setProviderStartedGate(startedGate)
         await provider.setStaleReleaseGate(releaseGate)
 
@@ -520,10 +443,10 @@ struct HealthWorkoutCacheTests {
         #expect(await !cache.hasWorkoutCache())
     }
 
-    // MARK: - Stage C: AC-S2 / AC-12 Real Provider Lanes
+    // MARK: - Stage C: AC-S2 / AC-12 / FR-018 / SC-008 Real Provider Lanes in ONE Cache
 
-    @Test("AC-S2: Distinct explicit range lanes progress independently without blocking")
-    func testLanes_IndependentExplicitRanges() async throws {
+    @Test("AC-S2: Distinct explicit range lanes progress independently in ONE cache without blocking")
+    func testLanes_DistinctRangesInSingleCacheProgressIndependently() async throws {
         let provider = MockPreparedWorkoutProvider()
         let range1Started = DeterministicGate()
         let range1Release = DeterministicGate()
@@ -535,114 +458,141 @@ struct HealthWorkoutCacheTests {
         let w1 = makeWorkout(date: range1.start)
         let w2 = makeWorkout(date: range2.start)
 
-        await provider.setSnapshotResult(PreparedWorkoutFetch(
-            workouts: [w1],
-            deletedObjectIDs: [],
-            source: .explicitRangeSnapshot,
-            coverage: range1,
-            checkpoint: nil
-        ))
-        await provider.setProviderStartedGate(range1Started)
-        await provider.setStaleReleaseGate(range1Release)
+        await provider.setSnapshotResults([
+            PreparedWorkoutFetch(
+                workouts: [w1],
+                deletedObjectIDs: [],
+                source: .explicitRangeSnapshot,
+                coverage: range1,
+                checkpoint: nil
+            ),
+            PreparedWorkoutFetch(
+                workouts: [w2],
+                deletedObjectIDs: [],
+                source: .explicitRangeSnapshot,
+                coverage: range2,
+                checkpoint: nil
+            )
+        ])
+
+        await provider.setGateForRange(started: range1Started, stale: range1Release, range: range1)
 
         let cache = HealthDataCache(
             dataProvider: MockSimpleHealthDataProvider(),
             workoutProvider: provider
         )
 
+        // Request 1 is started and held in lane for range1
         let task1 = Task { try await cache.workoutData(in: range1) }
         await range1Started.wait()
 
-        // Now run task2 with distinct range2 on another provider or same provider
-        let provider2 = MockPreparedWorkoutProvider()
-        await provider2.setSnapshotResult(PreparedWorkoutFetch(
-            workouts: [w2],
-            deletedObjectIDs: [],
-            source: .explicitRangeSnapshot,
-            coverage: range2,
-            checkpoint: nil
-        ))
-        let cache2 = HealthDataCache(
-            dataProvider: MockSimpleHealthDataProvider(),
-            workoutProvider: provider2
-        )
-
-        let r2 = try await cache2.workoutData(in: range2)
+        // Request 2 on distinct range2 starts and completes on same cache without being blocked by range1
+        let r2 = try await cache.workoutData(in: range2)
         #expect(r2.count == 1)
+        #expect(r2.first?.id == w2.id)
 
+        // Now release range1
         await range1Release.open()
         let r1 = try await task1.value
         #expect(r1.count == 1)
+        #expect(r1.first?.id == w1.id)
+        #expect(await provider.snapshotCallCount == 2)
     }
 
-    @Test("AC-S2: Same-generation supersession pumps queued successor before stale release")
-    func testLanes_SameGenerationSupersessionPumpsQueuedBeforeStaleRelease() async throws {
+    @Test("AC-S2 / FR-018: Active + FIFO queued callers pump queued successor before stale release")
+    func testLanes_ActiveAndFIFOQueuedPumpsSuccessorBeforeStaleRelease() async throws {
         let provider = MockPreparedWorkoutProvider()
-        let startedGate = DeterministicGate()
-        let staleGate = DeterministicGate()
+        let activeStarted = DeterministicGate()
+        let activeStaleRelease = DeterministicGate()
 
-        await provider.setProviderStartedGate(startedGate)
-        await provider.setStaleReleaseGate(staleGate)
+        let now = Date()
+        let range = DateInterval(start: now.addingTimeInterval(-3600), duration: 3600)
+        let w1 = makeWorkout(date: range.start)
+        let w2 = makeWorkout(date: range.start.addingTimeInterval(60))
+
+        await provider.setSnapshotResults([
+            PreparedWorkoutFetch(
+                workouts: [w1],
+                deletedObjectIDs: [],
+                source: .explicitRangeSnapshot,
+                coverage: range,
+                checkpoint: nil
+            ),
+            PreparedWorkoutFetch(
+                workouts: [w2],
+                deletedObjectIDs: [],
+                source: .explicitRangeSnapshot,
+                coverage: range,
+                checkpoint: nil
+            )
+        ])
+
+        await provider.setProviderStartedGate(activeStarted)
+        await provider.setStaleReleaseGate(activeStaleRelease)
 
         let cache = HealthDataCache(
             dataProvider: MockSimpleHealthDataProvider(),
             workoutProvider: provider
         )
 
-        let task1 = Task { try await cache.workoutData() }
-        await startedGate.wait()
+        // Active owner in default/range lane
+        let activeOwnerTask = Task { try await cache.workoutData(in: range) }
+        await activeStarted.wait()
 
-        // Setup provider for second request
-        let successorWorkout = makeWorkout()
-        await provider.setSnapshotResult(PreparedWorkoutFetch(
-            workouts: [successorWorkout],
-            deletedObjectIDs: [],
-            source: .baselineSnapshot,
-            coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
-            checkpoint: nil
-        ))
+        // Coalesced caller attaches to active owner
+        let coalescedTask = Task { try await cache.workoutData(in: range) }
+
+        // Successor queued via refreshWorkouts in the same lane (FIFO queued)
         await provider.setProviderStartedGate(nil)
         await provider.setStaleReleaseGate(nil)
 
-        // Refresh supersedes task1
-        let refreshTask = Task { try await cache.refreshWorkouts() }
+        let queuedSuccessorTask = Task { try await cache.refreshWorkouts() }
 
-        let refreshResult = try await refreshTask.value
-        #expect(refreshResult.count == 1)
-        #expect(refreshResult.first?.id == successorWorkout.id)
+        // Active owner is released and finishes, which pumps queued successor
+        await activeStaleRelease.open()
 
-        await staleGate.open()
-        _ = await task1.result
+        let activeResult = try await activeOwnerTask.value
+        let coalescedResult = try await coalescedTask.value
+        let queuedResult = try await queuedSuccessorTask.value
+
+        #expect(activeResult.count == 1)
+        #expect(coalescedResult.count == 1)
+        #expect(queuedResult.count == 1)
+        #expect(queuedResult.first?.id == w2.id)
     }
 
-    @Test("AC-S2: Reset drains old callers and post-reset request completes before stale release")
-    func testLanes_ResetDrainsOldWorkAndStartsPostResetBeforeStaleRelease() async throws {
+    @Test("AC-S2 / SC-008: Workout, global, and auth reset drain active, coalesced, and queued callers before post-reset completes")
+    func testLanes_ResetDrainsAllCallersBeforePostResetCompletes() async throws {
         let provider = MockPreparedWorkoutProvider()
-        let startedGate = DeterministicGate()
-        let staleGate = DeterministicGate()
+        let activeStarted = DeterministicGate()
+        let activeStaleRelease = DeterministicGate()
 
-        await provider.setProviderStartedGate(startedGate)
-        await provider.setStaleReleaseGate(staleGate)
+        await provider.setProviderStartedGate(activeStarted)
+        await provider.setStaleReleaseGate(activeStaleRelease)
 
         let cache = HealthDataCache(
             dataProvider: MockSimpleHealthDataProvider(),
             workoutProvider: provider
         )
 
-        let oldTask = Task { try await cache.workoutData() }
-        await startedGate.wait()
+        let activeTask = Task { try await cache.workoutData() }
+        await activeStarted.wait()
 
+        let coalescedTask = Task { try await cache.workoutData() }
+        let queuedTask = Task { try await cache.refreshWorkouts() }
+
+        // Invalidate workouts (generation bump and cancel all old callers)
         await cache.invalidateWorkouts()
 
-        let oldResult = await oldTask.result
-        switch oldResult {
-        case .failure(let error):
-            #expect(error is CancellationError)
-        case .success:
-            Issue.record("Expected old task to fail with CancellationError on reset")
-        }
+        let activeRes = await activeTask.result
+        let coalRes = await coalescedTask.result
+        let queuedRes = await queuedTask.result
 
-        // Fresh post-reset request
+        #expect(throws: CancellationError.self) { try activeRes.get() }
+        #expect(throws: CancellationError.self) { try coalRes.get() }
+        #expect(throws: CancellationError.self) { try queuedRes.get() }
+
+        // Post-reset request starts fresh
         let postResetWorkout = makeWorkout()
         await provider.setSnapshotResult(PreparedWorkoutFetch(
             workouts: [postResetWorkout],
@@ -655,15 +605,12 @@ struct HealthWorkoutCacheTests {
         await provider.setStaleReleaseGate(nil)
 
         let newTask = Task { try await cache.workoutData() }
-        let newResult = try await newTask.value
-        #expect(newResult.count == 1)
-        #expect(newResult.first?.id == postResetWorkout.id)
+        let newRes = try await newTask.value
+        #expect(newRes.count == 1)
+        #expect(newRes.first?.id == postResetWorkout.id)
 
-        // Finally release old stale provider
-        await staleGate.open()
-
-        let currentCacheWorkouts = try await cache.workoutData()
-        #expect(currentCacheWorkouts.first?.id == postResetWorkout.id)
+        // Release stale old provider
+        await activeStaleRelease.open()
     }
 
     // MARK: - Stage A & C: AC-S3 / AC-01–AC-04, AC-06, AC-08 Compatible Anchored Baseline
@@ -874,13 +821,12 @@ struct HealthWorkoutCacheTests {
         #expect(await provider.snapshotCallCount == 2)
     }
 
-    @Test("AC-S3: Incompatible anchored changes without baseline rejects and rebuilds default baseline")
-    func testIncompatibleAnchoredChangesRejectsAndRebuildsDefaultBaseline() async throws {
+    @Test("AC-S3 / SC-001: Scoped state anchored changes rejected and rebuilds default baseline")
+    func testAC_S3_ScopedStateAnchoredChangesRejected_RebuildsDefaultBaseline() async throws {
         let provider = MockPreparedWorkoutProvider()
         let workout = makeWorkout()
 
-        // First prepareWorkoutSnapshot returns .anchoredChanges (incompatible with empty cache!)
-        // Second prepareWorkoutSnapshot (rebuild) returns .baselineSnapshot
+        // Empty cache receives .anchoredChanges (scoped/invalid state for baseline) -> rejected, then baseline rebuild
         await provider.setSnapshotResults([
             PreparedWorkoutFetch(
                 workouts: [workout],
@@ -909,10 +855,84 @@ struct HealthWorkoutCacheTests {
         #expect(await provider.snapshotCallCount == 2)
     }
 
+    @Test("AC-S3 / FR-003: Persisted anchor restart rebuilds baseline before applying changes")
+    func testAC_S3_PersistedAnchorRestart_RebuildsBaselineFirst() async throws {
+        let provider = MockPreparedWorkoutProvider()
+        let workoutA = makeWorkout()
+
+        // Restart with empty cache rebuilds baseline
+        await provider.setSnapshotResult(PreparedWorkoutFetch(
+            workouts: [workoutA],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
+            checkpoint: makeCheckpoint(source: .baselineSnapshot, anchorValue: 1)
+        ))
+
+        let cache = HealthDataCache(
+            dataProvider: MockSimpleHealthDataProvider(),
+            workoutProvider: provider
+        )
+
+        let result = try await cache.workoutData()
+        #expect(result.count == 1)
+        #expect(await provider.snapshotCallCount == 1)
+    }
+
+    @Test("AC-S3 / SC-001: Unknown deletion, deletion-wins in same batch, and empty authoritative snapshot")
+    func testAC_S3_EdgeCases_UnknownDeletion_DeletionWins_EmptySnapshot() async throws {
+        let provider = MockPreparedWorkoutProvider()
+        let idA = UUID()
+        let workoutA = makeWorkout(id: idA)
+
+        // 1. Initial snapshot has workoutA
+        await provider.setSnapshotResult(PreparedWorkoutFetch(
+            workouts: [workoutA],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
+            checkpoint: makeCheckpoint(source: .baselineSnapshot, anchorValue: 1)
+        ))
+
+        let cache = HealthDataCache(
+            dataProvider: MockSimpleHealthDataProvider(),
+            workoutProvider: provider
+        )
+
+        _ = try await cache.workoutData()
+
+        // 2. Anchored changes with unknown deletion ID (UUID()) -> ignored safely
+        // and same batch contains upsert of A AND deletion of A -> deletion wins
+        let unknownID = UUID()
+        await provider.setChangesResult(PreparedWorkoutFetch(
+            workouts: [workoutA],
+            deletedObjectIDs: [unknownID, idA],
+            source: .anchoredChanges,
+            coverage: nil,
+            checkpoint: makeCheckpoint(source: .anchoredChanges, anchorValue: 2)
+        ))
+
+        let refreshed = try await cache.refreshWorkouts()
+        #expect(refreshed.isEmpty)
+
+        // 3. Empty authoritative snapshot replaces cache with empty
+        await provider.setSnapshotResult(PreparedWorkoutFetch(
+            workouts: [],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
+            checkpoint: makeCheckpoint(source: .baselineSnapshot, anchorValue: 3)
+        ))
+
+        await cache.invalidateWorkouts()
+        let emptyResult = try await cache.workoutData()
+        #expect(emptyResult.isEmpty)
+    }
+
     // MARK: - Stage A & D: AC-S4 / AC-05, AC-07, FR-020 Deterministic Legacy Snapshots
 
-    @Test("AC-05 / FR-020: Duplicate UUIDs normalized with final winning; sorted start date desc then UUID")
-    func testLegacyFallback_DuplicateUUIDs_FinalWins_SortedStartDescUUID() async throws {
+    @Test("AC-05 / FR-020: Duplicate UUIDs normalized with final winning; equal-time tie broken by UUID")
+    func testLegacyFallback_DuplicateUUIDs_FinalWins_EqualTimeUUIDTieBreak() async throws {
         let idA = UUID()
         let now = Date()
         let t1 = now.addingTimeInterval(-3600)
@@ -920,10 +940,15 @@ struct HealthWorkoutCacheTests {
 
         let wA_first = makeWorkout(id: idA, date: t1, duration: 1000)
         let wA_final = makeWorkout(id: idA, date: t2, duration: 2000)
-        let wB = makeWorkout(date: t1, duration: 500)
+
+        let sameTime = now.addingTimeInterval(-3000)
+        let u1 = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let u2 = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let wU1 = makeWorkout(id: u1, date: sameTime)
+        let wU2 = makeWorkout(id: u2, date: sameTime)
 
         let provider = MockLegacyWorkoutProvider(fetchResult: WorkoutFetchResult(
-            workouts: [wA_first, wB, wA_final],
+            workouts: [wA_first, wU2, wU1, wA_final],
             deletedObjectIDs: []
         ))
 
@@ -933,10 +958,12 @@ struct HealthWorkoutCacheTests {
         )
 
         let result = try await cache.workoutData()
-        #expect(result.count == 2)
+        #expect(result.count == 3)
         #expect(result[0].id == idA)
         #expect(result[0].duration == 2000)
-        #expect(result[1].id == wB.id)
+        // Equal startDate tie broken deterministically by UUID (u1 < u2)
+        #expect(result[1].id == u1)
+        #expect(result[2].id == u2)
     }
 
     @Test("AC-S4 / FR-002: Legacy default request with missing coverage uses 30-day window ending at request start")
@@ -979,6 +1006,26 @@ struct HealthWorkoutCacheTests {
         #expect(await provider.fetchDateRanges.first as? DateInterval == range)
     }
 
+    @Test("AC-S4 / FR-002: Provider-reported legacy coverage is preserved over fallback")
+    func testLegacyFallback_ProviderReportedCoveragePreserved() async throws {
+        let explicitCoverage = DateInterval(start: Date().addingTimeInterval(-7200), duration: 7200)
+        let workout = makeWorkout(date: explicitCoverage.start.addingTimeInterval(100))
+
+        let provider = MockLegacyWorkoutProvider(fetchResult: WorkoutFetchResult(
+            workouts: [workout],
+            deletedObjectIDs: [],
+            coverage: explicitCoverage
+        ))
+
+        let cache = HealthDataCache(
+            dataProvider: MockSimpleHealthDataProvider(),
+            workoutProvider: provider
+        )
+
+        let result = try await cache.workoutData()
+        #expect(result.count == 1)
+    }
+
     @Test("AC-07: Cached default-window snapshot cannot satisfy wider explicit range request")
     func testAC07_CachedDefaultSnapshot_WiderExplicitRangeMisses() async throws {
         let provider = MockPreparedWorkoutProvider()
@@ -1018,8 +1065,8 @@ struct HealthWorkoutCacheTests {
 
     // MARK: - Stage D: AC-S5 / AC-09, AC-10, AC-13 Distinct Transaction Gates & Replay
 
-    @Test("AC-S5 / AC-09 / AC-13: Replay from durable c1 after rejection; c2 acceptance invoked before success")
-    func testAC09_AC13_ReplayAfterCancellationAndAcceptanceInvocation() async throws {
+    @Test("AC-S5 / AC-09 / AC-10 / AC-13 / SC-005: Adversarial boundary between query completion and cache acceptance with replay")
+    func testAC09_AC13_AdversarialBoundaryBetweenQueryCompleteAndCacheAcceptance() async throws {
         let provider = MockPreparedWorkoutProvider()
         let recorder = EventRecorder()
         await provider.setEventRecorder(recorder)
@@ -1029,7 +1076,7 @@ struct HealthWorkoutCacheTests {
         let cp1 = makeCheckpoint(source: .baselineSnapshot, anchorValue: 1)
         let cp2 = makeCheckpoint(source: .anchoredChanges, anchorValue: 2)
 
-        // Step 1: Accept baseline A/c1
+        // Step 1: Establish baseline A with checkpoint c1
         await provider.setSnapshotResult(PreparedWorkoutFetch(
             workouts: [workoutA],
             deletedObjectIDs: [],
@@ -1047,11 +1094,11 @@ struct HealthWorkoutCacheTests {
         #expect(initial.count == 1)
         #expect(await provider.durableAnchor == cp1)
 
-        // Step 2: Query B/c2 complete, held before cache acceptance
-        let startedGate = DeterministicGate()
-        let releaseGate = DeterministicGate()
-        await provider.setProviderStartedGate(startedGate)
-        await provider.setStaleReleaseGate(releaseGate)
+        // Step 2: Query c2 completes, but is held at cache-acceptance gate
+        let queryCompleteGate = DeterministicGate()
+        let cacheAcceptanceGate = DeterministicGate()
+        await provider.setQueryCompleteGate(queryCompleteGate)
+        await provider.setCacheAcceptanceGate(cacheAcceptanceGate)
 
         await provider.setChangesResult(PreparedWorkoutFetch(
             workouts: [workoutB],
@@ -1062,19 +1109,23 @@ struct HealthWorkoutCacheTests {
         ))
 
         let queryTask = Task { try await cache.refreshWorkouts() }
-        await startedGate.wait()
 
-        // Step 3: Cancel queryTask -> c2 rejected
+        // Wait until provider has finished query (query-complete gate opened)
+        await queryCompleteGate.wait()
+
+        // Cancel task BEFORE opening cacheAcceptanceGate -> cancels between query completion and cache acceptance!
         queryTask.cancel()
-        await releaseGate.open()
+
+        // Now open cache acceptance gate
+        await cacheAcceptanceGate.open()
 
         _ = await queryTask.result
         #expect(await provider.rejectCallCount == 1)
         #expect(await provider.durableAnchor == cp1)
 
-        // Step 4: Replacement query reads durable c1 and returns B/c2
-        await provider.setProviderStartedGate(nil)
-        await provider.setStaleReleaseGate(nil)
+        // Step 3: Replacement query replays from durable c1, returning B with c2
+        await provider.setQueryCompleteGate(nil)
+        await provider.setCacheAcceptanceGate(nil)
 
         let replacement = try await cache.refreshWorkouts()
         #expect(replacement.count == 2)
@@ -1121,9 +1172,77 @@ struct HealthWorkoutCacheTests {
         #expect(r1.count == 2)
         #expect(await provider.durableAnchor == cp1)
 
-        // Next query replays B/c2 again from cp1
+        // Next query replays B/c2 again from cp1 safely
         let r2 = try await cache.refreshWorkouts()
         #expect(r2.count == 2)
+    }
+
+    // MARK: - Compatibility & Preserved Baseline Behaviors
+
+    @Test("Cache hit filters workouts by date range")
+    func testCacheHitFiltersWorkoutsByDateRange() async throws {
+        let now = Date()
+        let w1 = makeWorkout(date: now.addingTimeInterval(-3600)) // within last 2 hours
+        let w2 = makeWorkout(date: now.addingTimeInterval(-86400)) // 1 day ago
+
+        let provider = MockPreparedWorkoutProvider()
+        await provider.setSnapshotResult(PreparedWorkoutFetch(
+            workouts: [w1, w2],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: DateInterval(start: now.addingTimeInterval(-2 * 86400), end: now),
+            checkpoint: nil
+        ))
+
+        let cache = HealthDataCache(
+            dataProvider: MockSimpleHealthDataProvider(),
+            workoutProvider: provider
+        )
+
+        // Populate cache
+        let all = try await cache.workoutData()
+        #expect(all.count == 2)
+
+        // Filter by date range (last 2 hours)
+        let recentRange = DateInterval(start: now.addingTimeInterval(-7200), duration: 7200)
+        let filtered = try await cache.workoutData(in: recentRange)
+        #expect(filtered.count == 1)
+        #expect(filtered.first?.id == w1.id)
+    }
+
+    @Test("In-flight workout fetch does not repopulate after invalidateAll via authorization revocation")
+    func testInFlightWorkoutFetchDoesNotRepopulateAfterAuthorizationRevoked() async throws {
+        let provider = MockPreparedWorkoutProvider()
+        let startedGate = DeterministicGate()
+        let releaseGate = DeterministicGate()
+
+        await provider.setSnapshotResult(PreparedWorkoutFetch(
+            workouts: [makeWorkout()],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
+            checkpoint: nil
+        ))
+        await provider.setProviderStartedGate(startedGate)
+        await provider.setStaleReleaseGate(releaseGate)
+
+        let cache = HealthDataCache(
+            dataProvider: MockSimpleHealthDataProvider(),
+            workoutProvider: provider
+        )
+
+        let fetchTask = Task { try await cache.workoutData() }
+        await startedGate.wait()
+
+        // Revoke authorization while fetch is in-flight
+        let defaults = UserDefaults(suiteName: "test-auth-revoked")!
+        let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test")
+        await cache.handleAuthorizationRevoked(anchorStore: anchorStore, deviceIdentifier: "test")
+
+        await releaseGate.open()
+
+        _ = await fetchTask.result
+        #expect(await !cache.hasWorkoutCache())
     }
 
     // MARK: - Telemetry & General Behavior

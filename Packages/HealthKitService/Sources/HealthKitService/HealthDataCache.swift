@@ -25,8 +25,8 @@ extension HealthKitService: WorkoutDataProviding {}
 protocol PreparedWorkoutDataProviding: Sendable {
     func prepareWorkoutSnapshot(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch
     func prepareWorkoutChanges(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch
-    func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) async
-    func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) async
+    func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch)
+    func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch)
 }
 
 extension HealthKitService: PreparedWorkoutDataProviding {}
@@ -63,7 +63,7 @@ public actor HealthDataCache {
         let fetchedAt: Date
     }
 
-    public enum WorkoutEntryProvenance: Sendable, Equatable {
+    private enum WorkoutEntryProvenance: Sendable, Equatable {
         case defaultBaseline
         case scopedRange(DateInterval)
     }
@@ -982,12 +982,16 @@ public actor HealthDataCache {
 
         let task = Task { [provider] in
             do {
-                let prepared: PreparedWorkoutFetch
+                var prepared: PreparedWorkoutFetch
                 if let preparedProvider = provider as? (any PreparedWorkoutDataProviding) {
                     let attemptAnchored = self.shouldAttemptAnchoredChanges(for: req)
                     if attemptAnchored {
                         prepared = try await preparedProvider.prepareWorkoutChanges(dateRange: req.key.dateRange)
                     } else {
+                        prepared = try await preparedProvider.prepareWorkoutSnapshot(dateRange: req.key.dateRange)
+                    }
+                    if prepared.source == .anchoredChanges && !attemptAnchored {
+                        preparedProvider.rejectPreparedWorkoutFetch(prepared)
                         prepared = try await preparedProvider.prepareWorkoutSnapshot(dateRange: req.key.dateRange)
                     }
                 } else {
@@ -1002,7 +1006,7 @@ public actor HealthDataCache {
                     )
                 }
 
-                await self.handleWorkoutFetchSuccess(
+                self.handleWorkoutFetchSuccess(
                     requestID: requestID,
                     prepared: prepared,
                     provider: provider,
@@ -1039,58 +1043,35 @@ public actor HealthDataCache {
         start: ContinuousClock.Instant,
         signpostID: OSSignpostID,
         signpostState: OSSignpostIntervalState
-    ) async {
+    ) {
         guard let req = workoutRequests[requestID], req.generation == workoutGeneration else {
             if let prep = provider as? (any PreparedWorkoutDataProviding) {
-                await prep.rejectPreparedWorkoutFetch(prepared)
+                prep.rejectPreparedWorkoutFetch(prepared)
             }
             return
         }
 
         guard workoutLanes[req.laneID]?.activeRequestID == requestID else {
             if let prep = provider as? (any PreparedWorkoutDataProviding) {
-                await prep.rejectPreparedWorkoutFetch(prepared)
+                prep.rejectPreparedWorkoutFetch(prepared)
             }
             return
         }
 
-        var actualPrepared = prepared
-        if actualPrepared.source == .anchoredChanges {
+        if prepared.source == .anchoredChanges {
             guard let prior = workoutCache, prior.provenance == .defaultBaseline else {
                 if let prep = provider as? (any PreparedWorkoutDataProviding) {
-                    await prep.rejectPreparedWorkoutFetch(actualPrepared)
-                    do {
-                        actualPrepared = try await prep.prepareWorkoutSnapshot(dateRange: req.key.dateRange)
-                    } catch {
-                        handleWorkoutFetchFailure(
-                            requestID: requestID,
-                            error: error,
-                            provider: provider,
-                            start: start,
-                            signpostID: signpostID,
-                            signpostState: signpostState
-                        )
-                        return
-                    }
-                } else {
-                    return
+                    prep.rejectPreparedWorkoutFetch(prepared)
                 }
-                return await handleWorkoutFetchSuccess(
-                    requestID: requestID,
-                    prepared: actualPrepared,
-                    provider: provider,
-                    start: start,
-                    signpostID: signpostID,
-                    signpostState: signpostState
-                )
+                return
             }
         }
 
         let newEntry: WorkoutCacheEntry
-        switch actualPrepared.source {
+        switch prepared.source {
         case .baselineSnapshot:
-            let normalized = Self.normalizeAndSortWorkouts(actualPrepared.workouts)
-            let coverage = actualPrepared.coverage ?? DateInterval(
+            let normalized = Self.normalizeAndSortWorkouts(prepared.workouts)
+            let coverage = prepared.coverage ?? DateInterval(
                 start: req.requestStartInstant.addingTimeInterval(-30 * 86400),
                 end: req.requestStartInstant
             )
@@ -1098,12 +1079,12 @@ public actor HealthDataCache {
                 workouts: normalized,
                 coveredRange: coverage,
                 provenance: .defaultBaseline,
-                candidate: actualPrepared.checkpoint
+                candidate: prepared.checkpoint
             )
 
         case .explicitRangeSnapshot:
-            let normalized = Self.normalizeAndSortWorkouts(actualPrepared.workouts)
-            let coverage = actualPrepared.coverage ?? (req.key.dateRange ?? DateInterval(
+            let normalized = Self.normalizeAndSortWorkouts(prepared.workouts)
+            let coverage = prepared.coverage ?? (req.key.dateRange ?? DateInterval(
                 start: req.requestStartInstant.addingTimeInterval(-30 * 86400),
                 end: req.requestStartInstant
             ))
@@ -1125,24 +1106,24 @@ public actor HealthDataCache {
             }
             let reconciled = Self.reconcileAnchoredWorkouts(
                 prior: prior.workouts,
-                upserts: actualPrepared.workouts,
-                deletions: actualPrepared.deletedObjectIDs
+                upserts: prepared.workouts,
+                deletions: prepared.deletedObjectIDs
             )
             newEntry = WorkoutCacheEntry(
                 workouts: reconciled,
                 coveredRange: prior.coveredRange,
                 provenance: .defaultBaseline,
-                candidate: actualPrepared.checkpoint
+                candidate: prepared.checkpoint
             )
         }
 
         self.workoutCache = newEntry
 
         if let _ = newEntry.candidate,
-           actualPrepared.source != .explicitRangeSnapshot,
+           prepared.source != .explicitRangeSnapshot,
            let prep = provider as? (any PreparedWorkoutDataProviding)
         {
-            await prep.acceptPreparedWorkoutFetch(actualPrepared)
+            prep.acceptPreparedWorkoutFetch(prepared)
         }
 
         signposter.endInterval("healthkit_workout_fetch", signpostState)
@@ -1289,12 +1270,7 @@ public actor HealthDataCache {
             req.waiterIDs.remove(waiterID)
             workoutRequests[waiter.requestID] = req
         }
-        switch result {
-        case .success(let workouts):
-            waiter.continuation.resume(returning: workouts)
-        case .failure(let error):
-            waiter.continuation.resume(throwing: error)
-        }
+        waiter.continuation.resume(with: result)
     }
 
     private func settleWaiters(
