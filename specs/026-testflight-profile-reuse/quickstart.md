@@ -38,13 +38,15 @@ After the candidate regression has been authored but before the T002 Fastfile/wo
     red_status=$?
   fi
   awk '{ print }' "$red_log"
-  test "$red_status" -ne 0 || exit 1
+  test "$red_status" -eq 1 || exit 1
+  test "$(rg -c '^FAIL: ' "$red_log")" -eq 2 || exit 1
   rg -F 'HISTORICAL_FIXED_PROFILE_NAMES_REJECTED' "$red_log" >/dev/null || exit 1
   rg -F 'HISTORICAL_ACTION_RETURN_FALLBACK_REJECTED' "$red_log" >/dev/null || exit 1
+  test "$(rg -F -x -c 'FAILED (failures=2)' "$red_log")" -eq 1 || exit 1
 )
 ```
 
-Expected: the candidate suite exits nonzero and its captured unittest output includes both stable assertion markers: `HISTORICAL_FIXED_PROFILE_NAMES_REJECTED` for the fixed-name project configuration and `HISTORICAL_ACTION_RETURN_FALLBACK_REJECTED` for the Fastfile fallback. The guarded setup and marker checks reject archive, extraction, copy, import, fixture, and unrelated failures. The only deleted path is the non-empty temporary directory returned by successful `mktemp`.
+Expected: the historical full-module run exits with unittest status 1, reports exactly two `FAIL:` records, includes the two stable markers reserved exclusively for the intended fixed-name and action-return-fallback assertions, and ends with exactly `FAILED (failures=2)`. Any additional failure, error, skip, expected failure, unexpected success, archive/extraction/copy/import/setup failure, or fixture failure changes that exact shape and is rejected. The only deleted path is the non-empty temporary directory returned by successful `mktemp`; run the separate full-module final-green command only in the repaired working tree.
 
 ## Final focused credential-free regression
 

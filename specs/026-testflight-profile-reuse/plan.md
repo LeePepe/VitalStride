@@ -199,13 +199,15 @@ Run implementation verification from the repository root. After the candidate re
     red_status=$?
   fi
   awk '{ print }' "$red_log"
-  test "$red_status" -ne 0 || exit 1
+  test "$red_status" -eq 1 || exit 1
+  test "$(rg -c '^FAIL: ' "$red_log")" -eq 2 || exit 1
   rg -F 'HISTORICAL_FIXED_PROFILE_NAMES_REJECTED' "$red_log" >/dev/null || exit 1
   rg -F 'HISTORICAL_ACTION_RETURN_FALLBACK_REJECTED' "$red_log" >/dev/null || exit 1
+  test "$(rg -F -x -c 'FAILED (failures=2)' "$red_log")" -eq 1 || exit 1
 )
 ```
 
-The candidate assertions use stable markers `HISTORICAL_FIXED_PROFILE_NAMES_REJECTED` and `HISTORICAL_ACTION_RETURN_FALLBACK_REJECTED`. The guarded command accepts red proof only when the unittest run is nonzero and both markers appear; a setup, import, fixture, or unrelated error therefore fails the proof. Then run the separate final-green commands against the repaired working tree:
+The two stable markers are reserved exclusively for the intended historical fixed-name and action-return-fallback assertions. The guarded full-module run is accepted only when unittest returns status 1, reports exactly two `FAIL:` records, includes both markers, and ends with exactly `FAILED (failures=2)`. Any additional failure, error, skip, expected failure, unexpected success, setup/import failure, or fixture failure therefore fails closed. Then run the separate full-module final-green commands against the repaired working tree:
 
 1. Focused credential-free contract:
    `python3 -B -m unittest scripts.tests.test_testflight_freshness`

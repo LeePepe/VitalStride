@@ -47,7 +47,7 @@ description: "Layer-scoped task graph for TestFlight in-run profile reuse"
 | Files out of scope | `project.yml` and generated project; other workflows; `scripts/test-repoinfra.sh`; other scripts/tests; product/app/package paths; secrets/security config; upload/distribution/tag behavior |
 | Interface impact | Consumes the two T001 keys. Resolves the existing canonical app/widget profile-name sources once; rejects absent/nil and whitespace-only values through a validation-only stripped view; shell-safely transports each original nonblank raw value verbatim to archive; and reuses the same original variables in export. Removes the action-return fallback. No workflow input or public product signature change. |
 | Task-local acceptance | In a separate RepoInfra commit after T001, add tests before T002 production edits. Use the exact immutable-base overlay procedure below to demonstrate that the full historical fixed-name/fallback state violates the candidate test without reverting T001. Preserve the existing four freshness cases; both forced installed fetches remain; absent/nil, whitespace-only, and equal preserved raw values fail before `build_app`; distinct nonblank names with leading/trailing/embedded whitespace or shell-significant characters are preserved verbatim, shell-safe, and target-correct; export reuses archive variables; no fixed name, fallback, global profile override, credential read, signing, upload, or external mutation occurs in tests. |
-| Verification | From repo root, first run and capture the immutable-base historical-red procedure below; require nonzero for both fixed-name and action-fallback assertions, not import/fixture failure. Then run final green separately: `python3 -B -m unittest scripts.tests.test_testflight_freshness`; `ruby -c fastlane/Fastfile`; `bash scripts/test-repoinfra.sh`; `git diff --check` |
+| Verification | From repo root, first run and capture the immutable-base historical-red procedure below; require status 1, exactly two `FAIL:` records, both reserved markers, and exact terminal summary `FAILED (failures=2)`. Then run final green separately: `python3 -B -m unittest scripts.tests.test_testflight_freshness`; `ruby -c fastlane/Fastfile`; `bash scripts/test-repoinfra.sh`; `git diff --check` |
 | Blocking edges | Depends on T001's exact two-key interface. Blocks T003. |
 
 #### T002 ordered historical-red procedure
@@ -86,13 +86,15 @@ After authoring `scripts/tests/test_testflight_freshness.py` but before changing
     red_status=$?
   fi
   awk '{ print }' "$red_log"
-  test "$red_status" -ne 0 || exit 1
+  test "$red_status" -eq 1 || exit 1
+  test "$(rg -c '^FAIL: ' "$red_log")" -eq 2 || exit 1
   rg -F 'HISTORICAL_FIXED_PROFILE_NAMES_REJECTED' "$red_log" >/dev/null || exit 1
   rg -F 'HISTORICAL_ACTION_RETURN_FALLBACK_REJECTED' "$red_log" >/dev/null || exit 1
+  test "$(rg -F -x -c 'FAILED (failures=2)' "$red_log")" -eq 1 || exit 1
 )
 ```
 
-The candidate assertions must emit stable markers `HISTORICAL_FIXED_PROFILE_NAMES_REJECTED` and `HISTORICAL_ACTION_RETURN_FALLBACK_REJECTED`. The guarded command accepts red proof only when the unittest run is nonzero and both markers appear; setup, import, fixture, and unrelated failures are rejected. The overlay exports all three inspected production surfaces from the immutable source base, so T001 remains applied in the real working tree and the AppUI→RepoInfra order is preserved. Run the final-green commands in the repaired working tree only after the RepoInfra edits.
+The two stable markers are reserved exclusively for the intended historical fixed-name and action-return-fallback assertions. The guard accepts red proof only when unittest returns its test-failure status, reports exactly two `FAIL:` records, includes both reserved markers, and ends with exactly `FAILED (failures=2)`. Any additional failure, error, skip, expected failure, unexpected success, setup/import failure, or fixture failure changes that exact result shape and rejects the proof. The overlay exports all three inspected production surfaces from the immutable source base, so T001 remains applied in the real working tree and the AppUI→RepoInfra order is preserved. Run the separate full-module final-green commands in the repaired working tree only after the RepoInfra edits.
 
 **Checkpoint**: US1 is independently demonstrable without ASC access: the contract test is green, XcodeGen is synchronized, Fastfile syntax is valid, and the unsigned Release build succeeds.
 
