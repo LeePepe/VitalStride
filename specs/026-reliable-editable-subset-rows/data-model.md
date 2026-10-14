@@ -22,7 +22,7 @@ No persisted entity, field, relationship, enum case, migration, or CloudKit rule
 
 ### Row identity/configuration
 
-Immutable, app-internal presentation data that distinguishes a standard/working row from a pyramid/drop-set row. It carries only the displayed identity needed by the one shared production composition: main/parent number and existing set type. It is not persisted and owns no controls.
+Immutable, app-internal presentation data that distinguishes a standard/working row from a pyramid/drop-set row. It carries displayed main/parent number, existing set type, stable acceptance identity, and capabilities consumed by the one shared production composition. Main rows enable existing history/add-child behavior and SetType choices; child rows disable history/add-child behavior and non-child SetType choices while retaining pyramid/drop-set subtype, RPE, unilateral and copy behavior. It is not persisted and owns no controls.
 
 ### Delete request result
 
@@ -49,6 +49,8 @@ actual menu/full swipe
           -> package refusal (unchanged; no effects/focus)
           -> package success (undo + announcement + callback; return focus)
 ```
+
+The production-reachable refusal fixture has one main row and its sole child. The main menu is visible because two rows exist; confirmation accepts the existing cascade; the package manager then refuses the zero-row result.
 
 ## Explicit Non-Changes
 

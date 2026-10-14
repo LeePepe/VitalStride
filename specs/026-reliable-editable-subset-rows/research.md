@@ -52,7 +52,7 @@
 
 ## Decision 5 — Measure actual frames in one app coordinate space
 
-**Decision**: Query actual production delete-access elements for adjacent standard, pyramid, and drop-set rows using `XCUIElement.frame` after one shared layout pass.
+**Decision**: Query each actual production action-menu trigger for adjacent standard, pyramid, and drop-set rows using `XCUIElement.frame` after one shared layout pass. The destructive menu items remain separate activation/identity evidence because all three cannot be open simultaneously.
 
 **Evidence**: Existing tests pin a 44-point constant, and stopped recovery evidence used synthesized sequential rectangles or whole-row proxies. Neither detects overhang or neighboring hit/accessibility intersections.
 
@@ -60,22 +60,35 @@
 
 - Reconstruct CGRect values from row height/order: synthetic evidence.
 - Host rows in separate controllers: no shared coordinate space or neighboring intersection.
-- Measure the whole row: does not identify the actual interactive delete-access control.
+- Measure the whole row: does not identify the actual interactive action-menu trigger.
 - Screenshot-only validation: useful visual evidence but not exact hit/accessibility geometry.
 
 ## Decision 6 — Compose only cataloged production labels
 
-**Decision**: Build the actual destructive entry from existing cataloged parent/type identity and delete action. Keep `Localizable.xcstrings` unchanged.
+**Decision**: Build the actual destructive entry from the translated `删除` and `第 %lld 组` app-catalog values plus `SetType.displayName` from the VitalModels catalog. Compose localized fragments directly; do not feed the result back into localization lookup. Keep both catalogs unchanged.
 
-**Evidence**: The catalog contains sub-set identity formats, type names, and the generic delete action. Current `SubSetRow` also contains derived interpolated accessibility strings absent from the catalog, so production composition—not helper-only string testing—must be acceptance evidence.
+**Evidence**: `删除` and `第 %lld 组` are translated in English and Simplified Chinese, and the package catalog translates pyramid/drop-set type names. The combined `第 %lld 组%@子组，%@` app entry exists but its English value is still untranslated, so it is explicitly not sufficient. Current `SubSetRow` also contains derived interpolated accessibility strings absent from the catalog; production label/value composition—not helper-only string testing—must be acceptance evidence.
 
 **Alternatives rejected**:
 
 - Use interpolation as a localization key: creates an uncataloged runtime key.
+- Use the untranslated combined catalog entry: fails the English identity contract.
 - Add new keys: unnecessary expansion under the accepted no-catalog-change boundary.
 - Assert a standalone helper string: does not prove the production menu entry uses it.
 
-## Decision 7 — Keep one vertical task
+## Decision 7 — Make shared actions explicit without inventing nested children
+
+**Decision**: The one row implementation exposes delete, SetType and RPE menu controls for every row. The child SetType picker is constrained to pyramid/drop-set, and acceptance exercises RPE plus switching between those child types. The same numeric keyboard keeps unilateral editing and copy for children, but add-pyramid/add-drop remain main-row-only.
+
+**Evidence**: This gives children the requested shared editable/menu/completion experience while preserving the repository's flat main-plus-consecutive-children model. Calling the existing add-child path with a child as if it were a parent would introduce an undefined nested-child product behavior outside the Owner decision.
+
+**Alternatives rejected**:
+
+- Offer add-pyramid/add-drop on children: invents nested/sibling semantics not authorized by the package model or Owner decision.
+- Remove SetType/RPE from the child menu: retains a behaviorally separate menu and fails shared-menu acceptance.
+- Offer working/warmup in the child picker: can promote/detach a child and split the parent run; any promotion workflow is outside this Owner decision.
+
+## Decision 8 — Keep one vertical task
 
 **Decision**: One T001 owns RED, implementation, focused/full verification, and visual evidence.
 

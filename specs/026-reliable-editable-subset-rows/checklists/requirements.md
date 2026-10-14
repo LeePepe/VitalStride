@@ -20,11 +20,14 @@
 - [x] Every requirement is testable and unambiguous.
 - [x] AC-001 through AC-011 are stable acceptance identifiers.
 - [x] AC-001/AC-002 prohibit direct stored-closure evidence and require actual UI activation.
-- [x] AC-006 requires actual adjacent frames in one coordinate space and excludes proxy/synthetic evidence.
-- [x] AC-007 requires catalog-backed production labels, not helper-only strings.
+- [x] AC-006 names actual adjacent action-menu triggers in one coordinate space and excludes swipe/proxy/synthetic evidence.
+- [x] AC-007 names the exact translated catalog fragments, rejects the untranslated combined entry, and requires English/zh-Hans production evidence.
 - [x] AC-005 assigns success effects to the request seam and presentation setters to the view via return values only.
 - [x] AC-003/AC-004 distinguish success, undo and refusal side effects.
-- [x] AC-008 requires actual shared weight/reps/menu/completion composition and production copy wiring.
+- [x] AC-008 requires actual shared weight/reps/menu/completion composition and explicit subtype/RPE/unilateral/copy/main-only-add action effects.
+- [x] AC-004 uses a production-reachable one-parent/one-child cascade refusal rather than a hidden only-row delete affordance.
+- [x] AC-010 forbids new child-row history/smart-progression queries.
+- [x] Focused verification regenerates explicit Xcode project file/build entries ephemerally before testing and removes them before candidate freeze.
 - [x] Success criteria are measurable without implementation-specific source-text assertions.
 - [x] Edge cases cover repeat requests, confirmation, first/last sub-set, copy and compact layout.
 - [x] Scope and non-goals preserve package ownership and repository red lines.
