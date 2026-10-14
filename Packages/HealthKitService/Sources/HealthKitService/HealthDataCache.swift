@@ -20,6 +20,17 @@ public protocol WorkoutDataProviding: Sendable {
 
 extension HealthKitService: WorkoutDataProviding {}
 
+// MARK: - PreparedWorkoutDataProviding
+
+protocol PreparedWorkoutDataProviding: Sendable {
+    func prepareWorkoutSnapshot(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch
+    func prepareWorkoutChanges(dateRange: DateInterval?) async throws -> PreparedWorkoutFetch
+    func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) async
+    func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) async
+}
+
+extension HealthKitService: PreparedWorkoutDataProviding {}
+
 // MARK: - AvailableTypesProbing
 
 public protocol AvailableTypesProbing: Sendable {
@@ -52,9 +63,70 @@ public actor HealthDataCache {
         let fetchedAt: Date
     }
 
-    private struct WorkoutCacheEntry {
+    public enum WorkoutEntryProvenance: Sendable, Equatable {
+        case defaultBaseline
+        case scopedRange(DateInterval)
+    }
+
+    private struct WorkoutCacheEntry: Sendable {
         let workouts: [HealthWorkoutRecord]
         let coveredRange: DateInterval?
+        let provenance: WorkoutEntryProvenance
+        let candidate: WorkoutAnchorCheckpoint?
+    }
+
+    private struct WorkoutRequestID: Hashable, Sendable {
+        let rawValue: UUID
+        init() { self.rawValue = UUID() }
+    }
+
+    private struct WorkoutWaiterID: Hashable, Sendable {
+        let rawValue: UUID
+        init() { self.rawValue = UUID() }
+    }
+
+    private enum WorkoutLaneID: Hashable, Sendable {
+        case defaultAnchor
+        case explicitRange(DateInterval)
+    }
+
+    private enum WorkoutFetchSemantic: Hashable, Sendable {
+        case query
+        case refresh
+    }
+
+    private struct WorkoutFetchKey: Hashable, Sendable {
+        let semantic: WorkoutFetchSemantic
+        let dateRange: DateInterval?
+    }
+
+    private enum WorkoutWaiterRole: Sendable {
+        case owner
+        case coalesced
+    }
+
+    private struct WorkoutWaiter: Sendable {
+        let id: WorkoutWaiterID
+        let requestID: WorkoutRequestID
+        let role: WorkoutWaiterRole
+        let continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>
+    }
+
+    private struct WorkoutRequest: Sendable {
+        let id: WorkoutRequestID
+        let key: WorkoutFetchKey
+        let laneID: WorkoutLaneID
+        let generation: UInt64
+        let requestStartInstant: Date
+        let isRefresh: Bool
+        var task: Task<Void, Never>?
+        var ownerWaiterID: WorkoutWaiterID
+        var waiterIDs: Set<WorkoutWaiterID>
+    }
+
+    private struct WorkoutLane: Sendable {
+        var activeRequestID: WorkoutRequestID?
+        var queuedRequestIDs: [WorkoutRequestID] = []
     }
 
     private struct FetchKey: Hashable {
@@ -97,7 +169,11 @@ public actor HealthDataCache {
     private var refreshCounts: [HealthSampleType: Int] = [:]
 
     private var workoutCache: WorkoutCacheEntry?
-    private var workoutInFlightFetch: Task<[HealthWorkoutRecord], any Error>?
+    private var workoutGeneration: UInt64 = 0
+    private var workoutRequests: [WorkoutRequestID: WorkoutRequest] = [:]
+    private var workoutWaiters: [WorkoutWaiterID: WorkoutWaiter] = [:]
+    private var cancelledWorkoutWaiterIDs: Set<WorkoutWaiterID> = []
+    private var workoutLanes: [WorkoutLaneID: WorkoutLane] = [:]
     private let workoutProvider: (any WorkoutDataProviding)?
     private var workoutHitCount: Int = 0
     private var workoutMissCount: Int = 0
@@ -287,9 +363,7 @@ public actor HealthDataCache {
         backgroundRefreshTasks = [:]
         for task in persistTasks.values { task.cancel() }
         persistTasks = [:]
-        workoutCache = nil
-        workoutInFlightFetch?.cancel()
-        workoutInFlightFetch = nil
+        performWorkoutReset()
         availableTypes = nil
         availableTypesFetchedAt = nil
         availableTypesProbeTask?.cancel()
@@ -418,12 +492,25 @@ public actor HealthDataCache {
             return []
         }
 
-        if let entry = workoutCache, Self.coversRange(entry.coveredRange, requested: dateRange) {
-            workoutHitCount += 1
-            logger.info(
-                "healthkit_workout_cache_hit total=\(self.workoutHitCount)"
-            )
-            return Self.filteredWorkouts(entry.workouts, by: dateRange)
+        if let entry = workoutCache {
+            let isHit: Bool
+            if let dateRange {
+                if let covered = entry.coveredRange {
+                    isHit = covered.start <= dateRange.start && covered.end >= dateRange.end
+                } else {
+                    isHit = false
+                }
+            } else {
+                isHit = (entry.provenance == .defaultBaseline)
+            }
+
+            if isHit {
+                workoutHitCount += 1
+                logger.info(
+                    "healthkit_workout_cache_hit total=\(self.workoutHitCount)"
+                )
+                return Self.filteredWorkouts(entry.workouts, by: dateRange)
+            }
         }
 
         workoutMissCount += 1
@@ -431,8 +518,11 @@ public actor HealthDataCache {
             "healthkit_workout_cache_miss total=\(self.workoutMissCount)"
         )
 
-        let workouts = try await fetchWorkoutCoalesced(dateRange: dateRange, provider: workoutProvider)
-        return Self.filteredWorkouts(workouts, by: dateRange)
+        return try await executeWorkoutTransaction(
+            semantic: .query,
+            dateRange: dateRange,
+            provider: workoutProvider
+        )
     }
 
     // MARK: - Workout Refresh
@@ -444,25 +534,38 @@ public actor HealthDataCache {
             return []
         }
 
-        workoutInFlightFetch?.cancel()
-        workoutInFlightFetch = nil
-
         workoutRefreshCount += 1
         logger.info(
             "healthkit_workout_cache_refresh total=\(self.workoutRefreshCount)"
         )
 
-        let workouts = try await performWorkoutFetch(dateRange: dateRange, provider: workoutProvider)
-        return Self.filteredWorkouts(workouts, by: dateRange)
+        return try await executeWorkoutTransaction(
+            semantic: .refresh,
+            dateRange: dateRange,
+            provider: workoutProvider
+        )
     }
 
     // MARK: - Workout Invalidation
 
     public func invalidateWorkouts() {
-        workoutCache = nil
-        workoutInFlightFetch?.cancel()
-        workoutInFlightFetch = nil
+        performWorkoutReset()
         logger.info("workout cache invalidated")
+    }
+
+    private func performWorkoutReset() {
+        workoutGeneration &+= 1
+        workoutCache = nil
+        cancelledWorkoutWaiterIDs.removeAll()
+
+        for req in workoutRequests.values {
+            req.task?.cancel()
+        }
+        let allWaiterIDs = Array(workoutWaiters.keys)
+        workoutRequests.removeAll()
+        workoutLanes.removeAll()
+
+        settleWaiters(allWaiterIDs, with: .failure(CancellationError()))
     }
 
     // MARK: - Private — Fetch
@@ -761,47 +864,445 @@ public actor HealthDataCache {
     }
 
 
-    // MARK: - Private Workout Helpers
+    // MARK: - Workout Transaction Execution & Settlement Funnel
 
-    private func fetchWorkoutCoalesced(
+    private func executeWorkoutTransaction(
+        semantic: WorkoutFetchSemantic,
         dateRange: DateInterval?,
         provider: any WorkoutDataProviding
     ) async throws -> [HealthWorkoutRecord] {
-        if let existingTask = workoutInFlightFetch {
-            return try await existingTask.value
+        let waiterID = WorkoutWaiterID()
+        let laneID: WorkoutLaneID = if let dateRange {
+            .explicitRange(dateRange)
+        } else {
+            .defaultAnchor
         }
-        return try await performWorkoutFetch(dateRange: dateRange, provider: provider)
+        let key = WorkoutFetchKey(semantic: semantic, dateRange: dateRange)
+
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                self.registerAndAttachWaiter(
+                    waiterID: waiterID,
+                    key: key,
+                    laneID: laneID,
+                    continuation: continuation,
+                    provider: provider
+                )
+            }
+        } onCancel: {
+            Task {
+                await self.cancelWorkoutWaiter(waiterID: waiterID, provider: provider)
+            }
+        }
     }
 
-    private func performWorkoutFetch(
-        dateRange: DateInterval?,
+    private func registerAndAttachWaiter(
+        waiterID: WorkoutWaiterID,
+        key: WorkoutFetchKey,
+        laneID: WorkoutLaneID,
+        continuation: CheckedContinuation<[HealthWorkoutRecord], any Error>,
         provider: any WorkoutDataProviding
-    ) async throws -> [HealthWorkoutRecord] {
+    ) {
+        if Task.isCancelled || cancelledWorkoutWaiterIDs.remove(waiterID) != nil {
+            let dummyWaiter = WorkoutWaiter(
+                id: waiterID,
+                requestID: WorkoutRequestID(),
+                role: .owner,
+                continuation: continuation
+            )
+            workoutWaiters[waiterID] = dummyWaiter
+            settleWaiter(waiterID, with: .failure(CancellationError()))
+            return
+        }
+
+        if key.semantic == .query {
+            if let existingReq = workoutRequests.values.first(where: {
+                $0.key == key && $0.generation == workoutGeneration
+            }) {
+                workoutRequests[existingReq.id]?.waiterIDs.insert(waiterID)
+                let waiter = WorkoutWaiter(
+                    id: waiterID,
+                    requestID: existingReq.id,
+                    role: .coalesced,
+                    continuation: continuation
+                )
+                workoutWaiters[waiterID] = waiter
+                return
+            }
+        } else if key.semantic == .refresh {
+            let existingInLane = workoutRequests.values.filter {
+                $0.laneID == laneID && $0.generation == workoutGeneration
+            }
+            for oldReq in existingInLane {
+                retireWorkoutRequest(oldReq.id, error: CancellationError(), provider: provider)
+            }
+        }
+
+        let requestID = WorkoutRequestID()
+        let request = WorkoutRequest(
+            id: requestID,
+            key: key,
+            laneID: laneID,
+            generation: workoutGeneration,
+            requestStartInstant: Date(),
+            isRefresh: key.semantic == .refresh,
+            task: nil,
+            ownerWaiterID: waiterID,
+            waiterIDs: [waiterID]
+        )
+        workoutRequests[requestID] = request
+
+        let waiter = WorkoutWaiter(
+            id: waiterID,
+            requestID: requestID,
+            role: .owner,
+            continuation: continuation
+        )
+        workoutWaiters[waiterID] = waiter
+
+        var lane = workoutLanes[laneID, default: WorkoutLane()]
+        if lane.activeRequestID == nil {
+            lane.activeRequestID = requestID
+            workoutLanes[laneID] = lane
+            startWorkoutRequestTask(requestID, provider: provider)
+        } else {
+            lane.queuedRequestIDs.append(requestID)
+            workoutLanes[laneID] = lane
+        }
+    }
+
+    private func startWorkoutRequestTask(
+        _ requestID: WorkoutRequestID,
+        provider: any WorkoutDataProviding
+    ) {
+        guard var req = workoutRequests[requestID] else { return }
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval("healthkit_workout_fetch", id: signpostID)
         let start = ContinuousClock.now
-        let fetchGeneration = generation
 
-        let task = Task {
-            try await provider.fetchWorkouts(dateRange: dateRange).workouts
-        }
-        workoutInFlightFetch = task
+        let task = Task { [provider] in
+            do {
+                let prepared: PreparedWorkoutFetch
+                if let preparedProvider = provider as? (any PreparedWorkoutDataProviding) {
+                    let attemptAnchored = self.shouldAttemptAnchoredChanges(for: req)
+                    if attemptAnchored {
+                        prepared = try await preparedProvider.prepareWorkoutChanges(dateRange: req.key.dateRange)
+                    } else {
+                        prepared = try await preparedProvider.prepareWorkoutSnapshot(dateRange: req.key.dateRange)
+                    }
+                } else {
+                    let fetchResult = try await provider.fetchWorkouts(dateRange: req.key.dateRange)
+                    let source: WorkoutAnchorSource = req.key.dateRange == nil ? .baselineSnapshot : .explicitRangeSnapshot
+                    prepared = PreparedWorkoutFetch(
+                        workouts: fetchResult.workouts,
+                        deletedObjectIDs: fetchResult.deletedObjectIDs,
+                        source: source,
+                        coverage: fetchResult.coverage,
+                        checkpoint: nil
+                    )
+                }
 
-        do {
-            let workouts = try await task.value
-            workoutInFlightFetch = nil
-
-            if generation == fetchGeneration {
-                workoutCache = WorkoutCacheEntry(workouts: workouts, coveredRange: dateRange)
+                await self.handleWorkoutFetchSuccess(
+                    requestID: requestID,
+                    prepared: prepared,
+                    provider: provider,
+                    start: start,
+                    signpostID: signpostID,
+                    signpostState: state
+                )
+            } catch {
+                self.handleWorkoutFetchFailure(
+                    requestID: requestID,
+                    error: error,
+                    provider: provider,
+                    start: start,
+                    signpostID: signpostID,
+                    signpostState: state
+                )
             }
+        }
 
-            signposter.endInterval("healthkit_workout_fetch", state)
-            logWorkoutFetchDuration(count: workouts.count, start: start)
-            return workouts
-        } catch {
-            workoutInFlightFetch = nil
-            signposter.endInterval("healthkit_workout_fetch", state)
-            throw error
+        req.task = task
+        workoutRequests[requestID] = req
+    }
+
+    private func shouldAttemptAnchoredChanges(for req: WorkoutRequest) -> Bool {
+        guard req.key.dateRange == nil else { return false }
+        guard let entry = workoutCache else { return false }
+        return entry.provenance == .defaultBaseline
+    }
+
+    private func handleWorkoutFetchSuccess(
+        requestID: WorkoutRequestID,
+        prepared: PreparedWorkoutFetch,
+        provider: any WorkoutDataProviding,
+        start: ContinuousClock.Instant,
+        signpostID: OSSignpostID,
+        signpostState: OSSignpostIntervalState
+    ) async {
+        guard let req = workoutRequests[requestID], req.generation == workoutGeneration else {
+            if let prep = provider as? (any PreparedWorkoutDataProviding) {
+                await prep.rejectPreparedWorkoutFetch(prepared)
+            }
+            return
+        }
+
+        guard workoutLanes[req.laneID]?.activeRequestID == requestID else {
+            if let prep = provider as? (any PreparedWorkoutDataProviding) {
+                await prep.rejectPreparedWorkoutFetch(prepared)
+            }
+            return
+        }
+
+        var actualPrepared = prepared
+        if actualPrepared.source == .anchoredChanges {
+            guard let prior = workoutCache, prior.provenance == .defaultBaseline else {
+                if let prep = provider as? (any PreparedWorkoutDataProviding) {
+                    await prep.rejectPreparedWorkoutFetch(actualPrepared)
+                    do {
+                        actualPrepared = try await prep.prepareWorkoutSnapshot(dateRange: req.key.dateRange)
+                    } catch {
+                        handleWorkoutFetchFailure(
+                            requestID: requestID,
+                            error: error,
+                            provider: provider,
+                            start: start,
+                            signpostID: signpostID,
+                            signpostState: signpostState
+                        )
+                        return
+                    }
+                } else {
+                    return
+                }
+                return await handleWorkoutFetchSuccess(
+                    requestID: requestID,
+                    prepared: actualPrepared,
+                    provider: provider,
+                    start: start,
+                    signpostID: signpostID,
+                    signpostState: signpostState
+                )
+            }
+        }
+
+        let newEntry: WorkoutCacheEntry
+        switch actualPrepared.source {
+        case .baselineSnapshot:
+            let normalized = Self.normalizeAndSortWorkouts(actualPrepared.workouts)
+            let coverage = actualPrepared.coverage ?? DateInterval(
+                start: req.requestStartInstant.addingTimeInterval(-30 * 86400),
+                end: req.requestStartInstant
+            )
+            newEntry = WorkoutCacheEntry(
+                workouts: normalized,
+                coveredRange: coverage,
+                provenance: .defaultBaseline,
+                candidate: actualPrepared.checkpoint
+            )
+
+        case .explicitRangeSnapshot:
+            let normalized = Self.normalizeAndSortWorkouts(actualPrepared.workouts)
+            let coverage = actualPrepared.coverage ?? (req.key.dateRange ?? DateInterval(
+                start: req.requestStartInstant.addingTimeInterval(-30 * 86400),
+                end: req.requestStartInstant
+            ))
+            let provenance: WorkoutEntryProvenance = if let range = req.key.dateRange {
+                .scopedRange(range)
+            } else {
+                .defaultBaseline
+            }
+            newEntry = WorkoutCacheEntry(
+                workouts: normalized,
+                coveredRange: coverage,
+                provenance: provenance,
+                candidate: nil
+            )
+
+        case .anchoredChanges:
+            guard let prior = workoutCache, prior.provenance == .defaultBaseline else {
+                return
+            }
+            let reconciled = Self.reconcileAnchoredWorkouts(
+                prior: prior.workouts,
+                upserts: actualPrepared.workouts,
+                deletions: actualPrepared.deletedObjectIDs
+            )
+            newEntry = WorkoutCacheEntry(
+                workouts: reconciled,
+                coveredRange: prior.coveredRange,
+                provenance: .defaultBaseline,
+                candidate: actualPrepared.checkpoint
+            )
+        }
+
+        self.workoutCache = newEntry
+
+        if let _ = newEntry.candidate,
+           actualPrepared.source != .explicitRangeSnapshot,
+           let prep = provider as? (any PreparedWorkoutDataProviding)
+        {
+            await prep.acceptPreparedWorkoutFetch(actualPrepared)
+        }
+
+        signposter.endInterval("healthkit_workout_fetch", signpostState)
+        logWorkoutFetchDuration(count: newEntry.workouts.count, start: start)
+
+        let waiterIDs = Array(workoutRequests[requestID]?.waiterIDs ?? req.waiterIDs)
+        workoutRequests.removeValue(forKey: requestID)
+        releaseAndPumpLane(laneID: req.laneID, retiredRequestID: requestID, provider: provider)
+
+        let filtered = Self.filteredWorkouts(newEntry.workouts, by: req.key.dateRange)
+        settleWaiters(waiterIDs, with: .success(filtered))
+    }
+
+    private func handleWorkoutFetchFailure(
+        requestID: WorkoutRequestID,
+        error: any Error,
+        provider: any WorkoutDataProviding,
+        start: ContinuousClock.Instant,
+        signpostID: OSSignpostID,
+        signpostState: OSSignpostIntervalState
+    ) {
+        guard let req = workoutRequests[requestID], req.generation == workoutGeneration else {
+            return
+        }
+
+        signposter.endInterval("healthkit_workout_fetch", signpostState)
+
+        let waiterIDs = Array(workoutRequests[requestID]?.waiterIDs ?? req.waiterIDs)
+        workoutRequests.removeValue(forKey: requestID)
+        releaseAndPumpLane(laneID: req.laneID, retiredRequestID: requestID, provider: provider)
+
+        settleWaiters(waiterIDs, with: .failure(error))
+    }
+
+    private func cancelWorkoutWaiter(
+        waiterID: WorkoutWaiterID,
+        provider: any WorkoutDataProviding
+    ) {
+        guard let waiter = workoutWaiters[waiterID] else {
+            cancelledWorkoutWaiterIDs.insert(waiterID)
+            return
+        }
+        if waiter.role == .coalesced {
+            settleWaiter(waiterID, with: .failure(CancellationError()))
+        } else if waiter.role == .owner {
+            retireWorkoutRequest(waiter.requestID, error: CancellationError(), provider: provider)
+        }
+    }
+
+    private func retireWorkoutRequest(
+        _ requestID: WorkoutRequestID,
+        error: any Error,
+        provider: any WorkoutDataProviding
+    ) {
+        guard let req = workoutRequests.removeValue(forKey: requestID) else { return }
+        req.task?.cancel()
+        releaseAndPumpLane(laneID: req.laneID, retiredRequestID: requestID, provider: provider)
+        settleWaiters(Array(req.waiterIDs), with: .failure(error))
+    }
+
+    private func releaseAndPumpLane(
+        laneID: WorkoutLaneID,
+        retiredRequestID: WorkoutRequestID,
+        provider: any WorkoutDataProviding
+    ) {
+        if workoutLanes[laneID]?.activeRequestID == retiredRequestID {
+            workoutLanes[laneID]?.activeRequestID = nil
+        } else {
+            workoutLanes[laneID]?.queuedRequestIDs.removeAll(where: { $0 == retiredRequestID })
+        }
+        pumpLane(laneID: laneID, provider: provider)
+    }
+
+    private func pumpLane(
+        laneID: WorkoutLaneID,
+        provider: any WorkoutDataProviding
+    ) {
+        guard workoutLanes[laneID]?.activeRequestID == nil else { return }
+
+        while !(workoutLanes[laneID]?.queuedRequestIDs.isEmpty ?? true) {
+            let nextReqID = workoutLanes[laneID]!.queuedRequestIDs.removeFirst()
+            if workoutRequests[nextReqID] != nil {
+                workoutLanes[laneID]?.activeRequestID = nextReqID
+                startWorkoutRequestTask(nextReqID, provider: provider)
+                return
+            }
+        }
+
+        if workoutLanes[laneID]?.activeRequestID == nil && (workoutLanes[laneID]?.queuedRequestIDs.isEmpty ?? true) {
+            workoutLanes.removeValue(forKey: laneID)
+        }
+    }
+
+    // MARK: - Normalization & Reconciliation Helpers
+
+    private static func normalizeAndSortWorkouts(
+        _ workouts: [HealthWorkoutRecord]
+    ) -> [HealthWorkoutRecord] {
+        var map: [UUID: HealthWorkoutRecord] = [:]
+        for w in workouts {
+            map[w.id] = w
+        }
+        return map.values.sorted {
+            if $0.startDate != $1.startDate {
+                return $0.startDate > $1.startDate
+            }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+    }
+
+    private static func reconcileAnchoredWorkouts(
+        prior: [HealthWorkoutRecord],
+        upserts: [HealthWorkoutRecord],
+        deletions: [UUID]
+    ) -> [HealthWorkoutRecord] {
+        var map: [UUID: HealthWorkoutRecord] = [:]
+        for w in prior {
+            map[w.id] = w
+        }
+        for w in upserts {
+            map[w.id] = w
+        }
+        for del in deletions {
+            map.removeValue(forKey: del)
+        }
+        return map.values.sorted {
+            if $0.startDate != $1.startDate {
+                return $0.startDate > $1.startDate
+            }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+    }
+
+    // MARK: - Single Continuation-Resume Settlement Funnel
+
+    private func settleWaiter(
+        _ waiterID: WorkoutWaiterID,
+        with result: Result<[HealthWorkoutRecord], any Error>
+    ) {
+        guard let waiter = workoutWaiters.removeValue(forKey: waiterID) else {
+            return
+        }
+        if var req = workoutRequests[waiter.requestID] {
+            req.waiterIDs.remove(waiterID)
+            workoutRequests[waiter.requestID] = req
+        }
+        switch result {
+        case .success(let workouts):
+            waiter.continuation.resume(returning: workouts)
+        case .failure(let error):
+            waiter.continuation.resume(throwing: error)
+        }
+    }
+
+    private func settleWaiters(
+        _ waiterIDs: [WorkoutWaiterID],
+        with result: Result<[HealthWorkoutRecord], any Error>
+    ) {
+        for waiterID in waiterIDs {
+            settleWaiter(waiterID, with: result)
         }
     }
 
