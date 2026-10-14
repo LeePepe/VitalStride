@@ -9,6 +9,104 @@ import SwiftUI
 /// MY-1446: extended to provide safe-area-driven rendering that guarantees
 /// non-overlap between snackbar, FAB, and info band by construction (VStack).
 enum ActiveWorkoutSnackbarLayout {
+    // MARK: - Animation & Layout Policy (MY-1706)
+
+    /// MainActor-isolated animation and layout policy describing root and child
+    /// geometry ownership, visibility, and presentation slots.
+    @MainActor
+    struct AnimationPolicy: Equatable {
+        /// Keyboard visibility state
+        let isKeyboardVisible: Bool
+
+        /// Original requested snackbar slot (.none, .rest, .undo)
+        let snackbarSlot: BottomSnackbarSlot
+
+        /// Resolved active top snackbar slot
+        let topSlot: BottomSnackbarSlot
+
+        /// Resolved active bottom snackbar slot
+        let bottomSlot: BottomSnackbarSlot
+
+        /// Whether the add-exercise FAB should be visible at the bottom
+        let isFABVisible: Bool
+
+        /// Root geometry animation owner (.easeInOut(duration: 0.2) in production)
+        let rootAnimation: Animation?
+
+        /// Child geometry animation driver (nil in production — single owner invariant)
+        let childAnimation: Animation?
+
+        /// Whether a child insertion/removal transition is attached (false in production — single owner invariant)
+        let hasChildTransition: Bool
+
+        /// Invariant: true if root animation driver is present
+        var hasRootAnimation: Bool {
+            rootAnimation != nil
+        }
+
+        /// Invariant: true if child animation driver is present
+        var hasChildAnimation: Bool {
+            childAnimation != nil
+        }
+
+        /// Enforces single animation ownership: exactly one root animation driver,
+        /// no child animation driver, and no child transition.
+        var hasSingleAnimationOwner: Bool {
+            hasRootAnimation && !hasChildAnimation && !hasChildTransition
+        }
+
+        /// Production default animation duration / curve
+        static let defaultAnimation: Animation = .easeInOut(duration: 0.2)
+
+        /// Factory for production policy
+        static func production(
+            isKeyboardVisible: Bool,
+            snackbarSlot: BottomSnackbarSlot
+        ) -> AnimationPolicy {
+            AnimationPolicy(
+                isKeyboardVisible: isKeyboardVisible,
+                snackbarSlot: snackbarSlot,
+                topSlot: isKeyboardVisible ? snackbarSlot : .none,
+                bottomSlot: isKeyboardVisible ? .none : snackbarSlot,
+                isFABVisible: !isKeyboardVisible,
+                rootAnimation: defaultAnimation,
+                childAnimation: nil,
+                hasChildTransition: false
+            )
+        }
+
+        /// Factory for testing mutations
+        static func mutated(
+            isKeyboardVisible: Bool = false,
+            snackbarSlot: BottomSnackbarSlot = .none,
+            rootAnimation: Animation? = defaultAnimation,
+            childAnimation: Animation? = nil,
+            hasChildTransition: Bool = false
+        ) -> AnimationPolicy {
+            AnimationPolicy(
+                isKeyboardVisible: isKeyboardVisible,
+                snackbarSlot: snackbarSlot,
+                topSlot: isKeyboardVisible ? snackbarSlot : .none,
+                bottomSlot: isKeyboardVisible ? .none : snackbarSlot,
+                isFABVisible: !isKeyboardVisible,
+                rootAnimation: rootAnimation,
+                childAnimation: childAnimation,
+                hasChildTransition: hasChildTransition
+            )
+        }
+    }
+
+    typealias Policy = AnimationPolicy
+
+    /// Resolves the production layout and animation policy for given keyboard and snackbar state.
+    @MainActor
+    static func policy(
+        isKeyboardVisible: Bool,
+        snackbarSlot: BottomSnackbarSlot
+    ) -> AnimationPolicy {
+        .production(isKeyboardVisible: isKeyboardVisible, snackbarSlot: snackbarSlot)
+    }
+
     /// Determines which edge the snackbar should render at based on keyboard
     /// visibility. When the custom numeric keyboard is on screen, the snackbar
     /// moves to the top edge so it remains fully visible and never overlaps
@@ -59,7 +157,28 @@ enum ActiveWorkoutSnackbarLayout {
         }
     }
 
-    // MARK: - Bottom safe-area content (MY-1446)
+    // MARK: - Bottom safe-area content (MY-1446, MY-1706)
+
+    /// Renders the combined bottom layout driven by the production policy.
+    /// When keyboard is hidden, renders FAB and bottom snackbar envelope.
+    /// When keyboard is visible, keeps the root safe area structurally mounted
+    /// without extra height/chrome.
+    @ViewBuilder
+    @MainActor
+    static func bottomSafeAreaContent<UndoContent: View, RestContent: View, FAB: View>(
+        policy: AnimationPolicy,
+        @ViewBuilder undoContent: () -> UndoContent,
+        @ViewBuilder restContent: () -> RestContent,
+        @ViewBuilder fab: () -> FAB
+    ) -> some View {
+        bottomSafeAreaContent(
+            snackbarSlot: policy.bottomSlot,
+            isKeyboardVisible: policy.isKeyboardVisible,
+            undoContent: undoContent,
+            restContent: restContent,
+            fab: fab
+        )
+    }
 
     /// Renders the combined bottom layout for the `safeAreaInset(edge: .bottom)`.
     /// Uses a VStack to guarantee the FAB and snackbar never overlap by
@@ -71,24 +190,27 @@ enum ActiveWorkoutSnackbarLayout {
     @MainActor
     static func bottomSafeAreaContent<UndoContent: View, RestContent: View, FAB: View>(
         snackbarSlot: BottomSnackbarSlot,
+        isKeyboardVisible: Bool = false,
         @ViewBuilder undoContent: () -> UndoContent,
         @ViewBuilder restContent: () -> RestContent,
         @ViewBuilder fab: () -> FAB
     ) -> some View {
         VStack(spacing: 0) {
-            fab()
-            slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
-                .padding(.horizontal, Space.cardPadding)
-                .padding(.vertical, Space.gap)
-                .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
-                .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(
-                    color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
-                    radius: 8, y: 4
-                )
-                .padding(.horizontal, Space.cardPadding)
-                .padding(.bottom, Space.cardPadding)
+            if !isKeyboardVisible {
+                fab()
+                slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
+                    .padding(.horizontal, Space.cardPadding)
+                    .padding(.vertical, Space.gap)
+                    .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                    .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .shadow(
+                        color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
+                        radius: 8, y: 4
+                    )
+                    .padding(.horizontal, Space.cardPadding)
+                    .padding(.bottom, Space.cardPadding)
+            }
         }
     }
 
@@ -120,7 +242,30 @@ enum ActiveWorkoutSnackbarLayout {
             .padding(.top, Space.inline)
     }
 
-    // MARK: - Top composition (MY-1446, testable)
+    // MARK: - Top composition (MY-1446, MY-1706)
+
+    /// Renders the production top composition driven by the animation policy:
+    /// info band content with top snackbar when keyboard is visible, or
+    /// standalone info band when keyboard is hidden.
+    @ViewBuilder
+    @MainActor
+    static func topComposition<InfoBand: View, UndoContent: View, RestContent: View>(
+        policy: AnimationPolicy,
+        @ViewBuilder infoBand: () -> InfoBand,
+        @ViewBuilder undoContent: () -> UndoContent,
+        @ViewBuilder restContent: () -> RestContent
+    ) -> some View {
+        VStack(spacing: 0) {
+            infoBand()
+            if policy.isKeyboardVisible {
+                topLayout(
+                    snackbarSlot: policy.topSlot,
+                    undoContent: undoContent,
+                    restContent: restContent
+                )
+            }
+        }
+    }
 
     /// Renders the production keyboard-visible composition: info band content
     /// above the top snackbar, in a VStack. This is the same structure that
