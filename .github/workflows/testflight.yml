@@ -4,7 +4,7 @@ name: testflight
 # 自动发布已暂停。force=true 可忽略“无新提交”检查；发布标记仍记录成功版本。
 #
 # 跑在 self-hosted `vitalstride-mac`（复用 auto-review-merge 那台）：Distribution
-# 证书已在登录钥匙串，签名走 project.yml 的 Automatic + API key，无需证书 Secret。
+# 证书已在登录钥匙串，签名走 project.yml 的 Manual + Apple Distribution + API key 拉取的 in-run profile，无需证书 Secret。
 # 需要的 Secrets: ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8_BASE64（见 AGENTS.md）。
 #
 # push tag 不触发 ci.yml（其 push 过滤是 branches:[main]），无副作用。
