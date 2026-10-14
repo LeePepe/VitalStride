@@ -1,6 +1,24 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "exercise.bench_press": {
+      "extractionState": "manual",
+      "comment": "Bench press exercise name in test harness fixture",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bench Press"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "平板卧推"
+          }
+        }
+      }
+    },
     "active_workout.heart_rate.disconnected": {
       "extractionState": "manual",
       "comment": "Active workout HR compact display when no Apple Watch is connected / reachable (MY-1283 three-state HR).",

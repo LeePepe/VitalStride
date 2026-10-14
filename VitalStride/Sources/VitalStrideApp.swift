@@ -462,7 +462,7 @@ private struct SubSetRouteTestHost: View {
     private func seedFixture() {
         let exercise = Exercise(
             nameEn: "Bench Press",
-            nameZh: "平板卧推",
+            nameZh: String(localized: "exercise.bench_press", comment: "Bench press exercise name in test harness fixture"),
             muscleGroup: .chest,
             equipment: .barbell
         )
