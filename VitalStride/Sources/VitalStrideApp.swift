@@ -421,10 +421,18 @@ private struct SubSetRouteTestHost: View {
                     .font(.caption2)
 
                     HStack {
+                        Text("LastID: \(probe.lastRequestedSetID.map { String(format: "%016llx", UInt64(bitPattern: Int64($0.hashValue))) } ?? "none")")
+                            .accessibilityIdentifier("subset_probe_last_set_id")
                         Text("LastType: \(probe.lastRequestedSetType?.displayName ?? "none")")
                             .accessibilityIdentifier("subset_probe_last_set_type")
                         Text("Undo: \(undoController.hasPendingUndo ? "available" : "none")")
                             .accessibilityIdentifier("subset_probe_undo_state")
+                    }
+                    .font(.caption2)
+
+                    HStack {
+                        Text("Announcement: \(undoController.lastAnnouncement?.message ?? "none")")
+                            .accessibilityIdentifier("subset_probe_last_announcement")
                     }
                     .font(.caption2)
 

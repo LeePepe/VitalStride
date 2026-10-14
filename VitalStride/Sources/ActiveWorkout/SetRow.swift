@@ -120,11 +120,7 @@ struct SetRow: View {
     }
 
     private var stableIdentifier: String {
-        if let stableRowID { return stableRowID }
-        if isSubSet {
-            return exerciseSet.setType == .pyramid ? "pyramid" : "dropSet"
-        }
-        return "standard"
+        stableRowID ?? String(format: "%016llx", UInt64(bitPattern: Int64(exerciseSet.persistentModelID.hashValue)))
     }
 
     @State private var weightText: String = ""
@@ -264,7 +260,7 @@ struct SetRow: View {
                 // left-weight / right-weight × reps. Reps stays at the tail so
                 // the visual/accessibility sequence is consistent across modes.
                 weightField(
-                    binding: $weightRightText,
+                    binding: $weightText,
                     field: .weight,
                     width: LargeWorkoutFieldWidth.unilateralWeight(variant),
                     a11yLabel: String(
@@ -371,11 +367,16 @@ struct SetRow: View {
                     }
                 }
             } label: {
-                Image(systemName: "ellipsis")
-                    .font(.body)
+                Color.clear
                     .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
+                    .overlay(
+                        Image(systemName: "ellipsis")
+                            .font(.body)
+                    )
                     .contentShape(Rectangle())
             }
+            .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
+            .fixedSize()
             .accessibilityIdentifier("active-workout.row.\(stableIdentifier).action-menu")
             .accessibilityLabel(menuAccessibilityLabel)
             .accessibilityValue(menuAccessibilityValue)
@@ -1146,13 +1147,21 @@ private struct SetRowPreviewWrapper: View {
             }
         }
         .listStyle(.plain)
-        .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
 
         return Group {
-            if let constrainedWidth {
-                list.frame(width: constrainedWidth)
+            if let container = try? ModelContainerConfiguration.makeTestContainer() {
+                if let constrainedWidth {
+                    list.frame(width: constrainedWidth)
+                        .modelContainer(container)
+                } else {
+                    list.modelContainer(container)
+                }
             } else {
-                list
+                if let constrainedWidth {
+                    list.frame(width: constrainedWidth)
+                } else {
+                    list
+                }
             }
         }
         .designThemePreview()
@@ -1386,7 +1395,7 @@ private struct AdjacentRowsPreviewWrapper: View {
         let set2 = ExerciseSet(order: 1, weight: 92, reps: 8, setType: .pyramid)
         let set3 = ExerciseSet(order: 2, weight: 68, reps: 8, setType: .dropSet)
 
-        List {
+        let list = List {
             Section {
                 SetRow(
                     index: 0,
@@ -1441,7 +1450,14 @@ private struct AdjacentRowsPreviewWrapper: View {
         }
         .listStyle(.plain)
         .frame(width: 375)
-        .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+
+        return Group {
+            if let container = try? ModelContainerConfiguration.makeTestContainer() {
+                list.modelContainer(container)
+            } else {
+                list
+            }
+        }
         .designThemePreview()
     }
 }

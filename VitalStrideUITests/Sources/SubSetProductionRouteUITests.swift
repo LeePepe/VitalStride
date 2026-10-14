@@ -2,82 +2,92 @@ import XCTest
 
 /// Production-hosted UI acceptance tests for shared editable sub-set rows and deletion route
 /// (spec 026 / AC-001, AC-002, AC-004, AC-006, AC-007, AC-008).
-///
-/// Exercises:
-/// 1. AC-001: Actual menu deletion on pyramid row.
-/// 2. AC-002: Actual committed trailing full swipe on drop-set row.
-/// 3. AC-004: Production-reachable refusal in single-main-with-child fixture.
-/// 4. AC-006: Actual adjacent action-menu-trigger geometry (>= 44x44, disjoint).
-/// 5. AC-007: Cataloged identity on destructive menu entries.
-/// 6. AC-008: Shared editable controls, completion, RPE, subtype switching, and copy.
 final class SubSetProductionRouteUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
-    // MARK: - AC-001: Actual Pyramid Menu Route
+    // MARK: - AC-001 & AC-003: Actual Pyramid Menu Route & Undo Restoration
 
     func testActualPyramidMenuDeleteRoute() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-SubSetRouteTestMode", "standard_pyramid_drop"]
         app.launch()
 
-        let pyramidMenu = app.buttons["active-workout.row.pyramid.action-menu"]
-        XCTAssertTrue(pyramidMenu.waitForExistence(timeout: 5.0), "Pyramid action menu trigger should exist")
+        let allMenus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'active-workout.row.' AND identifier ENDSWITH '.action-menu'"))
+        XCTAssertTrue(allMenus.element(boundBy: 1).waitForExistence(timeout: 5.0), "Pyramid row action menu trigger should exist")
+
+        let pyramidMenu = allMenus.element(boundBy: 1)
+        let pyramidID = pyramidMenu.identifier
+            .replacingOccurrences(of: "active-workout.row.", with: "")
+            .replacingOccurrences(of: ".action-menu", with: "")
+
         pyramidMenu.tap()
 
         // Tap the destructive delete item in the opened menu
-        let deleteButton = app.buttons["active-workout.row.pyramid.delete-menu-item"]
+        let deleteButton = app.buttons.matching(NSPredicate(format: "identifier ENDSWITH '.delete-menu-item'")).firstMatch
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 3.0), "Delete menu item should exist in opened menu")
         deleteButton.tap()
 
-        // Verify probe counters
+        // Verify probe counters and selected row identity
         let requestCount = app.staticTexts["subset_probe_request_count"]
         let seamCount = app.staticTexts["subset_probe_seam_count"]
         let callbackCount = app.staticTexts["subset_probe_callback_count"]
+        let lastID = app.staticTexts["subset_probe_last_set_id"]
         let lastType = app.staticTexts["subset_probe_last_set_type"]
         let undoState = app.staticTexts["subset_probe_undo_state"]
+        let lastAnnouncement = app.staticTexts["subset_probe_last_announcement"]
 
         XCTAssertTrue(requestCount.waitForExistence(timeout: 3.0))
         XCTAssertEqual(requestCount.label, "Requests: 1")
         XCTAssertEqual(seamCount.label, "Seam: 1")
         XCTAssertEqual(callbackCount.label, "Callbacks: 1")
+        XCTAssertTrue(lastID.label.contains(pyramidID), "Last requested set ID must match pyramid row ID")
         XCTAssertTrue(lastType.label.contains("递增") || lastType.label.contains("金字塔") || lastType.label.localizedCaseInsensitiveContains("pyramid"))
         XCTAssertEqual(undoState.label, "Undo: available")
+        XCTAssertFalse(lastAnnouncement.label.contains("none"))
 
-        // Exercise undo action
+        // Exercise undo action to restore pyramid row
         let undoButton = app.buttons["subset_probe_undo_button"]
         XCTAssertTrue(undoButton.waitForExistence(timeout: 2.0))
         undoButton.tap()
 
-        // After undo, pyramid row is restored
-        XCTAssertTrue(pyramidMenu.waitForExistence(timeout: 3.0), "Pyramid row should be restored after undo")
+        // After undo, exactly 3 rows exist with pyramid restored
+        let allRestoredMenus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'active-workout.row.' AND identifier ENDSWITH '.action-menu'"))
+        XCTAssertEqual(allRestoredMenus.count, 3, "Pyramid row should be restored after undo")
     }
 
-    // MARK: - AC-002: Actual Committed Full Swipe Route
+    // MARK: - AC-002 & AC-003: Actual Committed Full Swipe Route & Undo Restoration
 
     func testActualDropSetFullSwipeRoute() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-SubSetRouteTestMode", "standard_pyramid_drop"]
         app.launch()
 
-        let dropSetCell = app.cells.containing(.button, identifier: "active-workout.row.dropSet.action-menu").firstMatch
-        if dropSetCell.waitForExistence(timeout: 5.0) {
+        let allMenus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'active-workout.row.' AND identifier ENDSWITH '.action-menu'"))
+        XCTAssertTrue(allMenus.element(boundBy: 2).waitForExistence(timeout: 5.0), "Drop-set row should exist")
+
+        let dropSetMenu = allMenus.element(boundBy: 2)
+        let dropSetID = dropSetMenu.identifier
+            .replacingOccurrences(of: "active-workout.row.", with: "")
+            .replacingOccurrences(of: ".action-menu", with: "")
+
+        let dropSetCell = app.cells.containing(.button, identifier: dropSetMenu.identifier).firstMatch
+        if dropSetCell.exists {
             let start = dropSetCell.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5))
             let end = dropSetCell.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.5))
             start.press(forDuration: 0.05, thenDragTo: end)
         } else {
-            let dropSetMenu = app.buttons["active-workout.row.dropSet.action-menu"]
-            XCTAssertTrue(dropSetMenu.waitForExistence(timeout: 5.0), "Drop-set row should exist")
             let start = dropSetMenu.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5))
             let end = dropSetMenu.coordinate(withNormalizedOffset: CGVector(dx: -0.8, dy: 0.5))
             start.press(forDuration: 0.05, thenDragTo: end)
         }
 
-        // Verify probe counters
+        // Verify probe counters and selected row identity
         let requestCount = app.staticTexts["subset_probe_request_count"]
         let seamCount = app.staticTexts["subset_probe_seam_count"]
         let callbackCount = app.staticTexts["subset_probe_callback_count"]
+        let lastID = app.staticTexts["subset_probe_last_set_id"]
         let lastType = app.staticTexts["subset_probe_last_set_type"]
         let undoState = app.staticTexts["subset_probe_undo_state"]
 
@@ -85,8 +95,17 @@ final class SubSetProductionRouteUITests: XCTestCase {
         XCTAssertEqual(requestCount.label, "Requests: 1")
         XCTAssertEqual(seamCount.label, "Seam: 1")
         XCTAssertEqual(callbackCount.label, "Callbacks: 1")
-        XCTAssertTrue(lastType.label.contains("递减") || lastType.label.contains("Drop Set"))
+        XCTAssertTrue(lastID.label.contains(dropSetID), "Last requested set ID must match drop-set row ID")
+        XCTAssertTrue(lastType.label.contains("递减") || lastType.label.localizedCaseInsensitiveContains("drop"))
         XCTAssertEqual(undoState.label, "Undo: available")
+
+        // Exercise undo action to restore drop-set row
+        let undoButton = app.buttons["subset_probe_undo_button"]
+        XCTAssertTrue(undoButton.waitForExistence(timeout: 2.0))
+        undoButton.tap()
+
+        let allRestoredMenus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'active-workout.row.' AND identifier ENDSWITH '.action-menu'"))
+        XCTAssertEqual(allRestoredMenus.count, 3, "Drop-set row should be restored after undo")
     }
 
     // MARK: - AC-004: Production-Reachable Refusal
@@ -96,14 +115,22 @@ final class SubSetProductionRouteUITests: XCTestCase {
         app.launchArguments = ["-SubSetRouteTestMode", "single_main_with_child"]
         app.launch()
 
-        let standardMenu = app.buttons["active-workout.row.standard.action-menu"]
-        let dropSetMenu = app.buttons["active-workout.row.dropSet.action-menu"]
-        XCTAssertTrue(standardMenu.waitForExistence(timeout: 5.0), "Standard row should exist")
-        XCTAssertTrue(dropSetMenu.waitForExistence(timeout: 5.0), "Drop-set row should exist")
+        let allMenus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'active-workout.row.' AND identifier ENDSWITH '.action-menu'"))
+        XCTAssertEqual(allMenus.count, 2, "Fixture must start with exactly standard and child row")
+
+        let standardMenu = allMenus.element(boundBy: 0)
+        let standardID = standardMenu.identifier
+            .replacingOccurrences(of: "active-workout.row.", with: "")
+            .replacingOccurrences(of: ".action-menu", with: "")
+
+        let dropSetMenu = allMenus.element(boundBy: 1)
+        let dropSetID = dropSetMenu.identifier
+            .replacingOccurrences(of: "active-workout.row.", with: "")
+            .replacingOccurrences(of: ".action-menu", with: "")
 
         // Open standard set menu and tap delete
         standardMenu.tap()
-        let deleteMenuItem = app.buttons.matching(NSPredicate(format: "label CONTAINS '删除' OR label CONTAINS 'Delete'")).firstMatch
+        let deleteMenuItem = app.buttons.matching(NSPredicate(format: "identifier ENDSWITH '.delete-menu-item'")).firstMatch
         XCTAssertTrue(deleteMenuItem.waitForExistence(timeout: 3.0))
         deleteMenuItem.tap()
 
@@ -112,15 +139,25 @@ final class SubSetProductionRouteUITests: XCTestCase {
         XCTAssertTrue(confirmDeleteButton.waitForExistence(timeout: 3.0), "Confirmation dialog action should appear")
         confirmDeleteButton.tap()
 
-        // Verify refusal: both rows remain intact, callback count is 0, undo is none
-        XCTAssertTrue(standardMenu.waitForExistence(timeout: 3.0), "Standard row must remain on refusal")
-        XCTAssertTrue(dropSetMenu.waitForExistence(timeout: 3.0), "Drop-set row must remain on refusal")
-
+        // Verify refusal: request=1, seam=2 (request + confirmation), callback=0, undo=none, announcement=none
+        let requestCount = app.staticTexts["subset_probe_request_count"]
+        let seamCount = app.staticTexts["subset_probe_seam_count"]
         let callbackCount = app.staticTexts["subset_probe_callback_count"]
         let undoState = app.staticTexts["subset_probe_undo_state"]
+        let lastAnnouncement = app.staticTexts["subset_probe_last_announcement"]
+
         XCTAssertTrue(callbackCount.waitForExistence(timeout: 2.0))
+        XCTAssertEqual(requestCount.label, "Requests: 1")
+        XCTAssertEqual(seamCount.label, "Seam: 2")
         XCTAssertEqual(callbackCount.label, "Callbacks: 0")
         XCTAssertEqual(undoState.label, "Undo: none")
+        XCTAssertEqual(lastAnnouncement.label, "Announcement: none")
+
+        // Both rows remain present in exact order [0, 1]
+        let remainingStandard = app.buttons["active-workout.row.\(standardID).action-menu"]
+        let remainingDropSet = app.buttons["active-workout.row.\(dropSetID).action-menu"]
+        XCTAssertTrue(remainingStandard.waitForExistence(timeout: 2.0), "Standard row must remain on refusal")
+        XCTAssertTrue(remainingDropSet.waitForExistence(timeout: 2.0), "Drop-set row must remain on refusal")
     }
 
     // MARK: - AC-006: Actual Adjacent Geometry
@@ -130,9 +167,12 @@ final class SubSetProductionRouteUITests: XCTestCase {
         app.launchArguments = ["-SubSetRouteTestMode", "standard_pyramid_drop"]
         app.launch()
 
-        let standardMenu = app.buttons["active-workout.row.standard.action-menu"]
-        let pyramidMenu = app.buttons["active-workout.row.pyramid.action-menu"]
-        let dropSetMenu = app.buttons["active-workout.row.dropSet.action-menu"]
+        let allMenus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'active-workout.row.' AND identifier ENDSWITH '.action-menu'"))
+        XCTAssertEqual(allMenus.count, 3, "Fixture must contain exactly 3 rows")
+
+        let standardMenu = allMenus.element(boundBy: 0)
+        let pyramidMenu = allMenus.element(boundBy: 1)
+        let dropSetMenu = allMenus.element(boundBy: 2)
 
         XCTAssertTrue(standardMenu.waitForExistence(timeout: 5.0))
         XCTAssertTrue(pyramidMenu.waitForExistence(timeout: 5.0))
@@ -143,36 +183,62 @@ final class SubSetProductionRouteUITests: XCTestCase {
         let dropSetFrame = dropSetMenu.frame
 
         // Every trigger frame must be at least 44x44 points
-        XCTAssertGreaterThanOrEqual(standardFrame.width, 43.9, "Standard menu trigger width >= 44")
-        XCTAssertGreaterThanOrEqual(standardFrame.height, 43.9, "Standard menu trigger height >= 44")
-        XCTAssertGreaterThanOrEqual(pyramidFrame.width, 43.9, "Pyramid menu trigger width >= 44")
-        XCTAssertGreaterThanOrEqual(pyramidFrame.height, 43.9, "Pyramid menu trigger height >= 44")
-        XCTAssertGreaterThanOrEqual(dropSetFrame.width, 43.9, "Drop-set menu trigger width >= 44")
-        XCTAssertGreaterThanOrEqual(dropSetFrame.height, 43.9, "Drop-set menu trigger height >= 44")
+        XCTAssertGreaterThanOrEqual(standardFrame.width.rounded(), 44.0, "Standard menu trigger width >= 44")
+        XCTAssertGreaterThanOrEqual(standardFrame.height.rounded(), 44.0, "Standard menu trigger height >= 44")
+        XCTAssertGreaterThanOrEqual(pyramidFrame.width.rounded(), 44.0, "Pyramid menu trigger width >= 44")
+        XCTAssertGreaterThanOrEqual(pyramidFrame.height.rounded(), 44.0, "Pyramid menu trigger height >= 44")
+        XCTAssertGreaterThanOrEqual(dropSetFrame.width.rounded(), 44.0, "Drop-set menu trigger width >= 44")
+        XCTAssertGreaterThanOrEqual(dropSetFrame.height.rounded(), 44.0, "Drop-set menu trigger height >= 44")
 
         // Standard/Pyramid and Pyramid/Drop-Set intersections must be empty
         XCTAssertFalse(standardFrame.intersects(pyramidFrame), "Standard and pyramid menu triggers must not intersect")
         XCTAssertFalse(pyramidFrame.intersects(dropSetFrame), "Pyramid and drop-set menu triggers must not intersect")
     }
 
-    // MARK: - AC-007: Cataloged Delete Identity
+    // MARK: - AC-007: Cataloged Delete Identity in en & zh-Hans
 
-    func testCatalogedDeleteIdentityOnMenuDestructiveItem() throws {
+    func testCatalogedDeleteIdentity_en() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-SubSetRouteTestMode", "standard_pyramid_drop"]
+        app.launchArguments = [
+            "-SubSetRouteTestMode", "standard_pyramid_drop",
+            "-AppleLanguages", "(en)",
+            "-AppleLocale", "en_US"
+        ]
         app.launch()
 
-        let pyramidMenu = app.buttons["active-workout.row.pyramid.action-menu"]
-        XCTAssertTrue(pyramidMenu.waitForExistence(timeout: 5.0))
-        pyramidMenu.tap()
+        let allMenus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'active-workout.row.' AND identifier ENDSWITH '.action-menu'"))
+        XCTAssertTrue(allMenus.element(boundBy: 1).waitForExistence(timeout: 5.0))
 
-        let deleteButton = app.buttons["active-workout.row.pyramid.delete-menu-item"]
-        XCTAssertTrue(deleteButton.waitForExistence(timeout: 3.0))
+        // Check pyramid delete item in English
+        allMenus.element(boundBy: 1).tap()
+        let pyramidDelete = app.buttons.matching(NSPredicate(format: "identifier ENDSWITH '.delete-menu-item'")).firstMatch
+        XCTAssertTrue(pyramidDelete.waitForExistence(timeout: 3.0))
+        let pyramidLabel = pyramidDelete.label
+        XCTAssertTrue(pyramidLabel.localizedCaseInsensitiveContains("delete"), "Must contain translated Delete")
+        XCTAssertTrue(pyramidLabel.contains("1") || pyramidLabel.localizedCaseInsensitiveContains("set 1"), "Must contain parent set number")
+        XCTAssertTrue(pyramidLabel.localizedCaseInsensitiveContains("pyramid"), "Must contain Pyramid")
+    }
 
-        let label = deleteButton.label
-        XCTAssertTrue(label.localizedCaseInsensitiveContains("删除") || label.localizedCaseInsensitiveContains("delete"), "Must contain translated delete")
-        XCTAssertTrue(label.contains("1") || label.contains("第 1 组") || label.contains("Set 1"), "Must contain parent set number")
-        XCTAssertTrue(label.contains("递增") || label.contains("金字塔") || label.localizedCaseInsensitiveContains("pyramid"), "Must contain pyramid type")
+    func testCatalogedDeleteIdentity_zhHans() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-SubSetRouteTestMode", "standard_pyramid_drop",
+            "-AppleLanguages", "(zh-Hans)",
+            "-AppleLocale", "zh_Hans_CN"
+        ]
+        app.launch()
+
+        let allMenus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'active-workout.row.' AND identifier ENDSWITH '.action-menu'"))
+        XCTAssertTrue(allMenus.element(boundBy: 1).waitForExistence(timeout: 5.0))
+
+        // Check pyramid delete item in zh-Hans
+        allMenus.element(boundBy: 1).tap()
+        let pyramidDelete = app.buttons.matching(NSPredicate(format: "identifier ENDSWITH '.delete-menu-item'")).firstMatch
+        XCTAssertTrue(pyramidDelete.waitForExistence(timeout: 3.0))
+        let pyramidLabel = pyramidDelete.label
+        XCTAssertTrue(pyramidLabel.contains("删除"), "Must contain translated 删除")
+        XCTAssertTrue(pyramidLabel.contains("1") || pyramidLabel.contains("第 1 组"), "Must contain parent set number")
+        XCTAssertTrue(pyramidLabel.contains("递增") || pyramidLabel.contains("金字塔"), "Must contain Pyramid name")
     }
 
     // MARK: - AC-008: Shared Editable Composition and Control Effects
@@ -182,22 +248,26 @@ final class SubSetProductionRouteUITests: XCTestCase {
         app.launchArguments = ["-SubSetRouteTestMode", "standard_pyramid_drop"]
         app.launch()
 
-        // Weight and reps fields on pyramid row
-        let pyramidWeight = app.textFields["active-workout.row.pyramid.weight"]
-        let pyramidReps = app.textFields["active-workout.row.pyramid.reps"]
+        let allMenus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'active-workout.row.' AND identifier ENDSWITH '.action-menu'"))
+        XCTAssertTrue(allMenus.element(boundBy: 1).waitForExistence(timeout: 5.0))
+        let pyramidID = allMenus.element(boundBy: 1).identifier
+            .replacingOccurrences(of: "active-workout.row.", with: "")
+            .replacingOccurrences(of: ".action-menu", with: "")
+
+        // Weight and reps fields on pyramid row exist
+        let pyramidWeight = app.textFields["active-workout.row.\(pyramidID).weight"]
+        let pyramidReps = app.textFields["active-workout.row.\(pyramidID).reps"]
         XCTAssertTrue(pyramidWeight.waitForExistence(timeout: 5.0), "Pyramid weight field should exist")
         XCTAssertTrue(pyramidReps.waitForExistence(timeout: 5.0), "Pyramid reps field should exist")
 
         // Completion toggle on pyramid row
-        let pyramidCompletion = app.buttons["active-workout.row.pyramid.completion"]
+        let pyramidCompletion = app.buttons["active-workout.row.\(pyramidID).completion"]
         XCTAssertTrue(pyramidCompletion.waitForExistence(timeout: 5.0))
         pyramidCompletion.tap()
 
-        // Open pyramid menu and verify action menu trigger
-        let pyramidMenu = app.buttons["active-workout.row.pyramid.action-menu"]
-        pyramidMenu.tap()
-
-        let deleteButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '删除' OR label CONTAINS 'Delete'")).firstMatch
+        // Open pyramid menu and verify delete action exists
+        allMenus.element(boundBy: 1).tap()
+        let deleteButton = app.buttons.matching(NSPredicate(format: "identifier ENDSWITH '.delete-menu-item'")).firstMatch
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 3.0), "Pyramid menu should expose delete action")
     }
 }

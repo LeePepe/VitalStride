@@ -98,7 +98,7 @@ struct ActiveExerciseSection: View {
                 mainSetNumber: mainsBefore,
                 isLastSubSet: isLastSub,
                 recentWeightKg: lastMainWeight,
-                stableRowID: nil
+                stableRowID: String(format: "%016llx", UInt64(bitPattern: Int64(set.persistentModelID.hashValue)))
             ))
             if !isSub {
                 mainsBefore += 1
@@ -385,6 +385,7 @@ struct ActiveExerciseSection: View {
     /// Delegates to `requestHandler` (spec 026 / AC-001–AC-005) and applies returned
     /// presentation results.
     private func requestDelete(_ exerciseSet: ExerciseSet) {
+        requestHandler.recordSectionRequest(for: exerciseSet)
         let result = requestHandler.requestDelete(
             for: exerciseSet,
             in: workoutExercise,

@@ -31,6 +31,8 @@ enum SetDeletionResult: Equatable {
 
 @MainActor
 protocol SetDeletionRequesting: AnyObject {
+    func recordSectionRequest(for exerciseSet: ExerciseSet)
+
     func requestDelete(
         for exerciseSet: ExerciseSet,
         in workoutExercise: WorkoutExercise,
@@ -53,6 +55,10 @@ protocol SetDeletionRequesting: AnyObject {
 @MainActor
 final class SetDeletionRequestHandler: SetDeletionRequesting {
     static let shared = SetDeletionRequestHandler()
+
+    func recordSectionRequest(for exerciseSet: ExerciseSet) {
+        // Section entry boundary for production request
+    }
 
     func requestDelete(
         for exerciseSet: ExerciseSet,
@@ -175,6 +181,13 @@ final class SetDeletionRequestProbe: SetDeletionRequesting {
         self.underlying = underlying
     }
 
+    func recordSectionRequest(for exerciseSet: ExerciseSet) {
+        requestCount += 1
+        lastRequestedSetID = exerciseSet.persistentModelID
+        lastRequestedSetType = exerciseSet.setType
+        underlying.recordSectionRequest(for: exerciseSet)
+    }
+
     func requestDelete(
         for exerciseSet: ExerciseSet,
         in workoutExercise: WorkoutExercise,
@@ -183,7 +196,6 @@ final class SetDeletionRequestProbe: SetDeletionRequesting {
         modelContext: ModelContext,
         onSetDeleted: () -> Void
     ) -> SetDeletionResult {
-        requestCount += 1
         seamTraversalCount += 1
         lastRequestedSetID = exerciseSet.persistentModelID
         lastRequestedSetType = exerciseSet.setType
@@ -208,7 +220,6 @@ final class SetDeletionRequestProbe: SetDeletionRequesting {
         modelContext: ModelContext,
         onSetDeleted: () -> Void
     ) -> SetDeletionResult {
-        requestCount += 1
         seamTraversalCount += 1
         lastRequestedSetID = request.exerciseSet.persistentModelID
         lastRequestedSetType = request.exerciseSet.setType
