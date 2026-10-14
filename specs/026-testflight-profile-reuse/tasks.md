@@ -144,6 +144,9 @@ T001 AppUI baseline reconciliation + signing seam
 | US2/AC4; FR-010 | US2 | T003, T005 | Absence of pre-consent dispatch; explicit blocked edge |
 | US2/AC5; FR-012 | US2 | T005 | Consent record, run URL/head, terminal success, processed build identifier |
 | US2/AC6; FR-015; SC-007 | US2 | T004 | #442 merge/bootstrap proof plus fresh eligible event and real passing schema-valid check result |
+| RB-001; DEC-026-001 | US1 | T001, T002 | Fixed app/widget profile names absent; target-specific in-run values drive archive and export |
+| RB-002; DEC-026-004 | US1 | T002 | Canonical-output missing/empty regression proves fail-closed behavior with no action-return fallback |
+| RB-003; DEC-026-002 | US1/US2 | T002, T003 | Existing freshness assertions are preserved and the complete RepoInfra gate runs unchanged coverage plus the new regression |
 | SC-001, SC-002 | US1/US2 | T002, T003 | Focused and full RepoInfra results |
 | SC-003 | US1 | T001, T003 | XcodeGen synchronization and unsigned Release result |
 | SC-004 | US2 | T003, T004 | PR Manager-owned required-check evidence |

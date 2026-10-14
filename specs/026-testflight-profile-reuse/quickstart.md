@@ -65,7 +65,7 @@ Expected: the Release build completes without Apple credentials, installed profi
 - PR is non-Draft.
 - PR has the `owner-review` label.
 - PR description lists the new-runner manual validation procedure and states that explicit Owner consent is required before dispatch.
-- Local, remote, and replacement PR heads identify the unchanged reviewed tree. After the replacement is published, PR Manager closes PR #441 with the replacement link.
+- The frozen reviewed tree OID equals the final published commit's tree OID; separately, the local final commit SHA equals the remote branch OID and replacement PR `headRefOid`. After the replacement is published, PR Manager closes PR #441 with the replacement link.
 - No comment claims a real upload occurred during implementation verification.
 
 ## Trusted-review shipping gate (T004)

@@ -139,7 +139,7 @@ No public Swift, product, package, workflow input, or external API signature cha
 ### AppUI baseline-reconciliation interface
 
 - The `VitalStride` source entry in `project.yml` explicitly excludes `CONTEXT.md` before the two profile substitutions are evaluated.
-- The exclusion is the third authorized AppUI truth-source edit and removes only support-document file/resource membership from the generated project; it does not edit or delete the document.
+- The exclusion is the baseline-reconciliation edit, applied first as one of the three authorized AppUI truth-source edits; it removes only support-document file/resource membership from the generated project and does not edit or delete the document.
 - The generated project is synchronized through XcodeGen and is idempotent when regenerated with the same recorded executable. Direct generated-file edits are forbidden.
 
 ## Dependency Strategy
