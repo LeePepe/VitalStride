@@ -7,9 +7,12 @@
 - Archive-time `xcargs` currently contains build number, team, and telemetry values but no target-specific provisioning-profile inputs.
 - Export mapping reads the canonical Fastlane profile-name environment outputs but falls back to the provisioning action return values.
 - `project.yml` keeps base signing Automatic, while the app and widget Release configurations are Manual and each contain a fixed profile display name.
+- At the approved base, the `VitalStride` source entry excludes only `*.entitlements`; XcodeGen therefore treats support-only `VitalStride/CONTEXT.md` as target input. Root `CONTEXT.md` classifies `**/CONTEXT.md` as support exclusions, and the repaired candidate demonstrated that the exclusion plus profile substitutions removes the unintended generated references.
 - `.github/workflows/testflight.yml` is manual-only, checks out `main`, retains `force=false` by default, skips when no new commit exists unless forced, and never cancels an in-progress upload.
 - `scripts/tests/test_testflight_freshness.py` already has four passing static tests for those workflow invariants. `scripts/test-repoinfra.sh` auto-discovers that module and the PR `Lint & policy` job invokes the complete gate.
 - A real lane run queries ASC, can regenerate Developer Portal profiles, archives, uploads, distributes to internal groups, and advances the release tag. It is not a safe implementation test.
+- The Owner-authorized recovery preserves PR #441, uses the preserved delivery workspace on a new branch from `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`, and requires clean AppUI/RepoInfra commits without force-push.
+- MY-1675 / PR #442 carries the trusted `codex-review-target` control-plane repair. Its one-time human bootstrap is bound to the exact #442 head and cannot be reused by the MY-1660 replacement.
 
 ## Decision 1: One target-specific two-value interface
 
@@ -53,12 +56,36 @@
 
 **Rationale**: The implementation can be fully reviewed without external mutation, while the issue's final operational outcome still receives a controlled new-runner proof. The non-Draft PR and `owner-review` label make the decision point visible before release.
 
-## Decision 5: No ADR or domain-context change
+## Decision 5: Classify the context exclusion as AppUI baseline reconciliation
+
+**Decision**: T001 first adds `CONTEXT.md` to the `VitalStride` source exclusions in `project.yml`, then applies the two profile substitutions. The exclusion and substitutions remain one AppUI task/commit; the generated project is synchronized evidence, and `VitalStride/CONTEXT.md` content remains untouched.
+
+**Rationale**: The file is already a support exclusion by root context, while `project.yml` is the AppUI truth source. Encoding the omission there removes accidental resource membership without changing product behavior or creating a generated-output layer. Keeping the three truth-source edits in T001 preserves the AppUI/RepoInfra task and commit boundary.
+
+**Alternatives considered**:
+
+- Treat the context file as a legitimate app resource. Rejected because it contradicts the repository support-exclusion contract and the Owner decision.
+- Hand-edit the generated references. Rejected by Constitution Principle IV; regeneration would restore them.
+- Move the exclusion into RepoInfra. Rejected because `project.yml` is AppUI-owned even when release automation consumes its output.
+
+## Decision 6: Preserve forward-only replacement history and require a fresh trusted review event
+
+**Decision**: Freeze and independently review the uncommitted replacement tree, then publish it as one AppUI commit followed by one RepoInfra commit on a new branch from the approved base. Keep PR #441 unchanged until the replacement exists. Block shipping until #442 merges through its one-time exact-head bootstrap and a fresh eligible `pull_request_target` event produces a real schema-valid, passing `codex-review-target` result for the replacement head.
+
+**Rationale**: A replacement avoids rewriting PR #441's mixed-layer history, while the post-#442 event ensures the replacement uses the repaired trusted control plane. A bootstrap exception is not a transferable review result.
+
+**Alternatives considered**:
+
+- Force-push or rewrite PR #441. Rejected by the Owner recovery decision.
+- Reuse #442's human bootstrap for MY-1660. Rejected because it is one-time and exact-head scoped.
+- Accept a pre-#442, stale, or synthetic check result. Rejected because it does not prove the fixed trusted workflow evaluated the replacement head.
+
+## Decision 7: No ADR or domain-context change
 
 **Decision**: Do not add an ADR or edit `CONTEXT.md`.
 
-**Rationale**: This repair follows existing AppUI/RepoInfra ownership, XcodeGen truth-source, manual TestFlight, and PR-required decisions. It introduces no durable product terminology, dependency direction, public interface, or architecture reversal.
+**Rationale**: This repair follows existing AppUI/RepoInfra ownership, XcodeGen truth-source, manual TestFlight, and PR-required decisions. It introduces no durable product terminology, dependency direction, public interface, or architecture reversal. Excluding the unchanged context document implements the existing support-exclusion contract rather than changing it.
 
 ## No open clarification
 
-MY-1606 revision 3 and the Team Lead handoff settle target behavior, compatibility, scope, PR constraints, and the Owner-consent boundary. No product or authority choice remains for implementation; only T004 stays intentionally blocked until the Owner supplies the required external consent.
+MY-1606 revision 3 and the Team Lead handoff settle target behavior, compatibility, scope, recovery, shipping prerequisites, and the Owner-consent boundary. No product or authority choice remains for implementation. T004 is an external shipping dependency on MY-1675, and T005 stays intentionally blocked until the Owner supplies upload consent.

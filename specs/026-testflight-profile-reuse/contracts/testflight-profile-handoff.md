@@ -1,5 +1,13 @@
 # Contract: TestFlight profile handoff
 
+## AppUI Truth-Source Reconciliation
+
+- The approved product/source base is `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`.
+- T001 owns one AppUI `project.yml` commit with three authorized truth-source edits: first add `CONTEXT.md` to the `VitalStride` source-entry exclusions as baseline reconciliation, then replace the app and widget fixed Release profile specifiers with their target-specific interface keys.
+- The baseline component excludes the unchanged support document `VitalStride/CONTEXT.md` from `VitalStride` target file/resource membership. It does not edit that document, any app/package source or test, or any RepoInfra path.
+- `VitalStride.xcodeproj/project.pbxproj` is generated synchronization evidence under Constitution Principle IV. It is regenerated from `project.yml`, contains no `VitalStride/CONTEXT.md` file or resource-build reference, and is never hand-edited or assigned independent layer ownership.
+- Regeneration with the same recorded XcodeGen executable is idempotent. The repaired candidate's observed `99/7` generated-project numstat against the approved base is diagnostic only; the normative contract is the resource exclusion plus the two target-correct profile-setting substitutions and absence of unrelated generated drift.
+
 ## Target Map
 
 | Release target | Bundle identifier | Canonical fetched-name source | Archive interface key |
@@ -54,12 +62,23 @@ The test performs no environment-secret read, ASC request, profile installation,
 
 ## Delivery Contract
 
-- Candidate PR: non-Draft, `owner-review` label, required checks, and description of the manual new-runner procedure.
+- Recovery is forward-only from `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b` in the preserved delivery workspace on a new branch. T001 publishes one AppUI commit and T002 publishes one RepoInfra commit; integration and shipping verification add no source commit.
+- Freeze the local uncommitted candidate and obtain exact AI Reviewer content `PASS` plus publication permission before commit, push, or PR creation/update. Publish only the unchanged reviewed tree.
+- Candidate PR: replacement for #441, non-Draft, `owner-review` label, required checks, clean layer-scoped history, and description of the manual new-runner procedure.
+- PR #441 and its branch remain unchanged until the replacement is published; PR Manager then closes #441 with the replacement link. No force-push or history rewrite is authorized.
 - Before explicit Owner consent: static/syntax/RepoInfra/XcodeGen/unsigned evidence only.
-- After reviewed merge plus explicit Owner consent: one manual TestFlight run on `main` may establish production proof.
+- After T004 passes, reviewed merge, and explicit Owner consent: one manual TestFlight run on `main` may establish production proof.
 - Production proof: consent record, GitHub Actions run URL, successful terminal run, and processed TestFlight build identifier. Secret values and signing artifacts are excluded.
+
+## Trusted Review Shipping Contract
+
+- MY-1675 / PR #442 must merge first through its one-time exact-head human bootstrap.
+- The #442 bootstrap is scoped only to that exact #442 head. It cannot be copied, referenced, or treated as a bypass for MY-1660.
+- After the trusted base contains the merged #442 fix, the replacement PR must receive a fresh eligible `pull_request_target` event.
+- Shipping evidence must include a real schema-valid, passing `codex-review-target` result for that fresh event and the replacement head. A stale result, a pre-fix event, a synthetic result, or the #442 bypass does not satisfy the gate.
 
 ## Compatibility Contract
 
 - Preserve manual-only workflow dispatch, force default and branch, `main` checkout, concurrency, build-number computation, telemetry build inputs, upload, internal-group distribution, and release-tag behavior.
 - Preserve all existing TestFlight freshness assertions; no deletion or weakening is allowed.
+- Preserve the unchanged support-document content and layer boundaries: `project.yml` is AppUI, Fastlane/workflow/test changes are RepoInfra, and the generated project is evidence rather than a third implementation layer.

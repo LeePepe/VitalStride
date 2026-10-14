@@ -2,6 +2,13 @@
 
 No product entity, persisted schema, or user data changes. The relevant model is ephemeral release state.
 
+## AppUI Configuration States
+
+1. **Approved base**: `project.yml` still permits `VitalStride/CONTEXT.md` to enter `VitalStride` target resources and still contains two fixed Release profile display names.
+2. **Baseline reconciled**: T001 adds the `CONTEXT.md` source exclusion in `project.yml`; the support document remains unchanged and XcodeGen removes its generated file/resource references.
+3. **Signing seam configured**: in the same AppUI task and commit, the app and widget fixed profile settings are replaced by their distinct target-specific interface keys.
+4. **Generated evidence synchronized**: XcodeGen regeneration contains the baseline exclusion and two profile substitutions without unrelated drift; a second run with the same recorded executable leaves the generated project unchanged.
+
 ## Values
 
 - **App fetched profile name**: opaque display name published by the app bundle's forced fetch.
@@ -37,6 +44,15 @@ When signing is explicitly disabled, the generated Release project can move dire
 - **Consent recorded**: after reviewed merge to `main`, one manual workflow run may proceed.
 - **Processed proof recorded**: the run URL and TestFlight build identifier show Apple processing completion without including secret or signing artifacts.
 
+## Recovery and Trusted Review States
+
+1. **Planning approved**: the exact repaired planning revision has independent AI Reviewer PASS and Team Lead approval.
+2. **Replacement candidate frozen**: the preserved delivery workspace starts from `e8cfc19d8d2ec3af64fdedc96eb8cd3d5c1dfd6b`; the uncommitted tree is split by AppUI/RepoInfra scope for review, while PR #441 remains unchanged.
+3. **Replacement published**: only the reviewed tree is committed as clean layer-scoped commits and published on a new branch; PR #441 is then eligible for PR Manager closure with the replacement link.
+4. **Bootstrap dependency satisfied**: MY-1675 / PR #442 has merged through its one-time exact-head human bootstrap and the trusted base contains that fix.
+5. **Fresh review event accepted**: the replacement receives a fresh eligible `pull_request_target` event after state 4 and records a real schema-valid, passing `codex-review-target` result for its current head.
+6. **Shipping eligible**: required checks, including state 5, are valid for the replacement head; no #442 bypass has been reused.
+
 ## Forbidden Transitions
 
 - Missing profile output → archive using an action-return fallback.
@@ -44,3 +60,8 @@ When signing is explicitly disabled, the generated Release project can move dire
 - Static/unsigned verification → implied Owner consent.
 - Draft or unlabeled implementation PR → production validation.
 - Workflow success before Apple processing completion → US2/AC5 satisfied.
+- Approved base → direct generated-project edit that omits the `project.yml` baseline exclusion.
+- AppUI configuration edit → change to `VitalStride/CONTEXT.md`, an app/package source or test, or a RepoInfra path in the same layer-scoped commit.
+- PR #441 → rewritten history, force-push, or closure before the replacement link is published.
+- PR #442 bootstrap → authorization for MY-1660 to bypass `codex-review-target`.
+- Pre-fix, stale, synthetic, or ineligible review event → replacement shipping evidence.
