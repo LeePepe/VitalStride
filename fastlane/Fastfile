@@ -18,6 +18,7 @@
 # App Store profile，build_app 显式映射，彻底不依赖 automatic 的启发式挑选。
 
 require "base64"
+require "shellwords"
 
 default_platform(:ios)
 
@@ -63,20 +64,33 @@ platform :ios do
     # 旧 profile 是加能力之前的快照、不含新 entitlements;fastlane 默认(force:false)
     # 会复用这份过时 profile → archive 报 "profile doesn't include the iCloud
     # capability" 签名失败。force:true 确保 profile 始终包含 App ID 的最新能力。
-    app_profile = get_provisioning_profile(
+    get_provisioning_profile(
       api_key: api_key,
       app_identifier: APP_IDENTIFIER,
       team_id: TEAM_ID,
       force: true,
       skip_install: false
     )
-    widget_profile = get_provisioning_profile(
+    get_provisioning_profile(
       api_key: api_key,
       app_identifier: WIDGET_IDENTIFIER,
       team_id: TEAM_ID,
       force: true,
       skip_install: false
     )
+
+    app_profile_name = ENV["sigh_#{APP_IDENTIFIER}_appstore_profile-name"]
+    widget_profile_name = ENV["sigh_#{WIDGET_IDENTIFIER}_appstore_profile-name"]
+
+    if app_profile_name.nil? || app_profile_name.strip.empty?
+      UI.user_error!("Missing canonical app profile name (sigh_#{APP_IDENTIFIER}_appstore_profile-name) for VITALSTRIDE_APP_PROFILE_SPECIFIER")
+    end
+    if widget_profile_name.nil? || widget_profile_name.strip.empty?
+      UI.user_error!("Missing canonical widget profile name (sigh_#{WIDGET_IDENTIFIER}_appstore_profile-name) for VITALSTRIDE_WIDGET_PROFILE_SPECIFIER")
+    end
+    if app_profile_name == widget_profile_name
+      UI.user_error!("App and widget profile names must be distinct for VITALSTRIDE_APP_PROFILE_SPECIFIER and VITALSTRIDE_WIDGET_PROFILE_SPECIFIER")
+    end
 
     build_app(
       project: XCODEPROJ,
@@ -86,22 +100,21 @@ platform :ios do
       export_team_id: TEAM_ID,
       # 签名走 project.yml 的 Release config：每个 target 各自 Manual +
       # PROVISIONING_PROFILE_SPECIFIER（profile 已由上面 get_provisioning_profile
-      # 拉取并安装）。这里只注入 build number + team，不再全局覆盖签名设置
-      # （全局 xcargs 无法按 target 区分 app/widget 的不同 profile）。
+      # 拉取并安装）。通过 xcargs 注入本次拉取的 target profile 名字。
       xcargs: "CURRENT_PROJECT_VERSION=#{next_build} " \
               "DEVELOPMENT_TEAM=#{TEAM_ID} " \
-              "GLITCHTIP_DSN=#{ENV.fetch('GLITCHTIP_DSN')} " \
-              "APTABASE_APP_KEY=#{ENV.fetch('APTABASE_APP_KEY', '')} " \
-              "APTABASE_HOST=#{ENV.fetch('APTABASE_HOST', '')}",
+              "VITALSTRIDE_APP_PROFILE_SPECIFIER=#{Shellwords.escape(app_profile_name)} " \
+              "VITALSTRIDE_WIDGET_PROFILE_SPECIFIER=#{Shellwords.escape(widget_profile_name)} " \
+              "GLITCHTIP_DSN=#{Shellwords.escape(ENV.fetch('GLITCHTIP_DSN'))} " \
+              "APTABASE_APP_KEY=#{Shellwords.escape(ENV.fetch('APTABASE_APP_KEY', ''))} " \
+              "APTABASE_HOST=#{Shellwords.escape(ENV.fetch('APTABASE_HOST', ''))}",
       export_options: {
         manageAppVersionAndBuildNumber: false,
         signingStyle: "manual",
         teamID: TEAM_ID,
         provisioningProfiles: {
-          APP_IDENTIFIER => ENV.fetch("sigh_#{APP_IDENTIFIER}_appstore_profile-name",
-                                      app_profile),
-          WIDGET_IDENTIFIER => ENV.fetch("sigh_#{WIDGET_IDENTIFIER}_appstore_profile-name",
-                                         widget_profile)
+          APP_IDENTIFIER => app_profile_name,
+          WIDGET_IDENTIFIER => widget_profile_name
         }
       },
       output_directory: ENV.fetch("RUNNER_TEMP", "/tmp"),
