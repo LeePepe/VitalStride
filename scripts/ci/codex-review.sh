@@ -16,15 +16,15 @@
 # 需要的环境变量(workflow 注入):
 #   PR_NUMBER, BASE_SHA, HEAD_SHA, BASE_REPO, GH_TOKEN
 #
-# Raven 连接元数据取自日常 provider;客户端 key 只从 runner 环境读取。
+# Provider 与认证配置由独立的 review home ($CODEX_REVIEW_HOME 或 ~/.codex-review) 提供。
 # 独立 review home 保留原 model/effort、关闭 hooks/MCP 和只读沙箱配置。
 # 运维与 trusted-base 迁移顺序见 raven-review-operations.md。
 
 set -uo pipefail
 
-# 独立 CODEX_HOME:review 门专用,不碰用户日常的 ~/.codex(raven/cmux)。
+# 独立 CODEX_HOME:review 门专用,不碰用户日常的 ~/.codex。
 export CODEX_HOME="${CODEX_REVIEW_HOME:-$HOME/.codex-review}"
-# 用标准 codex 二进制;Raven 路由由受信任的 provider helper 显式注入。
+# 用标准 codex 二进制;provider 校验与启动由受信任的 helper 处理。
 CODEX_BIN="${CODEX_BIN:-/opt/homebrew/bin/codex}"
 command -v "$CODEX_BIN" >/dev/null 2>&1 || CODEX_BIN="codex"
 
