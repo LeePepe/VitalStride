@@ -43,35 +43,4 @@ if [ -f "$ROOT/scripts/rulesets/main-protection.json" ]; then
       "$ROOT/scripts/rulesets/main-protection.json" >/dev/null
 fi
 
-# AC-01 & AC-02: Shared-ci pin, caller inputs, and AGENTS.md parity
-PIN="6e354f476bc53d68f0f09fc231d5cd938466af9c"
-grep -qF "uses: LeePepe/shared-ci/.github/workflows/codex-review.yml@$PIN" "$CODEX_TARGET_WORKFLOW"
-grep -qF "LeePepe/shared-ci@$PIN/ai/agent-protocol.md" "$ROOT/AGENTS.md"
-grep -qF "LeePepe/shared-ci@$PIN/ai/" "$ROOT/AGENTS.md"
-! grep -qF 'secrets: inherit' "$CODEX_TARGET_WORKFLOW"
-grep -qF "runs-on: '[\"self-hosted\", \"vitalstride-mac\"]'" "$CODEX_TARGET_WORKFLOW"
-grep -qF 'codex-bin: /opt/homebrew/bin/codex' "$CODEX_TARGET_WORKFLOW"
-grep -qF 'rules-file: docs/codex-review-rules.md' "$CODEX_TARGET_WORKFLOW"
-grep -qF 'timeout-minutes: 25' "$CODEX_TARGET_WORKFLOW"
-
-# AC-03 & AC-05: Hosted completion job and Raven detachment
-grep -qE '^\s*codex-review-target:' "$CODEX_TARGET_WORKFLOW"
-grep -qE 'needs:\s*\[?codex-review\]?' "$CODEX_TARGET_WORKFLOW"
-grep -qE 'runs-on:\s*ubuntu-latest' "$CODEX_TARGET_WORKFLOW"
-grep -qE 'permissions:\s*\{\}' "$CODEX_TARGET_WORKFLOW"
-! grep -qE '(codex-review\.sh|review-raven\.py|RAVEN_API_KEY|CODEX_RAVEN_CONFIG)' "$CODEX_TARGET_WORKFLOW"
-
-# AC-05 & docs: Raven operations doc and ci-gates doc
-grep -qF 'INACTIVE / OFFLINE LEGACY MAINTENANCE ONLY' "$ROOT/scripts/ci/raven-review-operations.md"
-grep -qF 'shared-ci' "$ROOT/scripts/ci/raven-review-operations.md"
-grep -qF 'shared-ci' "$ROOT/docs/ci-gates.md"
-grep -qF "$PIN" "$ROOT/docs/ci-gates.md"
-
-# AC-06: Compact trusted review rules file
-RULES_DOC="$ROOT/docs/codex-review-rules.md"
-[ -f "$RULES_DOC" ]
-rules_size="$(wc -c < "$RULES_DOC" | tr -d ' ')"
-[ "$rules_size" -gt 0 ] && [ "$rules_size" -le 24000 ]
-! grep -qE '\{\{(CHANGED|DIFF|TRUNCATED|REPO_RULES|ARCHITECTURE|OWNER_DECISIONS)\}\}' "$RULES_DOC"
-
-echo "Kimi advisory / Claude pause / shared-ci review contract passed."
+echo "Kimi advisory / Claude pause contract passed."

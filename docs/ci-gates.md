@@ -20,11 +20,11 @@
 
 | 层 | 文件 | 触发 | 可绕? |
 |---|---|---|---|
-| required review | `.github/workflows/codex-review-target.yml` (调用 `shared-ci@6e354f476bc53d68f0f09fc231d5cd938466af9c` + `docs/codex-review-rules.md`) | PR | 否 |
+| required review | `.github/workflows/codex-review-target.yml` + `scripts/ci/codex-review.sh` | PR | 否 |
 | paused legacy review | `.github/workflows/codex-review.yml` | 手动 no-op | — |
 | advisory review | `.github/workflows/kimi-review.yml` + `scripts/ci/kimi-review.sh` | PR | 不阻塞 |
 | paused review | `.github/workflows/claude-review.yml` | 手动 no-op | — |
-| review prompt(历史/离线数据) | `scripts/ci/review-prompt.md` + `scripts/ci/render-review-prompt.py` | 历史 Claude 与离线契约测试 | — |
+| review prompt(数据) | `scripts/ci/review-prompt.md` + `scripts/ci/render-review-prompt.py` | Codex 与历史 Claude gate | — |
 | prompt 契约回归 | `scripts/ci/review-prompt.contract.test.sh`(ci.yml「Lint & policy」) | PR | 否 |
 | TEMP-PRELAUNCH 扫描 | `scripts/ci/scan-temp-prelaunch.sh`(ci.yml「Lint & policy」用 `enforce`;testflight.yml 用 `audit`) | PR + 发布 | 否 |
 | 自动合并 | `.github/workflows/auto-merge.yml` | PR | — |
@@ -106,10 +106,7 @@ FR-017 说的「上架」= App Store 提交。`fastlane/Fastfile` 目前只有 `
 ## 自动 review 是怎么工作的
 
 - 跑在维护者本机的 self-hosted runner(标签 `vitalstride-mac`)。
-- `codex-review-target` 调用可信固定引用的 shared-ci 门禁 (`LeePepe/shared-ci/.github/workflows/codex-review.yml@6e354f476bc53d68f0f09fc231d5cd938466af9c`)，使用可信规则文件 `docs/codex-review-rules.md` 与独立只读 `CODEX_HOME` (`~/.codex-review`)，是 ruleset 中唯一 required AI check。
-- 托管完成 job `codex-review-target` 依赖 reusable job，仅在审查成功 (`success`) 时放行，任何失败、取消或跳过均 fail-closed 阻塞。
-- **Bounded Adoption 边界**：本项目仅引入 shared-ci 的 Codex 评审 reusable workflow 与 `AGENTS.md` 中的 agent-protocol/dependency 权威，不把 VitalStride 的 legacy `CONTEXT.md` 布局、常规质量流水线或其它治理机制迁移为 repo-kit。
-- **Raven 本地管线退役**：历史本地 Raven 发起链路 (`scripts/ci/codex-review.sh`、`scripts/ci/review-raven.py`、`scripts/ci/raven-review-operations.md`) 已从线上 Actions 退出，作为离线/测试夹具保留。
+- `codex-review-target` 使用独立只读 `CODEX_HOME`,是 ruleset 中唯一 required AI check。
 - `kimi-review` 固定 tool-less agent 与 `kimi-code/k3`,只更新 advisory sticky comment;
   findings、超时和解析失败均不阻塞 merge。
 - `claude-review` 只保留手动 no-op workflow,不再响应 PR。

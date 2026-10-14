@@ -1,8 +1,7 @@
 name: codex-review-target
 
-# Trusted pull_request_target evaluated from the default branch.
-# Calls pinned shared-ci reusable review and enforces success in a hosted completion job.
-# Trusted base checkout (ref: ${{ github.event.pull_request.base.sha }}) is performed by the reusable workflow.
+# Trusted replacement for codex-review. pull_request_target evaluates this workflow from
+# the default branch; the job checks out the trusted base and reads the PR diff as data.
 
 on:
   pull_request_target:
@@ -18,32 +17,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  codex-review:
-    uses: LeePepe/shared-ci/.github/workflows/codex-review.yml@6e354f476bc53d68f0f09fc231d5cd938466af9c
-    with:
-      runs-on: '["self-hosted", "vitalstride-mac"]'
-      codex-bin: /opt/homebrew/bin/codex
-      rules-file: docs/codex-review-rules.md
-      timeout-minutes: 25
-
   codex-review-target:
-    if: ${{ always() }}
-    needs: [codex-review]
-    runs-on: ubuntu-latest
-    permissions: {}
-    timeout-minutes: 5
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, vitalstride-mac]
+    timeout-minutes: 25
     steps:
-      - name: Require completed Codex review
-        shell: sh
+      - name: Checkout base (trusted script source)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Run local Codex review (trusted target gate)
         env:
-          CODEX_RESULT: ${{ needs.codex-review.result }}
-        run: |
-          case "${CODEX_RESULT:-}" in
-            success)
-              echo "Codex review completed successfully."
-              ;;
-            *)
-              echo "::error::Codex review must complete with success; result '${CODEX_RESULT:-}' cannot pass."
-              exit 1
-              ;;
-          esac
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REPO: ${{ github.repository }}
+        run: scripts/ci/codex-review.sh
+
+  codex-review-target-fork:
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Codex review is skipped for fork pull requests."

@@ -1,38 +1,69 @@
-# Raven review operations (INACTIVE / OFFLINE LEGACY)
+# Raven review operations
 
-> **Status: INACTIVE / OFFLINE LEGACY MAINTENANCE ONLY.**
->
-> No active GitHub Actions workflow invokes this Raven review bundle. The active required AI review gate (`codex-review-target`) is powered by reusable `LeePepe/shared-ci/.github/workflows/codex-review.yml@6e354f476bc53d68f0f09fc231d5cd938466af9c` (see `docs/ci-gates.md` and `docs/codex-review-rules.md`).
->
-> The files `scripts/ci/codex-review.sh`, `scripts/ci/review-raven.py`, `scripts/ci/codex-review.schema.json`, their coupled offline contract tests, and this document are retained as an inactive/offline legacy bundle. All instructions below apply strictly to offline local debugging or historical reference.
+The trusted local `codex-review.sh` gate invokes the standard Codex CLI through
+`review-raven.py`. Provider selection and connection configuration are governed
+exclusively by the isolated review home: `$CODEX_HOME/config.toml`, where
+`CODEX_HOME="${CODEX_REVIEW_HOME:-$HOME/.codex-review}"`.
 
-## Offline Architecture & Context
+The gate is provider-neutral: any valid provider selected via `model_provider`
+in the review home's configuration is accepted. The launcher imposes no provider-name
+restriction (such as requiring `raven`), injects no CLI provider overrides, and
+requires no environment-level credentials.
 
-The historical `codex-review.sh` script invoked the standard Codex CLI through
-`review-raven.py`. Only the existing daily provider's connection metadata was
-imported: `CODEX_RAVEN_CONFIG`, or `$HOME/.codex/config.toml` by default,
-when selecting `model_provider = "raven"`. The helper required a loopback HTTP(S)
-endpoint with an explicit port, Responses transport, and no OpenAI account
-authentication requirement. It never copied the daily config or changed models.
+## Runner readiness and authentication
 
-## Offline Runner Readiness & Authentication Context (Legacy)
+1. Provider authentication and network transport belong to Codex within the
+   isolated review home. The launcher does not require `RAVEN_API_KEY`,
+   `OPENAI_API_KEY`, or any specific environment variable before execution.
+2. The launcher does not inspect unrelated CI secrets (such as `GH_TOKEN` or
+   `GITHUB_TOKEN`), does not inspect source files, and does not read, copy, or
+   write authentication caches.
+3. Runner prerequisites: Python 3.11+ on PATH (stdlib `tomllib`), the standard
+   Codex binary (`CODEX_BIN`, normally `/opt/homebrew/bin/codex`), and a valid
+   review home configuration (`$HOME/.codex-review/config.toml`).
 
-1. The historical review client authenticated to Raven using the provider's named
-   environment variable: `OPENAI_API_KEY` or `RAVEN_API_KEY`.
-2. Raven owned its separate upstream Copilot authentication.
-3. Offline execution required Python 3.11+ on PATH (stdlib `tomllib`) and the local
-   standard Codex binary (`CODEX_BIN`, normally `/opt/homebrew/bin/codex`).
+Host and runner provisioning belongs to host bootstrap and is outside this
+repository's scope. Repository code never sources credential files or persists
+secrets into source control.
 
-## Dedicated Review Home (Legacy Context)
+## Isolated review home
 
-The historical caller set `CODEX_HOME=${CODEX_REVIEW_HOME:-$HOME/.codex-review}`.
-The live shared-ci workflow continues to use the dedicated review home (`$HOME/.codex-review`).
+The caller sets `CODEX_HOME="${CODEX_REVIEW_HOME:-$HOME/.codex-review}"`.
+An inherited daily `CODEX_HOME` or `$HOME/.codex/config.toml` is deliberately
+ignored and never serves as provider authority.
 
-## Offline Verification & Legacy Maintenance
+The isolated review home preserves its configured model, reasoning effort,
+disabled hooks/MCP (`hooks = false`), read-only sandbox (`sandbox_mode = "read-only"`),
+and never-approval policy (`approval_policy = "never"`). The caller continues
+to enforce read-only sandbox and never-approval explicitly on the CLI.
 
-Offline contracts exercise the historical caller with fake Git/GitHub/Codex tools;
-they make no model request and are not an actual review.
+## Fail-closed operation and diagnostics
 
-Local verification is `bash scripts/test-repoinfra.sh`; its existing unittest discovery
-invokes these legacy Raven contracts for backward compatibility. Live production review
-is handled exclusively by the shared-ci gate.
+Missing, unreadable, malformed, or provider-unselected review home configuration
+fails closed with a sanitized `Setup failed` diagnostic and exit code 1.
+There is no direct-OpenAI fallback, daily-home fallback, or automatic retry.
+
+Executable/CLI failures, empty or unparseable output, timeouts, and blocker
+findings (`verdict = "changes"`) all exit nonzero to prevent unreviewed or
+failing diffs from passing the gate.
+
+## Offline verification vs real Actions review
+
+Offline test contracts (`scripts/ci/tests/review_raven_contract.py`) exercise
+the real shell caller, prompt renderer, helper, and watchdog with fake Git/GitHub/Codex
+tools without making network calls or model requests.
+
+Local verification entry is `bash scripts/test-repoinfra.sh`, which automatically
+discovers and runs the offline contract tests alongside other RepoInfra checks.
+
+A successful offline test proves process invocation and contract safety, not
+live runner service readiness. Production acceptance requires the real
+`codex-review-target` required check on GitHub Actions, running on the self-hosted
+mac runner (`vitalstride-mac`) against trusted base code.
+
+## Trusted-base rollout and proof
+
+Because `.github/workflows/codex-review-target.yml` checks out trusted `base.sha`,
+the repair PR itself runs the pre-repair launcher from the base branch, exhibiting
+the expected setup failure signature. Bounded bootstrap and production proof proceed
+under the exact-head Owner approval and post-merge verification flow.

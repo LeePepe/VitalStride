@@ -17,17 +17,6 @@
 | 改 CI/workflow、hooks/scripts、fastlane、repo lint/security/spec-kit tooling | `RepoInfra/CONTEXT.md` | RepoInfra owned/excluded paths、角色边界、fast test 命令 |
 | build / test / git 操作 | 本文件（AGENTS.md） | 命令手册、PR 工作流 |
 | 架构方向冲突 | `docs/adr/` | 已落地决策；要推翻先写新 ADR |
-| 外部 Agent 协议 / 跨仓库规范 | `LeePepe/shared-ci@6e354f476bc53d68f0f09fc231d5cd938466af9c/ai/agent-protocol.md` | 跨仓库 Agent 协议权威 |
-| 外部依赖 / 规范体系 | `LeePepe/shared-ci@6e354f476bc53d68f0f09fc231d5cd938466af9c/ai/` | shared-ci ai/ 规范目录 |
-
-## Protocol & Dependencies
-
-- **Protocol**: `LeePepe/shared-ci@6e354f476bc53d68f0f09fc231d5cd938466af9c/ai/agent-protocol.md`
-- **Dependencies**: `LeePepe/shared-ci@6e354f476bc53d68f0f09fc231d5cd938466af9c/ai/`
-
-### Bounded Adoption Boundary
-
-This repository adopts pinned shared-ci's reusable Codex review workflow (`.github/workflows/codex-review.yml@6e354f476bc53d68f0f09fc231d5cd938466af9c`) and its named agent protocol and dependency authority. It does not migrate VitalStride's legacy `CONTEXT.md` layer layout, general quality workflow, verification entry (`scripts/test-repoinfra.sh`), ruleset, or other repository governance to repo-kit. This boundary is an important policy/dependency decision requiring explicit Owner approval before merge; it is not a silent or undeclared migration.
 
 ## 最外层索引（Root Routes）
 
