@@ -187,7 +187,7 @@ struct ExercisesJSONTests {
         }
     }
 
-    @Test("Full catalog resolves to a stable 17-section aggregation")
+    @Test("Full catalog resolves to the final 12-section nonempty aggregation")
     func fullCatalogSectionDistribution() {
         let workouts = exercises.map { exercise in
             let rawEquipment = exercise.sourceData?.equipment ?? exercise.equipment
@@ -204,13 +204,39 @@ struct ExercisesJSONTests {
         let grouped = ExercisePickerSectionGrouping.groupedSections(from: workouts)
         let counts = Dictionary(uniqueKeysWithValues: grouped.map { ($0.0, $0.1.count) })
 
-        #expect(grouped.count == ExerciseSection.allCases.count)
-        #expect(grouped.map(\.0) == ExerciseSection.allCases)
-        #expect(counts[.other] == 30)
+        #expect(grouped.count == 12)
+        #expect(grouped.reduce(0) { $0 + $1.1.count } == 1_558)
+        #expect(grouped.map(\.0) == [
+            .band,
+            .barbell,
+            .bodyweight,
+            .cable,
+            .dumbbell,
+            .ezBarbell,
+            .kettlebell,
+            .leverageMachine,
+            .machine,
+            .smithMachine,
+            .weighted,
+            .other
+        ])
+        #expect(counts == [
+            .band: 54,
+            .barbell: 204,
+            .bodyweight: 376,
+            .cable: 196,
+            .dumbbell: 345,
+            .ezBarbell: 23,
+            .kettlebell: 61,
+            .leverageMachine: 81,
+            .machine: 38,
+            .smithMachine: 48,
+            .weighted: 36,
+            .other: 96
+        ])
         #expect(grouped.allSatisfy { section, items in
-            items.allSatisfy { $0.section == section }
+            !items.isEmpty && items.allSatisfy { $0.section == section }
         })
-        #expect(grouped.allSatisfy { _, items in items.count >= 10 })
         #expect(workouts.filter { $0.equipment == .rope }.count == 10)
         #expect(
             workouts
@@ -218,10 +244,14 @@ struct ExercisesJSONTests {
                     Equipment.bosuBall,
                     .ellipticalMachine,
                     .hammer,
+                    .medicineBall,
                     .olympicBarbell,
                     .resistanceBand,
                     .roller,
+                    .rope,
                     .skiergMachine,
+                    .sledMachine,
+                    .stabilityBall,
                     .stationaryBike,
                     .stepmillMachine,
                     .tire,
@@ -229,7 +259,7 @@ struct ExercisesJSONTests {
                     .upperBodyErgometer,
                     .wheelRoller
                 ].contains($0.equipment) }
-                .count == 30
+                .count == 96
         )
     }
 }
