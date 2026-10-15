@@ -9,6 +9,11 @@ on:
     workflows: [CI]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      force:
+        description: '忽略"无新提交"检查，强制发一次'
+        type: boolean
+        default: false
 
 concurrency:
   group: testflight
@@ -42,6 +47,7 @@ jobs:
           CI_BRANCH: ${{ github.event.workflow_run.head_branch }}
           CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          FORCE_INPUT: ${{ github.event.inputs.force }}
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
           set -euo pipefail
@@ -56,6 +62,7 @@ jobs:
           ci_branch = os.environ.get("CI_BRANCH", "")
           ci_conclusion = os.environ.get("CI_CONCLUSION", "")
           ci_head_sha = os.environ.get("CI_HEAD_SHA", "")
+          force_input = os.environ.get("FORCE_INPUT", "").lower() in ("true", "1", "yes")
           run_url = os.environ.get("RUN_URL", "")
 
           github_output = os.environ.get("GITHUB_OUTPUT", "")
@@ -207,7 +214,9 @@ jobs:
               print(f"::error::Marker tag testflight/last-released ({marker_sha}) is not a valid commit.")
               sys.exit(1)
 
-          if candidate == marker_sha:
+          is_force = (source == "manual" and force_input)
+
+          if candidate == marker_sha and not is_force:
               write_output("release", "false")
               write_output("reason", "already-covered")
               write_output("candidate", candidate)
@@ -235,15 +244,20 @@ jobs:
               print(f"::error::Marker {marker_sha} is not an ancestor of candidate {candidate}.")
               sys.exit(1)
 
-          # Range evaluation: marker..candidate
-          has_relevant_changes, relevant_paths = classify_diff(marker_sha, candidate)
-
-          if has_relevant_changes:
+          if is_force:
               release = True
-              reason = "eligible"
+              reason = "force"
+              relevant_paths = []
           else:
-              release = False
-              reason = "path-ineligible"
+              # Range evaluation: marker..candidate
+              has_relevant_changes, relevant_paths = classify_diff(marker_sha, candidate)
+
+              if has_relevant_changes:
+                  release = True
+                  reason = "eligible"
+              else:
+                  release = False
+                  reason = "path-ineligible"
 
           write_output("release", "true" if release else "false")
           write_output("reason", reason)

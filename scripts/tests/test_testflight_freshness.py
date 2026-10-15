@@ -95,11 +95,13 @@ class TestFlightRegressionContractTests(unittest.TestCase):
         self.release = self.workflow.split("\n  release:\n", 1)[1]
         self.gate_step = self.workflow.split("- name: Decide whether to release\n", 1)[1].split("\n      - name:", 1)[0]
 
-    # 1. exact automatic workflow/conclusion/event/branch guards and one captured candidate;
+    # 1. exact automatic workflow/conclusion/event/branch guards, manual force compatibility, and one captured candidate;
     def test_item_1_exact_automatic_guards_and_captured_candidate(self):
         self.assertIn("workflow_run:", self.triggers)
         self.assertIn("workflows: [CI]", self.triggers)
         self.assertIn("types: [completed]", self.triggers)
+        self.assertIn("workflow_dispatch:", self.triggers)
+        self.assertIn("force:", self.triggers)
 
         self.assertIn("github.event.workflow_run.event == 'push'", self.release)
         self.assertIn("github.event.workflow_run.head_branch == 'main'", self.release)
@@ -111,6 +113,7 @@ class TestFlightRegressionContractTests(unittest.TestCase):
         # Candidate is captured from workflow_run.head_sha
         self.assertIn("CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}", self.gate_step)
         self.assertIn("candidate = ci_head_sha", self.gate_step)
+        self.assertIn("FORCE_INPUT: ${{ github.event.inputs.force }}", self.gate_step)
 
     # 2. marker resolution and literal marker..candidate range;
     def test_item_2_marker_resolution_and_literal_range(self):
@@ -201,7 +204,7 @@ class TestFlightRegressionContractTests(unittest.TestCase):
         self.assertFalse(is_endpoint_relevant("OtherApp/App.entitlements"))
         self.assertFalse(is_endpoint_relevant("OtherWidgets/Assets.xcassets/Icon.png"))
 
-    # 6. irrelevant skip, relevant lane decision, and invalid-marker failure;
+    # 6. irrelevant skip, relevant lane decision, manual force decision, and invalid-marker failure;
     def test_item_6_skip_relevant_lane_and_invalid_marker_failure(self):
         # In gate script:
         # Invalid marker exits with code 1
@@ -216,6 +219,10 @@ class TestFlightRegressionContractTests(unittest.TestCase):
 
         # Eligible sets release=true
         self.assertIn("write_output('release', 'true' if release else 'false')", self.gate_step.replace('"', "'"))
+
+        # Manual force bypasses path eligibility and already-covered skip
+        self.assertIn("is_force = (source == 'manual' and force_input)", self.gate_step.replace('"', "'"))
+        self.assertIn("candidate == marker_sha and not is_force", self.gate_step)
 
     # 7. existing-lane call followed by candidate marker update only on lane success;
     def test_item_7_existing_lane_call_and_post_upload_marker_update(self):
