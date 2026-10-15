@@ -1,15 +1,13 @@
 name: testflight
 
-# 仅通过 workflow_dispatch 手动构建 main 并上传 TestFlight（内部测试）。
-# 自动发布已暂停。force=true 可忽略“无新提交”检查；发布标记仍记录成功版本。
-#
-# 跑在 self-hosted `vitalstride-mac`（复用 auto-review-merge 那台）：Distribution
-# 证书已在登录钥匙串，签名走 project.yml 的 Manual + Apple Distribution + API key 拉取的 in-run profile，无需证书 Secret。
-# 需要的 Secrets: ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8_BASE64（见 AGENTS.md）。
-#
-# push tag 不触发 ci.yml（其 push 过滤是 branches:[main]），无副作用。
+# TestFlight release workflow for VitalStride.
+# Triggers automatically on completed CI push runs on main; also supports manual workflow_dispatch.
+# Runs on self-hosted `vitalstride-mac`.
 
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
   workflow_dispatch:
     inputs:
       force:
@@ -19,15 +17,19 @@ on:
 
 concurrency:
   group: testflight
-  cancel-in-progress: false # 不打断进行中的上传
-
-permissions:
-  contents: write # 移动 testflight/last-released tag
+  cancel-in-progress: false
 
 jobs:
   release:
     name: Build & upload to TestFlight
-    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: [self-hosted, vitalstride-mac]
     timeout-minutes: 40
     steps:
@@ -39,25 +41,252 @@ jobs:
 
       - name: Decide whether to release
         id: gate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CI_EVENT: ${{ github.event.workflow_run.event }}
+          CI_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          FORCE_INPUT: ${{ github.event.inputs.force }}
+          RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
           set -euo pipefail
-          LATEST="$(git rev-parse HEAD)"
-          RELEASED="$(git rev-parse -q --verify refs/tags/testflight/last-released || echo none)"
-          FORCE="${{ github.event.inputs.force }}"
-          echo "latest=$LATEST"   >> "$GITHUB_OUTPUT"
-          echo "HEAD=$LATEST  last-released=$RELEASED  force=$FORCE"
-          if [ "$FORCE" = "true" ] || [ "$LATEST" != "$RELEASED" ]; then
-            echo "release=true" >> "$GITHUB_OUTPUT"
-            echo "→ 有新提交（或 force）：将 build + 上传"
-          else
-            echo "release=false" >> "$GITHUB_OUTPUT"
-            echo "→ skipped: no new commits since last TestFlight release"
-          fi
+          python3 - <<'PY_GATE'
+          import os
+          import re
+          import subprocess
+          import sys
+
+          event_name = os.environ.get("EVENT_NAME", "")
+          ci_event = os.environ.get("CI_EVENT", "")
+          ci_branch = os.environ.get("CI_BRANCH", "")
+          ci_conclusion = os.environ.get("CI_CONCLUSION", "")
+          ci_head_sha = os.environ.get("CI_HEAD_SHA", "")
+          force_input = os.environ.get("FORCE_INPUT", "").lower() in ("true", "1", "yes")
+          run_url = os.environ.get("RUN_URL", "")
+
+          github_output = os.environ.get("GITHUB_OUTPUT", "")
+          github_step_summary = os.environ.get("GITHUB_STEP_SUMMARY", "")
+
+          def write_output(key, val):
+              if github_output:
+                  with open(github_output, "a", encoding="utf-8") as f:
+                      f.write(f"{key}={val}\n")
+
+          def write_summary(lines):
+              if github_step_summary:
+                  with open(github_step_summary, "a", encoding="utf-8") as f:
+                      f.write("\n".join(lines) + "\n")
+
+          def is_endpoint_relevant(p: str) -> bool:
+              p = p.strip("/").replace("\\", "/")
+              if (
+                  p.endswith(".md")
+                  or p == "CONTEXT.md"
+                  or p.endswith("/CONTEXT.md")
+                  or p.startswith("docs/")
+                  or p.startswith("specs/")
+                  or p.startswith(".github/")
+                  or p.startswith("Prototype/")
+                  or p.startswith("VitalStride.xcodeproj/")
+                  or p.startswith("VitalStrideTests/")
+                  or p.startswith("VitalStrideUITests/")
+                  or p.startswith("VitalStrideWatchTests/")
+                  or p.startswith("scripts/")
+                  or p.startswith("design/")
+                  or p.startswith(".specify/")
+                  or re.match(r"^Packages/[^/]+/Tests/", p)
+              ):
+                  return False
+
+              if p in ("project.yml", "fastlane/Fastfile", "fastlane/Appfile"):
+                  return True
+
+              if re.match(r"^Packages/[^/]+/Package\.swift$", p):
+                  return True
+              if re.match(r"^Packages/[^/]+/(Sources|Plugins)/", p):
+                  return True
+
+              if re.match(r"^(VitalStride|VitalStrideMac|VitalStrideWatch Watch App)/(Sources|Resources|Assets\.xcassets)/", p):
+                  return True
+              if re.match(r"^(VitalStride|VitalStrideMac|VitalStrideWatch Watch App)/[^/]+\.entitlements$", p):
+                  return True
+
+              if p.startswith("VitalStrideWidgets/"):
+                  if p.endswith(".swift") or p.endswith(".plist") or p.endswith(".entitlements"):
+                      return True
+                  if ".xcassets/" in p or p.endswith(".xcassets"):
+                      return True
+
+              return False
+
+          def classify_diff(baseline: str, candidate: str) -> tuple[bool, list[str]]:
+              cmd = ["git", "diff-tree", "-r", "-z", "--no-commit-id", baseline, candidate]
+              res = subprocess.run(cmd, capture_output=True, check=True)
+              raw = res.stdout
+              if not raw:
+                  return False, []
+
+              tokens = raw.split(b"\x00")
+              relevant_paths = []
+              i = 0
+              while i < len(tokens):
+                  token = tokens[i].decode("utf-8", errors="replace")
+                  if not token:
+                      i += 1
+                      continue
+                  parts = token.split()
+                  status = parts[-1] if parts else ""
+                  i += 1
+                  if i >= len(tokens):
+                      break
+                  path1 = tokens[i].decode("utf-8", errors="replace")
+                  i += 1
+                  if status.startswith("R") or status.startswith("C"):
+                      if i < len(tokens):
+                          path2 = tokens[i].decode("utf-8", errors="replace")
+                          i += 1
+                          if is_endpoint_relevant(path1) or is_endpoint_relevant(path2):
+                              relevant_paths.append(path2 or path1)
+                  else:
+                      if is_endpoint_relevant(path1):
+                          relevant_paths.append(path1)
+
+              return len(relevant_paths) > 0, relevant_paths
+
+          # Capture Candidate
+          if event_name == "workflow_run":
+              if ci_event != "push" or ci_branch != "main" or ci_conclusion != "success":
+                  write_output("release", "false")
+                  write_output("reason", "unsupported-source-event")
+                  write_output("candidate", ci_head_sha or "none")
+                  write_summary([
+                      "### TestFlight Release Gate: Skipped",
+                      f"- **Candidate**: `{ci_head_sha}`",
+                      "- **Source**: `automatic-ci`",
+                      "- **Decision**: `skip`",
+                      "- **Reason**: `unsupported-source-event`",
+                  ])
+                  sys.exit(0)
+              candidate = ci_head_sha
+              source = "automatic-ci"
+          elif event_name == "workflow_dispatch":
+              candidate = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+              source = "manual"
+          else:
+              write_output("release", "false")
+              write_output("reason", "unsupported-event")
+              write_output("candidate", "none")
+              sys.exit(0)
+
+          # Fetch remote tags and check marker
+          subprocess.run(["git", "fetch", "--tags", "origin"], check=False)
+          tag_res = subprocess.run(["git", "rev-parse", "-q", "--verify", "refs/tags/testflight/last-released"], capture_output=True, text=True)
+          if tag_res.returncode == 0 and tag_res.stdout.strip():
+              marker_sha = tag_res.stdout.strip()
+          else:
+              marker_sha = None
+
+          if not marker_sha:
+              write_output("release", "false")
+              write_output("reason", "marker-missing")
+              write_output("candidate", candidate)
+              write_summary([
+                  "### TestFlight Release Gate: Failed",
+                  f"- **Candidate**: `{candidate}`",
+                  "- **Marker**: `none (missing)`",
+                  "- **Reason**: `marker-missing`",
+              ])
+              print("::error::Marker tag testflight/last-released is missing.")
+              sys.exit(1)
+
+          is_commit = subprocess.run(["git", "rev-parse", "--verify", f"{marker_sha}^{{commit}}"], capture_output=True)
+          if is_commit.returncode != 0:
+              write_output("release", "false")
+              write_output("reason", "marker-invalid")
+              write_output("candidate", candidate)
+              write_summary([
+                  "### TestFlight Release Gate: Failed",
+                  f"- **Candidate**: `{candidate}`",
+                  f"- **Marker**: `{marker_sha}` (invalid/non-commit)",
+                  "- **Reason**: `marker-invalid`",
+              ])
+              print(f"::error::Marker tag testflight/last-released ({marker_sha}) is not a valid commit.")
+              sys.exit(1)
+
+          is_force = (source == "manual" and force_input)
+
+          if candidate == marker_sha and not is_force:
+              write_output("release", "false")
+              write_output("reason", "already-covered")
+              write_output("candidate", candidate)
+              write_summary([
+                  "### TestFlight Release Gate: Skipped",
+                  f"- **Candidate**: `{candidate}`",
+                  f"- **Marker**: `{marker_sha}`",
+                  "- **Decision**: `skip`",
+                  "- **Reason**: `already-covered`",
+              ])
+              print(f"Candidate {candidate} is identical to marker {marker_sha}. Skipping.")
+              sys.exit(0)
+
+          is_ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", marker_sha, candidate]).returncode == 0
+          if not is_ancestor:
+              write_output("release", "false")
+              write_output("reason", "marker-invalid")
+              write_output("candidate", candidate)
+              write_summary([
+                  "### TestFlight Release Gate: Failed",
+                  f"- **Candidate**: `{candidate}`",
+                  f"- **Marker**: `{marker_sha}`",
+                  "- **Reason**: `marker-invalid`",
+              ])
+              print(f"::error::Marker {marker_sha} is not an ancestor of candidate {candidate}.")
+              sys.exit(1)
+
+          if is_force:
+              release = True
+              reason = "force"
+              relevant_paths = []
+          else:
+              # Range evaluation: marker..candidate
+              has_relevant_changes, relevant_paths = classify_diff(marker_sha, candidate)
+
+              if has_relevant_changes:
+                  release = True
+                  reason = "eligible"
+              else:
+                  release = False
+                  reason = "path-ineligible"
+
+          write_output("release", "true" if release else "false")
+          write_output("reason", reason)
+          write_output("candidate", candidate)
+          write_output("source", source)
+
+          decision_str = "release" if release else "skip"
+          summary_lines = [
+              f"### TestFlight Release Gate: {'Release' if release else 'Skipped'}",
+              f"- **Candidate**: `{candidate}`",
+              f"- **Source**: `{source}`",
+              f"- **Marker**: `{marker_sha}`",
+              f"- **Relevant paths found**: {len(relevant_paths)}",
+              f"- **Decision**: `{decision_str}`",
+              f"- **Reason code**: `{reason}`",
+          ]
+          if run_url:
+              summary_lines.append(f"- **Run URL**: {run_url}")
+          write_summary(summary_lines)
+
+          if release:
+              print(f"→ Releasing candidate {candidate} (reason: {reason})")
+              subprocess.run(["git", "checkout", candidate], check=True)
+          else:
+              print(f"→ Skipped: {reason}")
+          PY_GATE
 
       - name: Verify Xcode
         if: steps.gate.outputs.release == 'true'
-        # self-hosted runner 上 Xcode 已由用户选定（无 passwordless sudo，
-        # 不能像 GitHub 托管 runner 那样 sudo xcode-select）。这里只校验版本。
         run: |
           echo "Using: $(xcode-select -p)"
           xcodebuild -version
@@ -72,8 +301,6 @@ jobs:
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
         run: |
           set -euo pipefail
-          # fastlane 直接吃 base64 key_content（is_key_content_base64: true），
-          # 这里仅校验 Secret 存在，不落地明文 .p8。
           if [ -z "${ASC_KEY_P8_BASE64:-}" ]; then
             echo "::error::ASC_KEY_P8_BASE64 secret 未设置" ; exit 1
           fi
@@ -84,37 +311,20 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
-          # runner 跑在独立 launchd 会话（PPID=1），login keychain 在该会话里默认
-          # 锁定 → codesign 拿不到 Apple Distribution 私钥 → errSecInternalComponent。
-          # 每次 build 前显式解锁 + 放行 codesign 无提示访问私钥。
           if [ -z "${KEYCHAIN_PASSWORD:-}" ]; then
             echo "::error::KEYCHAIN_PASSWORD secret 未设置（gh secret set KEYCHAIN_PASSWORD）"; exit 1
           fi
           KC="$HOME/Library/Keychains/login.keychain-db"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KC"
-          # 关掉自动锁定（interval / lock-on-sleep），避免长 archive 期间被重新锁上。
           security set-keychain-settings "$KC"
-          # 确保 login keychain 在 search list 里（codesign 才找得到私钥）。
-          # 保留现有 search list，只补上 login（-s 会替换整份，故先读回再合并去重）。
           EXISTING=$(security list-keychains -d user | sed -e 's/^[[:space:]]*"//' -e 's/"$//')
+          # shellcheck disable=SC2086,SC2046
           security list-keychains -d user -s $(printf '%s\n' "$KC" $EXISTING | awk '!seen[$0]++')
-          # 放行 codesign/apple 工具无提示访问私钥（幂等，重复跑无害）。
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$KEYCHAIN_PASSWORD" "$KC" >/dev/null 2>&1 || true
 
       - name: Audit — TEMP-PRELAUNCH exceptions (non-blocking for internal TestFlight)
         if: steps.gate.outputs.release == 'true'
-        # spec 019 FR-017 / SC-007:TEMP-PRELAUNCH 是**受控临时例外**(发布前
-        # 单用户调试用的原始健康值,只落本地 cloudKitDatabase: .none 分区)。
-        # 宪法 I 的永久生效状态要求**上架前**把标记的字段 + 写入点全部移除。
-        #
-        # 这里用 audit 模式(报告但不阻塞),因为 spec.md:144 界定的前提是
-        # 「未发布、单用户(项目 owner 自用)」——而 TestFlight 内测**就是**该阶段的
-        # 分发方式。在内测路径上硬阻塞等于在例外窗口内禁止一切分发,恰好废掉
-        # 例外本身的用途。命中会打印清单 + workflow warning,残留始终可见。
-        #
-        # 红线不失效:FR-017 说的「上架」是 App Store 提交。等提交 lane 落地时,
-        # 同一脚本以 `enforce` 模式接在那条路径上硬阻塞。
         run: bash scripts/ci/scan-temp-prelaunch.sh audit
 
       - name: fastlane beta
@@ -124,14 +334,9 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
           FASTLANE_SKIP_UPDATE_CHECK: "1"
-          # self-hosted runner 首次 SPM resolve + showBuildSettings 慢，撞上 fastlane
-          # 默认 3s 超时（重试到 24s 仍不够）导致 build_app 直接放弃。放宽超时/重试。
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
           FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "6"
           GLITCHTIP_DSN: ${{ secrets.GLITCHTIP_DSN }}
-          # Aptabase self-hosted analytics (ADR-0015). Optional: when the secret
-          # is unset the build setting expands empty and the app skips analytics
-          # registration (fail-safe no-op) — analytics is not a release gate.
           APTABASE_APP_KEY: ${{ secrets.APTABASE_APP_KEY }}
           APTABASE_HOST: ${{ secrets.APTABASE_HOST }}
         run: |
@@ -169,7 +374,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          SHA="${{ steps.gate.outputs.latest }}"
+          SHA="${{ steps.gate.outputs.candidate }}"
           git tag -f testflight/last-released "$SHA"
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
             "refs/tags/testflight/last-released"
