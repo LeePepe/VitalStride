@@ -1006,6 +1006,14 @@ public actor HealthDataCache {
                     )
                 }
 
+                if prepared.source == .anchoredChanges,
+                   let preparedProvider = provider as? (any PreparedWorkoutDataProviding),
+                   !self.isValidBaselineForAnchoredChanges()
+                {
+                    preparedProvider.rejectPreparedWorkoutFetch(prepared)
+                    prepared = try await preparedProvider.prepareWorkoutSnapshot(dateRange: req.key.dateRange)
+                }
+
                 self.handleWorkoutFetchSuccess(
                     requestID: requestID,
                     prepared: prepared,
@@ -1032,6 +1040,11 @@ public actor HealthDataCache {
 
     private func shouldAttemptAnchoredChanges(for req: WorkoutRequest) -> Bool {
         guard req.key.dateRange == nil else { return false }
+        guard let entry = workoutCache else { return false }
+        return entry.provenance == .defaultBaseline
+    }
+
+    private func isValidBaselineForAnchoredChanges() -> Bool {
         guard let entry = workoutCache else { return false }
         return entry.provenance == .defaultBaseline
     }
@@ -1169,7 +1182,18 @@ public actor HealthDataCache {
         if waiter.role == .coalesced {
             settleWaiter(waiterID, with: .failure(CancellationError()))
         } else if waiter.role == .owner {
-            retireWorkoutRequest(waiter.requestID, error: CancellationError(), provider: provider)
+            guard let req = workoutRequests[waiter.requestID] else {
+                settleWaiter(waiterID, with: .failure(CancellationError()))
+                return
+            }
+            // Settle only the owner waiter with CancellationError
+            settleWaiter(waiterID, with: .failure(CancellationError()))
+            // If there are no other waiters attached to this request, cancel task and retire request
+            if req.waiterIDs.isEmpty {
+                req.task?.cancel()
+                workoutRequests.removeValue(forKey: waiter.requestID)
+                releaseAndPumpLane(laneID: req.laneID, retiredRequestID: waiter.requestID, provider: provider)
+            }
         }
     }
 

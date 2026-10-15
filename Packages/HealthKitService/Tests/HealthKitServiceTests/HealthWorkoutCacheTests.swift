@@ -50,36 +50,148 @@ actor EventRecorder {
 // MARK: - Mock Prepared Workout Provider
 
 actor MockPreparedWorkoutProvider: WorkoutDataProviding, PreparedWorkoutDataProviding {
-    var snapshotResult: PreparedWorkoutFetch?
-    var snapshotResults: [PreparedWorkoutFetch] = []
-    var changesResult: PreparedWorkoutFetch?
-    var changesResults: [PreparedWorkoutFetch] = []
-    var legacyResult: WorkoutFetchResult?
+    private final class MockState: @unchecked Sendable {
+        var snapshotResult: PreparedWorkoutFetch?
+        var snapshotResults: [PreparedWorkoutFetch] = []
+        var changesResult: PreparedWorkoutFetch?
+        var changesResults: [PreparedWorkoutFetch] = []
+        var legacyResult: WorkoutFetchResult?
 
-    var fetchCallCount: Int = 0
-    var snapshotCallCount: Int = 0
-    var changesCallCount: Int = 0
-    var acceptCallCount: Int = 0
-    var rejectCallCount: Int = 0
+        var fetchCallCount: Int = 0
+        var snapshotCallCount: Int = 0
+        var changesCallCount: Int = 0
+        var acceptCallCount: Int = 0
+        var rejectCallCount: Int = 0
 
-    var fetchDateRanges: [DateInterval?] = []
-    var lastAcceptedCheckpoint: WorkoutAnchorCheckpoint?
-    var lastRejectedPrepared: PreparedWorkoutFetch?
+        var fetchDateRanges: [DateInterval?] = []
+        var lastAcceptedCheckpoint: WorkoutAnchorCheckpoint?
+        var lastRejectedPrepared: PreparedWorkoutFetch?
 
-    var shouldAdvanceDurableAnchorOnAccept: Bool = true
-    var durableAnchor: WorkoutAnchorCheckpoint?
+        var shouldAdvanceDurableAnchorOnAccept: Bool = true
+        var durableAnchor: WorkoutAnchorCheckpoint?
 
-    var providerStartedGate: DeterministicGate?
-    var queryCompleteGate: DeterministicGate?
-    var cacheAcceptanceGate: DeterministicGate?
-    var staleReleaseGate: DeterministicGate?
+        var providerStartedGate: DeterministicGate?
+        var queryCompleteGate: DeterministicGate?
+        var cacheAcceptanceGate: DeterministicGate?
+        var acceptanceInvokedGate: DeterministicGate?
+        var resetSuccessorGate: DeterministicGate?
+        var staleReleaseGate: DeterministicGate?
 
-    var eventRecorder: EventRecorder?
-    var errorToThrow: (any Error)?
+        var eventRecorder: EventRecorder?
+        var errorToThrow: (any Error)?
 
-    // Multi-lane support for concurrent distinct ranges
-    var providerStartedGatesByRange: [DateInterval?: DeterministicGate] = [:]
-    var staleReleaseGatesByRange: [DateInterval?: DeterministicGate] = [:]
+        var providerStartedGatesByRange: [DateInterval?: DeterministicGate] = [:]
+        var staleReleaseGatesByRange: [DateInterval?: DeterministicGate] = [:]
+    }
+
+    private let state = MockState()
+
+    var snapshotResult: PreparedWorkoutFetch? {
+        get { state.snapshotResult }
+        set { state.snapshotResult = newValue }
+    }
+    var snapshotResults: [PreparedWorkoutFetch] {
+        get { state.snapshotResults }
+        set { state.snapshotResults = newValue }
+    }
+    var changesResult: PreparedWorkoutFetch? {
+        get { state.changesResult }
+        set { state.changesResult = newValue }
+    }
+    var changesResults: [PreparedWorkoutFetch] {
+        get { state.changesResults }
+        set { state.changesResults = newValue }
+    }
+    var legacyResult: WorkoutFetchResult? {
+        get { state.legacyResult }
+        set { state.legacyResult = newValue }
+    }
+
+    var fetchCallCount: Int {
+        get { state.fetchCallCount }
+        set { state.fetchCallCount = newValue }
+    }
+    var snapshotCallCount: Int {
+        get { state.snapshotCallCount }
+        set { state.snapshotCallCount = newValue }
+    }
+    var changesCallCount: Int {
+        get { state.changesCallCount }
+        set { state.changesCallCount = newValue }
+    }
+    var acceptCallCount: Int {
+        get { state.acceptCallCount }
+        set { state.acceptCallCount = newValue }
+    }
+    var rejectCallCount: Int {
+        get { state.rejectCallCount }
+        set { state.rejectCallCount = newValue }
+    }
+
+    var fetchDateRanges: [DateInterval?] {
+        get { state.fetchDateRanges }
+        set { state.fetchDateRanges = newValue }
+    }
+    var lastAcceptedCheckpoint: WorkoutAnchorCheckpoint? {
+        get { state.lastAcceptedCheckpoint }
+        set { state.lastAcceptedCheckpoint = newValue }
+    }
+    var lastRejectedPrepared: PreparedWorkoutFetch? {
+        get { state.lastRejectedPrepared }
+        set { state.lastRejectedPrepared = newValue }
+    }
+
+    var shouldAdvanceDurableAnchorOnAccept: Bool {
+        get { state.shouldAdvanceDurableAnchorOnAccept }
+        set { state.shouldAdvanceDurableAnchorOnAccept = newValue }
+    }
+    var durableAnchor: WorkoutAnchorCheckpoint? {
+        get { state.durableAnchor }
+        set { state.durableAnchor = newValue }
+    }
+
+    var providerStartedGate: DeterministicGate? {
+        get { state.providerStartedGate }
+        set { state.providerStartedGate = newValue }
+    }
+    var queryCompleteGate: DeterministicGate? {
+        get { state.queryCompleteGate }
+        set { state.queryCompleteGate = newValue }
+    }
+    var cacheAcceptanceGate: DeterministicGate? {
+        get { state.cacheAcceptanceGate }
+        set { state.cacheAcceptanceGate = newValue }
+    }
+    var acceptanceInvokedGate: DeterministicGate? {
+        get { state.acceptanceInvokedGate }
+        set { state.acceptanceInvokedGate = newValue }
+    }
+    var resetSuccessorGate: DeterministicGate? {
+        get { state.resetSuccessorGate }
+        set { state.resetSuccessorGate = newValue }
+    }
+    var staleReleaseGate: DeterministicGate? {
+        get { state.staleReleaseGate }
+        set { state.staleReleaseGate = newValue }
+    }
+
+    var eventRecorder: EventRecorder? {
+        get { state.eventRecorder }
+        set { state.eventRecorder = newValue }
+    }
+    var errorToThrow: (any Error)? {
+        get { state.errorToThrow }
+        set { state.errorToThrow = newValue }
+    }
+
+    var providerStartedGatesByRange: [DateInterval?: DeterministicGate] {
+        get { state.providerStartedGatesByRange }
+        set { state.providerStartedGatesByRange = newValue }
+    }
+    var staleReleaseGatesByRange: [DateInterval?: DeterministicGate] {
+        get { state.staleReleaseGatesByRange }
+        set { state.staleReleaseGatesByRange = newValue }
+    }
 
     func fetchWorkouts(dateRange: DateInterval?) async throws -> WorkoutFetchResult {
         fetchCallCount += 1
@@ -181,33 +293,25 @@ actor MockPreparedWorkoutProvider: WorkoutDataProviding, PreparedWorkoutDataProv
     }
 
     nonisolated func acceptPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+        state.acceptCallCount += 1
+        state.lastAcceptedCheckpoint = prepared.checkpoint
+        if state.shouldAdvanceDurableAnchorOnAccept, let cp = prepared.checkpoint {
+            state.durableAnchor = cp
+        }
+        let rec = state.eventRecorder
+        let gate = state.acceptanceInvokedGate
         Task {
-            await self.recordAccept(prepared)
-        }
-    }
-
-    private func recordAccept(_ prepared: PreparedWorkoutFetch) {
-        acceptCallCount += 1
-        lastAcceptedCheckpoint = prepared.checkpoint
-        Task { [eventRecorder] in
-            await eventRecorder?.record("acceptance_invoked")
-        }
-        if shouldAdvanceDurableAnchorOnAccept, let cp = prepared.checkpoint {
-            durableAnchor = cp
+            await rec?.record("acceptance_invoked")
+            await gate?.open()
         }
     }
 
     nonisolated func rejectPreparedWorkoutFetch(_ prepared: PreparedWorkoutFetch) {
+        state.rejectCallCount += 1
+        state.lastRejectedPrepared = prepared
+        let rec = state.eventRecorder
         Task {
-            await self.recordReject(prepared)
-        }
-    }
-
-    private func recordReject(_ prepared: PreparedWorkoutFetch) {
-        rejectCallCount += 1
-        lastRejectedPrepared = prepared
-        Task { [eventRecorder] in
-            await eventRecorder?.record("acceptance_rejected")
+            await rec?.record("acceptance_rejected")
         }
     }
 
@@ -253,6 +357,14 @@ actor MockPreparedWorkoutProvider: WorkoutDataProviding, PreparedWorkoutDataProv
 
     func setCacheAcceptanceGate(_ gate: DeterministicGate?) {
         self.cacheAcceptanceGate = gate
+    }
+
+    func setAcceptanceInvokedGate(_ gate: DeterministicGate?) {
+        self.acceptanceInvokedGate = gate
+    }
+
+    func setResetSuccessorGate(_ gate: DeterministicGate?) {
+        self.resetSuccessorGate = gate
     }
 
     func setEventRecorder(_ recorder: EventRecorder?) {
@@ -443,6 +555,154 @@ struct HealthWorkoutCacheTests {
         #expect(await !cache.hasWorkoutCache())
     }
 
+    @Test("AC-S1 / AC-11: Provider failure fans out error to owner and all coalesced waiters")
+    func testSingleSettlement_FailureFansOutToOwnerAndCoalescedWaiters() async throws {
+        let provider = MockPreparedWorkoutProvider()
+        let startedGate = DeterministicGate()
+        let releaseGate = DeterministicGate()
+
+        await provider.setError(HealthKitServiceError.healthDataNotAvailable)
+        await provider.setProviderStartedGate(startedGate)
+        await provider.setStaleReleaseGate(releaseGate)
+
+        let cache = HealthDataCache(
+            dataProvider: MockSimpleHealthDataProvider(),
+            workoutProvider: provider
+        )
+
+        let task1 = Task { try await cache.workoutData() }
+        await startedGate.wait()
+
+        let task2 = Task { try await cache.workoutData() }
+        let task3 = Task { try await cache.workoutData() }
+
+        await releaseGate.open()
+
+        let r1 = await task1.result
+        let r2 = await task2.result
+        let r3 = await task3.result
+
+        #expect(throws: HealthKitServiceError.self) { try r1.get() }
+        #expect(throws: HealthKitServiceError.self) { try r2.get() }
+        #expect(throws: HealthKitServiceError.self) { try r3.get() }
+        #expect(await !cache.hasWorkoutCache())
+    }
+
+    @Test("AC-S1 / AC-11: Owner cancellation preserves coalesced waiters and delivers result to remaining waiters")
+    func testSingleSettlement_OwnerCancellationPreservesCoalescedWaiters() async throws {
+        let provider = MockPreparedWorkoutProvider()
+        let startedGate = DeterministicGate()
+        let releaseGate = DeterministicGate()
+
+        let workout = makeWorkout()
+        await provider.setSnapshotResult(PreparedWorkoutFetch(
+            workouts: [workout],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
+            checkpoint: nil
+        ))
+        await provider.setProviderStartedGate(startedGate)
+        await provider.setStaleReleaseGate(releaseGate)
+
+        let cache = HealthDataCache(
+            dataProvider: MockSimpleHealthDataProvider(),
+            workoutProvider: provider
+        )
+
+        let ownerTask = Task { try await cache.workoutData() }
+        await startedGate.wait()
+
+        let coalescedTask = Task { try await cache.workoutData() }
+
+        // Cancel owner task
+        ownerTask.cancel()
+
+        await releaseGate.open()
+
+        let ownerRes = await ownerTask.result
+        #expect(throws: CancellationError.self) { try ownerRes.get() }
+
+        let coalescedRes = try await coalescedTask.value
+        #expect(coalescedRes.count == 1)
+        #expect(coalescedRes.first?.id == workout.id)
+    }
+
+    @Test("AC-S1 / AC-11: Refresh supersession cancels active fetch and queued refresh delivers fresh result")
+    func testSingleSettlement_RefreshSupersessionSettlesOldAndDeliversNew() async throws {
+        let provider = MockPreparedWorkoutProvider()
+        let startedGate = DeterministicGate()
+        let releaseGate = DeterministicGate()
+
+        let w1 = makeWorkout()
+        let w2 = makeWorkout()
+
+        await provider.setSnapshotResults([
+            PreparedWorkoutFetch(
+                workouts: [w1],
+                deletedObjectIDs: [],
+                source: .baselineSnapshot,
+                coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
+                checkpoint: nil
+            ),
+            PreparedWorkoutFetch(
+                workouts: [w2],
+                deletedObjectIDs: [],
+                source: .baselineSnapshot,
+                coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
+                checkpoint: nil
+            )
+        ])
+        await provider.setProviderStartedGate(startedGate)
+        await provider.setStaleReleaseGate(releaseGate)
+
+        let cache = HealthDataCache(
+            dataProvider: MockSimpleHealthDataProvider(),
+            workoutProvider: provider
+        )
+
+        let initialTask = Task { try await cache.workoutData() }
+        await startedGate.wait()
+
+        await provider.setProviderStartedGate(nil)
+        await provider.setStaleReleaseGate(nil)
+
+        let refreshTask = Task { try await cache.refreshWorkouts() }
+
+        await releaseGate.open()
+
+        let refreshRes = try await refreshTask.value
+        #expect(refreshRes.count == 1)
+        #expect(refreshRes.first?.id == w2.id)
+
+        _ = await initialTask.result
+    }
+
+    @Test("AC-S1 / AC-11: InvalidateWorkouts cancels in-flight fetch and leaves cache empty")
+    func testSingleSettlement_InvalidateWorkoutsCancelsInFlightFetch() async throws {
+        let provider = MockPreparedWorkoutProvider()
+        let startedGate = DeterministicGate()
+        let releaseGate = DeterministicGate()
+
+        await provider.setProviderStartedGate(startedGate)
+        await provider.setStaleReleaseGate(releaseGate)
+
+        let cache = HealthDataCache(
+            dataProvider: MockSimpleHealthDataProvider(),
+            workoutProvider: provider
+        )
+
+        let fetchTask = Task { try await cache.workoutData() }
+        await startedGate.wait()
+
+        await cache.invalidateWorkouts()
+        await releaseGate.open()
+
+        let result = await fetchTask.result
+        #expect(throws: CancellationError.self) { try result.get() }
+        #expect(await !cache.hasWorkoutCache())
+    }
+
     // MARK: - Stage C: AC-S2 / AC-12 / FR-018 / SC-008 Real Provider Lanes in ONE Cache
 
     @Test("AC-S2: Distinct explicit range lanes progress independently in ONE cache without blocking")
@@ -535,18 +795,18 @@ struct HealthWorkoutCacheTests {
             workoutProvider: provider
         )
 
-        // Active owner in default/range lane
+        // Active owner in explicit range lane
         let activeOwnerTask = Task { try await cache.workoutData(in: range) }
         await activeStarted.wait()
 
-        // Coalesced caller attaches to active owner
+        // Coalesced caller attaches to active owner in identical range
         let coalescedTask = Task { try await cache.workoutData(in: range) }
 
-        // Successor queued via refreshWorkouts in the same lane (FIFO queued)
+        // Successor queued via refreshWorkouts in the identical range lane (FIFO queued)
         await provider.setProviderStartedGate(nil)
         await provider.setStaleReleaseGate(nil)
 
-        let queuedSuccessorTask = Task { try await cache.refreshWorkouts() }
+        let queuedSuccessorTask = Task { try await cache.refreshWorkouts(in: range) }
 
         // Active owner is released and finishes, which pumps queued successor
         await activeStaleRelease.open()
@@ -556,7 +816,9 @@ struct HealthWorkoutCacheTests {
         let queuedResult = try await queuedSuccessorTask.value
 
         #expect(activeResult.count == 1)
+        #expect(activeResult.first?.id == w1.id)
         #expect(coalescedResult.count == 1)
+        #expect(coalescedResult.first?.id == w1.id)
         #expect(queuedResult.count == 1)
         #expect(queuedResult.first?.id == w2.id)
     }
@@ -1094,7 +1356,7 @@ struct HealthWorkoutCacheTests {
         #expect(initial.count == 1)
         #expect(await provider.durableAnchor == cp1)
 
-        // Step 2: Query c2 completes, but is held at cache-acceptance gate
+        // Step 2: Query c2 completes, but is held at cache-acceptance gate with replay
         let queryCompleteGate = DeterministicGate()
         let cacheAcceptanceGate = DeterministicGate()
         await provider.setQueryCompleteGate(queryCompleteGate)
@@ -1113,13 +1375,14 @@ struct HealthWorkoutCacheTests {
         // Wait until provider has finished query (query-complete gate opened)
         await queryCompleteGate.wait()
 
-        // Cancel task BEFORE opening cacheAcceptanceGate -> cancels between query completion and cache acceptance!
+        // Cancel queryTask BEFORE opening cacheAcceptanceGate
         queryTask.cancel()
 
         // Now open cache acceptance gate
         await cacheAcceptanceGate.open()
 
-        _ = await queryTask.result
+        let queryRes = await queryTask.result
+        #expect(throws: CancellationError.self) { try queryRes.get() }
         #expect(await provider.rejectCallCount == 1)
         #expect(await provider.durableAnchor == cp1)
 
@@ -1133,6 +1396,58 @@ struct HealthWorkoutCacheTests {
 
         let events = await recorder.events()
         #expect(events.contains("acceptance_invoked"))
+    }
+
+    @Test("AC-S5 / AC-13: Replay with durable anchor rejection and reset successor gate")
+    func testAC13_ReplayWithResetSuccessorGateAndReject() async throws {
+        let provider = MockPreparedWorkoutProvider()
+        let recorder = EventRecorder()
+        await provider.setEventRecorder(recorder)
+
+        let workoutA = makeWorkout()
+        let cp1 = makeCheckpoint(source: .baselineSnapshot, anchorValue: 1)
+        let cp2 = makeCheckpoint(source: .anchoredChanges, anchorValue: 2)
+
+        await provider.setSnapshotResult(PreparedWorkoutFetch(
+            workouts: [workoutA],
+            deletedObjectIDs: [],
+            source: .baselineSnapshot,
+            coverage: DateInterval(start: Date().addingTimeInterval(-86400), duration: 86400),
+            checkpoint: cp1
+        ))
+
+        let cache = HealthDataCache(
+            dataProvider: MockSimpleHealthDataProvider(),
+            workoutProvider: provider
+        )
+
+        _ = try await cache.workoutData()
+
+        let queryCompleteGate = DeterministicGate()
+        let cacheAcceptanceGate = DeterministicGate()
+        await provider.setQueryCompleteGate(queryCompleteGate)
+        await provider.setCacheAcceptanceGate(cacheAcceptanceGate)
+
+        await provider.setChangesResult(PreparedWorkoutFetch(
+            workouts: [makeWorkout()],
+            deletedObjectIDs: [],
+            source: .anchoredChanges,
+            coverage: nil,
+            checkpoint: cp2
+        ))
+
+        let activeTask = Task { try await cache.refreshWorkouts() }
+        await queryCompleteGate.wait()
+
+        // Reset workouts while active task is at cache acceptance gate
+        await cache.invalidateWorkouts()
+
+        await cacheAcceptanceGate.open()
+
+        let res = await activeTask.result
+        #expect(throws: CancellationError.self) { try res.get() }
+        #expect(await provider.rejectCallCount == 1)
+        #expect(await provider.durableAnchor == cp1)
     }
 
     @Test("AC-13 / AC-S5: Silent durable no-advance replays safely without cache failure or duplicate records")
@@ -1214,7 +1529,6 @@ struct HealthWorkoutCacheTests {
     func testInFlightWorkoutFetchDoesNotRepopulateAfterAuthorizationRevoked() async throws {
         let provider = MockPreparedWorkoutProvider()
         let startedGate = DeterministicGate()
-        let releaseGate = DeterministicGate()
 
         await provider.setSnapshotResult(PreparedWorkoutFetch(
             workouts: [makeWorkout()],
@@ -1224,7 +1538,6 @@ struct HealthWorkoutCacheTests {
             checkpoint: nil
         ))
         await provider.setProviderStartedGate(startedGate)
-        await provider.setStaleReleaseGate(releaseGate)
 
         let cache = HealthDataCache(
             dataProvider: MockSimpleHealthDataProvider(),
@@ -1238,8 +1551,6 @@ struct HealthWorkoutCacheTests {
         let defaults = UserDefaults(suiteName: "test-auth-revoked")!
         let anchorStore = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test")
         await cache.handleAuthorizationRevoked(anchorStore: anchorStore, deviceIdentifier: "test")
-
-        await releaseGate.open()
 
         _ = await fetchTask.result
         #expect(await !cache.hasWorkoutCache())
