@@ -908,48 +908,52 @@ struct ActiveWorkoutView: View {
     ) -> some View {
         HStack {
             Spacer()
-            Image(systemName: "line.3.horizontal")
-                .font(largeMode ? .title2 : .body)
-                .foregroundStyle(.secondary)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-                .accessibilityIdentifier(
-                    "ActiveWorkoutExerciseMoveHandle_\(workoutExercise.exercise?.nameEn ?? "\(index)")"
-                )
-                .accessibilityLabel(workoutExercise.exercise?.localizedName ?? "")
-                .onDrag {
-                    draggedWorkoutExercise = workoutExercise
-                    return NSItemProvider(object: NSString(string: "\(index)"))
-                }
-                .accessibilityAdjustableAction { direction in
-                    if let workout {
-                        switch direction {
-                        case .increment:
-                            if index > 0 {
-                                _ = withAnimation(.easeInOut(duration: 0.2)) {
-                                    Self.reorderExercise(
-                                        workoutExercise,
-                                        toIndex: index - 1,
-                                        in: workout
-                                    )
-                                }
+            Button(action: {}) {
+                Image(systemName: "line.3.horizontal")
+                    .font(largeMode ? .title2 : .body)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .onDrag {
+                draggedWorkoutExercise = workoutExercise
+                return NSItemProvider(object: NSString(string: "\(index)"))
+            }
+            .accessibilityIdentifier(
+                "ActiveWorkoutExerciseMoveHandle_\(workoutExercise.exercise?.nameEn ?? "\(index)")"
+            )
+            .accessibilityLabel(workoutExercise.exercise?.localizedName ?? "")
+            .accessibilityAdjustableAction { direction in
+                if let workout {
+                    switch direction {
+                    case .increment:
+                        if index > 0 {
+                            _ = withAnimation(.easeInOut(duration: 0.2)) {
+                                Self.reorderExercise(
+                                    workoutExercise,
+                                    toIndex: index - 1,
+                                    in: workout
+                                )
                             }
-                        case .decrement:
-                            if index < totalCount - 1 {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    Self.reorderExercise(
-                                        workoutExercise,
-                                        toIndex: index + 1,
-                                        in: workout
-                                    )
-                                }
-                            }
-                        @unknown default:
-                            break
                         }
+                    case .decrement:
+                        if index < totalCount - 1 {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                Self.reorderExercise(
+                                    workoutExercise,
+                                    toIndex: index + 1,
+                                    in: workout
+                                )
+                            }
+                        }
+                    @unknown default:
+                        break
                     }
                 }
+            }
         }
+        .frame(minHeight: 44)
         .listRowBackground(Color.secondary.opacity(0.08))
     }
 

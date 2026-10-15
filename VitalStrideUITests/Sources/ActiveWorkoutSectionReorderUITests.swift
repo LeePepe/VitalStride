@@ -224,6 +224,7 @@ final class ActiveWorkoutSectionReorderUITests: XCTestCase {
         )
     }
 
+    @MainActor
     private func moveHandle(named exerciseName: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)
             .matching(identifier: "ActiveWorkoutExerciseMoveHandle_\(exerciseName)")
