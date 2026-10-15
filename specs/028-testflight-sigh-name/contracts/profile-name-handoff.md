@@ -2,7 +2,8 @@
 
 ## Base and precedence
 
-- Product base: `663054cb4e7f58459fd0caf6a0710f6e74f18bd0`.
+- Implementation base: `49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8`.
+- Planning lineage: this revision supersedes only the executor/task-boundary terms in reviewed planning revision `7c5fc64430c2b8dbf6c4216cf7e3203790c45821`; its per-call and post-merge decisions remain.
 - This contract supersedes only the fabricated/delayed profile-name source statements in `specs/026-testflight-profile-reuse/**`.
 - The target-specific project interface from `026` and all workflow/release policy accepted by `027` remain unchanged.
 
@@ -44,7 +45,7 @@ No global profile override is added. `project.yml` remains unchanged.
 
 The fixture:
 
-- resolves `fastlane`, `gem`, and Ruby from the required CI executor's `PATH`, requires the selected CLI, RubyGems inventory, and loaded library to agree on Fastlane 2.238.0, and loads installed Fastlane/Sigh plus the repository Fastfile without a Homebrew-formula assumption;
+- resolves `fastlane` from unchanged `PATH`, uses the RubyGems toolchain actually selected/provided by that resolved command, derives one Fastlane version, requires its CLI, corresponding gem, loaded library, and loaded Fastlane/Sigh action sources to agree on that version, requires the version to be at least 2.238.0, and loads the repository Fastfile without a packaging-source, formula, or architecture assumption;
 - invokes the real provisioning-profile action;
 - replaces `Sigh::Manager.start`, not the action;
 - publishes distinct names and UUIDs for two sequential calls;
@@ -57,7 +58,7 @@ The fixture:
 - restores environment and lane context after each case;
 - performs no network, signing, upload, distribution, workflow dispatch, marker mutation, or secret read.
 
-The focused check and `scripts/test-repoinfra.sh` use the same PATH/RubyGems resolver and 2.238.0 agreement check. The gate runs the fixture exactly once and fails closed for a missing command, absent gem, CLI/gem/library mismatch, or unavailable real library; it neither installs dependencies, probes a formula fallback, nor requires a workflow edit. The release host's formula-packaged 2.241.0 remains production action-compatibility evidence and is not the gate resolver.
+The focused check and `scripts/test-repoinfra.sh` use the fixture's same canonical resolve-actual-fastlane contract. The gate runs the fixture exactly once and fails closed for missing Fastlane, an unparseable or below-minimum version, an absent corresponding gem/library, CLI/gem/loaded-library/source mismatch, or unavailable real library. It neither installs dependencies, mutates PATH, probes a packaging source, selects an alternate runtime/fallback, skips, bypasses hooks, nor requires a workflow edit. Fastlane 2.238.0 is the documented minimum; observed 2.241.0 is compatibility evidence, not a hard-coded target.
 
 ## Post-merge operational proof
 
@@ -71,4 +72,4 @@ The focused check and `scripts/test-repoinfra.sh` use the same PATH/RubyGems res
 
 - Preserve forced installed fetches, team/bundle identity, manual Release signing, Automatic base/Debug signing, build numbering, telemetry inputs, upload/distribution, classifier/orchestration, concurrency, and marker behavior.
 - Preserve all existing tests and assertions.
-- Change only `fastlane/Fastfile`, `scripts/tests/test_testflight_packaging.rb`, and minimal mandatory wiring in `scripts/test-repoinfra.sh`.
+- Relative to implementation base `49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8`, change only `scripts/tests/test_testflight_packaging.rb` and minimal mandatory wiring in `scripts/test-repoinfra.sh`; `fastlane/Fastfile` remains byte-for-byte unchanged.

@@ -11,11 +11,11 @@ description: "Layer-scoped task graph for TestFlight per-call SIGH_NAME capture"
 
 ## Phase 1: User Story 1 - Repair the profile handoff (Priority: P1)
 
-**Goal**: App and widget archive/export consume their own real per-call Fastlane profile names and retain every pre-archive safety guard.
+**Goal**: Preserve the merged production repair in which app and widget archive/export consume their own real per-call Fastlane profile names and retain every pre-archive safety guard.
 
-**Independent Test**: The real-action Ruby fixture fails on the product base and passes after the narrow Fastfile repair without Apple access.
+**Independent Test**: Implementation base `49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8` contains the merged Fastfile repair and broad real-action fixture; resumed work proves the Fastfile is unchanged and revalidates all behavior without Apple access.
 
-- [ ] T001 [US1] Add the real-action red regression and repair per-call profile-name capture in `scripts/tests/test_testflight_packaging.rb` and `fastlane/Fastfile`
+- [x] T001 [US1] Preserve the merged per-call profile-name repair and broad real-action regression at implementation base `49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8`
 
 ### T001 metadata
 
@@ -24,23 +24,24 @@ description: "Layer-scoped task graph for TestFlight per-call SIGH_NAME capture"
 | Owning layer | `RepoInfra` |
 | Context | `RepoInfra/CONTEXT.md`; Constitution Quality Bars A and I |
 | Vertical slice | US1 |
-| Files in scope | `fastlane/Fastfile`; new `scripts/tests/test_testflight_packaging.rb` |
-| Read-only compatibility surfaces | `scripts/test-repoinfra.sh`; `scripts/tests/test_testflight_freshness.py`; `.github/workflows/testflight.yml`; `project.yml`; generated project; all product/package/test trees; existing RepoInfra tests |
+| Status / evidence | Completed by MY-1819 and normal merge PR #449 at `49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8`; not rescheduled or reopened |
+| Merged paths | `fastlane/Fastfile`; `scripts/tests/test_testflight_packaging.rb` |
+| Read-only compatibility surfaces for resumed work | `fastlane/Fastfile`; `scripts/tests/test_testflight_freshness.py`; `.github/workflows/testflight.yml`; `project.yml`; generated project; all product/package/test trees; existing RepoInfra tests |
 | Files out of scope | Every other path, including workflows, project/generated output, app/packages/Prototype, entitlements, identities, secrets, keychains, rulesets, review policy, and release state |
 | Interface impact | Internal only: each target neutralizes both stale-capable name locations, then captures the real scalar shared name at its exact action boundary; no public or workflow interface change |
-| Task-local acceptance | Add the fixture before production edits and record the red base. The fixture uses the required executor's PATH-selected Ruby/RubyGems Fastlane, asserts that the selected CLI, local gem inventory, and loaded library agree on 2.238.0, loads real Fastlane/Sigh and the real Fastfile, and replaces only `Sigh::Manager.start` plus unrelated credential/build/upload boundaries. Production neutralizes both `ENV["SIGH_NAME"]` and lane-context `SharedValues::SIGH_NAME` before every real call and captures immediately afterward. The fixture proves two distinct calls/UUIDs and scalar overwrite; separately seeds both stale locations so missing app output fails as app before widget/build work and valid app capture followed by missing widget output fails as widget before build; rejects action stubs/fabricated keys/fallbacks; and proves blank/equal failure, shell-safe target mapping, and exact archive/export variable reuse. Preserve both forced installed fetches and every unrelated lane/test behavior. |
-| Verification | From repo root on required `macos-26` CI, keep `PATH` unchanged and require every `ruby` command to be the executable reported by `command -v ruby`: `command -v fastlane`; `command -v gem`; `command -v ruby`; `fastlane --version`; `gem list --local --exact fastlane`; `ruby scripts/tests/test_testflight_packaging.rb`; `ruby -c fastlane/Fastfile`; `git diff --check`; exact two-path T001 manifest and zero diff on read-only surfaces. Require CLI/gem/library agreement on 2.238.0 and both stale-seeded target cases plus the real-action positive cases to report zero failures/errors. |
-| Blocking edges | None; blocks T002 |
+| Task-local acceptance | The merged Fastfile neutralizes both `ENV["SIGH_NAME"]` and lane-context `SharedValues::SIGH_NAME` before every real call and captures immediately afterward. The merged fixture loads real Fastlane/Sigh and the real Fastfile; replaces only `Sigh::Manager.start` plus unrelated credential/build/upload boundaries; proves distinct names/UUIDs and scalar overwrite; separately seeds both stale locations for target-specific missing-app/widget failures; rejects fabricated keys and UUID/name fallback; and proves blank/equal failure, shell-safe mapping, and archive/export reuse. Decision `01a13f69-fbe2-76ad-aac4-8ff4d0b2c515` removes only T001's exact-2.238.0/independent-command executor premise; all substantive behavior becomes mandatory T002 compatibility. |
+| Verification | T002/T003 rerun the revised real-action fixture and prove `git diff --exit-code 49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8...HEAD -- fastlane/Fastfile`; every substantive T001 case reports zero failures/errors through the resolved actual toolchain. |
+| Blocking edges | Satisfied at the implementation base; T002 consumes this read-only baseline |
 
 **Checkpoint**: US1 is independently demonstrable without credentials or external mutation.
 
 ## Phase 2: User Story 2 - Make regression mandatory (Priority: P1)
 
-**Goal**: Every RepoInfra gate run loads the real Fastlane/Sigh regression and fails closed if the runtime or contract is unavailable.
+**Goal**: Every RepoInfra gate run uses the executor's actual unchanged-PATH Fastlane toolchain, loads the full real Fastlane/Sigh regression exactly once, and fails closed if the runtime or contract is unavailable or below the documented minimum.
 
 **Independent Test**: The complete RepoInfra gate invokes the Ruby fixture and finishes with zero failures/errors on the supported executor while every existing assertion remains active.
 
-- [ ] T002 [US2] Add the minimal mandatory Ruby-test invocation to `scripts/test-repoinfra.sh`
+- [ ] T002 [US2] Replace the exact-2.238.0 fixture bootstrap with resolve-actual-fastlane compatibility in `scripts/tests/test_testflight_packaging.rb` and make that fixture mandatory in `scripts/test-repoinfra.sh`
 
 ### T002 metadata
 
@@ -49,30 +50,30 @@ description: "Layer-scoped task graph for TestFlight per-call SIGH_NAME capture"
 | Owning layer | `RepoInfra` |
 | Context | `RepoInfra/CONTEXT.md`; Constitution Quality Bars I and J |
 | Vertical slice | US2 |
-| Files in scope | `scripts/test-repoinfra.sh` |
-| Read-only inputs | T001's `scripts/tests/test_testflight_packaging.rb`; required `macos-26` runner image's PATH-selected Ruby/RubyGems Fastlane 2.238.0 |
-| Files out of scope | T001 source repair; `.github/workflows/ci.yml`; all other tests/scripts/workflows/product/project paths; dependency manifests and dependency pin/install changes. T001/T002's assertion of the executor's existing Fastlane 2.238.0 is required runtime evidence, not a dependency pin. |
+| Files in scope | `scripts/tests/test_testflight_packaging.rb`; `scripts/test-repoinfra.sh` |
+| Read-only inputs | Merged T001 `fastlane/Fastfile` behavior at `49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8`; every substantive case already present in the Ruby fixture; executor's `fastlane` command from unchanged `PATH`; 2.238.0 as minimum-compatible evidence, not exact selection |
+| Files out of scope | Any `fastlane/Fastfile` repair; `.github/workflows/ci.yml`; all other tests/scripts/workflows/product/project paths; dependency manifests; dependency install/version changes; PATH mutation/workaround; packaging-source/formula/architecture probes; alternate runtime/fallback; skip; hook bypass |
 | Interface impact | Repository-test entrypoint only; no product or release interface change |
-| Task-local acceptance | The existing Python/shell/Kimi checks remain unchanged and active. The Ruby regression runs exactly once through the RepoInfra entrypoint using the same PATH-selected `fastlane`, `gem`, and Ruby commands and 2.238.0 CLI/gem/library agreement check as T001. A Homebrew-formula requirement or probe, dependency installation, alternate-runtime fallback, and workflow edits are forbidden. A missing command, absent gem, mismatch, or real Fastlane/Sigh load failure fails rather than skips; no network, credential, signing, upload, workflow, or marker action occurs. |
-| Verification | From repo root on required `macos-26` CI: `bash scripts/test-repoinfra.sh`; inspect full output and require exactly one Ruby fixture invocation plus every existing suite to report zero failures/errors; confirm the resolved PATH runtime and CLI/gem/library version evidence all identify Fastlane 2.238.0; `git diff --check`; exact one-path T002 manifest |
+| Task-local acceptance | The fixture resolves `fastlane` from unchanged `PATH`, uses only the actual RubyGems toolchain selected/provided by that command, derives one version, and proves its CLI, corresponding gem, loaded library, and loaded Fastlane/Sigh action sources agree exactly. It rejects a version below 2.238.0 and fails closed for missing Fastlane, unparseable version, absent corresponding gem/library, mismatch, or load failure. All pre-existing real-action/per-call/stale/fabricated-key/UUID/blank/equal/shell/export cases remain active and unchanged in meaning. The existing shell/Python/Kimi checks remain active, and the RepoInfra entrypoint invokes the canonical fixture exactly once without duplicating a divergent version policy. No network, credential, signing, upload, workflow, or marker action occurs. |
+| Verification | From repo root with unchanged `PATH`: `command -v fastlane`; `fastlane --version`; `ruby scripts/tests/test_testflight_packaging.rb`; `ruby -c fastlane/Fastfile`; `bash scripts/test-repoinfra.sh`; `git diff --check`. Inspect full output: actual resolved version is reported; it is at least 2.238.0; CLI/gem/loaded-library/source versions agree; real Fastlane/Sigh loads; every behavioral case and existing suite reports zero failures/errors; the full gate invokes the Ruby fixture exactly once. Prove exact two-path manifest relative to `49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8` and zero Fastfile/other-surface diff. |
 | Blocking edges | Depends on T001; blocks T003 |
 
 **Checkpoint**: US2 is enforced by the existing PR-time RepoInfra gate with no CI workflow edit.
 
 ## Phase 3: Delivery verification - Freeze, review, and publish the exact candidate
 
-- [ ] T003 [US2] Freeze and verify `fastlane/Fastfile`, `scripts/tests/test_testflight_packaging.rb`, and `scripts/test-repoinfra.sh`, obtain exact AI Reviewer content PASS and publication permission, publish only the unchanged tree, and hand the published SHA to PR Manager
+- [ ] T003 [US2] Freeze and verify the two-path T002 candidate, obtain exact AI Reviewer content PASS and publication permission, publish only the unchanged tree, and hand the published SHA to PR Manager
 
 ### T003 metadata
 
 | Field | Contract |
 |---|---|
 | Owning layer | RepoInfra delivery verification; no source-repair ownership |
-| Read-only implementation paths | The exact T001/T002 three-path candidate |
+| Read-only implementation paths | The exact two-path candidate: `scripts/tests/test_testflight_packaging.rb` and `scripts/test-repoinfra.sh`; merged `fastlane/Fastfile` is a zero-diff compatibility surface |
 | Allowed outputs | Frozen tree/manifest and test output; exact content verdict/permission; commit/push/non-Draft PR metadata; local/remote/PR identity proof; PR Manager handoff |
 | Files out of scope | Any source repair in T003; TestFlight dispatch/upload; credentials/signing/profile/keychain output; unrelated cleanup |
 | Interface impact | None |
-| Task-local acceptance | Stage A runs all T001/T002 verification, freezes the uncommitted candidate, proves only three paths changed, and obtains exact AI Reviewer PASS plus publication permission. Any content change returns to T001 or T002 and Stage A. Stage B commits/pushes only the unchanged tree, creates or updates one non-Draft owner-gated PR, proves reviewed tree = commit tree and local HEAD = remote branch OID = PR headRefOid, then hands the same SHA to PR Manager. |
+| Task-local acceptance | Stage A runs all T001-compatibility/T002 verification, freezes the uncommitted candidate, proves only two paths changed relative to `49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8`, and obtains exact AI Reviewer PASS plus publication permission. Any content change returns to T002 and Stage A. Stage B commits/pushes only the unchanged tree, creates or updates one non-Draft owner-gated PR, proves reviewed tree = commit tree and local HEAD = remote branch OID = PR headRefOid, then hands the same SHA to PR Manager. |
 | Verification | Fresh T001/T002 command outputs; frozen manifest; exact verdict; unchanged-tree proof; three-way SHA proof; verified PR Manager handoff run |
 | Blocking edges | Depends on T001 and T002; PR Manager/Owner gates block merge; T004 waits for merge |
 
@@ -95,15 +96,15 @@ description: "Layer-scoped task graph for TestFlight per-call SIGH_NAME capture"
 ## Dependency Graph
 
 ```text
-T001 RepoInfra repair + real-action regression
-  -> T002 mandatory RepoInfra gate wiring
+T001 merged RepoInfra repair + broad real-action baseline at 49b6f1f
+  -> T002 actual-toolchain compatibility + mandatory RepoInfra gate wiring (two paths)
        -> T003 frozen review, unchanged publication, PR Manager handoff
             -> PR Manager + Owner-gated merge
                  -> T004 Team Lead observes qualifying automatic TestFlight outcome
 ```
 
-- No implementation task is parallel: T002 consumes T001's real-action fixture, and T003 consumes the complete candidate.
-- T003 findings return to T001 or T002; T003 never edits source.
+- T001 is already satisfied by the implementation base and is not dispatched again. T002 consumes its behavior and owns the only resumed source changes.
+- T003 findings return to T002; T003 never edits source.
 - T004 is read-only operational proof and never authorizes a release dispatch, duplicate upload, source change, or workflow change.
 - Planner Lead and AI Reviewer do not assign or start implementation.
 
@@ -111,17 +112,18 @@ T001 RepoInfra repair + real-action regression
 
 | Active identifiers | Task | Evidence surface |
 |---|---|---|
-| US1/AC1, US1/AC2, US1/AC3, US1/AC4, US1/AC5, US1/AC6, US1/AC7; FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-016; RB-001, RB-002, RB-003 | T001, T003 | real action/actual lane fixture, two-source pre-call neutralization, stale-seeded target-specific failures, target-correct build/export capture, source prohibition |
-| US2/AC1, US2/AC2, US2/AC5; FR-008, FR-009, FR-010, FR-011 | T001, T003 | real Fastlane/Sigh loading through required CI's asserted PATH/RubyGems runtime, two-call overwrite/provenance proof, UUID non-use, fabricated-key prohibition |
-| US2/AC3, US2/AC4; FR-012, FR-013, FR-014; RB-004 | T002, T003 | same-invocation mandatory RepoInfra execution, preserved existing suites and compatibility surfaces |
+| US1/AC1, US1/AC2, US1/AC3, US1/AC4, US1/AC5, US1/AC6, US1/AC7; FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-016; RB-001, RB-002, RB-003 | T001, T002, T003 | merged actual-lane repair; preserved real-action cases; two-source neutralization; stale-seeded target failures; target-correct build/export capture; zero Fastfile diff |
+| US2/AC1, US2/AC2; FR-009, FR-010, FR-011 | T001, T002, T003 | preserved real Fastlane/Sigh action path, two-call overwrite/provenance proof, UUID non-use, fabricated-key prohibition |
+| US2/AC5; FR-008, FR-012; RB-006 | T002, T003 | unchanged-PATH actual-toolchain resolution, CLI/gem/loaded-library/source equality, minimum 2.238.0, fail-closed runtime evidence, exactly-once canonical gate invocation |
+| US2/AC3, US2/AC4; FR-013, FR-014; RB-004 | T002, T003 | mandatory RepoInfra execution, preserved existing suites and compatibility surfaces |
 | US3/AC1, US3/AC2, US3/AC3, US3/AC4; FR-015, FR-017; RB-005 | T004 | qualifying merged-main automatic run identity, terminal result, marker/result, uploaded build number, no duplicate dispatch |
-| SC-001, SC-002, SC-003, SC-004 | T001, T002, T003 | red/green focused regression, syntax, complete gate, diff/path evidence, exact content review |
+| SC-001, SC-002, SC-003, SC-004 | T001, T002, T003 | merged-baseline preservation, focused regression, actual-toolchain proof, syntax, complete gate, two-path diff evidence, exact content review |
 | SC-005 | T003, T004 | owner-gated merge and production outcome record |
 
 ## Completion Conditions
 
 - Every active acceptance identifier maps above.
-- T001 and T002 each have one layer, exact paths, exclusions, runnable verification, and no unresolved decision.
-- The full candidate changes exactly three implementation paths.
+- T001 is bound to the merged base; T002 has one layer, two exact paths, exclusions, runnable verification, and no unresolved decision.
+- The resumed candidate changes exactly two implementation paths relative to `49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8`; `fastlane/Fastfile` has zero diff.
 - No TestFlight action occurs before reviewed merge.
 - MY-1815 completes only after Team Lead records the qualifying automatic post-merge run and uploaded build number for the exact merged SHA, with no duplicate dispatch.

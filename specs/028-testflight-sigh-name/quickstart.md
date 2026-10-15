@@ -6,25 +6,24 @@ All implementation verification is credential-free. Do not run `fastlane ios bet
 
 ## Prerequisites
 
-- Work in MY-1815's registered delivery checkout at the exact reviewed planning revision.
-- Use the required `macos-26` CI executor. Its runner image exposes RubyGems Fastlane 2.238.0 through its own `fastlane`, `gem`, and Ruby commands on `PATH`. Do not require or probe a Homebrew formula, install a dependency, or choose a fallback runtime.
-- Keep that executor-provided `PATH` unchanged across all commands below. Every `ruby` invocation, including `ruby -c`, must be the executable reported by `command -v ruby`; the fixture asserts the loaded Fastlane library version before exercising the action.
-- Keep `.github/workflows/**`, `project.yml`, generated projects, product code, packages, and existing tests unchanged.
+- Work in MY-1820's preserved delivery checkout at implementation base `49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8`, with the exact revised planning authority supplied by Team Lead.
+- Keep executor `PATH` unchanged. Resolve `fastlane` from it and use only the actual RubyGems toolchain selected/provided by that command. Do not install a dependency, mutate PATH, probe a formula/architecture layout, choose an alternate runtime/fallback, skip, or bypass hooks.
+- Require one resolved Fastlane version across CLI, corresponding gem, loaded library, and loaded action/Sigh sources. The version must be at least 2.238.0. The fixture's bootstrap may enter only the resolved Fastlane command's own toolchain; independently discovering a different Ruby/gem runtime is forbidden.
+- Keep `.github/workflows/**`, `project.yml`, generated projects, product code, packages, and every test other than the authorized fixture bootstrap unchanged; preserve every substantive fixture assertion.
 
 ## 1. Baseline/red evidence
 
-Before the production repair, add the real-action regression and run:
+Historical red evidence and the merged T001 implementation are already recorded at base `49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8`. Do not reopen production. Before changing the resolver, confirm the old fixture rejects a supported newer actual Fastlane solely because it pins 2.238.0; then preserve that output as the resolver red case.
+
+Use the canonical focused entrypoint:
 
 ```sh
 command -v fastlane
-command -v gem
-command -v ruby
 fastlane --version
-gem list --local --exact fastlane
 ruby scripts/tests/test_testflight_packaging.rb
 ```
 
-Record failure against the current fabricated/delayed reads. Also require two red-capable negatives: stale environment and lane context masking missing app output, and the same stale sources masking missing widget output after a valid app capture. Do not clear those deliberate seeds in fixture setup or weaken the fixture to make the base pass.
+Record that the failure is the superseded exact-version/independent-command premise, not a behavioral test. Do not edit `fastlane/Fastfile`, clear deliberate stale seeds in fixture setup, or weaken any existing case to make the base pass.
 
 ## 2. Focused green checks
 
@@ -32,17 +31,14 @@ After the repair:
 
 ```sh
 command -v fastlane
-command -v gem
-command -v ruby
 fastlane --version
-gem list --local --exact fastlane
 ruby scripts/tests/test_testflight_packaging.rb
 
 ruby -c fastlane/Fastfile
 git diff --check
 ```
 
-The presence and version checks are assertions, not diagnostics: the selected CLI, local RubyGems inventory, and Fastlane library loaded by the selected Ruby must all report exactly 2.238.0 before the test is accepted. The Ruby output must show zero failures/errors, must come from the real Fastlane/Sigh action path, and must include the separate stale-seeded missing-app and missing-widget target-specific cases. Production, not fixture setup, neutralizes both shared name locations immediately before each real action.
+The presence and version checks are assertions, not diagnostics: the fixture must report the unchanged-PATH Fastlane command, one resolved version at or above 2.238.0, and exact CLI/gem/loaded-library/action-source agreement before behavioral cases are accepted. The Ruby output must show zero failures/errors, must come from the real Fastlane/Sigh action path, and must include every pre-existing positive, stale-seeded missing-app/widget, fabricated-key, blank/equal, UUID, shell-safety, and export-reuse case. Production, not fixture setup, neutralizes both shared name locations immediately before each real action.
 
 ## 3. Complete RepoInfra gate
 
@@ -50,21 +46,20 @@ The presence and version checks are assertions, not diagnostics: the selected CL
 bash scripts/test-repoinfra.sh
 ```
 
-Read the full output. Require the Ruby regression to run exactly once through the same PATH/RubyGems resolver and 2.238.0 CLI/gem/library agreement check as the focused command, and require zero failures/errors. A missing command, absent gem, mismatch, or real-library load failure is a gate failure, not a skip, fallback, or install request.
+Read the full output. Require the Ruby regression to run exactly once through the same canonical resolve-actual-fastlane contract as the focused command, and require zero failures/errors. Missing Fastlane, an unparseable or below-2.238.0 version, an absent corresponding gem/library, any CLI/gem/loaded-library/source mismatch, or real-library load failure is a gate failure, not a skip, fallback, PATH workaround, install request, or hook bypass.
 
 ## 4. Scope and compatibility proof
 
 ```sh
-git diff --name-only <reviewed-planning-sha>...HEAD
-git diff --exit-code <reviewed-planning-sha>...HEAD -- \
-  .github project.yml VitalStride.xcodeproj \
+git diff --name-only 49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8...HEAD
+git diff --exit-code 49b6f1fd0f55493ac55ab4ba8aa18cb80e002fb8...HEAD -- \
+  fastlane/Fastfile .github project.yml VitalStride.xcodeproj \
   scripts/tests/test_testflight_freshness.py \
   VitalStride VitalStrideMac 'VitalStrideWatch Watch App' VitalStrideWidgets Packages Prototype
 ```
 
 The implementation manifest contains only:
 
-- `fastlane/Fastfile`
 - `scripts/tests/test_testflight_packaging.rb`
 - `scripts/test-repoinfra.sh`
 
