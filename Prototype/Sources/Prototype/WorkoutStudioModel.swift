@@ -21,6 +21,15 @@ public enum StudioLayout: String, CaseIterable, Identifiable, Sendable {
     public var title: String { studioText("layout.\(rawValue)") }
 }
 
+public enum StudioKeyboardLayout: String, CaseIterable, Identifiable, Sendable {
+    case grid, thumb, sequence
+    public var id: String { rawValue }
+    public var title: String { studioText("keyboard.layout.\(rawValue)") }
+    public var pairedLayout: StudioLayout {
+        switch self { case .grid: .flow; case .thumb: .focus; case .sequence: .board }
+    }
+}
+
 public enum StudioScreen: String, CaseIterable, Identifiable, Sendable {
     case picker, workout
     public var id: String { rawValue }
@@ -115,6 +124,11 @@ public final class StudioSession {
     public var deletedSet: (String, Int, StudioSet)?
     public var editorField: String?
     public var editorValue = ""
+    public var editorSelectAll = true
+    public var keyboardLeftHanded = false
+    private var editorValues: [String: String] = [:]
+    private var editorExerciseID: String?
+    private var editorSetID: Int?
     public var notice: String?
     public var replacementID: String?
     public var isFinished = false
@@ -136,7 +150,7 @@ public final class StudioSession {
         case .emptyLibrary: emptyLibrary = true; selectedIDs = []
         case .resting: restEnd = Date().addingTimeInterval(74)
         case .undo: deleteSet(4)
-        case .keyboard: editorField = "weight"; editorValue = "60"
+        case .keyboard: beginEditing("weight")
         case .finished: isFinished = true
         case .normal: break
         }
@@ -203,6 +217,7 @@ public final class StudioSession {
     }
     public func deleteSet(_ id: Int) {
         guard activeSets.count > 1, let index = activeSets.firstIndex(where: { $0.id == id }) else { return }
+        if editorExerciseID == activeExerciseID && editorSetID == id { cancelEditor() }
         deletedSet = (activeExerciseID, index, activeSets[index])
         setsByExercise[activeExerciseID]?.remove(at: index)
     }
@@ -218,18 +233,105 @@ public final class StudioSession {
     }
     public func beginEditing(_ field: String) {
         guard let currentSet else { return }
+        notice = nil
+        editorExerciseID = activeExerciseID
+        editorSetID = currentSet.id
+        editorValues = ["weight": currentSet.weight.formatted(.number.precision(.fractionLength(0...2))), "reps": String(currentSet.reps)]
         editorField = field
-        editorValue = field == "weight" ? currentSet.weight.formatted(.number.precision(.fractionLength(0...1))) : String(currentSet.reps)
+        editorValue = editorValues[field] ?? ""
+        editorSelectAll = true
     }
-    public func commitEditor() {
-        guard let currentSet, let field = editorField,
-              let value = Double(editorValue.replacingOccurrences(of: ",", with: ".")), value.isFinite else { return }
-        let clampedValue = min(max(0, value), 999)
-        updateSet(currentSet.id) { item in
-            if field == "weight" { item.weight = clampedValue }
-            else { item.reps = max(1, Int(clampedValue)) }
+    public func switchEditor(to field: String) {
+        guard let current = editorField, field != current else { return }
+        editorValues[current] = editorValue
+        editorField = field
+        editorValue = editorValues[field] ?? ""
+        editorSelectAll = true
+    }
+    public func pressEditorKey(_ key: String) {
+        guard editorField != nil else { return }
+        notice = nil
+        if key == "delete" {
+            if editorSelectAll { editorValue = "" }
+            else if !editorValue.isEmpty { editorValue.removeLast() }
+            editorSelectAll = false
+            return
         }
+        let decimal = key == "."
+        guard (key.count == 1 && key.first?.isNumber == true) || decimal else { return }
+        guard !decimal || editorField == "weight" else { return }
+        var next = editorSelectAll ? "" : editorValue
+        if decimal {
+            guard !next.contains(".") else { return }
+            if next.isEmpty { next = "0" }
+        } else if next == "0" { next = "" }
+        if let point = next.firstIndex(of: "."), !decimal,
+           next.distance(from: point, to: next.endIndex) > 2 { return }
+        guard next.count < 6 else { return }
+        editorValue = next + key
+        editorSelectAll = false
+    }
+    private var mergedEditorValues: [String: String] {
+        var values = editorValues
+        if let field = editorField { values[field] = editorValue }
+        return values
+    }
+    private func parsedDraft() -> (Double, Int)? {
+        let values = mergedEditorValues
+        guard let weight = Double((values["weight"] ?? "").replacingOccurrences(of: ",", with: ".")),
+              let reps = Int(values["reps"] ?? ""), weight.isFinite,
+              (0...999).contains(weight), (1...999).contains(reps) else { return nil }
+        return (weight, reps)
+    }
+    public var editorCanCommit: Bool { parsedDraft() != nil }
+    public var editorWeightText: String { mergedEditorValues["weight"] ?? "—" }
+    public var editorRepsText: String { mergedEditorValues["reps"] ?? "—" }
+    public var editorError: String? {
+        guard editorField != nil, !editorCanCommit else { return nil }
+        return studioText("keyboard.invalid")
+    }
+    public func adjustEditor(_ amount: Double) {
+        guard let value = Double(editorValue.replacingOccurrences(of: ",", with: ".")) else { return }
+        let adjusted = min(999, max(editorField == "reps" ? 1 : 0, value + amount))
+        editorValue = editorField == "reps" ? String(Int(adjusted)) : adjusted.formatted(.number.precision(.fractionLength(0...2)))
+        editorSelectAll = false
+    }
+    public func presetEditorReps(_ value: Int) {
+        switchEditor(to: "reps")
+        editorValue = String(value)
+        editorSelectAll = true
+    }
+    public func usePreviousEditorValues() {
+        editorValues = ["weight": editorExerciseID == "bench" ? "60" : "24", "reps": "10"]
+        editorValue = editorValues[editorField ?? "weight"] ?? ""
+        editorSelectAll = true
+    }
+    public func copyEditorToNext() {
+        guard let (weight, reps) = parsedDraft(), let exerciseID = editorExerciseID, let setID = editorSetID,
+              let index = setsByExercise[exerciseID]?.firstIndex(where: { $0.id == setID }) else { return }
+        if let items = setsByExercise[exerciseID], index + 1 < items.count {
+            setsByExercise[exerciseID]?[index + 1].weight = weight
+            setsByExercise[exerciseID]?[index + 1].reps = reps
+        } else {
+            setsByExercise[exerciseID, default: []].append(.init(id: nextSetID, weight: weight, reps: reps, completed: false, kind: "working"))
+            nextSetID += 1
+        }
+        notice = studioText("keyboard.copied")
+    }
+    public func cancelEditor() {
         editorField = nil
+        editorValues = [:]; editorExerciseID = nil; editorSetID = nil
+    }
+    public func commitEditor(completeSet: Bool = false) {
+        guard let (weight, reps) = parsedDraft(), let exerciseID = editorExerciseID, let setID = editorSetID,
+              let index = setsByExercise[exerciseID]?.firstIndex(where: { $0.id == setID }) else { return }
+        setsByExercise[exerciseID]?[index].weight = weight
+        setsByExercise[exerciseID]?[index].reps = reps
+        if completeSet {
+            setsByExercise[exerciseID]?[index].completed = true
+            restEnd = Date().addingTimeInterval(restTotal)
+        }
+        cancelEditor()
     }
     private func updateSet(_ id: Int, _ update: (inout StudioSet) -> Void) {
         guard let index = setsByExercise[activeExerciseID]?.firstIndex(where: { $0.id == id }) else { return }

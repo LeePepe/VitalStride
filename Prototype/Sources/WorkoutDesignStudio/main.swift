@@ -7,6 +7,7 @@ import SwiftUI
 struct StudioHost: View {
     @State private var style = StudioStyle.tide
     @State private var layout = StudioLayout.flow
+    @State private var keyboardLayout = StudioKeyboardLayout.grid
     @State private var dark = false
     @State private var session = StudioSession()
     var body: some View {
@@ -21,6 +22,9 @@ struct StudioHost: View {
                 Picker(studioText("studio.layout"), selection: $layout) {
                     ForEach(StudioLayout.allCases) { Text($0.title).tag($0) }
                 }
+                Picker(studioText("keyboard.title"), selection: $keyboardLayout) {
+                    ForEach(StudioKeyboardLayout.allCases) { Text($0.title).tag($0) }
+                }
                 Toggle(studioText("studio.dark"), isOn: $dark)
                 ForEach(StudioScreen.allCases) { screen in
                     Button(screen.title) { session.screen = screen; session.isFinished = false }
@@ -34,7 +38,7 @@ struct StudioHost: View {
                 Spacer()
                 Text(studioText("studio.demoNote")).font(.caption).foregroundStyle(.secondary)
             }.frame(width: 260).padding(.vertical, 20)
-            WorkoutStudioView(session: session, style: style, layout: layout)
+            WorkoutStudioView(session: session, style: style, layout: layout, keyboardLayout: keyboardLayout)
                 .environment(\.theme, style.theme(dark: dark))
                 .environment(\.colorScheme, dark ? .dark : .light)
                 .frame(width: 393, height: 852)
@@ -106,12 +110,59 @@ func renderStudio(to path: String) throws {
     FileHandle.standardOutput.write(Data("Rendered \(total) native SwiftUI PNGs to \(path)\n".utf8))
 }
 
+@MainActor
+func renderKeyboards(to path: String) throws {
+    let output = URL(fileURLWithPath: path, isDirectory: true)
+    try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+    var total = 0
+    func render(style: StudioStyle, layout: StudioKeyboardLayout, field: String, dark: Bool,
+                state: String = "normal", large: Bool = false) throws {
+        let session = StudioSession(screen: .workout, scenario: state == "resting" ? .resting : (state == "undo" ? .undo : .normal))
+        session.beginEditing(field)
+        if state == "invalid" { session.editorValue = "0"; session.editorSelectAll = false }
+        let view = WorkoutStudioView(session: session, style: style, layout: layout.pairedLayout,
+                                     snapshot: true, keyboardLayout: layout)
+            .environment(\.theme, style.theme(dark: dark)).environment(\.colorScheme, dark ? .dark : .light)
+            .dynamicTypeSize(large ? .accessibility1 : .large)
+            .frame(width: large ? 375 : 393, height: 852)
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+        guard let picture = renderer.nsImage, let tiff = picture.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff), let png = bitmap.representation(using: .png, properties: [:]) else {
+            throw NSError(domain: "StudioRenderer", code: 1)
+        }
+        let suffix = large ? "-large-narrow" : (state == "normal" ? "" : "-\(state)")
+        let name = "\(style.rawValue)-keyboard-\(layout.rawValue)-\(field)-\(dark ? "dark" : "light")\(suffix).png"
+        try png.write(to: output.appendingPathComponent(name))
+        total += 1
+    }
+    for style in StudioStyle.allCases {
+        for layout in StudioKeyboardLayout.allCases {
+            for field in ["weight", "reps"] {
+                for dark in [false, true] { try render(style: style, layout: layout, field: field, dark: dark) }
+            }
+        }
+    }
+    for state in ["resting", "undo", "invalid"] {
+        for dark in [false, true] {
+            try render(style: .tide, layout: .grid, field: state == "invalid" ? "reps" : "weight", dark: dark, state: state)
+        }
+    }
+    for layout in StudioKeyboardLayout.allCases {
+        for dark in [false, true] { try render(style: .tide, layout: layout, field: "weight", dark: dark, large: true) }
+    }
+    FileHandle.standardOutput.write(Data("Rendered \(total) keyboard SwiftUI PNGs to \(path)\n".utf8))
+}
+
 let arguments = CommandLine.arguments
-if arguments.contains("--render") {
+if arguments.contains("--render") || arguments.contains("--render-keyboards") {
     let path = arguments.dropFirst(2).first ?? "Prototype/RedesignEvidence/shots"
     DispatchQueue.main.async {
         do {
-            try MainActor.assumeIsolated { try renderStudio(to: path) }
+            try MainActor.assumeIsolated {
+                if arguments.contains("--render-keyboards") { try renderKeyboards(to: path) }
+                else { try renderStudio(to: path) }
+            }
             exit(0)
         } catch {
             FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1)

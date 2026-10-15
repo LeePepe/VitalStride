@@ -43,3 +43,7 @@
 platform 七项各 5 分；操作型界面 visualization 指完成进度与休息进度，不为达分加无关图表。
 提供实际渲染图 + 本文，修复 P0，披露 P1。macOS ImageRenderer 的手机尺寸截图不冒充 iOS 模拟器验收。
 最终生产迁移仍须 iPhone Simulator light/dark + Dynamic Type、键盘和 VoiceOver 验收。
+
+## 配套键盘扩展
+
+页面仍各 9 种组合。键盘新增独立的三种布局轴与相同三种风格，共 9 种组合；见 [键盘设计目标](keyboard-north-star.md) 和 [键盘画廊](keyboard.html)。

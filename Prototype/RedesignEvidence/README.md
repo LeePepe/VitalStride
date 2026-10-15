@@ -1,8 +1,10 @@
 # 动作选择 + 训练页设计交付
 
-**[打开离线对比画廊 →](index.html)** · 2026-10-16 · my-designer 主导
+**[动作选择与训练画廊 →](index.html)** · **[配套键盘画廊 →](keyboard.html)** · 2026-10-16 · my-designer 主导
 
 已完成 **3 种风格 × 3 种布局 = 9 种组合**。每种组合包含动作选择、训练进行中两页的浅色与深色版本；共 54 张原生 SwiftUI 渲染图、18 张双页对比板，附可运行的原生交互工作室。所有数据均为演示数据。
+
+**数量确认：动作选择页 9 个、训练页 9 个、配套键盘 9 个。** 键盘沿用三种风格，另设全宽数字、拇指侧栏、连续记组三种布局；重量/次数、浅深色及边界状态新增 48 张图、18 张对比板。总交付为 **102 张屏幕图 + 36 张对比板**。键盘详见 [键盘交付与验证](keyboard-delivery.md)。
 
 ## 先看这三个方向
 
@@ -24,9 +26,9 @@
 
 新增设计提案包括：器械独立筛选、已选顺序队列、当前动作切换器、总览折叠卡及快捷步进。它们不是对当前生产能力的描述。
 
-以下为视觉表示或尚未接入的生产能力：时长和上次记录是固定演示值；容量仅按演示模型计算；手表固定显示未连接。RPE、单侧/子组、kg/lb、渐进建议、AI 替代、完整自定义数字键盘、动作排序/删除与放弃训练、SwiftData/CloudKit、后台保存、Live Activity、Watch/HealthKit 均未迁入原型。高级菜单与最小化入口显示说明，不伪装成功。
+以下为视觉表示或尚未接入的生产能力：时长和上次记录是固定演示值；容量仅按演示模型计算；手表固定显示未连接。RPE、单侧/子组、kg/lb、渐进建议、AI 替代、生产 UIKit 自定义键盘宿主、动作排序/删除与放弃训练、SwiftData/CloudKit、后台保存、Live Activity、Watch/HealthKit 均未迁入原型。高级菜单与最小化入口显示说明，不伪装成功。
 
-演示从已有四动作训练开始，已选动作确认后追加到当前训练；不重复添加已存在动作。撤销不自动在五秒后过期，保留到用户操作或结束训练；数字键盘采用手动编辑的简化模型。真实产品的保护、撤销生命周期和高级操作必须按 [现有流程审计](workflow-audit.md) 保留，不应从原型行为反推产品合同。
+演示从已有四动作训练开始，已选动作确认后追加到当前训练；不重复添加已存在动作。撤销不自动在五秒后过期，保留到用户操作或结束训练。配套键盘打开即全选，重量/次数共享本组草稿；收起保存而不记组，K3 则明确保存并记组。真实产品的保护、撤销生命周期和高级操作必须按 [现有流程审计](workflow-audit.md) 保留，不应从原型行为反推产品合同。
 
 ## 性能设计与迁移要求
 
@@ -47,12 +49,13 @@
 swift run --package-path Prototype WorkoutDesignStudio
 ```
 
-工作室左侧可切换三种风格、三种布局、浅深色、页面及状态。英文用 `STUDIO_LANGUAGE=en` 运行。
+工作室左侧可分别切换三种页面布局与三种键盘布局，以及风格、浅深色、页面及状态。选择“数字输入”场景可直接体验键盘；英文用 `STUDIO_LANGUAGE=en` 运行。
 
 ```bash
 swift build --package-path Prototype
 swift test --package-path Prototype
 swift run --skip-build --package-path Prototype WorkoutDesignStudio --render Prototype/RedesignEvidence/shots
+swift run --skip-build --package-path Prototype WorkoutDesignStudio --render-keyboards Prototype/RedesignEvidence/keyboards
 python3 Prototype/RedesignEvidence/make_comparisons.py
 open Prototype/RedesignEvidence/index.html
 ```
@@ -61,11 +64,11 @@ open Prototype/RedesignEvidence/index.html
 
 ## 验证记录与边界
 
-- Swift 6 `swift build` 成功；最终 `swift test` 构建成功，**4 个 Swift Testing 行为测试通过**：跨筛选选择顺序、编辑/记组/删除撤销保留状态、替换保留数据顺序、中英文组合搜索。
-- 导出 **54 张 PNG**，配对 **18 张比较板**；包含无结果、空库、休息、撤销、数字输入、总结，以及三种布局的 375pt 大字回退状态。
-- 141 个 catalog key 的中英翻译覆盖与静态引用通过检查；额外导出英文版本至临时目录，抽查训练页并修正了完成标签换行问题。
+- Swift 6 `swift build` 成功；**8 个 Swift Testing 行为测试通过**。原四项页面流程加上草稿切换与保存、输入校验及取消、快捷操作和单次记组、稳定目标 ID 与末尾复制四项键盘流程。
+- 页面 **54 张 PNG + 18 张比较板**；键盘 **48 张 PNG + 18 张比较板**，包含休息、撤销、无效输入及三种键盘的 375pt 大字回退。各自的核心九种组合都有浅深色。
+- 169 个 key 的中英 catalog 覆盖与静态引用通过检查；页面与键盘均额外导出英文版本至临时目录并抽查，具体数量见键盘交付记录。
 - 画廊脚本通过 DOM 桩验证全部 24 种主题/页面/风格筛选组合，共检查 600 个生成图片链接；本地图片、说明和评审链接完整。此为脚本与文件检查，未声称浏览器点击通过。
-- 独立视觉评审 **31/35，无截图可确认的 P0**；完成文字和结束页状态经收尾复核已解决。见 [最终评审](design-review.md)；第一轮 29/35，问题与修正记录保留在 [第一轮评审](design-review-round1.md)。
+- 页面独立视觉评审 **31/35，无截图可确认的 P0**；完成文字和结束页状态经收尾复核已解决。见 [页面最终评审](design-review.md)；第一轮 29/35 记录在 [第一轮评审](design-review-round1.md)。键盘独立评分 **30/35，无未解决的截图 P0**，见 [键盘独立评审](keyboard-review.md)。
 - `swiftlint` 本机未安装，未执行。未运行生产 App 的 xcodebuild，也没有改动生产页面、数据模型或发布配置。
 - 图片来自 **macOS ImageRenderer，393×852pt、2×**；375pt 图验证布局回退。macOS 字体行为与 iOS 不同，大字图不代表 iOS 全档 Dynamic Type 已通过；状态栏、home indicator 与数字键盘为原型内容。
 - UI 自动化工具拒绝访问 WorkoutDesignStudio，浏览器工具也不可用；原生点击、离线画廊的浏览器交互尚未实测。行为证据来自状态模型测试；截图证据来自实际原生渲染与独立评审。
@@ -77,4 +80,4 @@ open Prototype/RedesignEvidence/index.html
 
 分支：`agent/design/workout-explorations-20261016`
 
-相关材料：[设计目标](north-star.md) · [现有功能与性能审计](workflow-audit.md) · [最终视觉评审](design-review.md)
+相关材料：[设计目标](north-star.md) · [现有功能与性能审计](workflow-audit.md) · [页面最终视觉评审](design-review.md) · [键盘交付](keyboard-delivery.md)

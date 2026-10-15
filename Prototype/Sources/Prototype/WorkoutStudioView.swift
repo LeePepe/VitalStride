@@ -9,6 +9,7 @@ public struct WorkoutStudioView: View {
     @Bindable private var session: StudioSession
     private let style: StudioStyle
     private let layout: StudioLayout
+    private let keyboardLayout: StudioKeyboardLayout
     private let snapshot: Bool
     @State private var confirmingFinish = false
     @State private var showSelection = false
@@ -16,10 +17,12 @@ public struct WorkoutStudioView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var focusNumberSize = 58
     @ScaledMetric(relativeTo: .caption) private var statusLabelSize = 12
 
-    public init(session: StudioSession, style: StudioStyle, layout: StudioLayout, snapshot: Bool = false) {
+    public init(session: StudioSession, style: StudioStyle, layout: StudioLayout, snapshot: Bool = false,
+                keyboardLayout: StudioKeyboardLayout = .grid) {
         self.session = session
         self.style = style
         self.layout = layout
+        self.keyboardLayout = keyboardLayout
         self.snapshot = snapshot
     }
 
@@ -41,7 +44,10 @@ public struct WorkoutStudioView: View {
         .foregroundStyle(theme.neutrals.text1)
         .clipped()
         .alert(studioText("finish.title"), isPresented: $confirmingFinish) {
-            Button(studioText("finish.confirm")) { session.isFinished = true; session.restEnd = nil; session.deletedSet = nil }
+            Button(studioText("finish.confirm")) {
+                if session.editorField != nil { session.commitEditor(); session.cancelEditor() }
+                session.isFinished = true; session.restEnd = nil; session.deletedSet = nil
+            }
             Button(studioText("action.cancel"), role: .cancel) {}
         } message: { Text(studioText("finish.message")) }
         .sheet(isPresented: $showSelection) { selectionSheet }
@@ -262,6 +268,8 @@ public struct WorkoutStudioView: View {
             else if layout == .focus && !typeSize.isAccessibilitySize { pickerGrid }
             else if layout == .board && !typeSize.isAccessibilitySize { pickerBoard }
             else { pickerList }
+        } else if session.editorField != nil {
+            editingContext
         } else if layout == .focus && !typeSize.isAccessibilitySize {
             focusWorkout
         } else if layout == .board && !typeSize.isAccessibilitySize {
@@ -467,13 +475,22 @@ public struct WorkoutStudioView: View {
             Text(index == 0 ? "40 × 12" : "60 × 10")
                 .font(.caption).monospacedDigit().foregroundStyle(theme.neutrals.text2)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            numericField(set.weight.formatted(.number.precision(.fractionLength(0...1))), width: 60, active: current, field: "weight") {
-                if current { session.beginEditing("weight") }
+            numericField(current && session.editorField != nil ? session.editorWeightText : set.weight.formatted(.number.precision(.fractionLength(0...2))), width: 60, active: current, field: "weight") {
+                if current {
+                    if session.editorField != nil { session.switchEditor(to: "weight") }
+                    else { session.beginEditing("weight") }
+                }
             }
-            numericField("\(set.reps)", width: 48, active: current, field: "reps") {
-                if current { session.beginEditing("reps") }
+            numericField(current && session.editorField != nil ? session.editorRepsText : "\(set.reps)", width: 48, active: current, field: "reps") {
+                if current {
+                    if session.editorField != nil { session.switchEditor(to: "reps") }
+                    else { session.beginEditing("reps") }
+                }
             }
-            Button { session.complete(set.id) } label: {
+            Button {
+                if current && session.editorField != nil { session.commitEditor(completeSet: true) }
+                else { session.complete(set.id) }
+            } label: {
                 VStack(spacing: 2) {
                     Image(systemName: set.completed ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: set.completed ? 20 : 24, weight: .regular))
@@ -483,6 +500,7 @@ public struct WorkoutStudioView: View {
                 }.foregroundStyle(set.completed ? theme.success : theme.neutrals.text2)
                     .frame(width: 44, height: 56)
             }.buttonStyle(.plain)
+                .disabled(current && session.editorField != nil && !session.editorCanCommit)
                 .accessibilityLabel(studioText(set.completed ? "set.uncomplete" : "set.complete") + " \(index + 1)")
         }
         .padding(.horizontal, 12).padding(.vertical, layout == .board ? 2 : 4)
@@ -497,19 +515,51 @@ public struct WorkoutStudioView: View {
         }
     }
 
+    private var editingContext: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(session.activeExercise.name).font(.title3.weight(.semibold))
+            Text(studioText("keyboard.draftNote")).font(.system(size: 12)).foregroundStyle(theme.neutrals.text2)
+            if let set = session.currentSet, let index = session.activeSets.firstIndex(where: { $0.id == set.id }) {
+                HStack {
+                    Text(studioText("set.number"))
+                    Spacer()
+                    Text(studioText("set.weight") + " / " + studioText("set.reps"))
+                }.font(.caption).foregroundStyle(theme.neutrals.text2)
+                if typeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(studioText("set.number") + " \(index + 1)").font(.headline)
+                        Text(session.editorWeightText + " kg × " + session.editorRepsText)
+                            .font(.title2).monospacedDigit()
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
+                        .modifier(StudioSurface(style: style, emphasized: true)).id(set.id)
+                }
+                else { setRow(set, index: index).id(set.id) }
+            }
+        }.padding(.horizontal, 20).padding(.vertical, 12)
+    }
+
     private func accessibleSetRow(_ set: StudioSet, index: Int) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(studioText("set.number") + " \(index + 1) · " + studioText("set.\(set.kind)"))
                 .font(.headline)
-            Text(set.weight.formatted(.number.precision(.fractionLength(0...1))) + " kg × \(set.reps)")
+            Text(session.editorField != nil && session.currentSet?.id == set.id ?
+                 session.editorWeightText + " kg × " + session.editorRepsText :
+                    set.weight.formatted(.number.precision(.fractionLength(0...2))) + " kg × \(set.reps)")
                 .font(.title2).monospacedDigit()
             HStack {
                 if session.currentSet?.id == set.id {
-                    Button(studioText("editor.weight")) { session.beginEditing("weight") }.frame(minHeight: 44)
-                    Button(studioText("editor.reps")) { session.beginEditing("reps") }.frame(minHeight: 44)
+                    Button(studioText("editor.weight")) {
+                        if session.editorField != nil { session.switchEditor(to: "weight") } else { session.beginEditing("weight") }
+                    }.frame(minHeight: 44)
+                    Button(studioText("editor.reps")) {
+                        if session.editorField != nil { session.switchEditor(to: "reps") } else { session.beginEditing("reps") }
+                    }.frame(minHeight: 44)
                 }
                 Spacer()
-                Button(studioText(set.completed ? "set.uncomplete" : "set.complete")) { session.complete(set.id) }
+                Button(studioText(set.completed ? "set.uncomplete" : "set.complete")) {
+                    if session.editorField != nil && session.currentSet?.id == set.id { session.commitEditor(completeSet: true) }
+                    else { session.complete(set.id) }
+                }.disabled(session.editorField != nil && !session.editorCanCommit)
                     .frame(minHeight: 44)
             }.font(.body).buttonStyle(.plain).foregroundStyle(theme.primary.primaryText)
         }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
@@ -659,7 +709,7 @@ public struct WorkoutStudioView: View {
 
     @ViewBuilder private var bottomDock: some View {
         VStack(spacing: 12) {
-            if let notice = session.notice {
+            if let notice = session.notice, session.editorField == nil {
                 HStack {
                     Text(notice).font(.caption).fixedSize(horizontal: false, vertical: true)
                     Spacer()
@@ -677,9 +727,9 @@ public struct WorkoutStudioView: View {
                         Button(studioText("action.undo")) { session.undoDelete() }
                             .font(.body.weight(.semibold)).frame(minHeight: 44).buttonStyle(.plain)
                     }.padding(.horizontal, 16).modifier(StudioSurface(style: style))
-                } else { StudioRestPanel(session: session, style: style) }
+                } else { StudioRestPanel(session: session, style: style, compact: session.editorField != nil) }
                 if session.editorField != nil {
-                    StudioNumericEditor(session: session, style: style)
+                    StudioNumericEditor(session: session, style: style, layout: keyboardLayout)
                 } else if session.restEnd == nil {
                     StudioAction(title: studioText(session.currentSet == nil ? "workout.next" : "set.complete"),
                                  symbol: session.currentSet == nil ? "arrow.right" : "checkmark", style: style) {

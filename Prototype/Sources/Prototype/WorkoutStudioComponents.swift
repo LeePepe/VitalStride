@@ -134,10 +134,26 @@ struct StudioRestPanel: View {
     @Environment(\.theme) private var theme
     let session: StudioSession
     let style: StudioStyle
+    var compact = false
     var body: some View {
         if let end = session.restEnd {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let seconds = max(0, Int(ceil(end.timeIntervalSince(context.date))))
+                if compact {
+                    HStack(spacing: 4) {
+                        Image(systemName: "timer").accessibilityHidden(true)
+                        Text(String(format: "%d:%02d", seconds / 60, seconds % 60))
+                            .font(.system(.body, design: .rounded, weight: .semibold)).monospacedDigit()
+                            .accessibilityLabel(studioText("rest.title"))
+                            .accessibilityValue(String(format: "%d:%02d", seconds / 60, seconds % 60))
+                        Spacer(minLength: 0)
+                        Button(studioText("rest.minusShort")) { session.adjustRest(-10) }.frame(minWidth: 48, minHeight: 44)
+                        Button(studioText("rest.plusShort")) { session.adjustRest(10) }.frame(minWidth: 48, minHeight: 44)
+                        Button(studioText("rest.skip")) { session.restEnd = nil }.frame(minWidth: 44, minHeight: 44)
+                    }.font(.subheadline).buttonStyle(.plain).padding(.horizontal, 12)
+                        .foregroundStyle(theme.primary.primaryText)
+                        .modifier(StudioSurface(style: style, emphasized: true))
+                } else {
                 VStack(spacing: 8) {
                     HStack(spacing: 8) {
                         Image(systemName: seconds == 0 ? "checkmark.circle" : "timer").accessibilityHidden(true)
@@ -166,51 +182,8 @@ struct StudioRestPanel: View {
                 .foregroundStyle(theme.primary.primaryText)
                 .padding(.horizontal, 16).padding(.top, 12)
                 .modifier(StudioSurface(style: style, emphasized: true))
-            }
-        }
-    }
-}
-
-struct StudioNumericEditor: View {
-    @Environment(\.theme) private var theme
-    let session: StudioSession
-    let style: StudioStyle
-    var body: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Text(studioText(session.editorField == "weight" ? "editor.weight" : "editor.reps"))
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                Text(session.editorValue).font(.system(.title2, design: .rounded, weight: .bold)).monospacedDigit()
-                StudioIconButton(symbol: "xmark", label: studioText("action.cancel")) { session.editorField = nil }
-            }
-            ForEach(0..<4, id: \.self) { row in
-                HStack(spacing: 8) {
-                    ForEach(0..<3, id: \.self) { column in
-                        let keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"]
-                        let key = keys[row * 3 + column]
-                        Button {
-                            if key == "⌫" {
-                                if !session.editorValue.isEmpty { session.editorValue.removeLast() }
-                            } else if key != "." || (session.editorField == "weight" && !session.editorValue.contains(".")) {
-                                session.editorValue = session.editorValue == "0" ? key : String((session.editorValue + key).prefix(6))
-                            }
-                        } label: {
-                            Text(key).font(.system(.title3, weight: .semibold)).monospacedDigit()
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .background(theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 10))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(key == "⌫" ? studioText("action.deleteDigit") : key)
-                    }
                 }
             }
-            StudioAction(title: studioText("action.done"), symbol: "checkmark", style: style,
-                         disabled: Double(session.editorValue.replacingOccurrences(of: ",", with: ".")) == nil) {
-                session.commitEditor()
-            }
         }
-        .padding(12)
-        .background(theme.neutrals.card)
     }
 }
