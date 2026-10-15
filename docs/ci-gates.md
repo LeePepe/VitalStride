@@ -6,15 +6,21 @@
 ## 一图
 
 ```
-建 PR ──► auto-merge.yml     → 立即挂上 squash auto-merge(draft 除外)
-       └►        → 现有 CI(构建/测试等)
+建 PR ──► CI                 → 现有 CI(构建/测试等)
        └► codex-review-target → self-hosted 本机跑 Codex;required
        └► kimi-review        → self-hosted 本机跑 Kimi;advisory-only
                                       │
         ruleset「main protection」要求:构建/测试 + codex-review-target 全绿
                                       ▼
-                            门皆绿 → 自动 squash 合并 + 删分支
+                            required checks 与 approvals 通过
+                                      ▼
+                            PR Manager 用 GitHub App 身份合并 + 删分支
+                                      ▼
+                            push main → TestFlight 构建 + 发布
 ```
+
+不使用 `GITHUB_TOKEN` auto-merge：该身份造成的 push 不触发后续 workflows。
+PR CI 验证待合入版本；合并到 main 后直接进入 CD，不等待第二次 main CI。
 
 ## 门层
 
@@ -27,7 +33,7 @@
 | review prompt(数据) | `scripts/ci/review-prompt.md` + `scripts/ci/render-review-prompt.py` | Codex 与历史 Claude gate | — |
 | prompt 契约回归 | `scripts/ci/review-prompt.contract.test.sh`(ci.yml「Lint & policy」) | PR | 否 |
 | TEMP-PRELAUNCH 扫描 | `scripts/ci/scan-temp-prelaunch.sh`(ci.yml「Lint & policy」用 `enforce`;testflight.yml 用 `audit`) | PR + 发布 | 否 |
-| 自动合并 | `.github/workflows/auto-merge.yml` | PR | — |
+| 合并 | PR Manager（GitHub App 身份；required checks 与 approvals 通过后） | PR | — |
 | ruleset(硬门) | `scripts/rulesets/main-protection.json` | 默认分支 | admin 可 bypass |
 
 ## review prompt 是单一数据源

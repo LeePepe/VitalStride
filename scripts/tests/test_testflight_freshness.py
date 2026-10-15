@@ -1,5 +1,6 @@
 """Guard TestFlight triggers, exact candidate capture, marker-range eligibility, and failure boundaries without building or uploading."""
 from pathlib import Path
+import re
 import textwrap
 import types
 import unittest
@@ -82,27 +83,29 @@ class TestFlightRegressionContractTests(unittest.TestCase):
         self.release = self.workflow.split("\n  release:\n", 1)[1]
         self.gate_step = self.workflow.split("- name: Decide whether to release\n", 1)[1].split("\n      - name:", 1)[0]
 
-    # 1. exact automatic workflow/conclusion/event/branch guards, manual force compatibility, and one captured candidate;
+    # 1. exact automatic push/event/branch guards, manual force compatibility, and one captured candidate;
     def test_item_1_exact_automatic_guards_and_captured_candidate(self):
-        self.assertIn("workflow_run:", self.triggers)
-        self.assertIn("workflows: [CI]", self.triggers)
-        self.assertIn("types: [completed]", self.triggers)
+        self.assertEqual(re.findall(r"^  ([a-z_]+):", self.triggers, re.M), ["push", "workflow_dispatch"])
+        self.assertIn("push:", self.triggers)
+        self.assertIn("branches: [main]", self.triggers)
         self.assertIn("workflow_dispatch:", self.triggers)
         self.assertIn("force:", self.triggers)
 
-        self.assertIn("github.event.workflow_run.event == 'push'", self.release)
-        self.assertIn("github.event.workflow_run.head_branch == 'main'", self.release)
-        self.assertIn("github.event.workflow_run.conclusion == 'success'", self.release)
+        self.assertIn("github.event_name == 'push' && github.ref == 'refs/heads/main'", self.release)
+        self.assertIn("github.event_name == 'workflow_dispatch' ||", self.release)
+        self.assertNotIn("workflow_run", self.workflow)
 
-        # Automatic checkout uses the verified SHA; manual checkout stays pinned to main.
+        # Automatic checkout uses the pushed SHA; manual checkout stays pinned to main.
         self.assertIn(
-            "ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}",
+            "ref: ${{ github.event_name == 'push' && github.sha || 'main' }}",
             self.release,
         )
 
-        # Candidate is captured from workflow_run.head_sha
-        self.assertIn("CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}", self.gate_step)
-        self.assertIn("candidate = ci_head_sha", self.gate_step)
+        # Candidate is captured from the push SHA.
+        self.assertIn("PUSH_SHA: ${{ github.sha }}", self.gate_step)
+        self.assertIn("candidate = push_sha", self.gate_step)
+        self.assertIn("PUSH_REF: ${{ github.ref }}", self.gate_step)
+        self.assertIn('if push_ref != "refs/heads/main":', self.gate_step)
         self.assertIn("FORCE_INPUT: ${{ github.event.inputs.force }}", self.gate_step)
 
     # 2. marker resolution and literal marker..candidate range;
