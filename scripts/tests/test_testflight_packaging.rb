@@ -1,16 +1,297 @@
 # frozen_string_literal: true
 
-require "minitest/autorun"
+require "base64"
+require "json"
 require "open3"
 require "rbconfig"
 require "rubygems"
 
-gem "fastlane", "= 2.238.0"
+module FastlaneToolchain
+  MINIMUM_VERSION = Gem::Version.new("2.238.0")
+  PROBE_ENV = "VITALSTRIDE_FASTLANE_TOOLCHAIN_PROBE"
+  BOOTSTRAP_ENV = "VITALSTRIDE_FASTLANE_TOOLCHAIN_BOOTSTRAPPED"
+  EVIDENCE_ENV = "VITALSTRIDE_FASTLANE_TOOLCHAIN_EVIDENCE"
+  PROBE_MARKER = "VITALSTRIDE_FASTLANE_TOOLCHAIN="
+
+  module_function
+
+  def resolve_path_command(name)
+    path = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR, -1).find do |directory|
+      directory = "." if directory.empty?
+      candidate = File.join(directory, name)
+      File.file?(candidate) && File.executable?(candidate)
+    end
+
+    raise "#{name} must resolve from unchanged PATH" unless path
+
+    File.expand_path(File.join(path.empty? ? "." : path, name))
+  end
+
+  def source_evidence
+    {
+      "fastlane_libraries" => loaded_features("fastlane.rb"),
+      "sigh_libraries" => loaded_features("sigh.rb"),
+      "sigh_manager" => Sigh::Manager.method(:start).source_location&.first,
+      "provisioning_action" =>
+        Fastlane::Actions::GetProvisioningProfileAction.method(:run).source_location&.first
+    }
+  end
+
+  def loaded_features(basename)
+    matches = $LOADED_FEATURES
+              .select { |path| File.basename(path) == basename }
+              .map { |path| File.realpath(path) }
+              .uniq
+              .sort
+    raise "expected a loaded #{basename}" if matches.empty?
+
+    matches
+  end
+
+  def probe_evidence
+    gem_spec = Gem.loaded_specs.fetch("fastlane")
+    {
+      "ok" => true,
+      "ruby" => File.realpath(RbConfig.ruby),
+      "gem_home" => Gem.dir,
+      "gem_path" => Gem.path,
+      "gem_name" => gem_spec.name,
+      "gem_version" => gem_spec.version.to_s,
+      "gem_root" => File.realpath(gem_spec.full_gem_path),
+      "gem_executable" => File.realpath(Gem.bin_path("fastlane", "fastlane")),
+      "library_version" => Fastlane::VERSION.to_s,
+      "sources" => source_evidence
+    }
+  end
+
+  def validate!(evidence)
+    cli_version = Gem::Version.new(evidence.fetch("cli_version"))
+    gem_spec = Gem.loaded_specs.fetch("fastlane")
+    gem_root = File.realpath(gem_spec.full_gem_path)
+    current_sources = source_evidence
+
+    raise "resolved Fastlane #{cli_version} is below #{MINIMUM_VERSION}" if cli_version < MINIMUM_VERSION
+    raise "resolved gem identity is not fastlane" unless evidence.fetch("gem_name") == "fastlane"
+    raise "CLI and gem versions disagree" unless evidence.fetch("gem_version") == cli_version.to_s
+    raise "CLI and loaded library versions disagree" unless evidence.fetch("library_version") == cli_version.to_s
+    raise "loaded gem version disagrees" unless gem_spec.version == cli_version
+    raise "loaded gem root disagrees" unless evidence.fetch("gem_root") == gem_root
+    raise "selected Ruby disagrees" unless evidence.fetch("ruby") == File.realpath(RbConfig.ruby)
+    raise "selected GEM_HOME disagrees" unless evidence.fetch("gem_home") == Gem.dir
+    raise "selected GEM_PATH disagrees" unless evidence.fetch("gem_path") == Gem.path
+    unless evidence.fetch("command") == resolve_path_command("fastlane")
+      raise "unchanged PATH now resolves a different fastlane command"
+    end
+    raise "loaded source identity disagrees" unless evidence.fetch("sources") == current_sources
+
+    current_sources.merge("gem_executable" => evidence.fetch("gem_executable")).each do |identity, sources|
+      Array(sources).each do |source|
+        raise "#{identity} source is unavailable" unless source
+
+        real_source = File.realpath(source)
+        unless real_source.start_with?("#{gem_root}#{File::SEPARATOR}")
+          raise "#{identity} escaped the resolved Fastlane gem: #{real_source}"
+        end
+      end
+    end
+
+    puts "Fastlane toolchain coherent: version=#{cli_version} " \
+         "sources=#{current_sources.keys.join(",")}"
+    {
+      "version" => cli_version,
+      "gem_spec" => gem_spec,
+      "gem_root" => gem_root,
+      "sources" => current_sources
+    }
+  rescue ArgumentError => error
+    raise "resolved Fastlane version is invalid: #{error.message}"
+  end
+
+  def schedule_probe
+    at_exit do
+      begin
+        require "fastlane"
+        require "sigh"
+        require "sigh/manager"
+        Fastlane.load_actions
+        puts "#{PROBE_MARKER}#{JSON.generate(probe_evidence)}"
+      rescue Exception => error # rubocop:disable Lint/RescueException
+        puts "#{PROBE_MARKER}#{JSON.generate(
+          "ok" => false,
+          "error_class" => error.class.name,
+          "error_message" => error.message
+        )}"
+      ensure
+        $stdout.flush
+      end
+    end
+  end
+
+  def cli_version(command)
+    stdout, stderr, status = Open3.capture3(command, "--version")
+    raise "resolved fastlane command failed: #{stderr.strip}" unless status.success?
+
+    versions = "#{stdout}\n#{stderr}".scan(/^fastlane ([^\s]+)\s*$/).flatten.uniq
+    raise "resolved fastlane command reported incoherent versions: #{versions.inspect}" unless versions.one?
+
+    Gem::Version.new(versions.first)
+  rescue ArgumentError => error
+    raise "resolved fastlane command reported an invalid version: #{error.message}"
+  end
+
+  def selected_evidence
+    command = resolve_path_command("fastlane")
+    version = cli_version(command)
+    probe_rubyopt = [ENV["RUBYOPT"], "-r#{File.realpath(__FILE__)}"].compact.join(" ")
+    stdout, stderr, status = Open3.capture3(
+      { PROBE_ENV => "1", "RUBYOPT" => probe_rubyopt },
+      command,
+      "--version"
+    )
+    raise "resolved fastlane toolchain probe failed: #{stderr.strip}" unless status.success?
+
+    probe_lines = stdout.lines.grep(/^#{Regexp.escape(PROBE_MARKER)}/)
+    raise "resolved fastlane toolchain emitted #{probe_lines.length} probe records" unless probe_lines.one?
+
+    evidence = JSON.parse(probe_lines.first.delete_prefix(PROBE_MARKER))
+    unless evidence["ok"]
+      raise "resolved fastlane toolchain could not load: " \
+            "#{evidence.fetch("error_class")}: #{evidence.fetch("error_message")}"
+    end
+
+    evidence.merge("command" => command, "cli_version" => version.to_s)
+  end
+
+  def bootstrap!
+    evidence = selected_evidence
+    encoded_evidence = Base64.strict_encode64(JSON.generate(evidence))
+    exec(
+      {
+        BOOTSTRAP_ENV => "1",
+        EVIDENCE_ENV => encoded_evidence,
+        "GEM_HOME" => evidence.fetch("gem_home"),
+        "GEM_PATH" => evidence.fetch("gem_path").join(File::PATH_SEPARATOR)
+      },
+      evidence.fetch("ruby"),
+      File.realpath(__FILE__)
+    )
+  end
+end
+
+if ENV[FastlaneToolchain::PROBE_ENV] == "1"
+  if File.realpath($PROGRAM_NAME) == File.realpath(__FILE__)
+    raise "#{FastlaneToolchain::PROBE_ENV} is reserved for the internal Fastlane probe"
+  end
+
+  FastlaneToolchain.schedule_probe
+else
+  FastlaneToolchain.bootstrap! unless ENV[FastlaneToolchain::BOOTSTRAP_ENV] == "1"
+
+module FixtureTest
+  class AssertionFailure < StandardError; end
+
+  class Case
+    attr_reader :assertions
+
+    def initialize
+      @assertions = 0
+    end
+
+    def assert(value, message = "expected a truthy value")
+      @assertions += 1
+      raise AssertionFailure, message unless value
+
+      value
+    end
+
+    def refute(value, message = "expected a falsey value")
+      assert(!value, message)
+    end
+
+    def assert_equal(expected, actual, message = nil)
+      assert(expected == actual, message || "expected #{actual.inspect} to equal #{expected.inspect}")
+    end
+
+    def assert_includes(collection, value, message = nil)
+      assert(collection.include?(value), message || "expected #{collection.inspect} to include #{value.inspect}")
+    end
+
+    def refute_includes(collection, value, message = nil)
+      refute(collection.include?(value), message || "expected #{collection.inspect} not to include #{value.inspect}")
+    end
+
+    def assert_empty(value, message = nil)
+      assert(value.empty?, message || "expected #{value.inspect} to be empty")
+    end
+
+    def assert_nil(value, message = nil)
+      assert(value.nil?, message || "expected #{value.inspect} to be nil")
+    end
+
+    def refute_nil(value, message = nil)
+      refute(value.nil?, message || "expected a non-nil value")
+    end
+
+    def assert_operator(left, operator, right, message = nil)
+      assert(left.public_send(operator, right),
+             message || "expected #{left.inspect} to be #{operator} #{right.inspect}")
+    end
+
+    def assert_raises(*error_classes)
+      @assertions += 1
+      yield
+    rescue *error_classes => error
+      error
+    else
+      raise AssertionFailure, "expected #{error_classes.map(&:name).join(", ")} to be raised"
+    end
+  end
+
+  module_function
+
+  def run(test_class)
+    failures = []
+    assertions = 0
+    tests = test_class.public_instance_methods(false)
+                      .grep(/^test_/)
+                      .sort
+
+    tests.each do |test_name|
+      test = test_class.new
+      begin
+        test.send(:setup) if test.respond_to?(:setup, true)
+        test.public_send(test_name)
+        print "."
+      rescue StandardError => error
+        failures << [test_name, error]
+        print "F"
+      ensure
+        test.send(:teardown) if test.respond_to?(:teardown, true)
+        assertions += test.assertions
+      end
+    end
+
+    puts
+    failures.each_with_index do |(test_name, error), index|
+      puts "#{index + 1}) #{test_name}: #{error.class}: #{error.message}"
+      puts Array(error.backtrace).first(5).join("\n")
+    end
+    puts "#{tests.length} runs, #{assertions} assertions, #{failures.length} failures"
+    exit 1 unless failures.empty?
+  end
+end
+
+TOOLCHAIN_EVIDENCE = JSON.parse(
+  Base64.strict_decode64(ENV.fetch(FastlaneToolchain::EVIDENCE_ENV))
+).freeze
+gem "fastlane", "= #{TOOLCHAIN_EVIDENCE.fetch("gem_version")}"
 require "fastlane"
 require "sigh"
 require "sigh/manager"
 
 Fastlane.load_actions
+
+TOOLCHAIN_SUMMARY = FastlaneToolchain.validate!(TOOLCHAIN_EVIDENCE).freeze
 
 ROOT = File.expand_path("../..", __dir__)
 
@@ -26,7 +307,7 @@ class TestFlightFixtureLane < Fastlane::FastFile
   end
 end
 
-class TestFlightPackagingTests < Minitest::Test
+class TestFlightPackagingTests < FixtureTest::Case
   APP_IDENTIFIER = "com.leepepe.vitalstride"
   WIDGET_IDENTIFIER = "com.leepepe.vitalstride.widgets"
   FABRICATED_APP_KEY = "sigh_#{APP_IDENTIFIER}_appstore_profile-name"
@@ -62,26 +343,35 @@ class TestFlightPackagingTests < Minitest::Test
   end
 
   def test_uses_real_fastlane_action_and_expected_version
-    expected_version = Gem::Version.new("2.238.0")
-    fastlane = resolve_path_command("fastlane")
-    gem_command = resolve_path_command("gem")
-    ruby = resolve_path_command("ruby")
+    expected_version = Gem::Version.new(TOOLCHAIN_EVIDENCE.fetch("cli_version"))
+    gem_spec = TOOLCHAIN_SUMMARY.fetch("gem_spec")
+    gem_root = TOOLCHAIN_SUMMARY.fetch("gem_root")
 
-    cli_stdout, cli_stderr, cli_status = Open3.capture3(fastlane, "_2.238.0_", "--version")
-    gem_stdout, gem_stderr, gem_status =
-      Open3.capture3(gem_command, "list", "--local", "--exact", "fastlane", "--versions")
+    assert_operator expected_version, :>=, FastlaneToolchain::MINIMUM_VERSION
+    assert_equal "fastlane", TOOLCHAIN_EVIDENCE.fetch("gem_name")
+    assert_equal expected_version.to_s, TOOLCHAIN_EVIDENCE.fetch("gem_version")
+    assert_equal expected_version.to_s, TOOLCHAIN_EVIDENCE.fetch("library_version")
+    assert_equal expected_version, gem_spec.version
+    assert_equal TOOLCHAIN_EVIDENCE.fetch("gem_root"), gem_root
+    assert_equal TOOLCHAIN_EVIDENCE.fetch("ruby"), File.realpath(RbConfig.ruby)
+    assert_equal TOOLCHAIN_EVIDENCE.fetch("gem_home"), Gem.dir
+    assert_equal TOOLCHAIN_EVIDENCE.fetch("gem_path"), Gem.path
+    assert_equal TOOLCHAIN_EVIDENCE.fetch("command"),
+                 FastlaneToolchain.resolve_path_command("fastlane")
 
-    assert_equal File.realpath(RbConfig.ruby), File.realpath(ruby)
-    assert cli_status.success?, cli_stderr
-    assert_match(/fastlane 2\.238\.0\b/, cli_stdout)
-    assert gem_status.success?, gem_stderr
-    assert_match(/\Afastlane \(2\.238\.0\)\s*\z/, gem_stdout)
-    assert_equal expected_version, Gem.loaded_specs.fetch("fastlane").version
+    current_sources = TOOLCHAIN_SUMMARY.fetch("sources")
+    assert_equal TOOLCHAIN_EVIDENCE.fetch("sources"), current_sources
+    current_sources.merge(
+      "gem_executable" => TOOLCHAIN_EVIDENCE.fetch("gem_executable")
+    ).each do |identity, sources|
+      Array(sources).each do |source|
+        refute_nil source, "#{identity} source must be available"
+        real_source = File.realpath(source)
+        assert real_source.start_with?("#{gem_root}#{File::SEPARATOR}"),
+               "#{identity} escaped the resolved Fastlane gem: #{real_source}"
+      end
+    end
 
-    action_source, = Fastlane::Actions::GetProvisioningProfileAction.method(:run).source_location
-    manager_source, = Sigh::Manager.method(:start).source_location
-    assert_includes action_source, "/fastlane-2.238.0/"
-    assert_includes manager_source, "/fastlane-2.238.0/"
   end
 
   def test_production_sources_never_read_fabricated_profile_name_keys
@@ -184,16 +474,6 @@ class TestFlightPackagingTests < Minitest::Test
 
   private
 
-  def resolve_path_command(name)
-    path = ENV.fetch("PATH").split(File::PATH_SEPARATOR).find do |directory|
-      candidate = File.join(directory, name)
-      File.file?(candidate) && File.executable?(candidate)
-    end
-
-    refute_nil path, "#{name} must resolve from PATH"
-    File.join(path, name)
-  end
-
   def tracked_environment
     [
       "SIGH_NAME", "SIGH_UUID", "SIGH_UDID",
@@ -251,4 +531,8 @@ class TestFlightPackagingTests < Minitest::Test
     end
     requests
   end
+
+  FixtureTest.run(TestFlightPackagingTests)
+  end
+
 end
