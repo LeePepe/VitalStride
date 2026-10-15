@@ -41,7 +41,23 @@ Required CI additionally runs the AppUI layer gate declared by `VitalStride/CONT
 ## Scope audit
 
 ```bash
-git diff --name-only "$DELIVERY_BASE_SHA"...HEAD
+set -euo pipefail
+export GIT_OPTIONAL_LOCKS=0
+SUCCESSOR_BASE_SHA=db43fab774b06ef887add8014b3c2470ff396c8d
+SUCCESSOR_ALLOWED_PATH=VitalStride/Sources/ActiveWorkoutView.swift
+SUCCESSOR_REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$SUCCESSOR_REPO_ROOT"
+git merge-base --is-ancestor "$SUCCESSOR_BASE_SHA" HEAD
+SUCCESSOR_CANDIDATE_MANIFEST="$(
+  {
+    git diff --no-renames --name-only --diff-filter=ACDMRTUXB "$SUCCESSOR_BASE_SHA" HEAD --
+    git diff --no-renames --cached --name-only --diff-filter=ACDMRTUXB --
+    git diff --no-renames --name-only --diff-filter=ACDMRTUXB --
+    git ls-files --others --exclude-standard
+  } | LC_ALL=C sort -u | awk 'NF'
+)"
+printf 'candidate manifest:\n%s\n' "$SUCCESSOR_CANDIDATE_MANIFEST"
+test "$SUCCESSOR_CANDIDATE_MANIFEST" = "$SUCCESSOR_ALLOWED_PATH"
 ```
 
 The successor implementation change must be confined to:
@@ -52,6 +68,6 @@ The published fixture and tests are fixed verification surfaces. Confirm the reo
 
 Planning-only changes are confined to `specs/023-active-workout-section-reorder-fix/**`.
 
-`DELIVERY_BASE_SHA` remains the approved implementation base recorded for the registered MY-1812 workspace. Run implementation verification only from that existing `delivery_work_dir`; preserve its uncommitted candidate and return missing or conflicting identity evidence to Team Lead without another checkout.
+MY-1812's recorded `delivery_base_sha` remains historical workspace-preparation metadata and must not be used as the successor scope-audit baseline. Run implementation verification only from the existing registered `delivery_work_dir`; preserve its uncommitted candidate and return missing or conflicting identity evidence to Team Lead without another checkout.
 
 MY-1706 is part of the compatibility baseline. The successor plan does not authorize Fullstack work; after an exact planning PASS, Team Lead must separately authorize execution. Any later executor reuses the registered MY-1812 workspace and must preserve MY-1706's policy-driven snackbar/FAB, keyboard, accessibility-focus, and root-animation behavior in `ActiveWorkoutView.swift`.

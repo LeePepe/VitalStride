@@ -72,7 +72,7 @@ description: "Layer-scoped task graph for MY-1473"
 - **SR-AC-02 — one exercise composition**: Each sorted `WorkoutExercise` has one title/content-bearing composition containing its existing set/sub-set UI plus one distinct edit-only move control; no sibling top-level handle section and no handles-only branch exists.
 - **SR-AC-03 — control identity**: Every handle retains `ActiveWorkoutExerciseMoveHandle_<nameEn>`, the exact localized exercise label, drag/adjustable semantics, and a target at least 44×44 points; `ActiveWorkoutExerciseEndDropTarget` remains independently discoverable.
 - **SR-AC-04 — unchanged interaction coverage**: The first published test proves immediate C/A/B, reopened C/A/B, and Large Mode B-before-C; the second proves terminal B/C/A. Both tests execute together without source changes.
-- **SR-AC-05 — scope and compatibility**: The implementation diff is only `VitalStride/Sources/ActiveWorkoutView.swift`; test blob `7738a0c270a884510fe88755aedef7605a0b53a1`, `ActiveExerciseSection.swift`, toolbar behavior, set/sub-set behavior, and MY-1706 composition remain unchanged.
+- **SR-AC-05 — scope and compatibility**: A fail-closed candidate manifest combines committed paths since published head `db43fab774b06ef887add8014b3c2470ff396c8d`, staged paths, unstaged paths, and non-ignored untracked paths; its sole entry is `VitalStride/Sources/ActiveWorkoutView.swift`. Test blob `7738a0c270a884510fe88755aedef7605a0b53a1`, `ActiveExerciseSection.swift`, toolbar behavior, set/sub-set behavior, and MY-1706 composition remain unchanged.
 - **SR-AC-06 — manual evidence**: On iPhone 17 Simulator, capture normal and Large Mode edit-state evidence showing each localized title, existing set content, and its separate move control simultaneously; with VoiceOver, record focus output identifying the exercise control without hiding the title.
 - **SR-AC-07 — authority**: A passing planning verdict and Team Lead's later explicit execution authorization both exist before Fullstack resumes. This revision does not reset the exhausted repair budget.
 
@@ -109,9 +109,25 @@ xcodebuild test -project VitalStride.xcodeproj -scheme VitalStride \
   -destination 'platform=iOS Simulator,name=iPhone 16' \
   -skipPackagePluginValidation
 
-# Scope audit: implementation paths only. Planning artifacts may already be
-# present at the reviewed revision but Fullstack must not edit them.
-git diff --name-only "$DELIVERY_BASE_SHA"...HEAD
+# Fail-closed successor candidate manifest. The issue's delivery_base_sha is
+# the older workspace-preparation base and is not the successor scope baseline.
+set -euo pipefail
+export GIT_OPTIONAL_LOCKS=0
+SUCCESSOR_BASE_SHA=db43fab774b06ef887add8014b3c2470ff396c8d
+SUCCESSOR_ALLOWED_PATH=VitalStride/Sources/ActiveWorkoutView.swift
+SUCCESSOR_REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$SUCCESSOR_REPO_ROOT"
+git merge-base --is-ancestor "$SUCCESSOR_BASE_SHA" HEAD
+SUCCESSOR_CANDIDATE_MANIFEST="$(
+  {
+    git diff --no-renames --name-only --diff-filter=ACDMRTUXB "$SUCCESSOR_BASE_SHA" HEAD --
+    git diff --no-renames --cached --name-only --diff-filter=ACDMRTUXB --
+    git diff --no-renames --name-only --diff-filter=ACDMRTUXB --
+    git ls-files --others --exclude-standard
+  } | LC_ALL=C sort -u | awk 'NF'
+)"
+printf 'candidate manifest:\n%s\n' "$SUCCESSOR_CANDIDATE_MANIFEST"
+test "$SUCCESSOR_CANDIDATE_MANIFEST" = "$SUCCESSOR_ALLOWED_PATH"
 
 # The fixed test surface must keep its published blob identity.
 git hash-object VitalStrideUITests/Sources/ActiveWorkoutSectionReorderUITests.swift
