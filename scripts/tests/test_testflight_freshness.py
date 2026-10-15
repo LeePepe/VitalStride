@@ -1,7 +1,10 @@
 """Guard TestFlight triggers, exact candidate capture, marker-range eligibility, and failure boundaries without building or uploading."""
 from pathlib import Path
 import re
+import textwrap
+import types
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve()
@@ -14,76 +17,61 @@ FASTFILE = ROOT / "fastlane/Fastfile"
 PROJECT_YML = ROOT / "project.yml"
 
 
-def is_endpoint_relevant(p: str) -> bool:
-    """NUL-safe endpoint classifier evaluating narrow positive app predicates and exclusions."""
-    p = p.strip("/").replace("\\", "/")
+def load_production_classifier():
+    """Compile the shipped endpoint and raw-diff classifier from the workflow."""
+    workflow_text = WORKFLOW.read_text(encoding="utf-8")
+    gate_body = workflow_text.split("python3 - <<'PY_GATE'\n", 1)[1].split("\n          PY_GATE", 1)[0]
+    dedented_body = textwrap.dedent(gate_body)
+    classifier_code = (
+        "def is_endpoint_relevant"
+        + dedented_body.split("def is_endpoint_relevant", 1)[1].split("\n# Capture Candidate", 1)[0]
+    )
 
-    # Exclusions evaluated first per endpoint
-    if (
-        p.endswith(".md")
-        or p == "CONTEXT.md"
-        or p.endswith("/CONTEXT.md")
-        or p.startswith("docs/")
-        or p.startswith("specs/")
-        or p.startswith(".github/")
-        or p.startswith("Prototype/")
-        or p.startswith("VitalStride.xcodeproj/")
-        or p.startswith("VitalStrideTests/")
-        or p.startswith("VitalStrideUITests/")
-        or p.startswith("VitalStrideWatchTests/")
-        or p.startswith("scripts/")
-        or p.startswith("design/")
-        or p.startswith(".specify/")
-        or re.match(r"^Packages/[^/]+/Tests/", p)
-    ):
-        return False
-
-    # Exact repository-root files
-    if p in ("project.yml", "fastlane/Fastfile", "fastlane/Appfile"):
-        return True
-
-    # Shipped packages
-    if re.match(r"^Packages/[^/]+/Package\.swift$", p):
-        return True
-    if re.match(r"^Packages/[^/]+/(Sources|Plugins)/", p):
-        return True
-
-    # Shipped app roots
-    if re.match(r"^(VitalStride|VitalStrideMac|VitalStrideWatch Watch App)/(Sources|Resources|Assets\.xcassets)/", p):
-        return True
-    if re.match(r"^(VitalStride|VitalStrideMac|VitalStrideWatch Watch App)/[^/]+\.entitlements$", p):
-        return True
-
-    # VitalStrideWidgets predicates:
-    # 1. VitalStrideWidgets/**/*.swift
-    # 2. VitalStrideWidgets/**/*.plist
-    # 3. VitalStrideWidgets/**/*.entitlements
-    # 4. VitalStrideWidgets/**/*.xcassets/**
-    if p.startswith("VitalStrideWidgets/"):
-        if p.endswith(".swift"):
-            return True
-        if p.endswith(".plist"):
-            return True
-        if p.endswith(".entitlements"):
-            return True
-        if ".xcassets/" in p or p.endswith(".xcassets"):
-            return True
-
-    return False
+    module = types.ModuleType("production_testflight_gate")
+    exec("import re, subprocess\n" + classifier_code, module.__dict__)
+    return module.is_endpoint_relevant, module.classify_diff
 
 
-def is_diff_relevant(records: list[tuple]) -> bool:
-    """Evaluate change records against endpoint rules (A/M/D/R/C/T)."""
+is_endpoint_relevant, classify_diff = load_production_classifier()
+
+
+def raw_diff(records: list[tuple[str, ...]]) -> bytes:
+    """Encode records in git diff-tree --raw -z form."""
+    output = bytearray()
     for rec in records:
         status = rec[0]
-        if status in ("A", "M", "D", "T"):
-            if is_endpoint_relevant(rec[1]):
-                return True
-        elif status.startswith("R") or status.startswith("C"):
-            # Either relevant endpoint makes a rename or copy relevant
-            if is_endpoint_relevant(rec[1]) or is_endpoint_relevant(rec[2]):
-                return True
-    return False
+        output.extend(f":100644 100644 0000000 1111111 {status}".encode())
+        output.extend(b"\0")
+        output.extend(rec[1].encode())
+        output.extend(b"\0")
+        if status.startswith(("R", "C")):
+            output.extend(rec[2].encode())
+            output.extend(b"\0")
+    return bytes(output)
+
+
+def classify_raw(records: list[tuple[str, ...]]) -> tuple[bool, list[str]]:
+    """Run the shipped parser with raw mocked git output."""
+    with mock.patch("subprocess.run") as run:
+        run.return_value = mock.Mock(stdout=raw_diff(records), returncode=0)
+        result = classify_diff("baseline", "candidate")
+    run.assert_called_once_with(
+        [
+            "git",
+            "diff-tree",
+            "-r",
+            "-z",
+            "--no-commit-id",
+            "-C",
+            "-C",
+            "--find-copies-harder",
+            "baseline",
+            "candidate",
+        ],
+        capture_output=True,
+        check=True,
+    )
+    return result
 
 
 class TestFlightRegressionContractTests(unittest.TestCase):
@@ -95,30 +83,36 @@ class TestFlightRegressionContractTests(unittest.TestCase):
         self.release = self.workflow.split("\n  release:\n", 1)[1]
         self.gate_step = self.workflow.split("- name: Decide whether to release\n", 1)[1].split("\n      - name:", 1)[0]
 
-    # 1. exact automatic workflow/conclusion/event/branch guards, manual force compatibility, and one captured candidate;
+    # 1. exact automatic push/event/branch guards, manual force compatibility, and one captured candidate;
     def test_item_1_exact_automatic_guards_and_captured_candidate(self):
-        self.assertIn("workflow_run:", self.triggers)
-        self.assertIn("workflows: [CI]", self.triggers)
-        self.assertIn("types: [completed]", self.triggers)
+        self.assertEqual(re.findall(r"^  ([a-z_]+):", self.triggers, re.M), ["push", "workflow_dispatch"])
+        self.assertIn("push:", self.triggers)
+        self.assertIn("branches: [main]", self.triggers)
         self.assertIn("workflow_dispatch:", self.triggers)
         self.assertIn("force:", self.triggers)
 
-        self.assertIn("github.event.workflow_run.event == 'push'", self.release)
-        self.assertIn("github.event.workflow_run.head_branch == 'main'", self.release)
-        self.assertIn("github.event.workflow_run.conclusion == 'success'", self.release)
+        self.assertIn("github.event_name == 'push' && github.ref == 'refs/heads/main'", self.release)
+        self.assertIn("github.event_name == 'workflow_dispatch' ||", self.release)
+        self.assertNotIn("workflow_run", self.workflow)
 
-        # Checkout is pinned to main
-        self.assertIn("ref: main", self.release)
+        # Automatic checkout uses the pushed SHA; manual checkout stays pinned to main.
+        self.assertIn(
+            "ref: ${{ github.event_name == 'push' && github.sha || 'main' }}",
+            self.release,
+        )
 
-        # Candidate is captured from workflow_run.head_sha
-        self.assertIn("CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}", self.gate_step)
-        self.assertIn("candidate = ci_head_sha", self.gate_step)
+        # Candidate is captured from the push SHA.
+        self.assertIn("PUSH_SHA: ${{ github.sha }}", self.gate_step)
+        self.assertIn("candidate = push_sha", self.gate_step)
+        self.assertIn("PUSH_REF: ${{ github.ref }}", self.gate_step)
+        self.assertIn('if push_ref != "refs/heads/main":', self.gate_step)
         self.assertIn("FORCE_INPUT: ${{ github.event.inputs.force }}", self.gate_step)
 
     # 2. marker resolution and literal marker..candidate range;
     def test_item_2_marker_resolution_and_literal_range(self):
         self.assertIn("refs/tags/testflight/last-released", self.gate_step)
         self.assertIn("classify_diff(marker_sha, candidate)", self.gate_step)
+        self.assertIn('"-C", "-C", "--find-copies-harder"', self.gate_step)
 
     # 3. accepted path positives and exclusion precedence, including NUL-safe mixed, deletion, rename, and copy records;
     def test_item_3_path_positives_exclusions_and_record_types(self):
@@ -151,21 +145,30 @@ class TestFlightRegressionContractTests(unittest.TestCase):
         self.assertTrue(is_endpoint_relevant("VitalStride/Resources/Localizable.strings"))
         self.assertTrue(is_endpoint_relevant("VitalStride/Assets.xcassets/AppIcon.appiconset/icon.png"))
         self.assertTrue(is_endpoint_relevant("VitalStrideMac/Sources/MacApp.swift"))
+        self.assertTrue(is_endpoint_relevant("VitalStrideMac/Resources/Localizable.strings"))
+        self.assertTrue(is_endpoint_relevant("VitalStrideMac/Assets.xcassets/AppIcon.appiconset/icon.png"))
         self.assertTrue(is_endpoint_relevant("VitalStrideWatch Watch App/Sources/WatchApp.swift"))
+        self.assertTrue(is_endpoint_relevant("VitalStrideWatch Watch App/Resources/Localizable.strings"))
+        self.assertTrue(
+            is_endpoint_relevant("VitalStrideWatch Watch App/Assets.xcassets/AppIcon.appiconset/icon.png")
+        )
 
-        # Record types: deletion, rename, copy, mixed
-        self.assertTrue(is_diff_relevant([("D", "VitalStride/Sources/App.swift")]))
-        self.assertFalse(is_diff_relevant([("D", "docs/index.md")]))
+        # Raw NUL parser: add/modify/delete, rename/copy endpoints, and mixed records.
+        self.assertTrue(classify_raw([("A", "VitalStride/Sources/New.swift")])[0])
+        self.assertTrue(classify_raw([("M", "VitalStride/Sources/App.swift")])[0])
+        self.assertTrue(classify_raw([("D", "VitalStride/Sources/App.swift")])[0])
+        self.assertFalse(classify_raw([("D", "docs/index.md")])[0])
 
-        self.assertTrue(is_diff_relevant([("R100", "docs/index.md", "VitalStride/Sources/App.swift")]))
-        self.assertTrue(is_diff_relevant([("R100", "VitalStride/Sources/App.swift", "docs/index.md")]))
-        self.assertFalse(is_diff_relevant([("R100", "docs/a.md", "docs/b.md")]))
+        self.assertTrue(classify_raw([("R100", "docs/index.md", "VitalStride/Sources/App.swift")])[0])
+        self.assertTrue(classify_raw([("R100", "VitalStride/Sources/App.swift", "docs/index.md")])[0])
+        self.assertFalse(classify_raw([("R100", "docs/a.md", "docs/b.md")])[0])
 
-        self.assertTrue(is_diff_relevant([("C100", "docs/index.md", "VitalStride/Sources/App.swift")]))
-        self.assertFalse(is_diff_relevant([("C100", "docs/a.md", "docs/b.md")]))
+        self.assertTrue(classify_raw([("C100", "docs/index.md", "VitalStride/Sources/App.swift")])[0])
+        self.assertTrue(classify_raw([("C100", "VitalStride/Sources/App.swift", "docs/index.md")])[0])
+        self.assertFalse(classify_raw([("C100", "docs/a.md", "docs/b.md")])[0])
 
-        self.assertTrue(is_diff_relevant([("M", "docs/a.md"), ("M", "VitalStride/Sources/App.swift")]))
-        self.assertFalse(is_diff_relevant([("M", "docs/a.md"), ("M", "docs/b.md")]))
+        self.assertTrue(classify_raw([("M", "docs/a.md"), ("M", "VitalStride/Sources/App.swift")])[0])
+        self.assertFalse(classify_raw([("M", "docs/a.md"), ("M", "docs/b.md")])[0])
 
     # 4. root-only entitlement positives for VitalStride/*.entitlements, VitalStrideMac/*.entitlements, and VitalStrideWatch Watch App/*.entitlements, plus one nested-entitlement negative case under each root;
     def test_item_4_root_only_entitlements_and_nested_negatives(self):

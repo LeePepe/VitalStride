@@ -100,11 +100,12 @@ xcodegen generate
 
 测试目录（VitalStrideTests/）使用目录源引用，新增测试文件自动包含，无需手动添加。
 
-## TestFlight 手动发布
+## TestFlight 发布
 
-TestFlight 自动发布已暂停。仅在用户明确要求后，通过 Actions → testflight → Run workflow
-手动触发 `.github/workflows/testflight.yml`，在 self-hosted runner `vitalstride-mac` 上构建
-main 并上传 TestFlight（内部测试）。默认检查新提交；`force=true` 忽略"无新提交"检查。
+合并到 main → push 直接触发 `.github/workflows/testflight.yml`，在 self-hosted runner
+`vitalstride-mac` 上构建该 push 的 `github.sha` 并上传 TestFlight（内部测试），不等待 main CI。
+发布门检查 `testflight/last-released..candidate` 的累积相关改动。用户明确要求后，也可通过
+Actions → testflight → Run workflow 手动构建 main；`force=true` 忽略"无新提交"与路径相关性检查。
 
 - **发布点记录**：moving tag `testflight/last-released`（累积式；build 失败/关机期间不丢 commit）。
 - **签名**：project.yml 保持 Automatic + `DEVELOPMENT_TEAM 4Z8GG667QD`；archive 用
@@ -145,7 +146,8 @@ main 并上传 TestFlight（内部测试）。默认检查新提交；`force=tru
 **This project uses a PR-required workflow.** All code reaches `main` only via a GitHub Pull
 Request that passes the required status checks. `main` is protected by a **ruleset** (`main
 protection`): required checks = `Lint & policy` + 6× `SPM …` + `App target` +
-`codex-review-target`. A red required check blocks auto-merge. `claude-review` is paused;
+`codex-review-target`. PR Manager merges with the GitHub App identity once required checks
+and approvals pass; GITHUB_TOKEN auto-merge is not used. `claude-review` is paused;
 `kimi-review` posts advisory findings but is intentionally non-required. Human approving-review
 count is 0. See
 `docs/adr/0009-pr-required-workflow.md` for full rationale (supersedes ADR-0001).
