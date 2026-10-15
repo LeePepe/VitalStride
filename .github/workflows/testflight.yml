@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: main
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -121,7 +121,7 @@ jobs:
               return False
 
           def classify_diff(baseline: str, candidate: str) -> tuple[bool, list[str]]:
-              cmd = ["git", "diff-tree", "-r", "-z", "--no-commit-id", baseline, candidate]
+              cmd = ["git", "diff-tree", "-r", "-z", "--no-commit-id", "-C", "-C", "--find-copies-harder", baseline, candidate]
               res = subprocess.run(cmd, capture_output=True, check=True)
               raw = res.stdout
               if not raw:
