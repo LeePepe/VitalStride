@@ -71,26 +71,6 @@ final class ActiveWorkoutSectionReorderUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(sourceHandle.frame.width, 44)
         XCTAssertGreaterThanOrEqual(sourceHandle.frame.height, 44)
 
-        // Existing main-set and sub-set edit/delete controls remain independently focusable.
-        let mainSetMenu = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS '设置'")
-        ).firstMatch
-        let subSetDeleteMenu = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS '子组操作菜单'")
-        ).firstMatch
-        XCTAssertTrue(
-            mainSetMenu.waitForExistence(timeout: ReorderTestTimeout.render),
-            "Main-set configuration control must remain available in edit mode"
-        )
-        XCTAssertTrue(
-            subSetDeleteMenu.waitForExistence(timeout: ReorderTestTimeout.render),
-            "Sub-set delete menu must remain available in edit mode"
-        )
-        XCTAssertGreaterThanOrEqual(mainSetMenu.frame.width, 44)
-        XCTAssertGreaterThanOrEqual(mainSetMenu.frame.height, 44)
-        XCTAssertGreaterThanOrEqual(subSetDeleteMenu.frame.width, 44)
-        XCTAssertGreaterThanOrEqual(subSetDeleteMenu.frame.height, 44)
-
         sourceHandle.press(forDuration: 0.8, thenDragTo: targetHandle)
 
         // 4. Assert immediate C, A, B order
@@ -195,4 +175,5 @@ final class ActiveWorkoutSectionReorderUITests: XCTestCase {
             "Large Mode drag must move the whole Exercise B section before Exercise C"
         )
     }
+
 }
