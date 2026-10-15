@@ -13,6 +13,14 @@ This internal AppUI contract connects the active-workout edit interaction to per
 - Normal and Large Mode expose the same operation.
 - VoiceOver receives the existing localized exercise display text plus system move/adjustable control semantics.
 
+## Edit-mode composition contract
+
+- Every sorted `WorkoutExercise` retains one title/content-bearing section composition in edit mode; the existing localized title remains an independent `StaticText` element.
+- Exactly one distinct move control coexists with that title/content composition. Its identifier remains `ActiveWorkoutExerciseMoveHandle_<nameEn>`, its label remains the localized exercise name, and its hit target remains at least 44×44 points.
+- The title, full existing set/sub-set content, and control move as one exercise identity. The control label does not replace or merge away the title element.
+- One separate terminal target remains discoverable after the last exercise as `ActiveWorkoutExerciseEndDropTarget`.
+- A per-exercise sibling handle `Section` and a handles-only edit tree are forbidden composition shapes because the preserved runtime evidence proves each loses a required interface surface.
+
 ## Ordering contract
 
 **Inputs**:
@@ -34,28 +42,28 @@ This internal AppUI contract connects the active-workout edit interaction to per
 - No schema, package, CloudKit policy, or public signature changes are permitted.
 - Failure handling may not force-crash, silently discard an explicit save error, or log workout/health values.
 
-## Current-base compatibility contract
+## Published-baseline compatibility contract
 
 - The implementation base contains MY-1706's `ActiveWorkoutSnackbarLayout.policy`-driven header and bottom safe-area composition plus `.activeWorkoutRootAnimation(policy:)` ownership.
 - Reorder work in `ActiveWorkoutView.swift` must preserve that snackbar/FAB placement, keyboard-state behavior, accessibility focus routing, `@MainActor` policy isolation, and single root geometry-animation owner.
-- Existing ExercisePicker and snackbar DEBUG harnesses in `VitalStrideApp.swift` continue to operate; the new fixture is a separate opt-in launch-argument path and does not change their selectors or startup behavior. Its flag must select deterministic isolated storage and suppress ordinary catalog seeding while preserving the existing ExercisePicker flag/container path.
+- Existing ExercisePicker and snackbar DEBUG harnesses in `VitalStrideApp.swift` continue to operate; the published reorder fixture is a separate opt-in launch-argument path and does not change their selectors or startup behavior. Its flag selects deterministic isolated storage and suppresses ordinary catalog seeding while preserving the existing ExercisePicker flag/container path.
 - `VitalStride/Sources/ActiveWorkout/ActiveWorkoutSnackbarLayout.swift` and `VitalStrideTests/Sources/ActiveWorkoutSnackbarLayoutTests.swift` remain unchanged; the full AppUI verification must retain their MY-1706 policy and mutation-sensitive coverage.
 - No existing test may be deleted or weakened to accommodate the reorder repair.
+- The two published `ActiveWorkoutSectionReorderUITests` are fixed compatibility clients. Their `StaticText` title queries, handle/end-target identifiers, labels, frame assertions, drag operations, and order assertions remain unchanged.
 
 ## DEBUG harness contract
 
-- An opt-in launch argument, available only in DEBUG, selects isolated test storage, seeds three distinguishable workout exercises, and presents the production `ActiveWorkoutView`.
-- Without that launch argument, normal Debug behavior is unchanged; the test entry and fixture add no Release behavior.
+- The published opt-in launch argument, available only in DEBUG, selects isolated test storage, seeds three distinguishable workout exercises, and presents the production `ActiveWorkoutView`.
+- Without that launch argument, normal Debug behavior is unchanged; the test entry and fixture have no Release behavior.
 - Stable UI-test selectors identify outer workout exercises and move targets without making any API public.
 - The harness may support leaving and re-entering the hosted workout so persistence is observed through the production view reconstruction path.
 
 ## Behavioral XCUITest contract
 
-- Add the harness and the one focused XCUITest before repairing `ActiveWorkoutView`.
-- Enter edit mode on the production screen, perform the actual whole-section drag from the third exercise before the first, and observe C/A/B.
-- RED must be the unchanged interaction failing to complete or display C/A/B. Missing harness setup, missing symbols, and compile failure are not acceptable RED evidence.
-- After the production repair, run the same interaction and confirm immediate C/A/B plus C/A/B after leaving and re-entering the hosted workout.
-- The test targets outer exercise selectors; it must not drag an individual set/sub-set row.
+- Preserve both published focused XCUITests byte-for-byte; do not recreate their already-accepted RED phase.
+- The first test enters edit mode on the production screen, performs the whole-section drag from the third exercise before the first, and confirms immediate and reopened C/A/B plus Large Mode behavior.
+- The second test moves the first exercise to the independently discoverable terminal target and confirms B/C/A.
+- Both tests resolve titles through their existing `StaticText` queries and target outer exercise controls rather than an individual set/sub-set row.
 
 ## Ordering/persistence unit-test contract
 

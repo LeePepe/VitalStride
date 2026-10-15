@@ -4,11 +4,11 @@
 
 **Created**: 2026-08-25
 
-**Revised**: 2026-10-14 — reconciled with current `main@7fc46752b36d1b2469209b96c50801419315987c`
+**Revised**: 2026-10-15 — successor recovery contract for PR #448 at `db43fab774b06ef887add8014b3c2470ff396c8d`
 
 **Status**: Review candidate
 
-**Input**: MY-1473 — the active-workout screen already exposes edit mode, but users cannot reliably move one exercise section before or after another. Owner decision `eb00fa65-5302-4150-99b4-d742c9b186aa` authorizes one narrow XCUITest and a DEBUG-only test entry/fixture in `VitalStrideApp.swift` so the actual interaction has red-before/green-after coverage. This revision rebases the planning package on verified `LeePepe/VitalStride` `main@7fc46752b36d1b2469209b96c50801419315987c` after MY-1706 changed `ActiveWorkoutView.swift`.
+**Input**: MY-1473 and accepted Spec 023 revision `bb13c2f3fea7067763cfa9966a751cef29a1beba`; Owner decision `eb00fa65-5302-4150-99b4-d742c9b186aa`; PR #448 published head `db43fab774b06ef887add8014b3c2470ff396c8d`; and MY-1812's exhausted structural-recovery evidence. The published harness, ordering seam, identifiers, terminal target, and two reorder tests are fixed inputs. This successor revision plans only the remaining title/control composition repair.
 
 **Constitution refs**: Core Principles II/III/VII; Cross-Cutting Quality Bars A/C/D/E/G/H/I; Planning Review / Dual-Approval Gate
 
@@ -19,18 +19,23 @@
 - The shipped `ExerciseManagementTests.reorderExercises` copies the movement and renumbering algorithm in test code. It proves those copied mutations, not that the production whole-section interaction can start or complete.
 - `VitalStrideApp.swift` already contains unrelated, launch-argument-gated DEBUG UI-test harnesses, and `project.yml` already discovers `VitalStrideUITests/Sources/**`; no target configuration change is needed.
 - MY-1706 changed the same source file above `exerciseList`: current `body` derives `ActiveWorkoutSnackbarLayout.policy`, keeps a stable policy-driven header/bottom safe-area composition, and gives root geometry animation ownership to `.activeWorkoutRootAnimation(policy:)`. The reorder symbols and behavior above are unchanged from the prior planning reference.
+- PR #448 currently publishes the accepted fixture, production ordering seam, move-handle identifiers, terminal target, and two `ActiveWorkoutSectionReorderUITests` at exact head `db43fab774b06ef887add8014b3c2470ff396c8d`. The tests query `Exercise A/B/C` as `StaticText` before and during edit-mode order assertions.
+- The final authorized structural recovery proved handle and terminal-target discovery, then both unchanged tests failed because an edit-only handles tree exposed exercise titles as accessibility `Other` rather than the existing title `StaticText`. The preserved result is `structural-final/reorder-tests.xcresult`; the published head and tests did not change.
 
 ## Compatibility
 
 - Preserve the current MY-1706 snackbar/FAB placement, keyboard-state composition, `@MainActor` animation policy, accessibility focus routing, and single root animation ownership in `ActiveWorkoutView.body`.
 - Preserve existing `ActiveExerciseSection` internals, set/sub-set edit and delete behavior, localized exercise text, template/picker ordering, ordinary Debug/Release startup, and all public/package/schema contracts.
 - The authorized DEBUG fixture remains opt-in and isolated. Its dedicated launch argument must select deterministic isolated storage and suppress ordinary exercise-catalog seeding without changing the existing ExercisePicker flag/container path or snackbar harness. With all test arguments absent, current app startup behaves exactly as before.
+- In edit mode, each exercise's existing localized title remains visible and independently queryable as `StaticText`; its matching move control remains a separate at-least-44pt accessibility element with the existing identifier and localized exercise label. The title element and move control coexist and reorder as one `WorkoutExercise` composition unit.
+- Preserve both published reorder tests byte-for-byte. Changing title queries to generic section identities, `.any`, or the move control's label is not authorized by this successor revision.
 
 ## Removed Behaviour
 
 - Replace only the unreliable assumption that native row `.onMove` can expose a usable move entry for a `ForEach` whose rendered children are whole SwiftUI sections.
-- No existing test is removed or weakened. The copied reorder unit test may be replaced or strengthened only by invoking the production seam and adding save/fresh-context proof.
+- No existing test is removed or weakened. The published production-seam unit invariant and its save/fresh-context proof remain fixed verification inputs.
 - No MY-1706 behavior, set/sub-set behavior, toolbar behavior, localization, package code, project configuration, or companion-target behavior is removed. The authority for the interaction/test-surface change is Owner decision `eb00fa65-5302-4150-99b4-d742c9b186aa`.
+- The published two-sibling-section shape and the preserved handles-only edit branch are removed as acceptable composition strategies: the former does not expose move handles, while the latter removes the title/content section from the edit accessibility tree. This does not authorize removing title content, changing its query identity, or editing the tests.
 
 ## User Scenarios & Testing
 
@@ -48,6 +53,7 @@ While editing an active workout that contains multiple exercises, a user can ide
 2. **Given** A, B, C in edit mode, **when** the user moves C before A, **then** the visible order becomes C, A, B immediately and the stored exercise order values become exactly 0, 1, 2 with no duplicates or gaps.
 3. **Given** the reordered workout C, A, B has been left and reopened, **when** the active workout is rendered again, **then** it still displays C, A, B.
 4. **Given** normal mode or Large Mode on an iPhone 16 Simulator, **when** the user enters edit mode, **then** the move controls remain operable and VoiceOver identifies them as exercise-move controls.
+5. **Given** A, B, C are visible before edit mode, **when** the user enters edit mode and completes either C-before-A or A-to-terminal, **then** all three localized titles remain independently queryable as title text while their distinct move controls remain discoverable.
 
 ### Edge Cases
 
@@ -69,6 +75,9 @@ While editing an active workout that contains multiple exercises, a user can ide
 - **FR-007**: Normal mode and Large Mode MUST retain a usable section-level move entry point, and VoiceOver MUST identify the control and its exercise context.
 - **FR-008**: Existing set/sub-set editing and deletion behavior, exercise-template ordering, and exercise-picker ordering MUST remain unchanged.
 - **FR-009**: The current MY-1706 policy-driven snackbar/FAB, keyboard, accessibility-focus, and single-root-animation behavior in `ActiveWorkoutView` MUST remain unchanged while the section-reorder path is repaired.
+- **FR-010**: Edit mode MUST keep every exercise's existing localized title visible and independently queryable as `StaticText` before and after a completed move; a move-control accessibility label MUST NOT substitute for that title element.
+- **FR-011**: Each sorted `WorkoutExercise` MUST render as one title/content-bearing composition unit that also exposes exactly one distinct section-level move control. The implementation MUST NOT emit sibling top-level sections for one exercise or switch to a handles-only edit tree.
+- **FR-012**: Both published `ActiveWorkoutSectionReorderUITests` MUST remain byte-for-byte unchanged and pass together, including C-before-A immediate/reopen/Large Mode coverage and A-to-terminal B/C/A coverage.
 
 ### Key Entities
 
@@ -81,15 +90,17 @@ While editing an active workout that contains multiple exercises, a user can ide
 ### Files in scope
 
 - `VitalStride/Sources/ActiveWorkoutView.swift`
-- `VitalStride/Sources/VitalStrideApp.swift` (DEBUG-only, launch-argument-gated test entry/fixture)
-- `VitalStrideTests/Sources/ExerciseManagementTests.swift`
-- `VitalStrideUITests/Sources/ActiveWorkoutSectionReorderUITests.swift`
 - `specs/023-active-workout-section-reorder-fix/**`
+
+The existing DEBUG fixture and test files at published head `db43fab774b06ef887add8014b3c2470ff396c8d` are fixed verification surfaces for the successor repair, not editable implementation scope.
 
 ### Files NOT to touch
 
 - `Packages/**`
 - `VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift`
+- `VitalStride/Sources/VitalStrideApp.swift`
+- `VitalStrideTests/Sources/ExerciseManagementTests.swift`
+- `VitalStrideUITests/Sources/ActiveWorkoutSectionReorderUITests.swift`
 - `VitalStride/Sources/ActiveWorkout/ActiveWorkoutSnackbarLayout.swift`
 - `VitalStrideTests/Sources/ActiveWorkoutSnackbarLayoutTests.swift`
 - Set/sub-set editing or deletion UI
@@ -104,7 +115,7 @@ While editing an active workout that contains multiple exercises, a user can ide
 
 - No public API may be added or changed.
 - An app-target internal, production-owned reorder seam may be extracted in `ActiveWorkoutView.swift` solely to make the move/renumber behavior testable; its final Swift signature is intentionally left to implementation and compiler validation.
-- The test entry, deterministic fixture, and stable UI-test selectors are app-internal test surfaces available only to the authorized DEBUG flow; no Release entry or behavior may be added.
+- The published test entry, deterministic fixture, and stable UI-test selectors remain app-internal test surfaces available only to the authorized DEBUG flow; no Release entry or behavior may be added.
 
 ## Success Criteria
 
@@ -114,20 +125,24 @@ While editing an active workout that contains multiple exercises, a user can ide
 - **SC-002**: After every tested move, persisted order values are exactly the integer range `0..<exerciseCount`.
 - **SC-003**: The reopened workout preserves the completed order in the automated persistence regression and simulator acceptance check.
 - **SC-004**: On iPhone 16 Simulator in normal and Large Mode, every exercise section has an operable move control that VoiceOver identifies with exercise context.
-- **SC-005**: With only the DEBUG harness and XCUITest added, the focused UI test fails because the unchanged whole-section interaction cannot complete; after the production repair it passes without changing the fixture or assertion intent.
+- **SC-005**: The published interaction RED remains the accepted pre-repair evidence; after the successor repair, both fixed XCUITests pass without changing the fixture, test source, or assertion intent.
+- **SC-006**: During edit mode and after each tested drag, `Exercise A/B/C` remain resolvable through the tests' existing `StaticText` queries while the matching move handles retain their identifiers, exact localized labels, and at-least-44pt targets.
+- **SC-007**: One focused run executes both existing reorder tests with zero failures and no diff to their published blob `7738a0c270a884510fe88755aedef7605a0b53a1`.
 
 ## Assumptions & Dependencies
 
 - The existing edit-mode entry remains the way users start and finish reordering; this feature does not redesign the toolbar.
 - SwiftData remains the persistence mechanism for `WorkoutExercise.order`; no schema or migration is required.
 - Owner decision `eb00fa65-5302-4150-99b4-d742c9b186aa` resolves the prior test-scope question in favor of the real XCUITest interaction RED.
-- `VitalStrideUITests` is already a directory-backed target included by existing schemes, so the new test file requires no `project.yml` change.
+- `VitalStrideUITests` is already a directory-backed target included by existing schemes; the published reorder-test file requires no `project.yml` change and remains unchanged.
 - The required CI AppUI gate remains authoritative on its repository-declared simulator. MY-1473 additionally requires interactive iPhone 16 Simulator acceptance for normal/Large Mode and VoiceOver.
-- There are no unresolved product, content, or authority decisions. MY-1486 is cancelled and its replacement MY-1706 is complete in the declared current base, so neither is an implementation blocker. Before implementation dispatch, Team Lead must confirm MY-1484's still-active shared AppUI/Xcode validation lane is quiescent and supply the sole Fullstack implementer with the verified repository, approved exact reviewed planning ref, scope, acceptance, and current dependency state. Fullstack then owns first delivery-workspace classification and, only for genuinely new state, checkout, verification, metadata persistence/read-back, and continuation in that same run. Existing, partial, or conflicting delivery state returns to Team Lead for recovery. The registered workspace remains bound to the four-path implementation allowlist and must be rechecked for later drift.
+- There are no unresolved product, content, or authority decisions. MY-1812 already has a registered Fullstack workspace, PR #448, and a preserved uncommitted candidate; any later authorized implementation must reuse that state without checkout, reset, clean, or test changes. Team Lead retains scheduling and must explicitly authorize execution after the successor planning revision passes review.
 - The technical mechanism must stay inside AppUI and preserve the excluded UI and package boundaries above.
+- The exhausted structural-recovery budget is not reset by this planning revision. A passing spec gate is readiness evidence only; Team Lead must separately authorize any later Fullstack execution.
 
 ## Non-Goals
 
 - Reordering set or sub-set rows.
 - Reordering exercises in templates, pickers, or other workouts.
 - Changing workout schemas, package APIs, toolbar layout, or unrelated exercise-section controls.
+- Changing either existing reorder test, replacing title queries with section identities, or treating a handle label as equivalent title content.

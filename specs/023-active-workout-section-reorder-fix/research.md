@@ -70,14 +70,31 @@
 
 ## Decision 10 — External serialization gates
 
-**Decision**: Retire MY-1486 as a gate, treat completed successor MY-1706 as current compatibility baseline, and retain MY-1484 as the Team Lead pre-dispatch shared-lane gate rather than a product or cross-layer dependency. For this verified VitalStride issue, Team Lead supplies readiness while the sole Fullstack implementer owns first delivery-workspace classification and eligible initialization/registration.
+**Historical status**: Superseded operationally by MY-1812's registered delivery workspace, published PR, and preserved candidate. Retained only to explain the accepted plan's earlier dispatch assumptions.
 
-**Rationale**: MY-1486 is cancelled and MY-1706 is complete at the verified current base. MY-1706 changed the same source file but not the reorder symbols; its policy-driven snackbar/FAB/animation behavior is now compatibility surface, not an unresolved branch. MY-1484 does not overlap this four-file allowlist but remains `in_review` and shares AppUI/Xcode simulator build state. Team Lead must make that lane quiescent and hand Fullstack the verified repository, approved exact reviewed ref, scope, acceptance, and dependency state. Fullstack must reuse and validate any existing delivery state, return partial or conflicting state for Team Lead recovery, and initialize/register a task-local workspace plus build artifacts only when the state is genuinely new.
+**Decision**: The accepted plan retired MY-1486 as a gate, treated completed successor MY-1706 as the compatibility baseline, and assigned the then-needed delivery-workspace classification to the sole Fullstack implementer.
+
+**Rationale**: This resolved the dependencies known when the accepted plan was published. MY-1812 has since established the authoritative registered workspace and preserved candidate, so no classification, initialization, replacement checkout, or four-file implementation scope remains actionable.
 
 ## Decision 11 — Reconcile against current main without changing the solution
 
-**Decision**: Publish the seven-artifact package from `main@7fc46752b36d1b2469209b96c50801419315987c`, retain Option A and the four implementation paths, and add an explicit within-file compatibility boundary for MY-1706.
+**Historical status**: Completed by the accepted Spec 023 revision and later PR #448 publication. The successor's authoritative implementation scope is the one-file contract in Decision 12.
+
+**Decision**: The accepted seven-artifact package was published from `main@7fc46752b36d1b2469209b96c50801419315987c` with Option A and an explicit within-file compatibility boundary for MY-1706.
 
 **Rationale**: A diff from prior reference `f589a917f6f94c98588606fe9b273b5d4767faa4` shows only `ActiveWorkoutView.swift` changed among the allowlisted paths. Those changes are confined to policy-driven header/bottom safe-area and root animation composition; `EditButton`, `exerciseList`, `.onMove`, and `moveExercises(from:to:)` remain unchanged. The defect, behavioral RED, production-seam invariant, persistence proof, and accessibility acceptance have not drifted.
 
 **Alternative rejected**: Replanning the interaction or reopening the Owner's A/B decision would ignore unchanged defect evidence and an already approved scope. Treating all of `ActiveWorkoutView.swift` as freely mutable would risk regressing MY-1706.
+
+## Decision 12 — Preserve title identity in one edit-mode exercise composition
+
+**Decision**: The successor repair keeps one title/content-bearing exercise composition per `WorkoutExercise` and attaches a distinct edit-only move control to that same composition from `ActiveWorkoutView.swift`. The existing localized title remains independently queryable as `StaticText`; both published reorder tests remain byte-for-byte unchanged.
+
+**Rationale**: The published two-sibling-section shape preserves titles but fails to expose handles. The final authorized handles-only shape exposes handles and the terminal target but removes the title/content section, causing both tests to fail with `Other` versus `StaticText` automation-type mismatches. Spec 023 already preserves localized titles and `ActiveExerciseSection` internals and forbids weakening tests; Team Lead also froze both tests as current constraints. Together, that authority selects title preservation without a new product decision.
+
+**Alternatives rejected**:
+
+- Changing title queries to section identities, `.any`, or move-control labels is not authorized and could accept a handles-only UI that hides existing content.
+- Emitting a handle-only `Section` beside the content section has already failed runtime discovery.
+- Switching edit mode between content-only and handles-only trees violates compatibility and the accepted tests.
+- Editing `ActiveExerciseSection.swift` is unnecessary scope expansion while `ActiveWorkoutView.swift` can own the composition seam; the excluded file remains unchanged.
