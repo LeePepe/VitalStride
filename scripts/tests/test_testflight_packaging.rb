@@ -2,6 +2,7 @@
 
 require "base64"
 require "json"
+require ENV["VITALSTRIDE_FASTLANE_TOOLCHAIN_PROBE"] == "1" ? "minitest" : "minitest/autorun"
 require "open3"
 require "rbconfig"
 require "rubygems"
@@ -25,6 +26,15 @@ module FastlaneToolchain
     raise "#{name} must resolve from unchanged PATH" unless path
 
     File.expand_path(File.join(path.empty? ? "." : path, name))
+  end
+
+  def minitest_load_path
+    path = $LOAD_PATH.find do |entry|
+      File.file?(File.join(entry, "minitest", "autorun.rb"))
+    end
+    raise "loaded Minitest path is unavailable" unless path
+
+    path
   end
 
   def source_evidence
@@ -144,7 +154,11 @@ module FastlaneToolchain
     version = cli_version(command)
     probe_rubyopt = [ENV["RUBYOPT"], "-r#{File.realpath(__FILE__)}"].compact.join(" ")
     stdout, stderr, status = Open3.capture3(
-      { PROBE_ENV => "1", "RUBYOPT" => probe_rubyopt },
+      {
+        PROBE_ENV => "1",
+        "RUBYOPT" => probe_rubyopt,
+        "RUBYLIB" => [minitest_load_path, ENV["RUBYLIB"]].compact.join(File::PATH_SEPARATOR)
+      },
       command,
       "--version"
     )
@@ -165,12 +179,14 @@ module FastlaneToolchain
   def bootstrap!
     evidence = selected_evidence
     encoded_evidence = Base64.strict_encode64(JSON.generate(evidence))
+
     exec(
       {
         BOOTSTRAP_ENV => "1",
         EVIDENCE_ENV => encoded_evidence,
         "GEM_HOME" => evidence.fetch("gem_home"),
-        "GEM_PATH" => evidence.fetch("gem_path").join(File::PATH_SEPARATOR)
+        "GEM_PATH" => evidence.fetch("gem_path").join(File::PATH_SEPARATOR),
+        "RUBYLIB" => [minitest_load_path, ENV["RUBYLIB"]].compact.join(File::PATH_SEPARATOR)
       },
       evidence.fetch("ruby"),
       File.realpath(__FILE__)
@@ -186,100 +202,6 @@ if ENV[FastlaneToolchain::PROBE_ENV] == "1"
   FastlaneToolchain.schedule_probe
 else
   FastlaneToolchain.bootstrap! unless ENV[FastlaneToolchain::BOOTSTRAP_ENV] == "1"
-
-module FixtureTest
-  class AssertionFailure < StandardError; end
-
-  class Case
-    attr_reader :assertions
-
-    def initialize
-      @assertions = 0
-    end
-
-    def assert(value, message = "expected a truthy value")
-      @assertions += 1
-      raise AssertionFailure, message unless value
-
-      value
-    end
-
-    def refute(value, message = "expected a falsey value")
-      assert(!value, message)
-    end
-
-    def assert_equal(expected, actual, message = nil)
-      assert(expected == actual, message || "expected #{actual.inspect} to equal #{expected.inspect}")
-    end
-
-    def assert_includes(collection, value, message = nil)
-      assert(collection.include?(value), message || "expected #{collection.inspect} to include #{value.inspect}")
-    end
-
-    def refute_includes(collection, value, message = nil)
-      refute(collection.include?(value), message || "expected #{collection.inspect} not to include #{value.inspect}")
-    end
-
-    def assert_empty(value, message = nil)
-      assert(value.empty?, message || "expected #{value.inspect} to be empty")
-    end
-
-    def assert_nil(value, message = nil)
-      assert(value.nil?, message || "expected #{value.inspect} to be nil")
-    end
-
-    def refute_nil(value, message = nil)
-      refute(value.nil?, message || "expected a non-nil value")
-    end
-
-    def assert_operator(left, operator, right, message = nil)
-      assert(left.public_send(operator, right),
-             message || "expected #{left.inspect} to be #{operator} #{right.inspect}")
-    end
-
-    def assert_raises(*error_classes)
-      @assertions += 1
-      yield
-    rescue *error_classes => error
-      error
-    else
-      raise AssertionFailure, "expected #{error_classes.map(&:name).join(", ")} to be raised"
-    end
-  end
-
-  module_function
-
-  def run(test_class)
-    failures = []
-    assertions = 0
-    tests = test_class.public_instance_methods(false)
-                      .grep(/^test_/)
-                      .sort
-
-    tests.each do |test_name|
-      test = test_class.new
-      begin
-        test.send(:setup) if test.respond_to?(:setup, true)
-        test.public_send(test_name)
-        print "."
-      rescue StandardError => error
-        failures << [test_name, error]
-        print "F"
-      ensure
-        test.send(:teardown) if test.respond_to?(:teardown, true)
-        assertions += test.assertions
-      end
-    end
-
-    puts
-    failures.each_with_index do |(test_name, error), index|
-      puts "#{index + 1}) #{test_name}: #{error.class}: #{error.message}"
-      puts Array(error.backtrace).first(5).join("\n")
-    end
-    puts "#{tests.length} runs, #{assertions} assertions, #{failures.length} failures"
-    exit 1 unless failures.empty?
-  end
-end
 
 TOOLCHAIN_EVIDENCE = JSON.parse(
   Base64.strict_decode64(ENV.fetch(FastlaneToolchain::EVIDENCE_ENV))
@@ -312,7 +234,7 @@ class TestFlightFixtureLane < Fastlane::FastFile
   end
 end
 
-class TestFlightPackagingTests < FixtureTest::Case
+class TestFlightPackagingTests < Minitest::Test
   APP_IDENTIFIER = "com.leepepe.vitalstride"
   WIDGET_IDENTIFIER = "com.leepepe.vitalstride.widgets"
   FABRICATED_APP_KEY = "sigh_#{APP_IDENTIFIER}_appstore_profile-name"
@@ -537,7 +459,6 @@ class TestFlightPackagingTests < FixtureTest::Case
     requests
   end
 
-  FixtureTest.run(TestFlightPackagingTests)
-  end
+end
 
 end
