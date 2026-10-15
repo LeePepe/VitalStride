@@ -50,22 +50,24 @@ struct ExerciseManagementTests {
 
     // MARK: - Reorder Tests
 
-    @Test("Reorder exercises updates order fields correctly")
+    @Test("Reorder exercises updates order fields correctly and persists across fresh context refetch")
+    @MainActor
     func reorderExercises() throws {
         let context = ModelContext(container)
-        let (_, exercises) = makeWorkoutWithExercises(context, exerciseNames: [
+        let (workout, exercises) = makeWorkoutWithExercises(context, exerciseNames: [
             (en: "Bench Press", zh: "卧推"),
             (en: "Squat", zh: "深蹲"),
             (en: "Deadlift", zh: "硬拉"),
         ])
         try context.save()
 
-        var sorted = exercises.sorted { $0.order < $1.order }
-        sorted.move(fromOffsets: IndexSet(integer: 2), toOffset: 0)
-        for (index, exercise) in sorted.enumerated() {
-            exercise.order = index
-        }
-        try context.save()
+        // Move Deadlift (originally index 2) before Bench Press (index 0) using production seam
+        ActiveWorkoutView.reorderExercises(
+            in: workout,
+            fromOffsets: IndexSet(integer: 2),
+            toOffset: 0,
+            using: context
+        )
 
         let reordered = exercises.sorted { $0.order < $1.order }
         #expect(reordered[0].exercise?.nameEn == "Deadlift")
@@ -74,12 +76,30 @@ struct ExerciseManagementTests {
         #expect(reordered[0].order == 0)
         #expect(reordered[1].order == 1)
         #expect(reordered[2].order == 2)
+
+        // Refetch from a fresh ModelContext to prove true persistence
+        let freshContext = ModelContext(container)
+        let workoutID = workout.persistentModelID
+        guard let refetchedWorkout = freshContext.model(for: workoutID) as? Workout else {
+            Issue.record("Failed to refetch workout from fresh context")
+            return
+        }
+
+        let refetchedExercises = (refetchedWorkout.exercises ?? []).sorted { $0.order < $1.order }
+        #expect(refetchedExercises.count == 3)
+        #expect(refetchedExercises[0].exercise?.nameEn == "Deadlift")
+        #expect(refetchedExercises[1].exercise?.nameEn == "Bench Press")
+        #expect(refetchedExercises[2].exercise?.nameEn == "Squat")
+        #expect(refetchedExercises[0].order == 0)
+        #expect(refetchedExercises[1].order == 1)
+        #expect(refetchedExercises[2].order == 2)
     }
 
-    @Test("Reorder preserves sets data")
+    @Test("Reorder preserves sets data across production seam move and save")
+    @MainActor
     func reorderPreservesSets() throws {
         let context = ModelContext(container)
-        let (_, exercises) = makeWorkoutWithExercises(context, exerciseNames: [
+        let (workout, exercises) = makeWorkoutWithExercises(context, exerciseNames: [
             (en: "Bench Press", zh: "卧推"),
             (en: "Squat", zh: "深蹲"),
         ])
@@ -92,18 +112,21 @@ struct ExerciseManagementTests {
         context.insert(set2)
         try context.save()
 
-        var sorted = exercises.sorted { $0.order < $1.order }
-        sorted.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
-        for (index, exercise) in sorted.enumerated() {
-            exercise.order = index
-        }
-        try context.save()
+        // Move Squat (index 1) to index 0 via production seam helper
+        ActiveWorkoutView.reorderExercise(
+            exercises[1],
+            toIndex: 0,
+            in: workout,
+            using: context
+        )
 
         let reordered = exercises.sorted { $0.order < $1.order }
         #expect(reordered[0].exercise?.nameEn == "Squat")
         #expect(reordered[0].sets?.first?.weight == 100.0)
         #expect(reordered[1].exercise?.nameEn == "Bench Press")
         #expect(reordered[1].sets?.first?.weight == 80.0)
+        #expect(reordered[0].order == 0)
+        #expect(reordered[1].order == 1)
     }
 
     // MARK: - Replace Tests

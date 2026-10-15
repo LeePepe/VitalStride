@@ -59,8 +59,14 @@ struct VitalStrideApp: App {
         let isExercisePickerUITest = ProcessInfo.processInfo.arguments.contains(
             "-ExercisePickerTestMode"
         )
+        let isActiveWorkoutReorderUITest = ProcessInfo.processInfo.arguments.contains(
+            "-ActiveWorkoutReorderTestMode"
+        )
+        let isTestContainerMode = isExercisePickerUITest || isActiveWorkoutReorderUITest
         #else
         let isExercisePickerUITest = false
+        let isActiveWorkoutReorderUITest = false
+        let isTestContainerMode = false
         #endif
 
         do {
@@ -68,7 +74,7 @@ struct VitalStrideApp: App {
             // CloudKit store being available on a freshly booted CI
             // simulator. Use the same in-memory container for app startup,
             // the harness seed, and ExercisePickerView's @Query.
-            let modelContainer = if isExercisePickerUITest {
+            let modelContainer = if isTestContainerMode {
                 try ModelContainerConfiguration.makeTestContainer()
             } else {
                 try ModelContainerConfiguration.makeContainer()
@@ -91,7 +97,7 @@ struct VitalStrideApp: App {
             let context = modelContainer.mainContext
 
             Task {
-                if !isExercisePickerUITest {
+                if !isTestContainerMode {
                     ExerciseSeeder.seedIfNeeded(context: context)
                 }
                 let status = try? await service.authorizationStatus()
@@ -110,11 +116,30 @@ struct VitalStrideApp: App {
         }
     }
 
+    private var isReorderTestActive: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-ActiveWorkoutReorderTestMode")
+        #else
+        false
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {
                 if let container {
-                    if hasCompletedOnboarding {
+                    if isReorderTestActive {
+                        #if DEBUG
+                        ActiveWorkoutReorderTestHostRoot(
+                            container: container,
+                            healthKitService: healthKitService,
+                            healthDataCache: healthDataCache,
+                            routingSignalStore: routingSignalStore
+                        )
+                        #else
+                        EmptyView()
+                        #endif
+                    } else if hasCompletedOnboarding {
                         ContentView()
                             .modelContainer(container)
                             .environment(\.healthDataCache, healthDataCache)
@@ -332,6 +357,106 @@ private struct SnackbarA11yTestHost: View {
             }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - MY-1473 / Spec 023: Active Workout Section Reorder XCUITest Harness
+
+private struct ActiveWorkoutReorderTestHostRoot: View {
+    let container: ModelContainer
+    let healthKitService: HealthKitService
+    let healthDataCache: HealthDataCache
+    let routingSignalStore: RoutingSignalStore?
+    @State private var testWorkout: Workout?
+
+    var body: some View {
+        Group {
+            if let testWorkout {
+                ActiveWorkoutReorderTestHost(workout: testWorkout)
+            } else {
+                ProgressView()
+                    .onAppear {
+                        testWorkout = seedReorderWorkout(in: container)
+                    }
+            }
+        }
+        .modelContainer(container)
+        .environment(\.healthKitService, healthKitService)
+        .environment(\.healthDataCache, healthDataCache)
+        .environment(\.routingSignalStore, routingSignalStore)
+    }
+
+    private func seedReorderWorkout(in container: ModelContainer) -> Workout {
+        let context = container.mainContext
+        let workout = Workout(type: .strength, startDate: Date())
+        context.insert(workout)
+
+        let exercisesData: [(String, String, MuscleGroup, Equipment)] = [
+            ("Exercise A", "Exercise A", .chest, .barbell),
+            ("Exercise B", "Exercise B", .legs, .barbell),
+            ("Exercise C", "Exercise C", .back, .barbell),
+        ]
+
+        for (index, data) in exercisesData.enumerated() {
+            let exercise = Exercise(
+                nameEn: data.0,
+                nameZh: data.1,
+                muscleGroup: data.2,
+                equipment: data.3
+            )
+            context.insert(exercise)
+            let workoutExercise = WorkoutExercise(order: index, exercise: exercise)
+            workoutExercise.workout = workout
+            context.insert(workoutExercise)
+
+            let set1 = ExerciseSet(order: 0, weight: 60.0, reps: 10, setType: .working)
+            set1.workoutExercise = workoutExercise
+            context.insert(set1)
+        }
+
+        try? context.save()
+        return workout
+    }
+}
+
+private struct ActiveWorkoutReorderTestHost: View {
+    let workout: Workout
+    @State private var isShowingWorkout = true
+
+    var body: some View {
+        Group {
+            if isShowingWorkout {
+                ActiveWorkoutView(source: .resume(workout))
+                    .safeAreaInset(edge: .top) {
+                        HStack {
+                            Button("Leave Workout") {
+                                isShowingWorkout = false
+                            }
+                            .accessibilityIdentifier("ActiveWorkoutTestLeaveButton")
+                            .buttonStyle(.plain)
+                            .padding(8)
+                            .background(Color.black.opacity(0.8))
+                            .foregroundStyle(.white)
+                            .cornerRadius(8)
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                        .zIndex(9999)
+                    }
+            } else {
+                VStack(spacing: 20) {
+                    Text("Workout Inactive")
+                        .accessibilityIdentifier("ActiveWorkoutTestInactiveView")
+                    Button("Reopen Workout") {
+                        isShowingWorkout = true
+                    }
+                    .accessibilityIdentifier("ActiveWorkoutTestReopenButton")
+                    .buttonStyle(.borderedProminent)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemBackground))
+            }
+        }
     }
 }
 #endif
