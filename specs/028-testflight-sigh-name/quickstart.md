@@ -7,7 +7,8 @@ All implementation verification is credential-free. Do not run `fastlane ios bet
 ## Prerequisites
 
 - Work in MY-1815's registered delivery checkout at the exact reviewed planning revision.
-- Use a declared supported macOS/Homebrew executor: required CI currently provides Fastlane 2.238.0 and the release host provides 2.241.0. Resolve `brew --prefix fastlane` and `brew --prefix ruby` dynamically; never use ambient `/usr/bin/ruby` or a hard-coded ARM/Intel prefix.
+- Use the required `macos-26` CI executor. Its runner image exposes RubyGems Fastlane 2.238.0 through its own `fastlane`, `gem`, and Ruby commands on `PATH`. Do not require or probe a Homebrew formula, install a dependency, or choose a fallback runtime.
+- Keep that executor-provided `PATH` unchanged across all commands below. Every `ruby` invocation, including `ruby -c`, must be the executable reported by `command -v ruby`; the fixture asserts the loaded Fastlane library version before exercising the action.
 - Keep `.github/workflows/**`, `project.yml`, generated projects, product code, packages, and existing tests unchanged.
 
 ## 1. Baseline/red evidence
@@ -15,8 +16,12 @@ All implementation verification is credential-free. Do not run `fastlane ios bet
 Before the production repair, add the real-action regression and run:
 
 ```sh
-GEM_PATH="$(brew --prefix fastlane)/libexec" \
-  "$(brew --prefix ruby)/bin/ruby" scripts/tests/test_testflight_packaging.rb
+command -v fastlane
+command -v gem
+command -v ruby
+fastlane --version
+gem list --local --exact fastlane
+ruby scripts/tests/test_testflight_packaging.rb
 ```
 
 Record failure against the current fabricated/delayed reads. Also require two red-capable negatives: stale environment and lane context masking missing app output, and the same stale sources masking missing widget output after a valid app capture. Do not clear those deliberate seeds in fixture setup or weaken the fixture to make the base pass.
@@ -26,14 +31,18 @@ Record failure against the current fabricated/delayed reads. Also require two re
 After the repair:
 
 ```sh
-GEM_PATH="$(brew --prefix fastlane)/libexec" \
-  "$(brew --prefix ruby)/bin/ruby" scripts/tests/test_testflight_packaging.rb
+command -v fastlane
+command -v gem
+command -v ruby
+fastlane --version
+gem list --local --exact fastlane
+ruby scripts/tests/test_testflight_packaging.rb
 
 ruby -c fastlane/Fastfile
 git diff --check
 ```
 
-The Ruby output must show zero failures/errors, must come from the real Fastlane/Sigh action path, and must include the separate stale-seeded missing-app and missing-widget target-specific cases. Production, not fixture setup, neutralizes both shared name locations immediately before each real action.
+The presence and version checks are assertions, not diagnostics: the selected CLI, local RubyGems inventory, and Fastlane library loaded by the selected Ruby must all report exactly 2.238.0 before the test is accepted. The Ruby output must show zero failures/errors, must come from the real Fastlane/Sigh action path, and must include the separate stale-seeded missing-app and missing-widget target-specific cases. Production, not fixture setup, neutralizes both shared name locations immediately before each real action.
 
 ## 3. Complete RepoInfra gate
 
@@ -41,7 +50,7 @@ The Ruby output must show zero failures/errors, must come from the real Fastlane
 bash scripts/test-repoinfra.sh
 ```
 
-Read the full output. Require the Ruby regression to run exactly once through the same dynamically resolved formula-Ruby/Fastlane-`libexec` invocation as the focused command, and require zero failures/errors. A missing Homebrew, formula Ruby, Fastlane `libexec`, or real library is a gate failure, not a skip or install request.
+Read the full output. Require the Ruby regression to run exactly once through the same PATH/RubyGems resolver and 2.238.0 CLI/gem/library agreement check as the focused command, and require zero failures/errors. A missing command, absent gem, mismatch, or real-library load failure is a gate failure, not a skip, fallback, or install request.
 
 ## 4. Scope and compatibility proof
 

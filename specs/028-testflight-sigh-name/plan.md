@@ -17,7 +17,7 @@ Add a real-action Ruby regression modeled on VoxPocket PR #100: load Fastlane/Si
 
 | Item | Decision |
 |---|---|
-| Runtime | Homebrew formula Ruby + Fastlane 2.238.0 (required CI) or 2.241.0 (release host), dynamically resolved; existing Bash RepoInfra gate |
+| Runtime | Required CI executor's PATH-selected Ruby/RubyGems Fastlane 2.238.0, with CLI/gem/library agreement asserted; existing Bash RepoInfra gate |
 | Supported profile-name output | `lane_context[SharedValues::SIGH_NAME]` |
 | Action return | UUID; explicitly not a display-name source |
 | State lifetime | Environment and lane-context names are independently stale-capable; real action conditionally republishes lane context; neutralize both before every call, then capture immediately |
@@ -37,7 +37,7 @@ Add a real-action Ruby regression modeled on VoxPocket PR #100: load Fastlane/Si
 - App/widget custom specifier inputs and export reuse already exist and remain correct.
 - VoxPocket PR #100 provides the accepted real-action fixture shape: require real Fastlane/Sigh, clear/restore lane context, replace `Sigh::Manager.start`, publish distinct name/UUID fixtures, and execute the real action through the actual lane.
 - `scripts/test-repoinfra.sh` is the existing PR-time RepoInfra entrypoint and currently discovers Python tests only.
-- Required CI runs `bash scripts/test-repoinfra.sh` on `macos-26` with Homebrew Fastlane 2.238.0; the release host provides Homebrew Fastlane 2.241.0. The focused test and mandatory gate must use the same runtime-discovery contract without changing either workflow.
+- Required CI runs `bash scripts/test-repoinfra.sh` on `macos-26` without installing Fastlane. The runner image exposes RubyGems Fastlane 2.238.0 through its own `fastlane`, `gem`, and Ruby commands on `PATH`; the focused test and mandatory gate must resolve and cross-check that existing runtime without changing the workflow. The release host's formula-packaged 2.241.0 is production compatibility evidence only.
 - Planner-machine `bash scripts/test-repoinfra.sh` has unrelated Python 3.9 baseline failures (`X | None` import and unavailable `tomllib`); this does not weaken the required green implementation gate on the supported executor.
 
 ## Constitution Check
@@ -123,7 +123,7 @@ No public product, Swift, workflow-input, persistence, or external API change.
 
 The Ruby fixture must:
 
-1. dynamically resolve `brew --prefix fastlane` and `brew --prefix ruby`, run with the formula Ruby and Fastlane formula `libexec` on `GEM_PATH`, and require the installed real `fastlane`, `sigh`, and `sigh/manager` libraries without ambient `/usr/bin/ruby` or hard-coded architecture prefixes;
+1. resolve `fastlane`, `gem`, and Ruby from the required executor's `PATH`, assert that the selected Fastlane CLI, RubyGems inventory, and loaded library all report 2.238.0, and require the installed real `fastlane`, `sigh`, and `sigh/manager` libraries without a Homebrew-formula or hard-coded architecture prefix;
 2. load the repository Fastfile rather than duplicating its profile logic;
 3. snapshot and restore outer lane-context and Sigh environment state around each case, while preserving deliberate stale seeds inside each negative case until production performs its own pre-call neutralization;
 4. replace only `Sigh::Manager.start` for profile/network installation and replace unrelated credential/build/upload external work;
@@ -133,7 +133,7 @@ The Ruby fixture must:
 8. fail if production files use the fabricated target-derived environment-key convention;
 9. make no network, credential, signing, upload, distribution, marker, or Developer Portal mutation.
 
-`scripts/test-repoinfra.sh` must invoke the fixture exactly once through the same dynamically resolved formula-Ruby/Fastlane runtime used by the focused check. Missing Homebrew, formula Ruby, Fastlane `libexec`, or real libraries is a gate failure, not a skip or install request. No `.github/**` edit is permitted.
+`scripts/test-repoinfra.sh` must invoke the fixture exactly once through the same PATH/RubyGems resolver and 2.238.0 agreement check used by the focused check. A missing `fastlane`, `gem`, or Ruby command; absent gem; CLI/gem/library mismatch; or real-library load failure is a gate failure, not a skip, fallback, or install request. No `.github/**` edit is permitted.
 
 ## Dependency Strategy
 
@@ -153,8 +153,9 @@ T001 RepoInfra red fixture + per-call capture repair
 
 Run from the repository root in the registered delivery checkout.
 
-1. Real-action regression on either declared supported executor:
-   `GEM_PATH="$(brew --prefix fastlane)/libexec" "$(brew --prefix ruby)/bin/ruby" scripts/tests/test_testflight_packaging.rb`
+Keep the executor-provided `PATH` unchanged across discovery and verification. Every `ruby` command below MUST be the same executable reported by `command -v ruby`; the test fixture performs the loaded-library side of the 2.238.0 agreement assertion before exercising the action.
+
+1. Real-action regression on the required `macos-26` CI executor: resolve `fastlane`, `gem`, and Ruby from `PATH`; require `fastlane --version`, the local RubyGems inventory, and the library loaded by that Ruby to agree on 2.238.0; then run `ruby scripts/tests/test_testflight_packaging.rb`.
 2. Fastfile syntax:
    `ruby -c fastlane/Fastfile`
 3. Full RepoInfra gate:
@@ -163,7 +164,7 @@ Run from the repository root in the registered delivery checkout.
    `git diff --check`
 5. Scope proof: changed implementation paths are exactly the three Files in Scope; every Files NOT to Touch path has zero diff.
 
-The command dynamically resolves the active Homebrew prefixes and is valid for both the CI Fastlane 2.238.0 and release-host Fastlane 2.241.0 contracts; no `/opt/homebrew`, `/usr/local`, or ambient `/usr/bin/ruby` assumption is allowed. `scripts/test-repoinfra.sh` must use that same resolver/invocation, making the complete gate the portable canonical entrypoint. The real-action regression must be red-capable: it fails at the product base's fabricated/delayed reads and when stale values mask either missing target output, and passes only with pre-call two-source neutralization plus immediate per-call capture. The full RepoInfra gate remains mandatory even where the planner machine's unsupported Python baseline cannot supply a green local result.
+The resolver consumes the required executor's own PATH/RubyGems installation; it neither assumes nor probes a Homebrew formula. `scripts/test-repoinfra.sh` must automate the same command-presence and 2.238.0 CLI/gem/library agreement checks, making the complete gate the fail-closed canonical entrypoint. The real-action regression must be red-capable: it fails at the product base's fabricated/delayed reads and when stale values mask either missing target output, and passes only with pre-call two-source neutralization plus immediate per-call capture. The full RepoInfra gate remains mandatory even where the planner machine's unsupported Python baseline or formula-only Fastlane installation cannot supply a green local result.
 
 ### Forbidden before reviewed merge
 

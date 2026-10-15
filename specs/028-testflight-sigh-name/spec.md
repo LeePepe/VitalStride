@@ -3,10 +3,10 @@
 **Planning version**: MY-1815/v1
 **Feature Branch**: `028-testflight-sigh-name`
 **Created**: 2026-10-15
-**Status**: Ready for round 2 independent planning review
+**Status**: Ready for final targeted independent planning review
 **Target**: `LeePepe/VitalStride@main`
 **Product base**: `663054cb4e7f58459fd0caf6a0710f6e74f18bd0`
-**Authority**: MY-1815 revision 3; Team Lead handoff `01a13e2f-04fa-7e65-b7cd-020c292d187a`; Owner-delegated T004 decision `01a13e4b-5ab6-7b69-b6bc-0a9196f541b9` (2026-10-15)
+**Authority**: MY-1815 revision 3; Team Lead handoff `01a13e2f-04fa-7e65-b7cd-020c292d187a`; Owner-delegated T004 decision `01a13e4b-5ab6-7b69-b6bc-0a9196f541b9`; Owner-delegated targeted resolver decision `01a13e62-b073-7793-be99-b003a939de0f` (2026-10-15)
 
 ## Intent
 
@@ -22,7 +22,7 @@ This revision narrowly supersedes the incorrect profile-name source statements i
 - **DEC-028-004 — Real-action regression**: The regression loads real `fastlane`, `sigh`, and `sigh/manager`, invokes the real provisioning-profile action, and replaces only the external `Sigh::Manager.start` boundary. It may not stub the action or manufacture its return as a display name. Separate missing-app and missing-widget cases deliberately seed stale environment and lane-context values and prove production neutralization defeats both.
 - **DEC-028-005 — Narrow compatibility**: The repair changes no workflow, XcodeGen/project setting, signing identity, bundle identifier, build-number, upload/distribution, telemetry, relevance, concurrency, or marker behavior.
 - **DEC-028-006 — Delivery and production proof**: Fullstack owns the reviewed RepoInfra candidate and PR. After merge, the qualifying automatic TestFlight `workflow_run` triggered by successful CI on the exact merged `main` head is the authoritative T004 proof. Team Lead records its run/head identity, terminal result, and uploaded build number on MY-1815. No duplicate upload is authorized; a later manual `force=false` run is supplemental only and `force=true` is forbidden for T004.
-- **DEC-028-007 — Supported executor contract**: The focused regression and mandatory RepoInfra gate dynamically resolve the Homebrew Fastlane formula and formula Ruby at runtime, use that Fastlane `libexec` on `GEM_PATH`, and never rely on ambient `/usr/bin/ruby` or a hard-coded ARM/Intel prefix. The same invocation contract supports the observed CI Fastlane 2.238.0 and release-host Fastlane 2.241.0 action behavior; unavailable formula runtime fails closed without a workflow edit or install step.
+- **DEC-028-007 — Supported executor contract**: The focused regression and mandatory RepoInfra gate resolve the required CI executor's own `fastlane`, `gem`, and Ruby commands from `PATH`. They require the selected Fastlane CLI, RubyGems inventory, and loaded Fastlane library to agree on the runner image's Fastlane 2.238.0. A missing command, absent gem, version mismatch, or load failure stops the gate; no Homebrew-formula requirement, dependency installation, workflow edit, or fallback is allowed. The release host's formula-packaged 2.241.0 remains production action-compatibility evidence, not test-runtime authority.
 
 ## User Scenarios & Testing
 
@@ -46,7 +46,7 @@ As the release operator, I need the app and widget to use the display names retu
 
 As the delivery owner, I need the repository gate to exercise Fastlane's real output contract without Apple access so a fabricated key, action stub, UUID fallback, or delayed capture cannot reach the release runner.
 
-**Independent Test**: The Ruby regression loads the repository Fastfile and the installed Fastlane/Sigh libraries through the dynamically resolved formula runtime, stubs only network/profile-install work at `Sigh::Manager.start`, invokes the real action for app then widget, and observes fresh-call provenance, fail-closed lane behavior, and target-correct build inputs.
+**Independent Test**: The Ruby regression loads the repository Fastfile and the installed Fastlane/Sigh libraries through required CI's PATH-selected RubyGems runtime, stubs only network/profile-install work at `Sigh::Manager.start`, invokes the real action for app then widget, and observes fresh-call provenance, fail-closed lane behavior, and target-correct build inputs.
 
 **Acceptance Scenarios**:
 
@@ -54,7 +54,7 @@ As the delivery owner, I need the repository gate to exercise Fastlane's real ou
 2. **US2/AC2** — Given the historical `sigh_<bundle-id>_appstore_profile-name` convention appears as a production read anywhere in `fastlane/**` or `scripts/**`, when the regression runs, then it fails.
 3. **US2/AC3** — Given the focused Ruby regression is added, when `bash scripts/test-repoinfra.sh` runs, then that regression is executed through the existing RepoInfra gate with real Fastlane/Sigh loading and no Apple credentials or network call.
 4. **US2/AC4** — Given the current automatic-release classifier tests and workflow, when this repair is delivered, then their files and behavior remain unchanged.
-5. **US2/AC5** — Given either supported Fastlane 2.238.0 or 2.241.0 is installed as the active Homebrew formula, when the focused test and RepoInfra gate run, then both use the formula Ruby and formula `libexec` rather than ambient system Ruby; an unresolved runtime fails the gate instead of skipping.
+5. **US2/AC5** — Given the required `macos-26` CI executor provides RubyGems Fastlane 2.238.0 through its own `fastlane`, `gem`, and Ruby commands on `PATH`, when the focused test and RepoInfra gate run, then they require all three version surfaces to agree on 2.238.0 before loading the real libraries; a missing command, absent gem, mismatch, or load failure fails the gate instead of skipping or falling back.
 
 ### User Story 3 - Confirm the repaired path in TestFlight (Priority: P1)
 
@@ -76,7 +76,7 @@ As the delivery lead, I need the qualifying automatic post-merge run from `main`
 - The action returns a UUID while publishing a different display name: use only the display name.
 - A prior lane run or prior target left either supported `SIGH_NAME` location populated and the current call publishes no name: production clears both locations before the call, and stale-seeded real-action cases prove target-specific failure.
 - A contributor retains the fabricated convention only in an error message: replace it with supported-output wording so repository-wide regression checks do not normalize the invalid contract.
-- Fastlane/Sigh is unavailable to the repository gate: fail the test gate rather than silently skip the real-action regression.
+- Fastlane/Sigh is unavailable or does not match the required CI image's asserted 2.238.0 runtime: fail the test gate rather than silently skip, install, or choose another runtime.
 
 ## Requirements
 
@@ -89,11 +89,11 @@ As the delivery lead, I need the qualifying automatic post-merge run from `main`
 - **FR-005**: The app and widget captured variables MUST remain the sole sources for their matching archive specifier and export bundle mapping.
 - **FR-006**: The action return UUID, fixed display names, target-derived `sigh_*_profile-name` keys, and copying one target's name to the other MUST NOT be fallback sources.
 - **FR-007**: Profile display names MUST remain shell-safe opaque values and MUST NOT expose credentials, profile contents, certificates, or keychain state.
-- **FR-008**: A Ruby regression MUST dynamically resolve the installed Homebrew formula Ruby and Fastlane `libexec`, require the real `fastlane`, `sigh`, and `sigh/manager` libraries, and invoke the real `GetProvisioningProfileAction` path without ambient-system-Ruby or architecture-prefix assumptions.
+- **FR-008**: A Ruby regression MUST resolve `fastlane`, `gem`, and Ruby from the required executor's `PATH`, assert that the selected CLI, RubyGems inventory, and loaded library agree on Fastlane 2.238.0, require the real `fastlane`, `sigh`, and `sigh/manager` libraries, and invoke the real `GetProvisioningProfileAction` path without a Homebrew-formula or architecture-prefix assumption.
 - **FR-009**: The regression MAY replace only external build/upload/credential work and `Sigh::Manager.start`; it MUST NOT stub `get_provisioning_profile`, `GetProvisioningProfileAction`, lane context publication, or action return semantics.
 - **FR-010**: The regression MUST prove two sequential calls publish distinct names, shared `SIGH_NAME` is per-call/overwritten, UUIDs stay distinct from names, the actual Fastfile lane neutralizes both stale sources before every call, and capture occurs immediately after the matching call.
 - **FR-011**: The regression MUST fail for any production read of the fabricated `sigh_<bundle-id>_appstore_profile-name` convention in `fastlane/**` or `scripts/**`.
-- **FR-012**: The existing RepoInfra gate MUST execute the Ruby regression exactly once through the same dynamically resolved formula-runtime invocation as the focused check and fail closed when the real Fastlane/Sigh runtime cannot be loaded.
+- **FR-012**: The existing RepoInfra gate MUST execute the Ruby regression exactly once through the same PATH/RubyGems resolver and version assertion as the focused check, and MUST fail closed for a missing command, absent or non-2.238.0 Fastlane gem, CLI/gem/library version mismatch, or real-library load failure.
 - **FR-013**: No existing TestFlight classifier assertion or RepoInfra assertion may be deleted or weakened.
 - **FR-014**: `.github/workflows/testflight.yml`, `project.yml`, generated projects, application/package code, and signing/upload/release-state behavior MUST remain unchanged.
 - **FR-015**: After merge, Team Lead MUST treat the qualifying automatic TestFlight `workflow_run` for successful CI on the exact merged `main` head as authoritative and record its run URL, source/head identity, terminal result, and uploaded build number on MY-1815.
@@ -139,7 +139,7 @@ As the delivery lead, I need the qualifying automatic post-merge run from `main`
 ### Non-goals
 
 - Any `.github/workflows/**`, `project.yml`, generated project, app/package/Prototype, entitlement, bundle-ID, signing-identity, keychain, secret, App Store Connect, or Developer Portal change.
-- A Fastlane version pin, Gemfile, new third-party dependency, second release lane, workflow trigger change, or automatic retry.
+- A Gemfile, dependency-install or version-change step, new third-party dependency, second release lane, workflow trigger change, or automatic retry. The required test gate's assertion against the runner image's existing Fastlane 2.238.0 is in scope and adds no dependency pin.
 - Running `fastlane ios beta` or dispatching TestFlight during implementation or planning verification.
 - Reopening unrelated `026` generated-project work or `027` automatic-release policy.
 
@@ -149,12 +149,12 @@ As the delivery lead, I need the qualifying automatic post-merge run from `main`
 
 - **SC-001**: The historical current-main implementation fails the new regression because it reads the fabricated convention after both calls.
 - **SC-002**: The repaired regression proves two real action invocations, pre-call neutralization of both stale sources, immediate per-call `SIGH_NAME` capture, stale-seeded missing-app and missing-widget target failures, target-correct archive/export mapping, UUID non-use, shell safety, and fail-closed missing/blank/equal behavior without Apple access.
-- **SC-003**: The dynamically resolved focused Ruby regression, `ruby -c fastlane/Fastfile`, `bash scripts/test-repoinfra.sh`, and `git diff --check` report success on the exact candidate on the declared Homebrew Fastlane 2.238.0/2.241.0 supported executors.
+- **SC-003**: On required `macos-26` CI with PATH/RubyGems Fastlane 2.238.0, the focused Ruby regression, the same PATH-selected `ruby -c fastlane/Fastfile`, `bash scripts/test-repoinfra.sh`, and `git diff --check` report success on the exact candidate after the resolver proves CLI/gem/library version agreement.
 - **SC-004**: The implementation candidate changes only the three planned RepoInfra paths and preserves all read-only compatibility surfaces.
 - **SC-005**: The non-Draft owner-gated PR merges through the normal required checks, then Team Lead records the qualifying automatic TestFlight run for the exact merged head and its uploaded build number on MY-1815 without a duplicate upload.
 
 ## Assumptions
 
-- Required CI continues to provide Homebrew Fastlane 2.238.0 and the release host continues to provide Homebrew Fastlane 2.241.0, or compatible formula versions with the same conditional `SharedValues::SIGH_NAME` publication contract.
+- Required `macos-26` CI continues to expose its runner-image RubyGems Fastlane 2.238.0 through matching `fastlane`, `gem`, and Ruby commands on `PATH`. The release host's formula-packaged Fastlane 2.241.0 continues to implement the same conditional `SharedValues::SIGH_NAME` publication contract, but is not the RepoInfra test resolver.
 - Profile display names are not secrets but remain opaque data and are not logged by the new tests.
 - Owner-delegated decision `01a13e4b-5ab6-7b69-b6bc-0a9196f541b9` authorizes automatic-run evidence only and explicitly withholds duplicate-upload authority; implementation and planning verification remain credential-free.

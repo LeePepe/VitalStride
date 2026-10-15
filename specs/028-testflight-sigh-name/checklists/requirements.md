@@ -31,7 +31,7 @@
 - [x] Every task has runnable verification and dependency edges
 - [x] Post-merge TestFlight evidence is separated from credential-free implementation verification
 - [x] Owner-delegated Option A is recorded: qualifying automatic exact-head evidence is authoritative, manual `force=false` is supplemental, and duplicate/forced upload is forbidden
-- [x] Focused and mandatory gate execution share one dynamically resolved Homebrew formula-Ruby/Fastlane invocation covering the declared 2.238.0/2.241.0 executors without workflow edits
+- [x] Focused and mandatory gate execution share the required CI executor's PATH/RubyGems resolver, assert CLI/gem/library agreement on runner-image Fastlane 2.238.0, and fail closed without formula requirements, installs, fallbacks, or workflow edits
 
 ## Readiness
 
@@ -39,4 +39,4 @@
 - [x] Acceptance traceability covers every US/AC, FR, RB, and SC identifier
 - [x] Open risks and the Planner-machine Python baseline limitation are documented
 - [x] Package is ready for exact-revision AI Reviewer spec/plan gate
-- [x] Round 1 stale-state and nondeterministic-T004 blockers are resolved consistently for round 2
+- [x] Round 1 stale-state and nondeterministic-T004 blockers remain resolved; the authorized final targeted repair removes the round-2 formula-only CI blocker

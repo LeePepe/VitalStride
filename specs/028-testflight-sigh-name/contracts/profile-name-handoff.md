@@ -44,7 +44,7 @@ No global profile override is added. `project.yml` remains unchanged.
 
 The fixture:
 
-- dynamically resolves the active Homebrew Fastlane and formula Ruby, loads installed Fastlane/Sigh and the repository Fastfile, and never relies on ambient `/usr/bin/ruby` or a hard-coded Homebrew prefix;
+- resolves `fastlane`, `gem`, and Ruby from the required CI executor's `PATH`, requires the selected CLI, RubyGems inventory, and loaded library to agree on Fastlane 2.238.0, and loads installed Fastlane/Sigh plus the repository Fastfile without a Homebrew-formula assumption;
 - invokes the real provisioning-profile action;
 - replaces `Sigh::Manager.start`, not the action;
 - publishes distinct names and UUIDs for two sequential calls;
@@ -57,7 +57,7 @@ The fixture:
 - restores environment and lane context after each case;
 - performs no network, signing, upload, distribution, workflow dispatch, marker mutation, or secret read.
 
-The focused check and `scripts/test-repoinfra.sh` use the same formula-Ruby/Fastlane-`libexec` invocation. The gate runs the fixture exactly once and fails closed when Homebrew, formula Ruby, Fastlane `libexec`, or required real libraries are unavailable; it neither installs dependencies nor requires a workflow edit. The contract covers the observed Fastlane 2.238.0 required-CI runtime and 2.241.0 release-host runtime.
+The focused check and `scripts/test-repoinfra.sh` use the same PATH/RubyGems resolver and 2.238.0 agreement check. The gate runs the fixture exactly once and fails closed for a missing command, absent gem, CLI/gem/library mismatch, or unavailable real library; it neither installs dependencies, probes a formula fallback, nor requires a workflow edit. The release host's formula-packaged 2.241.0 remains production action-compatibility evidence and is not the gate resolver.
 
 ## Post-merge operational proof
 

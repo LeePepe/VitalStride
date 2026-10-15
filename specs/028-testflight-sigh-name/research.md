@@ -10,6 +10,7 @@
 - The existing app/widget specifier variables, shell escaping, export mapping, and missing/blank/equal guards are already correct.
 - VoxPocket PR #100 (`d2adaa66eab300952c0782d7250c3780b86252ff`) repaired the same defect with a real-action fixture that replaces `Sigh::Manager.start`, not the action.
 - The current RepoInfra gate does not invoke Ruby tests.
+- Required CI runs the gate on `macos-26` without a Fastlane install step. The runner image provides Fastlane 2.238.0 as a RubyGem exposed by its own `fastlane`, `gem`, and Ruby commands on `PATH`; a Homebrew Fastlane formula is not guaranteed there.
 
 ## Decision 1: Capture at each action boundary
 
@@ -50,11 +51,13 @@
 
 **Rationale**: `027` owns classifier/orchestration behavior. A separate packaging test isolates the signing-output contract and avoids weakening or coupling the classifier suite.
 
-## Decision 5: No dependency or architecture change
+## Decision 5: Use required CI's PATH/RubyGems Fastlane
 
-**Decision**: Reuse the Homebrew Fastlane/Ruby environment already present on both supported executors. Resolve `brew --prefix fastlane` and `brew --prefix ruby` dynamically; use the formula Ruby with the formula's `libexec` on `GEM_PATH` for both the focused test and the single mandatory gate invocation. Add no Gemfile, version pin, workflow installation step, ADR, or context change, and never fall back to ambient `/usr/bin/ruby`.
+**Decision**: For both the focused test and the single mandatory gate invocation, resolve `fastlane`, `gem`, and Ruby from the required CI executor's `PATH`. Require the selected Fastlane CLI, RubyGems inventory, and loaded library to agree on Fastlane 2.238.0 before the fixture runs. Add no Gemfile, dependency installation/version-change step, workflow edit, ADR, or context change, and never fall back to a formula probe or a second runtime.
 
-**Rationale**: Required CI currently supplies Fastlane 2.238.0 and the release host supplies 2.241.0 with the same relevant action contract. Dynamic formula-prefix resolution is portable across those executor versions and ARM/Intel Homebrew layouts without expanding into workflow edits. If the required real runtime is unavailable, the test gate must fail rather than skip or install.
+**Rationale**: Required CI's existing runner-image contract is RubyGems Fastlane 2.238.0, while the release host's formula-packaged 2.241.0 is used only for production release execution. The gate must match required CI rather than assume both hosts share packaging. Command absence, missing gem, version disagreement, or load failure stops the gate rather than skipping, installing, or hiding the defect behind another runtime.
+
+**Supersedes**: The formula-only resolver in planning revision `cc2b671adb2659e21a6b05f37e8f9b4db45b78e6`. Authority: targeted resolver decision `01a13e62-b073-7793-be99-b003a939de0f`. The stale-state and T004 decisions remain unchanged.
 
 ## Decision 6: Automatic post-merge proof is authoritative
 
@@ -66,4 +69,4 @@
 
 ## No open clarification
 
-MY-1815, the failing run, installed Fastlane source, VoxPocket precedent, repository layer rules, the existing lane, and Owner-delegated decision `01a13e4b-5ab6-7b69-b6bc-0a9196f541b9` settle scope, ordering, compatibility, testing, runtime, and post-merge evidence. No product or authority decision remains.
+MY-1815, the failing run, installed Fastlane source, VoxPocket precedent, repository layer rules, the existing lane, targeted resolver decision `01a13e62-b073-7793-be99-b003a939de0f`, and Owner-delegated T004 decision `01a13e4b-5ab6-7b69-b6bc-0a9196f541b9` settle scope, ordering, compatibility, testing, runtime, and post-merge evidence. No product or authority decision remains.
