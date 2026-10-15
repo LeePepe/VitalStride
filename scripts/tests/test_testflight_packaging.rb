@@ -2,6 +2,7 @@
 
 require "minitest/autorun"
 require "open3"
+require "rbconfig"
 require "rubygems"
 
 gem "fastlane", "= 2.238.0"
@@ -62,16 +63,51 @@ class TestFlightPackagingTests < Minitest::Test
 
   def test_uses_real_fastlane_action_and_expected_version
     expected_version = Gem::Version.new("2.238.0")
-    stdout, stderr, status = Open3.capture3("fastlane", "_2.238.0_", "--version")
+    fastlane = resolve_path_command("fastlane")
+    gem_command = resolve_path_command("gem")
+    ruby = resolve_path_command("ruby")
 
-    assert status.success?, stderr
-    assert_match(/fastlane 2\.238\.0\b/, stdout)
+    cli_stdout, cli_stderr, cli_status = Open3.capture3(fastlane, "_2.238.0_", "--version")
+    gem_stdout, gem_stderr, gem_status =
+      Open3.capture3(gem_command, "list", "--local", "--exact", "fastlane", "--versions")
+
+    assert_equal File.realpath(RbConfig.ruby), File.realpath(ruby)
+    assert cli_status.success?, cli_stderr
+    assert_match(/fastlane 2\.238\.0\b/, cli_stdout)
+    assert gem_status.success?, gem_stderr
+    assert_match(/\Afastlane \(2\.238\.0\)\s*\z/, gem_stdout)
     assert_equal expected_version, Gem.loaded_specs.fetch("fastlane").version
 
     action_source, = Fastlane::Actions::GetProvisioningProfileAction.method(:run).source_location
     manager_source, = Sigh::Manager.method(:start).source_location
     assert_includes action_source, "/fastlane-2.238.0/"
     assert_includes manager_source, "/fastlane-2.238.0/"
+  end
+
+  def test_production_sources_never_read_fabricated_profile_name_keys
+    production_files = Dir.glob("{fastlane,scripts}/**/*", base: ROOT).filter_map do |relative_path|
+      next if relative_path == "scripts/tests/test_testflight_packaging.rb"
+
+      absolute_path = File.join(ROOT, relative_path)
+      relative_path if File.file?(absolute_path)
+    end
+    fabricated_read = /
+      ENV
+      (?:
+        \s*\[\s*["']sigh_[^"']+_profile-name["']\s*\] |
+        \.fetch\(\s*["']sigh_[^"']+_profile-name["']
+      )
+    /x
+    offenders = production_files.select do |relative_path|
+      content = File.binread(File.join(ROOT, relative_path))
+      next false if content.include?("\0")
+
+      content.force_encoding(Encoding::UTF_8)
+             .encode(Encoding::UTF_8, invalid: :replace, undef: :replace)
+             .match?(fabricated_read)
+    end
+
+    assert_empty offenders
   end
 
   def test_captures_distinct_current_call_names_for_archive_and_export
@@ -110,7 +146,8 @@ class TestFlightPackagingTests < Minitest::Test
     lane = TestFlightFixtureLane.new
     error = assert_raises(FastlaneCore::Interface::FastlaneError) { lane.run }
 
-    assert_includes error.message, "app profile name"
+    assert_equal "Missing current-run app profile name for VITALSTRIDE_APP_PROFILE_SPECIFIER",
+                 error.message
     assert_equal [APP_IDENTIFIER], requests.map { |request| request[:app_identifier] }
     assert_nil @build_options
     assert_nil @upload_options
@@ -126,7 +163,8 @@ class TestFlightPackagingTests < Minitest::Test
     lane = TestFlightFixtureLane.new
     error = assert_raises(FastlaneCore::Interface::FastlaneError) { lane.run }
 
-    assert_includes error.message, "widget profile name"
+    assert_equal "Missing current-run widget profile name for VITALSTRIDE_WIDGET_PROFILE_SPECIFIER",
+                 error.message
     assert_equal [APP_IDENTIFIER, WIDGET_IDENTIFIER], requests.map { |request| request[:app_identifier] }
     assert_nil @build_options
     assert_nil @upload_options
@@ -145,6 +183,16 @@ class TestFlightPackagingTests < Minitest::Test
   end
 
   private
+
+  def resolve_path_command(name)
+    path = ENV.fetch("PATH").split(File::PATH_SEPARATOR).find do |directory|
+      candidate = File.join(directory, name)
+      File.file?(candidate) && File.executable?(candidate)
+    end
+
+    refute_nil path, "#{name} must resolve from PATH"
+    File.join(path, name)
+  end
 
   def tracked_environment
     [
@@ -197,7 +245,7 @@ class TestFlightPackagingTests < Minitest::Test
         skip_install: Sigh.config[:skip_install]
       }
       name, uuid = results.fetch(requests.length - 1)
-      name.nil? ? ENV.delete("SIGH_NAME") : ENV["SIGH_NAME"] = name
+      ENV["SIGH_NAME"] = name unless name.nil?
       ENV["SIGH_UUID"] = uuid
       "fixture.mobileprovision"
     end
