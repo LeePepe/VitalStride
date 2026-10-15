@@ -64,6 +64,8 @@ platform :ios do
     # 旧 profile 是加能力之前的快照、不含新 entitlements;fastlane 默认(force:false)
     # 会复用这份过时 profile → archive 报 "profile doesn't include the iCloud
     # capability" 签名失败。force:true 确保 profile 始终包含 App ID 的最新能力。
+    ENV.delete("SIGH_NAME")
+    lane_context.delete(SharedValues::SIGH_NAME)
     get_provisioning_profile(
       api_key: api_key,
       app_identifier: APP_IDENTIFIER,
@@ -71,6 +73,13 @@ platform :ios do
       force: true,
       skip_install: false
     )
+    app_profile_name = lane_context[SharedValues::SIGH_NAME]
+    if app_profile_name.nil? || app_profile_name.strip.empty?
+      UI.user_error!("Missing current-run app profile name for VITALSTRIDE_APP_PROFILE_SPECIFIER")
+    end
+
+    ENV.delete("SIGH_NAME")
+    lane_context.delete(SharedValues::SIGH_NAME)
     get_provisioning_profile(
       api_key: api_key,
       app_identifier: WIDGET_IDENTIFIER,
@@ -78,15 +87,9 @@ platform :ios do
       force: true,
       skip_install: false
     )
-
-    app_profile_name = ENV["sigh_#{APP_IDENTIFIER}_appstore_profile-name"]
-    widget_profile_name = ENV["sigh_#{WIDGET_IDENTIFIER}_appstore_profile-name"]
-
-    if app_profile_name.nil? || app_profile_name.strip.empty?
-      UI.user_error!("Missing canonical app profile name (sigh_#{APP_IDENTIFIER}_appstore_profile-name) for VITALSTRIDE_APP_PROFILE_SPECIFIER")
-    end
+    widget_profile_name = lane_context[SharedValues::SIGH_NAME]
     if widget_profile_name.nil? || widget_profile_name.strip.empty?
-      UI.user_error!("Missing canonical widget profile name (sigh_#{WIDGET_IDENTIFIER}_appstore_profile-name) for VITALSTRIDE_WIDGET_PROFILE_SPECIFIER")
+      UI.user_error!("Missing current-run widget profile name for VITALSTRIDE_WIDGET_PROFILE_SPECIFIER")
     end
     if app_profile_name == widget_profile_name
       UI.user_error!("App and widget profile names must be distinct for VITALSTRIDE_APP_PROFILE_SPECIFIER and VITALSTRIDE_WIDGET_PROFILE_SPECIFIER")
