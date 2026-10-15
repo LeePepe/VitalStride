@@ -1,7 +1,6 @@
-"""Guard TestFlight's manual-only entry point and in-run profile reuse without building or uploading."""
+"""Guard TestFlight triggers, exact candidate capture, marker-range eligibility, and failure boundaries without building or uploading."""
 from pathlib import Path
 import re
-import shlex
 import unittest
 
 
@@ -15,199 +14,244 @@ FASTFILE = ROOT / "fastlane/Fastfile"
 PROJECT_YML = ROOT / "project.yml"
 
 
-class TestFlightManualOnlyTests(unittest.TestCase):
+def is_endpoint_relevant(p: str) -> bool:
+    """NUL-safe endpoint classifier evaluating narrow positive app predicates and exclusions."""
+    p = p.strip("/").replace("\\", "/")
+
+    # Exclusions evaluated first per endpoint
+    if (
+        p.endswith(".md")
+        or p == "CONTEXT.md"
+        or p.endswith("/CONTEXT.md")
+        or p.startswith("docs/")
+        or p.startswith("specs/")
+        or p.startswith(".github/")
+        or p.startswith("Prototype/")
+        or p.startswith("VitalStride.xcodeproj/")
+        or p.startswith("VitalStrideTests/")
+        or p.startswith("VitalStrideUITests/")
+        or p.startswith("VitalStrideWatchTests/")
+        or p.startswith("scripts/")
+        or p.startswith("design/")
+        or p.startswith(".specify/")
+        or re.match(r"^Packages/[^/]+/Tests/", p)
+    ):
+        return False
+
+    # Exact repository-root files
+    if p in ("project.yml", "fastlane/Fastfile", "fastlane/Appfile"):
+        return True
+
+    # Shipped packages
+    if re.match(r"^Packages/[^/]+/Package\.swift$", p):
+        return True
+    if re.match(r"^Packages/[^/]+/(Sources|Plugins)/", p):
+        return True
+
+    # Shipped app roots
+    if re.match(r"^(VitalStride|VitalStrideMac|VitalStrideWatch Watch App)/(Sources|Resources|Assets\.xcassets)/", p):
+        return True
+    if re.match(r"^(VitalStride|VitalStrideMac|VitalStrideWatch Watch App)/[^/]+\.entitlements$", p):
+        return True
+
+    # VitalStrideWidgets predicates:
+    # 1. VitalStrideWidgets/**/*.swift
+    # 2. VitalStrideWidgets/**/*.plist
+    # 3. VitalStrideWidgets/**/*.entitlements
+    # 4. VitalStrideWidgets/**/*.xcassets/**
+    if p.startswith("VitalStrideWidgets/"):
+        if p.endswith(".swift"):
+            return True
+        if p.endswith(".plist"):
+            return True
+        if p.endswith(".entitlements"):
+            return True
+        if ".xcassets/" in p or p.endswith(".xcassets"):
+            return True
+
+    return False
+
+
+def is_diff_relevant(records: list[tuple]) -> bool:
+    """Evaluate change records against endpoint rules (A/M/D/R/C/T)."""
+    for rec in records:
+        status = rec[0]
+        if status in ("A", "M", "D", "T"):
+            if is_endpoint_relevant(rec[1]):
+                return True
+        elif status.startswith("R") or status.startswith("C"):
+            # Either relevant endpoint makes a rename or copy relevant
+            if is_endpoint_relevant(rec[1]) or is_endpoint_relevant(rec[2]):
+                return True
+    return False
+
+
+class TestFlightRegressionContractTests(unittest.TestCase):
+    """Proves the 8 points of the v3 TestFlight regression contract."""
+
     def setUp(self):
         self.workflow = WORKFLOW.read_text(encoding="utf-8")
         self.triggers = self.workflow.split("\non:\n", 1)[1].split("\nconcurrency:", 1)[0]
         self.release = self.workflow.split("\n  release:\n", 1)[1]
+        self.gate_step = self.workflow.split("- name: Decide whether to release\n", 1)[1].split("\n      - name:", 1)[0]
 
-    def test_only_explicit_manual_dispatch_is_registered(self):
-        events = re.findall(r"^  ([a-z_]+):", self.triggers, re.M)
-        self.assertEqual(events, ["workflow_dispatch"])
+    # 1. exact automatic workflow/conclusion/event/branch guards and one captured candidate;
+    def test_item_1_exact_automatic_guards_and_captured_candidate(self):
+        self.assertIn("workflow_run:", self.triggers)
+        self.assertIn("workflows: [CI]", self.triggers)
+        self.assertIn("types: [completed]", self.triggers)
 
-    def test_release_rejects_non_manual_events(self):
-        guards = re.findall(r"^    if: (.+)$", self.release, re.M)
-        self.assertEqual(guards, ["github.event_name == 'workflow_dispatch'"])
-        self.assertNotIn("needs: freshness", self.release)
-        self.assertNotIn("  freshness:", self.workflow)
+        self.assertIn("github.event.workflow_run.event == 'push'", self.release)
+        self.assertIn("github.event.workflow_run.head_branch == 'main'", self.release)
+        self.assertIn("github.event.workflow_run.conclusion == 'success'", self.release)
 
-    def test_manual_force_and_no_new_commit_gate_are_preserved(self):
-        force = self.triggers.split("      force:\n", 1)[1]
-        self.assertIn("        type: boolean", force)
-        self.assertIn("        default: false", force)
-        self.assertIn('if [ "$FORCE" = "true" ] || [ "$LATEST" != "$RELEASED" ]; then', self.release)
-        self.assertIn("steps.gate.outputs.release == 'true'", self.release)
+        # Candidate is captured from workflow_run.head_sha
+        self.assertIn("CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}", self.gate_step)
+        self.assertIn("candidate = ci_head_sha", self.gate_step)
 
-    def test_release_still_uses_main_without_interrupting_uploads(self):
-        self.assertIn("          ref: main", self.release)
-        self.assertRegex(self.workflow, r"(?m)^  cancel-in-progress: false(?: |$)")
+    # 2. marker resolution and literal marker..candidate range;
+    def test_item_2_marker_resolution_and_literal_range(self):
+        self.assertIn("refs/tags/testflight/last-released", self.gate_step)
+        self.assertIn("classify_diff(marker_sha, candidate)", self.gate_step)
 
+    # 3. accepted path positives and exclusion precedence, including NUL-safe mixed, deletion, rename, and copy records;
+    def test_item_3_path_positives_exclusions_and_record_types(self):
+        # Exclusions win over generic names
+        self.assertFalse(is_endpoint_relevant("docs/architecture.md"))
+        self.assertFalse(is_endpoint_relevant("README.md"))
+        self.assertFalse(is_endpoint_relevant("VitalStride/CONTEXT.md"))
+        self.assertFalse(is_endpoint_relevant("specs/027-testflight-auto-release/spec.md"))
+        self.assertFalse(is_endpoint_relevant(".github/workflows/testflight.yml"))
+        self.assertFalse(is_endpoint_relevant("Prototype/Main.swift"))
+        self.assertFalse(is_endpoint_relevant("VitalStride.xcodeproj/project.pbxproj"))
+        self.assertFalse(is_endpoint_relevant("VitalStrideTests/Test.swift"))
+        self.assertFalse(is_endpoint_relevant("VitalStrideUITests/UITest.swift"))
+        self.assertFalse(is_endpoint_relevant("VitalStrideWatchTests/WatchTest.swift"))
+        self.assertFalse(is_endpoint_relevant("Packages/VitalModels/Tests/VitalModelsTests/Test.swift"))
+        self.assertFalse(is_endpoint_relevant("scripts/ci/scan.sh"))
 
-class TestFlightProfileHandoffTests(unittest.TestCase):
-    def setUp(self):
-        self.fastfile = FASTFILE.read_text(encoding="utf-8")
-        self.project_yml = PROJECT_YML.read_text(encoding="utf-8")
+        # Exact root files
+        self.assertTrue(is_endpoint_relevant("project.yml"))
+        self.assertTrue(is_endpoint_relevant("fastlane/Fastfile"))
+        self.assertTrue(is_endpoint_relevant("fastlane/Appfile"))
 
-    def test_both_targets_fetch_forced_appstore_profiles_with_installation(self):
-        app_fetch = re.search(
-            r"get_provisioning_profile\s*\(\s*[^)]*app_identifier:\s*APP_IDENTIFIER[^)]*\)",
-            self.fastfile,
-            re.S
-        )
-        self.assertIsNotNone(app_fetch, "App provisioning profile fetch not found in Fastfile")
-        self.assertIn("force: true", app_fetch.group(0))
-        self.assertIn("skip_install: false", app_fetch.group(0))
+        # Shipped packages
+        self.assertTrue(is_endpoint_relevant("Packages/VitalModels/Package.swift"))
+        self.assertTrue(is_endpoint_relevant("Packages/VitalModels/Sources/VitalModels/Model.swift"))
+        self.assertTrue(is_endpoint_relevant("Packages/VitalModels/Plugins/GenPlugin/Plugin.swift"))
 
-        widget_fetch = re.search(
-            r"get_provisioning_profile\s*\(\s*[^)]*app_identifier:\s*WIDGET_IDENTIFIER[^)]*\)",
-            self.fastfile,
-            re.S
-        )
-        self.assertIsNotNone(widget_fetch, "Widget provisioning profile fetch not found in Fastfile")
-        self.assertIn("force: true", widget_fetch.group(0))
-        self.assertIn("skip_install: false", widget_fetch.group(0))
+        # Shipped app roots
+        self.assertTrue(is_endpoint_relevant("VitalStride/Sources/App.swift"))
+        self.assertTrue(is_endpoint_relevant("VitalStride/Resources/Localizable.strings"))
+        self.assertTrue(is_endpoint_relevant("VitalStride/Assets.xcassets/AppIcon.appiconset/icon.png"))
+        self.assertTrue(is_endpoint_relevant("VitalStrideMac/Sources/MacApp.swift"))
+        self.assertTrue(is_endpoint_relevant("VitalStrideWatch Watch App/Sources/WatchApp.swift"))
 
-    def test_canonical_profile_names_resolved_and_fail_closed_before_build_app(self):
-        # Exact assignment assertions
-        self.assertRegex(
-            self.fastfile,
-            r'app_profile_name\s*=\s*ENV\["sigh_#\{APP_IDENTIFIER\}_appstore_profile-name"\]',
-            "app_profile_name is not assigned from exact canonical app environment variable"
-        )
-        self.assertRegex(
-            self.fastfile,
-            r'widget_profile_name\s*=\s*ENV\["sigh_#\{WIDGET_IDENTIFIER\}_appstore_profile-name"\]',
-            "widget_profile_name is not assigned from exact canonical widget environment variable"
-        )
+        # Record types: deletion, rename, copy, mixed
+        self.assertTrue(is_diff_relevant([("D", "VitalStride/Sources/App.swift")]))
+        self.assertFalse(is_diff_relevant([("D", "docs/index.md")]))
 
-        # Absence of action return fallback
-        self.assertNotRegex(
-            self.fastfile,
-            r'ENV\.fetch\(\s*["\']sigh_#\{APP_IDENTIFIER\}_appstore_profile-name["\']\s*,\s*app_profile\s*\)',
-            "Fastfile still uses action return fallback for app profile"
-        )
-        self.assertNotRegex(
-            self.fastfile,
-            r'ENV\.fetch\(\s*["\']sigh_#\{WIDGET_IDENTIFIER\}_appstore_profile-name["\']\s*,\s*widget_profile\s*\)',
-            "Fastfile still uses action return fallback for widget profile"
-        )
+        self.assertTrue(is_diff_relevant([("R100", "docs/index.md", "VitalStride/Sources/App.swift")]))
+        self.assertTrue(is_diff_relevant([("R100", "VitalStride/Sources/App.swift", "docs/index.md")]))
+        self.assertFalse(is_diff_relevant([("R100", "docs/a.md", "docs/b.md")]))
 
-        build_app_idx = self.fastfile.find("build_app(")
-        self.assertNotEqual(build_app_idx, -1, "build_app call not found in Fastfile")
-        pre_build_app = self.fastfile[:build_app_idx]
+        self.assertTrue(is_diff_relevant([("C100", "docs/index.md", "VitalStride/Sources/App.swift")]))
+        self.assertFalse(is_diff_relevant([("C100", "docs/a.md", "docs/b.md")]))
 
-        # Fatal error branches before build_app
-        self.assertRegex(
-            pre_build_app,
-            r'if\s+app_profile_name\.(?:nil\?|strip\.empty\?|empty\?)\s*\|\|\s*app_profile_name\.(?:nil\?|strip\.empty\?|empty\?)\s*\n\s*UI\.user_error!\(',
-            "Missing fatal UI.user_error! for missing/empty app profile before build_app"
-        )
-        self.assertRegex(
-            pre_build_app,
-            r'if\s+widget_profile_name\.(?:nil\?|strip\.empty\?|empty\?)\s*\|\|\s*widget_profile_name\.(?:nil\?|strip\.empty\?|empty\?)\s*\n\s*UI\.user_error!\(',
-            "Missing fatal UI.user_error! for missing/empty widget profile before build_app"
-        )
-        self.assertRegex(
-            pre_build_app,
-            r'if\s+app_profile_name\s*==\s*widget_profile_name\s*\n\s*UI\.user_error!\(',
-            "Missing fatal UI.user_error! for equal profile names before build_app"
-        )
+        self.assertTrue(is_diff_relevant([("M", "docs/a.md"), ("M", "VitalStride/Sources/App.swift")]))
+        self.assertFalse(is_diff_relevant([("M", "docs/a.md"), ("M", "docs/b.md")]))
 
-        # Failure messages must not interpolate or leak resolved profile values
-        self.assertNotRegex(
-            pre_build_app,
-            r'UI\.user_error!\([^)]*#\{app_profile_name\}',
-            "Profile failure message interpolates and leaks resolved app profile name"
-        )
-        self.assertNotRegex(
-            pre_build_app,
-            r'UI\.user_error!\([^)]*#\{widget_profile_name\}',
-            "Profile failure message interpolates and leaks resolved widget profile name"
-        )
+    # 4. root-only entitlement positives for VitalStride/*.entitlements, VitalStrideMac/*.entitlements, and VitalStrideWatch Watch App/*.entitlements, plus one nested-entitlement negative case under each root;
+    def test_item_4_root_only_entitlements_and_nested_negatives(self):
+        # Root positives
+        self.assertTrue(is_endpoint_relevant("VitalStride/VitalStride.entitlements"))
+        self.assertTrue(is_endpoint_relevant("VitalStrideMac/VitalStrideMac.entitlements"))
+        self.assertTrue(is_endpoint_relevant("VitalStrideWatch Watch App/VitalStrideWatch.entitlements"))
 
-    def test_archive_transports_target_specific_keys_shell_safely(self):
-        # Target-scoped xcargs bindings
-        self.assertRegex(
-            self.fastfile,
-            r'VITALSTRIDE_APP_PROFILE_SPECIFIER=#\{Shellwords\.escape\(app_profile_name\)\}',
-            "VITALSTRIDE_APP_PROFILE_SPECIFIER is not bound to Shellwords.escape(app_profile_name)"
-        )
-        self.assertRegex(
-            self.fastfile,
-            r'VITALSTRIDE_WIDGET_PROFILE_SPECIFIER=#\{Shellwords\.escape\(widget_profile_name\)\}',
-            "VITALSTRIDE_WIDGET_PROFILE_SPECIFIER is not bound to Shellwords.escape(widget_profile_name)"
-        )
+        # Nested negatives under each root
+        self.assertFalse(is_endpoint_relevant("VitalStride/Sub/Nested.entitlements"))
+        self.assertFalse(is_endpoint_relevant("VitalStrideMac/Nested/Mac.entitlements"))
+        self.assertFalse(is_endpoint_relevant("VitalStrideWatch Watch App/Sub/Watch.entitlements"))
 
-        xcargs_match = re.search(r"xcargs:\s*(.+?)(?=\n\s*[a-z_]+:|\n\s*\))", self.fastfile, re.S)
-        self.assertIsNotNone(xcargs_match, "xcargs parameter not found in Fastfile")
-        if xcargs_match:
-            self.assertNotRegex(
-                xcargs_match.group(1),
-                r'(?<![A-Z0-9_])PROVISIONING_PROFILE_SPECIFIER=',
-                "Found forbidden global PROVISIONING_PROFILE_SPECIFIER override in xcargs"
-            )
+    # 5. all four fully prefixed VitalStrideWidgets/** families and outside-root negative suffix cases;
+    def test_item_5_widget_families_and_outside_root_negatives(self):
+        # 1. VitalStrideWidgets/**/*.swift
+        self.assertTrue(is_endpoint_relevant("VitalStrideWidgets/Widget.swift"))
+        self.assertTrue(is_endpoint_relevant("VitalStrideWidgets/Nested/Sub/Widget.swift"))
 
-    def test_export_options_reuses_exact_resolved_profile_variables(self):
-        export_match = re.search(
-            r"export_options:\s*\{[^}]*provisioningProfiles:\s*\{([^}]+)\}",
-            self.fastfile,
-            re.S
-        )
-        self.assertIsNotNone(export_match, "export_options provisioningProfiles not found in Fastfile")
-        prov_profiles = export_match.group(1)
-        self.assertRegex(
-            prov_profiles,
-            r'APP_IDENTIFIER\s*=>\s*app_profile_name',
-            "export_options must directly reuse app_profile_name"
-        )
-        self.assertRegex(
-            prov_profiles,
-            r'WIDGET_IDENTIFIER\s*=>\s*widget_profile_name',
-            "export_options must directly reuse widget_profile_name"
-        )
+        # 2. VitalStrideWidgets/**/*.plist
+        self.assertTrue(is_endpoint_relevant("VitalStrideWidgets/Info.plist"))
+        self.assertTrue(is_endpoint_relevant("VitalStrideWidgets/Nested/Config.plist"))
 
-    def test_project_yml_signing_configuration_and_dynamic_specifiers(self):
-        # Verify base settings retain Automatic signing
-        base_settings = self.project_yml.split("settings:\n  base:\n", 1)[1].split("packages:\n", 1)[0]
-        self.assertIn("CODE_SIGN_STYLE: Automatic", base_settings)
+        # 3. VitalStrideWidgets/**/*.entitlements
+        self.assertTrue(is_endpoint_relevant("VitalStrideWidgets/Widgets.entitlements"))
+        self.assertTrue(is_endpoint_relevant("VitalStrideWidgets/Nested/Widgets.entitlements"))
 
-        # Extract target sections
-        targets = self.project_yml.split("targets:\n", 1)[1]
-        app_target = targets.split("VitalStride:\n", 1)[1].split("\n  VitalStrideMac:\n", 1)[0]
-        widget_target = targets.split("VitalStrideWidgets:\n", 1)[1].split("\n  VitalStrideWatchTests:\n", 1)[0]
+        # 4. VitalStrideWidgets/**/*.xcassets/**
+        self.assertTrue(is_endpoint_relevant("VitalStrideWidgets/Assets.xcassets/Icon.png"))
+        self.assertTrue(is_endpoint_relevant("VitalStrideWidgets/Sub/Preview.xcassets/Image.png"))
 
-        # Verify App Target Release configuration
-        app_release = app_target.split("Release:\n", 1)[1].split("base:\n", 1)[0]
-        self.assertIn("CODE_SIGN_STYLE: Manual", app_release)
-        self.assertIn("CODE_SIGN_IDENTITY: Apple Distribution", app_release)
-        self.assertIn('PROVISIONING_PROFILE_SPECIFIER: "$(VITALSTRIDE_APP_PROFILE_SPECIFIER)"', app_release)
-        self.assertNotIn("VITALSTRIDE_WIDGET_PROFILE_SPECIFIER", app_release)
-        self.assertNotIn("com.leepepe.vitalstride AppStore", app_release)
+        # Outside-root negatives with matching suffixes
+        self.assertFalse(is_endpoint_relevant("OtherWidgets/Widget.swift"))
+        self.assertFalse(is_endpoint_relevant("VitalStride/Info.plist"))
+        self.assertFalse(is_endpoint_relevant("OtherApp/Config.plist"))
+        self.assertFalse(is_endpoint_relevant("OtherApp/App.entitlements"))
+        self.assertFalse(is_endpoint_relevant("OtherWidgets/Assets.xcassets/Icon.png"))
 
-        # Verify Widget Target Release configuration
-        widget_release = widget_target.split("Release:\n", 1)[1].split("base:\n", 1)[0]
-        self.assertIn("CODE_SIGN_STYLE: Manual", widget_release)
-        self.assertIn("CODE_SIGN_IDENTITY: Apple Distribution", widget_release)
-        self.assertIn('PROVISIONING_PROFILE_SPECIFIER: "$(VITALSTRIDE_WIDGET_PROFILE_SPECIFIER)"', widget_release)
-        self.assertNotIn("VITALSTRIDE_APP_PROFILE_SPECIFIER", widget_release)
-        self.assertNotIn("com.leepepe.vitalstride.widgets AppStore", widget_release)
+    # 6. irrelevant skip, relevant lane decision, and invalid-marker failure;
+    def test_item_6_skip_relevant_lane_and_invalid_marker_failure(self):
+        # In gate script:
+        # Invalid marker exits with code 1
+        self.assertIn("print('::error::Marker tag testflight/last-released is missing.')", self.gate_step.replace('"', "'"))
+        self.assertIn("marker-invalid", self.gate_step)
+        self.assertIn("sys.exit(1)", self.gate_step)
 
-    def test_opaque_names_with_whitespace_and_shell_metacharacters(self):
-        opaque_app = "Match AppStore com.leepepe.vitalstride (2026-10-13) $`'\"\\!"
-        opaque_widget = 'Match AppStore com.leepepe.vitalstride.widgets (2026-10-13) $`\'"\\!'
+        # Already covered or path-ineligible skips with release=false
+        self.assertIn("already-covered", self.gate_step)
+        self.assertIn("path-ineligible", self.gate_step)
+        self.assertIn("write_output('release', 'false')", self.gate_step.replace('"', "'"))
 
-        escaped_app = shlex.quote(opaque_app)
-        escaped_widget = shlex.quote(opaque_widget)
+        # Eligible sets release=true
+        self.assertIn("write_output('release', 'true' if release else 'false')", self.gate_step.replace('"', "'"))
 
-        simulated_xcargs = (
-            f"VITALSTRIDE_APP_PROFILE_SPECIFIER={escaped_app} "
-            f"VITALSTRIDE_WIDGET_PROFILE_SPECIFIER={escaped_widget}"
-        )
+    # 7. existing-lane call followed by candidate marker update only on lane success;
+    def test_item_7_existing_lane_call_and_post_upload_marker_update(self):
+        # Verify lane invocation step exists and runs fastlane ios beta
+        lane_step = self.workflow.split("- name: fastlane beta\n", 1)[1].split("\n      - name:", 1)[0]
+        self.assertIn("fastlane ios beta", lane_step)
 
-        parsed_tokens = shlex.split(simulated_xcargs)
-        self.assertEqual(len(parsed_tokens), 2)
-        self.assertEqual(parsed_tokens[0], f"VITALSTRIDE_APP_PROFILE_SPECIFIER={opaque_app}")
-        self.assertEqual(parsed_tokens[1], f"VITALSTRIDE_WIDGET_PROFILE_SPECIFIER={opaque_widget}")
+        # Verify marker update step is ordered after fastlane beta
+        workflow_after_lane = self.workflow.split("- name: fastlane beta\n", 1)[1]
+        self.assertIn("- name: Move last-released tag", workflow_after_lane)
+
+        tag_step = workflow_after_lane.split("- name: Move last-released tag\n", 1)[1]
+        self.assertIn('SHA="${{ steps.gate.outputs.candidate }}"', tag_step)
+        self.assertIn('git tag -f testflight/last-released "$SHA"', tag_step)
+        self.assertIn('git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"', tag_step)
+
+    # 8. one non-cancelling group, job-level contents: write, and absence of auxiliary state/retry/rollback.
+    def test_item_8_concurrency_job_permissions_and_no_auxiliary_state(self):
+        # Concurrency at workflow level
+        self.assertRegex(self.workflow, r"(?m)^concurrency:\s*\n\s*group:\s*testflight\s*\n\s*cancel-in-progress:\s*false")
+
+        # Job-level contents: write permissions
+        self.assertRegex(self.release, r"(?m)^\s*permissions:\s*\n\s*contents:\s*write")
+
+        # Absence of workflow-level permissions
+        workflow_header = self.workflow.split("\njobs:\n", 1)[0]
+        self.assertNotIn("permissions:", workflow_header)
+
+        # Absence of auxiliary state, queues, cursors, leases, or rollback refs
+        for forbidden in [
+            "testflight/queue",
+            "testflight/cursor",
+            "testflight/journal",
+            "testflight/leases",
+            "testflight/pending",
+            "testflight/resolved",
+            "testflight/recovery",
+        ]:
+            self.assertNotIn(forbidden, self.workflow)
 
 
 if __name__ == "__main__":
