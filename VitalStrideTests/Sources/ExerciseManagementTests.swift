@@ -161,6 +161,32 @@ struct ExerciseManagementTests {
         #expect(reordered.map(\.order) == [0, 1, 2])
     }
 
+    @Test("Moving the first exercise to the terminal destination preserves every exercise once")
+    @MainActor
+    func firstExerciseMovesToEnd() {
+        let context = ModelContext(container)
+        let (workout, exercises) = makeWorkoutWithExercises(context, exerciseNames: [
+            (en: "A", zh: "A"),
+            (en: "B", zh: "B"),
+            (en: "C", zh: "C"),
+        ])
+        exercises[0].order = 2
+        exercises[1].order = 4
+        exercises[2].order = 8
+
+        let didReorder = ActiveWorkoutView.reorderExercises(
+            in: workout,
+            fromOffsets: IndexSet(integer: 0),
+            toOffset: exercises.count
+        )
+
+        #expect(didReorder)
+        let reordered = exercises.sorted { $0.order < $1.order }
+        #expect(reordered.map { $0.exercise?.nameEn } == ["B", "C", "A"])
+        #expect(Set(reordered.map(\.persistentModelID)).count == exercises.count)
+        #expect(reordered.map(\.order) == [0, 1, 2])
+    }
+
     @Test("Invalid, no-op, empty, and single-exercise moves stay unchanged")
     @MainActor
     func invalidAndNoOpReordersStayUnchanged() {

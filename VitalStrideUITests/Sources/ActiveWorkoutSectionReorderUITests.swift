@@ -176,6 +176,54 @@ final class ActiveWorkoutSectionReorderUITests: XCTestCase {
         )
     }
 
+    @MainActor
+    func test_activeWorkout_dragFirstExerciseToTerminalTarget_movesItToEnd() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ActiveWorkoutReorderTestMode"]
+        app.launch()
+
+        let exerciseA = app.staticTexts["Exercise A"].firstMatch
+        let exerciseB = app.staticTexts["Exercise B"].firstMatch
+        let exerciseC = app.staticTexts["Exercise C"].firstMatch
+        XCTAssertTrue(
+            exerciseC.waitForExistence(timeout: ReorderTestTimeout.render),
+            "Three-exercise fixture must render"
+        )
+
+        let editButton = app.buttons["ActiveWorkoutEditButton"]
+        XCTAssertTrue(
+            editButton.waitForExistence(timeout: ReorderTestTimeout.render),
+            "Edit button must exist in toolbar"
+        )
+        editButton.tap()
+
+        let sourceHandle = moveHandle(named: "Exercise A", in: app)
+        let terminalTarget = app.descendants(matching: .any)
+            .matching(identifier: "ActiveWorkoutExerciseEndDropTarget")
+            .firstMatch
+        XCTAssertTrue(
+            sourceHandle.waitForExistence(timeout: ReorderTestTimeout.render),
+            "Exercise A section drag handle must exist in edit mode"
+        )
+        XCTAssertTrue(
+            terminalTarget.waitForExistence(timeout: ReorderTestTimeout.render),
+            "A terminal whole-section drop target must exist"
+        )
+
+        sourceHandle.press(forDuration: 0.8, thenDragTo: terminalTarget)
+
+        XCTAssertLessThan(
+            exerciseB.frame.minY,
+            exerciseC.frame.minY,
+            "Moving A to the end must preserve B before C"
+        )
+        XCTAssertLessThan(
+            exerciseC.frame.minY,
+            exerciseA.frame.minY,
+            "Moving A to the end must produce B, C, A"
+        )
+    }
+
     private func moveHandle(named exerciseName: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)
             .matching(identifier: "ActiveWorkoutExerciseMoveHandle_\(exerciseName)")

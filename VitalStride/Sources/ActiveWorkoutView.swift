@@ -884,7 +884,20 @@ struct ActiveWorkoutView: View {
                 )
             )
         }
-        activeExerciseSectionContent(for: workoutExercise)
+        if isEditing, index == totalCount - 1 {
+            activeExerciseSectionContent(for: workoutExercise)
+                .accessibilityIdentifier("ActiveWorkoutExerciseEndDropTarget")
+                .onDrop(
+                    of: [.text],
+                    delegate: WorkoutExerciseDropDelegate(
+                        onDrop: {
+                            applyDropAtEnd(of: draggedWorkoutExercise)
+                        }
+                    )
+                )
+        } else {
+            activeExerciseSectionContent(for: workoutExercise)
+        }
     }
 
     @ViewBuilder
@@ -1387,6 +1400,22 @@ struct ActiveWorkoutView: View {
         guard let workout, let sourceExercise else { return }
         _ = withAnimation(.default) {
             Self.reorderExercise(sourceExercise, before: targetExercise, in: workout)
+        }
+    }
+
+    private func applyDropAtEnd(of sourceExercise: WorkoutExercise?) {
+        defer { draggedWorkoutExercise = nil }
+        guard let workout, let sourceExercise else { return }
+        let exercises = (workout.exercises ?? []).sorted { $0.order < $1.order }
+        guard let sourceIndex = exercises.firstIndex(where: {
+            $0.persistentModelID == sourceExercise.persistentModelID
+        }) else { return }
+        _ = withAnimation(.default) {
+            Self.reorderExercises(
+                in: workout,
+                fromOffsets: IndexSet(integer: sourceIndex),
+                toOffset: exercises.count
+            )
         }
     }
 
