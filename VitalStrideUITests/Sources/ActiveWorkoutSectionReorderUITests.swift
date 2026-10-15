@@ -70,6 +70,27 @@ final class ActiveWorkoutSectionReorderUITests: XCTestCase {
         XCTAssertEqual(sourceHandle.label, "Exercise C")
         XCTAssertGreaterThanOrEqual(sourceHandle.frame.width, 44)
         XCTAssertGreaterThanOrEqual(sourceHandle.frame.height, 44)
+
+        // Existing main-set and sub-set edit/delete controls remain independently focusable.
+        let mainSetMenu = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS '设置'")
+        ).firstMatch
+        let subSetDeleteMenu = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS '子组操作菜单'")
+        ).firstMatch
+        XCTAssertTrue(
+            mainSetMenu.waitForExistence(timeout: ReorderTestTimeout.render),
+            "Main-set configuration control must remain available in edit mode"
+        )
+        XCTAssertTrue(
+            subSetDeleteMenu.waitForExistence(timeout: ReorderTestTimeout.render),
+            "Sub-set delete menu must remain available in edit mode"
+        )
+        XCTAssertGreaterThanOrEqual(mainSetMenu.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(mainSetMenu.frame.height, 44)
+        XCTAssertGreaterThanOrEqual(subSetDeleteMenu.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(subSetDeleteMenu.frame.height, 44)
+
         sourceHandle.press(forDuration: 0.8, thenDragTo: targetHandle)
 
         // 4. Assert immediate C, A, B order
@@ -133,10 +154,14 @@ final class ActiveWorkoutSectionReorderUITests: XCTestCase {
         )
 
         // 8. Large Mode retains the same contextual 44pt whole-section drag control.
-        let largeModeButton = app.buttons["textformat.size.larger"]
+        let largeModeButton = app.buttons["ActiveWorkoutLargeModeButton"]
         XCTAssertTrue(
             largeModeButton.waitForExistence(timeout: ReorderTestTimeout.interaction),
             "Large Mode toggle must exist"
+        )
+        XCTAssertFalse(
+            largeModeButton.label.isEmpty,
+            "Large Mode toggle must retain its localized spoken label"
         )
         largeModeButton.tap()
 

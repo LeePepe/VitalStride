@@ -420,6 +420,17 @@ private struct ActiveWorkoutReorderTestHostRoot: View {
             let set1 = ExerciseSet(order: 0, weight: 60.0, reps: 10, setType: .working)
             set1.workoutExercise = workoutExercise
             context.insert(set1)
+
+            if index == 0 {
+                let dropSet = ExerciseSet(
+                    order: 1,
+                    weight: 50.0,
+                    reps: 8,
+                    setType: .dropSet
+                )
+                dropSet.workoutExercise = workoutExercise
+                context.insert(dropSet)
+            }
         }
 
         try context.save()

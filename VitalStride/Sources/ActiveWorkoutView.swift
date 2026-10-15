@@ -171,7 +171,7 @@ struct ActiveWorkoutView: View {
                 // MY-1088: Large Mode toggle. Persisted via @AppStorage above.
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        _ = withAnimation(.easeInOut(duration: 0.2)) {
                             largeMode.toggle()
                         }
                         HapticManager.trigger(.setCompleted)
@@ -195,6 +195,7 @@ struct ActiveWorkoutView: View {
                                 comment: "Active workout toggle: switch to large text size"
                             )
                     )
+                    .accessibilityIdentifier("ActiveWorkoutLargeModeButton")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "结束训练", comment: "Finish workout toolbar button")) {
@@ -903,40 +904,40 @@ struct ActiveWorkoutView: View {
                     "ActiveWorkoutExerciseMoveHandle_\(workoutExercise.exercise?.nameEn ?? "\(index)")"
                 )
                 .accessibilityLabel(workoutExercise.exercise?.localizedName ?? "")
+                .onDrag {
+                    draggedWorkoutExercise = workoutExercise
+                    return NSItemProvider(object: NSString(string: "\(index)"))
+                }
+                .accessibilityAdjustableAction { direction in
+                    if let workout {
+                        switch direction {
+                        case .increment:
+                            if index > 0 {
+                                _ = withAnimation(.easeInOut(duration: 0.2)) {
+                                    Self.reorderExercise(
+                                        workoutExercise,
+                                        toIndex: index - 1,
+                                        in: workout
+                                    )
+                                }
+                            }
+                        case .decrement:
+                            if index < totalCount - 1 {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    Self.reorderExercise(
+                                        workoutExercise,
+                                        toIndex: index + 1,
+                                        in: workout
+                                    )
+                                }
+                            }
+                        @unknown default:
+                            break
+                        }
+                    }
+                }
         }
         .listRowBackground(Color.secondary.opacity(0.08))
-        .onDrag {
-            draggedWorkoutExercise = workoutExercise
-            return NSItemProvider(object: NSString(string: "\(index)"))
-        }
-        .accessibilityAdjustableAction { direction in
-            if let workout {
-                switch direction {
-                case .increment:
-                    if index > 0 {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            Self.reorderExercise(
-                                workoutExercise,
-                                toIndex: index - 1,
-                                in: workout
-                            )
-                        }
-                    }
-                case .decrement:
-                    if index < totalCount - 1 {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            Self.reorderExercise(
-                                workoutExercise,
-                                toIndex: index + 1,
-                                in: workout
-                            )
-                        }
-                    }
-                @unknown default:
-                    break
-                }
-            }
-        }
     }
 
     private func activeExerciseSectionContent(for workoutExercise: WorkoutExercise) -> some View {
@@ -1366,14 +1367,14 @@ struct ActiveWorkoutView: View {
         guard let targetIndex = exercises.firstIndex(where: {
             $0.persistentModelID == targetExercise.persistentModelID
         }) else { return }
-        withAnimation(.default) {
+        _ = withAnimation(.default) {
             Self.reorderExercise(sourceExercise, toIndex: targetIndex, in: workout)
         }
     }
 
     private func moveExercises(from source: IndexSet, to destination: Int) {
         guard let workout else { return }
-        Self.reorderExercises(
+        _ = Self.reorderExercises(
             in: workout,
             fromOffsets: source,
             toOffset: destination
