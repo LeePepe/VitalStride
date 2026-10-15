@@ -57,8 +57,8 @@ final class ActiveWorkoutSectionReorderUITests: XCTestCase {
         editButton.tap()
 
         // 3. Drag the whole Exercise C section before Exercise A.
-        let sourceHandle = app.images["ActiveWorkoutExerciseMoveHandle_Exercise C"]
-        let targetHandle = app.images["ActiveWorkoutExerciseMoveHandle_Exercise A"]
+        let sourceHandle = moveHandle(named: "Exercise C", in: app)
+        let targetHandle = moveHandle(named: "Exercise A", in: app)
         XCTAssertTrue(
             sourceHandle.waitForExistence(timeout: ReorderTestTimeout.render),
             "Exercise C section drag handle must exist in edit mode"
@@ -152,8 +152,8 @@ final class ActiveWorkoutSectionReorderUITests: XCTestCase {
         )
         reopenedEditButton.tap()
 
-        let largeSourceHandle = app.images["ActiveWorkoutExerciseMoveHandle_Exercise B"]
-        let largeTargetHandle = app.images["ActiveWorkoutExerciseMoveHandle_Exercise C"]
+        let largeSourceHandle = moveHandle(named: "Exercise B", in: app)
+        let largeTargetHandle = moveHandle(named: "Exercise C", in: app)
         XCTAssertTrue(
             largeSourceHandle.waitForExistence(timeout: ReorderTestTimeout.render),
             "Exercise B drag handle must exist in Large Mode"
@@ -176,4 +176,9 @@ final class ActiveWorkoutSectionReorderUITests: XCTestCase {
         )
     }
 
+    private func moveHandle(named exerciseName: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(identifier: "ActiveWorkoutExerciseMoveHandle_\(exerciseName)")
+            .firstMatch
+    }
 }
