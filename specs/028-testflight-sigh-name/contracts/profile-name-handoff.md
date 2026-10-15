@@ -8,15 +8,18 @@
 
 ## Sequential fetch contract
 
-1. Fetch/install the app App Store profile with the existing API key, bundle ID, team, forced refresh, and installation behavior.
-2. Before any widget fetch, capture the current real Fastlane shared profile name for the app.
-3. Fetch/install the widget App Store profile with its existing bundle ID and the same preserved options.
-4. Immediately capture the current real Fastlane shared profile name for the widget.
-5. Validate both values before `build_app`.
+1. Immediately before the app call, neutralize both `ENV["SIGH_NAME"]` and lane-context `SharedValues::SIGH_NAME`.
+2. Fetch/install the app App Store profile with the existing API key, bundle ID, team, forced refresh, and installation behavior.
+3. Before any widget fetch, immediately capture and validate the current real Fastlane lane-context profile name for the app.
+4. Immediately before the widget call, independently neutralize both shared name locations again.
+5. Fetch/install the widget App Store profile with its existing bundle ID and the same preserved options.
+6. Immediately capture and validate the current real Fastlane lane-context profile name for the widget.
+7. Validate target distinction before `build_app`.
 
 ## Source contract
 
 - Supported name source: `lane_context[SharedValues::SIGH_NAME]` from the real provisioning action.
+- Provenance mechanism: both the Sigh environment-backed name and the lane-context name are neutralized immediately before each real action; only the lane-context value captured immediately after that action is eligible.
 - Action UUID return is not a name.
 - Target-derived lowercase `sigh_*_profile-name` keys are forbidden production reads and forbidden diagnostic authority.
 - Fixed display names, a second lookup, and cross-target fallback are forbidden.
@@ -25,7 +28,7 @@
 
 - Nil and whitespace-only values are invalid.
 - Equal app/widget names are invalid.
-- Invalid state raises the existing Fastlane user-facing error before archive, upload, distribution, or release-marker mutation.
+- Missing app output raises an app-specific error before widget/build work. Missing widget output raises a widget-specific error after preserving the valid local app capture but before build work. All invalid state raises through the existing Fastlane user-facing error path before archive, upload, distribution, or release-marker mutation.
 - Error text identifies the target and supported shared output without credentials, key material, certificates, keychain values, UUIDs, or profile contents.
 
 ## Consumer contract
@@ -41,16 +44,28 @@ No global profile override is added. `project.yml` remains unchanged.
 
 The fixture:
 
-- loads installed Fastlane/Sigh and the repository Fastfile;
+- dynamically resolves the active Homebrew Fastlane and formula Ruby, loads installed Fastlane/Sigh and the repository Fastfile, and never relies on ambient `/usr/bin/ruby` or a hard-coded Homebrew prefix;
 - invokes the real provisioning-profile action;
 - replaces `Sigh::Manager.start`, not the action;
 - publishes distinct names and UUIDs for two sequential calls;
 - proves the scalar shared name changes per call while the first target's captured value survives;
+- proves production neutralizes both stale-capable name locations before each action;
+- separately seeds stale values in both locations for missing app and missing widget output, then proves target-specific failure at the matching boundary without downstream build/upload work;
 - proves missing, blank, and equal names stop before build/upload;
 - proves shell-safe target mapping and exact-variable export reuse;
 - prohibits fabricated convention reads in production `fastlane/**` and `scripts/**`;
 - restores environment and lane context after each case;
 - performs no network, signing, upload, distribution, workflow dispatch, marker mutation, or secret read.
+
+The focused check and `scripts/test-repoinfra.sh` use the same formula-Ruby/Fastlane-`libexec` invocation. The gate runs the fixture exactly once and fails closed when Homebrew, formula Ruby, Fastlane `libexec`, or required real libraries are unavailable; it neither installs dependencies nor requires a workflow edit. The contract covers the observed Fastlane 2.238.0 required-CI runtime and 2.241.0 release-host runtime.
+
+## Post-merge operational proof
+
+- The authoritative T004 evidence is the qualifying automatic TestFlight `workflow_run` triggered by successful CI for the exact merged `main` SHA.
+- Evidence binds the run URL, `automatic-ci` source, `workflow_run.head_sha`/gate candidate/run head to the merged SHA, terminal result, marker/result state, and uploaded build number.
+- T004 dispatches no TestFlight run. `force=true` and duplicate upload are forbidden.
+- A manual `force=false` run is supplemental only after the automatic run is terminal and its marker covers that exact SHA; it cannot satisfy T004 or replace missing/failed automatic proof.
+- Authority: Owner-delegated decision `01a13e4b-5ab6-7b69-b6bc-0a9196f541b9` (2026-10-15).
 
 ## Compatibility contract
 
