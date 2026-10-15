@@ -105,6 +105,9 @@ class TestFlightRegressionContractTests(unittest.TestCase):
         self.assertIn("github.event.workflow_run.head_branch == 'main'", self.release)
         self.assertIn("github.event.workflow_run.conclusion == 'success'", self.release)
 
+        # Checkout is pinned to main
+        self.assertIn("ref: main", self.release)
+
         # Candidate is captured from workflow_run.head_sha
         self.assertIn("CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}", self.gate_step)
         self.assertIn("candidate = ci_head_sha", self.gate_step)
