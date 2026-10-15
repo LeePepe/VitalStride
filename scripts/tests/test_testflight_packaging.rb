@@ -302,6 +302,11 @@ class TestFlightFixtureLane < Fastlane::FastFile
     super(File.join(ROOT, "fastlane/Fastfile"))
   end
 
+  def sh(*command, **options)
+    expected = ["cd .. && xcodegen generate"]
+    raise "unexpected shell command: #{command.inspect} #{options.inspect}" unless command == expected && options.empty?
+  end
+
   def run
     runner.execute(:beta, :ios)
   end
