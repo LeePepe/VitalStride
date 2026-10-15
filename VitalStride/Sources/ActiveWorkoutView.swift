@@ -1357,18 +1357,36 @@ struct ActiveWorkoutView: View {
         )
     }
 
+    @MainActor
+    static func reorderExercise(
+        _ sourceExercise: WorkoutExercise,
+        before targetExercise: WorkoutExercise,
+        in workout: Workout
+    ) -> Bool {
+        let exercises = (workout.exercises ?? []).sorted { $0.order < $1.order }
+        guard let sourceIndex = exercises.firstIndex(where: {
+            $0.persistentModelID == sourceExercise.persistentModelID
+        }),
+        let targetIndex = exercises.firstIndex(where: {
+            $0.persistentModelID == targetExercise.persistentModelID
+        }),
+        sourceIndex != targetIndex else { return false }
+
+        return reorderExercises(
+            in: workout,
+            fromOffsets: IndexSet(integer: sourceIndex),
+            toOffset: targetIndex
+        )
+    }
+
     private func applyDrop(
         of sourceExercise: WorkoutExercise?,
         before targetExercise: WorkoutExercise
     ) {
         defer { draggedWorkoutExercise = nil }
         guard let workout, let sourceExercise else { return }
-        let exercises = (workout.exercises ?? []).sorted { $0.order < $1.order }
-        guard let targetIndex = exercises.firstIndex(where: {
-            $0.persistentModelID == targetExercise.persistentModelID
-        }) else { return }
         _ = withAnimation(.default) {
-            Self.reorderExercise(sourceExercise, toIndex: targetIndex, in: workout)
+            Self.reorderExercise(sourceExercise, before: targetExercise, in: workout)
         }
     }
 

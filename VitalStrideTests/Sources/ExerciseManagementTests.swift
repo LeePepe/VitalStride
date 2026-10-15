@@ -139,6 +139,28 @@ struct ExerciseManagementTests {
         #expect(reordered[1].order == 1)
     }
 
+    @Test("Dropping an earlier exercise onto a later exercise inserts before the target")
+    @MainActor
+    func downwardDropInsertsBeforeTarget() {
+        let context = ModelContext(container)
+        let (workout, exercises) = makeWorkoutWithExercises(context, exerciseNames: [
+            (en: "A", zh: "A"),
+            (en: "B", zh: "B"),
+            (en: "C", zh: "C"),
+        ])
+
+        let didReorder = ActiveWorkoutView.reorderExercise(
+            exercises[0],
+            before: exercises[2],
+            in: workout
+        )
+
+        #expect(didReorder)
+        let reordered = exercises.sorted { $0.order < $1.order }
+        #expect(reordered.map { $0.exercise?.nameEn } == ["B", "A", "C"])
+        #expect(reordered.map(\.order) == [0, 1, 2])
+    }
+
     @Test("Invalid, no-op, empty, and single-exercise moves stay unchanged")
     @MainActor
     func invalidAndNoOpReordersStayUnchanged() {
