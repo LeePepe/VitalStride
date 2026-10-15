@@ -368,15 +368,23 @@ private struct ActiveWorkoutReorderTestHostRoot: View {
     let healthDataCache: HealthDataCache
     let routingSignalStore: RoutingSignalStore?
     @State private var testWorkout: Workout?
+    @State private var seedError: String?
 
     var body: some View {
         Group {
             if let testWorkout {
                 ActiveWorkoutReorderTestHost(workout: testWorkout)
+            } else if let seedError {
+                Text(verbatim: seedError)
+                    .accessibilityIdentifier("ActiveWorkoutReorderSeedError")
             } else {
                 ProgressView()
                     .onAppear {
-                        testWorkout = seedReorderWorkout(in: container)
+                        do {
+                            testWorkout = try seedReorderWorkout(in: container)
+                        } catch {
+                            seedError = error.localizedDescription
+                        }
                     }
             }
         }
@@ -386,7 +394,7 @@ private struct ActiveWorkoutReorderTestHostRoot: View {
         .environment(\.routingSignalStore, routingSignalStore)
     }
 
-    private func seedReorderWorkout(in container: ModelContainer) -> Workout {
+    private func seedReorderWorkout(in container: ModelContainer) throws -> Workout {
         let context = container.mainContext
         let workout = Workout(type: .strength, startDate: Date())
         context.insert(workout)
@@ -414,7 +422,7 @@ private struct ActiveWorkoutReorderTestHostRoot: View {
             context.insert(set1)
         }
 
-        try? context.save()
+        try context.save()
         return workout
     }
 }

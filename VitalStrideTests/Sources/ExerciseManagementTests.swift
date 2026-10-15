@@ -54,6 +54,14 @@ struct ExerciseManagementTests {
     @MainActor
     func reorderExercises() throws {
         let context = ModelContext(container)
+        let emptyWorkout = Workout(type: .strength, startDate: Date())
+        context.insert(emptyWorkout)
+        #expect(!ActiveWorkoutView.reorderExercises(
+            in: emptyWorkout,
+            fromOffsets: IndexSet(integer: 0),
+            toOffset: 0
+        ))
+
         let (workout, exercises) = makeWorkoutWithExercises(context, exerciseNames: [
             (en: "Bench Press", zh: "卧推"),
             (en: "Squat", zh: "深蹲"),
@@ -62,12 +70,13 @@ struct ExerciseManagementTests {
         try context.save()
 
         // Move Deadlift (originally index 2) before Bench Press (index 0) using production seam
-        ActiveWorkoutView.reorderExercises(
+        let didReorder = ActiveWorkoutView.reorderExercises(
             in: workout,
             fromOffsets: IndexSet(integer: 2),
-            toOffset: 0,
-            using: context
+            toOffset: 0
         )
+        #expect(didReorder)
+        try context.save()
 
         let reordered = exercises.sorted { $0.order < $1.order }
         #expect(reordered[0].exercise?.nameEn == "Deadlift")
@@ -113,12 +122,13 @@ struct ExerciseManagementTests {
         try context.save()
 
         // Move Squat (index 1) to index 0 via production seam helper
-        ActiveWorkoutView.reorderExercise(
+        let didReorder = ActiveWorkoutView.reorderExercise(
             exercises[1],
             toIndex: 0,
-            in: workout,
-            using: context
+            in: workout
         )
+        #expect(didReorder)
+        try context.save()
 
         let reordered = exercises.sorted { $0.order < $1.order }
         #expect(reordered[0].exercise?.nameEn == "Squat")
@@ -127,6 +137,54 @@ struct ExerciseManagementTests {
         #expect(reordered[1].sets?.first?.weight == 80.0)
         #expect(reordered[0].order == 0)
         #expect(reordered[1].order == 1)
+    }
+
+    @Test("Invalid, no-op, empty, and single-exercise moves stay unchanged")
+    @MainActor
+    func invalidAndNoOpReordersStayUnchanged() {
+        let context = ModelContext(container)
+        let (workout, exercises) = makeWorkoutWithExercises(context, exerciseNames: [
+            (en: "Bench Press", zh: "卧推"),
+            (en: "Squat", zh: "深蹲"),
+            (en: "Deadlift", zh: "硬拉"),
+        ])
+        exercises[0].order = 2
+        exercises[1].order = 4
+        exercises[2].order = 8
+        let originalOrders = exercises.map(\.order)
+
+        #expect(!ActiveWorkoutView.reorderExercises(
+            in: workout,
+            fromOffsets: IndexSet(integer: 4),
+            toOffset: 0
+        ))
+        #expect(exercises.map(\.order) == originalOrders)
+
+        #expect(!ActiveWorkoutView.reorderExercises(
+            in: workout,
+            fromOffsets: [],
+            toOffset: 0
+        ))
+        #expect(exercises.map(\.order) == originalOrders)
+
+        #expect(!ActiveWorkoutView.reorderExercises(
+            in: workout,
+            fromOffsets: IndexSet(integer: 1),
+            toOffset: 2
+        ))
+        #expect(exercises.map(\.order) == originalOrders)
+
+        let (singleWorkout, singleExercises) = makeWorkoutWithExercises(
+            context,
+            exerciseNames: [(en: "Row", zh: "划船")]
+        )
+        singleExercises[0].order = 7
+        #expect(!ActiveWorkoutView.reorderExercises(
+            in: singleWorkout,
+            fromOffsets: IndexSet(integer: 0),
+            toOffset: 1
+        ))
+        #expect(singleExercises[0].order == 7)
     }
 
     // MARK: - Replace Tests

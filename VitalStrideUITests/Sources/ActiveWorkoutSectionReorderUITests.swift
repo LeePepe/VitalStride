@@ -19,9 +19,9 @@ final class ActiveWorkoutSectionReorderUITests: XCTestCase {
         app.launch()
 
         // 1. Wait for active workout to render with three exercises
-        let exerciseA = app.staticTexts["Exercise A"]
-        let exerciseB = app.staticTexts["Exercise B"]
-        let exerciseC = app.staticTexts["Exercise C"]
+        let exerciseA = app.staticTexts["Exercise A"].firstMatch
+        let exerciseB = app.staticTexts["Exercise B"].firstMatch
+        let exerciseC = app.staticTexts["Exercise C"].firstMatch
 
         XCTAssertTrue(
             exerciseA.waitForExistence(timeout: ReorderTestTimeout.render),
@@ -56,23 +56,21 @@ final class ActiveWorkoutSectionReorderUITests: XCTestCase {
         )
         editButton.tap()
 
-        // 3. Move Exercise C before Exercise A
-        let moveUpButtons = app.buttons.matching(NSPredicate(format: "label == 'Move exercise up'"))
+        // 3. Drag the whole Exercise C section before Exercise A.
+        let sourceHandle = app.images["ActiveWorkoutExerciseMoveHandle_Exercise C"]
+        let targetHandle = app.images["ActiveWorkoutExerciseMoveHandle_Exercise A"]
         XCTAssertTrue(
-            moveUpButtons.firstMatch.waitForExistence(timeout: ReorderTestTimeout.render),
-            "Move up button must exist in edit mode"
+            sourceHandle.waitForExistence(timeout: ReorderTestTimeout.render),
+            "Exercise C section drag handle must exist in edit mode"
         )
-        // First move: move Exercise C (the bottom-most move up button) up to index 1
-        let lastMoveUp = moveUpButtons.element(boundBy: moveUpButtons.count - 1)
-        lastMoveUp.tap()
-
-        // Second move: move Exercise C (now at index 1) up to index 0 (before Exercise A)
-        let firstMoveUp = moveUpButtons.firstMatch
         XCTAssertTrue(
-            firstMoveUp.waitForExistence(timeout: ReorderTestTimeout.interaction),
-            "Move up button must remain available to move to top"
+            targetHandle.waitForExistence(timeout: ReorderTestTimeout.render),
+            "Exercise A section drop target must exist in edit mode"
         )
-        firstMoveUp.tap()
+        XCTAssertEqual(sourceHandle.label, "Exercise C")
+        XCTAssertGreaterThanOrEqual(sourceHandle.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(sourceHandle.frame.height, 44)
+        sourceHandle.press(forDuration: 0.8, thenDragTo: targetHandle)
 
         // 4. Assert immediate C, A, B order
         let updatedA = app.staticTexts["Exercise A"].firstMatch
@@ -92,42 +90,84 @@ final class ActiveWorkoutSectionReorderUITests: XCTestCase {
 
         // 5. Exit edit mode
         let doneButton = app.buttons["ActiveWorkoutEditButton"]
-        if doneButton.exists {
-            doneButton.tap()
-        }
+        XCTAssertTrue(
+            doneButton.waitForExistence(timeout: ReorderTestTimeout.interaction),
+            "Done button must remain available after reordering"
+        )
+        doneButton.tap()
 
         // 6. Leave and re-enter hosted workout to verify persistence
         let leaveButton = app.buttons["ActiveWorkoutTestLeaveButton"]
-        if leaveButton.waitForExistence(timeout: ReorderTestTimeout.interaction) {
-            leaveButton.tap()
+        XCTAssertTrue(
+            leaveButton.waitForExistence(timeout: ReorderTestTimeout.interaction),
+            "Leave control must exist for persistence verification"
+        )
+        leaveButton.tap()
 
-            let reopenButton = app.buttons["ActiveWorkoutTestReopenButton"]
-            XCTAssertTrue(
-                reopenButton.waitForExistence(timeout: ReorderTestTimeout.interaction),
-                "Reopen button must appear after leaving workout"
-            )
-            reopenButton.tap()
+        let reopenButton = app.buttons["ActiveWorkoutTestReopenButton"]
+        XCTAssertTrue(
+            reopenButton.waitForExistence(timeout: ReorderTestTimeout.interaction),
+            "Reopen button must appear after leaving workout"
+        )
+        reopenButton.tap()
 
-            // 7. Verify reopened C, A, B order
-            let reopenedA = app.staticTexts["Exercise A"].firstMatch
-            let reopenedB = app.staticTexts["Exercise B"].firstMatch
-            let reopenedC = app.staticTexts["Exercise C"].firstMatch
+        // 7. Verify reopened C, A, B order
+        let reopenedA = app.staticTexts["Exercise A"].firstMatch
+        let reopenedB = app.staticTexts["Exercise B"].firstMatch
+        let reopenedC = app.staticTexts["Exercise C"].firstMatch
 
-            XCTAssertTrue(
-                reopenedC.waitForExistence(timeout: ReorderTestTimeout.render),
-                "Exercise C must be visible after reopening"
-            )
+        XCTAssertTrue(
+            reopenedC.waitForExistence(timeout: ReorderTestTimeout.render),
+            "Exercise C must be visible after reopening"
+        )
 
-            XCTAssertLessThan(
-                reopenedC.frame.minY,
-                reopenedA.frame.minY,
-                "Persisted order: C should be above A after reopening"
-            )
-            XCTAssertLessThan(
-                reopenedA.frame.minY,
-                reopenedB.frame.minY,
-                "Persisted order: A should be above B after reopening"
-            )
-        }
+        XCTAssertLessThan(
+            reopenedC.frame.minY,
+            reopenedA.frame.minY,
+            "Persisted order: C should be above A after reopening"
+        )
+        XCTAssertLessThan(
+            reopenedA.frame.minY,
+            reopenedB.frame.minY,
+            "Persisted order: A should be above B after reopening"
+        )
+
+        // 8. Large Mode retains the same contextual 44pt whole-section drag control.
+        let largeModeButton = app.buttons["textformat.size.larger"]
+        XCTAssertTrue(
+            largeModeButton.waitForExistence(timeout: ReorderTestTimeout.interaction),
+            "Large Mode toggle must exist"
+        )
+        largeModeButton.tap()
+
+        let reopenedEditButton = app.buttons["ActiveWorkoutEditButton"]
+        XCTAssertTrue(
+            reopenedEditButton.waitForExistence(timeout: ReorderTestTimeout.interaction),
+            "Edit button must exist in Large Mode"
+        )
+        reopenedEditButton.tap()
+
+        let largeSourceHandle = app.images["ActiveWorkoutExerciseMoveHandle_Exercise B"]
+        let largeTargetHandle = app.images["ActiveWorkoutExerciseMoveHandle_Exercise C"]
+        XCTAssertTrue(
+            largeSourceHandle.waitForExistence(timeout: ReorderTestTimeout.render),
+            "Exercise B drag handle must exist in Large Mode"
+        )
+        XCTAssertTrue(
+            largeTargetHandle.waitForExistence(timeout: ReorderTestTimeout.render),
+            "Exercise C drop target must exist in Large Mode"
+        )
+        XCTAssertEqual(largeSourceHandle.label, "Exercise B")
+        XCTAssertGreaterThanOrEqual(largeSourceHandle.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(largeSourceHandle.frame.height, 44)
+        largeSourceHandle.press(forDuration: 0.8, thenDragTo: largeTargetHandle)
+
+        let largeB = app.staticTexts["Exercise B"].firstMatch
+        let largeC = app.staticTexts["Exercise C"].firstMatch
+        XCTAssertLessThan(
+            largeB.frame.minY,
+            largeC.frame.minY,
+            "Large Mode drag must move the whole Exercise B section before Exercise C"
+        )
     }
 }

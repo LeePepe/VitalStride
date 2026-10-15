@@ -31,6 +31,7 @@ struct ActiveWorkoutView: View {
     // user applies or cancels a suggestion.
     @Environment(\.routingSignalStore) private var signalStore
     @State private var workout: Workout?
+    @State private var draggedWorkoutExercise: WorkoutExercise?
     @State private var showingExercisePicker = false
     @State private var showingFinishAlert = false
     @State private var showingDiscardAlert = false
@@ -159,21 +160,13 @@ struct ActiveWorkoutView: View {
                         showingDiscardAlert = true
                     }
                 }
-                // MY-1353 / MY-1473: Reorder affordance. Drives the
-                // section-level move affordance and WorkoutExercise.order renumbering.
+                // MY-1353 / MY-1473: the system edit control drives the
+                // section-level drag affordances below.
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(
-                        editMode.isEditing
-                            ? String(localized: "完成", comment: "Done editing active workout")
-                            : String(localized: "编辑", comment: "Edit active workout exercises")
-                    ) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            editMode = editMode.isEditing ? .inactive : .active
-                        }
+                    if (workout?.exercises?.count ?? 0) > 1 {
+                        EditButton()
+                            .accessibilityIdentifier("ActiveWorkoutEditButton")
                     }
-                    .accessibilityIdentifier("ActiveWorkoutEditButton")
-                    .disabled((workout?.exercises?.count ?? 0) <= 1)
-                    .opacity((workout?.exercises?.count ?? 0) > 1 ? 1 : 0)
                 }
                 // MY-1088: Large Mode toggle. Persisted via @AppStorage above.
                 ToolbarItem(placement: .topBarTrailing) {
@@ -881,6 +874,14 @@ struct ActiveWorkoutView: View {
             Section {
                 moveHandleRow(for: workoutExercise, index: index, totalCount: totalCount)
             }
+            .onDrop(
+                of: [.text],
+                delegate: WorkoutExerciseDropDelegate(
+                    onDrop: {
+                        applyDrop(of: draggedWorkoutExercise, before: workoutExercise)
+                    }
+                )
+            )
         }
         activeExerciseSectionContent(for: workoutExercise)
     }
@@ -891,82 +892,23 @@ struct ActiveWorkoutView: View {
         index: Int,
         totalCount: Int
     ) -> some View {
-        HStack(spacing: 12) {
+        HStack {
+            Spacer()
             Image(systemName: "line.3.horizontal")
                 .font(largeMode ? .title2 : .body)
                 .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-
-            Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
-                .font(largeMode ? .headline : .subheadline.bold())
-                .foregroundStyle(.primary)
-
-            Spacer()
-
-            if totalCount > 1 {
-                HStack(spacing: 4) {
-                    if index > 0 {
-                        Button {
-                            if let workout {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    Self.reorderExercise(
-                                        workoutExercise,
-                                        toIndex: index - 1,
-                                        in: workout,
-                                        using: modelContext
-                                    )
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "arrow.up")
-                                .font(.subheadline)
-                                .frame(width: 36, height: 36)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("MoveUpButton_\(workoutExercise.exercise?.nameEn ?? "\(index)")")
-                        .accessibilityLabel(
-                            String(
-                                localized: "move_exercise_up",
-                                defaultValue: "Move exercise up",
-                                comment: "Accessibility label to move exercise up"
-                            )
-                        )
-                    }
-                    if index < totalCount - 1 {
-                        Button {
-                            if let workout {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    Self.reorderExercise(
-                                        workoutExercise,
-                                        toIndex: index + 1,
-                                        in: workout,
-                                        using: modelContext
-                                    )
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "arrow.down")
-                                .font(.subheadline)
-                                .frame(width: 36, height: 36)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("MoveDownButton_\(workoutExercise.exercise?.nameEn ?? "\(index)")")
-                        .accessibilityLabel(
-                            String(
-                                localized: "move_exercise_down",
-                                defaultValue: "Move exercise down",
-                                comment: "Accessibility label to move exercise down"
-                            )
-                        )
-                    }
-                }
-            }
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier(
+                    "ActiveWorkoutExerciseMoveHandle_\(workoutExercise.exercise?.nameEn ?? "\(index)")"
+                )
+                .accessibilityLabel(workoutExercise.exercise?.localizedName ?? "")
         }
-        .padding(.vertical, largeMode ? 8 : 4)
         .listRowBackground(Color.secondary.opacity(0.08))
-        .accessibilityIdentifier("ActiveWorkoutExerciseMoveHandle_\(workoutExercise.exercise?.nameEn ?? "\(index)")")
+        .onDrag {
+            draggedWorkoutExercise = workoutExercise
+            return NSItemProvider(object: NSString(string: "\(index)"))
+        }
         .accessibilityAdjustableAction { direction in
             if let workout {
                 switch direction {
@@ -976,8 +918,7 @@ struct ActiveWorkoutView: View {
                             Self.reorderExercise(
                                 workoutExercise,
                                 toIndex: index - 1,
-                                in: workout,
-                                using: modelContext
+                                in: workout
                             )
                         }
                     }
@@ -987,8 +928,7 @@ struct ActiveWorkoutView: View {
                             Self.reorderExercise(
                                 workoutExercise,
                                 toIndex: index + 1,
-                                in: workout,
-                                using: modelContext
+                                in: workout
                             )
                         }
                     }
@@ -1379,54 +1319,55 @@ struct ActiveWorkoutView: View {
     static func reorderExercises(
         in workout: Workout,
         fromOffsets source: IndexSet,
-        toOffset destination: Int,
-        using context: ModelContext? = nil
-    ) {
+        toOffset destination: Int
+    ) -> Bool {
         var exercises = (workout.exercises ?? []).sorted { $0.order < $1.order }
-        guard destination >= 0, destination <= exercises.count else { return }
+        guard exercises.count > 1,
+              !source.isEmpty,
+              source.allSatisfy({ exercises.indices.contains($0) }),
+              destination >= 0,
+              destination <= exercises.count else { return false }
+        let originalIDs = exercises.map(\.persistentModelID)
         exercises.move(fromOffsets: source, toOffset: destination)
+        guard exercises.map(\.persistentModelID) != originalIDs else { return false }
         for (index, exercise) in exercises.enumerated() {
             exercise.order = index
         }
-        if let context {
-            try? context.save()
-        }
+        return true
     }
 
     @MainActor
     static func reorderExercise(
         _ workoutExercise: WorkoutExercise,
         toIndex destinationIndex: Int,
-        in workout: Workout,
-        using context: ModelContext? = nil
-    ) {
+        in workout: Workout
+    ) -> Bool {
         let exercises = (workout.exercises ?? []).sorted { $0.order < $1.order }
         guard let sourceIndex = exercises.firstIndex(where: {
             $0.persistentModelID == workoutExercise.persistentModelID
-        }) else { return }
+        }) else { return false }
         guard destinationIndex >= 0, destinationIndex < exercises.count,
-              destinationIndex != sourceIndex else { return }
+              destinationIndex != sourceIndex else { return false }
         let toOffset = destinationIndex > sourceIndex ? destinationIndex + 1 : destinationIndex
-        reorderExercises(
+        return reorderExercises(
             in: workout,
             fromOffsets: IndexSet(integer: sourceIndex),
-            toOffset: toOffset,
-            using: context
+            toOffset: toOffset
         )
     }
 
-    private func handleDropReorder(sourceOrder: Int, targetIndex: Int) {
-        guard let workout else { return }
+    private func applyDrop(
+        of sourceExercise: WorkoutExercise?,
+        before targetExercise: WorkoutExercise
+    ) {
+        defer { draggedWorkoutExercise = nil }
+        guard let workout, let sourceExercise else { return }
         let exercises = (workout.exercises ?? []).sorted { $0.order < $1.order }
-        guard let sourceIndex = exercises.firstIndex(where: { $0.order == sourceOrder }),
-              sourceIndex != targetIndex else { return }
+        guard let targetIndex = exercises.firstIndex(where: {
+            $0.persistentModelID == targetExercise.persistentModelID
+        }) else { return }
         withAnimation(.default) {
-            Self.reorderExercises(
-                in: workout,
-                fromOffsets: IndexSet(integer: sourceIndex),
-                toOffset: targetIndex > sourceIndex ? targetIndex + 1 : targetIndex,
-                using: modelContext
-            )
+            Self.reorderExercise(sourceExercise, toIndex: targetIndex, in: workout)
         }
     }
 
@@ -1435,8 +1376,7 @@ struct ActiveWorkoutView: View {
         Self.reorderExercises(
             in: workout,
             fromOffsets: source,
-            toOffset: destination,
-            using: modelContext
+            toOffset: destination
         )
     }
 
@@ -1742,52 +1682,11 @@ private struct FABButtonStyle: ButtonStyle {
 // MARK: - MY-1473 / Spec 023: WorkoutExercise Drop Delegate
 
 private struct WorkoutExerciseDropDelegate: DropDelegate {
-    let targetIndex: Int
-    let onMove: @Sendable @MainActor (Int, Int) -> Void
+    let onDrop: @MainActor () -> Void
 
     func performDrop(info: DropInfo) -> Bool {
-        let items = info.itemProviders(for: [.text, .plainText])
-        guard let item = items.first else { return false }
-
-        item.loadItem(forTypeIdentifier: "public.text", options: nil) { data, _ in
-            var sourceStr: String?
-            if let data = data as? Data {
-                sourceStr = String(data: data, encoding: .utf8)
-            } else if let str = data as? String {
-                sourceStr = str
-            } else if let nsStr = data as? NSString {
-                sourceStr = nsStr as String
-            }
-
-            if let sourceStr, let sourceOrder = Int(sourceStr) {
-                Task { @MainActor in
-                    onMove(sourceOrder, targetIndex)
-                }
-            }
-        }
+        onDrop()
         return true
-    }
-
-    func dropEntered(info: DropInfo) {
-        let items = info.itemProviders(for: [.text, .plainText])
-        guard let item = items.first else { return }
-
-        item.loadItem(forTypeIdentifier: "public.text", options: nil) { data, _ in
-            var sourceStr: String?
-            if let data = data as? Data {
-                sourceStr = String(data: data, encoding: .utf8)
-            } else if let str = data as? String {
-                sourceStr = str
-            } else if let nsStr = data as? NSString {
-                sourceStr = nsStr as String
-            }
-
-            if let sourceStr, let sourceOrder = Int(sourceStr) {
-                Task { @MainActor in
-                    onMove(sourceOrder, targetIndex)
-                }
-            }
-        }
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
