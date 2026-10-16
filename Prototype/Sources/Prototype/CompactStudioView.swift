@@ -221,11 +221,10 @@ struct CompactSetRow: View {
                 Text(set.kind == "warmup" ? "40 × 12" : "60 × 10")
                     .font(.caption).foregroundStyle(theme.neutrals.text2).monospacedDigit().frame(maxWidth: .infinity)
             }
-            Button { if session.select(exercise: exerciseID, setID: set.id) { session.edit("weight") } } label: {
-                Text(editing ? session.core.editorWeightText : set.weight.formatted(.number.precision(.fractionLength(0...2))))
-                    .font(.system(.body, design: .rounded, weight: .semibold)).monospacedDigit()
-                    .frame(maxWidth: .infinity, minHeight: 48).background(theme.neutrals.card.opacity(selected ? 1 : 0), in: RoundedRectangle(cornerRadius: 6))
-            }.buttonStyle(.plain).accessibilityLabel(studioText("editor.weight"))
+            HStack(spacing: 2) {
+                weightCell(right: false)
+                if editing ? session.core.editorIsSplit : set.weightRight != nil { weightCell(right: true) }
+            }.frame(maxWidth: .infinity)
             Button { if session.select(exercise: exerciseID, setID: set.id) { session.edit("reps") } } label: {
                 Text(editing ? session.core.editorRepsText : String(set.reps)).font(.system(.body, design: .rounded, weight: .semibold)).monospacedDigit()
                     .frame(width: 48, height: 48).background(theme.neutrals.card.opacity(selected ? 1 : 0), in: RoundedRectangle(cornerRadius: 6))
@@ -245,6 +244,21 @@ struct CompactSetRow: View {
             .overlay(alignment: .bottom) { Divider().padding(.horizontal, 12) }
             .accessibilityElement(children: .contain)
             .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+    private func weightCell(right: Bool) -> some View {
+        let split = editing ? session.core.editorIsSplit : set.weightRight != nil
+        let value = editing ? (right ? session.core.editorRightWeightText : session.core.editorWeightText) :
+            (right ? (set.weightRight ?? 0) : set.weight).formatted(.number.precision(.fractionLength(0...2)))
+        return Button {
+            if session.select(exercise: exerciseID, setID: set.id) { session.edit(right ? "weightRight" : "weight") }
+        } label: {
+            VStack(spacing: 0) {
+                if split { Text(studioText(right ? "weight.right" : "weight.left")).font(.system(size: 10)).foregroundStyle(theme.neutrals.text2) }
+                Text(value).font(.system(split ? .subheadline : .body, design: .rounded, weight: .semibold)).monospacedDigit().minimumScaleFactor(0.75).lineLimit(1)
+            }.frame(maxWidth: .infinity, minHeight: 48).frame(minWidth: 44)
+                .background(theme.neutrals.card.opacity(selected ? 1 : 0), in: RoundedRectangle(cornerRadius: 6))
+        }.buttonStyle(.plain).accessibilityLabel(studioText(split ? (right ? "weight.right" : "weight.left") : "editor.weight"))
+            .accessibilityValue(value + " kg")
     }
 }
 
@@ -355,38 +369,63 @@ private struct CompactKeyboard: View {
     var body: some View {
         VStack(spacing: 4) {
             HStack(spacing: 6) {
-                field("weight", value: session.core.editorWeightText)
-                field("reps", value: session.core.editorRepsText)
-                StudioIconButton(symbol: "keyboard.chevron.compact.down", label: studioText("keyboard.saveClose")) { session.save() }
-                    .disabled(!session.core.editorCanCommit)
+                if session.isEditingEquipmentDefault {
+                    Button { session.selectEquipmentDefaultValue() } label: {
+                        HStack {
+                            Text(studioText("weight.defaultTotal")).font(.caption)
+                            Spacer(minLength: 4)
+                            Text(session.equipmentDefaultText.isEmpty ? "—" : session.equipmentDefaultText)
+                                .font(.title3.weight(.semibold)).monospacedDigit()
+                                .background(session.defaultSelectAll ? theme.primary.primaryBorder.opacity(0.4) : .clear)
+                            Text("kg").font(.caption)
+                        }.padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 44)
+                            .background(theme.primary.primarySubtle, in: RoundedRectangle(cornerRadius: 6))
+                    }.buttonStyle(.plain).accessibilityLabel(studioText("weight.defaultTotal"))
+                        .accessibilityValue(session.equipmentDefaultText + " kg")
+                    StudioIconButton(symbol: "xmark", label: studioText("action.cancel")) { session.cancelEquipmentDefault() }
+                } else {
+                    field("weight", value: session.core.editorWeightText)
+                    if session.core.editorIsSplit { field("weightRight", value: session.core.editorRightWeightText) }
+                    field("reps", value: session.core.editorRepsText)
+                    StudioIconButton(symbol: "keyboard.chevron.compact.down", label: studioText("keyboard.saveClose")) { session.save() }
+                        .disabled(!session.core.editorCanCommit)
+                }
             }
             HStack(spacing: 4) {
-                auxiliary("compact.previous", symbol: "clock.arrow.circlepath") { session.core.usePreviousEditorValues() }
-                auxiliary("compact.copy", symbol: "doc.on.doc") { session.core.copyEditorToNext() }
-                    .disabled(!session.core.editorCanCommit)
-                auxiliary("compact.rpe", symbol: "gauge.with.dots.needle.50percent") { session.accessory = .rpe }
-                auxiliary("compact.type", symbol: "tag") { session.accessory = .type }
-                auxiliary("compact.more", symbol: "ellipsis") { session.overlay = .more }
+                if session.isEditingEquipmentDefault {
+                    Text(studioText("weight.defaultScope")).font(.system(size: 12)).foregroundStyle(theme.neutrals.text2)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                } else {
+                    auxiliary("compact.previous", symbol: "clock.arrow.circlepath") { session.core.usePreviousEditorValues() }
+                    auxiliary(session.core.editorIsSplit ? "weight.split" : "weight.total", symbol: "arrow.left.arrow.right") { session.accessory = .weight }
+                    auxiliary("compact.rpe", symbol: "gauge.with.dots.needle.50percent") { session.accessory = .rpe }
+                    auxiliary("compact.type", symbol: "tag") { session.accessory = .type }
+                    auxiliary("compact.more", symbol: "ellipsis") { session.overlay = .more }
+                }
             }
             Group {
                 switch session.accessory {
                 case .digits: digits
                 case .rpe: rpePanel
                 case .type: typePanel
+                case .weight: CompactWeightPanel(session: session)
                 }
             }.frame(height: 188)
             HStack(spacing: 8) {
                 Group {
-                    if glass {
+                    if glass && !session.isEditingEquipmentDefault {
                         Button { session.navigation.jump(to: session.core.activeExerciseID, order: session.core.workoutIDs) } label: { inputContext }
                             .buttonStyle(.plain).accessibilityLabel(studioText("compact.locateEditor"))
                     } else { inputContext }
                 }.frame(maxWidth: .infinity, alignment: .leading)
-                Button { session.save(complete: session.selectedSet?.completed != true) } label: {
-                    Label(glass ? compactSetActionTitle(session: session, editing: true) : studioText(session.selectedSet?.completed == true ? "compact.saveEdits" : "compact.saveLog"), systemImage: "checkmark")
+                Button {
+                    if session.isEditingEquipmentDefault { session.saveEquipmentDefault() }
+                    else { session.save(complete: session.selectedSet?.completed != true) }
+                } label: {
+                    Label(session.isEditingEquipmentDefault ? studioText("weight.saveDefault") : (glass ? compactSetActionTitle(session: session, editing: true) : studioText(session.selectedSet?.completed == true ? "compact.saveEdits" : "compact.saveLog")), systemImage: "checkmark")
                         .font(.subheadline.weight(.semibold)).frame(minWidth: 124, minHeight: 44)
                         .foregroundStyle(theme.primary.onPrimary).background(theme.primary.primary, in: RoundedRectangle(cornerRadius: 8))
-                }.buttonStyle(.plain).disabled(!session.core.editorCanCommit)
+                }.buttonStyle(.plain).disabled(session.isEditingEquipmentDefault ? !session.canSaveEquipmentDefault : !session.core.editorCanCommit)
             }.frame(height: 44)
         }.padding(.horizontal, 8).padding(.top, 6)
             .background(glass ? .clear : theme.neutrals.card)
@@ -396,25 +435,45 @@ private struct CompactKeyboard: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 3) {
                 if glass { Image(systemName: "scope").accessibilityHidden(true) }
-                Text((glass ? studioText("compact.editingShort") + " · " : "") + studioText("exercise.short.\(session.core.activeExerciseID)") + " · " + studioText("set.number") + " " + (session.selectedSetNumber.map(String.init) ?? "—"))
+                Text(session.isEditingEquipmentDefault ? studioText("exercise.short.\(session.core.activeExerciseID)") + " · " + studioText("weight.default") : (glass ? studioText("compact.editingShort") + " · " : "") + studioText("exercise.short.\(session.core.activeExerciseID)") + " · " + studioText("set.number") + " " + (session.selectedSetNumber.map(String.init) ?? "—"))
             }.font(.system(size: glass ? 13 : 11, weight: .semibold)).lineLimit(1)
-            Text(session.core.editorError ?? session.core.notice ?? studioText("compact.commitHint"))
-                .font(.system(size: 11)).foregroundStyle(session.core.editorError == nil ? theme.neutrals.text2 : theme.danger).lineLimit(2)
+            Text(session.isEditingEquipmentDefault ? studioText(session.canSaveEquipmentDefault ? "weight.defaultScopeShort" : "weight.defaultRange") : (session.core.editorError ?? session.core.notice ?? studioText("compact.commitHint")))
+                .font(.system(size: 11)).foregroundStyle(session.isEditingEquipmentDefault ? (session.canSaveEquipmentDefault ? theme.neutrals.text2 : theme.danger) : (session.core.editorError == nil ? theme.neutrals.text2 : theme.danger)).lineLimit(2)
         }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
     }
     private func field(_ name: String, value: String) -> some View {
         let selected = session.core.editorField == name
+        let label = studioText(name == "weightRight" ? "weight.rightUnit" : (name == "weight" && session.core.editorIsSplit ? "weight.leftUnit" : "set.\(name)"))
         return Button { session.core.switchEditor(to: name); session.core.editorSelectAll = true; session.accessory = .digits } label: {
-            HStack(spacing: 8) {
-                Text(studioText("set.\(name)")).font(.caption)
-                Spacer(minLength: 0)
-                Text(value).font(.system(.title3, design: .rounded, weight: .semibold)).monospacedDigit()
-                    .background(selected && session.core.editorSelectAll ? theme.primary.primaryBorder.opacity(0.4) : .clear)
-                if name == "weight" { Text("kg").font(.caption) }
+            Group {
+                if session.core.editorIsSplit {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(label).font(.system(size: 12))
+                        HStack(spacing: 3) { Spacer(minLength: 0); fieldNumber(value, selected: selected) }
+                    }
+                } else {
+                    HStack(spacing: 8) {
+                        Text(label).font(.system(size: 12))
+                        Spacer(minLength: 0)
+                        fieldNumber(value, selected: selected)
+                        if name != "reps" { Text("kg").font(.caption) }
+                    }
+                }
             }.padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 44)
                 .background(selected ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 6))
-        }.buttonStyle(.plain).accessibilityLabel(studioText("editor.\(name)"))
+                .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(selected ? theme.primary.primaryText : .clear, lineWidth: 1) }
+        }.buttonStyle(.plain).accessibilityLabel(studioText(name == "weightRight" ? "weight.right" : "editor.\(name)"))
             .accessibilityValue(value).accessibilityAddTraits(selected ? .isSelected : [])
+    }
+    private func fieldNumber(_ value: String, selected: Bool) -> some View {
+        HStack(spacing: 2) {
+            Text(value).font(.system(.title3, design: .rounded, weight: .semibold)).monospacedDigit()
+                .lineLimit(1).minimumScaleFactor(0.8)
+                .background(selected && session.core.editorSelectAll ? theme.primary.primaryText.opacity(0.25) : .clear)
+            if selected && !session.core.editorSelectAll {
+                Capsule().fill(theme.primary.primaryText).frame(width: 1, height: 18).accessibilityHidden(true)
+            }
+        }
     }
     private func auxiliary(_ key: String, symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -430,13 +489,16 @@ private struct CompactKeyboard: View {
                 HStack(spacing: 4) {
                     ForEach(0..<3, id: \.self) { col in
                         let key = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "delete"][row * 3 + col]
-                        Button { session.core.pressEditorKey(key) } label: {
+                        Button {
+                            if session.isEditingEquipmentDefault { session.pressEquipmentDefaultKey(key) }
+                            else { session.core.pressEditorKey(key) }
+                        } label: {
                             Group {
                                 if key == "delete" { Image(systemName: "delete.left").font(.title3) }
                                 else { Text(key).font(.system(size: 22, design: .rounded)).monospacedDigit() }
                             }.frame(maxWidth: .infinity, minHeight: 44)
                                 .background(theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 6))
-                        }.buttonStyle(.plain).disabled(key == "." && session.core.editorField == "reps")
+                        }.buttonStyle(.plain).disabled(key == "." && !session.isEditingEquipmentDefault && session.core.editorField == "reps")
                             .accessibilityLabel(key == "delete" ? studioText("action.deleteDigit") : key)
                             .accessibilityAddTraits(.isKeyboardKey)
                     }
@@ -665,6 +727,7 @@ private struct CompactDrawer: View {
             row("keyboard.cancel", symbol: "arrow.uturn.backward") { session.discardDraft(); session.overlay = nil }
         }
         heading("compact.scope.set")
+        row("weight.entry", symbol: "arrow.left.arrow.right") { session.edit("weight"); session.accessory = .weight; session.overlay = nil }
         HStack {
             row("compact.type", symbol: "tag") { session.edit("weight"); session.accessory = .type; session.overlay = nil }
             row("compact.rpe", symbol: "gauge.with.dots.needle.50percent") { session.edit("weight"); session.accessory = .rpe; session.overlay = nil }
@@ -672,6 +735,12 @@ private struct CompactDrawer: View {
         row("keyboard.copy", symbol: "doc.on.doc") { session.edit("weight"); session.core.copyEditorToNext(); session.overlay = nil }
         row("set.delete", symbol: "trash", destructive: true) { session.deleteSelected() }.disabled(session.core.activeSets.count <= 1)
         heading("compact.scope.exercise")
+        if session.supportsEquipmentDefault {
+            row("weight.default", symbol: "slider.horizontal.3") { session.beginEquipmentDefault() }
+            if session.equipmentDefault != nil {
+                row("weight.clearDefault", symbol: "minus.circle") { session.clearEquipmentDefault(); session.overlay = nil }
+            }
+        }
         row("compact.addSet", symbol: "plus") { session.addSet(); session.overlay = nil }
         row("compact.replaceExercise", symbol: "arrow.triangle.2.circlepath") { session.showPicker(replacing: true) }
         row("compact.advanced", symbol: "slider.horizontal.3") { session.overlay = .advanced }
@@ -690,9 +759,13 @@ private struct CompactDrawer: View {
                 }
             }
             heading("compact.equipment")
-            HStack(spacing: 4) {
-                ForEach(["all", "barbell", "dumbbell", "cable", "bodyweight"], id: \.self) { value in
-                    filterChip(studioText("equipment.\(value)"), selected: picker.equipment == value) { picker.equipment = value }
+            VStack(spacing: 8) {
+                ForEach([["all", "barbell", "dumbbell"], ["cable", "machine", "bodyweight"]], id: \.self) { group in
+                    HStack(spacing: 8) {
+                        ForEach(group, id: \.self) { value in
+                            filterChip(studioText("equipment.\(value)"), selected: picker.equipment == value) { picker.equipment = value }
+                        }
+                    }
                 }
             }
             HStack {
@@ -711,7 +784,7 @@ private struct CompactDrawer: View {
             HStack(spacing: 3) {
                 if selected { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).accessibilityHidden(true) }
                 Text(title).font(.caption.weight(selected ? .semibold : .regular)).multilineTextAlignment(.center)
-            }.frame(maxWidth: .infinity, minHeight: 44)
+            }.padding(.horizontal, 12).frame(maxWidth: .infinity, minHeight: 44)
                 .background(selected ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 6))
                 .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(selected ? theme.primary.primaryText : .clear, lineWidth: 1) }
         }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])

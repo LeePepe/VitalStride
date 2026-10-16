@@ -86,7 +86,8 @@ public struct StudioExercise: Identifiable, Sendable, Equatable {
         .init(id: "pulldown", muscle: "back", equipment: "cable", symbol: "figure.strengthtraining.functional", aliases: "lat pulldown 高位下拉 背"),
         .init(id: "curl", muscle: "arms", equipment: "dumbbell", symbol: "dumbbell", aliases: "dumbbell curl 哑铃弯举 手臂"),
         .init(id: "pushup", muscle: "chest", equipment: "bodyweight", symbol: "figure.strengthtraining.functional", aliases: "push up pushup 俯卧撑 胸"),
-        .init(id: "plank", muscle: "core", equipment: "bodyweight", symbol: "figure.core.training", aliases: "plank 平板支撑 核心")
+        .init(id: "plank", muscle: "core", equipment: "bodyweight", symbol: "figure.core.training", aliases: "plank 平板支撑 核心"),
+        .init(id: "machinepress", muscle: "chest", equipment: "machine", symbol: "dumbbell", aliases: "machine chest press 器械胸推 固定器械 胸")
     ]
 
     public static func search(_ items: [Self], query: String, muscle: String, equipment: String) -> [Self] {
@@ -107,6 +108,7 @@ public struct StudioSet: Identifiable, Sendable, Equatable {
     public var reps: Int
     public var completed: Bool
     public var kind: String
+    public var weightRight: Double? = nil
 }
 
 @Observable @MainActor
@@ -129,6 +131,7 @@ public final class StudioSession {
     private var editorValues: [String: String] = [:]
     private var editorExerciseID: String?
     private var editorSetID: Int?
+    private var splitDraft: (left: Double, right: Double)?
     public var notice: String?
     public var replacementID: String?
     public var isFinished = false
@@ -167,7 +170,7 @@ public final class StudioSession {
     public var completedCount: Int { setsByExercise.values.flatMap { $0 }.filter(\.completed).count }
     public var totalCount: Int { setsByExercise.values.reduce(0) { $0 + $1.count } }
     public var totalVolume: Double {
-        setsByExercise.values.flatMap { $0 }.filter(\.completed).reduce(0) { $0 + $1.weight * Double($1.reps) }
+        setsByExercise.values.flatMap { $0 }.filter(\.completed).reduce(0) { $0 + ($1.weight + ($1.weightRight ?? 0)) * Double($1.reps) }
     }
 
     public func toggleSelection(_ id: String) {
@@ -212,7 +215,7 @@ public final class StudioSession {
     public func addSet() {
         let previous = activeSets.last
         setsByExercise[activeExerciseID, default: []].append(
-            .init(id: nextSetID, weight: previous?.weight ?? 20, reps: previous?.reps ?? 10, completed: false, kind: "working"))
+            .init(id: nextSetID, weight: previous?.weight ?? 20, reps: previous?.reps ?? 10, completed: false, kind: "working", weightRight: previous?.weightRight))
         nextSetID += 1
     }
     public func deleteSet(_ id: Int) {
@@ -238,6 +241,8 @@ public final class StudioSession {
         editorExerciseID = activeExerciseID
         editorSetID = currentSet.id
         editorValues = ["weight": currentSet.weight.formatted(.number.precision(.fractionLength(0...2))), "reps": String(currentSet.reps)]
+        if let right = currentSet.weightRight { editorValues["weightRight"] = weightText(right) }
+        splitDraft = nil
         editorField = field
         editorValue = editorValues[field] ?? ""
         editorSelectAll = true
@@ -260,7 +265,7 @@ public final class StudioSession {
         }
         let decimal = key == "."
         guard (key.count == 1 && key.first?.isNumber == true) || decimal else { return }
-        guard !decimal || editorField == "weight" else { return }
+        guard !decimal || editorField == "weight" || editorField == "weightRight" else { return }
         var next = editorSelectAll ? "" : editorValue
         if decimal {
             guard !next.contains(".") else { return }
@@ -277,15 +282,27 @@ public final class StudioSession {
         if let field = editorField { values[field] = editorValue }
         return values
     }
-    private func parsedDraft() -> (Double, Int)? {
+    private func parsedDraft() -> (Double, Int, Double?)? {
         let values = mergedEditorValues
         guard let weight = Double((values["weight"] ?? "").replacingOccurrences(of: ",", with: ".")),
               let reps = Int(values["reps"] ?? ""), weight.isFinite,
               (0...999).contains(weight), (1...999).contains(reps) else { return nil }
-        return (weight, reps)
+        var right: Double?
+        if let text = values["weightRight"] {
+            guard let parsed = Double(text.replacingOccurrences(of: ",", with: ".")), parsed.isFinite,
+                  (0...999).contains(parsed) else { return nil }
+            right = parsed
+        }
+        return (weight, reps, right)
     }
     public var editorCanCommit: Bool { parsedDraft() != nil }
     public var editorWeightText: String { mergedEditorValues["weight"] ?? "—" }
+    public var editorRightWeightText: String { mergedEditorValues["weightRight"] ?? "—" }
+    public var editorIsSplit: Bool { mergedEditorValues["weightRight"] != nil }
+    public var editorCanUseTotal: Bool {
+        guard let (left, _, right) = parsedDraft() else { return false }
+        return left + (right ?? 0) <= 999
+    }
     public var editorRepsText: String { mergedEditorValues["reps"] ?? "—" }
     public var editorError: String? {
         guard editorField != nil, !editorCanCommit else { return nil }
@@ -303,18 +320,23 @@ public final class StudioSession {
         editorSelectAll = true
     }
     public func usePreviousEditorValues() {
-        editorValues = ["weight": editorExerciseID == "bench" ? "60" : "24", "reps": "10"]
+        let split = editorIsSplit
+        let total: Double = editorExerciseID == "bench" ? 60 : 24
+        editorValues = ["weight": weightText(split ? total / 2 : total), "reps": "10"]
+        if split { editorValues["weightRight"] = weightText(total / 2) }
+        splitDraft = nil
         editorValue = editorValues[editorField ?? "weight"] ?? ""
         editorSelectAll = true
     }
     public func copyEditorToNext() {
-        guard let (weight, reps) = parsedDraft(), let exerciseID = editorExerciseID, let setID = editorSetID,
+        guard let (weight, reps, right) = parsedDraft(), let exerciseID = editorExerciseID, let setID = editorSetID,
               let index = setsByExercise[exerciseID]?.firstIndex(where: { $0.id == setID }) else { return }
         if let items = setsByExercise[exerciseID], index + 1 < items.count {
             setsByExercise[exerciseID]?[index + 1].weight = weight
             setsByExercise[exerciseID]?[index + 1].reps = reps
+            setsByExercise[exerciseID]?[index + 1].weightRight = right
         } else {
-            setsByExercise[exerciseID, default: []].append(.init(id: nextSetID, weight: weight, reps: reps, completed: false, kind: "working"))
+            setsByExercise[exerciseID, default: []].append(.init(id: nextSetID, weight: weight, reps: reps, completed: false, kind: "working", weightRight: right))
             nextSetID += 1
         }
         notice = studioText("keyboard.copied")
@@ -322,17 +344,69 @@ public final class StudioSession {
     public func cancelEditor() {
         editorField = nil
         editorValues = [:]; editorExerciseID = nil; editorSetID = nil
+        splitDraft = nil
     }
     public func commitEditor(completeSet: Bool = false) {
-        guard let (weight, reps) = parsedDraft(), let exerciseID = editorExerciseID, let setID = editorSetID,
+        guard let (weight, reps, right) = parsedDraft(), let exerciseID = editorExerciseID, let setID = editorSetID,
               let index = setsByExercise[exerciseID]?.firstIndex(where: { $0.id == setID }) else { return }
         setsByExercise[exerciseID]?[index].weight = weight
         setsByExercise[exerciseID]?[index].reps = reps
+        setsByExercise[exerciseID]?[index].weightRight = right
         if completeSet {
             setsByExercise[exerciseID]?[index].completed = true
             restEnd = Date().addingTimeInterval(restTotal)
         }
         cancelEditor()
+    }
+    /// Convert only the current draft. Total load is preserved and an unequal
+    /// pair survives an unchanged split → total → split round trip.
+    public func setEditorSplit(_ split: Bool) {
+        guard editorField != nil, split != editorIsSplit, let (left, _, right) = parsedDraft() else { return }
+        editorValues = mergedEditorValues
+        if split {
+            let pair = splitDraft.flatMap { abs($0.left + $0.right - left) < 0.00001 ? $0 : nil }
+            let half = (left * 50).rounded(.down) / 100
+            editorValues["weight"] = weightText(pair?.left ?? half)
+            editorValues["weightRight"] = weightText(pair?.right ?? (left - half))
+        } else {
+            guard let right, left + right <= 999 else { return }
+            splitDraft = (left, right)
+            editorValues["weight"] = weightText(left + right)
+            editorValues["weightRight"] = nil
+        }
+        if editorField != "reps" { editorField = "weight" }
+        editorValue = editorValues[editorField ?? "weight"] ?? ""
+        editorSelectAll = true
+    }
+    public func matchEditorSides() {
+        guard editorIsSplit, editorCanCommit else { return }
+        editorValues = mergedEditorValues
+        editorValues["weightRight"] = editorValues["weight"]
+        editorValue = editorValues[editorField ?? "weight"] ?? ""
+        editorSelectAll = true
+    }
+    public func swapEditorSides() {
+        guard editorIsSplit, editorCanCommit else { return }
+        let values = mergedEditorValues
+        editorValues = values
+        editorValues["weight"] = values["weightRight"]
+        editorValues["weightRight"] = values["weight"]
+        editorValue = editorValues[editorField ?? "weight"] ?? ""
+        editorSelectAll = true
+    }
+    public func applyEditorTotalWeight(_ total: Double) {
+        guard editorField != nil, total.isFinite, (0...999).contains(total) else { return }
+        let split = editorIsSplit
+        editorValues = mergedEditorValues
+        let half = (total * 50).rounded(.down) / 100
+        editorValues["weight"] = weightText(split ? half : total)
+        if split { editorValues["weightRight"] = weightText(total - half) }
+        splitDraft = nil
+        editorValue = editorValues[editorField ?? "weight"] ?? ""
+        editorSelectAll = true
+    }
+    private func weightText(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0...2)))
     }
     private func updateSet(_ id: Int, _ update: (inout StudioSet) -> Void) {
         guard let index = setsByExercise[activeExerciseID]?.firstIndex(where: { $0.id == id }) else { return }

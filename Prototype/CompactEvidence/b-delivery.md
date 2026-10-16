@@ -1,3 +1,5 @@
+> 后续重量输入扩展及18项状态测试见 [左右重量与器械默认](weight-direction.md)；下文为滚动与玻璃阶段交付。
+
 # B 细化交付
 
 **[最新公开画廊](https://leepepe.github.io/vitalstride/workout-layouts/)** · [离线画廊](index.html) · 2026-10-16

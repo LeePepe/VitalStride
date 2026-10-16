@@ -21,6 +21,8 @@ struct CompactHost: View {
                 Button(studioText("scenario.resting")) { session.core.restEnd = Date().addingTimeInterval(74) }
                 Button(studioText("scenario.undo")) { session.deleteSelected() }
                 Button(studioText("compact.browse")) { session.navigation.jump(to: "incline", order: session.core.workoutIDs) }
+                Button(studioText("weight.splitDemo")) { session = weightExample("split-keyboard") }
+                Button(studioText("weight.machineDemo")) { session = weightExample("machine-mode") }
                 Text(studioText("studio.demoNote")).font(.caption).foregroundStyle(.secondary)
                 Spacer()
             }.frame(width: 240)
@@ -46,14 +48,14 @@ final class CompactDelegate: NSObject, NSApplicationDelegate {
 }
 
 @MainActor
-func renderCompact(to path: String, chosenB: Bool = false) throws {
+func renderCompact(to path: String, chosenB: Bool = false, weights: Bool = false) throws {
     let output = URL(fileURLWithPath: path, isDirectory: true)
     try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
     var count = 0
     func render(layout: CompactLayout, state: String, dark: Bool, large: Bool = false) throws {
-        let session = CompactSession(picker: state.hasPrefix("picker"))
+        let session = weights ? weightExample(state) : CompactSession(picker: state.hasPrefix("picker"))
         let picker = CompactPickerModel()
-        if state.contains("keyboard") || state == "rpe" { session.edit("weight") }
+        if !weights && (state.contains("keyboard") || state == "rpe") { session.edit("weight") }
         if state.contains("rest") { session.core.restEnd = Date().addingTimeInterval(74) }
         if state.contains("undo") { session.core.deleteSet(4) }
         if state == "more" { session.overlay = .more }
@@ -76,7 +78,12 @@ func renderCompact(to path: String, chosenB: Bool = false) throws {
         try png.write(to: output.appendingPathComponent("\(layout.rawValue)-\(state)-\(dark ? "dark" : "light")\(large ? "-large-narrow" : "").png"))
         count += 1
     }
-    if chosenB {
+    if weights {
+        for state in ["weight-mode", "split-mode", "split-keyboard", "split-saved", "machine-mode", "machine-default", "machine-applied", "machine-more"] {
+            for dark in [false, true] { try render(layout: .rail, state: state, dark: dark) }
+        }
+        for dark in [false, true] { try render(layout: .rail, state: "split-keyboard", dark: dark, large: true) }
+    } else if chosenB {
         for state in ["normal", "keyboard", "rest", "undo", "keyboard-rest", "keyboard-undo", "rest-undo", "keyboard-rest-undo", "browse", "keyboard-browse", "more", "rpe", "picker", "picker-filter", "picker-empty"] {
             for dark in [false, true] { try render(layout: .rail, state: state, dark: dark) }
         }
@@ -95,11 +102,40 @@ func renderCompact(to path: String, chosenB: Bool = false) throws {
     FileHandle.standardOutput.write(Data("Rendered \(count) compact SwiftUI screens\n".utf8))
 }
 
-if CommandLine.arguments.contains("--render") || CommandLine.arguments.contains("--render-b") {
+@MainActor
+func weightExample(_ state: String) -> CompactSession {
+    let session = CompactSession()
+    if state.hasPrefix("machine") {
+        session.core.selectedIDs = ["machinepress"]; session.core.confirmSelection()
+        _ = session.select(exercise: "machinepress")
+        for _ in 0..<3 { session.core.addSet() }
+        session.navigation.jump(to: "machinepress", order: session.core.workoutIDs)
+        session.beginEquipmentDefault()
+        for key in ["4", "5"] { session.pressEquipmentDefaultKey(key) }
+        session.saveEquipmentDefault(); session.notice = nil
+        if state == "machine-default" { session.beginEquipmentDefault() }
+        else if state == "machine-applied" { session.applyEquipmentDefault() }
+        else if state == "machine-more" { session.discardDraft(); session.overlay = .more }
+        else { session.accessory = .weight }
+    } else {
+        session.edit("weight")
+        if state.hasPrefix("split") {
+            session.core.setEditorSplit(true)
+            session.core.switchEditor(to: "weight"); session.core.pressEditorKey("2"); session.core.pressEditorKey("4")
+            session.core.switchEditor(to: "weightRight"); session.core.pressEditorKey("2"); session.core.pressEditorKey("6")
+        }
+        if state == "split-saved" { session.save() }
+        else { session.accessory = state == "split-keyboard" ? .digits : .weight }
+    }
+    return session
+}
+
+if CommandLine.arguments.contains("--render") || CommandLine.arguments.contains("--render-b") || CommandLine.arguments.contains("--render-weights") {
     let chosenB = CommandLine.arguments.contains("--render-b")
-    let path = CommandLine.arguments.dropFirst(2).first ?? (chosenB ? "Prototype/CompactEvidence/b-shots" : "Prototype/CompactEvidence/shots")
+    let weights = CommandLine.arguments.contains("--render-weights")
+    let path = CommandLine.arguments.dropFirst(2).first ?? (weights ? "Prototype/CompactEvidence/weight-shots" : (chosenB ? "Prototype/CompactEvidence/b-shots" : "Prototype/CompactEvidence/shots"))
     DispatchQueue.main.async {
-        do { try MainActor.assumeIsolated { try renderCompact(to: path, chosenB: chosenB) }; exit(0) }
+        do { try MainActor.assumeIsolated { try renderCompact(to: path, chosenB: chosenB, weights: weights) }; exit(0) }
         catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
     }
     RunLoop.main.run()

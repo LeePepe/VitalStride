@@ -7,7 +7,7 @@ public enum CompactLayout: String, CaseIterable, Identifiable, Sendable {
     public var title: String { studioText("compact.layout.\(rawValue)") }
 }
 
-public enum CompactAccessory: String, Sendable { case digits, rpe, type }
+public enum CompactAccessory: String, Sendable { case digits, rpe, type, weight }
 public enum CompactOverlay: String, Sendable { case more, filters, selection, finish, advanced }
 
 public struct CompactTarget: Equatable, Sendable {
@@ -48,6 +48,11 @@ public final class CompactSession {
     public var accessory = CompactAccessory.digits
     public var notice: String?
     public private(set) var rpeByTarget: [String: Int] = [:]
+    public private(set) var equipmentDefaults: [String: Double] = [:]
+    public private(set) var isEditingEquipmentDefault = false
+    public private(set) var equipmentDefaultText = ""
+    public private(set) var defaultSelectAll = true
+    private var defaultExerciseID: String?
     private var draftTarget: CompactTarget?
     private var draftRPE: Int?
     private var draftKind = "working"
@@ -64,8 +69,68 @@ public final class CompactSession {
     public func rpe(for target: CompactTarget) -> Int? { rpeByTarget[key(target)] }
     public var currentRPE: Int? { draftTarget == nil ? rpe(for: target) : (draftHasRPE ? draftRPE : nil) }
     public var currentKind: String { draftTarget == nil ? (selectedSet?.kind ?? "working") : draftKind }
+    public var supportsEquipmentDefault: Bool { ["machine", "cable"].contains(core.activeExercise.equipment) }
+    public var equipmentDefault: Double? { equipmentDefaults[core.activeExerciseID] }
+    public var canSaveEquipmentDefault: Bool {
+        guard let value = Double(equipmentDefaultText.replacingOccurrences(of: ",", with: ".")), value.isFinite else { return false }
+        return (0...999).contains(value)
+    }
+
+    public func beginEquipmentDefault() {
+        guard supportsEquipmentDefault else { return }
+        edit("weight")
+        defaultExerciseID = core.activeExerciseID
+        equipmentDefaultText = equipmentDefault.map { $0.formatted(.number.precision(.fractionLength(0...2))) } ?? ""
+        defaultSelectAll = true
+        isEditingEquipmentDefault = true
+        accessory = .digits
+        overlay = nil
+    }
+    public func pressEquipmentDefaultKey(_ key: String) {
+        guard isEditingEquipmentDefault else { return }
+        if key == "delete" {
+            if defaultSelectAll { equipmentDefaultText = "" }
+            else if !equipmentDefaultText.isEmpty { equipmentDefaultText.removeLast() }
+            defaultSelectAll = false
+            return
+        }
+        guard key == "." || (key.count == 1 && key.first?.isNumber == true) else { return }
+        var text = defaultSelectAll ? "" : equipmentDefaultText
+        if key == "." {
+            guard !text.contains(".") else { return }
+            if text.isEmpty { text = "0" }
+        } else if text == "0" { text = "" }
+        if let point = text.firstIndex(of: "."), key != ".", text.distance(from: point, to: text.endIndex) > 2 { return }
+        guard text.count < 6 else { return }
+        equipmentDefaultText = text + key
+        defaultSelectAll = false
+    }
+    public func selectEquipmentDefaultValue() {
+        guard isEditingEquipmentDefault else { return }
+        defaultSelectAll = true
+    }
+    public func saveEquipmentDefault() {
+        guard isEditingEquipmentDefault, canSaveEquipmentDefault, let id = defaultExerciseID,
+              let value = Double(equipmentDefaultText.replacingOccurrences(of: ",", with: ".")) else { return }
+        equipmentDefaults[id] = value
+        cancelEquipmentDefault()
+        notice = studioText("weight.defaultSaved")
+    }
+    public func cancelEquipmentDefault() {
+        isEditingEquipmentDefault = false
+        defaultExerciseID = nil
+    }
+    public func clearEquipmentDefault() { equipmentDefaults[core.activeExerciseID] = nil }
+    public func applyEquipmentDefault() {
+        guard let value = equipmentDefault, !isEditingEquipmentDefault else { return }
+        edit("weight")
+        core.applyEditorTotalWeight(value)
+        accessory = .digits
+        overlay = nil
+    }
 
     @discardableResult public func select(exercise: String, setID: Int? = nil) -> Bool {
+        guard !isEditingEquipmentDefault else { return false }
         if exercise == core.activeExerciseID && (setID == nil || setID == selectedSetID) { return true }
         if let setID, core.setsByExercise[exercise]?.contains(where: { $0.id == setID }) != true { return false }
         if core.editorField != nil {
@@ -100,7 +165,7 @@ public final class CompactSession {
         }
     }
     public func save(complete: Bool = false) {
-        guard core.editorField != nil, core.editorCanCommit, let original = draftTarget,
+        guard !isEditingEquipmentDefault, core.editorField != nil, core.editorCanCommit, let original = draftTarget,
               let index = core.setsByExercise[original.exerciseID]?.firstIndex(where: { $0.id == original.setID }) else { return }
         core.setsByExercise[original.exerciseID]?[index].kind = draftKind
         rpeByTarget[key(original)] = draftHasRPE ? draftRPE : nil
@@ -110,9 +175,11 @@ public final class CompactSession {
         if complete { selectedSetID = core.currentSet?.id ?? original.setID }
     }
     public func discardDraft() {
+        cancelEquipmentDefault()
         core.cancelEditor(); draftTarget = nil; accessory = .digits
     }
     public func completeSelected() {
+        guard !isEditingEquipmentDefault else { return }
         if core.editorField != nil {
             guard core.editorCanCommit else { return }
             let wasCompleted = selectedSet?.completed == true
@@ -125,10 +192,18 @@ public final class CompactSession {
         if !selectedSet.completed { selectedSetID = core.currentSet?.id ?? selectedSet.id }
     }
     public func addSet() {
+        guard !isEditingEquipmentDefault else { return }
         if core.editorField != nil {
             guard core.editorCanCommit else { return }; save()
         }
         core.addSet(); selectedSetID = core.activeSets.last?.id ?? selectedSetID
+        if let value = equipmentDefault, let index = core.activeSets.indices.last {
+            if core.activeSets[index].weightRight != nil {
+                let left = (value * 50).rounded(.down) / 100
+                core.setsByExercise[core.activeExerciseID]?[index].weight = left
+                core.setsByExercise[core.activeExerciseID]?[index].weightRight = value - left
+            } else { core.setsByExercise[core.activeExerciseID]?[index].weight = value }
+        }
     }
     public func deleteSelected() {
         let id = selectedSetID
@@ -138,6 +213,7 @@ public final class CompactSession {
         overlay = nil
     }
     public func showPicker(replacing: Bool = false) {
+        guard !isEditingEquipmentDefault else { return }
         guard core.editorField == nil || core.editorCanCommit else { return }
         if core.editorField != nil { save() }
         core.replacementID = replacing ? core.activeExerciseID : nil
@@ -145,6 +221,7 @@ public final class CompactSession {
         core.screen = .picker; overlay = nil
     }
     public func finish() {
+        guard !isEditingEquipmentDefault else { return }
         if core.editorField != nil {
             guard core.editorCanCommit else { return }; save()
         }
@@ -172,7 +249,7 @@ public final class CompactPickerModel {
     public func refresh() {
         guard committedKey != requestKey else { return }
         let results = StudioExercise.search(StudioExercise.fixtures, query: query, muscle: muscle, equipment: equipment)
-        sections = ["barbell", "dumbbell", "cable", "bodyweight"].compactMap { group in
+        sections = ["barbell", "dumbbell", "cable", "machine", "bodyweight"].compactMap { group in
             let items = results.filter { $0.equipment == group }
             return items.isEmpty ? nil : CompactPickerSection(id: group, items: items)
         }

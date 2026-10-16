@@ -3692,13 +3692,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "单侧重量：重量字段旁切换左 / 右。\n递增、递减子组：组类型面板继续展开。\nAI 替代、排序、删除动作：当前动作菜单。\n结束、放弃训练：训练管理并二次确认。"
+            "value": "子组、单侧次数与 AI 反馈保留后续扩展位置。左右重量已在键盘「合计 / 左右」中接入。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unilateral weight: left / right beside the weight field.\nAscending / drop sub-sets: expand the set type panel.\nAI replacement, reorder and delete: selected exercise menu.\nFinish or discard: workout management with confirmation."
+            "value": "Subsets, per-side reps and AI feedback remain future extensions. Separate side weights are available from Total / L-R on the keyboard."
           }
         }
       }
@@ -3964,6 +3964,482 @@
           "stringUnit": {
             "state": "translated",
             "value": "浏览其他动作"
+          }
+        }
+      }
+    },
+    "weight.left": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Left"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左"
+          }
+        }
+      }
+    },
+    "weight.right": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右"
+          }
+        }
+      }
+    },
+    "weight.total": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合计"
+          }
+        }
+      }
+    },
+    "weight.split": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L / R"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左右"
+          }
+        }
+      }
+    },
+    "weight.entry": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weight entry"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重量方式"
+          }
+        }
+      }
+    },
+    "weight.match": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Left → Right"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左 → 右"
+          }
+        }
+      }
+    },
+    "weight.swap": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swap sides"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "交换左右"
+          }
+        }
+      }
+    },
+    "weight.modeHint": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose total or sides, then tap a field to edit."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点合计或左右切换，分别点字段输入。"
+          }
+        }
+      }
+    },
+    "weight.splitHint": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each side is recorded; total mode adds both sides."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左右分别记录；切回合计时相加。"
+          }
+        }
+      }
+    },
+    "weight.totalHint": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switching to sides divides the total without changing it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切到左右会平分合计，合计重量保持不变。"
+          }
+        }
+      }
+    },
+    "weight.totalRange": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total exceeds 999 kg; keep separate side entries."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合计超过 999 kg，保留左右输入。"
+          }
+        }
+      }
+    },
+    "weight.default": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Machine default"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "器械默认重量"
+          }
+        }
+      }
+    },
+    "weight.defaultTotal": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default total"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "默认合计"
+          }
+        }
+      }
+    },
+    "weight.setDefault": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set default"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置默认"
+          }
+        }
+      }
+    },
+    "weight.useDefault": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use default"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "带入默认"
+          }
+        }
+      }
+    },
+    "weight.saveDefault": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save default"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存默认"
+          }
+        }
+      }
+    },
+    "weight.defaultSaved": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Machine default saved"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已保存器械默认重量"
+          }
+        }
+      }
+    },
+    "weight.defaultScope": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This exercise · starting load, excluding unloaded resistance"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前动作 · 常用起始配重，不是空载阻力"
+          }
+        }
+      }
+    },
+    "weight.defaultScopeShort": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For new sets; existing records stay unchanged"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用于新组，已有记录保持不变"
+          }
+        }
+      }
+    },
+    "weight.defaultRange": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter 0–999 kg"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请输入 0–999 kg"
+          }
+        }
+      }
+    },
+    "weight.machineDemo": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Machine default demo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "器械默认重量示例"
+          }
+        }
+      }
+    },
+    "weight.splitDemo": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Separate side entry demo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左右输入示例"
+          }
+        }
+      }
+    },
+    "weight.clearDefault": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear default"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除默认"
+          }
+        }
+      }
+    },
+    "equipment.machine": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Machine"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "固定器械"
+          }
+        }
+      }
+    },
+    "exercise.machinepress": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Machine Chest Press"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "固定器械胸推"
+          }
+        }
+      }
+    },
+    "exercise.short.machinepress": {
+      "comment": "Compact B weight-entry prototype",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Machine press"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "器械胸推"
+          }
+        }
+      }
+    },
+    "weight.leftUnit": {
+      "comment": "Side weight label with local unit",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左 kg"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Left kg"
+          }
+        }
+      }
+    },
+    "weight.rightUnit": {
+      "comment": "Side weight label with local unit",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右 kg"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right kg"
           }
         }
       }

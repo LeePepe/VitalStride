@@ -1,3 +1,5 @@
+> 最新重量输入扩展见 [左右重量与器械默认](weight-direction.md)。
+
 # B 定稿细化：连续动作、snackbar 与玻璃浮层
 
 2026-10-16 · 用户选定 B，替代 V2 中 C 的推荐。主题色继续独立，保留 DesignKit blue/slate。仅 Prototype，与生产 AppUI 隔离。
