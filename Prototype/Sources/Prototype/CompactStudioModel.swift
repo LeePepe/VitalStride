@@ -15,10 +15,34 @@ public struct CompactTarget: Equatable, Sendable {
     public let setID: Int
 }
 
+/// Browsing is independent of the selected input target. Visibility callbacks
+/// publish only section changes, never pixel offsets or draft mutations.
+@Observable @MainActor
+public final class CompactWorkoutNavigation {
+    public private(set) var visibleExerciseID = "bench"
+    public private(set) var jumpExerciseID = "bench"
+    public private(set) var jumpRevision = 0
+
+    public init() {}
+
+    public func observeVisible(_ ids: [String], order: [String]) {
+        guard let first = order.first(where: { ids.contains($0) }), first != visibleExerciseID else { return }
+        visibleExerciseID = first
+    }
+
+    public func jump(to id: String, order: [String]) {
+        guard order.contains(id) else { return }
+        visibleExerciseID = id
+        jumpExerciseID = id
+        jumpRevision += 1
+    }
+}
+
 /// UI-only fixture state. Advanced metadata remains separate from production models.
 @Observable @MainActor
 public final class CompactSession {
     public let core: StudioSession
+    public let navigation = CompactWorkoutNavigation()
     public var selectedSetID = 3
     public var overlay: CompactOverlay?
     public var accessory = CompactAccessory.digits

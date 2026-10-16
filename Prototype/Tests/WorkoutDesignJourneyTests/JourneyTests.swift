@@ -240,3 +240,38 @@ func compactTrainingActionsKeepVisibleNumberAndCompletionIntent() {
     #expect(session.core.restEnd == nil)
     #expect(session.core.editorField == nil)
 }
+
+@Test @MainActor
+func browsingOtherExercisesNeverRebindsOrCommitsTheDraft() {
+    let session = CompactSession()
+    session.edit("weight"); session.core.pressEditorKey("7"); session.core.pressEditorKey("0")
+    let target = session.target
+    session.navigation.observeVisible(["incline", "fly"], order: session.core.workoutIDs)
+    #expect(session.navigation.visibleExerciseID == "incline")
+    #expect(session.target == target)
+    #expect(session.core.editorWeightText == "70")
+    #expect(session.core.activeSets[2].weight == 60)
+    #expect(session.navigation.jumpRevision == 0)
+    session.navigation.jump(to: target.exerciseID, order: session.core.workoutIDs)
+    #expect(session.navigation.visibleExerciseID == "bench")
+    #expect(session.core.editorField != nil)
+    session.save()
+    #expect(session.core.setsByExercise["bench"]?[2].weight == 70)
+    #expect(session.core.setsByExercise["incline"]?[2].weight == 24)
+}
+
+@Test @MainActor
+func sectionNavigationIgnoresEmptyAndUnknownVisibilityAndAllowsRepeatJumps() {
+    let navigation = CompactWorkoutNavigation()
+    let order = ["bench", "incline", "fly", "press"]
+    navigation.observeVisible(["fly", "incline"], order: order)
+    #expect(navigation.visibleExerciseID == "incline")
+    navigation.observeVisible([], order: order)
+    navigation.jump(to: "unknown", order: order)
+    #expect(navigation.visibleExerciseID == "incline")
+    #expect(navigation.jumpRevision == 0)
+    navigation.jump(to: "fly", order: order)
+    navigation.jump(to: "fly", order: order)
+    #expect(navigation.jumpRevision == 2)
+    #expect(navigation.jumpExerciseID == "fly")
+}

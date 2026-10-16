@@ -1,3 +1,5 @@
+> **历史 V2。用户现已选定 B。** 最新方向见 [B 细化合同](b-direction.md)、[交付](b-delivery.md) 和 [最新画廊](index.html)。以下保留上一次比较结论。
+
 # V2 紧凑布局交付
 
 **[打开最新布局画廊](index.html)** · 2026-10-16 · my-designer 主导

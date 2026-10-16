@@ -35,9 +35,18 @@ public struct CompactStudioView: View {
                 }.buttonStyle(.plain)
             } else {
                 CompactWorkoutHeader(core: session.core)
-                CompactWorkoutBody(session: session, layout: layout, snapshot: snapshot)
-                CompactStatusLine(session: session)
-                if session.core.editorField != nil { CompactKeyboard(session: session) }
+                if layout == .rail {
+                    CompactRailWorkout(session: session, snapshot: snapshot)
+                        .overlay(alignment: .bottom) {
+                            CompactSnackbar(session: session, snapshot: snapshot)
+                                .padding(.horizontal, 12).padding(.bottom, 10)
+                        }
+                } else {
+                    CompactWorkoutBody(session: session, layout: layout, snapshot: snapshot)
+                    CompactStatusLine(session: session)
+                }
+                if session.core.editorField != nil { CompactKeyboard(session: session, glass: layout == .rail, snapshot: snapshot) }
+                else if layout == .rail { railActions }
                 else { workoutActions }
             }
             Capsule().fill(theme.neutrals.text1).frame(width: 120, height: 4)
@@ -50,12 +59,27 @@ public struct CompactStudioView: View {
             }
         }
     }
+    private var railActions: some View {
+        VStack(spacing: 0) {
+            Button { session.navigation.jump(to: session.core.activeExerciseID, order: session.core.workoutIDs) } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "scope").accessibilityHidden(true)
+                    Text(studioText("compact.actionTarget") + " · " + studioText("exercise.short.\(session.core.activeExerciseID)") + " · " + studioText("set.number") + " " + (session.selectedSetNumber.map(String.init) ?? "—"))
+                    Spacer(minLength: 0)
+                    Text(studioText("compact.locate"))
+                }.font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.neutrals.text2)
+                    .frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
+            }.buttonStyle(.plain).padding(.horizontal, 12)
+            workoutActions.padding(.top, -8).padding(.bottom, 8)
+        }.modifier(CompactGlassSurface(radius: 22, snapshot: snapshot))
+            .padding(.horizontal, 8).padding(.top, 4)
+    }
     private var workoutActions: some View {
         HStack(spacing: 8) {
             CompactTool(title: studioText("compact.more"), symbol: "ellipsis") { session.overlay = .more }
             CompactTool(title: studioText("compact.addSet"), symbol: "plus") { session.addSet() }
             Button { session.completeSelected() } label: {
-                Label(studioText(session.selectedSet?.completed == true ? "set.uncomplete" : "compact.logSet"), systemImage: "checkmark")
+                Label(layout == .rail ? compactSetActionTitle(session: session, editing: false) : studioText(session.selectedSet?.completed == true ? "set.uncomplete" : "compact.logSet"), systemImage: "checkmark")
                     .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 48)
                     .foregroundStyle(theme.primary.onPrimary).background(theme.primary.primary, in: RoundedRectangle(cornerRadius: 8))
             }.buttonStyle(.plain).disabled(session.selectedSet == nil)
@@ -91,20 +115,12 @@ private struct CompactWorkoutBody: View {
     let layout: CompactLayout
     let snapshot: Bool
     var body: some View {
-        if layout == .rail {
-            HStack(spacing: 0) {
-                exerciseRail
-                Divider()
-                activeDetail
-            }
-        } else {
-            ScrollViewReader { proxy in
-                CompactViewport(snapshot: snapshot) { sectionContent }
+        ScrollViewReader { proxy in
+            CompactViewport(snapshot: snapshot) { sectionContent }
                 .scrollIndicators(.hidden)
                 .onChange(of: session.core.editorField != nil) { _, editing in
                     if editing { proxy.scrollTo(session.core.activeExerciseID, anchor: .top) }
                 }
-            }
         }
     }
     @ViewBuilder private var sectionContent: some View {
@@ -137,28 +153,6 @@ private struct CompactWorkoutBody: View {
                 }.buttonStyle(.plain).accessibilityAddTraits(session.core.activeExerciseID == id ? .isSelected : [])
             }
         }.padding(.horizontal, 12)
-    }
-    private var exerciseRail: some View {
-        CompactViewport(snapshot: snapshot) {
-            VStack(spacing: 0) {
-                ForEach(Array(session.core.workoutIDs.enumerated()), id: \.element) { index, id in
-                    Button { session.select(exercise: id) } label: {
-                        VStack(spacing: 4) {
-                            Text(String(index + 1)).font(.caption).foregroundStyle(theme.neutrals.text2)
-                            Text(studioText("exercise.short.\(id)")).font(.caption.weight(.semibold)).multilineTextAlignment(.center)
-                            let sets = session.core.setsByExercise[id] ?? []
-                            Text("\(sets.filter(\.completed).count)/\(sets.count)").font(.caption2).monospacedDigit()
-                        }.frame(width: 64, height: 76)
-                            .background(session.core.activeExerciseID == id ? theme.primary.primarySubtle : .clear)
-                    }.buttonStyle(.plain).accessibilityAddTraits(session.core.activeExerciseID == id ? .isSelected : [])
-                }
-            }
-        }.frame(width: 64).scrollIndicators(.hidden)
-    }
-    private var activeDetail: some View {
-        CompactViewport(snapshot: snapshot) {
-            activeTable
-        }.scrollIndicators(.hidden)
     }
     private var activeTable: some View {
         VStack(spacing: 0) {
@@ -206,7 +200,7 @@ private struct CompactTableHeader: View {
     }
 }
 
-private struct CompactSetRow: View {
+struct CompactSetRow: View {
     @Environment(\.theme) private var theme
     let session: CompactSession
     let exerciseID: String
@@ -238,7 +232,10 @@ private struct CompactSetRow: View {
             }.buttonStyle(.plain).accessibilityLabel(studioText("editor.reps"))
             Button { if session.select(exercise: exerciseID, setID: set.id) { session.completeSelected() } } label: {
                 Image(systemName: set.completed ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20)).foregroundStyle(set.completed ? theme.success : theme.neutrals.text2).frame(width: 44, height: 48)
+                    .symbolRenderingMode(.palette)
+                    .font(.system(size: 20))
+                    .foregroundStyle(set.completed ? Color.black : theme.neutrals.text2, theme.success)
+                    .frame(width: 44, height: 48)
             }.buttonStyle(.plain).accessibilityLabel(studioText(set.completed ? "set.uncomplete" : "set.complete"))
         }.padding(.horizontal, 12).padding(.vertical, 2)
             .background(selected ? theme.primary.primarySubtle : .clear)
@@ -353,6 +350,8 @@ private struct CompactTool: View {
 private struct CompactKeyboard: View {
     @Environment(\.theme) private var theme
     let session: CompactSession
+    var glass = false
+    var snapshot = false
     var body: some View {
         VStack(spacing: 4) {
             HStack(spacing: 6) {
@@ -377,19 +376,31 @@ private struct CompactKeyboard: View {
                 }
             }.frame(height: 188)
             HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(studioText("exercise.short.\(session.core.activeExerciseID)") + " · " + studioText("set.number") + " " + (session.selectedSetNumber.map(String.init) ?? "—"))
-                        .font(.system(size: 11, weight: .semibold)).lineLimit(1)
-                    Text(session.core.editorError ?? session.core.notice ?? studioText("compact.commitHint"))
-                        .font(.system(size: 11)).foregroundStyle(session.core.editorError == nil ? theme.neutrals.text2 : theme.danger).lineLimit(2)
+                Group {
+                    if glass {
+                        Button { session.navigation.jump(to: session.core.activeExerciseID, order: session.core.workoutIDs) } label: { inputContext }
+                            .buttonStyle(.plain).accessibilityLabel(studioText("compact.locateEditor"))
+                    } else { inputContext }
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 Button { session.save(complete: session.selectedSet?.completed != true) } label: {
-                    Label(studioText(session.selectedSet?.completed == true ? "compact.saveEdits" : "compact.saveLog"), systemImage: "checkmark")
+                    Label(glass ? compactSetActionTitle(session: session, editing: true) : studioText(session.selectedSet?.completed == true ? "compact.saveEdits" : "compact.saveLog"), systemImage: "checkmark")
                         .font(.subheadline.weight(.semibold)).frame(minWidth: 124, minHeight: 44)
                         .foregroundStyle(theme.primary.onPrimary).background(theme.primary.primary, in: RoundedRectangle(cornerRadius: 8))
                 }.buttonStyle(.plain).disabled(!session.core.editorCanCommit)
             }.frame(height: 44)
-        }.padding(.horizontal, 8).padding(.top, 6).background(theme.neutrals.card)
+        }.padding(.horizontal, 8).padding(.top, 6)
+            .background(glass ? .clear : theme.neutrals.card)
+            .modifier(CompactGlassSurface(radius: 20, snapshot: snapshot, enabled: glass))
+    }
+    private var inputContext: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 3) {
+                if glass { Image(systemName: "scope").accessibilityHidden(true) }
+                Text((glass ? studioText("compact.editingShort") + " · " : "") + studioText("exercise.short.\(session.core.activeExerciseID)") + " · " + studioText("set.number") + " " + (session.selectedSetNumber.map(String.init) ?? "—"))
+            }.font(.system(size: glass ? 13 : 11, weight: .semibold)).lineLimit(1)
+            Text(session.core.editorError ?? session.core.notice ?? studioText("compact.commitHint"))
+                .font(.system(size: 11)).foregroundStyle(session.core.editorError == nil ? theme.neutrals.text2 : theme.danger).lineLimit(2)
+        }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
     }
     private func field(_ name: String, value: String) -> some View {
         let selected = session.core.editorField == name
@@ -441,6 +452,12 @@ private struct CompactKeyboard: View {
                     Button { session.setRPE(value) } label: {
                         Text(String(value)).font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 44)
                             .background(session.currentRPE == value ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 6))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 6).strokeBorder(session.currentRPE == value ? theme.primary.primaryText : .clear, lineWidth: 1)
+                            }
+                            .overlay(alignment: .topTrailing) {
+                                if session.currentRPE == value { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).padding(4).accessibilityHidden(true) }
+                            }
                     }.buttonStyle(.plain).accessibilityAddTraits(session.currentRPE == value ? .isSelected : [])
                 }
             }
@@ -623,7 +640,7 @@ private struct CompactDrawer: View {
                     }.padding(16)
                 }.scrollIndicators(.hidden)
             }.frame(maxHeight: kind == .more ? 580 : (kind == .filters ? 430 : 350))
-                .background(theme.neutrals.card, in: RoundedRectangle(cornerRadius: 12))
+                .modifier(CompactGlassSurface(radius: 22, snapshot: snapshot))
                 .padding(.horizontal, 8).padding(.bottom, 16)
         }.frame(maxWidth: .infinity, maxHeight: .infinity).accessibilityAddTraits(.isModal)
     }
@@ -633,13 +650,14 @@ private struct CompactDrawer: View {
     private func row(_ key: String, symbol: String, destructive: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: symbol).frame(width: 20).foregroundStyle(destructive ? theme.danger : theme.neutrals.text1).accessibilityHidden(true)
-                Text(studioText(key)).font(.subheadline).foregroundStyle(destructive ? theme.danger : theme.neutrals.text1)
+                Image(systemName: symbol).frame(width: 20).foregroundStyle(destructive ? destructiveColor : theme.neutrals.text1).accessibilityHidden(true)
+                Text(studioText(key)).font(.subheadline).foregroundStyle(destructive ? destructiveColor : theme.neutrals.text1)
                 Spacer()
                 Image(systemName: "chevron.right").font(.caption2).foregroundStyle(theme.neutrals.text2).accessibilityHidden(true)
             }.frame(minHeight: 44).contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
+    private var destructiveColor: Color { theme.isDark ? theme.danger : theme.danger.mix(with: .black, by: 0.2) }
     @ViewBuilder private var more: some View {
         Text(session.core.activeExercise.name + " · " + studioText("set.number") + " " + (session.selectedSetNumber.map(String.init) ?? "—"))
             .font(.caption).foregroundStyle(theme.neutrals.text2)
@@ -690,8 +708,12 @@ private struct CompactDrawer: View {
     }
     private func filterChip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.caption).multilineTextAlignment(.center).frame(maxWidth: .infinity, minHeight: 44)
+            HStack(spacing: 3) {
+                if selected { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).accessibilityHidden(true) }
+                Text(title).font(.caption.weight(selected ? .semibold : .regular)).multilineTextAlignment(.center)
+            }.frame(maxWidth: .infinity, minHeight: 44)
                 .background(selected ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 6))
+                .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(selected ? theme.primary.primaryText : .clear, lineWidth: 1) }
         }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
     }
     private var selection: some View {
@@ -730,12 +752,12 @@ private struct CompactDrawer: View {
     }
 }
 
-#Preview("Compact table") {
-    CompactStudioView(session: CompactSession(), layout: .table)
+#Preview("Compact rail light") {
+    CompactStudioView(session: CompactSession(), layout: .rail)
         .environment(\.theme, Theme(seed: .blue, neutral: .slate, isDark: false)).frame(width: 393, height: 852)
 }
-#Preview("Compact matrix dark") {
-    CompactStudioView(session: CompactSession(), layout: .matrix)
+#Preview("Compact rail dark") {
+    CompactStudioView(session: CompactSession(), layout: .rail)
         .environment(\.theme, Theme(seed: .blue, neutral: .slate, isDark: true)).environment(\.colorScheme, .dark).frame(width: 393, height: 852)
 }
 

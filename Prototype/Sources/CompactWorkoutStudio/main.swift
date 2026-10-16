@@ -5,13 +5,13 @@ import SwiftUI
 
 @MainActor
 struct CompactHost: View {
-    @State private var layout = CompactLayout.matrix
+    @State private var layout = CompactLayout.rail
     @State private var dark = false
     @State private var session = CompactSession()
     var body: some View {
         HStack(alignment: .top, spacing: 24) {
             VStack(alignment: .leading, spacing: 16) {
-                Text("VitalStride V2").font(.title.bold())
+                Text("VitalStride B").font(.title.bold())
                 ForEach(CompactLayout.allCases) { item in Button(item.title) { layout = item } }
                 Toggle(studioText("studio.dark"), isOn: $dark)
                 Divider()
@@ -20,6 +20,7 @@ struct CompactHost: View {
                 Button(studioText("scenario.keyboard")) { session = CompactSession(); session.edit("weight") }
                 Button(studioText("scenario.resting")) { session.core.restEnd = Date().addingTimeInterval(74) }
                 Button(studioText("scenario.undo")) { session.deleteSelected() }
+                Button(studioText("compact.browse")) { session.navigation.jump(to: "incline", order: session.core.workoutIDs) }
                 Text(studioText("studio.demoNote")).font(.caption).foregroundStyle(.secondary)
                 Spacer()
             }.frame(width: 240)
@@ -36,7 +37,7 @@ final class CompactDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow?
     func applicationDidFinishLaunching(_ notification: Notification) {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 705, height: 900), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-        window.title = "VitalStride V2"
+        window.title = "VitalStride B"
         window.contentView = NSHostingView(rootView: CompactHost())
         window.center(); window.makeKeyAndOrderFront(nil); self.window = window
         NSApp.activate(ignoringOtherApps: true)
@@ -45,7 +46,7 @@ final class CompactDelegate: NSObject, NSApplicationDelegate {
 }
 
 @MainActor
-func renderCompact(to path: String) throws {
+func renderCompact(to path: String, chosenB: Bool = false) throws {
     let output = URL(fileURLWithPath: path, isDirectory: true)
     try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
     var count = 0
@@ -59,6 +60,9 @@ func renderCompact(to path: String) throws {
         if state == "rpe" { session.accessory = .rpe; session.setRPE(8) }
         if state == "picker-filter" { session.overlay = .filters }
         if state == "picker-empty" { picker.query = "zzzz"; picker.refresh() }
+        if state == "browse" || state == "keyboard-browse" {
+            session.navigation.jump(to: "incline", order: session.core.workoutIDs)
+        }
         let width: CGFloat = large ? 375 : 393
         let view = CompactStudioView(session: session, layout: layout, snapshot: true, picker: picker)
             .environment(\.theme, Theme(seed: .blue, neutral: .slate, isDark: dark))
@@ -72,22 +76,30 @@ func renderCompact(to path: String) throws {
         try png.write(to: output.appendingPathComponent("\(layout.rawValue)-\(state)-\(dark ? "dark" : "light")\(large ? "-large-narrow" : "").png"))
         count += 1
     }
-    for layout in CompactLayout.allCases {
-        for state in ["normal", "keyboard", "rest", "undo", "keyboard-rest", "keyboard-undo"] {
-            for dark in [false, true] { try render(layout: layout, state: state, dark: dark) }
+    if chosenB {
+        for state in ["normal", "keyboard", "rest", "undo", "keyboard-rest", "keyboard-undo", "rest-undo", "keyboard-rest-undo", "browse", "keyboard-browse", "more", "rpe", "picker", "picker-filter", "picker-empty"] {
+            for dark in [false, true] { try render(layout: .rail, state: state, dark: dark) }
         }
-        for dark in [false, true] { try render(layout: layout, state: "keyboard", dark: dark, large: true) }
-    }
-    for state in ["more", "rpe", "picker", "picker-filter", "picker-empty"] {
-        for dark in [false, true] { try render(layout: .table, state: state, dark: dark) }
+        for dark in [false, true] { try render(layout: .rail, state: "keyboard-rest", dark: dark, large: true) }
+    } else {
+        for layout in CompactLayout.allCases {
+            for state in ["normal", "keyboard", "rest", "undo", "keyboard-rest", "keyboard-undo"] {
+                for dark in [false, true] { try render(layout: layout, state: state, dark: dark) }
+            }
+            for dark in [false, true] { try render(layout: layout, state: "keyboard", dark: dark, large: true) }
+        }
+        for state in ["more", "rpe", "picker", "picker-filter", "picker-empty"] {
+            for dark in [false, true] { try render(layout: .table, state: state, dark: dark) }
+        }
     }
     FileHandle.standardOutput.write(Data("Rendered \(count) compact SwiftUI screens\n".utf8))
 }
 
-if CommandLine.arguments.contains("--render") {
-    let path = CommandLine.arguments.dropFirst(2).first ?? "Prototype/CompactEvidence/shots"
+if CommandLine.arguments.contains("--render") || CommandLine.arguments.contains("--render-b") {
+    let chosenB = CommandLine.arguments.contains("--render-b")
+    let path = CommandLine.arguments.dropFirst(2).first ?? (chosenB ? "Prototype/CompactEvidence/b-shots" : "Prototype/CompactEvidence/shots")
     DispatchQueue.main.async {
-        do { try MainActor.assumeIsolated { try renderCompact(to: path) }; exit(0) }
+        do { try MainActor.assumeIsolated { try renderCompact(to: path, chosenB: chosenB) }; exit(0) }
         catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
     }
     RunLoop.main.run()
