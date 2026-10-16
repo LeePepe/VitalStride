@@ -154,3 +154,89 @@ func keyboardTargetRemainsStableAndCopyAppendsAtTheEnd() {
     #expect(session.setsByExercise["incline"]?.first?.weight == 24)
     #expect(session.activeSets[2].weight == 60)
 }
+
+@Test @MainActor
+func compactEditingTargetsAnySetAndCancelsAllDraftFields() {
+    let session = CompactSession()
+    #expect(session.select(exercise: "bench", setID: 4))
+    session.edit("weight")
+    session.core.pressEditorKey("7")
+    session.core.pressEditorKey("0")
+    session.setRPE(9); session.setKind("warmup")
+    session.discardDraft()
+    #expect(session.core.activeSets[3].weight == 60)
+    #expect(session.core.activeSets[3].kind == "working")
+    #expect(session.currentRPE == nil)
+    session.edit("weight")
+    session.core.pressEditorKey("7"); session.core.pressEditorKey("0")
+    session.setRPE(8); session.setKind("warmup")
+    session.save()
+    #expect(session.core.activeSets[3].weight == 70)
+    #expect(session.core.activeSets[2].weight == 60)
+    #expect(session.currentRPE == 8)
+    #expect(session.core.activeSets[3].kind == "warmup")
+    #expect(!session.core.activeSets[3].completed)
+}
+
+@Test @MainActor
+func compactInvalidDraftKeepsTargetAndValidSwitchSavesWithoutLogging() {
+    let session = CompactSession()
+    session.edit("reps"); session.core.pressEditorKey("0")
+    #expect(!session.select(exercise: "incline"))
+    #expect(session.core.activeExerciseID == "bench")
+    session.core.pressEditorKey("delete"); session.core.pressEditorKey("8")
+    #expect(session.select(exercise: "incline"))
+    #expect(session.core.setsByExercise["bench"]?[2].reps == 8)
+    #expect(session.core.setsByExercise["bench"]?[2].completed == false)
+    #expect(session.core.restEnd == nil)
+    #expect(!session.select(exercise: "incline", setID: 999))
+}
+
+@Test @MainActor
+func compactPickerCachesSectionsAcrossSelectionAndReturnsInChosenOrder() {
+    let model = CompactPickerModel()
+    let session = CompactSession(picker: true)
+    let initial = model.generation
+    session.core.toggleSelection("fly"); session.core.toggleSelection("bench")
+    model.refresh()
+    #expect(model.generation == initial)
+    model.muscle = "chest"; model.query = "dumbbell"; model.refresh()
+    #expect(model.sections.flatMap(\.items).map(\.id) == ["incline"])
+    session.core.toggleSelection("incline")
+    model.reset()
+    #expect(session.core.selectedIDs == ["fly", "bench", "incline"])
+    #expect(model.resultCount == StudioExercise.fixtures.count)
+}
+
+@Test @MainActor
+func compactTrainingActionsKeepVisibleNumberAndCompletionIntent() {
+    let session = CompactSession()
+    session.select(exercise: "bench", setID: 2)
+    session.edit("reps"); session.core.pressEditorKey("9")
+    session.completeSelected()
+    #expect(session.selectedSet?.completed == false)
+    #expect(session.selectedSet?.reps == 9)
+    session.completeSelected()
+    #expect(session.core.activeSets[1].completed)
+    let rest = session.core.restEnd
+    session.addSet()
+    #expect(session.selectedSetNumber == 5)
+    let addedID = session.selectedSetID
+    session.deleteSelected()
+    #expect(session.core.activeSets.count == 4)
+    session.core.undoDelete()
+    #expect(session.core.activeSets.last?.id == addedID)
+    #expect(session.core.restEnd == rest)
+    session.select(exercise: "bench", setID: addedID)
+    session.edit("weight"); session.core.pressEditorKey("7"); session.core.pressEditorKey("5")
+    session.showPicker()
+    #expect(session.core.activeSets.last?.weight == 75)
+    #expect(session.core.screen == .picker)
+    session.core.confirmSelection()
+    session.edit("reps"); session.core.pressEditorKey("8")
+    session.finish()
+    #expect(session.core.activeSets.last?.reps == 8)
+    #expect(session.core.isFinished)
+    #expect(session.core.restEnd == nil)
+    #expect(session.core.editorField == nil)
+}

@@ -231,8 +231,9 @@ public final class StudioSession {
         self.restEnd = max(Date(), restEnd.addingTimeInterval(seconds))
         restTotal = max(restTotal, self.restEnd?.timeIntervalSinceNow ?? 0)
     }
-    public func beginEditing(_ field: String) {
-        guard let currentSet else { return }
+    public func beginEditing(_ field: String, setID: Int? = nil) {
+        let target = setID.flatMap { id in activeSets.first { $0.id == id } } ?? (setID == nil ? currentSet : nil)
+        guard let currentSet = target else { return }
         notice = nil
         editorExerciseID = activeExerciseID
         editorSetID = currentSet.id

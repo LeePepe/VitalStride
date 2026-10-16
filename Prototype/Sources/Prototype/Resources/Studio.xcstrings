@@ -2870,6 +2870,902 @@
           }
         }
       }
+    },
+    "compact.layout.table": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A · 当前动作表格"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A · Active exercise table"
+          }
+        }
+      }
+    },
+    "compact.layout.rail": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "B · 侧栏工作台"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "B · Side rail workspace"
+          }
+        }
+      }
+    },
+    "compact.layout.matrix": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C · 全计划组矩阵"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C · Full plan set matrix"
+          }
+        }
+      }
+    },
+    "compact.finished": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "演示训练已结束"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo workout finished"
+          }
+        }
+      }
+    },
+    "compact.back": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "返回训练"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to workout"
+          }
+        }
+      }
+    },
+    "compact.more": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更多"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More"
+          }
+        }
+      }
+    },
+    "compact.addSet": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加组"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add set"
+          }
+        }
+      }
+    },
+    "compact.logSet": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成这一组"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log this set"
+          }
+        }
+      }
+    },
+    "compact.inProgress": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "训练中"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In progress"
+          }
+        }
+      }
+    },
+    "compact.plan": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其他动作"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other exercises"
+          }
+        }
+      }
+    },
+    "compact.tapSwitch": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点按切换，保留本组"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to switch, keep this set"
+          }
+        }
+      }
+    },
+    "compact.quickGuide": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作分工"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controls"
+          }
+        }
+      }
+    },
+    "compact.quickGuideBody": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点数字编辑；点勾记组。更多管理组、动作和训练；键盘辅助键修改输入。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap values to edit; tap the check to log. More manages sets, exercises and the workout; keyboard tools refine input."
+          }
+        }
+      }
+    },
+    "compact.historyDemo": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上次记录为演示值 · 当前组可直接编辑"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous values are demo data · Tap the selected set to edit"
+          }
+        }
+      }
+    },
+    "compact.previous": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上次"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous"
+          }
+        }
+      }
+    },
+    "compact.state": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "compact.warmupShort": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "热身"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warm"
+          }
+        }
+      }
+    },
+    "compact.workingShort": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正式"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Work"
+          }
+        }
+      }
+    },
+    "compact.deleted": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已删除一组"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set deleted"
+          }
+        }
+      }
+    },
+    "compact.selected": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前组"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected set"
+          }
+        }
+      }
+    },
+    "compact.rpe": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE"
+          }
+        }
+      }
+    },
+    "compact.copy": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制下组"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy next"
+          }
+        }
+      }
+    },
+    "compact.type": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "组类型"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set type"
+          }
+        }
+      }
+    },
+    "compact.draftHint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "草稿 · 收起保存\n记组后开始休息"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Draft · Dismiss saves\nLogging starts rest"
+          }
+        }
+      }
+    },
+    "compact.saveLog": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存并记组"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save & log"
+          }
+        }
+      }
+    },
+    "compact.rpeTitle": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前组 RPE · 6 轻松 / 10 极限"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set RPE · 6 easy / 10 maximum"
+          }
+        }
+      }
+    },
+    "compact.unset": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不设置"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unset"
+          }
+        }
+      }
+    },
+    "compact.backDigits": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "返回数字"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to digits"
+          }
+        }
+      }
+    },
+    "compact.accessoryHint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "随重量、次数一起保存；放弃草稿会恢复。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved with weight and reps; discarding restores the original."
+          }
+        }
+      }
+    },
+    "compact.advanced": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "单侧 / 子组 / 其他"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unilateral / sub-sets / other"
+          }
+        }
+      }
+    },
+    "compact.filter": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "筛选"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filter"
+          }
+        }
+      }
+    },
+    "compact.selectedCount": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected"
+          }
+        }
+      }
+    },
+    "compact.addSelected": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
+          }
+        }
+      }
+    },
+    "compact.noResults": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有匹配动作"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No matching exercises"
+          }
+        }
+      }
+    },
+    "compact.keepSearching": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下方继续搜索，或清除筛选。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep searching below, or clear the filters."
+          }
+        }
+      }
+    },
+    "compact.drawer.more": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更多 · 按操作范围分组"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More · Grouped by scope"
+          }
+        }
+      }
+    },
+    "compact.drawer.filters": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "筛选动作"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filter exercises"
+          }
+        }
+      }
+    },
+    "compact.drawer.selection": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选动作 · 按选择顺序"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected · In selection order"
+          }
+        }
+      }
+    },
+    "compact.drawer.finish": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "结束这次训练？"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish this workout?"
+          }
+        }
+      }
+    },
+    "compact.drawer.advanced": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "扩展输入 · 功能位置"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extended input · Placement"
+          }
+        }
+      }
+    },
+    "compact.scope.set": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前组"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected set"
+          }
+        }
+      }
+    },
+    "compact.scope.exercise": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前动作"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected exercise"
+          }
+        }
+      }
+    },
+    "compact.scope.workout": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "整次训练"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entire workout"
+          }
+        }
+      }
+    },
+    "compact.replaceExercise": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "替换当前动作"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace selected exercise"
+          }
+        }
+      }
+    },
+    "compact.addExercise": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加动作"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add exercises"
+          }
+        }
+      }
+    },
+    "compact.muscle": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "肌群"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muscle"
+          }
+        }
+      }
+    },
+    "compact.equipment": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "器械"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Equipment"
+          }
+        }
+      }
+    },
+    "compact.applyFilter": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看结果"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show results"
+          }
+        }
+      }
+    },
+    "compact.noneSelected": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有选择动作"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No exercises selected"
+          }
+        }
+      }
+    },
+    "compact.finishHint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入草稿有效时才可结束；结束和记组是两个操作。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A valid draft is required to finish; finishing and logging are separate actions."
+          }
+        }
+      }
+    },
+    "compact.advancedIntro": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入扩展归键盘，动作管理归更多。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input extensions belong to the keyboard; exercise management belongs to More."
+          }
+        }
+      }
+    },
+    "compact.advancedBody": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "单侧重量：重量字段旁切换左 / 右。\n递增、递减子组：组类型面板继续展开。\nAI 替代、排序、删除动作：当前动作菜单。\n结束、放弃训练：训练管理并二次确认。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unilateral weight: left / right beside the weight field.\nAscending / drop sub-sets: expand the set type panel.\nAI replacement, reorder and delete: selected exercise menu.\nFinish or discard: workout management with confirmation."
+          }
+        }
+      }
+    },
+    "compact.advancedBoundary": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "功能位置说明：生产已有的高级能力尚未接入此布局原型；RPE、热身 / 正式类型已可操作。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Placement guide: existing production advanced capabilities are not connected to this layout prototype. RPE and warm-up / working type are interactive."
+          }
+        }
+      }
+    },
+    "compact.saveEdits": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存修改"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save changes"
+          }
+        }
+      }
+    },
+    "compact.commitHint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss saves · Logging starts rest"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收起保存 · 记组后休息"
+          }
+        }
+      }
+    },
+    "compact.finishPrompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish workout…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "结束训练…"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

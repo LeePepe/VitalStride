@@ -1,4 +1,6 @@
-# 动作选择 + 训练页设计交付
+# 动作选择 + 训练页设计交付（历史）
+
+> 此轮布局已退出选型。请先看 [最新 V2：紧凑布局](../CompactEvidence/index.html) 与 [V2 交付说明](../CompactEvidence/delivery.md)。主题色另行设计，旧评分不适用于 V2。
 
 **[动作选择与训练画廊 →](index.html)** · **[配套键盘画廊 →](keyboard.html)** · 2026-10-16 · my-designer 主导
 

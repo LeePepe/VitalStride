@@ -22,6 +22,7 @@ let package = Package(
         .executable(name: "PrototypeShotExporter", targets: ["PrototypeShotExporter"]),
         .executable(name: "WorkoutListShotExporter", targets: ["WorkoutListShotExporter"]),
         .executable(name: "WorkoutDesignStudio", targets: ["WorkoutDesignStudio"]),
+        .executable(name: "CompactWorkoutStudio", targets: ["CompactWorkoutStudio"]),
     ],
     dependencies: [
         .package(path: "../Packages/DesignKit"),
@@ -45,6 +46,11 @@ let package = Package(
         ),
         .executableTarget(
             name: "WorkoutDesignStudio",
+            dependencies: ["Prototype", .product(name: "DesignKit", package: "DesignKit")],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .executableTarget(
+            name: "CompactWorkoutStudio",
             dependencies: ["Prototype", .product(name: "DesignKit", package: "DesignKit")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
