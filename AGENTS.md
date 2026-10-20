@@ -102,10 +102,12 @@ xcodegen generate
 
 ## TestFlight 发布
 
-合并到 main → push 直接触发 `.github/workflows/testflight.yml`，在 self-hosted runner
-`vitalstride-mac` 上构建该 push 的 `github.sha` 并上传 TestFlight（内部测试），不等待 main CI。
-发布门检查 `testflight/last-released..candidate` 的累积相关改动。用户明确要求后，也可通过
-Actions → testflight → Run workflow 手动构建 main；`force=true` 忽略"无新提交"与路径相关性检查。
+`.github/workflows/testflight.yml` 每 12 小时运行一次（Asia/Shanghai 02:47、14:47；UTC cron
+`47 6,18 * * *`），在 self-hosted runner `vitalstride-mac` 上构建并上传 TestFlight（内部测试）。
+定时与手动入口均只接受 main，checkout main 后捕获一次 HEAD 作为 candidate，不等待 main CI；
+合并本身不触发发布。发布门检查 `testflight/last-released..candidate` 的累积相关改动。
+也可通过 Actions → testflight → Run workflow 手动构建 main；`force=true` 忽略"无新提交"与
+路径相关性检查。GitHub 定时任务可能延迟启动。
 
 - **发布点记录**：moving tag `testflight/last-released`（累积式；build 失败/关机期间不丢 commit）。
 - **签名**：project.yml 保持 Automatic + `DEVELOPMENT_TEAM 4Z8GG667QD`；archive 用

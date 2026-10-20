@@ -16,11 +16,14 @@
                                       ▼
                             PR Manager 用 GitHub App 身份合并 + 删分支
                                       ▼
-                            push main → TestFlight 构建 + 发布
+                            main 等待下次定时或手动 TestFlight 构建 + 发布
 ```
 
 不使用 `GITHUB_TOKEN` auto-merge：该身份造成的 push 不触发后续 workflows。
-PR CI 验证待合入版本；合并到 main 后直接进入 CD，不等待第二次 main CI。
+PR CI 验证待合入版本；TestFlight 每 12 小时运行一次（Asia/Shanghai 02:47、14:47；
+UTC cron `47 6,18 * * *`），也支持手动 Run workflow。两个入口均只接受 main，checkout main
+后捕获 HEAD，按 `testflight/last-released..candidate` 的累积相关改动决定是否发布，不等待
+第二次 main CI。合并本身不触发发布；GitHub 定时任务可能延迟启动。
 
 ## 门层
 

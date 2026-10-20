@@ -1,6 +1,11 @@
 """Guard TestFlight triggers, exact candidate capture, marker-range eligibility, and failure boundaries without building or uploading."""
 from pathlib import Path
+import contextlib
+import io
+import os
 import re
+import subprocess
+import tempfile
 import textwrap
 import types
 import unittest
@@ -17,14 +22,18 @@ FASTFILE = ROOT / "fastlane/Fastfile"
 PROJECT_YML = ROOT / "project.yml"
 
 
-def load_production_classifier():
-    """Compile the shipped endpoint and raw-diff classifier from the workflow."""
+def production_gate():
+    """Read the actual embedded release gate, without any build/upload steps."""
     workflow_text = WORKFLOW.read_text(encoding="utf-8")
     gate_body = workflow_text.split("python3 - <<'PY_GATE'\n", 1)[1].split("\n          PY_GATE", 1)[0]
-    dedented_body = textwrap.dedent(gate_body)
+    return textwrap.dedent(gate_body)
+
+
+def load_production_classifier():
+    """Compile the shipped endpoint and raw-diff classifier from the workflow."""
     classifier_code = (
         "def is_endpoint_relevant"
-        + dedented_body.split("def is_endpoint_relevant", 1)[1].split("\n# Capture Candidate", 1)[0]
+        + production_gate().split("def is_endpoint_relevant", 1)[1].split("\n# Capture Candidate", 1)[0]
     )
 
     module = types.ModuleType("production_testflight_gate")
@@ -75,7 +84,7 @@ def classify_raw(records: list[tuple[str, ...]]) -> tuple[bool, list[str]]:
 
 
 class TestFlightRegressionContractTests(unittest.TestCase):
-    """Proves the 8 points of the v3 TestFlight regression contract."""
+    """Preserve the release contract with schedule/manual source admission."""
 
     def setUp(self):
         self.workflow = WORKFLOW.read_text(encoding="utf-8")
@@ -83,29 +92,28 @@ class TestFlightRegressionContractTests(unittest.TestCase):
         self.release = self.workflow.split("\n  release:\n", 1)[1]
         self.gate_step = self.workflow.split("- name: Decide whether to release\n", 1)[1].split("\n      - name:", 1)[0]
 
-    # 1. exact automatic push/event/branch guards, manual force compatibility, and one captured candidate;
+    # 1. exact schedule/manual/main guards, manual force compatibility, and one captured candidate;
     def test_item_1_exact_automatic_guards_and_captured_candidate(self):
-        self.assertEqual(re.findall(r"^  ([a-z_]+):", self.triggers, re.M), ["push", "workflow_dispatch"])
-        self.assertIn("push:", self.triggers)
-        self.assertIn("branches: [main]", self.triggers)
+        self.assertEqual(re.findall(r"^  ([a-z_]+):", self.triggers, re.M), ["schedule", "workflow_dispatch"])
+        self.assertEqual(re.findall(r"cron: '([^']+)'", self.triggers), ["47 6,18 * * *"])
         self.assertIn("workflow_dispatch:", self.triggers)
         self.assertIn("force:", self.triggers)
 
-        self.assertIn("github.event_name == 'push' && github.ref == 'refs/heads/main'", self.release)
-        self.assertIn("github.event_name == 'workflow_dispatch' ||", self.release)
-        self.assertNotIn("workflow_run", self.workflow)
-
-        # Automatic checkout uses the pushed SHA; manual checkout stays pinned to main.
         self.assertIn(
-            "ref: ${{ github.event_name == 'push' && github.sha || 'main' }}",
+            "(github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&\n"
+            "      github.ref == 'refs/heads/main'",
             self.release,
         )
+        self.assertNotIn("workflow_run", self.workflow)
 
-        # Candidate is captured from the push SHA.
-        self.assertIn("PUSH_SHA: ${{ github.sha }}", self.gate_step)
-        self.assertIn("candidate = push_sha", self.gate_step)
-        self.assertIn("PUSH_REF: ${{ github.ref }}", self.gate_step)
-        self.assertIn('if push_ref != "refs/heads/main":', self.gate_step)
+        # Both sources checkout main once and capture that snapshot, not the event SHA.
+        self.assertEqual(re.findall(r"(?m)^\s+ref: (.+)$", self.release), ["main"])
+        self.assertEqual(
+            self.gate_step.count('subprocess.check_output(["git", "rev-parse", "HEAD"], text=True)'),
+            1,
+        )
+        self.assertNotIn("github.sha", self.gate_step)
+        self.assertIn("SOURCE_REF: ${{ github.ref }}", self.gate_step)
         self.assertIn("FORCE_INPUT: ${{ github.event.inputs.force }}", self.gate_step)
 
     # 2. marker resolution and literal marker..candidate range;
@@ -238,6 +246,9 @@ class TestFlightRegressionContractTests(unittest.TestCase):
         self.assertIn("- name: Move last-released tag", workflow_after_lane)
 
         tag_step = workflow_after_lane.split("- name: Move last-released tag\n", 1)[1]
+        self.assertIn("if: steps.gate.outputs.release == 'true'", tag_step)
+        self.assertNotIn("always()", tag_step)
+        self.assertNotIn("continue-on-error", lane_step)
         self.assertIn('SHA="${{ steps.gate.outputs.candidate }}"', tag_step)
         self.assertIn('git tag -f testflight/last-released "$SHA"', tag_step)
         self.assertIn('git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"', tag_step)
@@ -265,6 +276,128 @@ class TestFlightRegressionContractTests(unittest.TestCase):
             "testflight/recovery",
         ]:
             self.assertNotIn(forbidden, self.workflow)
+
+
+class TestFlightGateExecutionTests(unittest.TestCase):
+    """Execute the embedded gate with controlled Git responses; never upload or mutate tags."""
+
+    head = "c" * 40
+    marker = "b" * 40
+
+    def run_gate(self, *, event="schedule", ref="refs/heads/main", marker=None,
+                 marker_state="valid", records=(), force="false", fail_command=None):
+        marker = self.marker if marker is None else marker
+        calls = []
+
+        def git_run(args, **kwargs):
+            calls.append(args)
+            if args == ["git", "fetch", "--tags", "origin"]:
+                return subprocess.CompletedProcess(args, 0)
+            if args == ["git", "rev-parse", "-q", "--verify", "refs/tags/testflight/last-released"]:
+                return subprocess.CompletedProcess(args, int(marker_state == "missing"), marker + "\n")
+            if args == ["git", "rev-parse", "--verify", f"{marker}^{{commit}}"]:
+                return subprocess.CompletedProcess(args, int(marker_state == "noncommit"))
+            if args == ["git", "merge-base", "--is-ancestor", marker, self.head]:
+                return subprocess.CompletedProcess(args, int(marker_state == "nonancestor"))
+            diff_args = ["git", "diff-tree", "-r", "-z", "--no-commit-id", "-C", "-C",
+                         "--find-copies-harder", marker, self.head]
+            if args == diff_args or args == ["git", "checkout", self.head]:
+                if args[1] == fail_command:
+                    raise subprocess.CalledProcessError(1, args)
+                return subprocess.CompletedProcess(args, 0, raw_diff(records))
+            raise AssertionError(f"Unexpected Git command: {args}")
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "output"
+            summary = Path(directory) / "summary"
+            env = {"EVENT_NAME": event, "SOURCE_REF": ref, "FORCE_INPUT": force,
+                   "GITHUB_SHA": "a" * 40, "GITHUB_OUTPUT": str(output),
+                   "GITHUB_STEP_SUMMARY": str(summary)}
+            with mock.patch.dict(os.environ, env, clear=True), \
+                    mock.patch("subprocess.run", side_effect=git_run), \
+                    mock.patch("subprocess.check_output", return_value=self.head + "\n") as capture, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                try:
+                    exec(compile(production_gate(), str(WORKFLOW), "exec"), {})
+                    status = 0
+                except SystemExit as error:
+                    status = error.code
+                except subprocess.CalledProcessError:
+                    status = 1
+            outputs = dict(line.split("=", 1) for line in output.read_text().splitlines()) if output.exists() else {}
+            summary_text = summary.read_text() if summary.exists() else ""
+        return status, outputs, calls, capture.call_args_list, summary_text
+
+    def test_schedule_and_manual_capture_checkout_head_and_reuse_candidate(self):
+        for event, source in [("schedule", "automatic-schedule"), ("workflow_dispatch", "manual")]:
+            with self.subTest(event=event):
+                status, outputs, calls, captures, summary = self.run_gate(
+                    event=event, records=[("M", "VitalStride/Sources/App.swift")])
+                self.assertEqual(status, 0)
+                self.assertEqual(outputs, {"release": "true", "reason": "eligible",
+                                           "candidate": self.head, "source": source})
+                self.assertEqual(captures, [mock.call(["git", "rev-parse", "HEAD"], text=True)])
+                self.assertIn(["git", "checkout", self.head], calls)
+                self.assertIn(f"- **Candidate**: `{self.head}`", summary)
+
+    def test_rejected_events_and_non_main_refs_do_not_read_git_or_release(self):
+        cases = [(event, "refs/heads/main", "unsupported-event")
+                 for event in ("push", "workflow_run", "pull_request", "pull_request_target", "unexpected")]
+        cases += [(event, ref, "unsupported-source-event")
+                  for event in ("schedule", "workflow_dispatch")
+                  for ref in ("refs/heads/feature", "refs/tags/main", "")]
+        for event, ref, reason in cases:
+            with self.subTest(event=event, ref=ref):
+                status, outputs, calls, captures, _ = self.run_gate(event=event, ref=ref, force="true")
+                self.assertEqual(status, 0)
+                self.assertEqual(outputs, {"release": "false", "reason": reason, "candidate": "none"})
+                self.assertEqual(calls, [])
+                self.assertEqual(captures, [])
+
+    def test_same_marker_skips_and_schedule_cannot_force(self):
+        for event, force in [("schedule", "false"), ("schedule", "true"), ("workflow_dispatch", "false")]:
+            with self.subTest(event=event, force=force):
+                status, outputs, calls, _, _ = self.run_gate(event=event, marker=self.head, force=force)
+                self.assertEqual(status, 0)
+                self.assertEqual(outputs["release"], "false")
+                self.assertEqual(outputs["reason"], "already-covered")
+                self.assertFalse(any(cmd[1] in ("diff-tree", "checkout") for cmd in calls))
+
+    def test_irrelevant_cumulative_range_skips(self):
+        status, outputs, calls, _, _ = self.run_gate(records=[("M", "docs/a.md")], force="true")
+        self.assertEqual(status, 0)
+        self.assertEqual(outputs["reason"], "path-ineligible")
+        self.assertEqual(outputs["release"], "false")
+        self.assertFalse(any(cmd[1] == "checkout" for cmd in calls))
+
+    def test_manual_force_releases_equal_or_irrelevant_candidate(self):
+        for marker in (self.head, self.marker):
+            with self.subTest(marker=marker):
+                status, outputs, calls, _, _ = self.run_gate(
+                    event="workflow_dispatch", marker=marker, force="true", records=[("M", "docs/a.md")])
+                self.assertEqual(status, 0)
+                self.assertEqual(outputs["release"], "true")
+                self.assertEqual(outputs["reason"], "force")
+                self.assertIn(["git", "checkout", self.head], calls)
+                self.assertFalse(any(cmd[1] == "diff-tree" for cmd in calls))
+
+    def test_missing_noncommit_or_nonancestor_marker_fails_even_under_manual_force(self):
+        for state in ("missing", "noncommit", "nonancestor"):
+            for event, force in [("schedule", "false"), ("workflow_dispatch", "true")]:
+                with self.subTest(state=state, event=event):
+                    status, outputs, calls, _, _ = self.run_gate(
+                        marker_state=state, event=event, force=force)
+                    self.assertEqual(status, 1)
+                    self.assertEqual(outputs["release"], "false")
+                    self.assertEqual(outputs["reason"], "marker-missing" if state == "missing" else "marker-invalid")
+                    self.assertFalse(any(cmd[1] in ("diff-tree", "checkout") for cmd in calls))
+
+    def test_diff_or_candidate_checkout_failure_fails_the_gate(self):
+        for command in ("diff-tree", "checkout"):
+            with self.subTest(command=command):
+                status, _, _, _, _ = self.run_gate(
+                    records=[("M", "VitalStride/Sources/App.swift")], fail_command=command)
+                self.assertEqual(status, 1)
 
 
 if __name__ == "__main__":
