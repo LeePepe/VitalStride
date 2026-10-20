@@ -1,5 +1,12 @@
 # Feature Specification: Minimal automatic TestFlight release after main CI
 
+> **Historical supersession — 2026-10-20:** The approved twice-daily cadence replaces this
+> specification's `workflow_run` / no-schedule source policy: TestFlight now uses schedule
+> `47 6,18 * * *` (02:47 / 14:47 Asia/Shanghai) plus manual dispatch, main only, capturing
+> the checked-out main HEAD as candidate. See [AGENTS.md](../../AGENTS.md#testflight-发布)
+> for current operation. The remaining text records historical planning; this notice does
+> not claim that its planned implementation was shipped or alter other release boundaries.
+
 **Planning version**: v3
 **Target**: VitalStride `main`
 **Product base**: `a6e31c6f44797fd95ebe50b96fe2310a3e52d789`
