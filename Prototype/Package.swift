@@ -15,11 +15,14 @@ import PackageDescription
 
 let package = Package(
     name: "Prototype",
+    defaultLocalization: "en",
     platforms: [.iOS(.v18), .macOS(.v15)],
     products: [
         .library(name: "Prototype", targets: ["Prototype"]),
         .executable(name: "PrototypeShotExporter", targets: ["PrototypeShotExporter"]),
         .executable(name: "WorkoutListShotExporter", targets: ["WorkoutListShotExporter"]),
+        .executable(name: "WorkoutDesignStudio", targets: ["WorkoutDesignStudio"]),
+        .executable(name: "CompactWorkoutStudio", targets: ["CompactWorkoutStudio"]),
     ],
     dependencies: [
         .package(path: "../Packages/DesignKit"),
@@ -30,6 +33,7 @@ let package = Package(
             dependencies: [
                 .product(name: "DesignKit", package: "DesignKit"),
             ],
+            resources: [.process("Resources")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .executableTarget(
@@ -38,6 +42,21 @@ let package = Package(
                 "Prototype",
                 .product(name: "DesignKit", package: "DesignKit"),
             ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .executableTarget(
+            name: "WorkoutDesignStudio",
+            dependencies: ["Prototype", .product(name: "DesignKit", package: "DesignKit")],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .executableTarget(
+            name: "CompactWorkoutStudio",
+            dependencies: ["Prototype", .product(name: "DesignKit", package: "DesignKit")],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "WorkoutDesignJourneyTests",
+            dependencies: ["Prototype"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .executableTarget(

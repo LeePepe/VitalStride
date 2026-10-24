@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VitalStride · 配套键盘 9 种组合</title>
+<style>
+:root{color-scheme:light;--bg:#f5f5f2;--card:#fff;--ink:#1c2024;--muted:#60646c;--line:#dddeda;--accent:#087c70}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}main{max-width:1440px;margin:auto;padding:40px 32px 80px}a{color:var(--accent);text-underline-offset:4px}header{display:grid;grid-template-columns:1.5fr 1fr;gap:40px;padding:24px 0 32px;border-bottom:1px solid var(--line)}h1{font-size:clamp(32px,4vw,56px);line-height:1.2;letter-spacing:-1.5px;margin:12px 0 24px}h2{font-size:28px;letter-spacing:-.6px;margin-top:40px}h3{font-size:18px;margin:0 0 8px}p{color:var(--muted);max-width:760px}.eyebrow{font-size:12px;letter-spacing:2px;color:var(--muted)}.note,.choice{border:1px solid var(--line);border-radius:16px;padding:24px;background:var(--card)}.choices{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.choice p{font-size:14px;margin-bottom:0}.badge{display:inline-block;border-radius:20px;background:#d8eeea;color:#075e54;padding:4px 12px;font-size:12px;font-weight:600}.controls{position:sticky;top:0;z-index:2;background:var(--bg);display:flex;gap:20px;flex-wrap:wrap;padding:16px 0;border-bottom:1px solid var(--line)}fieldset{display:flex;align-items:center;gap:6px;border:0;margin:0;padding:0}legend{float:left;margin-right:8px;color:var(--muted);font-size:13px}button{font:inherit;cursor:pointer;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);padding:8px 16px}button[aria-pressed=true]{background:var(--ink);color:var(--card);border-color:var(--ink)}button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:4px}.matrix{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:28px}figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}figcaption{padding:16px 20px;border-bottom:1px solid var(--line)}figcaption p{font-size:13px;margin:4px 0 0}figure img{display:block;width:100%;height:auto}.single figure img{max-width:393px;margin:auto}.states{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}.states figcaption{font-size:13px;padding:12px}.links{display:flex;gap:20px;flex-wrap:wrap}code{font-size:13px;overflow-wrap:anywhere}footer{margin-top:48px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+@media(max-width:1000px){header{grid-template-columns:1fr}.matrix{grid-template-columns:repeat(2,1fr)}.states{grid-template-columns:repeat(3,1fr)}}@media(max-width:650px){main{padding:24px 16px}.choices,.matrix{grid-template-columns:1fr}.states{grid-template-columns:repeat(2,1fr)}fieldset{flex-wrap:wrap}.controls{gap:12px}}
+</style>
+<main>
+<section class="note"><strong>历史键盘方案 · 已退出布局选型</strong><p>最新 V2 将 More、RPE、组类型与训练布局一同设计，主题色另行比较。</p><a href="../CompactEvidence/index.html">打开最新紧凑布局与配套键盘 →</a></section>
+<a href="index.html">← 返回动作选择与训练页</a>
+<header>
+<div><div class="eyebrow">VITALSTRIDE / WORKOUT KEYBOARD</div><h1>填好这一组。<br>拇指就能继续。</h1><p>键盘新增 3 种风格 × 3 种布局，共 9 种组合。每一种同时比较重量输入和次数输入，并提供浅色与深色。原动作选择页、训练页仍各有 9 种组合。</p><div class="links"><a href="#explore">比较九种键盘 ↓</a><a href="#states">休息 / 撤销 / 输入校验</a></div></div>
+<aside class="note"><span class="badge">默认建议 S1 青蓝 × K1 全宽数字</span><h3 style="margin-top:16px">数字键足够大，下一步明确。</h3><p>健身房单手输入可重点看 K2 拇指侧栏；熟练记录可看 K3 连续记组。K3 的主按钮会保存并记组，其余布局的主按钮只推进输入；顶部收起键始终保存、不记组。</p><p style="font-size:13px">原生 SwiftUI / DesignKit · 演示数据 · macOS ImageRenderer 手机尺寸图。尚未接入生产 UIKit 键盘，未声称 iOS 或性能验收通过。</p></aside>
+</header>
+<h2>同样三种风格，三种键盘结构</h2>
+<div class="choices">
+<article class="choice"><h3>K1 · 全宽数字</h3><p>全宽数字键、字段切换、重量 → 次数 → 保存。大键面与熟悉的数字顺序，适合默认输入。</p></article>
+<article class="choice"><h3>K2 · 拇指侧栏</h3><p>靠惯用手的数字区，侧栏放 ±2.5kg / ±1、上次、复制；可左右手镜像，数字顺序保持不变。</p></article>
+<article class="choice"><h3>K3 · 连续记组</h3><p>8 / 10 / 12 次快捷预设、复制下一组、明确的保存并记组。多一行预设，适合重复训练。</p></article>
+</div>
+<section id="explore"><h2>九种组合，分别看重量和次数</h2><p>青蓝 / 石墨 / 暖色沿用页面设计。键盘预览依次配 L1 / L2 / L3 训练布局；编辑时统一压缩为当前组上下文，确保数字区上方能看见正在修改的组。工作室中两条布局轴可独立切换。</p>
+<div class="controls">
+<fieldset id="mode"><legend>主题</legend><button data-value="light" aria-pressed="true">浅色</button><button data-value="dark" aria-pressed="false">深色</button></fieldset>
+<fieldset id="field"><legend>输入</legend><button data-value="pair" aria-pressed="true">重量 + 次数</button><button data-value="weight" aria-pressed="false">重量</button><button data-value="reps" aria-pressed="false">次数</button></fieldset>
+<fieldset id="style"><legend>风格</legend><button data-value="all" aria-pressed="true">全部</button><button data-value="tide" aria-pressed="false">S1 青蓝</button><button data-value="graphite" aria-pressed="false">S2 石墨</button><button data-value="ember" aria-pressed="false">S3 暖色</button></fieldset>
+</div><div class="matrix" id="matrix"></div></section>
+<section id="states"><h2>键盘出现时，也能看见训练状态</h2><p>休息压成一行并保留调整；删除后只展示撤销，休息仍按结束时间继续。次数为零会阻止提交；次数模式小数键不可用。375pt 大字图用于检查回退布局，不等于 iOS 实际字体放大验收。</p><div class="states" id="stateGrid"></div></section>
+<h2>交互与交付说明</h2><p>运行 <code>swift run --package-path Prototype WorkoutDesignStudio</code>，选择“数字输入”场景，再切换“配套训练键盘”。可以输入、换字段、调整、选预设、复制及记组。K2 的双向箭头切换惯用手；“工具”入口打开输入工具，首项可放弃本组草稿。</p>
+<p>新增 48 张键盘屏幕图及 18 张比较板。单侧重量、子组与循环次数桶保留在生产迁移清单中，本轮没有用固定预设替代其产品合同。真实键盘高度、VoiceOver、输入延迟和能耗仍需生产环境验证。</p>
+<div class="links"><a href="keyboard-delivery.md">键盘交付与验证</a><a href="keyboard-north-star.md">键盘设计目标</a><a href="keyboard-review.md">键盘独立视觉评审</a><a href="workflow-audit.md">已有功能与性能审查</a></div>
+<noscript><p>此画廊使用本地 JavaScript 切换图片。也可直接打开 <a href="keyboard-comparisons/tide-grid-light.png">青蓝全宽键盘对比板</a>。</p></noscript>
+<footer>my-designer · 配套键盘设计候选 · 不读取真实训练或健康数据 · 尚未迁入生产 App</footer>
+</main>
+<script>
+const state={mode:'light',field:'pair',style:'all'};
+const styles={tide:'S1 · Tide 青蓝',graphite:'S2 · Graphite 石墨',ember:'S3 · Ember 暖色'};
+const layouts={grid:'K1 · 全宽数字',thumb:'K2 · 拇指侧栏',sequence:'K3 · 连续记组'};
+function figure(src,title,detail){const fig=document.createElement('figure');const cap=document.createElement('figcaption');const h=document.createElement('h3');h.textContent=title;const p=document.createElement('p');p.textContent=detail;cap.append(h,p);const a=document.createElement('a');a.href=src;a.target='_blank';a.rel='noopener';const img=document.createElement('img');img.src=src;img.alt=`${title}，${detail}，演示数据`;img.loading='lazy';a.append(img);fig.append(cap,a);return fig;}
+function draw(){document.body.classList.toggle('single',state.field!=='pair');const matrix=document.getElementById('matrix');matrix.textContent='';for(const[s,st]of Object.entries(styles)){if(state.style!=='all'&&state.style!==s)continue;for(const[l,lt]of Object.entries(layouts)){const src=state.field==='pair'?`keyboard-comparisons/${s}-${l}-${state.mode}.png`:`keyboards/${s}-keyboard-${l}-${state.field}-${state.mode}.png`;matrix.append(figure(src,`${st} × ${lt}`,`${state.mode==='dark'?'深色':'浅色'} · ${state.field==='pair'?'重量 / 次数':state.field==='weight'?'重量输入':'次数输入'}`));}}const states=document.getElementById('stateGrid');states.textContent='';for(const[field,suffix,label]of[['weight','resting','休息中编辑'],['weight','undo','删除后撤销'],['reps','invalid','无效次数 · 提交禁用']])states.append(figure(`keyboards/tide-keyboard-grid-${field}-${state.mode}-${suffix}.png`,label,'当前组保持可见'));for(const[l,lt]of Object.entries(layouts))states.append(figure(`keyboards/tide-keyboard-${l}-weight-${state.mode}-large-narrow.png`,`${lt} · 375pt`,'大字回退分支 · 非 iOS 字体验收'));}
+for(const id of ['mode','field','style'])document.getElementById(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state[id]=b.dataset.value;for(const child of document.querySelectorAll(`#${id} button`))child.setAttribute('aria-pressed',String(child===b));draw();});draw();
+</script>
+</html>
