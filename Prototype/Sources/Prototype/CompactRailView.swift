@@ -42,7 +42,7 @@ struct CompactRailWorkout: View {
                 }
             }
             .onChange(of: session.navigation.jumpRevision) { _, _ in
-                withAnimation(reduceMotion ? nil : .snappy(duration: 0.24, extraBounce: 0)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                     detailProxy.scrollTo(session.navigation.jumpExerciseID, anchor: .top)
                 }
             }
@@ -55,7 +55,7 @@ struct CompactRailWorkout: View {
     }
 
     private var lastSectionMinHeight: CGFloat {
-        CGFloat((session.core.setsByExercise[session.core.workoutIDs.last ?? ""]?.count ?? 0) * 52 + 80)
+        CGFloat((session.core.setsByExercise[session.core.workoutIDs.last ?? ""]?.count ?? 0) * 44 + 80)
     }
 
     private var snapshotIDs: [String] {
@@ -83,14 +83,15 @@ struct CompactRailWorkout: View {
             ForEach(Array(session.core.workoutIDs.enumerated()), id: \.element) { index, id in
                 let visible = session.navigation.visibleExerciseID == id
                 let target = session.core.activeExerciseID == id
+                let editing = (session.core.editorField != nil || session.isEditingEquipmentDefault) && target
                 let sets = session.core.setsByExercise[id] ?? []
                 Button {
                     if session.select(exercise: id) { session.navigation.jump(to: id, order: session.core.workoutIDs) }
                 } label: {
-                    CompactRailItem(index: index, id: id, visible: visible, target: target, sets: sets)
+                    CompactRailItem(index: index, id: id, visible: visible, editing: editing, sets: sets)
                 }.buttonStyle(CompactPressStyle()).id("rail-" + id)
                     .accessibilityAddTraits(visible ? .isSelected : [])
-                    .accessibilityLabel(studioText("exercise.\(id)") + (target ? " · " + studioText("compact.actionTarget") : ""))
+                    .accessibilityLabel(studioText("exercise.short.\(id)") + " · \(sets.filter(\.completed).count)/\(sets.count)" + (visible ? " · " + studioText("compact.browse") : "") + (editing ? " · " + studioText("compact.editingShort") : ""))
             }
 
         }.padding(.horizontal, 4).padding(.vertical, 8)
@@ -107,7 +108,7 @@ private struct CompactRailItem: View {
     let index: Int
     let id: String
     let visible: Bool
-    let target: Bool
+    let editing: Bool
     let sets: [StudioSet]
     var body: some View {
         let indexText = String(index + 1)
@@ -116,7 +117,7 @@ private struct CompactRailItem: View {
         return VStack(spacing: 4) {
             HStack(spacing: 3) {
                 Text(indexText).monospacedDigit()
-                if target {
+                if editing {
                     Image(systemName: "pencil").font(.system(size: 14)).accessibilityHidden(true)
                     Text(studioText("compact.editingShort")).font(.system(size: 12))
                 }
@@ -157,7 +158,7 @@ private struct CompactRailSection: View {
                 Spacer(minLength: 0)
                 Text("\(sets.filter(\.completed).count)/\(sets.count)")
                     .font(.caption.weight(.medium)).monospacedDigit().foregroundStyle(theme.neutrals.text2)
-            }.padding(.horizontal, 12).frame(minHeight: 52)
+            }.padding(.horizontal, 12).frame(minHeight: 40)
             HStack(spacing: 4) {
                 Text(studioText("set.number")).frame(width: 44)
                 Text(studioText("set.weight") + " kg").frame(maxWidth: .infinity)
@@ -189,21 +190,21 @@ struct CompactGlassSurface: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if !enabled { content }
         else if reduceTransparency {
-            content.background(theme.neutrals.card, in: RoundedRectangle(cornerRadius: radius))
+            content.background(theme.neutrals.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
                 .overlay { edge }
         } else if #available(iOS 26.0, macOS 26.0, *), !snapshot {
-            content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: radius))
+            content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
         } else {
             content
-                .background(theme.neutrals.card.opacity(0.84), in: RoundedRectangle(cornerRadius: radius))
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: radius))
+                .background(theme.neutrals.card.opacity(0.84), in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
                 .overlay { edge }
                 .compositingGroup()
                 .shadow(color: .black.opacity(theme.isDark ? 0.24 : 0.10), radius: 12, y: 4)
         }
     }
     private var edge: some View {
-        RoundedRectangle(cornerRadius: radius).strokeBorder(
+        RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(
             LinearGradient(colors: [.white.opacity(theme.isDark ? 0.22 : 0.85), theme.neutrals.border.opacity(0.5)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.75
         ).allowsHitTesting(false).accessibilityHidden(true)
     }

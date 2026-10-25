@@ -8,7 +8,7 @@ struct CompactPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed && !reduceMotion ? (firm ? 0.96 : 0.98) : 1)
-            .animation(reduceMotion ? nil : .snappy(duration: 0.24, extraBounce: 0), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.88, blendDuration: 0), value: configuration.isPressed)
             .opacity(configuration.isPressed ? 0.92 : 1)
     }
 }
@@ -50,18 +50,22 @@ public struct CompactStudioView: View {
             } else {
                 CompactWorkoutHeader(core: session.core)
                 if layout == .rail {
-                    CompactRailWorkout(session: session, snapshot: snapshot)
-                        .overlay(alignment: .bottom) {
-                            CompactSnackbar(session: session, snapshot: snapshot)
-                                .padding(.horizontal, 12).padding(.bottom, 10)
-                        }
+                    ZStack(alignment: .bottom) {
+                        CompactRailWorkout(session: session, snapshot: snapshot)
+                            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 320) }
+                            .overlay(alignment: .bottom) {
+                                CompactSnackbar(session: session, snapshot: snapshot)
+                                    .padding(.horizontal, 12).padding(.bottom, 10)
+                            }
+                        if session.core.editorField != nil { CompactKeyboard(session: session, glass: true, snapshot: snapshot) }
+                        else { railActions }
+                    }
                 } else {
                     CompactWorkoutBody(session: session, layout: layout, snapshot: snapshot)
                     CompactStatusLine(session: session)
+                    if session.core.editorField != nil { CompactKeyboard(session: session, glass: false, snapshot: snapshot) }
+                    else { workoutActions }
                 }
-                if session.core.editorField != nil { CompactKeyboard(session: session, glass: layout == .rail, snapshot: snapshot) }
-                else if layout == .rail { railActions }
-                else { workoutActions }
             }
             Capsule().fill(theme.neutrals.text1).frame(width: 120, height: 4)
                 .padding(.top, 8).padding(.bottom, 8).accessibilityHidden(true)
@@ -78,7 +82,11 @@ public struct CompactStudioView: View {
             Button { session.navigation.jump(to: session.core.activeExerciseID, order: session.core.workoutIDs) } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "scope").accessibilityHidden(true)
-                    Text(studioText("compact.actionTarget") + " · " + studioText("exercise.short.\(session.core.activeExerciseID)") + " · " + studioText("set.number") + " " + (session.selectedSetNumber.map(String.init) ?? "—"))
+                    let targetTitle = studioText("compact.actionTarget")
+                    let exerciseTitle = studioText("exercise.short.\(session.core.activeExerciseID)")
+                    let setTitle = studioText("set.number")
+                    let setNumber = session.selectedSetNumber.map(String.init) ?? "—"
+                    Text(targetTitle + " · " + exerciseTitle + " · " + setTitle + " " + setNumber)
                     Spacer(minLength: 0)
                     Text(studioText("compact.locate"))
                 }.font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.neutrals.text2)
@@ -95,7 +103,7 @@ public struct CompactStudioView: View {
             Button { session.completeSelected() } label: {
                 Label(layout == .rail ? compactSetActionTitle(session: session, editing: false) : studioText(session.selectedSet?.completed == true ? "set.uncomplete" : "compact.logSet"), systemImage: "checkmark")
                     .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 48)
-                    .foregroundStyle(theme.primary.onPrimary).background(theme.primary.primary, in: RoundedRectangle(cornerRadius: 8))
+                    .foregroundStyle(theme.primary.onPrimary).background(theme.primary.primary, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
             }.buttonStyle(CompactPressStyle()).disabled(session.selectedSet == nil)
         }.padding(.horizontal, 12).padding(.top, 8)
     }
@@ -209,7 +217,7 @@ private struct CompactTableHeader: View {
             Text(studioText("set.weight") + " kg").frame(maxWidth: .infinity)
             Text(studioText("set.reps")).frame(width: 48)
             Text(studioText("compact.state")).frame(width: 44)
-        }.font(.caption2).foregroundStyle(theme.neutrals.text2).padding(.horizontal, 12).frame(height: 28)
+        }.font(.caption2).foregroundStyle(theme.neutrals.text2).padding(.horizontal, 8).frame(minHeight: 24)
             .background(theme.neutrals.inner)
     }
 }
@@ -223,13 +231,17 @@ struct CompactSetRow: View {
     let narrow: Bool
     private var selected: Bool { session.core.activeExerciseID == exerciseID && session.selectedSetID == set.id }
     private var editing: Bool { selected && session.core.editorField != nil }
+    private var editingReps: Bool { selected && !session.isEditingEquipmentDefault && session.core.editorField == "reps" }
+    private func editingWeight(_ right: Bool) -> Bool {
+        selected && !session.isEditingEquipmentDefault && session.core.editorField == (right ? "weightRight" : "weight")
+    }
     var body: some View {
         HStack(spacing: 4) {
             Button { session.select(exercise: exerciseID, setID: set.id) } label: {
                 VStack(spacing: 1) {
                     Text(String(index + 1)).font(.subheadline.weight(.semibold))
                     Text(studioText((editing ? session.currentKind : set.kind) == "warmup" ? "compact.warmupShort" : "compact.workingShort")).font(.caption2)
-                }.frame(width: 44, height: 48).contentShape(Rectangle())
+                }.frame(width: 44).frame(minHeight: 44).contentShape(Rectangle())
             }.buttonStyle(.plain).accessibilityLabel(studioText("set.number") + " \(index + 1)")
             if !narrow {
                 Text(set.kind == "warmup" ? "40 × 12" : "60 × 10")
@@ -240,10 +252,15 @@ struct CompactSetRow: View {
                 if editing ? session.core.editorIsSplit : set.weightRight != nil { weightCell(right: true) }
             }.frame(maxWidth: .infinity)
             Button { if session.select(exercise: exerciseID, setID: set.id) { session.edit("reps") } } label: {
-                Text(editing ? session.core.editorRepsText : String(set.reps)).font(.system(.body, design: .rounded, weight: .semibold)).monospacedDigit()
-                .frame(width: 48, height: 48)
-                .background(editing ? theme.primary.primarySubtle : .clear, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
-                .overlay { if editing { RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).strokeBorder(theme.primary.primaryText, lineWidth: 1) } }
+                HStack(spacing: 2) {
+                    Text(editingReps ? session.core.editorRepsText : String(set.reps)).font(.system(.body, design: .rounded, weight: .semibold)).monospacedDigit()
+                    if editingReps && !session.core.editorSelectAll {
+                        Capsule().fill(theme.primary.primaryText).frame(width: 2, height: 16)
+                    }
+                }.frame(width: 48, height: editingReps ? 36 : 40)
+                    .background(editingReps ? theme.primary.primarySubtle : .clear, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
+                    .overlay { if editingReps { RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).strokeBorder(theme.primary.primaryText, lineWidth: 1) } }
+                    .frame(minWidth: 44, minHeight: 44)
             }.buttonStyle(CompactPressStyle()).accessibilityLabel(studioText("editor.reps"))
             Button { if session.select(exercise: exerciseID, setID: set.id) { session.completeSelected() } } label: {
                 Image(systemName: set.completed ? "checkmark.circle.fill" : "circle")
@@ -252,9 +269,9 @@ struct CompactSetRow: View {
                     .foregroundStyle(set.completed ? Color.black : theme.neutrals.text2, theme.success)
                     .frame(width: 44, height: 48)
             }.buttonStyle(CompactPressStyle(firm: true)).accessibilityLabel(studioText(set.completed ? "set.uncomplete" : "set.complete"))
-        }.padding(.horizontal, 12).padding(.vertical, 2)
+        }.padding(.horizontal, 8)
             .background(theme.neutrals.card)
-            .overlay(alignment: .bottom) { Divider().padding(.horizontal, 12) }
+            .overlay(alignment: .bottom) { Rectangle().fill(theme.neutrals.border.opacity(0.65)).frame(height: 0.5).padding(.horizontal, 12) }
             .accessibilityElement(children: .contain)
             .accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -268,9 +285,14 @@ struct CompactSetRow: View {
             VStack(spacing: 0) {
                 if split { Text(studioText(right ? "weight.right" : "weight.left")).font(.system(size: 10)).foregroundStyle(theme.neutrals.text2) }
                 Text(value).font(.system(split ? .subheadline : .body, design: .rounded, weight: .semibold)).monospacedDigit().minimumScaleFactor(0.75).lineLimit(1)
-            }.frame(maxWidth: .infinity, minHeight: 48).frame(minWidth: 44)
-                .background(editing ? theme.primary.primarySubtle : .clear, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
-                .overlay { if editing { RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).strokeBorder(theme.primary.primaryText, lineWidth: 1) } }
+            }.frame(maxWidth: .infinity, minHeight: split ? 40 : 36).frame(minWidth: 44)
+                .background(editingWeight(right) ? theme.primary.primarySubtle : .clear, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
+                .overlay { if editingWeight(right) { RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).strokeBorder(theme.primary.primaryText, lineWidth: 1) } }
+                .overlay(alignment: .trailing) {
+                    if editingWeight(right) && !session.core.editorSelectAll {
+                        Capsule().fill(theme.primary.primaryText).frame(width: 2, height: 16).padding(.trailing, 4)
+                    }
+                }
         }.buttonStyle(CompactPressStyle()).accessibilityLabel(studioText(split ? (right ? "weight.right" : "weight.left") : "editor.weight"))
             .accessibilityValue(value + " kg")
     }
@@ -282,7 +304,7 @@ private struct CompactMatrixSection: View {
     let exerciseID: String
     private var sets: [StudioSet] { session.core.setsByExercise[exerciseID] ?? [] }
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             HStack {
                 Text(studioText("exercise.\(exerciseID)")).font(.subheadline.weight(.semibold))
                 Spacer()
@@ -317,9 +339,9 @@ private struct CompactMatrixSection: View {
                 Text(weight + " kg").font(.subheadline.weight(.semibold)).monospacedDigit()
                 Text("× " + reps).font(.caption).foregroundStyle(theme.neutrals.text2).monospacedDigit()
             }.padding(8).frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
-                .background(selected ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(selected ? theme.primary.primaryBorder : .clear))
-        }.buttonStyle(.plain).accessibilityLabel(studioText("set.number") + " \(index + 1) " + studioText(set.completed ? "set.doneShort" : "editor.weight"))
+                .background(selected ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(selected ? theme.primary.primaryBorder : .clear))
+        }.buttonStyle(CompactPressStyle()).accessibilityLabel(studioText("set.number") + " \(index + 1) " + studioText(set.completed ? "set.doneShort" : "editor.weight"))
     }
 }
 
@@ -393,7 +415,7 @@ private struct CompactKeyboard: View {
                                 .background(session.defaultSelectAll ? theme.primary.primaryBorder.opacity(0.4) : .clear)
                             Text("kg").font(.caption)
                         }.padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 44)
-                            .background(theme.primary.primarySubtle, in: RoundedRectangle(cornerRadius: 6))
+                            .background(theme.primary.primarySubtle, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
                     }.buttonStyle(.plain).accessibilityLabel(studioText("weight.defaultTotal"))
                         .accessibilityValue(session.equipmentDefaultText + " kg")
                     StudioIconButton(symbol: "xmark", label: studioText("action.cancel")) { session.cancelEquipmentDefault() }
@@ -438,7 +460,7 @@ private struct CompactKeyboard: View {
                 } label: {
                     Label(session.isEditingEquipmentDefault ? studioText("weight.saveDefault") : (glass ? compactSetActionTitle(session: session, editing: true) : studioText(session.selectedSet?.completed == true ? "compact.saveEdits" : "compact.saveLog")), systemImage: "checkmark")
                         .font(.subheadline.weight(.semibold)).frame(minWidth: 124, minHeight: 44)
-                        .foregroundStyle(theme.primary.onPrimary).background(theme.primary.primary, in: RoundedRectangle(cornerRadius: 8))
+                        .foregroundStyle(theme.primary.onPrimary).background(theme.primary.primary, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
                 }.buttonStyle(.plain).disabled(session.isEditingEquipmentDefault ? !session.canSaveEquipmentDefault : !session.core.editorCanCommit)
             }.frame(height: 44)
         }.padding(.horizontal, 8).padding(.top, 6)
@@ -474,8 +496,8 @@ private struct CompactKeyboard: View {
                     }
                 }
             }.padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 44)
-                .background(selected ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 6))
-                .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(selected ? theme.primary.primaryText : .clear, lineWidth: 1) }
+                .background(selected ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
+                .overlay { RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).strokeBorder(selected ? theme.primary.primaryText : .clear, lineWidth: 1) }
         }.buttonStyle(.plain).accessibilityLabel(studioText(name == "weightRight" ? "weight.right" : "editor.\(name)"))
             .accessibilityValue(value).accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -511,7 +533,7 @@ private struct CompactKeyboard: View {
                                 if key == "delete" { Image(systemName: "delete.left").font(.title3) }
                                 else { Text(key).font(.system(size: 22, design: .rounded)).monospacedDigit() }
                             }.frame(maxWidth: .infinity, minHeight: 44)
-                                .background(theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 6))
+                                .background(theme.neutrals.inner, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
                         }.buttonStyle(.plain).disabled(key == "." && !session.isEditingEquipmentDefault && session.core.editorField == "reps")
                             .accessibilityLabel(key == "delete" ? studioText("action.deleteDigit") : key)
                             .accessibilityAddTraits(.isKeyboardKey)
@@ -521,15 +543,16 @@ private struct CompactKeyboard: View {
         }
     }
     private var rpePanel: some View {
+        ScrollView(.vertical, showsIndicators: false) {
         VStack(alignment: .leading, spacing: 8) {
             Text(studioText("compact.rpeTitle")).font(.subheadline.weight(.semibold))
             HStack(spacing: 4) {
                 ForEach(6...10, id: \.self) { value in
                     Button { session.setRPE(value) } label: {
                         Text(String(value)).font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 44)
-                            .background(session.currentRPE == value ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 6))
+                            .background(session.currentRPE == value ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 6).strokeBorder(session.currentRPE == value ? theme.primary.primaryText : .clear, lineWidth: 1)
+                                RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).strokeBorder(session.currentRPE == value ? theme.primary.primaryText : .clear, lineWidth: 1)
                             }
                             .overlay(alignment: .topTrailing) {
                                 if session.currentRPE == value { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).padding(4).accessibilityHidden(true) }
@@ -548,8 +571,10 @@ private struct CompactKeyboard: View {
             }.buttonStyle(.plain).font(.subheadline)
             Text(studioText("compact.accessoryHint")).font(.caption).foregroundStyle(theme.neutrals.text2)
         }.padding(8).frame(maxHeight: .infinity, alignment: .top)
+        }
     }
     private var typePanel: some View {
+        ScrollView(.vertical, showsIndicators: false) {
         VStack(alignment: .leading, spacing: 6) {
             Text(studioText("compact.type")).font(.subheadline.weight(.semibold))
             HStack {
@@ -557,7 +582,7 @@ private struct CompactKeyboard: View {
                     Button { session.setKind(kind) } label: {
                         Text(studioText("set.\(kind)")).font(.subheadline)
                             .frame(maxWidth: .infinity, minHeight: 44)
-                            .background(session.currentKind == kind ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 6))
+                            .background(session.currentKind == kind ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
                     }.buttonStyle(.plain)
                 }
             }
@@ -568,6 +593,7 @@ private struct CompactKeyboard: View {
                 Text(studioText("compact.backDigits")).font(.caption).frame(minWidth: 64, minHeight: 44).contentShape(Rectangle())
             }.buttonStyle(.plain)
         }.padding(8).frame(maxHeight: .infinity, alignment: .top)
+        }
     }
 }
 
@@ -620,7 +646,7 @@ private struct CompactPickerView: View {
                         if !model.query.isEmpty {
                             StudioIconButton(symbol: "xmark.circle.fill", label: studioText("picker.clearQuery")) { model.query = "" }
                         }
-                    }.font(.subheadline).padding(.horizontal, 10).frame(minHeight: 44).background(theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 8))
+                    }.font(.subheadline).padding(.horizontal, 10).frame(minHeight: 44).background(theme.neutrals.inner, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
                     CompactTool(title: studioText("compact.filter"), symbol: model.muscle == "all" && model.equipment == "all" ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill") {
                         searchFocused = false; session.overlay = .filters
                     }
@@ -637,10 +663,10 @@ private struct CompactPickerView: View {
                     Button { searchFocused = false; session.core.confirmSelection() } label: {
                         Text(studioText("compact.addSelected") + " (\(session.core.selectedIDs.count))").font(.subheadline.weight(.semibold))
                             .frame(minWidth: 118, minHeight: 44).foregroundStyle(theme.primary.onPrimary)
-                            .background(theme.primary.primary, in: RoundedRectangle(cornerRadius: 8))
+                            .background(theme.primary.primary, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
                     }.disabled(session.core.selectedIDs.isEmpty)
                 }.buttonStyle(.plain)
-            }.padding(8).background(theme.neutrals.card).overlay(alignment: .top) { Divider() }
+            }.padding(8).modifier(CompactGlassSurface(radius: 22, snapshot: snapshot))
         }
         .task(id: model.requestKey) {
             if !snapshot { try? await Task.sleep(for: .milliseconds(200)) }
@@ -681,10 +707,10 @@ private struct CompactPickerView: View {
                     } else { Image(systemName: "plus").font(.caption2).accessibilityHidden(true) }
                 }
                 Text(exercise.name).font(.subheadline.weight(.medium)).lineLimit(3).fixedSize(horizontal: false, vertical: true)
-            }.padding(8).frame(maxWidth: .infinity, minHeight: 76, alignment: .topLeading)
-                .background(selected ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(selected ? theme.primary.primaryBorder : .clear))
-        }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
+            }.padding(8).frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
+                .background(selected ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(selected ? theme.primary.primaryBorder : theme.neutrals.border.opacity(0.5), lineWidth: selected ? 1 : 0.5))
+        }.buttonStyle(CompactPressStyle()).accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

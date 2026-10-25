@@ -14,6 +14,8 @@ struct CompactHost: View {
                 Text("VitalStride B").font(.title.bold())
                 ForEach(CompactLayout.allCases) { item in Button(item.title) { layout = item } }
                 Toggle(studioText("studio.dark"), isOn: $dark)
+                Toggle("Reduce transparency", isOn: $session.forceReduceTransparency)
+                Toggle("Reduce motion", isOn: $session.forceReduceMotion)
                 Divider()
                 Button(studioText("screen.picker")) { session = CompactSession(picker: true) }
                 Button(studioText("screen.workout")) { session = CompactSession() }
@@ -62,6 +64,11 @@ func renderCompact(to path: String, chosenB: Bool = false, weights: Bool = false
         if state == "rpe" { session.accessory = .rpe; session.setRPE(8) }
         if state == "picker-filter" { session.overlay = .filters }
         if state == "picker-empty" { picker.query = "zzzz"; picker.refresh() }
+        if state.contains("empty") { session.setContentState(.empty) }
+        if state.contains("loading") { session.setContentState(.loading) }
+        if state.contains("error") { session.setContentState(.error) }
+        session.forceReduceTransparency = state.contains("reduce-transparency") || state == "reduce-both"
+        session.forceReduceMotion = state.contains("reduce-motion") || state == "reduce-both"
         if state == "browse" || state == "keyboard-browse" {
             session.navigation.jump(to: "incline", order: session.core.workoutIDs)
         }
@@ -79,12 +86,12 @@ func renderCompact(to path: String, chosenB: Bool = false, weights: Bool = false
         count += 1
     }
     if weights {
-        for state in ["weight-mode", "split-mode", "split-keyboard", "split-saved", "machine-mode", "machine-default", "machine-applied", "machine-more"] {
+        for state in ["weight-mode", "split-mode", "split-keyboard", "split-saved", "machine-mode", "machine-default", "machine-applied", "machine-more", "keyboard-empty", "keyboard-loading", "keyboard-error", "weight-6char-max", "weight-invalid"] {
             for dark in [false, true] { try render(layout: .rail, state: state, dark: dark) }
         }
         for dark in [false, true] { try render(layout: .rail, state: "split-keyboard", dark: dark, large: true) }
     } else if chosenB {
-        for state in ["normal", "keyboard", "rest", "undo", "keyboard-rest", "keyboard-undo", "rest-undo", "keyboard-rest-undo", "browse", "keyboard-browse", "more", "rpe", "picker", "picker-filter", "picker-empty"] {
+        for state in ["normal", "keyboard", "rest", "undo", "keyboard-rest", "keyboard-undo", "rest-undo", "keyboard-rest-undo", "browse", "keyboard-browse", "more", "rpe", "picker", "picker-filter", "picker-empty", "workout-empty", "workout-loading", "workout-error", "picker-loading", "picker-error", "drawer-empty", "drawer-loading", "drawer-error", "snackbar-loading", "snackbar-error", "rail-only-browse", "rail-same-browse-edit", "rail-diff-browse-edit", "reduce-transparency", "reduce-motion", "reduce-both", "width-375", "long-bilingual", "weight-6char-valid", "weight-invalid-error"] {
             for dark in [false, true] { try render(layout: .rail, state: state, dark: dark) }
         }
         for dark in [false, true] { try render(layout: .rail, state: "keyboard-rest", dark: dark, large: true) }
@@ -133,15 +140,16 @@ func weightExample(_ state: String) -> CompactSession {
 @MainActor
 func verifyInteractive() throws {
     let session = CompactSession()
-    let root = CompactStudioView(session: session, layout: .rail)
-        .environment(\.theme, Theme(seed: .blue, neutral: .slate, isDark: false))
-        .frame(width: 393, height: 852)
-    let host = NSHostingView(rootView: root)
+    let host = NSHostingView(rootView: CompactHost())
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 393, height: 852),
                           styleMask: [.titled, .closable], backing: .buffered, defer: false)
     window.contentView = host
     window.makeKeyAndOrderFront(nil)
     session.edit("weight")
+    guard session.core.editorField == "weight" else { throw NSError(domain: "CompactVerify", code: 3) }
+    session.core.switchEditor(to: "reps")
+    guard session.core.editorField == "reps" else { throw NSError(domain: "CompactVerify", code: 4) }
+    session.core.switchEditor(to: "weight")
     session.core.pressEditorKey("7")
     session.core.pressEditorKey("5")
     guard session.core.editorWeightText == "75" else { throw NSError(domain: "CompactVerify", code: 1) }
@@ -152,6 +160,12 @@ func verifyInteractive() throws {
     guard session.core.editorField == nil, session.core.activeSets[2].weight == 75 else {
         throw NSError(domain: "CompactVerify", code: 2)
     }
+    session.forceReduceTransparency = true
+    session.forceReduceMotion = true
+    host.rootView = CompactHost()
+    host.layoutSubtreeIfNeeded()
+    session.forceReduceTransparency = false
+    session.forceReduceMotion = false
     window.orderOut(nil)
     FileHandle.standardOutput.write(Data("interactive verification passed: A1/A4/A6/A8/A9\n".utf8))
 }

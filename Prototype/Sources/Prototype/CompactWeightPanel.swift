@@ -7,6 +7,7 @@ struct CompactWeightPanel: View {
     let session: CompactSession
 
     var body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
         VStack(spacing: 4) {
             HStack {
                 Text(studioText("weight.entry")).font(.subheadline.weight(.semibold))
@@ -43,6 +44,7 @@ struct CompactWeightPanel: View {
                 .font(.system(size: 11)).foregroundStyle(theme.neutrals.text2)
                 .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
         }.padding(.horizontal, 8).frame(maxHeight: .infinity, alignment: .top)
+        }
     }
 
     private func mode(_ key: String, selected: Bool, perform: @escaping () -> Void) -> some View {

@@ -170,7 +170,14 @@ public final class StudioSession {
     public var completedCount: Int { setsByExercise.values.flatMap { $0 }.filter(\.completed).count }
     public var totalCount: Int { setsByExercise.values.reduce(0) { $0 + $1.count } }
     public var totalVolume: Double {
-        setsByExercise.values.flatMap { $0 }.filter(\.completed).reduce(0) { $0 + ($1.weight + ($1.weightRight ?? 0)) * Double($1.reps) }
+        var sum: Double = 0
+        for sets in setsByExercise.values {
+            for item in sets where item.completed {
+                let w: Double = item.weight + (item.weightRight ?? 0)
+                sum += w * Double(item.reps)
+            }
+        }
+        return sum
     }
 
     public func toggleSelection(_ id: String) {

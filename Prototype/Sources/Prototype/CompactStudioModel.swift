@@ -47,6 +47,8 @@ public final class CompactSession {
     public let core: StudioSession
     public let navigation = CompactWorkoutNavigation()
     public var contentState: CompactContentState = .populated
+    public var forceReduceTransparency = false
+    public var forceReduceMotion = false
     public var selectedSetID = 3
     public var overlay: CompactOverlay?
     public var accessory = CompactAccessory.digits
@@ -80,7 +82,7 @@ public final class CompactSession {
     public var equipmentDefault: Double? { equipmentDefaults[core.activeExerciseID] }
     public var canSaveEquipmentDefault: Bool {
         guard let value = Double(equipmentDefaultText.replacingOccurrences(of: ",", with: ".")), value.isFinite else { return false }
-        return (0...999.9).contains(value)
+        return (0.0...999.99).contains(value)
     }
 
     public func beginEquipmentDefault() {
