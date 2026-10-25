@@ -448,16 +448,10 @@ struct ExercisePickerIndexSyncTests {
     // the surface visibly resize per scrub target and drift off centre. The
     // fix locks a hard `width × height`; long names truncate/scale inside.
 
-    @Test("section preview popup dimensions are locked (MY-1338)")
+    @Test("Section preview is a bounded bubble outside the index hit lane")
     func sectionPreviewPopupDimensionsAreLocked() {
-        // Any change here should be intentional and visible in a diff.
         #expect(ExercisePickerView.sectionPreviewPopupWidth == 160)
-        #expect(ExercisePickerView.sectionPreviewPopupHeight == 160)
-        // Width and height must be equal so the popup is a stable square,
-        // not a rectangle that reads as "resized" between scrub frames.
-        #expect(
-            ExercisePickerView.sectionPreviewPopupWidth
-                == ExercisePickerView.sectionPreviewPopupHeight
-        )
+        #expect(ExercisePickerView.sectionPreviewPopupHeight == 56)
+        #expect(ExercisePickerView.sectionPreviewPopupHeight >= 44)
     }
 }

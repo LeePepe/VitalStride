@@ -1,6 +1,567 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "picker.create": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New exercise"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建动作"
+          }
+        }
+      }
+    },
+    "picker.delete": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete exercise"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除动作"
+          }
+        }
+      }
+    },
+    "picker.delete.message": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This removes the custom exercise from your library. Exercises used in workouts or templates cannot be deleted."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将从动作库中移除此自定义动作。已用于训练或模板的动作无法删除。"
+          }
+        }
+      }
+    },
+    "picker.delete.title": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete custom exercise?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除自定义动作？"
+          }
+        }
+      }
+    },
+    "picker.details": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exercise details"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "动作详情"
+          }
+        }
+      }
+    },
+    "picker.done": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
+          }
+        }
+      }
+    },
+    "picker.edit": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit exercise"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑动作"
+          }
+        }
+      }
+    },
+    "picker.equipment": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Equipment"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "器械"
+          }
+        }
+      }
+    },
+    "picker.index.assisted": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "辅"
+          }
+        }
+      }
+    },
+    "picker.index.band": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "B"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "弹"
+          }
+        }
+      }
+    },
+    "picker.index.barbell": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "R"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "杠"
+          }
+        }
+      }
+    },
+    "picker.index.bodyweight": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "W"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自"
+          }
+        }
+      }
+    },
+    "picker.index.cable": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缆"
+          }
+        }
+      }
+    },
+    "picker.index.dumbbell": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "D"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "哑"
+          }
+        }
+      }
+    },
+    "picker.index.ezBarbell": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲"
+          }
+        }
+      }
+    },
+    "picker.index.kettlebell": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "K"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "壶"
+          }
+        }
+      }
+    },
+    "picker.index.leverageMachine": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "杆"
+          }
+        }
+      }
+    },
+    "picker.index.machine": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "M"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "械"
+          }
+        }
+      }
+    },
+    "picker.index.medicineBall": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "药"
+          }
+        }
+      }
+    },
+    "picker.index.other": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "X"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其"
+          }
+        }
+      }
+    },
+    "picker.index.rope": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "P"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "绳"
+          }
+        }
+      }
+    },
+    "picker.index.sledMachine": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "橇"
+          }
+        }
+      }
+    },
+    "picker.index.smithMachine": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "H"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "史"
+          }
+        }
+      }
+    },
+    "picker.index.stabilityBall": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "T"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "稳"
+          }
+        }
+      }
+    },
+    "picker.index.weighted": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "负"
+          }
+        }
+      }
+    },
+    "picker.muscle": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muscle group"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "部位"
+          }
+        }
+      }
+    },
+    "picker.name.en": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English name"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "英文名称"
+          }
+        }
+      }
+    },
+    "picker.name.zh": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese name"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文名称"
+          }
+        }
+      }
+    },
+    "picker.ok": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "好"
+          }
+        }
+      }
+    },
+    "picker.save": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存"
+          }
+        }
+      }
+    },
+    "picker.save.failed": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not save your changes. Please try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法保存更改，请重试。"
+          }
+        }
+      }
+    },
+    "picker.select": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select exercise"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择动作"
+          }
+        }
+      }
+    },
+    "picker.selected.count %lld": {
+      "comment": "Exercise picker redesign",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld selected"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选 %lld 项"
+          }
+        }
+      }
+    },
     "active_workout.heart_rate.disconnected": {
       "extractionState": "manual",
       "comment": "Active workout HR compact display when no Apple Watch is connected / reachable (MY-1283 three-state HR).",
