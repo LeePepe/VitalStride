@@ -1108,15 +1108,25 @@ struct PickerBottomBar: View {
                 .textFieldStyle(.plain)
                 .focused($isSearchFocused)
                 .submitLabel(.search)
-                .onSubmit { isSearchFocused = false }
+                .onSubmit {
+                    isSearchFocused = false
+                    #if canImport(UIKit)
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    #endif
+                }
                 .accessibilityIdentifier("exercise_picker_search_field")
             if !searchText.isEmpty {
                 Button {
-                    searchText = ""
                     isSearchFocused = false
+                    #if canImport(UIKit)
+                    // Resign before clearing removes this button from the view tree.
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    #endif
+                    searchText = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .frame(width: Space.minTapTarget, height: Space.minTapTarget)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "清除搜索", comment: "Clear search a11y label"))
