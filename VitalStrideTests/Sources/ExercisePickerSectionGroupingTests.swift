@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 import VitalModels
 @testable import VitalStride
@@ -112,5 +113,91 @@ struct ExercisePickerSectionGroupingTests {
         #expect(assisted.section == .bodyweight)
         #expect(weighted.section == .weighted)
         #expect(custom.section == .other)
+    }
+}
+
+@Suite("ExercisePicker character index scrubbing")
+struct ExercisePickerCharacterIndexTests {
+    @Test("Index covers every section with exactly one localized character")
+    func markers() {
+        let markers = ExerciseSection.allCases.map { ExercisePickerSectionGrouping.indexCharacter(for: $0) }
+        #expect(markers.allSatisfy { $0.count == 1 })
+        #expect(Set(markers).count == markers.count)
+    }
+
+    @Test("Scrubbing clamps, crosses section boundaries and handles filtered or empty rails")
+    func scrub() {
+        let sections: [ExerciseSection] = [.barbell, .cable, .dumbbell]
+        #expect(ExercisePickerSectionGrouping.indexSection(at: -20, height: 120, sections: sections) == .barbell)
+        #expect(ExercisePickerSectionGrouping.indexSection(at: 40, height: 120, sections: sections) == .cable)
+        #expect(ExercisePickerSectionGrouping.indexSection(at: 119, height: 120, sections: sections) == .dumbbell)
+        #expect(ExercisePickerSectionGrouping.indexSection(at: 500, height: 120, sections: sections) == .dumbbell)
+        #expect(ExercisePickerSectionGrouping.indexSection(at: 20, height: 44, sections: [.machine]) == .machine)
+        #expect(ExercisePickerSectionGrouping.indexSection(at: 20, height: 100, sections: []) == nil)
+        #expect(ExercisePickerSectionGrouping.indexSection(at: 20, height: 0, sections: sections) == nil)
+        #expect(ExercisePickerSectionGrouping.indexSection(at: .nan, height: 120, sections: sections) == nil)
+    }
+}
+
+@Suite("ExercisePicker custom exercise persistence")
+@MainActor
+struct ExercisePickerCustomExerciseTests {
+    @Test("Create then edit a custom exercise round-trips without replacing its identity")
+    func createAndEdit() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        let exercise = try PickerExerciseEditor.save(exercise: nil, nameEn: "  Test press  ", nameZh: "",
+            muscleGroup: .chest, equipment: .barbell, context: context)
+        let id = exercise.persistentModelID
+        #expect(exercise.isCustom)
+        #expect(exercise.localizedName == "Test press")
+        #expect(PickerExerciseEditor.canDelete(exercise))
+        try PickerExerciseEditor.save(exercise: exercise, nameEn: "Custom row", nameZh: "",
+            muscleGroup: .back, equipment: .cable, context: context)
+        let stored = try #require(context.fetch(FetchDescriptor<Exercise>()).first)
+        #expect(stored.persistentModelID == id)
+        #expect(stored.nameEn == "Custom row")
+        #expect(stored.muscleGroup == .back)
+        #expect(stored.equipment == .cable)
+        let groups = ExercisePickerSectionGrouping.groupedSections(from: [stored], muscleGroup: .back, searchText: "row")
+        #expect(groups.map(\.0) == [.cable])
+    }
+
+    @Test("Invalid names and preset edits do not mutate the library")
+    func invalidEdits() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        #expect(throws: PickerExerciseEditor.SaveError.invalidName) {
+            try PickerExerciseEditor.save(exercise: nil, nameEn: " \n", nameZh: " ",
+                muscleGroup: .chest, equipment: .barbell, context: context)
+        }
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == 0)
+        let preset = Exercise(nameEn: "Preset", nameZh: "", muscleGroup: .chest, equipment: .barbell)
+        context.insert(preset)
+        try context.save()
+        #expect(throws: PickerExerciseEditor.SaveError.presetReadOnly) {
+            try PickerExerciseEditor.save(exercise: preset, nameEn: "Changed", nameZh: "",
+                muscleGroup: .back, equipment: .cable, context: context)
+        }
+        #expect(preset.nameEn == "Preset")
+        #expect(!PickerExerciseEditor.canDelete(preset))
+    }
+
+    @Test("Referenced custom exercises cannot be deleted from workout or template history")
+    func usedExerciseIsProtected() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        let custom = try PickerExerciseEditor.save(exercise: nil, nameEn: "Custom", nameZh: "",
+            muscleGroup: .chest, equipment: .barbell, context: context)
+        let row = WorkoutExercise(order: 0, exercise: custom)
+        context.insert(row)
+        try context.save()
+        #expect(!PickerExerciseEditor.canDelete(custom))
+        let templateOnly = try PickerExerciseEditor.save(exercise: nil, nameEn: "Template custom", nameZh: "",
+            muscleGroup: .legs, equipment: .dumbbell, context: context)
+        let templateRow = TemplateExercise(exercise: templateOnly, targetSets: 3, order: 0)
+        context.insert(templateRow)
+        try context.save()
+        #expect(!PickerExerciseEditor.canDelete(templateOnly))
     }
 }

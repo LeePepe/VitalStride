@@ -231,8 +231,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         XCTAssertFalse(dismissedField.exists, "Cancel did not dismiss the picker sheet")
     }
 
-    /// T5b: Non-empty search + tap clear button → keyboard collapses,
-    /// search text cleared, `isSearchExpanded` resets.
+    /// T5b: Clear resets the query and dismisses focus; the dock stays mounted.
     @MainActor
     func test_searchFocus_clearButtonResetsSearch() throws {
         let app = launchPicker(mode: "single")
@@ -242,42 +241,11 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
                       "Keyboard missing before clear")
 
-        // Match the production a11y contract exactly. A broad
-        // `CONTAINS "Clear"` query can select an unrelated system button
-        // before the search-row control on CI simulators.
-        let clearButton = app.buttons.matching(
-            NSPredicate(format: "label == %@ OR label == %@",
-                        "清除搜索", "Clear search")
-        ).firstMatch
-        XCTAssertTrue(clearButton.waitForExistence(timeout: 1.0),
-                      "Clear button not found — labels visible: \(app.buttons.allElementsBoundByIndex.map { $0.label })")
-        let hittableClearButton = expectation(
-            for: NSPredicate(format: "isHittable == true"),
-            evaluatedWith: clearButton,
-            handler: nil
-        )
-        wait(for: [hittableClearButton], timeout: UITestTimeout.uiSettle)
+        let clearButton = app.buttons["exercise_picker_search_clear"]
+        XCTAssertTrue(clearButton.waitForExistence(timeout: UITestTimeout.uiSettle))
+        XCTAssertTrue(waitForElementTapReadiness(in: app, element: clearButton))
         clearButton.tap()
-
-        // After clear: search text should reset. Focus behaviour differs
-        // by platform; the spec only mandates that the search text and
-        // expansion state reset — keyboard dismissal is a consequence of
-        // isSearchFocused = false which happens in the same closure.
-        // Assert that the field is empty or hidden after collapse (the
-        // observable contract) rather than keyboard visibility (which iOS
-        // may keep for a beat during the collapse animation).
-        let resetPredicate = NSPredicate(
-            format: "exists == false OR value == %@ OR value == nil OR value == %@",
-            "",
-            "Search exercises"
-        )
-        // Re-query after the expanded surface becomes accessibility-hidden;
-        // do not retain the pre-collapse element proxy as the oracle.
-        let resetField = app.textFields.firstMatch
-        let emptyField = expectation(for: resetPredicate,
-                                     evaluatedWith: resetField,
-                                     handler: nil)
-        wait(for: [emptyField], timeout: UITestTimeout.uiSettle)
+        assertSearchReset(in: app)
     }
 
     /// T5c: Non-empty search + user swipe on the grid dismisses keyboard
@@ -307,8 +275,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         wait(for: [noKeyboard], timeout: UITestTimeout.uiSettle)
     }
 
-    /// T5d: Keyboard return key dismisses focus via platform default (single
-    /// -line TextField + `.submitLabel(.search)`, no `.onSubmit` override).
+    /// T5d: The search return key explicitly dismisses focus.
     @MainActor
     func test_searchFocus_returnKeyDismissesFocus() throws {
         let app = launchPicker(mode: "single")
@@ -333,72 +300,37 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         wait(for: [noKeyboard], timeout: UITestTimeout.uiSettle)
     }
 
-    // MARK: T5e — MY-1445 regression: clear while already unfocused collapses
+    // MARK: T5e — clear an already-unfocused persistent field
 
-    /// T5e: Enter a query → dismiss focus (via grid drag) while preserving
-    /// the non-empty query and expanded surface → tap clear while focus is
-    /// already false → verify the search collapses to the compact 44pt
-    /// trailing button. This is the exact state path fixed by the
-    /// `onChange(of: searchText)` collapse branch added in MY-1445.
+    /// Clearing after a grid drag resets the query without hiding the field
+    /// or bringing the keyboard back. The empty dock remains ready to search.
     @MainActor
-    func test_searchFocus_clearWhileUnfocusedCollapsesSearch() throws {
+    func test_searchFocus_clearWhileUnfocusedKeepsSearchVisible() throws {
         let app = launchPicker(mode: "single",
                                extraArgs: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryM"])
         let searchField = openSearchField(in: app)
-
-        // Step 1: Type a non-empty query.
         searchField.typeText("bench")
-        usleep(300_000) // > debounce
+        usleep(300_000)
 
-        // Step 2: Establish the unfocused precondition with the same grid drag
-        // used by T5c. Keyboard-return behavior is covered independently by T5d;
-        // this regression concerns clearing an already-unfocused query.
         let window = app.windows.firstMatch
         let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
         let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15))
         start.press(forDuration: 0.05, thenDragTo: end)
-
-        // Wait for keyboard to disappear — confirms focus is dismissed.
         let noKeyboard = expectation(for: NSPredicate(format: "exists == false"),
-                                    evaluatedWith: app.keyboards.firstMatch,
-                                    handler: nil)
+                                    evaluatedWith: app.keyboards.firstMatch, handler: nil)
         wait(for: [noKeyboard], timeout: UITestTimeout.uiSettle)
-
-        // Confirm actual focus loss and preserved query before exercising clear.
-        XCTAssertFalse(searchField.hasKeyboardFocus,
-                       "Search field must be unfocused before clear")
+        XCTAssertFalse(searchField.hasKeyboardFocus)
         XCTAssertEqual(searchField.value as? String, "bench")
-        // Confirm search is still expanded (field still hittable with query).
-        XCTAssertTrue(searchField.isHittable,
-                      "Search field should remain hittable (expanded) after blur with non-empty query")
+        XCTAssertTrue(searchField.isHittable)
 
-        // Step 3: Tap the clear button while focus is already false.
-        let clearButton = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR label CONTAINS[c] %@",
-                        "清除", "Clear", "xmark")
-        ).firstMatch
-        XCTAssertTrue(clearButton.waitForExistence(timeout: UITestTimeout.uiSettle),
-                      "Clear button not found while unfocused with non-empty query")
+        let clearButton = app.buttons["exercise_picker_search_clear"]
+        XCTAssertTrue(clearButton.waitForExistence(timeout: UITestTimeout.uiSettle))
         clearButton.tap()
+        assertSearchReset(in: app)
 
-        // Step 4: Verify collapse — the TextField should no longer be hittable
-        // (collapsed state uses allowsHitTesting(false) + opacity 0), and the
-        // magnifier button should reappear.
-        let fieldNotHittable = expectation(
-            for: NSPredicate(format: "isHittable == false"),
-            evaluatedWith: searchField,
-            handler: nil)
-        wait(for: [fieldNotHittable], timeout: UITestTimeout.uiSettle)
-
-        // The collapsed magnifier button should be visible and hittable.
-        let magnifier = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@",
-                        "搜索", "Search")
-        ).firstMatch
-        XCTAssertTrue(magnifier.waitForExistence(timeout: UITestTimeout.uiSettle),
-                      "Collapsed magnifier button should reappear after clear-while-unfocused")
-        XCTAssertTrue(magnifier.isHittable,
-                      "Collapsed magnifier button should be hittable after collapse")
+        let readyField = openSearchField(in: app)
+        readyField.typeText("bench")
+        XCTAssertTrue(waitForFocusedSearchFieldReady(in: app, text: "bench"))
     }
 
     // MARK: T7 — tap readiness red / screenshot evidence
@@ -429,47 +361,37 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         )
     }
 
-    /// Captures iPhone 16 screenshots of both collapsed and expanded search
-    /// states as XCTest attachments. These serve as the required Quality Bar K
-    /// visual evidence for MY-1445.
+    /// Capture the persistent dock both idle and focused as visual evidence.
     @MainActor
-    func test_MY1445_captureSearchStateScreenshots() throws {
+    func test_capturePersistentSearchStateScreenshots() throws {
         let app = launchPicker(mode: "single")
+        let field = app.textFields["exercise_picker_search_field"]
+        XCTAssertTrue(field.waitForExistence(timeout: UITestTimeout.uiSettle))
+        XCTAssertTrue(waitForElementTapReadiness(in: app, element: field))
+        XCTAssertFalse(field.hasKeyboardFocus)
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        let idleScreenshot = XCUIScreen.main.screenshot()
+        let idleAttachment = XCTAttachment(screenshot: idleScreenshot)
+        idleAttachment.name = "persistent_search_idle_iPhone17"
+        idleAttachment.lifetime = .keepAlways
+        add(idleAttachment)
 
-        // Wait for the picker sheet to appear.
-        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
-                      "Picker sheet did not appear")
-
-        // 1. Collapsed state screenshot — wait for the compact magnifier button to
-        //    be present and geometry-ready before capturing.
-        let collapsedButton = app.buttons["exercise_picker_search_expand"]
-        XCTAssertTrue(collapsedButton.waitForExistence(timeout: UITestTimeout.uiSettle),
-                      "Collapsed search button did not appear")
-        XCTAssertTrue(waitForElementTapReadiness(in: app, element: collapsedButton),
-                      "Collapsed search button was not geometry-ready for screenshot")
-        let collapsedScreenshot = XCUIScreen.main.screenshot()
-        let collapsedAttachment = XCTAttachment(screenshot: collapsedScreenshot)
-        collapsedAttachment.name = "MY-1445_collapsed_search_iPhone16"
-        collapsedAttachment.lifetime = .keepAlways
-        add(collapsedAttachment)
-
-        // 2. Expand the search field and wait for the current field to become
-        //    tap-ready, focused, and backed by an active keyboard before capturing.
+        // Focus the same mounted field before capturing the typing state.
         let searchField = openSearchField(in: app)
         searchField.typeText("bench")
-        XCTAssertTrue(waitForExpandedSearchFieldReady(in: app, text: "bench"),
-                      "Expanded search field was not ready with 'bench' before capture")
+        XCTAssertTrue(waitForFocusedSearchFieldReady(in: app, text: "bench"),
+                      "Focused search field was not ready with 'bench' before capture")
 
-        let expandedScreenshot = XCUIScreen.main.screenshot()
-        let expandedAttachment = XCTAttachment(screenshot: expandedScreenshot)
-        expandedAttachment.name = "MY-1445_expanded_search_iPhone16"
-        expandedAttachment.lifetime = .keepAlways
-        add(expandedAttachment)
+        let focusedScreenshot = XCUIScreen.main.screenshot()
+        let focusedAttachment = XCTAttachment(screenshot: focusedScreenshot)
+        focusedAttachment.name = "persistent_search_focused_iPhone17"
+        focusedAttachment.lifetime = .keepAlways
+        add(focusedAttachment)
 
         XCTAssertTrue(searchField.hasKeyboardFocus,
-                      "Search field should have focus in expanded state")
+                      "Search field should have focus while typing")
         XCTAssertTrue(app.keyboards.firstMatch.exists,
-                      "Keyboard should be visible in expanded state")
+                      "Keyboard should be visible while typing")
     }
 
     // MARK: helpers
@@ -484,35 +406,10 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         return app
     }
 
-    /// Locates the search text field within the presented picker sheet.
-    /// The picker mounts a collapsed magnifier button first; tapping it
-    /// expands to the full `searchRow` with the TextField. MY-1445: in
-    /// collapsed state the ZStack is constrained to 44pt and the expanded
-    /// TextField surface has hit-testing disabled (opacity 0 +
-    /// allowsHitTesting(false)), so it may not be hittable. We check
-    /// `isHittable` only after confirming the live frame geometry is valid
-    /// and intersects the current app window, so we never tap a stale or
-    /// off-screen field.
+    /// Wait for the persistent bottom input to be visible before focusing it.
     @MainActor
     private func openSearchField(in app: XCUIApplication) -> XCUIElement {
         _ = app.navigationBars.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle)
-
-        let initialField = app.textFields["exercise_picker_search_field"]
-        let initialWindow = app.windows.firstMatch
-        let initialReady = searchFieldTapReadiness(
-            fieldExists: initialField.exists,
-            fieldFrame: initialField.frame,
-            windowFrame: initialWindow.exists ? initialWindow.frame : .zero,
-            isHittable: initialField.isHittable
-        )
-
-        if !initialReady {
-            let expandButton = app.buttons["exercise_picker_search_expand"]
-            if expandButton.waitForExistence(timeout: UITestTimeout.uiSettle) {
-                expandButton.tap()
-            }
-        }
-
         let deadline = Date().addingTimeInterval(UITestTimeout.uiSettle)
         var lastFieldExists = false
         var lastFieldFrame: CGRect = .zero
@@ -552,6 +449,22 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
     }
 
     @MainActor
+    private func assertSearchReset(in app: XCUIApplication) {
+        let field = app.textFields["exercise_picker_search_field"]
+        let reset = expectation(
+            for: NSPredicate(format: "exists == true AND (value == %@ OR value == placeholderValue)", ""),
+            evaluatedWith: field, handler: nil)
+        let noKeyboard = expectation(for: NSPredicate(format: "exists == false"),
+                                     evaluatedWith: app.keyboards.firstMatch, handler: nil)
+        wait(for: [reset, noKeyboard], timeout: UITestTimeout.uiSettle)
+        XCTAssertTrue(waitForElementTapReadiness(in: app, element: field))
+        XCTAssertFalse(field.hasKeyboardFocus)
+        XCTAssertFalse(app.buttons["exercise_picker_search_clear"].exists)
+        XCTAssertTrue(app.buttons["exercise_picker_create"].isHittable)
+        XCTAssertTrue(app.buttons["exercise_picker_confirm"].isHittable)
+    }
+
+    @MainActor
     private func waitForElementTapReadiness(in app: XCUIApplication, element: XCUIElement) -> Bool {
         let deadline = Date().addingTimeInterval(UITestTimeout.uiSettle)
         while Date() < deadline {
@@ -568,7 +481,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
     }
 
     @MainActor
-    private func waitForExpandedSearchFieldReady(in app: XCUIApplication, text: String) -> Bool {
+    private func waitForFocusedSearchFieldReady(in app: XCUIApplication, text: String) -> Bool {
         let deadline = Date().addingTimeInterval(UITestTimeout.uiSettle)
         while Date() < deadline {
             let currentField = app.textFields["exercise_picker_search_field"]

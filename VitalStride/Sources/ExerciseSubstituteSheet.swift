@@ -137,20 +137,10 @@ struct ExerciseSubstituteSheet: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
 
-            Button {
-                onManualSelect()
-            } label: {
-                Text(String(
-                    localized: "手动选择",
-                    comment: "Substitute sheet manual-select button"
-                ))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 4)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .padding(.horizontal, 32)
-            .padding(.top, 4)
+            DesignButton(String(localized: "手动选择", comment: "Manual substitute selection"),
+                         fullWidth: true, action: onManualSelect)
+                .padding(.horizontal, 32)
+                .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.vertical, 32)
@@ -192,12 +182,7 @@ private struct RecommendationCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(theme.neutrals.card)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(theme.neutrals.border, lineWidth: 1)
-            )
+            .designSurface(style: .solid, cornerRadius: 16)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
