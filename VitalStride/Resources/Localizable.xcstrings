@@ -12000,6 +12000,42 @@
         }
       }
     },
+    "workout.keyboard.reps": {
+      "comment": "Editing repetitions",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次数"
+          }
+        }
+      }
+    },
+    "workout.keyboard.add_set": {
+      "comment": "Add a set",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加一组"
+          }
+        }
+      }
+    },
     "workout.keyboard.weight": {
       "comment": "Active workout redesign",
       "extractionState": "manual",

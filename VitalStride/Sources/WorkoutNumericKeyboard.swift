@@ -77,7 +77,7 @@ struct WorkoutNumericKeyboardContentView: View {
         VStack(spacing: 8) {
             HStack {
                 Text(field == .reps
-                     ? String(localized: "次数", comment: "Editing repetitions")
+                     ? String(localized: "workout.keyboard.reps", defaultValue: "Reps", comment: "Editing repetitions")
                      : String(localized: "workout.keyboard.weight", defaultValue: "Weight", comment: "Editing weight"))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(theme.secondaryForeground)
@@ -101,7 +101,7 @@ struct WorkoutNumericKeyboardContentView: View {
                     .layoutPriority(1)
                 VStack(spacing: 8) {
                     functionKey(.addDropSet, title: String(localized: "workout.keyboard.drop", defaultValue: "Drop set", comment: "Add a drop set"))
-                    functionKey(.addSet, title: String(localized: "添加一组", comment: "Add a set"))
+                    functionKey(.addSet, title: String(localized: "workout.keyboard.add_set", defaultValue: "Add set", comment: "Add a set"))
                     functionKey(.toggleWeightUnit, title: "kg / lbs")
                 }
                 .frame(width: 68)
