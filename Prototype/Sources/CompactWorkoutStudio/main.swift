@@ -130,12 +130,44 @@ func weightExample(_ state: String) -> CompactSession {
     return session
 }
 
+@MainActor
+func verifyInteractive() throws {
+    let session = CompactSession()
+    let root = CompactStudioView(session: session, layout: .rail)
+        .environment(\.theme, Theme(seed: .blue, neutral: .slate, isDark: false))
+        .frame(width: 393, height: 852)
+    let host = NSHostingView(rootView: root)
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 393, height: 852),
+                          styleMask: [.titled, .closable], backing: .buffered, defer: false)
+    window.contentView = host
+    window.makeKeyAndOrderFront(nil)
+    session.edit("weight")
+    session.core.pressEditorKey("7")
+    session.core.pressEditorKey("5")
+    guard session.core.editorWeightText == "75" else { throw NSError(domain: "CompactVerify", code: 1) }
+    session.setContentState(.loading)
+    session.setContentState(.error)
+    session.setContentState(.populated)
+    session.save()
+    guard session.core.editorField == nil, session.core.activeSets[2].weight == 75 else {
+        throw NSError(domain: "CompactVerify", code: 2)
+    }
+    window.orderOut(nil)
+    FileHandle.standardOutput.write(Data("interactive verification passed: A1/A4/A6/A8/A9\n".utf8))
+}
+
 if CommandLine.arguments.contains("--render") || CommandLine.arguments.contains("--render-b") || CommandLine.arguments.contains("--render-weights") {
     let chosenB = CommandLine.arguments.contains("--render-b")
     let weights = CommandLine.arguments.contains("--render-weights")
     let path = CommandLine.arguments.dropFirst(2).first ?? (weights ? "Prototype/CompactEvidence/weight-shots" : (chosenB ? "Prototype/CompactEvidence/b-shots" : "Prototype/CompactEvidence/shots"))
     DispatchQueue.main.async {
         do { try MainActor.assumeIsolated { try renderCompact(to: path, chosenB: chosenB, weights: weights) }; exit(0) }
+        catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+    }
+    RunLoop.main.run()
+} else if CommandLine.arguments.contains("--verify-interactive") {
+    DispatchQueue.main.async {
+        do { try MainActor.assumeIsolated { try verifyInteractive() }; exit(0) }
         catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
     }
     RunLoop.main.run()

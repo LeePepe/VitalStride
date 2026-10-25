@@ -42,7 +42,7 @@ struct CompactRailWorkout: View {
                 }
             }
             .onChange(of: session.navigation.jumpRevision) { _, _ in
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .snappy(duration: 0.24, extraBounce: 0)) {
                     detailProxy.scrollTo(session.navigation.jumpExerciseID, anchor: .top)
                 }
             }
@@ -71,7 +71,7 @@ struct CompactRailWorkout: View {
                 else { ScrollView { railItems }.scrollIndicators(.hidden) }
             }.frame(width: 64).background(theme.neutrals.inner.opacity(0.55))
                 .onChange(of: session.navigation.visibleExerciseID) { _, id in
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.24, extraBounce: 0)) {
                         railProxy.scrollTo("rail-" + id, anchor: .center)
                     }
                 }
@@ -87,25 +87,12 @@ struct CompactRailWorkout: View {
                 Button {
                     if session.select(exercise: id) { session.navigation.jump(to: id, order: session.core.workoutIDs) }
                 } label: {
-                    VStack(spacing: 4) {
-                        HStack(spacing: 3) {
-                            Text(String(index + 1)).monospacedDigit()
-                            if target {
-                                Image(systemName: "pencil.circle.fill").font(.system(size: 14)).accessibilityHidden(true)
-                                Text(studioText("compact.editingShort")).font(.system(size: 12))
-                            }
-                        }.font(.caption2).foregroundStyle(visible ? theme.neutrals.text1 : theme.neutrals.text2)
-                        Text(studioText("exercise.short.\(id)")).font(.caption.weight(.semibold)).multilineTextAlignment(.center)
-                        Text("\(sets.filter(\.completed).count)/\(sets.count)").font(.caption2).monospacedDigit().foregroundStyle(theme.neutrals.text2)
-                    }.frame(width: 56, height: 76)
-                        .background(visible ? theme.primary.primarySubtle : .clear, in: RoundedRectangle(cornerRadius: 14))
-                        .overlay(alignment: .leading) {
-                            if visible { Capsule().fill(theme.primary.primary).frame(width: 3, height: 24).accessibilityHidden(true) }
-                        }.contentShape(Rectangle())
-                }.buttonStyle(.plain).id("rail-" + id)
+                    CompactRailItem(index: index, id: id, visible: visible, target: target, sets: sets)
+                }.buttonStyle(CompactPressStyle()).id("rail-" + id)
                     .accessibilityAddTraits(visible ? .isSelected : [])
                     .accessibilityLabel(studioText("exercise.\(id)") + (target ? " · " + studioText("compact.actionTarget") : ""))
             }
+
         }.padding(.horizontal, 4).padding(.vertical, 8)
     }
 
@@ -113,6 +100,36 @@ struct CompactRailWorkout: View {
         CompactRailSection(session: session, exerciseID: id)
     }
     private func rowID(_ exercise: String, _ set: Int) -> String { "group-\(exercise)-\(set)" }
+}
+
+private struct CompactRailItem: View {
+    @Environment(\.theme) private var theme
+    let index: Int
+    let id: String
+    let visible: Bool
+    let target: Bool
+    let sets: [StudioSet]
+    var body: some View {
+        let indexText = String(index + 1)
+        let exerciseText = studioText("exercise.short.\(id)")
+        let completionText = "\(sets.filter(\.completed).count)/\(sets.count)"
+        return VStack(spacing: 4) {
+            HStack(spacing: 3) {
+                Text(indexText).monospacedDigit()
+                if target {
+                    Image(systemName: "pencil").font(.system(size: 14)).accessibilityHidden(true)
+                    Text(studioText("compact.editingShort")).font(.system(size: 12))
+                }
+            }.font(.caption2).foregroundStyle(visible ? theme.neutrals.text1 : theme.neutrals.text2)
+            Text(exerciseText).font(.caption.weight(.semibold)).multilineTextAlignment(.center)
+            Text(completionText).font(.caption2).monospacedDigit().foregroundStyle(theme.neutrals.text2)
+        }.frame(width: 56).frame(minHeight: 60)
+            .padding(.vertical, 4)
+            .background(visible ? theme.primary.primarySubtle : .clear, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+            .overlay {
+                if visible { RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(theme.primary.primaryBorder, lineWidth: 1) }
+            }.contentShape(Rectangle())
+    }
 }
 
 @MainActor
@@ -153,9 +170,9 @@ private struct CompactRailSection: View {
                     .id("group-\(exerciseID)-\(set.id)")
             }
         }.padding(.bottom, 4)
-            .background(theme.neutrals.card, in: RoundedRectangle(cornerRadius: 16))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(theme.neutrals.border.opacity(0.55), lineWidth: 0.5).allowsHitTesting(false) }
+            .background(theme.neutrals.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(theme.neutrals.border.opacity(0.55), lineWidth: 0.5).allowsHitTesting(false) }
     }
 }
 

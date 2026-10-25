@@ -4443,7 +4443,56 @@
           }
         }
       }
-    }
+    },
+    "compact.retry": {
+          "extractionState": "manual",
+          "localizations": {
+            "zh-Hans": { "stringUnit": { "state": "translated", "value": "重试" } },
+            "en": { "stringUnit": { "state": "translated", "value": "Retry" } }
+          }
+        },
+        "compact.emptyState": {
+          "extractionState": "manual",
+          "localizations": {
+            "zh-Hans": { "stringUnit": { "state": "translated", "value": "暂无内容" } },
+            "en": { "stringUnit": { "state": "translated", "value": "Nothing here yet" } }
+          }
+        },
+        "compact.emptyDetail": {
+          "extractionState": "manual",
+          "localizations": {
+            "zh-Hans": { "stringUnit": { "state": "translated", "value": "当前没有可显示的训练记录。" } },
+            "en": { "stringUnit": { "state": "translated", "value": "There is nothing to show." } }
+          }
+        },
+        "compact.loadingState": {
+          "extractionState": "manual",
+          "localizations": {
+            "zh-Hans": { "stringUnit": { "state": "translated", "value": "正在加载" } },
+            "en": { "stringUnit": { "state": "translated", "value": "Loading" } }
+          }
+        },
+        "compact.loadingDetail": {
+          "extractionState": "manual",
+          "localizations": {
+            "zh-Hans": { "stringUnit": { "state": "translated", "value": "正在准备训练内容。" } },
+            "en": { "stringUnit": { "state": "translated", "value": "Preparing the workout." } }
+          }
+        },
+        "compact.errorState": {
+          "extractionState": "manual",
+          "localizations": {
+            "zh-Hans": { "stringUnit": { "state": "translated", "value": "加载失败" } },
+            "en": { "stringUnit": { "state": "translated", "value": "Could not load" } }
+          }
+        },
+        "compact.errorDetail": {
+          "extractionState": "manual",
+          "localizations": {
+            "zh-Hans": { "stringUnit": { "state": "translated", "value": "草稿已保留，可以安全重试。" } },
+            "en": { "stringUnit": { "state": "translated", "value": "Your draft is preserved and can be retried." } }
+          }
+        }
   },
   "version": "1.0"
 }

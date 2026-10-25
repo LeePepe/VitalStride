@@ -1,6 +1,18 @@
 import DesignKit
 import SwiftUI
 
+struct CompactPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let firm: Bool
+    init(firm: Bool = false) { self.firm = firm }
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? (firm ? 0.96 : 0.98) : 1)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.24, extraBounce: 0), value: configuration.isPressed)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+    }
+}
+
 /// Layout study V2. One visual treatment, three compact information structures.
 public struct CompactStudioView: View {
     @Environment(\.theme) private var theme
@@ -22,7 +34,9 @@ public struct CompactStudioView: View {
                 Spacer()
                 Image(systemName: "battery.100percent").accessibilityHidden(true)
             }.font(.system(size: 11, weight: .semibold)).padding(.horizontal, 20).frame(height: 28)
-            if session.core.screen == .picker {
+            if session.contentState != .populated {
+                CompactStateView(state: session.contentState, retry: { session.contentState = .populated })
+            } else if session.core.screen == .picker {
                 CompactPickerView(session: session, model: picker, snapshot: snapshot)
             } else if session.core.isFinished {
                 Spacer()
@@ -69,7 +83,7 @@ public struct CompactStudioView: View {
                     Text(studioText("compact.locate"))
                 }.font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.neutrals.text2)
                     .frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
-            }.buttonStyle(.plain).padding(.horizontal, 12)
+            }.buttonStyle(CompactPressStyle()).padding(.horizontal, 12)
             workoutActions.padding(.top, -8).padding(.bottom, 8)
         }.modifier(CompactGlassSurface(radius: 22, snapshot: snapshot))
             .padding(.horizontal, 8).padding(.top, 4)
@@ -82,7 +96,7 @@ public struct CompactStudioView: View {
                 Label(layout == .rail ? compactSetActionTitle(session: session, editing: false) : studioText(session.selectedSet?.completed == true ? "set.uncomplete" : "compact.logSet"), systemImage: "checkmark")
                     .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 48)
                     .foregroundStyle(theme.primary.onPrimary).background(theme.primary.primary, in: RoundedRectangle(cornerRadius: 8))
-            }.buttonStyle(.plain).disabled(session.selectedSet == nil)
+            }.buttonStyle(CompactPressStyle()).disabled(session.selectedSet == nil)
         }.padding(.horizontal, 12).padding(.top, 8)
     }
 }
@@ -227,20 +241,19 @@ struct CompactSetRow: View {
             }.frame(maxWidth: .infinity)
             Button { if session.select(exercise: exerciseID, setID: set.id) { session.edit("reps") } } label: {
                 Text(editing ? session.core.editorRepsText : String(set.reps)).font(.system(.body, design: .rounded, weight: .semibold)).monospacedDigit()
-                    .frame(width: 48, height: 48).background(theme.neutrals.card.opacity(selected ? 1 : 0), in: RoundedRectangle(cornerRadius: 6))
-            }.buttonStyle(.plain).accessibilityLabel(studioText("editor.reps"))
+                .frame(width: 48, height: 48)
+                .background(editing ? theme.primary.primarySubtle : .clear, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
+                .overlay { if editing { RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).strokeBorder(theme.primary.primaryText, lineWidth: 1) } }
+            }.buttonStyle(CompactPressStyle()).accessibilityLabel(studioText("editor.reps"))
             Button { if session.select(exercise: exerciseID, setID: set.id) { session.completeSelected() } } label: {
                 Image(systemName: set.completed ? "checkmark.circle.fill" : "circle")
                     .symbolRenderingMode(.palette)
                     .font(.system(size: 20))
                     .foregroundStyle(set.completed ? Color.black : theme.neutrals.text2, theme.success)
                     .frame(width: 44, height: 48)
-            }.buttonStyle(.plain).accessibilityLabel(studioText(set.completed ? "set.uncomplete" : "set.complete"))
+            }.buttonStyle(CompactPressStyle(firm: true)).accessibilityLabel(studioText(set.completed ? "set.uncomplete" : "set.complete"))
         }.padding(.horizontal, 12).padding(.vertical, 2)
-            .background(selected ? theme.primary.primarySubtle : .clear)
-            .overlay(alignment: .leading) {
-                if selected { Rectangle().fill(theme.primary.primary).frame(width: 2).padding(.vertical, 8).accessibilityHidden(true) }
-            }
+            .background(theme.neutrals.card)
             .overlay(alignment: .bottom) { Divider().padding(.horizontal, 12) }
             .accessibilityElement(children: .contain)
             .accessibilityAddTraits(selected ? .isSelected : [])
@@ -256,8 +269,9 @@ struct CompactSetRow: View {
                 if split { Text(studioText(right ? "weight.right" : "weight.left")).font(.system(size: 10)).foregroundStyle(theme.neutrals.text2) }
                 Text(value).font(.system(split ? .subheadline : .body, design: .rounded, weight: .semibold)).monospacedDigit().minimumScaleFactor(0.75).lineLimit(1)
             }.frame(maxWidth: .infinity, minHeight: 48).frame(minWidth: 44)
-                .background(theme.neutrals.card.opacity(selected ? 1 : 0), in: RoundedRectangle(cornerRadius: 6))
-        }.buttonStyle(.plain).accessibilityLabel(studioText(split ? (right ? "weight.right" : "weight.left") : "editor.weight"))
+                .background(editing ? theme.primary.primarySubtle : .clear, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
+                .overlay { if editing { RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).strokeBorder(theme.primary.primaryText, lineWidth: 1) } }
+        }.buttonStyle(CompactPressStyle()).accessibilityLabel(studioText(split ? (right ? "weight.right" : "weight.left") : "editor.weight"))
             .accessibilityValue(value + " kg")
     }
 }
@@ -851,6 +865,36 @@ private struct CompactViewport<Content: View>: View {
                     LazyVStack(alignment: .leading, spacing: 0) { content() }
                 }.scrollIndicators(.hidden)
             }
+
         }
+    }
+}
+
+private struct CompactStateView: View {
+    @Environment(\.theme) private var theme
+    let state: CompactContentState
+    let retry: () -> Void
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: icon).font(.largeTitle).foregroundStyle(theme.primary.primary)
+            Text(studioText(titleKey)).font(.headline)
+            Text(studioText(detailKey)).font(.caption).foregroundStyle(theme.neutrals.text2)
+            if state == .error {
+                Button(studioText("compact.retry"), action: retry)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .buttonStyle(CompactPressStyle())
+            }
+        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(16)
+            .background(theme.neutrals.card)
+    }
+    private var icon: String {
+        switch state { case .populated: "checkmark"; case .empty: "tray"; case .loading: "hourglass"; case .error: "exclamationmark.triangle" }
+    }
+    private var titleKey: String {
+        switch state { case .populated: "compact.state"; case .empty: "compact.emptyState"; case .loading: "compact.loadingState"; case .error: "compact.errorState" }
+    }
+    private var detailKey: String {
+        switch state { case .populated: "compact.state"; case .empty: "compact.emptyDetail"; case .loading: "compact.loadingDetail"; case .error: "compact.errorDetail" }
     }
 }

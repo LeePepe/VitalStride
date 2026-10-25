@@ -52,8 +52,8 @@ struct CompactWeightPanel: View {
                 Text(studioText(key)).font(.subheadline.weight(.semibold))
                 Text("kg").font(.caption)
             }.frame(maxWidth: .infinity, minHeight: 44)
-                .background(selected ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: 6))
-                .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(selected ? theme.primary.primaryText : .clear, lineWidth: 1) }
+                .background(selected ? theme.primary.primarySubtle : theme.neutrals.inner, in: RoundedRectangle(cornerRadius: Radius.inner, style: .continuous))
+                .overlay { RoundedRectangle(cornerRadius: Radius.inner, style: .continuous).strokeBorder(selected ? theme.primary.primaryText : .clear, lineWidth: 1) }
         }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
     }
 

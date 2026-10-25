@@ -9,6 +9,9 @@ public enum CompactLayout: String, CaseIterable, Identifiable, Sendable {
 
 public enum CompactAccessory: String, Sendable { case digits, rpe, type, weight }
 public enum CompactOverlay: String, Sendable { case more, filters, selection, finish, advanced }
+public enum CompactContentState: String, CaseIterable, Sendable {
+    case populated, empty, loading, error
+}
 
 public struct CompactTarget: Equatable, Sendable {
     public let exerciseID: String
@@ -43,6 +46,7 @@ public final class CompactWorkoutNavigation {
 public final class CompactSession {
     public let core: StudioSession
     public let navigation = CompactWorkoutNavigation()
+    public var contentState: CompactContentState = .populated
     public var selectedSetID = 3
     public var overlay: CompactOverlay?
     public var accessory = CompactAccessory.digits
@@ -62,6 +66,9 @@ public final class CompactSession {
         core = StudioSession(screen: picker ? .picker : .workout)
         if picker { core.selectedIDs = [] }
     }
+    public func setContentState(_ state: CompactContentState) {
+        contentState = state
+    }
     public var target: CompactTarget { .init(exerciseID: core.activeExerciseID, setID: selectedSetID) }
     public var selectedSet: StudioSet? { core.activeSets.first { $0.id == selectedSetID } }
     public var selectedSetNumber: Int? { core.activeSets.firstIndex { $0.id == selectedSetID }.map { $0 + 1 } }
@@ -73,7 +80,7 @@ public final class CompactSession {
     public var equipmentDefault: Double? { equipmentDefaults[core.activeExerciseID] }
     public var canSaveEquipmentDefault: Bool {
         guard let value = Double(equipmentDefaultText.replacingOccurrences(of: ",", with: ".")), value.isFinite else { return false }
-        return (0...999).contains(value)
+        return (0...999.9).contains(value)
     }
 
     public func beginEquipmentDefault() {

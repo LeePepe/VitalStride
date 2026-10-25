@@ -374,3 +374,42 @@ func invalidMachineDefaultCannotReplaceSavedValue() {
     session.saveEquipmentDefault()
     #expect(session.equipmentDefault == 100)
 }
+
+@Test @MainActor
+func compactDemoStatesPreserveDraftAndRecoverFromError() {
+    let session = CompactSession()
+    session.edit("weight")
+    session.core.pressEditorKey("7")
+    session.setContentState(.loading)
+    #expect(session.contentState == .loading)
+    #expect(session.core.editorWeightText == "7")
+    session.setContentState(.error)
+    session.setContentState(.populated)
+    #expect(session.contentState == .populated)
+    #expect(session.core.editorWeightText == "7")
+}
+
+@Test @MainActor
+func compactEquipmentDefaultAcceptsSixCharacterDecimalAndRejectsOverflow() {
+    let session = CompactSession()
+    _ = session.select(exercise: "fly")
+    session.beginEquipmentDefault()
+    for key in ["9", "9", "9", ".", "9"] { session.pressEquipmentDefaultKey(key) }
+    #expect(session.equipmentDefaultText == "999.9")
+    #expect(session.canSaveEquipmentDefault)
+    session.pressEquipmentDefaultKey("9")
+    #expect(session.equipmentDefaultText == "999.99")
+    session.pressEquipmentDefaultKey("9")
+    #expect(session.equipmentDefaultText == "999.99")
+}
+
+@Test @MainActor
+func compactNavigationKeepsBrowseAndEditTargetsIndependent() {
+    let session = CompactSession()
+    session.edit("weight")
+    let target = session.target
+    session.navigation.observeVisible(["incline"], order: session.core.workoutIDs)
+    #expect(session.navigation.visibleExerciseID == "incline")
+    #expect(session.target == target)
+    #expect(session.core.editorField == "weight")
+}
