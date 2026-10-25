@@ -43,18 +43,6 @@ module VitalStrideTestflightDistribution
     beta_group.is_internal_group && beta_group.has_access_to_all_builds
   end
 
-  # ASC may return 409 / relationship errors when the build is already linked (idempotent add).
-  def benign_beta_group_add_error?(error)
-    message = error.message.to_s.downcase
-    return true if message.include?("already") &&
-                   (message.include?("associated") || message.include?("exist") ||
-                    message.include?("assigned") || message.include?("linked"))
-    return true if message.include?("duplicate")
-    return true if message.include?("409") &&
-                   (message.include?("relationship") || message.include?("state_error"))
-    false
-  end
-
   def distribute_build_to_beta_group(build, marketing_version, build_number, beta_group, group_name)
     label = "#{marketing_version}(#{build_number})"
     if already_available_in_beta_group?(build, beta_group)
@@ -73,11 +61,20 @@ module VitalStrideTestflightDistribution
     build.add_beta_groups(beta_groups: [beta_group])
     UI.success("Distributed build #{label} to group '#{group_name}'.")
   rescue StandardError => e
-    if build_listed_in_beta_group?(build, beta_group) || benign_beta_group_add_error?(e)
-      UI.success(
-        "Build #{label} is already assigned to beta group '#{group_name}' " \
-        "(add_beta_groups no-op: #{e.message})."
-      )
+    # Only succeed on add failure when ASC membership is confirmed — never infer from 409/relationship text alone.
+    if already_available_in_beta_group?(build, beta_group)
+      if beta_group.is_internal_group && beta_group.has_access_to_all_builds &&
+         !build_listed_in_beta_group?(build, beta_group)
+        UI.success(
+          "Build #{label} is available to internal beta group '#{group_name}' " \
+          "(group has access to all builds; add_beta_groups skipped after: #{e.message})."
+        )
+      else
+        UI.success(
+          "Build #{label} is already assigned to beta group '#{group_name}' " \
+          "(add_beta_groups no-op: #{e.message})."
+        )
+      end
       return
     end
     raise
