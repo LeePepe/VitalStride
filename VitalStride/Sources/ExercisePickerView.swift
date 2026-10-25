@@ -438,12 +438,9 @@ struct ExercisePickerView: View {
                         .scrollTargetLayout()
                     }
                 }
-                // The empty state is exactly as tall as the container, so
-                // without an explicit always-bounce it would refuse the
-                // drag and `.scrollDismissesKeyboard` could never fire
-                // there. The populated path keeps the default
-                // (`.automatic`) physics untouched.
-                .scrollBounceBehavior(groups.isEmpty ? .always : .automatic, axes: .vertical)
+                // Short search results and the empty state must still
+                // accept drags when their content fits in the viewport.
+                .scrollBounceBehavior(.always)
                 // iOS 18 fallback: the panel floats as an overlay, so
                 // reserve matching bottom space with a STATIC margin driven
                 // by the intrinsic `panelHeight`. On iOS 26 the panel is a
@@ -457,6 +454,14 @@ struct ExercisePickerView: View {
                 // gesture on the grid dismisses the keyboard, and the
                 // search field remains mounted as keyboard focus changes.
                 .scrollDismissesKeyboard(.immediately)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 8).onChanged { _ in
+                        #if canImport(UIKit)
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                                        to: nil, from: nil, for: nil)
+                        #endif
+                    }
+                )
                 // MY-1249: use onScrollTargetVisibilityChange (iOS 18) instead
                 // of .scrollPosition(id:anchor:.top) — the latter's binding
                 // updates lagged during finger scroll with lazy sections, so
