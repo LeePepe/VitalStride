@@ -114,7 +114,9 @@ struct ActiveExerciseSection: View {
                             requestDelete(exerciseSet)
                         }
                     )
-                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
                     .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
                     // MY-1420: sub-sets get the same trailing full swipe as
                     // main sets. Sub-sets are always deletable — removing one
@@ -137,7 +139,6 @@ struct ActiveExerciseSection: View {
                         canDelete: canDelete,
                         exercise: workoutExercise.exercise,
                         recentWeightKg: ctx.recentWeightKg,
-                        previousSet: previousMainSet(forMainIndex: ctx.mainSetNumber),
                         onToggleCompleted: { wasCompleted in
                             if !wasCompleted { onSetCompleted() }
                         },
@@ -151,11 +152,10 @@ struct ActiveExerciseSection: View {
                             copyToNext(from: exerciseSet)
                         }
                     )
-                    // MY-1263 (D2): compact set-row vertical spacing in normal
-                    // mode brings the row visual height toward ~36pt while
-                    // preserving Large Mode's existing 2pt breathing room and
-                    // the row-internal ≥44pt hit targets defined by SetRow.
-                    .listRowInsets(EdgeInsets(top: largeMode ? 2 : 1, leading: 16, bottom: largeMode ? 2 : 1, trailing: 16))
+                    // Each set is its own solid item; the exercise has no outer card.
+                    .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
                     .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if canDelete {
@@ -169,7 +169,7 @@ struct ActiveExerciseSection: View {
                 }
             }
         } header: {
-            HStack(alignment: .center, spacing: 8) {
+            HStack(alignment: .center, spacing: 4) {
                 Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
                     // MY-1263 (D2): compact semibold body header in normal mode
                     // (SwiftUI's default `List` section header uses a larger
@@ -183,8 +183,7 @@ struct ActiveExerciseSection: View {
                         : Font.system(.body, design: .default).weight(.semibold))
                     .foregroundStyle(theme.neutrals.text1)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .lineLimit(2)
                     .contextMenu {
                         Button {
                             onSubstitute()
@@ -285,19 +284,6 @@ struct ActiveExerciseSection: View {
         )
     }
 
-    /// MY-1169 (spec 004 T006): resolves the same-index main set from the most
-    /// recent completed workout so `SetRow` can render the "上次 …" hint. Returns
-    /// nil when the workout link, the exercise, or the prior history is missing.
-    private func previousMainSet(forMainIndex mainSetIndex: Int) -> ExerciseSet? {
-        guard let workout = workoutExercise.workout else { return nil }
-        return PreviousSetLookup.previousMainSet(
-            currentWorkout: workout,
-            exercise: workoutExercise.exercise,
-            mainSetIndex: mainSetIndex,
-            in: modelContext
-        )
-    }
-
     // MY-1348 (spec 017): visual redesign — subtle-fill inline button.
     // Kept in the section header alongside the exercise title + menu, not as a
     // list row. The row-only spacing/background/separator modifiers are removed so
@@ -337,15 +323,16 @@ struct ActiveExerciseSection: View {
         Button {
             addSet()
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: 4) {
                 Image(systemName: "plus.circle.fill")
                     .foregroundStyle(theme.primary.primary)
                 Text(String(localized: "添加一组", comment: ""))
                     .foregroundStyle(theme.primary.primaryText)
+                    .lineLimit(1)
             }
             .font(.callout.weight(.medium))
             .frame(minHeight: 44)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 6)
             .padding(.vertical, largeMode ? 10 : 6)
             .background(
                 RoundedRectangle(cornerRadius: Radius.inner)

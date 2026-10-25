@@ -30,30 +30,74 @@ enum ActiveWorkoutHitTarget {
     static let side: CGFloat = 44
 }
 
-/// MY-1266 (D2 re-scope): expands the tappable region around normal-mode
-/// SetRow inputs to the 44pt Constitution P1-H floor without visually
-/// enlarging the underlying `SelectAllTextField`. In normal mode the
-/// weight/reps text fields hug `.body` typography and land near ~28pt
-/// rendered height — well below the HIG floor. This modifier keeps the
-/// drawn text field size unchanged and pads the *hit region* only via
-/// `contentShape(Rectangle())` plus transparent vertical padding, so the
-/// row lands on ~36pt visual density (AC #1) while every input still
-/// exposes an effective ≥44pt tap target (AC #2). No-op when `active` is
-/// false so Large Mode continues to rely on `largeMinHeight` for its own
-/// accessible sizing (AC #3).
+/// Numeric inputs retain a real 44pt interactive height in compact mode.
+/// Large Mode supplies its own larger field floor.
 private struct NormalModeHitTargetPadding: ViewModifier {
     let active: Bool
 
     func body(content: Content) -> some View {
         if active {
             content
-                .padding(.vertical, 8)
+                .frame(minHeight: ActiveWorkoutHitTarget.side)
                 .contentShape(Rectangle())
         } else {
             content
         }
     }
 }
+
+#if canImport(UIKit) && !os(macOS)
+/// The shared coordinator keeps selection-aware editing and the custom keyboard
+/// bridge. This row-owned host adds explicit sizing and Strata input colors, so
+/// UIKit's intrinsic size cannot paint over the adjacent L/R label or reps box.
+private struct WorkoutSetInput: UIViewRepresentable {
+    let input: SelectAllTextField
+    let theme: Theme
+
+    init(_ input: SelectAllTextField, theme: Theme) {
+        self.input = input
+        self.theme = theme
+    }
+
+    func makeCoordinator() -> SelectAllTextField.Coordinator { input.makeCoordinator() }
+
+    func makeUIView(context: Context) -> UITextField {
+        let view = UITextField()
+        view.delegate = context.coordinator
+        view.borderStyle = .none
+        view.textAlignment = .center
+        view.adjustsFontForContentSizeCategory = true
+        view.adjustsFontSizeToFitWidth = true
+        view.minimumFontSize = UIFont.preferredFont(forTextStyle: .caption2).pointSize
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        view.addTarget(context.coordinator,
+                       action: #selector(SelectAllTextField.Coordinator.textChanged(_:)), for: .editingChanged)
+        context.coordinator.attach(textField: view)
+        updateUIView(view, context: context)
+        return view
+    }
+
+    func updateUIView(_ view: UITextField, context: Context) {
+        if view.text != input.text { view.text = input.text }
+        view.placeholder = input.placeholder
+        view.font = input.font
+        view.textColor = UIColor(theme.foreground)
+        view.tintColor = UIColor(theme.accent)
+        view.keyboardType = input.keyboardType
+        context.coordinator.update(
+            field: input.field, setType: input.setType, exercise: input.exercise,
+            recentWeightKg: input.recentWeightKg,
+            onLeftAction: input.onLeftAction, onPresetReps: input.onPresetReps
+        )
+        context.coordinator.installCustomKeyboardIfNeeded(on: view)
+        context.coordinator.refreshCustomKeyboardContextIfInstalled()
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextField, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 60, height: max(44, input.font.lineHeight + 12))
+    }
+}
+#endif
 
 struct SetRow: View {
     let index: Int
@@ -64,14 +108,8 @@ struct SetRow: View {
     let exercise: Exercise?
     /// Most recent same-exercise weight (kg) for the preset fallback chain.
     let recentWeightKg: Double?
-    /// MY-1161 (spec 004-previous-set-hint T005 / FR-001, FR-003, FR-004) —
-    /// same-index main set from the most recent prior completed workout for
-    /// this exercise, or `nil` when unavailable. When non-nil the row renders
-    /// a tertiary caption "上次 {weight}{unit} × {reps}" under the inputs.
-    /// Weight comes in as canonical kg from `PreviousSetLookup`; the row
-    /// formats it against the current `weightUnit` preference. Defaults to
-    /// `nil` so existing call sites (ActiveExerciseSection, previews) remain
-    /// source-compatible until T006 wires the lookup through.
+    /// Kept for source compatibility with existing preview/caller fixtures.
+    /// History is prefilled on add; no Prev column or caption is rendered.
     let previousSet: ExerciseSet?
     let onToggleCompleted: (_ wasCompleted: Bool) -> Void
     let onDelete: () -> Void
@@ -109,6 +147,7 @@ struct SetRow: View {
     @State private var weightText: String = ""
     @State private var weightRightText: String = ""
     @State private var repsText: String = ""
+    @State private var showingRPEDialog = false
     // MY-1203 (spec 006-smart-progression T006): tap-to-fill + override
     // tracking. `pendingSuggestionSnapshot` holds the exact text values the
     // suggestion chip most recently filled in — when the row's weightText /
@@ -164,217 +203,150 @@ struct SetRow: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        // MY-1091 P0 fix: wrap Large Mode's row in `ViewThatFits(in: .horizontal)`
-        // so the wide 110/88/88 tokens render on Pro Max / landscape and the
-        // compact 88/64/68 tokens render on iPhone SE / Mini (375pt content
-        // width after 16pt list insets = 343pt). Normal mode has always fit
-        // compact widths, so it skips the ViewThatFits wrapper entirely.
-        //
-        // MY-1161 (spec 004 T005): when `previousSet` is non-nil, render a
-        // tertiary "上次 …" caption directly under the row inputs. When nil,
-        // nothing is rendered and no vertical space is reserved (FR-003).
-        VStack(alignment: .leading, spacing: 2) {
-            Group {
-                if largeMode {
-                    ViewThatFits(in: .horizontal) {
-                        rowContent(variant: .large)
-                        rowContent(variant: .largeCompact)
-                    }
-                } else {
-                    rowContent(variant: .normal)
-                }
+        VStack(alignment: .leading, spacing: 4) {
+            ViewThatFits(in: .horizontal) {
+                rowContent(variant: largeMode ? .large : .normal)
+                rowContent(variant: .largeCompact)
+                stackedRowContent
             }
-            if let previousSet {
-                previousSetCaption(previousSet)
+            if exerciseSet.setType != .working {
+                setTypePill(exerciseSet.setType).allowsHitTesting(false)
+            }
+            if let rpe = exerciseSet.rpe {
+                Text(String(format: String(localized: "workout.row.rpe_value", defaultValue: "RPE %lld", comment: "Read-only recorded exertion"), Int64(rpe)))
+                    .font(.caption)
+                    .foregroundStyle(theme.secondaryForeground)
+                    .allowsHitTesting(false)
             }
             if let advice = smartProgressionAdvice() {
                 smartProgressionChip(advice)
             }
         }
-        // MY-1266 (D2 re-scope): tighten default-mode outer padding so the
-        // visible row lands near ~36pt while Large Mode keeps its accessible
-        // padding. Only the normal path shrinks; `largeMode == true` still
-        // uses the pre-existing 10pt outer padding required by the Large
-        // Mode accessibility contract (parent MY-1261 / spec preserves Large
-        // Mode typography, spacing, control sizing, and toggle behavior).
-        .padding(largeMode ? 10 : 6)
-        .background(exerciseSet.isCompleted ? theme.neutrals.card : theme.neutrals.inner)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.inner))
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.inner)
-                .stroke(rowBorderColor, lineWidth: 1)
-        )
-        .opacity(exerciseSet.isCompleted ? 0.9 : 1)
-        .onAppear {
-            let displayW = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
-            weightText = formatWeight(displayW)
-            if let rightWeight = exerciseSet.weightRight {
-                let displayWR = weightUnit == .lb ? rightWeight * 2.20462 : rightWeight
-                weightRightText = formatWeight(displayWR)
+        .padding(6)
+        .frame(maxWidth: .infinity, minHeight: 56)
+        // Only this background handles completion. Inputs and buttons above it
+        // own their touches, so editing or opening More never completes a set.
+        .background {
+            Button(action: toggleCompleted) { Color.clear.contentShape(Rectangle()) }
+                .buttonStyle(.plain)
+                .accessibilityHidden(true)
+        }
+        .designSurface(style: .solid, cornerRadius: 16)
+        .onAppear { refreshInputText() }
+        .onChange(of: weightUnit) { _, _ in refreshInputText() }
+        .onChange(of: exerciseSet.weight) { _, _ in refreshInputText() }
+        .onChange(of: exerciseSet.weightRight) { _, _ in refreshInputText() }
+        .onChange(of: exerciseSet.reps) { _, _ in refreshInputText() }
+        .onChange(of: exerciseSet.isUnilateral) { _, _ in refreshInputText() }
+        .alert(String(localized: "workout.row.set_rpe", defaultValue: "Set RPE", comment: "RPE dialog title"),
+               isPresented: $showingRPEDialog) {
+            ForEach(6...10, id: \.self) { value in
+                Button("\(value)") { exerciseSet.rpe = value }
             }
-            repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
+            Button(String(localized: "set_row_rpe_not_set", defaultValue: "Not set", comment: "Clear recorded RPE")) {
+                exerciseSet.rpe = nil
+            }
+            Button(String(localized: "取消", comment: "Cancel"), role: .cancel) {}
         }
     }
 
-    /// Row layout parameterized by a Large Mode `Variant`. `ViewThatFits`
-    /// picks between `.large` and `.largeCompact` based on the offered
-    /// horizontal space, so the trailing menu / completion button never
-    /// clip off-screen on compact phones.
-    @ViewBuilder
     private func rowContent(variant: LargeWorkoutFieldWidth.Variant) -> some View {
-        // Map the Large Mode variant back to the `large: Bool` axis used by
-        // font/min-height tokens — both `.large` and `.largeCompact` still
-        // want the larger fonts and 60pt min-height; only widths shrink.
-        let isLarge = variant != .normal
-        HStack(spacing: LargeWorkoutFieldWidth.rowSpacing(variant)) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(index + 1)")
-                    .font(LargeWorkoutFonts.setIndex(large: isLarge))
-                    .fontWeight(.bold)
-                    .foregroundStyle(theme.neutrals.text1)
-                if exerciseSet.setType != .working {
-                    setTypePill(exerciseSet.setType)
-                }
-            }
-            .frame(width: LargeWorkoutFieldWidth.setIndexWidth(variant), alignment: .leading)
-
-            if exerciseSet.isUnilateral {
-                // MY-876: unilateral order matches bilateral "weight × reps":
-                // left-weight / right-weight × reps. Reps stays at the tail so
-                // the visual/accessibility sequence is consistent across modes.
-                weightField(
-                    binding: $weightText,
-                    field: .weight,
-                    width: LargeWorkoutFieldWidth.unilateralWeight(variant),
-                    a11yLabel: String(
-                        localized: "第 \(index + 1) 组左侧重量",
-                        comment: "Left weight input a11y label"
-                    ),
-                    a11yHint: String(localized: "输入左侧重量数值", comment: "Left weight input a11y hint")
-                )
-
-                Text("/")
-                    .foregroundStyle(theme.neutrals.text2)
-                    .accessibilityHidden(true)
-
-                weightField(
-                    binding: $weightRightText,
-                    field: .weightRight,
-                    width: LargeWorkoutFieldWidth.unilateralWeight(variant),
-                    a11yLabel: String(
-                        localized: "第 \(index + 1) 组右侧重量",
-                        comment: "Right weight input a11y label"
-                    ),
-                    a11yHint: String(localized: "输入右侧重量数值", comment: "Right weight input a11y hint")
-                )
-
-                Text("×")
-                    .foregroundStyle(theme.neutrals.text2)
-
-                repsField(width: LargeWorkoutFieldWidth.reps(variant))
-            } else {
-                weightField(
-                    binding: $weightText,
-                    field: .weight,
-                    width: LargeWorkoutFieldWidth.bilateralWeight(variant),
-                    a11yLabel: String(
-                        localized: "第 \(index + 1) 组重量",
-                        comment: "Total weight input a11y label"
-                    ),
-                    a11yHint: String(localized: "输入重量数值", comment: "Total weight input a11y hint")
-                )
-
-                Text("×")
-                    .foregroundStyle(theme.neutrals.text2)
-
-                repsField(width: LargeWorkoutFieldWidth.reps(variant))
-            }
-
-            Menu {
-                if canDelete {
-                    Button(role: .destructive) {
-                        onDelete()
-                    } label: {
-                        Label(
-                            String(localized: "删除", comment: "Delete set menu item"),
-                            systemImage: "trash"
-                        )
-                    }
-                }
-
-                Divider()
-
-                Picker(selection: Binding(
-                    get: { exerciseSet.setType },
-                    set: { exerciseSet.setType = $0 }
-                )) {
-                    ForEach(SetType.allCases, id: \.self) { type in
-                        Text(type.displayName).tag(type)
-                    }
-                } label: {
-                    Text(String(localized: "组类型", comment: "Set type picker label in menu"))
-                }
-
-                // MY-1154 (T006/T007): RPE picker — hidden for warmup sets
-                // (per spec Edge Case, warmup is typically RPE < 6). Options
-                // expose the standard 6–10 range plus a "not set" that maps
-                // to `nil`. String keys are semantic (English) and their
-                // catalog entries land in T008; the value tag stays `Int?`
-                // so the picker binding round-trips through
-                // `ExerciseSet.rpe` without a sentinel.
-                if exerciseSet.setType != .warmup {
-                    Picker(selection: Binding(
-                        get: { exerciseSet.rpe },
-                        set: { exerciseSet.rpe = $0 }
-                    )) {
-                        Text(String(
-                            localized: "set_row_rpe_not_set",
-                            defaultValue: "Not set",
-                            comment: "RPE picker option: no RPE recorded (maps to nil)"
-                        ))
-                        .tag(Int?.none)
-                        ForEach([6, 7, 8, 9, 10], id: \.self) { value in
-                            Text(verbatim: "\(value)").tag(Int?.some(value))
-                        }
-                    } label: {
-                        Text(String(
-                            localized: "set_row_rpe_label",
-                            defaultValue: "RPE",
-                            comment: "RPE (Rate of Perceived Exertion) picker label in set menu"
-                        ))
-                    }
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.body)
-                    .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration menu a11y label"))
-            .accessibilityValue(
-                exerciseSet.isUnilateral
-                    // swiftlint:disable:next line_length
-                    ? "\(exerciseSet.setType.displayName)，\(String(localized: "单侧重量", comment: "Unilateral weight a11y value"))"
-                    // swiftlint:disable:next line_length
-                    : "\(exerciseSet.setType.displayName)，\(String(localized: "总重量", comment: "Total weight a11y value"))"
-            )
-
-            Spacer()
-
+        HStack(spacing: 4) {
             completionButton
+            inputFields(variant: variant)
+            Spacer(minLength: 0)
+            moreMenu
         }
+    }
+
+    private var stackedRowContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                completionButton
+                Spacer(minLength: 0)
+                moreMenu
+            }
+            inputFields(variant: .normal)
+        }
+    }
+
+    private func inputFields(variant: LargeWorkoutFieldWidth.Variant) -> some View {
+        let weightWidth = exerciseSet.isUnilateral
+            ? LargeWorkoutFieldWidth.unilateralWeight(variant)
+            : LargeWorkoutFieldWidth.bilateralWeight(variant)
+        return HStack(spacing: 4) {
+            weightBox(binding: $weightText, field: .weight, width: weightWidth,
+                      side: exerciseSet.isUnilateral ? "L" : nil)
+            if exerciseSet.isUnilateral {
+                weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R")
+            }
+            repsField(width: variant == .large ? 64 : 44)
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?) -> some View {
+        HStack(spacing: 2) {
+            if let side {
+                Text(side)
+                    .font(.caption2.weight(.semibold))
+                    .fixedSize()
+                    .foregroundStyle(theme.accent)
+                    .allowsHitTesting(false)
+            }
+            weightField(
+                binding: binding, field: field, width: max(44, width - (side == nil ? 0 : 12)),
+                a11yLabel: side == nil
+                    ? String(localized: "第 \(index + 1) 组重量", comment: "Set weight")
+                    : (field == .weight
+                       ? String(localized: "第 \(index + 1) 组左侧重量", comment: "Left weight")
+                       : String(localized: "第 \(index + 1) 组右侧重量", comment: "Right weight")),
+                a11yHint: String(localized: "输入重量数值", comment: "Enter weight")
+            )
+        }
+        .padding(.horizontal, side == nil ? 0 : 2)
+        .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            Button { showingRPEDialog = true } label: {
+                Label(String(localized: "workout.row.set_rpe", defaultValue: "Set RPE", comment: "Open RPE dialog"),
+                      systemImage: "gauge.medium")
+            }
+            Picker(selection: Binding(get: { exerciseSet.setType }, set: { exerciseSet.setType = $0 })) {
+                // Sub-sets are added through the keyboard, preserving the parent/child tree.
+                Text(SetType.working.displayName).tag(SetType.working)
+                Text(SetType.warmup.displayName).tag(SetType.warmup)
+            } label: { Text(String(localized: "组类型", comment: "Set type")) }
+            Button(action: onCopyToNext) {
+                Label(String(localized: "workout_keyboard.copy_label", defaultValue: "Copy", comment: "Copy to next set"),
+                      systemImage: "doc.on.doc")
+            }
+            if canDelete {
+                Button(role: .destructive, action: onDelete) {
+                    Label(String(localized: "删除", comment: "Delete set"), systemImage: "trash")
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .foregroundStyle(theme.secondaryForeground)
+                .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration"))
+    }
+
+    private func refreshInputText() {
+        weightText = formatWeight(weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight)
+        let right = exerciseSet.weightRight ?? exerciseSet.weight
+        weightRightText = exerciseSet.isUnilateral ? formatWeight(weightUnit == .lb ? right * 2.20462 : right) : ""
+        repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
     }
 
     // MARK: - Row styling helpers
-
-    /// Row border tint. Active (not-yet-completed, empty weight) rows get a
-    /// faint primary edge to draw the eye to the next input, matching the
-    /// prototype; everything else uses the neutral hairline.
-    private var rowBorderColor: Color {
-        !exerciseSet.isCompleted && weightText.isEmpty
-            ? theme.primary.primary.opacity(0.5)
-            : theme.neutrals.border
-    }
 
     /// Set-type badge in the SEED family (never semantic green/amber/red) so it
     /// doesn't collide with the orange rest-timer / success completion. Rendered
@@ -424,7 +396,7 @@ struct SetRow: View {
         a11yHint: String
     ) -> some View {
         #if canImport(UIKit) && !os(macOS)
-        SelectAllTextField(
+        WorkoutSetInput(SelectAllTextField(
             placeholder: weightUnit.rawValue,
             text: binding,
             keyboardType: .decimalPad,
@@ -436,7 +408,8 @@ struct SetRow: View {
             recentWeightKg: recentWeightKg,
             onLeftAction: { action in handleLeftAction(action, field: field) },
             onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
-        )
+        ), theme: theme)
+        .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
@@ -479,7 +452,7 @@ struct SetRow: View {
     @ViewBuilder
     private func repsField(width: CGFloat) -> some View {
         #if canImport(UIKit) && !os(macOS)
-        SelectAllTextField(
+        WorkoutSetInput(SelectAllTextField(
             placeholder: String(localized: "次数", comment: ""),
             text: $repsText,
             keyboardType: .numberPad,
@@ -491,7 +464,8 @@ struct SetRow: View {
             recentWeightKg: recentWeightKg,
             onLeftAction: { action in handleLeftAction(action, field: .reps) },
             onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
-        )
+        ), theme: theme)
+        .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
@@ -523,31 +497,37 @@ struct SetRow: View {
         #endif
     }
 
-    private var completionButton: some View {
-        Button {
-            let wasCompleted = exerciseSet.isCompleted
-            exerciseSet.isCompleted = !wasCompleted
-            if !wasCompleted {
-                HapticManager.trigger(.setCompleted)
-                // MY-1205 (spec 006-smart-progression T008 / FR-006):
-                // completion is the save/commit point for the tap-fill →
-                // "accepted" transition. If the user tap-filled the chip and
-                // has not edited the fields since (snapshot still present,
-                // override flag clear), record `suggestionAccepted` with the
-                // recorded advice category and clear the snapshot so an
-                // uncomplete/re-complete toggle can't double-report.
-                if !suggestionOverridden, let snapshot = pendingSuggestionSnapshot {
-                    TelemetryService.shared.trackNonisolated(
-                        .suggestionAccepted(advice: snapshot.adviceCategory)
-                    )
-                    pendingSuggestionSnapshot = nil
-                }
+    private func toggleCompleted() {
+        let wasCompleted = exerciseSet.isCompleted
+        exerciseSet.isCompleted = !wasCompleted
+        if !wasCompleted {
+            HapticManager.trigger(.setCompleted)
+            // MY-1205 (spec 006-smart-progression T008 / FR-006):
+            // completion is the save/commit point for the tap-fill →
+            // "accepted" transition. If the user tap-filled the chip and
+            // has not edited the fields since (snapshot still present,
+            // override flag clear), record `suggestionAccepted` with the
+            // recorded advice category and clear the snapshot so an
+            // uncomplete/re-complete toggle can't double-report.
+            if !suggestionOverridden, let snapshot = pendingSuggestionSnapshot {
+                TelemetryService.shared.trackNonisolated(
+                    .suggestionAccepted(advice: snapshot.adviceCategory)
+                )
+                pendingSuggestionSnapshot = nil
             }
-            onToggleCompleted(wasCompleted)
-        } label: {
-            Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
-                .font(.title3)
-                .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.neutrals.text2)
+        }
+        onToggleCompleted(wasCompleted)
+    }
+
+
+    private var completionButton: some View {
+        Button(action: toggleCompleted) {
+            VStack(spacing: 2) {
+                Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.secondaryForeground)
+                Text("\(index + 1)").font(.caption2.monospacedDigit()).foregroundStyle(theme.secondaryForeground)
+            }
         }
         .buttonStyle(.borderless)
         // MY-1013: unambiguous 44pt hit target (Constitution P1-H). The prior
@@ -561,52 +541,6 @@ struct SetRow: View {
         .contentShape(Rectangle())
         .accessibilityLabel(String(localized: "第 \(index + 1) 组，\(exerciseSet.isCompleted ? String(localized: "已完成", comment: "Set completion status: completed") : String(localized: "未完成", comment: "Set completion status: incomplete"))", comment: "A11y label composing set index and completion status"))
         .accessibilityHint(String(localized: "双击切换完成状态", comment: "A11y hint"))
-    }
-
-    // MARK: - Previous-set caption (MY-1161 / spec 004-previous-set-hint T005)
-
-    /// Renders the tertiary "上次 {重量}{单位} × {次数}" caption below the row
-    /// inputs when a prior main set is available for this exercise + index
-    /// (FR-001). Weight is converted from canonical kg to the user's current
-    /// `WeightUnit` preference (FR-004). Unilateral prior sets show both
-    /// sides as "L/R" while keeping reps at the tail (spec edge case).
-    ///
-    /// The format string is `active_workout.previous_set_hint_format`, added
-    /// to `Localizable.xcstrings` by T007 (FR-006). Per the T007 catalog
-    /// contract, the format takes two positional arguments — `%1$@` for the
-    /// formatted weight+unit segment and `%2$lld` for the reps count — so
-    /// translations can reorder them without the caller pre-joining them
-    /// into a single string.
-    @ViewBuilder
-    private func previousSetCaption(_ previous: ExerciseSet) -> some View {
-        Text(
-            String(
-                format: String(
-                    localized: "active_workout.previous_set_hint_format",
-                    defaultValue: "上次 %1$@ × %2$lld",
-                    comment: "SetRow previous-set hint. %1$@ is the formatted weight+unit (e.g. \"60kg\" or \"60/58kg\"), %2$lld is the reps count."
-                ),
-                previousSetWeightSegment(previous),
-                Int64(previous.reps)
-            )
-        )
-        .font(.caption)
-        .foregroundStyle(theme.neutrals.text3)
-    }
-
-    /// Builds the "{weight}{unit}" (or "{L}/{R}{unit}" unilateral) weight
-    /// segment for the caption. Weight values are converted from canonical
-    /// kg storage to the current `weightUnit` (FR-004). Reps are supplied
-    /// separately to the localized format string.
-    private func previousSetWeightSegment(_ previous: ExerciseSet) -> String {
-        let unitSuffix = weightUnit.rawValue
-        if previous.isUnilateral, let rightKg = previous.weightRight {
-            let leftDisplay = weightUnit == .lb ? previous.weight * 2.20462 : previous.weight
-            let rightDisplay = weightUnit == .lb ? rightKg * 2.20462 : rightKg
-            return "\(formatCaptionWeight(leftDisplay))/\(formatCaptionWeight(rightDisplay))\(unitSuffix)"
-        }
-        let display = weightUnit == .lb ? previous.weight * 2.20462 : previous.weight
-        return "\(formatCaptionWeight(display))\(unitSuffix)"
     }
 
     /// Caption-side weight formatter. Mirrors `formatWeight(_:)` for the
@@ -861,11 +795,17 @@ struct SetRow: View {
             #if canImport(UIKit) && !os(macOS)
             HapticManager.trigger(.setCompleted)
             #endif
-            exerciseSet.isUnilateral.toggle()
-            if !exerciseSet.isUnilateral {
-                exerciseSet.weightRight = nil
-                weightRightText = ""
+            Self.toggleExerciseWeightMode(from: exerciseSet)
+            refreshInputText()
+        case .setWarmup:
+            exerciseSet.setType = exerciseSet.setType == .warmup ? .working : .warmup
+        case .addSet:
+            if let owner = exerciseSet.workoutExercise {
+                _ = ActiveExerciseSection.insertAppendedMainSet(in: owner, using: modelContext)
             }
+        case .toggleWeightUnit:
+            let next: WeightUnit = weightUnit == .kg ? .lb : .kg
+            UserDefaults.standard.set(next.rawValue, forKey: "weightUnit")
         case .copyToNext:
             // MY-1073 reviewer P0: the audio input click emitted by the keyboard
             // is not sufficient — the acceptance criterion requires haptic
@@ -875,6 +815,17 @@ struct SetRow: View {
             HapticManager.trigger(.exerciseAdded)
             #endif
             onCopyToNext()
+        }
+    }
+
+    /// A mode key always applies to every row of the owning exercise, including sub-sets.
+    static func toggleExerciseWeightMode(from set: ExerciseSet) {
+        let unilateral = !set.isUnilateral
+        for row in set.workoutExercise?.sets ?? [set] {
+            row.isUnilateral = unilateral
+            if unilateral, row.weightRight == nil { row.weightRight = row.weight }
+            // Keep an entered right-hand load when returning to total mode. Switching
+            // back restores it instead of silently discarding recorded training data.
         }
     }
 
@@ -889,6 +840,8 @@ struct SetRow: View {
     }
 
     private func syncWeightToModel() {
+        let current = weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight
+        guard weightText != formatWeight(current) else { return }
         let weight: Double
         if weightText.isEmpty {
             weight = 0
@@ -901,6 +854,8 @@ struct SetRow: View {
     }
 
     private func syncWeightRightToModel() {
+        let current = exerciseSet.weightRight ?? exerciseSet.weight
+        guard weightRightText != formatWeight(weightUnit == .lb ? current * 2.20462 : current) else { return }
         if weightRightText.isEmpty {
             exerciseSet.weightRight = nil
             return
