@@ -400,5 +400,33 @@ class TestFlightGateExecutionTests(unittest.TestCase):
                 self.assertEqual(status, 1)
 
 
+class TestFlightFastfileDistribution(unittest.TestCase):
+    """Regression guard: internal beta group assignment must be idempotent."""
+
+    def setUp(self):
+        self.fastfile = FASTFILE.read_text(encoding="utf-8")
+
+    def test_idempotent_distribution_helpers_present(self):
+        self.assertIn("module VitalStrideTestflightDistribution", self.fastfile)
+        self.assertIn("def already_available_in_beta_group?", self.fastfile)
+        self.assertIn("fetch_builds", self.fastfile)
+        self.assertIn("Only succeed on add failure when ASC membership is confirmed", self.fastfile)
+
+    def test_rescue_does_not_treat_generic_409_as_success(self):
+        self.assertNotIn("def benign_beta_group_add_error?", self.fastfile)
+        self.assertNotIn("state_error", self.fastfile)
+        self.assertNotIn(
+            "benign_beta_group_add_error?(e)",
+            self.fastfile,
+        )
+
+    def test_does_not_claim_undistributed_on_benign_add_path(self):
+        self.assertNotIn(
+            "the build is in TestFlight but not distributed to the group",
+            self.fastfile,
+        )
+        self.assertIn("distribution incomplete for group(s)", self.fastfile)
+
+
 if __name__ == "__main__":
     unittest.main()

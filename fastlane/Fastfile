@@ -29,6 +29,58 @@ XCODEPROJ = "VitalStride.xcodeproj".freeze
 TEAM_ID = "4Z8GG667QD".freeze
 MARKETING_VERSION = "1.1".freeze
 
+# Helpers for post-upload internal beta group assignment (spaceship / ASC API).
+module VitalStrideTestflightDistribution
+  module_function
+
+  def build_listed_in_beta_group?(build, beta_group)
+    beta_group.fetch_builds.any? { |candidate| candidate.id == build.id }
+  end
+
+  # Internal groups with access to all builds do not need an explicit build link.
+  def already_available_in_beta_group?(build, beta_group)
+    return true if build_listed_in_beta_group?(build, beta_group)
+    beta_group.is_internal_group && beta_group.has_access_to_all_builds
+  end
+
+  def distribute_build_to_beta_group(build, marketing_version, build_number, beta_group, group_name)
+    label = "#{marketing_version}(#{build_number})"
+    if already_available_in_beta_group?(build, beta_group)
+      if beta_group.is_internal_group && beta_group.has_access_to_all_builds &&
+         !build_listed_in_beta_group?(build, beta_group)
+        UI.success(
+          "Build #{label} is available to internal beta group '#{group_name}' " \
+          "(group has access to all builds; explicit add not required)."
+        )
+      else
+        UI.success("Build #{label} is already assigned to beta group '#{group_name}'.")
+      end
+      return
+    end
+
+    build.add_beta_groups(beta_groups: [beta_group])
+    UI.success("Distributed build #{label} to group '#{group_name}'.")
+  rescue StandardError => e
+    # Only succeed on add failure when ASC membership is confirmed — never infer from 409/relationship text alone.
+    if already_available_in_beta_group?(build, beta_group)
+      if beta_group.is_internal_group && beta_group.has_access_to_all_builds &&
+         !build_listed_in_beta_group?(build, beta_group)
+        UI.success(
+          "Build #{label} is available to internal beta group '#{group_name}' " \
+          "(group has access to all builds; add_beta_groups skipped after: #{e.message})."
+        )
+      else
+        UI.success(
+          "Build #{label} is already assigned to beta group '#{group_name}' " \
+          "(add_beta_groups no-op: #{e.message})."
+        )
+      end
+      return
+    end
+    raise
+  end
+end
+
 platform :ios do
   desc "Build and upload a build to TestFlight (internal testing)"
   lane :beta do
@@ -149,6 +201,7 @@ platform :ios do
     # 容错：分发失败不让整个 lane 挂（binary 已上传），除非 TESTFLIGHT_STRICT_UPLOAD=1。
     tf_group_names = ENV.fetch("TESTFLIGHT_GROUPS", "Internal")
                         .split(",").map(&:strip).reject(&:empty?)
+    distribution_failed_groups = []
     begin
       require "spaceship"
       Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
@@ -169,15 +222,30 @@ platform :ios do
         grp = all_groups.find { |g| g.name == gname }
         if grp.nil?
           UI.important("Beta group '#{gname}' not found in ASC — skipping (check the exact name, case-sensitive).")
+          distribution_failed_groups << gname
           next
         end
-        build.add_beta_groups(beta_groups: [grp])
-        UI.success("Distributed build #{MARKETING_VERSION}(#{next_build}) to group '#{gname}'.")
+        begin
+          VitalStrideTestflightDistribution.distribute_build_to_beta_group(
+            build, MARKETING_VERSION, next_build, grp, gname
+          )
+        rescue StandardError => e
+          UI.error("Failed to distribute build #{MARKETING_VERSION}(#{next_build}) to group '#{gname}': #{e.message}")
+          distribution_failed_groups << gname
+        end
       end
-    rescue => e
-      UI.error("Internal-group distribution failed: #{e.message}")
-      UI.important("Binary upload succeeded; the build is in TestFlight but not distributed to the group — add it manually or re-run.")
-      raise e if ENV["TESTFLIGHT_STRICT_UPLOAD"] == "1"
+    rescue StandardError => e
+      UI.error("Internal-group distribution failed before group assignment: #{e.message}")
+      distribution_failed_groups = tf_group_names if distribution_failed_groups.empty?
+    end
+
+    if distribution_failed_groups.any?
+      failed_list = distribution_failed_groups.uniq.join(", ")
+      UI.important(
+        "Binary upload succeeded; distribution incomplete for group(s): #{failed_list} — " \
+        "verify in App Store Connect or re-run."
+      )
+      UI.user_error!("TestFlight group distribution failed for: #{failed_list}") if ENV["TESTFLIGHT_STRICT_UPLOAD"] == "1"
     end
   end
 end
