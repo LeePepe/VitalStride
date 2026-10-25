@@ -32,10 +32,11 @@ public extension Color {
 // MARK: - Preset seeds (identical to the web port)
 
 public enum Seed: String, CaseIterable, Sendable {
-    case blue, purple, teal, orange, appleBlue
+    case ocean, blue, purple, teal, orange, appleBlue
 
     public var hex: String {
         switch self {
+        case .ocean: return "#0A6099"
         case .blue: return "#0090FF"
         case .purple: return "#8E4EC6"
         case .teal: return "#12A594"
@@ -131,6 +132,18 @@ public func makePrimaryPalette(seed: Color, isDark: Bool) -> PrimaryPalette {
             ring: primary.opacity(0.55)
         )
     }
+}
+
+/// Resolves the paired Ocean accent; existing seed derivation remains unchanged.
+public func makePrimaryPalette(seed: Seed, isDark: Bool) -> PrimaryPalette {
+    guard seed == .ocean else { return makePrimaryPalette(seed: seed.color, isDark: isDark) }
+    let accent = Color(hex: isDark ? "#6EC0F7" : "#0A6099")
+    let derived = makePrimaryPalette(seed: accent, isDark: isDark)
+    return PrimaryPalette(primary: accent, primaryHover: derived.primaryHover,
+        primaryActive: derived.primaryActive, primarySubtle: derived.primarySubtle,
+        primaryMuted: derived.primaryMuted, primaryBorder: derived.primaryBorder,
+        primaryText: derived.primaryText, onPrimary: contrastChoose(accent),
+        onPrimarySubtle: derived.onPrimarySubtle, ring: accent.opacity(0.65))
 }
 
 /// On-brand chart palette — walk the hue wheel from the seed (same offsets as web).

@@ -16,7 +16,7 @@ roles:
   Types: [Color, Theme]
   UI:    [Components, DashboardView]
 test: swift test --package-path Packages/DesignKit
-owns: [Seed, PrimaryPalette, Theme, Card, Metric, Sparkline, RingGauge, DashboardView]
+owns: [Seed, PrimaryPalette, Theme, Card, Metric, Sparkline, RingGauge, DashboardView, DesignSurfaceStyle, DesignButton, DesignTextField, DesignSearchField, DesignChip, DesignCheckbox, DesignSegmentedBar, DesignStateView, DesignDockedBar]
 ---
 
 # DesignKit Context
