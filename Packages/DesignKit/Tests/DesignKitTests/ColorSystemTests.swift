@@ -6,7 +6,7 @@ import SwiftUI
 struct ColorSystemTests {
     @Test("all preset seeds parse to a hex")
     func seeds() {
-        #expect(Seed.allCases.count == 5)
+        #expect(Seed.allCases.count == 6)
         #expect(Seed.blue.hex == "#0090FF")
     }
 

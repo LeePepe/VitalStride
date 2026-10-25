@@ -12,6 +12,39 @@ public struct Card<Content: View>: View {
     @ViewBuilder private let content: () -> Content
     public init(@ViewBuilder content: @escaping () -> Content) { self.content = content }
 
+    public init<Header: View, Body: View>(
+        @ViewBuilder header: () -> Header, @ViewBuilder content: () -> Body
+    ) where Content == TupleView<(Header, Body)> {
+        let slots = TupleView((header(), content()))
+        self.content = { slots }
+    }
+
+    public init<Header: View, Body: View, Supporting: View>(
+        @ViewBuilder header: () -> Header, @ViewBuilder content: () -> Body,
+        @ViewBuilder supporting: () -> Supporting
+    ) where Content == TupleView<(Header, Body, Supporting)> {
+        let slots = TupleView((header(), content(), supporting()))
+        self.content = { slots }
+    }
+
+    public init<Header: View, Body: View, Actions: View>(
+        @ViewBuilder header: () -> Header, @ViewBuilder content: () -> Body,
+        @ViewBuilder actions: () -> Actions
+    ) where Content == TupleView<(Header, Body, Actions)> {
+        let slots = TupleView((header(), content(), actions()))
+        self.content = { slots }
+    }
+
+    public init<Header: View, Body: View, Supporting: View, Actions: View>(
+        @ViewBuilder header: () -> Header,
+        @ViewBuilder content: () -> Body,
+        @ViewBuilder supporting: () -> Supporting,
+        @ViewBuilder actions: () -> Actions
+    ) where Content == TupleView<(Header, Body, Supporting, Actions)> {
+        let slots = TupleView((header(), content(), supporting(), actions()))
+        self.content = { slots }
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: Space.gap) { content() }
             .padding(Space.cardPadding)

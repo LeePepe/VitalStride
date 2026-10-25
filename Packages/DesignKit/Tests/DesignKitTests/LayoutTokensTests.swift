@@ -15,8 +15,8 @@ import Testing
 struct LayoutTokensTests {
     @Test("Radius tokens have the expected numeric values")
     func radiusValues() {
-        #expect(Radius.card == 14)
-        #expect(Radius.inner == 10)
+        #expect(Radius.card == 24)
+        #expect(Radius.inner == 16)
         #expect(Radius.badge == 6)
     }
 
@@ -29,7 +29,7 @@ struct LayoutTokensTests {
     @Test("Space tokens have the expected numeric values")
     func spaceValues() {
         #expect(Space.hair == 4)
-        #expect(Space.chipVertical == 3)
+        #expect(Space.chipVertical == 4)
         #expect(Space.inline == 8)
         #expect(Space.gap == 12)
         #expect(Space.cardPadding == 16)
@@ -38,7 +38,7 @@ struct LayoutTokensTests {
 
     @Test("Chip-scale spacing is tighter than card-scale spacing")
     func spaceMonotonic() {
-        #expect(Space.chipVertical < Space.hair)
+        #expect(Space.chipVertical == Space.hair)
         #expect(Space.hair < Space.inline)
         #expect(Space.inline < Space.gap)
         #expect(Space.gap < Space.cardPadding)

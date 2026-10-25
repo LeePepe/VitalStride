@@ -15,15 +15,27 @@ public struct Theme: Sendable {
     public let neutrals: Neutrals
     public let charts: [Color]
 
+    public var canvas: Color { neutrals.bg }
+    public var surface: Color { neutrals.card }
+    public var surfaceSubtle: Color { neutrals.inner }
+    public var inner: Color { neutrals.inner }
+    public var foreground: Color { neutrals.text1 }
+    public var secondaryForeground: Color { neutrals.text2 }
+    public var tertiaryForeground: Color { neutrals.text3 }
+    public var border: Color { neutrals.border }
+    public var accent: Color { primary.primary }
+    public var onAccent: Color { primary.onPrimary }
+    public var accentSubtle: Color { primary.primarySubtle }
+    public var critical: Color { danger }
     public var success: Color { Semantic.success(isDark: isDark) }
     public var warning: Color { Semantic.warning(isDark: isDark) }
     public var danger: Color { Semantic.danger(isDark: isDark) }
 
-    public init(seed: Seed = .blue, neutral: Neutral = .slate, isDark: Bool = false) {
+    public init(seed: Seed = .ocean, neutral: Neutral = .slate, isDark: Bool = false) {
         self.seed = seed
         self.neutral = neutral
         self.isDark = isDark
-        self.primary = makePrimaryPalette(seed: seed.color, isDark: isDark)
+        self.primary = makePrimaryPalette(seed: seed, isDark: isDark)
         self.neutrals = neutral.palette(isDark: isDark)
         self.charts = chartPalette(seed: seed.color, isDark: isDark)
     }
@@ -35,13 +47,22 @@ public struct Theme: Sendable {
 // MARK: - Design tokens (shape, spacing, type) — one language, all platforms
 
 public enum Radius {
-    public static let card: CGFloat = 14
-    public static let inner: CGFloat = 10
+    public static let outer: CGFloat = 32
+    public static let card: CGFloat = 24
+    public static let control: CGFloat = 16
+    public static let pill: CGFloat = 999
+    public static let inner: CGFloat = 16
     /// Compact chip / badge corner radius (e.g. workout source badge).
     public static let badge: CGFloat = 6
 }
 
 public enum Space {
+    public static let xxs: CGFloat = 4
+    public static let xs: CGFloat = 8
+    public static let sm: CGFloat = 12
+    public static let md: CGFloat = 16
+    public static let lg: CGFloat = 24
+    public static let xl: CGFloat = 32
     public static let cardPadding: CGFloat = 16
     public static let gap: CGFloat = 12
     public static let contentMaxWidth: CGFloat = 1200
@@ -49,8 +70,8 @@ public enum Space {
     public static let hair: CGFloat = 4
     /// 8pt — compact horizontal padding for chips / badges.
     public static let inline: CGFloat = 8
-    /// 3pt — vertical padding for chips / badges.
-    public static let chipVertical: CGFloat = 3
+    /// 4pt — vertical padding for chips / badges.
+    public static let chipVertical: CGFloat = 4
     /// Minimum tap-target size per Apple HIG.
     public static let minTapTarget: CGFloat = 44
 }
@@ -80,7 +101,7 @@ public extension EnvironmentValues {
 
 public extension View {
     /// Resolve the theme from a (seed, neutral) + the current colorScheme.
-    func designTheme(seed: Seed = .blue, neutral: Neutral = .slate) -> some View {
+    func designTheme(seed: Seed = .ocean, neutral: Neutral = .slate) -> some View {
         modifier(ThemeResolver(seed: seed, neutral: neutral))
     }
 
