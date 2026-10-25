@@ -1048,6 +1048,7 @@ private enum PickerSheet: Identifiable {
 struct PickerBottomBar: View {
     @Environment(\.theme) private var theme
     @Binding var searchText: String
+    @FocusState private var isSearchFocused: Bool
     let selectedCount: Int
     let isMultiSelect: Bool
     let onCreate: () -> Void
@@ -1055,8 +1056,7 @@ struct PickerBottomBar: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            DesignSearchField(String(localized: "搜索动作", comment: "Exercise search prompt"), text: $searchText)
-                .accessibilityIdentifier("exercise_picker_search_field")
+            searchField
                 .frame(maxWidth: .infinity)
                 .layoutPriority(1)
             Button(action: onCreate) {
@@ -1095,7 +1095,40 @@ struct PickerBottomBar: View {
         }
         .padding(8)
         .designSurface(style: .glass, cornerRadius: 16)
-        .accessibilityIdentifier("exercise_picker_bottom_bar")
+    }
+
+    // Own the native field here so its identifier belongs only to the input,
+    // and clearing/submitting can dismiss focus without replacing the dock.
+    private var searchField: some View {
+        HStack(spacing: Space.xs) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(theme.secondaryForeground)
+                .accessibilityHidden(true)
+            TextField(String(localized: "搜索动作", comment: "Exercise search prompt"), text: $searchText)
+                .textFieldStyle(.plain)
+                .focused($isSearchFocused)
+                .submitLabel(.search)
+                .onSubmit { isSearchFocused = false }
+                .accessibilityIdentifier("exercise_picker_search_field")
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                    isSearchFocused = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .frame(width: Space.minTapTarget, height: Space.minTapTarget)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "清除搜索", comment: "Clear search a11y label"))
+                .accessibilityIdentifier("exercise_picker_search_clear")
+            }
+        }
+        .padding(.leading, Space.sm)
+        .padding(.trailing, searchText.isEmpty ? Space.sm : 0)
+        .frame(minHeight: Space.minTapTarget)
+        .background(theme.inner, in: RoundedRectangle(cornerRadius: Radius.control))
+        .overlay(RoundedRectangle(cornerRadius: Radius.control)
+            .stroke(isSearchFocused ? theme.accent : theme.border, lineWidth: 1))
     }
 }
 
