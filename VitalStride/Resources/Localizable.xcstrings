@@ -11945,6 +11945,168 @@
           }
         }
       }
+    },
+    "workout.sidebar.title": {
+      "comment": "Active workout redesign",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exercises"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选动作"
+          }
+        }
+      }
+    },
+    "workout.sidebar.move_up": {
+      "comment": "Active workout redesign",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move exercise up"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上移动作"
+          }
+        }
+      }
+    },
+    "workout.sidebar.move_down": {
+      "comment": "Active workout redesign",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move exercise down"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下移动作"
+          }
+        }
+      }
+    },
+    "workout.keyboard.weight": {
+      "comment": "Active workout redesign",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weight"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重量"
+          }
+        }
+      }
+    },
+    "workout.keyboard.mode": {
+      "comment": "Active workout redesign",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total / L-R"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "整体 / 左右"
+          }
+        }
+      }
+    },
+    "workout.keyboard.warmup": {
+      "comment": "Active workout redesign",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warmup"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "热身组"
+          }
+        }
+      }
+    },
+    "workout.keyboard.drop": {
+      "comment": "Active workout redesign",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "递减组"
+          }
+        }
+      }
+    },
+    "workout.row.set_rpe": {
+      "comment": "Active workout redesign",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set RPE"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置 RPE"
+          }
+        }
+      }
+    },
+    "workout.row.rpe_value": {
+      "comment": "Active workout redesign",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RPE %lld"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

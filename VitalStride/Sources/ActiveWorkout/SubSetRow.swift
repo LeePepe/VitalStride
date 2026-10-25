@@ -31,99 +31,46 @@ struct SubSetRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 6) {
-            treeLine
-                .accessibilityHidden(true)
-
-            if exerciseSet.isUnilateral {
-                // MY-876: SubSet read-only order matches bilateral
-                // "weight × reps": left-weight / right-weight × reps.
-                Text(weightDisplay(exerciseSet.weight))
-                    .font(.footnote.monospacedDigit())
-                    .foregroundStyle(theme.neutrals.text2)
-                    .frame(width: 50, alignment: .center)
-                    .accessibilityLabel(String(
-                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组左侧重量",
-                        comment: "SubSet left weight a11y label"
-                    ))
-                    .accessibilityValue("\(weightDisplay(exerciseSet.weight)) \(weightUnit.rawValue)")
-
-                Text("/")
-                    .font(.footnote)
-                    .foregroundStyle(theme.neutrals.text2)
-                    .accessibilityHidden(true)
-
-                Text(weightDisplay(exerciseSet.weightRight ?? exerciseSet.weight))
-                    .font(.footnote.monospacedDigit())
-                    .foregroundStyle(theme.neutrals.text2)
-                    .frame(width: 50, alignment: .center)
-                    .accessibilityLabel(String(
-                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组右侧重量",
-                        comment: "SubSet right weight a11y label"
-                    ))
-                    .accessibilityValue(
-                        "\(weightDisplay(exerciseSet.weightRight ?? exerciseSet.weight)) \(weightUnit.rawValue)"
-                    )
-
-                Text("×")
-                    .font(.footnote)
-                    .foregroundStyle(theme.neutrals.text2)
-                    .accessibilityHidden(true)
-
-                Text(repsDisplay)
-                    .font(.footnote.monospacedDigit())
-                    .foregroundStyle(theme.neutrals.text2)
-                    .frame(width: 52, alignment: .center)
-                    .accessibilityLabel(String(
-                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数",
-                        comment: "SubSet reps a11y label"
-                    ))
-                    .accessibilityValue(repsDisplay)
-            } else {
-                Text(weightDisplay(exerciseSet.weight))
-                    .font(.footnote.monospacedDigit())
-                    .foregroundStyle(theme.neutrals.text2)
-                    .frame(width: 62, alignment: .center)
-                    .accessibilityLabel(String(
-                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组重量",
-                        comment: "SubSet weight a11y label"
-                    ))
-                    .accessibilityValue("\(weightDisplay(exerciseSet.weight)) \(weightUnit.rawValue)")
-
-                Text("×")
-                    .font(.footnote)
-                    .foregroundStyle(theme.neutrals.text2)
-                    .accessibilityHidden(true)
-
-                Text(repsDisplay)
-                    .font(.footnote.monospacedDigit())
-                    .foregroundStyle(theme.neutrals.text2)
-                    .frame(width: 52, alignment: .center)
-                    .accessibilityLabel(String(
-                        localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组次数",
-                        comment: "SubSet reps a11y label"
-                    ))
-                    .accessibilityValue(repsDisplay)
-            }
-
-            Text(exerciseSet.setType.displayName)
-                .font(.caption)
-                .foregroundStyle(exerciseSet.setType.labelColor(theme: theme))
-                .frame(width: 44, alignment: .leading)
-                .accessibilityLabel(exerciseSet.setType.displayName)
-
-            Spacer()
-
-            deleteMenu
-
-            Button {
-                let wasCompleted = exerciseSet.isCompleted
-                exerciseSet.isCompleted = !wasCompleted
-                if !wasCompleted {
-                    HapticManager.trigger(.setCompleted)
+        HStack(spacing: 4) {
+            completionButton
+            VStack(alignment: .leading, spacing: 4) {
+                ViewThatFits(in: .horizontal) {
+                    weightSummary.font(.subheadline.monospacedDigit())
+                    weightSummary.font(.caption.monospacedDigit())
                 }
-                onToggleCompleted(wasCompleted)
-            } label: {
+                Text(exerciseSet.setType.displayName)
+                    .font(.caption)
+                    .foregroundStyle(exerciseSet.setType.labelColor(theme: theme))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .allowsHitTesting(false)
+            deleteMenu
+        }
+        .padding(6)
+        .frame(maxWidth: .infinity, minHeight: 56)
+        .background {
+            Button(action: toggleCompleted) { Color.clear.contentShape(Rectangle()) }
+                .buttonStyle(.plain)
+                .accessibilityHidden(true)
+        }
+        .designSurface(style: .solid, cornerRadius: 16)
+    }
+
+    private var weightSummary: Text {
+        if exerciseSet.isUnilateral {
+            Text("L ").foregroundColor(theme.accent)
+                + Text(weightDisplay(exerciseSet.weight)).foregroundColor(theme.foreground)
+                + Text("  R ").foregroundColor(theme.accent)
+                + Text(weightDisplay(exerciseSet.weightRight ?? exerciseSet.weight)).foregroundColor(theme.foreground)
+                + Text(" \(weightUnit.rawValue) × \(repsDisplay)").foregroundColor(theme.foreground)
+        } else {
+            Text("\(weightDisplay(exerciseSet.weight)) \(weightUnit.rawValue) × \(repsDisplay)")
+                .foregroundColor(theme.foreground)
+        }
+    }
+
+    private var completionButton: some View {
+        Button(action: toggleCompleted) {
                 Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.subheadline)
                     .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.neutrals.text2)
@@ -140,7 +87,13 @@ struct SubSetRow: View {
             // swiftlint:disable:next line_length
             .accessibilityLabel(String(localized: "第 \(parentSetNumber) 组\(exerciseSet.setType.displayName)子组，\(exerciseSet.isCompleted ? String(localized: "已完成", comment: "Set completion status: completed") : String(localized: "未完成", comment: "Set completion status: incomplete"))", comment: "A11y label composing parent set index and completion status"))
             .accessibilityHint(String(localized: "双击切换完成状态", comment: "A11y hint"))
-        }
+    }
+
+    private func toggleCompleted() {
+        let wasCompleted = exerciseSet.isCompleted
+        exerciseSet.isCompleted.toggle()
+        if !wasCompleted { HapticManager.trigger(.setCompleted) }
+        onToggleCompleted(wasCompleted)
     }
 
     /// MY-1420: inline delete affordance.
@@ -178,15 +131,6 @@ struct SubSetRow: View {
             comment: "Sub-set action menu a11y label"
         ))
         .accessibilityHint(String(localized: "双击打开菜单", comment: "Sub-set action menu a11y hint"))
-    }
-
-    private var treeLine: some View {
-        HStack(spacing: 2) {
-            Text(isLast ? "└─" : "├─")
-                .font(.caption.monospaced())
-                .foregroundStyle(theme.neutrals.text3)
-        }
-        .frame(width: 28, alignment: .leading)
     }
 
     private var repsDisplay: String {

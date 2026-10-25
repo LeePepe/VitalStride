@@ -44,6 +44,9 @@ enum LeftKeyAction: String, Equatable, Sendable, CaseIterable {
     case toggleUnilateral
     /// Copy the current set's values to the next set.
     case copyToNext
+    case setWarmup
+    case addSet
+    case toggleWeightUnit
 }
 
 // MARK: - SwiftUI content view
@@ -52,13 +55,8 @@ enum LeftKeyAction: String, Equatable, Sendable, CaseIterable {
 
 /// SwiftUI content view rendered inside `WorkoutNumericKeyboard`.
 ///
-/// Renders three columns (spec: iPad ≤ 280pt / iPhone ≤ 260pt tall):
-/// * left: 4 stacked function keys (pyramid / drop-set / uni-toggle / copy)
-/// * center: the shared `NumericKeypad` digit grid
-/// * right: 3 stacked preset-reps keys (15-20 / 8-12 / 4-6) + a Done key.
-///
-/// This view is fully deterministic from its inputs — the containing
-/// `UIView` subclass drives layout / autolayout / audio feedback.
+/// One header with the only Done action, a central digit grid, and two
+/// side columns for exercise/set shortcuts. UIKit retains the callback bridge.
 struct WorkoutNumericKeyboardContentView: View {
     let field: SetField
     let setType: SetType
@@ -75,193 +73,59 @@ struct WorkoutNumericKeyboardContentView: View {
     let onPresetReps: @MainActor (_ weightKg: Double?, _ reps: Int) -> Void
     let onDone: @MainActor () -> Void
 
-    /// Local cycling state: last reps value tapped per bucket. Persists
-    /// across taps so repeat presses walk through the cycle.
-    @State private var lastRepsByBucket: [PresetRepBucket: Int] = [:]
-
-    // MARK: Visual constants (north-star §11)
-    // All values are hardcoded named constants (not magic numbers) per Stage 4
-    // spec §11.2. Radius / Space tokens come from DesignKit; the pt-level
-    // constants (row spacing, minHeights, side column width) are frozen in
-    // north-star §11 and duplicated here rather than added to DesignKit —
-    // they are keyboard-local rhythm, not global tokens.
-    private let columnSpacing: CGFloat = Space.gap      // 12
-    private let rowSpacing: CGFloat = 8
-    private let outerPadding: CGFloat = Space.cardPadding // 16
-    private let sideColumnWidth: CGFloat = 76
-    private let keyMinHeight: CGFloat = 44
-    private let digitMinHeight: CGFloat = 52
-    private let keyRadius: CGFloat = Radius.inner       // 10
-
     var body: some View {
-        HStack(alignment: .top, spacing: columnSpacing) {
-            leftColumn
-                .frame(width: sideColumnWidth)
-            centerColumn
-                .frame(maxWidth: .infinity)
-                .layoutPriority(1)
-            rightColumn
-                .frame(width: sideColumnWidth)
+        VStack(spacing: 8) {
+            HStack {
+                Text(field == .reps
+                     ? String(localized: "次数", comment: "Editing repetitions")
+                     : String(localized: "workout.keyboard.weight", defaultValue: "Weight", comment: "Editing weight"))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(theme.secondaryForeground)
+                Spacer()
+                Button(action: onDone) {
+                    Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Dismiss workout keyboard"))
+                        .font(.subheadline.weight(.semibold))
+                        .frame(minWidth: 60, minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(theme.accent)
+                .accessibilityIdentifier("workout_keyboard_done")
+            }
+            HStack(alignment: .top, spacing: 8) {
+                VStack(spacing: 8) {
+                    functionKey(.toggleUnilateral, title: String(localized: "workout.keyboard.mode", defaultValue: "Total / L-R", comment: "Toggle the whole exercise weight mode"))
+                    functionKey(.setWarmup, title: String(localized: "workout.keyboard.warmup", defaultValue: "Warmup", comment: "Set warmup type"))
+                }
+                .frame(width: 68)
+                NumericKeypad(mode: field.isDecimalEnabled ? .decimal : .integer, onKeyPress: onKeyPress)
+                    .layoutPriority(1)
+                VStack(spacing: 8) {
+                    functionKey(.addDropSet, title: String(localized: "workout.keyboard.drop", defaultValue: "Drop set", comment: "Add a drop set"))
+                    functionKey(.addSet, title: String(localized: "添加一组", comment: "Add a set"))
+                    functionKey(.toggleWeightUnit, title: "kg / lbs")
+                }
+                .frame(width: 68)
+            }
         }
-        .padding(outerPadding)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
         .background(theme.neutrals.bg)
         .environment(\.theme, theme)
         .accessibilityElement(children: .contain)
     }
 
-    // MARK: Left column — function keys
-
-    private var leftColumn: some View {
-        VStack(spacing: rowSpacing) {
-            functionKey(
-                .addPyramid,
-                content: .symbol("arrow.up.to.line"),
-                a11y: String(localized: "workout_keyboard.add_pyramid_a11y", defaultValue: "Add ascending sub-set", comment: "Workout keyboard: add pyramid sub-set")
-            )
-            functionKey(
-                .addDropSet,
-                content: .symbol("arrow.down.to.line"),
-                a11y: String(localized: "workout_keyboard.add_drop_set_a11y", defaultValue: "Add drop-set sub-set", comment: "Workout keyboard: add drop-set sub-set")
-            )
-            functionKey(
-                .toggleUnilateral,
-                content: .text(String(localized: "workout_keyboard.toggle_unilateral_label", defaultValue: "Uni/Total", comment: "Workout keyboard: unilateral/bilateral toggle key label")),
-                a11y: String(localized: "workout_keyboard.toggle_unilateral_a11y", defaultValue: "Toggle unilateral or bilateral input", comment: "Workout keyboard: toggle unilateral/bilateral input")
-            )
-            functionKey(
-                .copyToNext,
-                content: .text(String(localized: "workout_keyboard.copy_label", defaultValue: "Copy", comment: "Workout keyboard: copy-to-next key label")),
-                a11y: String(localized: "workout_keyboard.copy_to_next_a11y", defaultValue: "Copy values to next set", comment: "Workout keyboard: copy values to next set")
-            )
-        }
-    }
-
-    private enum FunctionKeyContent {
-        case text(String)
-        case symbol(String)
-    }
-
-    @ViewBuilder
-    private func functionKey(
-        _ action: LeftKeyAction,
-        content: FunctionKeyContent,
-        a11y: String
-    ) -> some View {
-        let enabled = isEnabled(action)
-        Button {
-            onLeftAction(action)
-        } label: {
-            functionKeyLabel(content)
-                .frame(maxWidth: .infinity, minHeight: keyMinHeight)
-                .foregroundStyle(enabled ? theme.neutrals.text2 : theme.neutrals.text3)
-                .background(theme.neutrals.inner)
-                .clipShape(RoundedRectangle(cornerRadius: keyRadius, style: .continuous))
+    private func functionKey(_ action: LeftKeyAction, title: String) -> some View {
+        Button { onLeftAction(action) } label: {
+            Text(title)
+                .font(.caption.weight(.medium))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .foregroundStyle(theme.accent)
+                .background(theme.inner, in: RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
-        .disabled(!enabled)
-        .accessibilityLabel(a11y)
-        .accessibilityHint(enabled ? "" : String(localized: "workout_keyboard.disabled_hint", defaultValue: "This key is unavailable for the current set type", comment: "Workout keyboard: disabled key hint"))
-        .accessibilityAddTraits(.isKeyboardKey)
-    }
-
-    @ViewBuilder
-    private func functionKeyLabel(_ content: FunctionKeyContent) -> some View {
-        switch content {
-        case .text(let text):
-            Text(text)
-                .font(TypeScale.meta)
-                .fontWeight(.medium)
-                .minimumScaleFactor(0.8)
-                .lineLimit(1)
-        case .symbol(let name):
-            Image(systemName: name)
-                .font(.title3)
-                .fontWeight(.medium)
-        }
-    }
-
-    private func isEnabled(_ action: LeftKeyAction) -> Bool {
-        switch action {
-        case .addPyramid, .addDropSet: setType == .working
-        case .toggleUnilateral, .copyToNext: true
-        }
-    }
-
-    // MARK: Center column — digit grid + Done row
-
-    private var centerColumn: some View {
-        VStack(spacing: rowSpacing) {
-            NumericKeypad(mode: keypadMode, onKeyPress: onKeyPress)
-        }
-    }
-
-    private var keypadMode: NumericKeypadMode {
-        field.isDecimalEnabled ? .decimal : .integer
-    }
-
-    // MARK: Right column — preset reps + Done
-
-    private var rightColumn: some View {
-        VStack(spacing: rowSpacing) {
-            presetKey(
-                .high,
-                label: "15-20",
-                a11y: String(localized: "workout_keyboard.preset_high_a11y", defaultValue: "15 to 20 reps preset", comment: "Workout keyboard: 15-20 reps preset")
-            )
-            presetKey(
-                .mid,
-                label: "8-12",
-                a11y: String(localized: "workout_keyboard.preset_mid_a11y", defaultValue: "8 to 12 reps preset", comment: "Workout keyboard: 8-12 reps preset")
-            )
-            presetKey(
-                .low,
-                label: "4-6",
-                a11y: String(localized: "workout_keyboard.preset_low_a11y", defaultValue: "4 to 6 reps preset", comment: "Workout keyboard: 4-6 reps preset")
-            )
-            doneKey
-        }
-    }
-
-    private func presetKey(_ bucket: PresetRepBucket, label: String, a11y: String) -> some View {
-        Button {
-            let previous = lastRepsByBucket[bucket]
-            let result = ExerciseDefaults.resolvePreset(
-                bucket: bucket,
-                exercise: exercise,
-                recentWeightKg: recentWeightKg,
-                previousReps: previous
-            )
-            lastRepsByBucket[bucket] = result.reps
-            onPresetReps(result.weightKg, result.reps)
-        } label: {
-            Text(label)
-                .font(TypeScale.body)
-                .fontWeight(.semibold)
-                .monospacedDigit()
-                .foregroundStyle(theme.primary.primaryText)
-                .frame(maxWidth: .infinity, minHeight: keyMinHeight)
-                .background(theme.primary.primarySubtle)
-                .clipShape(RoundedRectangle(cornerRadius: keyRadius, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(a11y)
-        .accessibilityAddTraits(.isKeyboardKey)
-    }
-
-    private var doneKey: some View {
-        Button {
-            onDone()
-        } label: {
-            Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Workout keyboard: Done key label"))
-                .font(TypeScale.title)
-                .fontWeight(.semibold)
-                .foregroundStyle(theme.primary.onPrimary)
-                .frame(maxWidth: .infinity, minHeight: keyMinHeight)
-                .background(theme.primary.primary)
-                .clipShape(RoundedRectangle(cornerRadius: keyRadius, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(String(localized: "workout_keyboard.done_a11y", defaultValue: "Finish input", comment: "Workout keyboard: Done key a11y label"))
+        .disabled(action == .addDropSet && setType.isSubSet)
+        .accessibilityIdentifier("workout_keyboard_" + action.rawValue)
         .accessibilityAddTraits(.isKeyboardKey)
     }
 }
@@ -296,7 +160,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
     /// the keyboard is on-screen.
     private let host: UIHostingController<WorkoutNumericKeyboardContentView>
 
-    /// Height constraint applied on install. iPad ≤ 280pt / iPhone ≤ 260pt.
+    /// Height constraint applied on install, including the 44pt header.
     private var heightConstraint: NSLayoutConstraint?
 
     // MARK: UIInputViewAudioFeedback
@@ -393,6 +257,9 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         backgroundColor = .clear
         translatesAutoresizingMaskIntoConstraints = false
 
+        // A detached inputView owns its full bounds; do not import screen safe-area
+        // insets into its fixed keyboard height a second time.
+        host.safeAreaRegions = []
         host.view.backgroundColor = .clear
         host.view.translatesAutoresizingMaskIntoConstraints = false
         addSubview(host.view)
@@ -490,13 +357,9 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
 
     // MARK: Height policy
 
-    /// Preferred height per spec: iPad ≤ 280pt / iPhone ≤ 260pt (north-star §11).
-    /// Named constants — not magic numbers. Both values are at the upper bound
-    /// so the digit column (4 rows × 52pt minHeight + 3 × 8pt row spacing +
-    /// 2 × 16pt outer padding = 264pt design height) has room to render
-    /// without SwiftUI softening `minHeight` more than ~1pt.
-    private static let iPhonePreferredHeight: CGFloat = 260
-    private static let iPadPreferredHeight: CGFloat = 280
+    /// Four 52pt digit rows, three 8pt gaps, a 44pt header, and 16pt spacing.
+    private static let iPhonePreferredHeight: CGFloat = 300
+    private static let iPadPreferredHeight: CGFloat = 320
 
     static func preferredHeight() -> CGFloat {
         let isPad = UIDevice.current.userInterfaceIdiom == .pad
@@ -518,7 +381,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         onPresetReps: { _, _ in },
         onDone: {}
     )
-    .frame(height: 260)
+    .frame(height: 300)
 }
 
 #Preview("Reps — warmup (function keys disabled)") {
@@ -533,7 +396,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         onPresetReps: { _, _ in },
         onDone: {}
     )
-    .frame(height: 260)
+    .frame(height: 300)
 }
 
 #endif

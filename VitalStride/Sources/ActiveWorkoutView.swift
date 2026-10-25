@@ -31,6 +31,7 @@ struct ActiveWorkoutView: View {
     @Environment(\.routingSignalStore) private var signalStore
     @State private var workout: Workout?
     @State private var showingExercisePicker = false
+    @State private var selectedExerciseID: PersistentIdentifier?
     @State private var showingFinishAlert = false
     @State private var showingDiscardAlert = false
     @State private var exerciseToReplace: WorkoutExercise?
@@ -140,6 +141,7 @@ struct ActiveWorkoutView: View {
                             ActiveWorkoutFABContainer.body(snackbarSlot: policy.bottomSlot) {
                                 addExerciseButton
                             }
+                            Spacer()
                         }
                     }
                 )
@@ -156,14 +158,6 @@ struct ActiveWorkoutView: View {
                         role: .destructive
                     ) {
                         showingDiscardAlert = true
-                    }
-                }
-                // MY-1353: Reorder affordance. EditButton drives the existing
-                // List `.onMove` → moveExercises(from:to:) → WorkoutExercise.order.
-                // Only render when there is more than one exercise to reorder.
-                ToolbarItem(placement: .topBarTrailing) {
-                    if (workout?.exercises?.count ?? 0) > 1 {
-                        EditButton()
                     }
                 }
                 // MY-1088: Large Mode toggle. Persisted via @AppStorage above.
@@ -825,53 +819,99 @@ struct ActiveWorkoutView: View {
                 )
             )
         } else {
-            List {
-                ForEach(exercises) { workoutExercise in
-                    ActiveExerciseSection(
-                        workoutExercise: workoutExercise,
-                        onSetCompleted: {
-                            restTimer.startRest()
-                            TelemetryService.shared.trackNonisolated(
-                                .setCompleted(exerciseName: TelemetryHelpers
-                                    .exerciseIdentifier(workoutExercise.exercise))
+            ScrollViewReader { proxy in
+                HStack(spacing: 0) {
+                    exerciseSidebar(exercises: exercises) { exercise in
+                        selectedExerciseID = exercise.persistentModelID
+                        withAnimation { proxy.scrollTo(exercise.persistentModelID, anchor: .top) }
+                    }
+                    List {
+                        ForEach(exercises) { workoutExercise in
+                            ActiveExerciseSection(
+                                workoutExercise: workoutExercise,
+                                onSetCompleted: {
+                                    restTimer.startRest()
+                                    TelemetryService.shared.trackNonisolated(
+                                        .setCompleted(exerciseName: TelemetryHelpers
+                                            .exerciseIdentifier(workoutExercise.exercise))
+                                    )
+                                },
+                                onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
+                                onReplace: { exerciseToReplace = workoutExercise },
+                                onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
+                                onDelete: { deleteExercise(workoutExercise) },
+                                undoController: undoController
                             )
-                        },
-                        onSetDeleted: {
-                            TelemetryService.shared.trackNonisolated(.setDeleted)
-                        },
-                        onReplace: {
-                            exerciseToReplace = workoutExercise
-                        },
-                        onSubstitute: {
-                            beginSubstituteFlow(for: workoutExercise)
-                        },
-                        onDelete: {
-                            deleteExercise(workoutExercise)
-                        },
-                        undoController: undoController
-                    )
+                            .id(workoutExercise.persistentModelID)
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .listSectionSpacing(largeMode ? 20 : 8)
+                    .scrollDismissesKeyboard(.immediately)
+                    .environment(\.defaultMinListRowHeight, 44)
+                    .accessibilityIdentifier("workout_exercise_list")
                 }
-                .onMove { source, destination in
-                    moveExercises(from: source, to: destination)
-                }
-                // MY-1245: FAB inset is now reserved by `safeAreaInset(edge:
-                // .bottom)` in `body`, so a manual 72pt footer spacer is no
-                // longer needed — it would double-count the reserved area.
+                .background(theme.neutrals.bg)
             }
-            // MY-877: plain list style + immediate keyboard dismissal on scroll
-            // for compact, scannable in-workout entry. Reduce default row floor
-            // so main SetRow targets ~36pt and SubSetRow targets ~28pt.
-            .listStyle(.plain)
-            // MY-1274 (P0): tighten the inter-exercise section gap in default
-            // mode. SwiftUI's `.plain` List still applies a ~28pt system inset
-            // between sections (gap A in the issue) which reads as "too big".
-            // Large Mode keeps a 20pt cushion to match its intentionally
-            // roomier accessibility layout; default drops to 8pt for a
-            // "compact but not cramped" band-to-band rhythm.
-            .listSectionSpacing(largeMode ? 20 : 8)
-            .scrollDismissesKeyboard(.immediately)
-            .environment(\.defaultMinListRowHeight, 28)
         }
+    }
+
+    private func exerciseSidebar(
+        exercises: [WorkoutExercise],
+        onSelect: @escaping (WorkoutExercise) -> Void
+    ) -> some View {
+        ScrollView {
+            VStack(spacing: 8) {
+                Text(String(localized: "workout.sidebar.title", defaultValue: "Exercises", comment: "Selected exercise sidebar"))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(theme.secondaryForeground)
+                    .padding(.top, 12)
+                ForEach(Array(exercises.enumerated()), id: \.element.persistentModelID) { index, exercise in
+                    VStack(spacing: 0) {
+                        Button { onSelect(exercise) } label: {
+                            VStack(spacing: 4) {
+                                Text("\(index + 1)").font(.caption.monospacedDigit().bold())
+                                Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
+                                    .font(.caption2)
+                                    .lineLimit(3)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 60)
+                            .padding(.horizontal, 4)
+                            .foregroundStyle(selectedExerciseID == exercise.persistentModelID ? theme.accent : theme.foreground)
+                            .background(selectedExerciseID == exercise.persistentModelID ? theme.accentSubtle : .clear,
+                                        in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(selectedExerciseID == exercise.persistentModelID ? .isSelected : [])
+                        HStack(spacing: 0) {
+                            sidebarMoveButton(index: index, direction: -1, count: exercises.count)
+                            sidebarMoveButton(index: index, direction: 1, count: exercises.count)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+        .frame(width: 88)
+        .background(theme.inner)
+        .accessibilityIdentifier("workout_exercise_sidebar")
+    }
+
+    private func sidebarMoveButton(index: Int, direction: Int, count: Int) -> some View {
+        Button {
+            moveExercises(from: IndexSet(integer: index), to: direction < 0 ? index - 1 : index + 2)
+        } label: {
+            Image(systemName: direction < 0 ? "chevron.up" : "chevron.down")
+                .font(.caption2)
+                .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .disabled(direction < 0 ? index == 0 : index == count - 1)
+        .accessibilityLabel(direction < 0
+            ? String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder")
+            : String(localized: "workout.sidebar.move_down", defaultValue: "Move exercise down", comment: "Sidebar reorder"))
     }
 
     private var addExerciseButton: some View {
@@ -879,18 +919,16 @@ struct ActiveWorkoutView: View {
             HapticManager.trigger(.exerciseAdded)
             showingExercisePicker = true
         } label: {
-            Image(systemName: "plus")
-                .font(.title2)
-                .fontWeight(.semibold)
-                .foregroundStyle(theme.primary.onPrimary)
-                .frame(width: 60, height: 60)
-                .background(Circle().fill(theme.primary.primary))
-                .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
-                .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+            Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(theme.accent)
+                .padding(.horizontal, 20)
+                .frame(minHeight: 48)
+                .designSurface(style: .glass, cornerRadius: 24)
         }
         .buttonStyle(FABButtonStyle())
-        .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise FAB a11y label"))
-        .padding()
+        .accessibilityIdentifier("workout_add_exercise")
+        .padding(12)
     }
 
     private var totalVolumeKg: Double {
@@ -1001,6 +1039,7 @@ struct ActiveWorkoutView: View {
             using: modelContext
         )
         workout = result.workout
+        selectedExerciseID = result.workout.exercises?.min(by: { $0.order < $1.order })?.persistentModelID
         startTime = result.startTime
 
         if case .resume = source {
@@ -1028,13 +1067,42 @@ struct ActiveWorkoutView: View {
         workoutExercise.workout = workout
         modelContext.insert(workoutExercise)
 
-        let defaultSet = ExerciseSet(order: 0, weight: 0, reps: 0, setType: .working)
-        defaultSet.workoutExercise = workoutExercise
-        modelContext.insert(defaultSet)
+        Self.prefillHistory(in: workoutExercise, workout: workout, using: modelContext)
+        selectedExerciseID = workoutExercise.persistentModelID
 
         TelemetryService.shared.trackNonisolated(
             .exerciseAdded(name: TelemetryHelpers.exerciseIdentifier(exercise))
         )
+    }
+
+    /// Copy values into fresh, incomplete rows; historical model identities stay untouched.
+    @discardableResult
+    static func prefillHistory(
+        in workoutExercise: WorkoutExercise,
+        workout: Workout,
+        using context: ModelContext
+    ) -> [ExerciseSet] {
+        guard let first = PreviousSetLookup.previousMainSet(
+            currentWorkout: workout, exercise: workoutExercise.exercise, mainSetIndex: 0, in: context
+        ) else {
+            let set = ExerciseSet(order: 0, weight: 0, reps: 0)
+            set.workoutExercise = workoutExercise
+            context.insert(set)
+            return [set]
+        }
+        // The lookup identifies the latest session. Copy its complete ordered set tree,
+        // including drop sets, rather than repeatedly fetching once per row.
+        let previous = (first.workoutExercise?.sets ?? [first]).sorted { $0.order < $1.order }
+        return previous.enumerated().map { index, prior in
+            let set = ExerciseSet(
+                order: index, weight: prior.weight, reps: prior.reps, setType: prior.setType,
+                restDuration: prior.restDuration, isUnilateral: prior.isUnilateral,
+                weightRight: prior.weightRight
+            )
+            set.workoutExercise = workoutExercise
+            context.insert(set)
+            return set
+        }
     }
 
     // MARK: - Substitute flow (T013)

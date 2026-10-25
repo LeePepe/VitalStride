@@ -43,9 +43,16 @@ struct StartWorkoutView: View {
                             }
                         } icon: {
                             Image(systemName: "plus.circle.fill")
-                                .foregroundStyle(theme.primary.primary)
+                                .foregroundStyle(theme.accent)
+                                .accessibilityHidden(true)
                         }
+                        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                        .padding(12)
+                        .designSurface(style: .solid, cornerRadius: 16)
                     }
+                    .buttonStyle(.plain)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
                 }
 
                 if !recentWorkouts.isEmpty {
@@ -56,7 +63,13 @@ struct StartWorkoutView: View {
                                 onStart(.fromWorkout(workout))
                             } label: {
                                 HistoryWorkoutRow(workout: workout)
+                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    .padding(12)
+                                    .designSurface(style: .solid, cornerRadius: 16)
                             }
+                            .buttonStyle(.plain)
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                         }
                     }
                 }
@@ -69,11 +82,20 @@ struct StartWorkoutView: View {
                                 onStart(.fromTemplate(template))
                             } label: {
                                 TemplateRow(template: template)
+                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    .padding(12)
+                                    .designSurface(style: .solid, cornerRadius: 16)
                             }
+                            .buttonStyle(.plain)
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                         }
                     }
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(theme.neutrals.bg)
             .navigationTitle(String(localized: "开始训练", comment: "Nav title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
