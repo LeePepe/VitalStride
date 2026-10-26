@@ -14,9 +14,11 @@ private final class BlobRequestCapture: Sendable {
 
     func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
         requests.withLock { $0.append(request) }
-        return (Data(), HTTPURLResponse(
-            url: request.url!, statusCode: 201, httpVersion: nil, headerFields: nil
-        )!)
+        let url = try #require(request.url)
+        let response = try #require(HTTPURLResponse(
+            url: url, statusCode: 201, httpVersion: nil, headerFields: nil
+        ))
+        return (Data(), response)
     }
 }
 
@@ -48,6 +50,24 @@ private actor UploadGate {
         let waiters = releaseWaiters
         releaseWaiters.removeAll()
         waiters.forEach { $0.resume() }
+    }
+}
+
+private actor UploadConcurrencyProbe {
+    private var active = 0
+    private(set) var maximumActive = 0
+    let capture = BlobRequestCapture()
+    let gate = UploadGate()
+
+    func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        active += 1
+        maximumActive = max(maximumActive, active)
+        defer { active -= 1 }
+        await gate.markStarted()
+        await gate.waitUntilReleased()
+        // Let competing flushes reach the transport while this upload is suspended.
+        for _ in 0..<20 { await Task.yield() }
+        return try await capture.send(request)
     }
 }
 
@@ -86,16 +106,85 @@ struct BlobTelemetryConfigurationTests {
 
 @Suite("Blob telemetry provider")
 struct BlobTelemetryProviderTests {
-    private let configuration = BlobTelemetryConfiguration(
-        endpoint: URL(string: "https://example.blob.core.windows.net/container")!,
-        sas: "sv=2023-11-03&sr=c&sig=abc"
-    )
+    private var configuration: BlobTelemetryConfiguration {
+        get throws {
+            let endpoint = try #require(URL(string: "https://example.blob.core.windows.net/container"))
+            return BlobTelemetryConfiguration(endpoint: endpoint, sas: "sv=2023-11-03&sr=c&sig=abc")
+        }
+    }
+
+    @Test("flush includes every event accepted by concurrent track calls")
+    func flushAwaitsConcurrentTracks() async throws {
+        let capture = BlobRequestCapture()
+        let provider = BlobTelemetryProvider(
+            configuration: try configuration, appName: "vitalstride", version: "1.0",
+            build: "42", isDebugBuild: false, transport: capture.send
+        )
+        let eventCount = 1_000
+        DispatchQueue.concurrentPerform(iterations: eventCount) { index in
+            provider.track(.workoutCompleted(durationSeconds: index, exerciseCount: 1, setCount: 1))
+        }
+        try await provider.flush(batchID: "concurrent-tracks")
+
+        let requests = capture.captured
+        #expect(requests.count == 1)
+        let body = try #require(requests.first?.httpBody)
+        let records = body.split(separator: 0x0A)
+        let durations = try records.map { line in
+            let record = try #require(JSONSerialization.jsonObject(with: Data(line)) as? [String: Any])
+            let properties = try #require(record["properties"] as? [String: String])
+            return try #require(properties["duration_s"])
+        }
+        #expect(records.count == eventCount)
+        #expect(Set(durations) == Set((0..<eventCount).map { String($0) }))
+    }
+
+    @Test("concurrent track and flush calls serialize uploads without losing events")
+    func concurrentFlushesAreSerialized() async throws {
+        let probe = UploadConcurrencyProbe()
+        let provider = BlobTelemetryProvider(
+            configuration: try configuration, appName: "vitalstride", version: "1.0",
+            build: "42", isDebugBuild: false, transport: probe.send
+        )
+        let eventCount = 128
+        provider.track(.workoutCompleted(durationSeconds: 0, exerciseCount: 1, setCount: 1))
+        let firstFlush = Task { try await provider.flush(batchID: "first") }
+        await probe.gate.waitUntilStarted()
+        DispatchQueue.concurrentPerform(iterations: eventCount - 1) { index in
+            provider.track(.workoutCompleted(durationSeconds: index + 1, exerciseCount: 1, setCount: 1))
+        }
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for index in 0..<eventCount {
+                group.addTask {
+                    try await provider.flush(batchID: "concurrent-\(index)")
+                }
+            }
+            await probe.gate.release()
+            try await group.waitForAll()
+        }
+        try await firstFlush.value
+        try await provider.flush(batchID: "final")
+
+        #expect(await probe.maximumActive == 1)
+        let requests = probe.capture.captured
+        #expect(requests.count == 2)
+        let durations = try requests.flatMap { request in
+            let body = try #require(request.httpBody)
+            return try body.split(separator: 0x0A).map { line in
+                let record = try #require(JSONSerialization.jsonObject(with: Data(line)) as? [String: Any])
+                let properties = try #require(record["properties"] as? [String: String])
+                return try #require(properties["duration_s"])
+            }
+        }
+        #expect(durations.count == eventCount)
+        #expect(Set(durations) == Set((0..<eventCount).map { String($0) }))
+    }
 
     @Test("serializes typed events and uploads with Azure headers")
     func uploadsJSONL() async throws {
         let capture = BlobRequestCapture()
         let provider = BlobTelemetryProvider(
-            configuration: configuration, appName: "vitalstride", version: "1.0",
+            configuration: try configuration, appName: "vitalstride", version: "1.0",
             build: "42", isDebugBuild: false, transport: capture.send
         )
         provider.track(.workoutCompleted(durationSeconds: 120, exerciseCount: 2, setCount: 6))
@@ -117,7 +206,7 @@ struct BlobTelemetryProviderTests {
     func debugNoOp() async throws {
         let capture = BlobRequestCapture()
         let provider = BlobTelemetryProvider(
-            configuration: configuration, appName: "vitalstride", version: "1.0",
+            configuration: try configuration, appName: "vitalstride", version: "1.0",
             build: "42", isDebugBuild: true, transport: capture.send
         )
         provider.track(.onboardingCompleted)
@@ -129,7 +218,7 @@ struct BlobTelemetryProviderTests {
     func integratesWithTelemetryService() async throws {
         let capture = BlobRequestCapture()
         let provider = BlobTelemetryProvider(
-            configuration: configuration, appName: "vitalstride", version: "1.0",
+            configuration: try configuration, appName: "vitalstride", version: "1.0",
             build: "42", isDebugBuild: false, transport: capture.send
         )
         let service = TelemetryService()
@@ -144,15 +233,12 @@ struct BlobTelemetryProviderTests {
         let capture = BlobRequestCapture()
         let gate = UploadGate()
         let provider = BlobTelemetryProvider(
-            configuration: configuration, appName: "vitalstride", version: "1.0",
+            configuration: try configuration, appName: "vitalstride", version: "1.0",
             build: "42", isDebugBuild: false,
             transport: { request in
-                capture.append(request)
                 await gate.markStarted()
                 await gate.waitUntilReleased()
-                return (Data(), HTTPURLResponse(
-                    url: request.url!, statusCode: 201, httpVersion: nil, headerFields: nil
-                )!)
+                return try await capture.send(request)
             }
         )
 

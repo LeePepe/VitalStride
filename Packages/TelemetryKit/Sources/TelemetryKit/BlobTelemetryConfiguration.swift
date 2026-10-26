@@ -37,7 +37,7 @@ public struct BlobTelemetryConfiguration: Equatable, Sendable {
         }
 
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.timeZone = .gmt
         let components = calendar.dateComponents([.year, .month, .day], from: date)
         guard let year = components.year, let month = components.month, let day = components.day else {
             return nil

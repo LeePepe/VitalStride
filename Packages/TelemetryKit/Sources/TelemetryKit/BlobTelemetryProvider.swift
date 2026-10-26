@@ -31,29 +31,33 @@ public final class BlobTelemetryProvider: TelemetryProvider, Sendable {
 
     public func track(_ event: TelemetryEvent) {
         guard !isDebugBuild else { return }
-        let previous = pendingWork.withLock { $0 }
-        let current = Task {
-            await previous?.value
-            await uploader.append(event)
+        pendingWork.withLock { pending in
+            let previous = pending
+            pending = Task {
+                await previous?.value
+                await uploader.append(event)
+            }
         }
-        pendingWork.withLock { $0 = current }
     }
 
     /// Uploads all events accepted since the previous flush.
     public func flush(date: Date = Date(), batchID: String = UUID().uuidString) async throws {
         guard !isDebugBuild else { return }
-        let previous = pendingFlush.withLock { $0 }
-        let current = Task { () throws -> Void in
-            do {
-                try await previous?.value
-            } catch {
-                // A failed flush must not prevent a later flush from retrying its buffer.
+        let current = pendingFlush.withLock { pending in
+            let previous = pending
+            let current = Task { () throws -> Void in
+                do {
+                    try await previous?.value
+                } catch {
+                    // A failed flush must not prevent a later flush from retrying its buffer.
+                }
+                let work = pendingWork.withLock { $0 }
+                await work?.value
+                try await uploader.flush(date: date, batchID: batchID)
             }
-            let pending = pendingWork.withLock { $0 }
-            await pending?.value
-            try await uploader.flush(date: date, batchID: batchID)
+            pending = current
+            return current
         }
-        pendingFlush.withLock { $0 = current }
         try await current.value
     }
 
