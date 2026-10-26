@@ -13,10 +13,11 @@ red_lines:
   - DEBUG 构建不发送 analytics（ADR-0015 §Decision.3）
   - Swift 6 strict concurrency，Event/Provider 须 Sendable，分发走 actor（宪法 II）
 roles:
-  Types:   [TelemetryEvent, TelemetryProvider]
-  Service: [TelemetryService, ConsoleTelemetryProvider]
+  Types:   [TelemetryEvent, TelemetryProvider, BlobTelemetryConfiguration]
+  Service: [TelemetryService, ConsoleTelemetryProvider, BlobTelemetryProvider]
 test: swift test --package-path Packages/TelemetryKit
-owns: [TelemetryEvent, TelemetryProvider, TelemetryService, ConsoleTelemetryProvider]
+owns: [TelemetryEvent, TelemetryProvider, TelemetryService, ConsoleTelemetryProvider,
+       BlobTelemetryConfiguration, BlobTelemetryProvider]
 ---
 
 # TelemetryKit Context
