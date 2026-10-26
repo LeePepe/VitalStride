@@ -239,9 +239,9 @@ struct SetRow: View {
         .designSurface(style: .solid, cornerRadius: 16)
         .onAppear { refreshInputText() }
         .onChange(of: weightUnit) { _, _ in refreshInputText() }
-        .onChange(of: exerciseSet.weight) { _, _ in refreshInputText() }
-        .onChange(of: exerciseSet.weightRight) { _, _ in refreshInputText() }
-        .onChange(of: exerciseSet.reps) { _, _ in refreshInputText() }
+        .onChange(of: exerciseSet.weight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
+        .onChange(of: exerciseSet.weightRight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
+        .onChange(of: exerciseSet.reps) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
         .onChange(of: exerciseSet.isUnilateral) { _, _ in refreshInputText() }
         .alert(String(localized: "workout.row.set_rpe", defaultValue: "Set RPE", comment: "RPE dialog title"),
                isPresented: $showingRPEDialog) {
@@ -360,11 +360,17 @@ struct SetRow: View {
         .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration"))
     }
 
-    private func refreshInputText() {
-        weightText = formatWeight(weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight)
-        let right = exerciseSet.weightRight ?? exerciseSet.weight
-        weightRightText = exerciseSet.isUnilateral ? formatWeight(weightUnit == .lb ? right * 2.20462 : right) : ""
-        repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
+    private func refreshInputText(preservingFocusedField: SetField? = nil) {
+        if preservingFocusedField != .weight {
+            weightText = formatWeight(weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight)
+        }
+        if preservingFocusedField != .weightRight {
+            let right = exerciseSet.weightRight ?? exerciseSet.weight
+            weightRightText = exerciseSet.isUnilateral ? formatWeight(weightUnit == .lb ? right * 2.20462 : right) : ""
+        }
+        if preservingFocusedField != .reps {
+            repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
+        }
     }
 
     // MARK: - Row styling helpers
@@ -432,7 +438,14 @@ struct SetRow: View {
             suggestedReps: suggestion?.suggestedReps,
             onLeftAction: { action in handleLeftAction(action, field: field) },
             onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) },
-            onFocusChange: { focusedField = $0 }
+            onFocusChange: { newField in
+                if let newField {
+                    focusedField = newField
+                } else if focusedField == field {
+                    focusedField = nil
+                    refreshInputText()
+                }
+            }
         ), theme: theme)
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
@@ -491,7 +504,14 @@ struct SetRow: View {
             suggestedReps: suggestion?.suggestedReps,
             onLeftAction: { action in handleLeftAction(action, field: .reps) },
             onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) },
-            onFocusChange: { focusedField = $0 }
+            onFocusChange: { newField in
+                if let newField {
+                    focusedField = newField
+                } else if focusedField == .reps {
+                    focusedField = nil
+                    refreshInputText()
+                }
+            }
         ), theme: theme)
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
@@ -880,6 +900,7 @@ struct SetRow: View {
         }
         repsText = "\(reps)"
         syncRepsToModel()
+        refreshInputText()
     }
 
     private func syncWeightToModel() {

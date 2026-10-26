@@ -94,10 +94,10 @@ struct SubSetRow: View {
                 .buttonStyle(.plain)
                 .accessibilityHidden(true)
         }
-        .onAppear(perform: refreshInputText)
-        .onChange(of: exerciseSet.weight) { _, _ in refreshInputText() }
-        .onChange(of: exerciseSet.weightRight) { _, _ in refreshInputText() }
-        .onChange(of: exerciseSet.reps) { _, _ in refreshInputText() }
+        .onAppear { refreshInputText() }
+        .onChange(of: exerciseSet.weight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
+        .onChange(of: exerciseSet.weightRight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
+        .onChange(of: exerciseSet.reps) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
         .onChange(of: weightUnit) { _, _ in refreshInputText() }
         .onChange(of: exerciseSet.isUnilateral) { _, _ in refreshInputText() }
     }
@@ -126,7 +126,14 @@ struct SubSetRow: View {
             recentWeightKg: recentWeightKg,
             onLeftAction: { action in handleLeftAction(action, field: field) },
             onPresetReps: { weightKg, reps in applyPreset(weightKg: weightKg, reps: reps) },
-            onFocusChange: { focusedField = $0 }
+            onFocusChange: { newField in
+                if let newField {
+                    focusedField = newField
+                } else if focusedField == field {
+                    focusedField = nil
+                    refreshInputText()
+                }
+            }
         )
         return HStack(spacing: 2) {
             if isSide {
@@ -201,15 +208,21 @@ struct SubSetRow: View {
         onToggleCompleted(wasCompleted)
     }
 
-    private func refreshInputText() {
+    private func refreshInputText(preservingFocusedField: SetField? = nil) {
         // The native field retains its edit binding across SwiftUI updates.
         // Keep the unit beside the text so that binding uses the displayed unit.
         inputWeightUnit = weightUnit
-        weightText = format(weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight)
-        weightRightText = exerciseSet.isUnilateral
-            ? format(weightUnit == .lb ? (exerciseSet.weightRight ?? exerciseSet.weight) * 2.20462 : (exerciseSet.weightRight ?? exerciseSet.weight))
-            : ""
-        repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
+        if preservingFocusedField != .weight {
+            weightText = format(weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight)
+        }
+        if preservingFocusedField != .weightRight {
+            weightRightText = exerciseSet.isUnilateral
+                ? format(weightUnit == .lb ? (exerciseSet.weightRight ?? exerciseSet.weight) * 2.20462 : (exerciseSet.weightRight ?? exerciseSet.weight))
+                : ""
+        }
+        if preservingFocusedField != .reps {
+            repsText = exerciseSet.reps == 0 ? "" : "\(exerciseSet.reps)"
+        }
     }
 
     private func sync(field: SetField) {

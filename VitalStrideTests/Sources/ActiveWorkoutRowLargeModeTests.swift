@@ -394,6 +394,18 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             XCTAssertEqual(set.weight, 12.25)
             XCTAssertEqual(set.weightRight, unilateral ? 10.75 : nil)
 
+            let sequentialWeightField = try XCTUnwrap(textFields(in: host.view).min {
+                $0.convert($0.bounds, to: host.view).minX < $1.convert($1.bounds, to: host.view).minX
+            })
+            XCTAssertTrue(sequentialWeightField.becomeFirstResponder())
+            sequentialWeightField.text = "12.12"
+            sequentialWeightField.sendActions(for: .editingChanged)
+            sequentialWeightField.text = "12.125"
+            sequentialWeightField.sendActions(for: .editingChanged)
+            try await Task.sleep(for: .milliseconds(150))
+            XCTAssertEqual(set.weight, 12.125, accuracy: 0.000_001)
+            sequentialWeightField.resignFirstResponder()
+
             set.weight = 18.375
             if unilateral { set.weightRight = 17.125 }
             try await Task.sleep(for: .milliseconds(150))
