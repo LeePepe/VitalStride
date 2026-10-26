@@ -8,11 +8,46 @@ private final class BlobRequestCapture: Sendable {
 
     var captured: [URLRequest] { requests.withLock { $0 } }
 
+    func append(_ request: URLRequest) {
+        requests.withLock { $0.append(request) }
+    }
+
     func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
         requests.withLock { $0.append(request) }
         return (Data(), HTTPURLResponse(
             url: request.url!, statusCode: 201, httpVersion: nil, headerFields: nil
         )!)
+    }
+}
+
+private actor UploadGate {
+    private var started = false
+    private var released = false
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func waitUntilStarted() async {
+        guard !started else { return }
+        await withCheckedContinuation { startWaiters.append($0) }
+    }
+
+    func markStarted() {
+        started = true
+        let waiters = startWaiters
+        startWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+    }
+
+    func waitUntilReleased() async {
+        guard !released else { return }
+        await withCheckedContinuation { releaseWaiters.append($0) }
+    }
+
+    func release() {
+        released = true
+        let waiters = releaseWaiters
+        releaseWaiters.removeAll()
+        waiters.forEach { $0.resume() }
     }
 }
 
@@ -102,5 +137,39 @@ struct BlobTelemetryProviderTests {
         await service.track(.aiInsightGenerated(durationMs: 200, cardCount: 3))
         try await provider.flush(batchID: "integration")
         #expect(capture.captured.count == 1)
+    }
+
+    @Test("retains events tracked during an in-flight upload")
+    func retainsConcurrentEvents() async throws {
+        let capture = BlobRequestCapture()
+        let gate = UploadGate()
+        let provider = BlobTelemetryProvider(
+            configuration: configuration, appName: "vitalstride", version: "1.0",
+            build: "42", isDebugBuild: false,
+            transport: { request in
+                capture.append(request)
+                await gate.markStarted()
+                await gate.waitUntilReleased()
+                return (Data(), HTTPURLResponse(
+                    url: request.url!, statusCode: 201, httpVersion: nil, headerFields: nil
+                )!)
+            }
+        )
+
+        provider.track(.onboardingCompleted)
+        let firstFlush = Task<Void, Error> { try await provider.flush(batchID: "first") }
+        await gate.waitUntilStarted()
+        provider.track(.workoutCompleted(durationSeconds: 30, exerciseCount: 1, setCount: 1))
+        await gate.release()
+        try await firstFlush.value
+        try await provider.flush(batchID: "second")
+
+        let requests = capture.captured
+        #expect(requests.count == 2)
+        let firstBody = String(decoding: try #require(requests[0].httpBody), as: UTF8.self)
+        let secondBody = String(decoding: try #require(requests[1].httpBody), as: UTF8.self)
+        #expect(firstBody.contains("\"event_name\":\"onboarding_completed\""))
+        #expect(!firstBody.contains("\"event_name\":\"workout_completed\""))
+        #expect(secondBody.contains("\"event_name\":\"workout_completed\""))
     }
 }

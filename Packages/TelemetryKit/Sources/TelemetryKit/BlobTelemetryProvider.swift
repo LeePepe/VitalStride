@@ -8,6 +8,7 @@ public final class BlobTelemetryProvider: TelemetryProvider, Sendable {
     private let isDebugBuild: Bool
     private let uploader: Uploader
     private let pendingWork = Mutex<Task<Void, Never>?>(nil)
+    private let pendingFlush = Mutex<Task<Void, Error>?>(nil)
 
     public init(
         configuration: BlobTelemetryConfiguration,
@@ -41,9 +42,19 @@ public final class BlobTelemetryProvider: TelemetryProvider, Sendable {
     /// Uploads all events accepted since the previous flush.
     public func flush(date: Date = Date(), batchID: String = UUID().uuidString) async throws {
         guard !isDebugBuild else { return }
-        let pending = pendingWork.withLock { $0 }
-        await pending?.value
-        try await uploader.flush(date: date, batchID: batchID)
+        let previous = pendingFlush.withLock { $0 }
+        let current = Task { () throws -> Void in
+            do {
+                try await previous?.value
+            } catch {
+                // A failed flush must not prevent a later flush from retrying its buffer.
+            }
+            let pending = pendingWork.withLock { $0 }
+            await pending?.value
+            try await uploader.flush(date: date, batchID: batchID)
+        }
+        pendingFlush.withLock { $0 = current }
+        try await current.value
     }
 
     public static func liveTransport(_ request: URLRequest) async throws -> (Data, URLResponse) {
@@ -76,17 +87,23 @@ public final class BlobTelemetryProvider: TelemetryProvider, Sendable {
             guard let url = configuration.blobUploadURL(appName: appName, date: date, batchID: batchID) else {
                 throw BlobTelemetryError.invalidUploadURL
             }
-            let payload = try Self.jsonl(events: events, appName: appName, version: version, build: build)
+            let batch = events
+            let payload = try Self.jsonl(events: batch, appName: appName, version: version, build: build)
+            events.removeAll(keepingCapacity: true)
             var request = URLRequest(url: url)
             request.httpMethod = "PUT"
             request.httpBody = payload
             request.setValue("BlockBlob", forHTTPHeaderField: "x-ms-blob-type")
             request.setValue("application/x-ndjson", forHTTPHeaderField: "Content-Type")
-            let (_, response) = try await transport(request)
-            guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode) else {
-                throw BlobTelemetryError.invalidResponse
+            do {
+                let (_, response) = try await transport(request)
+                guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode) else {
+                    throw BlobTelemetryError.invalidResponse
+                }
+            } catch {
+                events.insert(contentsOf: batch, at: 0)
+                throw error
             }
-            events.removeAll(keepingCapacity: true)
         }
 
         private static func jsonl(events: [TelemetryEvent], appName: String, version: String,
