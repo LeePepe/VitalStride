@@ -178,65 +178,73 @@ struct ActiveExerciseSection: View {
             }
         } header: {
             HStack(alignment: .center, spacing: 6) {
-                if completedSetCount == totalSetCount, totalSetCount > 0 {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(theme.success)
-                } else {
-                    Text("\(workoutExercise.order + 1)")
-                        .font(.caption.monospacedDigit().weight(.bold))
-                        .foregroundStyle(completedSetCount == 0 ? theme.neutrals.text2 : theme.accent)
-                        .frame(minWidth: 22, minHeight: 22)
-                        .background(
-                            Circle().fill(
-                                completedSetCount == 0
-                                    ? theme.neutrals.text2.opacity(0.12)
-                                    : theme.accent.opacity(0.14)
+                HStack(alignment: .center, spacing: 6) {
+                    if completedSetCount == totalSetCount, totalSetCount > 0 {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(theme.success)
+                    } else {
+                        Text("\(workoutExercise.order + 1)")
+                            .font(.caption.monospacedDigit().weight(.bold))
+                            .foregroundStyle(completedSetCount == 0 ? theme.neutrals.text2 : theme.accent)
+                            .frame(minWidth: 22, minHeight: 22)
+                            .background(
+                                Circle().fill(
+                                    completedSetCount == 0
+                                        ? theme.neutrals.text2.opacity(0.12)
+                                        : theme.accent.opacity(0.14)
+                                )
                             )
-                        )
-                }
-                Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
-                    // MY-1263 (D2): compact semibold body header in normal mode
-                    // (SwiftUI's default `List` section header uses a larger
-                    // title font that dominated the visual band). Large Mode
-                    // continues to use the `.title2` semibold ramp from
-                    // `LargeWorkoutFonts.exerciseName(large:)` for rack-step
-                    // legibility (MY-1091). Text-style-driven so Dynamic Type
-                    // still scales.
-                    .font(largeMode
-                        ? LargeWorkoutFonts.exerciseName(large: true)
-                        : Font.system(.body, design: .default).weight(.semibold))
-                    .foregroundStyle(theme.neutrals.text1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(2)
-                    .contextMenu {
-                        Button {
-                            onSubstitute()
-                        } label: {
-                            // swiftlint:disable:next line_length
-                            Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute context menu item"), systemImage: "sparkles")
-                        }
-                        Button {
-                            onReplace()
-                        } label: {
-                            // swiftlint:disable:next line_length
-                            Label(String(localized: "替换动作", comment: "Replace exercise context menu item"), systemImage: "arrow.triangle.2.circlepath")
-                        }
-                        Button(role: .destructive) {
-                            showingDeleteConfirmation = true
-                        } label: {
-                            // swiftlint:disable:next line_length
-                            Label(String(localized: "删除动作", comment: "Delete exercise context menu item"), systemImage: "trash")
-                        }
                     }
-                    // swiftlint:disable:next line_length
-                    .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
-                Text("\(completedSetCount)/\(totalSetCount)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(theme.neutrals.text2)
-                if completedSetCount == totalSetCount, totalSetCount > 0 {
-                    Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
-                        .font(.caption2)
+                    Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
+                        // MY-1263 (D2): compact semibold body header in normal mode
+                        // (SwiftUI's default `List` section header uses a larger
+                        // title font that dominated the visual band). Large Mode
+                        // continues to use the `.title2` semibold ramp from
+                        // `LargeWorkoutFonts.exerciseName(large:)` for rack-step
+                        // legibility (MY-1091). Text-style-driven so Dynamic Type
+                        // still scales.
+                        .font(largeMode
+                            ? LargeWorkoutFonts.exerciseName(large: true)
+                            : Font.system(.body, design: .default).weight(.semibold))
+                        .foregroundStyle(theme.neutrals.text1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(2)
+                        .contextMenu {
+                            Button {
+                                onSubstitute()
+                            } label: {
+                                // swiftlint:disable:next line_length
+                                Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute context menu item"), systemImage: "sparkles")
+                            }
+                            Button {
+                                onReplace()
+                            } label: {
+                                // swiftlint:disable:next line_length
+                                Label(String(localized: "替换动作", comment: "Replace exercise context menu item"), systemImage: "arrow.triangle.2.circlepath")
+                            }
+                            Button(role: .destructive) {
+                                showingDeleteConfirmation = true
+                            } label: {
+                                // swiftlint:disable:next line_length
+                                Label(String(localized: "删除动作", comment: "Delete exercise context menu item"), systemImage: "trash")
+                            }
+                        }
+                        // swiftlint:disable:next line_length
+                        .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
+                    Text("\(completedSetCount)/\(totalSetCount)")
+                        .font(.caption.monospacedDigit())
                         .foregroundStyle(theme.neutrals.text2)
+                    if completedSetCount == totalSetCount, totalSetCount > 0 {
+                        Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
+                            .font(.caption2)
+                            .foregroundStyle(theme.neutrals.text2)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if isCollapsed || (completedSetCount == totalSetCount && totalSetCount > 0) {
+                        withAnimation { isCollapsed.toggle() }
+                    }
                 }
                 addSetButton
                 Menu {
@@ -264,12 +272,6 @@ struct ActiveExerciseSection: View {
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                if isCollapsed || (completedSetCount == totalSetCount && totalSetCount > 0) {
-                    withAnimation { isCollapsed.toggle() }
-                }
             }
             .onChange(of: completedSetCount) { _, count in
                 if count < totalSetCount { isCollapsed = false }

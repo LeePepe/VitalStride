@@ -11964,6 +11964,24 @@
         }
       }
     },
+    "workout.sidebar.add_exercise": {
+      "comment": "Sidebar add exercise button",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add exercise from sidebar"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从侧栏添加动作"
+          }
+        }
+      }
+    },
     "workout.sidebar.move_up": {
       "comment": "Active workout redesign",
       "extractionState": "manual",

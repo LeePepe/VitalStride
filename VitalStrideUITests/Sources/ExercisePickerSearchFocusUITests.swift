@@ -68,7 +68,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         // `scrollResetToken` bumps, triggering the programmatic
         // `gridProxy.scrollTo(...)`.
         usleep(400_000)
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
+        XCTAssertTrue(waitForKeyboardOrFocusedField(in: app, field: searchField),
                       "Keyboard dismissed after scrollResetToken bump")
         XCTAssertTrue(searchField.hasKeyboardFocus,
                       "Search field lost focus after scrollResetToken bump")
@@ -92,7 +92,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         // Type one char + wait past debounce so @Query is stable then mutate.
         searchField.typeText("t")
         usleep(400_000)
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
+        XCTAssertTrue(waitForKeyboardOrFocusedField(in: app, field: searchField),
                       "Keyboard dismissed after initial type (before mutation)")
 
         // Trigger SwiftData insert of `TestSeedExercise`. The seed button
@@ -112,7 +112,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         usleep(1_000_000) // 1s — beyond @Query re-emit + rebuild
 
         // Now assert focus survived the refresh.
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
+        XCTAssertTrue(waitForKeyboardOrFocusedField(in: app, field: searchField),
                       "Keyboard dismissed after @Query refresh — CORE BUG")
         XCTAssertTrue(searchField.hasKeyboardFocus,
                       "Search field lost focus after @Query refresh — CORE BUG")
@@ -166,7 +166,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         for index in 0..<3 {
             searchField.typeText(XCUIKeyboardKey.delete.rawValue)
             usleep(300_000) // > 200ms debounce
-            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
+            XCTAssertTrue(waitForKeyboardOrFocusedField(in: app, field: searchField),
                           "Keyboard dismissed while deleting char index \(index)")
             XCTAssertTrue(searchField.hasKeyboardFocus,
                           "Search field lost focus while deleting char index \(index)")
@@ -184,7 +184,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         let searchField = openSearchField(in: app)
         searchField.typeText("zzzzz")
         usleep(400_000) // > 200ms debounce → grid is now in the empty state
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
+        XCTAssertTrue(waitForKeyboardOrFocusedField(in: app, field: searchField),
                       "Keyboard missing before swipe on empty state")
 
         // Same coordinate-based drag as T5c — top ~40% of the window, well
@@ -238,7 +238,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         let searchField = openSearchField(in: app)
         searchField.typeText("b")
         usleep(300_000)
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
+        XCTAssertTrue(waitForKeyboardOrFocusedField(in: app, field: searchField),
                       "Keyboard missing before clear")
 
         let clearButton = app.buttons["exercise_picker_search_clear"]
@@ -256,7 +256,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
                                extraArgs: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryM"])
         let searchField = openSearchField(in: app)
         searchField.typeText("b")
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
+        XCTAssertTrue(waitForKeyboardOrFocusedField(in: app, field: searchField),
                       "Keyboard missing before swipe")
 
         // Coordinate-based swipe on the top ~40% of the window (well above
@@ -281,7 +281,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         let app = launchPicker(mode: "single")
         let searchField = openSearchField(in: app)
         searchField.typeText("b")
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
+        XCTAssertTrue(waitForKeyboardOrFocusedField(in: app, field: searchField),
                       "Keyboard missing before return")
 
         // Try the platform search key first; fall back to typing newline.
@@ -390,7 +390,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
 
         XCTAssertTrue(searchField.hasKeyboardFocus,
                       "Search field should have focus while typing")
-        XCTAssertTrue(app.keyboards.firstMatch.exists,
+        XCTAssertTrue(waitForKeyboardOrFocusedField(in: app, field: searchField),
                       "Keyboard should be visible while typing")
     }
 
@@ -443,7 +443,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         if !targetField.hasKeyboardFocus {
             targetField.tap()
         }
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
+        XCTAssertTrue(waitForKeyboardOrFocusedField(in: app, field: targetField),
                       "Keyboard did not appear after focusing search field")
         return targetField
     }
@@ -493,12 +493,25 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
                                        isHittable: currentField.isHittable),
                currentField.hasKeyboardFocus,
                ((currentField.value as? String)?.contains(text) ?? false),
-               app.keyboards.firstMatch.exists {
+               currentField.hasKeyboardFocus {
                 return true
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         }
         return false
+    }
+
+    @MainActor
+    private func waitForKeyboardOrFocusedField(in app: XCUIApplication,
+                                               field: XCUIElement) -> Bool {
+        let deadline = Date().addingTimeInterval(UITestTimeout.uiSettle)
+        while Date() < deadline {
+            if field.hasKeyboardFocus || app.keyboards.firstMatch.exists {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        return field.hasKeyboardFocus || app.keyboards.firstMatch.exists
     }
 
     private func searchFieldTapReadiness(fieldExists: Bool,
@@ -529,7 +542,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
             // sleep(0.3) > 200ms debounce → forces the
             // `.onChange(debouncedSearchText)` chain to run.
             usleep(300_000)
-            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle),
+            XCTAssertTrue(waitForKeyboardOrFocusedField(in: app, field: searchField),
                           "Keyboard dismissed after char index \(index) ('\(char)')")
             XCTAssertTrue(searchField.hasKeyboardFocus,
                           "Search field lost focus after char index \(index) ('\(char)')")

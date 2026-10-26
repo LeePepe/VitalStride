@@ -938,7 +938,13 @@ struct ActiveWorkoutView: View {
                         .background(theme.accentSubtle, in: Circle())
                 }
                 .accessibilityIdentifier("workout_sidebar_add_exercise")
-                .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
+                .accessibilityLabel(
+                    String(
+                        localized: "workout.sidebar.add_exercise",
+                        defaultValue: "Add exercise from sidebar",
+                        comment: "Sidebar add exercise button"
+                    )
+                )
             }
             .padding(.horizontal, 2)
         }
