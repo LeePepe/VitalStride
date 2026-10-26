@@ -1,4 +1,6 @@
+// swiftlint:disable no_hardcoded_chinese
 import DesignKit
+import SwiftData
 import SwiftUI
 import VitalModels
 import VitalUI
@@ -9,6 +11,7 @@ import UIKit
 
 struct SubSetRow: View {
     @Environment(\.theme) private var theme
+    @Environment(\.modelContext) private var modelContext
     let exerciseSet: ExerciseSet
     let weightUnit: WeightUnit
     let isLast: Bool
@@ -22,6 +25,7 @@ struct SubSetRow: View {
     @State private var weightRightText = ""
     @State private var repsText = ""
     @State private var focusedField: SetField?
+    @State private var inputWeightUnit: WeightUnit = .kg
 
     var body: some View {
         HStack(spacing: 4) {
@@ -99,12 +103,21 @@ struct SubSetRow: View {
     }
 
     private func inputField(text: Binding<String>, field: SetField, label: String) -> some View {
+        // Only edits from the input write back. Model/unit refreshes update the
+        // display directly, preserving stored precision after display rounding.
+        let editingText = Binding<String>(
+            get: { text.wrappedValue },
+            set: { value in
+                text.wrappedValue = value
+                sync(field: field)
+            }
+        )
         #if canImport(UIKit) && !os(macOS)
         let isTotal = !exerciseSet.isUnilateral && field == .weight
         let isSide = field != .reps
         let input = SelectAllTextField(
             placeholder: field == .reps ? String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit") : weightUnit.rawValue,
-            text: text,
+            text: editingText,
             keyboardType: field.isDecimalEnabled ? .decimalPad : .numberPad,
             useCustomKeyboard: true,
             field: field,
@@ -144,18 +157,24 @@ struct SubSetRow: View {
         }
         .accessibilityLabel(field == .reps ? String(localized: "递减组次数", comment: "Drop-set reps") : String(localized: "递减组重量", comment: "Drop-set weight"))
         .accessibilityHint(String(localized: "输入数值", comment: "Enter drop-set value"))
-        .onChange(of: text.wrappedValue) { _, _ in sync(field: field) }
         #else
-        TextField("", text: text)
+        return TextField("", text: editingText)
             .frame(width: field.isWeightField ? 58 : 48, height: 44)
-            .onChange(of: text.wrappedValue) { _, _ in sync(field: field) }
         #endif
     }
 
     private func handleLeftAction(_ action: LeftKeyAction, field: SetField) {
         switch action {
         case .toggleUnilateral:
-            exerciseSet.isUnilateral.toggle()
+            SetRow.toggleExerciseWeightMode(from: exerciseSet)
+            refreshInputText()
+        case .toggleWeightUnit:
+            let next: WeightUnit = weightUnit == .kg ? .lb : .kg
+            UserDefaults.standard.set(next.rawValue, forKey: "weightUnit")
+        case .addSet:
+            if let owner = exerciseSet.workoutExercise {
+                _ = ActiveExerciseSection.insertAppendedMainSet(in: owner, using: modelContext)
+            }
         case .applyAISuggestion:
             break
         default:
@@ -180,6 +199,9 @@ struct SubSetRow: View {
     }
 
     private func refreshInputText() {
+        // The native field retains its edit binding across SwiftUI updates.
+        // Keep the unit beside the text so that binding uses the displayed unit.
+        inputWeightUnit = weightUnit
         weightText = format(weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight)
         weightRightText = exerciseSet.isUnilateral
             ? format(weightUnit == .lb ? (exerciseSet.weightRight ?? exerciseSet.weight) * 2.20462 : (exerciseSet.weightRight ?? exerciseSet.weight))
@@ -191,11 +213,11 @@ struct SubSetRow: View {
         switch field {
         case .weight:
             if let value = Double(weightText), value.isFinite, value >= 0 {
-                exerciseSet.weight = weightUnit == .lb ? value / 2.20462 : value
+                exerciseSet.weight = inputWeightUnit == .lb ? value / 2.20462 : value
             }
         case .weightRight:
             if let value = Double(weightRightText), value.isFinite, value >= 0 {
-                exerciseSet.weightRight = weightUnit == .lb ? value / 2.20462 : value
+                exerciseSet.weightRight = inputWeightUnit == .lb ? value / 2.20462 : value
             }
         case .reps:
             if let value = Int(repsText), value >= 0 { exerciseSet.reps = value }

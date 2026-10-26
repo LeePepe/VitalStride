@@ -370,6 +370,72 @@ import UIKit
 /// bridge, to catch stale text, hidden L/R fields and unit-rounding data loss.
 @MainActor
 final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
+    func testSubSetDisplayRefreshPreservesPrecisionAndUserEditsPersist() async throws {
+        for unilateral in [false, true] {
+            let container = try ModelContainerConfiguration.makeTestContainer()
+            let set = ExerciseSet(order: 1, weight: 12.25, reps: 8, setType: .dropSet,
+                                  isUnilateral: unilateral, weightRight: unilateral ? 10.75 : nil)
+            container.mainContext.insert(set)
+            func row(unit: WeightUnit) -> some View {
+                SubSetRow(exerciseSet: set, weightUnit: unit, isLast: true, parentSetNumber: 1,
+                          exercise: nil, recentWeightKg: nil, onToggleCompleted: { _ in }, onDelete: {})
+                    .modelContainer(container).designThemePreview()
+            }
+            let host = UIHostingController(rootView: row(unit: .kg))
+            let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+            let window = UIWindow(windowScene: scene)
+            window.frame = CGRect(x: 0, y: 0, width: 393, height: 260)
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            defer { window.isHidden = true }
+            try await Task.sleep(for: .milliseconds(150))
+            host.view.layoutIfNeeded()
+            XCTAssertEqual(textFields(in: host.view).count, unilateral ? 3 : 2)
+            XCTAssertEqual(set.weight, 12.25)
+            XCTAssertEqual(set.weightRight, unilateral ? 10.75 : nil)
+
+            set.weight = 18.375
+            if unilateral { set.weightRight = 17.125 }
+            try await Task.sleep(for: .milliseconds(150))
+            XCTAssertTrue(textFields(in: host.view).contains { $0.text == "18.4" })
+            XCTAssertEqual(set.weight, 18.375)
+            XCTAssertEqual(set.weightRight, unilateral ? 17.125 : nil)
+
+            host.rootView = row(unit: .lb)
+            try await Task.sleep(for: .milliseconds(150))
+            XCTAssertEqual(set.weight, 18.375)
+            XCTAssertEqual(set.weightRight, unilateral ? 17.125 : nil)
+            let weightField = try XCTUnwrap(textFields(in: host.view).first {
+                $0.text == String(format: "%.1f", 18.375 * 2.20462)
+            })
+            weightField.text = "40.5"
+            weightField.sendActions(for: .editingChanged)
+            try await Task.sleep(for: .milliseconds(150))
+            XCTAssertEqual(set.weight, 40.5 / 2.20462, accuracy: 0.000_001)
+            XCTAssertEqual(set.weightRight, unilateral ? 17.125 : nil)
+            if unilateral {
+                let rightField = try XCTUnwrap(textFields(in: host.view).first {
+                    $0.text == String(format: "%.1f", 17.125 * 2.20462)
+                })
+                rightField.text = "35.5"
+                rightField.sendActions(for: .editingChanged)
+                try await Task.sleep(for: .milliseconds(150))
+                XCTAssertEqual(try XCTUnwrap(set.weightRight), 35.5 / 2.20462, accuracy: 0.000_001)
+            }
+            let repsField = try XCTUnwrap(textFields(in: host.view).first { $0.text == "8" })
+            repsField.text = "11"
+            repsField.sendActions(for: .editingChanged)
+            try await Task.sleep(for: .milliseconds(150))
+            XCTAssertEqual(set.reps, 11)
+            host.rootView = row(unit: .kg)
+            try await Task.sleep(for: .milliseconds(150))
+            XCTAssertEqual(set.weight, 40.5 / 2.20462, accuracy: 0.000_001)
+            if unilateral {
+                XCTAssertEqual(try XCTUnwrap(set.weightRight), 35.5 / 2.20462, accuracy: 0.000_001)
+            }
+        }
+    }
+
     func testFieldsFollowModelAndUnitsWithoutChangingStoredWeights() async throws {
         let defaults = UserDefaults.standard
         let previousUnit = defaults.object(forKey: "weightUnit")

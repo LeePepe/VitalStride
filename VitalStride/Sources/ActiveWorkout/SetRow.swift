@@ -312,8 +312,7 @@ struct SetRow: View {
                        ? String(localized: "第 \(index + 1) 组左侧重量", comment: "Left weight")
                        : String(localized: "第 \(index + 1) 组右侧重量", comment: "Right weight")),
                 a11yHint: String(localized: "输入重量数值", comment: "Enter weight"),
-                suggestion: suggestion,
-                isFocused: focusedField == field
+                suggestion: suggestion
             )
             Text(weightUnit.rawValue)
                 .font(.caption2.weight(.medium))
@@ -416,8 +415,7 @@ struct SetRow: View {
         width: CGFloat,
         a11yLabel: String,
         a11yHint: String,
-        suggestion: ProgressionAdvice?,
-        isFocused: Bool
+        suggestion: ProgressionAdvice?
     ) -> some View {
         #if canImport(UIKit) && !os(macOS)
         WorkoutSetInput(SelectAllTextField(
@@ -441,12 +439,6 @@ struct SetRow: View {
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
-        .overlay {
-            if isFocused {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(theme.accent, lineWidth: 1.5)
-            }
-        }
         .onChange(of: binding.wrappedValue) { _, newValue in
             let filtered = filterDecimalInput(newValue)
             if filtered != newValue { binding.wrappedValue = filtered }

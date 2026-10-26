@@ -12250,6 +12250,20 @@
         }
       }
     },
+    "第 %lld 组总重量": {
+      "comment": "Total weight accessibility label for a set",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Set %lld total weight" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "第 %lld 组总重量" } }
+      }
+    },
+    "%lld/%lld 组": {
+      "comment": "Exercise completion count",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%lld/%lld sets" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld/%lld 组" } }
+      }
+    },
     "workout.row.rpe_value": {
       "comment": "Active workout redesign",
       "extractionState": "manual",
