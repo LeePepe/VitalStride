@@ -306,6 +306,48 @@ jobs:
         if: steps.gate.outputs.release == 'true'
         run: bash scripts/ci/scan-temp-prelaunch.sh audit
 
+      - name: Prepare telemetry xcconfig
+        if: steps.gate.outputs.release == 'true'
+        env:
+          TELEMETRY_XCCONFIG_PATH: ${{ runner.temp }}/vitalstride-telemetry-${{ github.run_id }}-${{ github.run_attempt }}.xcconfig
+          LOKIKIT_BLOB_ENDPOINT: ${{ secrets.LOKIKIT_BLOB_ENDPOINT }}
+          LOKIKIT_BLOB_SAS: ${{ secrets.LOKIKIT_BLOB_SAS }}
+        run: |
+          set -euo pipefail
+          set +x
+          umask 077
+          python3 - <<'PY'
+          import os
+          import re
+          import stat
+          from pathlib import Path
+
+          endpoint = os.environ.get("LOKIKIT_BLOB_ENDPOINT", "")
+          sas = os.environ.get("LOKIKIT_BLOB_SAS", "")
+          if not endpoint or not sas:
+              raise SystemExit(0)
+          if not all(re.fullmatch(r"[A-Za-z0-9%&=+._~:/?-]+", value) for value in (endpoint, sas)):
+              raise SystemExit("Telemetry settings are missing or unsafe for xcconfig")
+
+          path = Path(os.environ["TELEMETRY_XCCONFIG_PATH"])
+          runner_temp = Path(os.environ["RUNNER_TEMP"]).resolve()
+          workspace = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          if path.parent.resolve() != runner_temp or runner_temp.is_relative_to(workspace):
+              raise SystemExit("Telemetry xcconfig must be outside the checkout in runner temp")
+          try:
+              fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+              with os.fdopen(fd, "w", encoding="utf-8") as config:
+                  os.fchmod(config.fileno(), 0o600)
+                  if stat.S_IMODE(os.fstat(config.fileno()).st_mode) != 0o600:
+                      raise ValueError()
+                  config.write("LOKIKIT_BLOB_ENDPOINT = " + endpoint.replace("//", "/$()/") + "\n")
+                  config.write("LOKIKIT_BLOB_SAS = " + sas.replace("//", "/$()/") + "\n")
+          except (OSError, ValueError):
+              raise SystemExit("Telemetry xcconfig preparation failed") from None
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as environment:
+              environment.write("TELEMETRY_XCCONFIG_PATH=" + str(path) + "\n")
+          PY
+
       - name: fastlane beta
         if: steps.gate.outputs.release == 'true'
         env:
@@ -324,6 +366,15 @@ jobs:
             echo "::error::GLITCHTIP_DSN secret 未设置" ; exit 1
           fi
           fastlane ios beta
+
+      - name: Remove telemetry xcconfig
+        if: always()
+        env:
+          TELEMETRY_XCCONFIG_PATH: ${{ runner.temp }}/vitalstride-telemetry-${{ github.run_id }}-${{ github.run_attempt }}.xcconfig
+        run: |
+          set -euo pipefail
+          set +x
+          rm -f -- "$TELEMETRY_XCCONFIG_PATH"
 
       - name: Install sentry-cli
         if: steps.gate.outputs.release == 'true'

@@ -140,6 +140,10 @@ targets:
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: false
         INFOPLIST_KEY_AptabaseAppKey: "$(APTABASE_APP_KEY)"
         INFOPLIST_KEY_AptabaseHost: "$(APTABASE_HOST)"
+        LOKIKIT_BLOB_ENDPOINT: ""
+        LOKIKIT_BLOB_SAS: ""
+        INFOPLIST_KEY_LokiKitBlobEndpoint: "$(LOKIKIT_BLOB_ENDPOINT)"
+        INFOPLIST_KEY_LokiKitBlobSAS: "$(LOKIKIT_BLOB_SAS)"
         # spec 015-glitchtip-crash-reporting (MY-1311/T002). Literal Xcode
         # build-setting variable reference — NOT a real DSN string. CI (MY-1316)
         # supplies `$(GLITCHTIP_DSN)` via fastlane xcargs; local Debug builds
@@ -209,6 +213,10 @@ targets:
         INFOPLIST_KEY_NSHealthShareUsageDescription: "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations."
         INFOPLIST_KEY_AptabaseAppKey: "$(APTABASE_APP_KEY)"
         INFOPLIST_KEY_AptabaseHost: "$(APTABASE_HOST)"
+        LOKIKIT_BLOB_ENDPOINT: ""
+        LOKIKIT_BLOB_SAS: ""
+        INFOPLIST_KEY_LokiKitBlobEndpoint: "$(LOKIKIT_BLOB_ENDPOINT)"
+        INFOPLIST_KEY_LokiKitBlobSAS: "$(LOKIKIT_BLOB_SAS)"
 
   VitalStrideTests:
     type: bundle.unit-test
