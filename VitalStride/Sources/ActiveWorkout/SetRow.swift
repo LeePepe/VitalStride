@@ -872,6 +872,10 @@ struct SetRow: View {
         if let weightKg {
             let displayWeight = weightUnit == .lb ? weightKg * 2.20462 : weightKg
             weightText = formatWeight(displayWeight)
+            if exerciseSet.isUnilateral {
+                weightRightText = formatWeight(displayWeight)
+                syncWeightRightToModel()
+            }
             syncWeightToModel()
         }
         repsText = "\(reps)"

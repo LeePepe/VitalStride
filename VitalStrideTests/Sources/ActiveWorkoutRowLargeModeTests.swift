@@ -427,12 +427,27 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             repsField.sendActions(for: .editingChanged)
             try await Task.sleep(for: .milliseconds(150))
             XCTAssertEqual(set.reps, 11)
+            weightField.text = ""
+            weightField.sendActions(for: .editingChanged)
+            XCTAssertEqual(set.weight, 0)
+            if unilateral {
+                let rightField = try XCTUnwrap(textFields(in: host.view).first {
+                    $0.text == "35.5"
+                })
+                rightField.text = ""
+                rightField.sendActions(for: .editingChanged)
+                XCTAssertEqual(set.weightRight, 0)
+            }
+            repsField.text = ""
+            repsField.sendActions(for: .editingChanged)
+            XCTAssertEqual(set.reps, 0)
             host.rootView = row(unit: .kg)
             try await Task.sleep(for: .milliseconds(150))
-            XCTAssertEqual(set.weight, 40.5 / 2.20462, accuracy: 0.000_001)
+            XCTAssertEqual(set.weight, 0)
             if unilateral {
-                XCTAssertEqual(try XCTUnwrap(set.weightRight), 35.5 / 2.20462, accuracy: 0.000_001)
+                XCTAssertEqual(set.weightRight, 0)
             }
+            XCTAssertEqual(set.reps, 0)
         }
     }
 

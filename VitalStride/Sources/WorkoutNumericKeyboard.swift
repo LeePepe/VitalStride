@@ -146,11 +146,7 @@ struct WorkoutNumericKeyboardContentView: View {
 
     private func functionKey(_ action: LeftKeyAction, title: String) -> some View {
         Button {
-            if action == .applyAISuggestion, let suggestedWeightKg, let suggestedReps {
-                onPresetReps(suggestedWeightKg, suggestedReps)
-            } else {
-                onLeftAction(action)
-            }
+            onLeftAction(action)
         } label: {
             Text(title)
                 .font(.caption.weight(.medium))

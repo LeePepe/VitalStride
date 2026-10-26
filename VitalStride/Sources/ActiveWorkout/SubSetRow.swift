@@ -185,7 +185,10 @@ struct SubSetRow: View {
     private func applyPreset(weightKg: Double?, reps: Int) {
         if let weightKg {
             exerciseSet.weight = weightKg
-            if exerciseSet.isUnilateral { exerciseSet.weightRight = weightKg }
+            if exerciseSet.isUnilateral {
+                exerciseSet.weightRight = weightKg
+                weightRightText = format(weightUnit == .lb ? weightKg * 2.20462 : weightKg)
+            }
         }
         exerciseSet.reps = reps
         refreshInputText()
@@ -212,15 +215,23 @@ struct SubSetRow: View {
     private func sync(field: SetField) {
         switch field {
         case .weight:
-            if let value = Double(weightText), value.isFinite, value >= 0 {
+            if weightText.isEmpty {
+                exerciseSet.weight = 0
+            } else if let value = Double(weightText), value.isFinite, value >= 0 {
                 exerciseSet.weight = inputWeightUnit == .lb ? value / 2.20462 : value
             }
         case .weightRight:
-            if let value = Double(weightRightText), value.isFinite, value >= 0 {
+            if weightRightText.isEmpty {
+                exerciseSet.weightRight = 0
+            } else if let value = Double(weightRightText), value.isFinite, value >= 0 {
                 exerciseSet.weightRight = inputWeightUnit == .lb ? value / 2.20462 : value
             }
         case .reps:
-            if let value = Int(repsText), value >= 0 { exerciseSet.reps = value }
+            if repsText.isEmpty {
+                exerciseSet.reps = 0
+            } else if let value = Int(repsText), value >= 0 {
+                exerciseSet.reps = value
+            }
         }
     }
 
