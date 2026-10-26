@@ -307,7 +307,7 @@ jobs:
         run: bash scripts/ci/scan-temp-prelaunch.sh audit
 
       - name: Prepare telemetry xcconfig
-        if: steps.gate.outputs.release == 'true' && secrets.LOKIKIT_BLOB_ENDPOINT != '' && secrets.LOKIKIT_BLOB_SAS != ''
+        if: steps.gate.outputs.release == 'true'
         env:
           TELEMETRY_XCCONFIG_PATH: ${{ runner.temp }}/vitalstride-telemetry-${{ github.run_id }}-${{ github.run_attempt }}.xcconfig
           LOKIKIT_BLOB_ENDPOINT: ${{ secrets.LOKIKIT_BLOB_ENDPOINT }}
@@ -324,6 +324,8 @@ jobs:
 
           endpoint = os.environ.get("LOKIKIT_BLOB_ENDPOINT", "")
           sas = os.environ.get("LOKIKIT_BLOB_SAS", "")
+          if not endpoint or not sas:
+              raise SystemExit(0)
           if not all(re.fullmatch(r"[A-Za-z0-9%&=+._~:/?-]+", value) for value in (endpoint, sas)):
               raise SystemExit("Telemetry settings are missing or unsafe for xcconfig")
 
@@ -339,11 +341,12 @@ jobs:
                   if stat.S_IMODE(os.fstat(config.fileno()).st_mode) != 0o600:
                       raise ValueError()
                   config.write("LOKIKIT_BLOB_ENDPOINT = " + endpoint.replace("//", "/$()/") + "\n")
-                  config.write("LOKIKIT_BLOB_SAS = " + sas + "\n")
+                  config.write("LOKIKIT_BLOB_SAS = " + sas.replace("//", "/$()/") + "\n")
           except (OSError, ValueError):
               raise SystemExit("Telemetry xcconfig preparation failed") from None
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as environment:
               environment.write("TELEMETRY_XCCONFIG_PATH=" + str(path) + "\n")
+          PY
 
       - name: fastlane beta
         if: steps.gate.outputs.release == 'true'

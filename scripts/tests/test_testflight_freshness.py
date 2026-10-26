@@ -288,10 +288,12 @@ class TestFlightRegressionContractTests(unittest.TestCase):
             "\n      - name:", 1
         )[0]
 
-        self.assertIn("secrets.LOKIKIT_BLOB_ENDPOINT != ''", prepare)
-        self.assertIn("secrets.LOKIKIT_BLOB_SAS != ''", prepare)
+        prepare_if = prepare.split("\n", 1)[0]
+        self.assertIn("if: steps.gate.outputs.release == 'true'", prepare_if)
+        self.assertNotIn("secrets.", prepare_if)
         self.assertIn("LOKIKIT_BLOB_ENDPOINT: ${{ secrets.LOKIKIT_BLOB_ENDPOINT }}", prepare)
         self.assertIn("LOKIKIT_BLOB_SAS: ${{ secrets.LOKIKIT_BLOB_SAS }}", prepare)
+        self.assertIn('if not endpoint or not sas:', prepare)
         self.assertIn("re.fullmatch", prepare)
         self.assertIn("path.parent.resolve() != runner_temp", prepare)
         self.assertIn("runner_temp.is_relative_to(workspace)", prepare)
