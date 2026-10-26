@@ -153,6 +153,7 @@ platform :ios do
       configuration: "Release",
       export_method: "app-store",
       export_team_id: TEAM_ID,
+      **(ENV["TELEMETRY_XCCONFIG_PATH"].to_s.empty? ? {} : { xcconfig: ENV["TELEMETRY_XCCONFIG_PATH"] }),
       # 签名走 project.yml 的 Release config：每个 target 各自 Manual +
       # PROVISIONING_PROFILE_SPECIFIER（profile 已由上面 get_provisioning_profile
       # 拉取并安装）。通过 xcargs 注入本次拉取的 target profile 名字。
