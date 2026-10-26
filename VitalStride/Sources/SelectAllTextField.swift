@@ -26,11 +26,14 @@ struct SelectAllTextField: UIViewRepresentable {
     /// Most recent same-exercise weight (kg) used as preset fallback when the
     /// exercise has no seeded default for the tapped bucket.
     var recentWeightKg: Double?
+    var suggestedWeightKg: Double?
+    var suggestedReps: Int?
     /// Called when a left-column function key fires.
     var onLeftAction: ((LeftKeyAction) -> Void)?
     /// Called when a right-column preset key fires. `weightKg` is nil when no
     /// value is available and the caller MUST preserve the existing input.
     var onPresetReps: ((Double?, Int) -> Void)?
+    var onFocusChange: ((SetField?) -> Void)?
 
     func makeUIView(context: Context) -> UITextField {
         let textField = UITextField()
@@ -70,8 +73,11 @@ struct SelectAllTextField: UIViewRepresentable {
             setType: setType,
             exercise: exercise,
             recentWeightKg: recentWeightKg,
+            suggestedWeightKg: suggestedWeightKg,
+            suggestedReps: suggestedReps,
             onLeftAction: onLeftAction,
-            onPresetReps: onPresetReps
+            onPresetReps: onPresetReps,
+            onFocusChange: onFocusChange
         )
         if useCustomKeyboard {
             context.coordinator.installCustomKeyboardIfNeeded(on: textField)
@@ -86,8 +92,11 @@ struct SelectAllTextField: UIViewRepresentable {
             setType: setType,
             exercise: exercise,
             recentWeightKg: recentWeightKg,
+            suggestedWeightKg: suggestedWeightKg,
+            suggestedReps: suggestedReps,
             onLeftAction: onLeftAction,
-            onPresetReps: onPresetReps
+            onPresetReps: onPresetReps,
+            onFocusChange: onFocusChange
         )
     }
 
@@ -99,8 +108,11 @@ struct SelectAllTextField: UIViewRepresentable {
         private var setType: SetType
         private var exercise: Exercise?
         private var recentWeightKg: Double?
+        private var suggestedWeightKg: Double?
+        private var suggestedReps: Int?
         private var onLeftAction: ((LeftKeyAction) -> Void)?
         private var onPresetReps: ((Double?, Int) -> Void)?
+        private var onFocusChange: ((SetField?) -> Void)?
 
         private weak var textField: UITextField?
         private var installedKeyboard: WorkoutNumericKeyboard?
@@ -111,16 +123,22 @@ struct SelectAllTextField: UIViewRepresentable {
             setType: SetType,
             exercise: Exercise?,
             recentWeightKg: Double?,
+            suggestedWeightKg: Double?,
+            suggestedReps: Int?,
             onLeftAction: ((LeftKeyAction) -> Void)?,
-            onPresetReps: ((Double?, Int) -> Void)?
+            onPresetReps: ((Double?, Int) -> Void)?,
+            onFocusChange: ((SetField?) -> Void)? = nil
         ) {
             self.text = text
             self.field = field
             self.setType = setType
             self.exercise = exercise
             self.recentWeightKg = recentWeightKg
+            self.suggestedWeightKg = suggestedWeightKg
+            self.suggestedReps = suggestedReps
             self.onLeftAction = onLeftAction
             self.onPresetReps = onPresetReps
+            self.onFocusChange = onFocusChange
         }
 
         @objc func textChanged(_ textField: UITextField) {
@@ -128,9 +146,14 @@ struct SelectAllTextField: UIViewRepresentable {
         }
 
         func textFieldDidBeginEditing(_ textField: UITextField) {
+            onFocusChange?(field)
             DispatchQueue.main.async {
                 textField.selectAll(nil)
             }
+        }
+
+        func textFieldDidEndEditing(_ textField: UITextField) {
+            onFocusChange?(nil)
         }
 
         func attach(textField: UITextField) {
@@ -142,15 +165,21 @@ struct SelectAllTextField: UIViewRepresentable {
             setType: SetType,
             exercise: Exercise?,
             recentWeightKg: Double?,
+            suggestedWeightKg: Double?,
+            suggestedReps: Int?,
             onLeftAction: ((LeftKeyAction) -> Void)?,
-            onPresetReps: ((Double?, Int) -> Void)?
+            onPresetReps: ((Double?, Int) -> Void)?,
+            onFocusChange: ((SetField?) -> Void)? = nil
         ) {
             self.field = field
             self.setType = setType
             self.exercise = exercise
             self.recentWeightKg = recentWeightKg
+            self.suggestedWeightKg = suggestedWeightKg
+            self.suggestedReps = suggestedReps
             self.onLeftAction = onLeftAction
             self.onPresetReps = onPresetReps
+            self.onFocusChange = onFocusChange
         }
 
         /// Build and install the custom keyboard on first sight. The keyboard
@@ -163,6 +192,8 @@ struct SelectAllTextField: UIViewRepresentable {
                 setType: setType,
                 exercise: exercise,
                 recentWeightKg: recentWeightKg,
+                suggestedWeightKg: suggestedWeightKg,
+                suggestedReps: suggestedReps,
                 onKeyPress: { [weak self, weak textField] key in
                     guard let self, let textField else { return }
                     self.handleKeyPress(key, on: textField)
@@ -192,7 +223,9 @@ struct SelectAllTextField: UIViewRepresentable {
                 field: field,
                 setType: setType,
                 exercise: exercise,
-                recentWeightKg: recentWeightKg
+                recentWeightKg: recentWeightKg,
+                suggestedWeightKg: suggestedWeightKg,
+                suggestedReps: suggestedReps
             )
         }
 

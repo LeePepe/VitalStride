@@ -36,8 +36,6 @@ enum SetField: String, Equatable, Sendable, CaseIterable {
 /// callback — Stage 3 (SetRow / ActiveWorkoutView) is responsible for the
 /// actual model mutation.
 enum LeftKeyAction: String, Equatable, Sendable, CaseIterable {
-    /// Add a pyramid (ascending) sub-set. Only enabled for `SetType.working`.
-    case addPyramid
     /// Add a drop-set (descending) sub-set. Only enabled for `SetType.working`.
     case addDropSet
     /// Toggle between bilateral and unilateral weight entry.
@@ -47,6 +45,7 @@ enum LeftKeyAction: String, Equatable, Sendable, CaseIterable {
     case setWarmup
     case addSet
     case toggleWeightUnit
+    case applyAISuggestion
 }
 
 // MARK: - SwiftUI content view
@@ -62,6 +61,8 @@ struct WorkoutNumericKeyboardContentView: View {
     let setType: SetType
     let exercise: Exercise?
     let recentWeightKg: Double?
+    let suggestedWeightKg: Double?
+    let suggestedReps: Int?
     /// Explicit theme injected by the enclosing `WorkoutNumericKeyboard`
     /// host. `inputView` is a detached UIKit hierarchy and does not inherit
     /// the app-root `.designTheme(...)` environment, so the host resolves the
@@ -73,28 +74,39 @@ struct WorkoutNumericKeyboardContentView: View {
     let onPresetReps: @MainActor (_ weightKg: Double?, _ reps: Int) -> Void
     let onDone: @MainActor () -> Void
 
+    init(
+        field: SetField,
+        setType: SetType,
+        exercise: Exercise?,
+        recentWeightKg: Double?,
+        suggestedWeightKg: Double? = nil,
+        suggestedReps: Int? = nil,
+        theme: Theme,
+        onKeyPress: @escaping @MainActor (NumericKeypadKey) -> Void,
+        onLeftAction: @escaping @MainActor (LeftKeyAction) -> Void,
+        onPresetReps: @escaping @MainActor (_ weightKg: Double?, _ reps: Int) -> Void,
+        onDone: @escaping @MainActor () -> Void
+    ) {
+        self.field = field
+        self.setType = setType
+        self.exercise = exercise
+        self.recentWeightKg = recentWeightKg
+        self.suggestedWeightKg = suggestedWeightKg
+        self.suggestedReps = suggestedReps
+        self.theme = theme
+        self.onKeyPress = onKeyPress
+        self.onLeftAction = onLeftAction
+        self.onPresetReps = onPresetReps
+        self.onDone = onDone
+    }
+
     var body: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Text(field == .reps
-                     ? String(localized: "workout.keyboard.reps", defaultValue: "Reps", comment: "Editing repetitions")
-                     : String(localized: "workout.keyboard.weight", defaultValue: "Weight", comment: "Editing weight"))
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(theme.secondaryForeground)
-                Spacer()
-                Button(action: onDone) {
-                    Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Dismiss workout keyboard"))
-                        .font(.subheadline.weight(.semibold))
-                        .frame(minWidth: 60, minHeight: 44)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(theme.accent)
-                .accessibilityIdentifier("workout_keyboard_done")
-            }
+        HStack(alignment: .top, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
                 VStack(spacing: 8) {
                     functionKey(.toggleUnilateral, title: String(localized: "workout.keyboard.mode", defaultValue: "Total / L-R", comment: "Toggle the whole exercise weight mode"))
                     functionKey(.setWarmup, title: String(localized: "workout.keyboard.warmup", defaultValue: "Warmup", comment: "Set warmup type"))
+                    functionKey(.toggleWeightUnit, title: "kg / lbs")
                 }
                 .frame(width: 68)
                 NumericKeypad(mode: field.isDecimalEnabled ? .decimal : .integer, onKeyPress: onKeyPress)
@@ -102,29 +114,50 @@ struct WorkoutNumericKeyboardContentView: View {
                 VStack(spacing: 8) {
                     functionKey(.addDropSet, title: String(localized: "workout.keyboard.drop", defaultValue: "Drop set", comment: "Add a drop set"))
                     functionKey(.addSet, title: String(localized: "workout.keyboard.add_set", defaultValue: "Add set", comment: "Add a set"))
-                    functionKey(.toggleWeightUnit, title: "kg / lbs")
+                    if suggestedWeightKg != nil, suggestedReps != nil {
+                        functionKey(
+                            .applyAISuggestion,
+                            title: String(
+                                localized: "workout.keyboard.ai_suggest",
+                                defaultValue: "✨ AI",
+                                comment: "Apply AI smart progression suggestion"
+                            )
+                        )
+                    }
+                    Button(action: onDone) {
+                        Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Dismiss workout keyboard"))
+                            .font(.caption.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .foregroundStyle(theme.primary.primaryText)
+                            .background(theme.primary.primary, in: RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("workout_keyboard_done")
                 }
                 .frame(width: 68)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
         .background(theme.neutrals.bg)
         .environment(\.theme, theme)
         .accessibilityElement(children: .contain)
     }
 
     private func functionKey(_ action: LeftKeyAction, title: String) -> some View {
-        Button { onLeftAction(action) } label: {
+        Button {
+            onLeftAction(action)
+        } label: {
             Text(title)
                 .font(.caption.weight(.medium))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 52)
                 .foregroundStyle(theme.accent)
-                .background(theme.inner, in: RoundedRectangle(cornerRadius: 12))
+                .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
-        .disabled(action == .addDropSet && setType.isSubSet)
+        .disabled((action == .addDropSet && setType.isSubSet) ||
+                  (action == .applyAISuggestion && (suggestedWeightKg == nil || suggestedReps == nil)))
         .accessibilityIdentifier("workout_keyboard_" + action.rawValue)
         .accessibilityAddTraits(.isKeyboardKey)
     }
@@ -151,6 +184,8 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
     private var setType: SetType
     private var exercise: Exercise?
     private var recentWeightKg: Double?
+    private var suggestedWeightKg: Double?
+    private var suggestedReps: Int?
     private let onKeyPress: @MainActor (NumericKeypadKey) -> Void
     private let onLeftAction: @MainActor (LeftKeyAction) -> Void
     private let onPresetReps: @MainActor (_ weightKg: Double?, _ reps: Int) -> Void
@@ -194,6 +229,8 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         setType: SetType,
         exercise: Exercise?,
         recentWeightKg: Double?,
+        suggestedWeightKg: Double? = nil,
+        suggestedReps: Int? = nil,
         onKeyPress: @escaping @MainActor (NumericKeypadKey) -> Void,
         onLeftAction: @escaping @MainActor (LeftKeyAction) -> Void,
         onPresetReps: @escaping @MainActor (_ weightKg: Double?, _ reps: Int) -> Void,
@@ -203,6 +240,8 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         self.setType = setType
         self.exercise = exercise
         self.recentWeightKg = recentWeightKg
+        self.suggestedWeightKg = suggestedWeightKg
+        self.suggestedReps = suggestedReps
         self.onKeyPress = onKeyPress
         self.onLeftAction = onLeftAction
         self.onPresetReps = onPresetReps
@@ -233,6 +272,8 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
             setType: setType,
             exercise: exercise,
             recentWeightKg: recentWeightKg,
+            suggestedWeightKg: suggestedWeightKg,
+            suggestedReps: suggestedReps,
             theme: Self.resolveTheme(isDark: UITraitCollection.current.userInterfaceStyle == .dark),
             onKeyPress: clickingKeyPress,
             onLeftAction: clickingLeft,
@@ -308,6 +349,8 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
             setType: existing.setType,
             exercise: existing.exercise,
             recentWeightKg: existing.recentWeightKg,
+            suggestedWeightKg: existing.suggestedWeightKg,
+            suggestedReps: existing.suggestedReps,
             theme: theme,
             onKeyPress: existing.onKeyPress,
             onLeftAction: existing.onLeftAction,
@@ -325,12 +368,16 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         field: SetField,
         setType: SetType,
         exercise: Exercise?,
-        recentWeightKg: Double?
+        recentWeightKg: Double?,
+        suggestedWeightKg: Double? = nil,
+        suggestedReps: Int? = nil
     ) {
         self.field = field
         self.setType = setType
         self.exercise = exercise
         self.recentWeightKg = recentWeightKg
+        self.suggestedWeightKg = suggestedWeightKg
+        self.suggestedReps = suggestedReps
 
         // Re-hydrate the hosting root view with the new context. The closures
         // are stable — reuse the audio-click wrappers by copying the existing
@@ -342,6 +389,8 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
             setType: setType,
             exercise: exercise,
             recentWeightKg: recentWeightKg,
+            suggestedWeightKg: suggestedWeightKg,
+            suggestedReps: suggestedReps,
             theme: Self.resolveTheme(isDark: currentIsDark()),
             onKeyPress: existing.onKeyPress,
             onLeftAction: existing.onLeftAction,
@@ -357,9 +406,9 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
 
     // MARK: Height policy
 
-    /// Four 52pt digit rows, three 8pt gaps, a 44pt header, and 16pt spacing.
-    private static let iPhonePreferredHeight: CGFloat = 300
-    private static let iPadPreferredHeight: CGFloat = 320
+    /// Compact three-column layout with no separate header row.
+    private static let iPhonePreferredHeight: CGFloat = 280
+    private static let iPadPreferredHeight: CGFloat = 300
 
     static func preferredHeight() -> CGFloat {
         let isPad = UIDevice.current.userInterfaceIdiom == .pad
@@ -375,6 +424,8 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         setType: .working,
         exercise: nil,
         recentWeightKg: 40,
+        suggestedWeightKg: nil,
+        suggestedReps: nil,
         theme: Theme(seed: .teal, neutral: .slate, isDark: false),
         onKeyPress: { _ in },
         onLeftAction: { _ in },
@@ -390,6 +441,8 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         setType: .warmup,
         exercise: nil,
         recentWeightKg: nil,
+        suggestedWeightKg: nil,
+        suggestedReps: nil,
         theme: Theme(seed: .teal, neutral: .slate, isDark: false),
         onKeyPress: { _ in },
         onLeftAction: { _ in },

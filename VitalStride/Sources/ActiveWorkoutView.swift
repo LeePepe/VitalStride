@@ -717,6 +717,7 @@ struct ActiveWorkoutView: View {
                 defaultValue: "Undo deletion",
                 comment: "Undo set deletion a11y label"
             ),
+            restEndDate: restTimer.phase == .resting ? restTimer.restEndDate : nil,
             onUndo: {
                 undoController.undo(using: modelContext)
             }
@@ -822,6 +823,7 @@ struct ActiveWorkoutView: View {
             ScrollViewReader { proxy in
                 HStack(spacing: 0) {
                     exerciseSidebar(exercises: exercises) { exercise in
+                        dismissKeyboardIfVisible()
                         selectedExerciseID = exercise.persistentModelID
                         withAnimation { proxy.scrollTo(exercise.persistentModelID, anchor: .top) }
                     }
@@ -849,6 +851,13 @@ struct ActiveWorkoutView: View {
                     .scrollContentBackground(.hidden)
                     .listSectionSpacing(largeMode ? 20 : 8)
                     .scrollDismissesKeyboard(.immediately)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 8)
+                            .onChanged { value in
+                                guard abs(value.translation.height) > abs(value.translation.width) else { return }
+                                dismissKeyboardIfVisible()
+                            }
+                    )
                     .environment(\.defaultMinListRowHeight, 44)
                     .accessibilityIdentifier("workout_exercise_list")
                 }
@@ -862,19 +871,26 @@ struct ActiveWorkoutView: View {
         onSelect: @escaping (WorkoutExercise) -> Void
     ) -> some View {
         ScrollView {
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 Text(String(localized: "workout.sidebar.title", defaultValue: "Exercises", comment: "Selected exercise sidebar"))
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(theme.secondaryForeground)
                     .padding(.top, 12)
                 ForEach(Array(exercises.enumerated()), id: \.element.persistentModelID) { index, exercise in
-                    VStack(spacing: 0) {
+                    VStack(spacing: 2) {
                         Button { onSelect(exercise) } label: {
                             VStack(spacing: 4) {
-                                Text("\(index + 1)").font(.caption.monospacedDigit().bold())
+                                let completed = (exercise.sets ?? []).filter(\.isCompleted).count
+                                let total = (exercise.sets ?? []).count
+                                HStack(spacing: 2) {
+                                    Text(completed == total && total > 0 ? "✓" : "\(index + 1)")
+                                        .font(.caption.monospacedDigit().bold())
+                                    Text("\(completed)/\(total)")
+                                        .font(.caption2.monospacedDigit())
+                                }
                                 Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
                                     .font(.caption2)
-                                    .lineLimit(3)
+                                    .lineLimit(2)
                                     .multilineTextAlignment(.center)
                             }
                             .frame(maxWidth: .infinity, minHeight: 60)
@@ -885,33 +901,63 @@ struct ActiveWorkoutView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(selectedExerciseID == exercise.persistentModelID ? .isSelected : [])
-                        HStack(spacing: 0) {
-                            sidebarMoveButton(index: index, direction: -1, count: exercises.count)
-                            sidebarMoveButton(index: index, direction: 1, count: exercises.count)
+                        .accessibilityAction(
+                            named: String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder")
+                        ) {
+                            guard index > 0 else { return }
+                            moveExercises(from: IndexSet(integer: index), to: index - 1)
+                        }
+                        .accessibilityAction(
+                            named: String(localized: "workout.sidebar.move_down", defaultValue: "Move exercise down", comment: "Sidebar reorder")
+                        ) {
+                            guard index < exercises.count - 1 else { return }
+                            moveExercises(from: IndexSet(integer: index), to: index + 2)
+                        }
+                        .contextMenu {
+                            Button {
+                                moveExercises(from: IndexSet(integer: index), to: index - 1)
+                            } label: {
+                                Label(String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder"), systemImage: "chevron.up")
+                            }
+                            .disabled(index == 0)
+                            Button {
+                                moveExercises(from: IndexSet(integer: index), to: index + 2)
+                            } label: {
+                                Label(String(localized: "workout.sidebar.move_down", defaultValue: "Move exercise down", comment: "Sidebar reorder"), systemImage: "chevron.down")
+                            }
+                            .disabled(index == exercises.count - 1)
                         }
                     }
                 }
+                Button {
+                    showingExercisePicker = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.caption.weight(.bold))
+                        .frame(width: 44, height: 44)
+                        .background(theme.accentSubtle, in: Circle())
+                }
+                .accessibilityIdentifier("workout_sidebar_add_exercise")
+                .accessibilityLabel(
+                    String(
+                        localized: "workout.sidebar.add_exercise",
+                        defaultValue: "Add exercise from sidebar",
+                        comment: "Sidebar add exercise button"
+                    )
+                )
             }
             .padding(.horizontal, 2)
         }
-        .frame(width: 88)
+        .frame(width: 64)
         .background(theme.inner)
         .accessibilityIdentifier("workout_exercise_sidebar")
     }
 
-    private func sidebarMoveButton(index: Int, direction: Int, count: Int) -> some View {
-        Button {
-            moveExercises(from: IndexSet(integer: index), to: direction < 0 ? index - 1 : index + 2)
-        } label: {
-            Image(systemName: direction < 0 ? "chevron.up" : "chevron.down")
-                .font(.caption2)
-                .frame(width: 44, height: 44)
-        }
-        .buttonStyle(.plain)
-        .disabled(direction < 0 ? index == 0 : index == count - 1)
-        .accessibilityLabel(direction < 0
-            ? String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder")
-            : String(localized: "workout.sidebar.move_down", defaultValue: "Move exercise down", comment: "Sidebar reorder"))
+    private func dismissKeyboardIfVisible() {
+        #if canImport(UIKit) && !os(macOS)
+        guard isKeyboardVisible else { return }
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
     }
 
     private var addExerciseButton: some View {

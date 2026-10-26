@@ -28,6 +28,16 @@ struct WorkoutNumericKeyboardThemeTests {
         let theme = WorkoutNumericKeyboard.resolveTheme(isDark: isDark)
         #expect(theme.isDark == isDark)
     }
+
+    @Test("Compact keyboard exposes the supported function actions")
+    func compactFunctionActions() {
+        #expect(LeftKeyAction.allCases.contains(.toggleUnilateral))
+        #expect(LeftKeyAction.allCases.contains(.setWarmup))
+        #expect(LeftKeyAction.allCases.contains(.toggleWeightUnit))
+        #expect(LeftKeyAction.allCases.contains(.addDropSet))
+        #expect(LeftKeyAction.allCases.contains(.addSet))
+        #expect(LeftKeyAction.allCases.contains(.applyAISuggestion))
+    }
 }
 
 #endif

@@ -7,7 +7,7 @@ import VitalModels
 
 private typealias AppWorkoutSetManager = VitalModels.WorkoutSetManager
 
-/// MY-875 — SubSet 子组只读化与删除入口收敛
+/// Drop-set rows remain editable while preserving cascade deletion invariants.
 ///
 /// UI invariants (no SelectAllTextField, no Menu, no swipeActions on sub-set rows)
 /// are enforced at the type-system level inside `SubSetRow` in
@@ -22,6 +22,22 @@ struct SubSetReadOnlyTests {
 
     init() throws {
         container = try ModelContainerConfiguration.makeTestContainer()
+    }
+
+    @Test("Drop-set row keeps editable inputs, close affordance, and parent grouping")
+    func dropSetRowEditingContract() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SubSetRow.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        #expect(source.contains("WorkoutSetInput(input, theme: theme)"))
+        #expect(source.contains("onLeftAction: { action in handleLeftAction"))
+        #expect(source.contains("onPresetReps: { weightKg, reps in applyPreset"))
+        #expect(source.contains("Image(systemName: \"xmark\")"))
+        #expect(source.contains("parentSetNumber"))
+        #expect(source.contains("theme.accent.opacity(0.45)"))
     }
 
     // MARK: - Cascade: parent main set deletion removes its sub-sets

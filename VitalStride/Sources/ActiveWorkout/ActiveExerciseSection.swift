@@ -45,6 +45,7 @@ struct ActiveExerciseSection: View {
     /// MY-1420: the main set awaiting cascade confirmation, plus the resolved
     /// child count / kind so the message names the real consequence.
     @State private var pendingCascadeDeletion: CascadeDeletionRequest?
+    @State private var isCollapsed = false
     /// MY-1420: VoiceOver focus target. Deleting the focused row drops focus
     /// silently, so it is moved explicitly to the parent main set (for a
     /// sub-set) or the nearest surviving row.
@@ -68,6 +69,9 @@ struct ActiveExerciseSection: View {
     private var rowContexts: [RowContext] {
         Self.rowContexts(from: sortedSets)
     }
+
+    private var totalSetCount: Int { sortedSets.count }
+    private var completedSetCount: Int { sortedSets.filter(\.isCompleted).count }
 
     /// Nonisolated so tests can invoke it directly with a pre-sorted array of
     /// `ExerciseSet` without instantiating the SwiftUI view. `sets` MUST already
@@ -99,6 +103,7 @@ struct ActiveExerciseSection: View {
         let contexts = rowContexts
         let canDelete = contexts.count > 1
         return Section {
+            if !isCollapsed {
             ForEach(contexts, id: \.exerciseSet.persistentModelID) { ctx in
                 let exerciseSet = ctx.exerciseSet
                 if exerciseSet.setType.isSubSet {
@@ -107,6 +112,8 @@ struct ActiveExerciseSection: View {
                         weightUnit: weightUnit,
                         isLast: ctx.isLastSubSet,
                         parentSetNumber: ctx.mainSetNumber,
+                        exercise: workoutExercise.exercise,
+                        recentWeightKg: ctx.recentWeightKg,
                         onToggleCompleted: { wasCompleted in
                             if !wasCompleted { onSetCompleted() }
                         },
@@ -168,44 +175,77 @@ struct ActiveExerciseSection: View {
                     }
                 }
             }
+            }
         } header: {
-            HStack(alignment: .center, spacing: 4) {
-                Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
-                    // MY-1263 (D2): compact semibold body header in normal mode
-                    // (SwiftUI's default `List` section header uses a larger
-                    // title font that dominated the visual band). Large Mode
-                    // continues to use the `.title2` semibold ramp from
-                    // `LargeWorkoutFonts.exerciseName(large:)` for rack-step
-                    // legibility (MY-1091). Text-style-driven so Dynamic Type
-                    // still scales.
-                    .font(largeMode
-                        ? LargeWorkoutFonts.exerciseName(large: true)
-                        : Font.system(.body, design: .default).weight(.semibold))
-                    .foregroundStyle(theme.neutrals.text1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(2)
-                    .contextMenu {
-                        Button {
-                            onSubstitute()
-                        } label: {
-                            // swiftlint:disable:next line_length
-                            Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute context menu item"), systemImage: "sparkles")
-                        }
-                        Button {
-                            onReplace()
-                        } label: {
-                            // swiftlint:disable:next line_length
-                            Label(String(localized: "替换动作", comment: "Replace exercise context menu item"), systemImage: "arrow.triangle.2.circlepath")
-                        }
-                        Button(role: .destructive) {
-                            showingDeleteConfirmation = true
-                        } label: {
-                            // swiftlint:disable:next line_length
-                            Label(String(localized: "删除动作", comment: "Delete exercise context menu item"), systemImage: "trash")
-                        }
+            HStack(alignment: .center, spacing: 6) {
+                HStack(alignment: .center, spacing: 6) {
+                    if completedSetCount == totalSetCount, totalSetCount > 0 {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(theme.success)
+                    } else {
+                        Text("\(workoutExercise.order + 1)")
+                            .font(.caption.monospacedDigit().weight(.bold))
+                            .foregroundStyle(completedSetCount == 0 ? theme.neutrals.text2 : theme.accent)
+                            .frame(minWidth: 22, minHeight: 22)
+                            .background(
+                                Circle().fill(
+                                    completedSetCount == 0
+                                        ? theme.neutrals.text2.opacity(0.12)
+                                        : theme.accent.opacity(0.14)
+                                )
+                            )
                     }
-                    // swiftlint:disable:next line_length
-                    .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
+                    Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
+                        // MY-1263 (D2): compact semibold body header in normal mode
+                        // (SwiftUI's default `List` section header uses a larger
+                        // title font that dominated the visual band). Large Mode
+                        // continues to use the `.title2` semibold ramp from
+                        // `LargeWorkoutFonts.exerciseName(large:)` for rack-step
+                        // legibility (MY-1091). Text-style-driven so Dynamic Type
+                        // still scales.
+                        .font(largeMode
+                            ? LargeWorkoutFonts.exerciseName(large: true)
+                            : Font.system(.body, design: .default).weight(.semibold))
+                        .foregroundStyle(theme.neutrals.text1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(2)
+                        .contextMenu {
+                            Button {
+                                onSubstitute()
+                            } label: {
+                                // swiftlint:disable:next line_length
+                                Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute context menu item"), systemImage: "sparkles")
+                            }
+                            Button {
+                                onReplace()
+                            } label: {
+                                // swiftlint:disable:next line_length
+                                Label(String(localized: "替换动作", comment: "Replace exercise context menu item"), systemImage: "arrow.triangle.2.circlepath")
+                            }
+                            Button(role: .destructive) {
+                                showingDeleteConfirmation = true
+                            } label: {
+                                // swiftlint:disable:next line_length
+                                Label(String(localized: "删除动作", comment: "Delete exercise context menu item"), systemImage: "trash")
+                            }
+                        }
+                        // swiftlint:disable:next line_length
+                        .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
+                    Text("\(completedSetCount)/\(totalSetCount)")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(theme.neutrals.text2)
+                    if completedSetCount == totalSetCount, totalSetCount > 0 {
+                        Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
+                            .font(.caption2)
+                            .foregroundStyle(theme.neutrals.text2)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if isCollapsed || (completedSetCount == totalSetCount && totalSetCount > 0) {
+                        withAnimation { isCollapsed.toggle() }
+                    }
+                }
                 addSetButton
                 Menu {
                     Button {
@@ -233,6 +273,10 @@ struct ActiveExerciseSection: View {
                 }
                 .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
             }
+            .onChange(of: completedSetCount) { _, count in
+                if count < totalSetCount { isCollapsed = false }
+            }
+            .accessibilityValue(String(localized: "\(completedSetCount)/\(totalSetCount) 组", comment: "Exercise completion count"))
             .confirmationDialog(
                 String(localized: "删除动作？", comment: "Delete exercise confirmation title"),
                 isPresented: $showingDeleteConfirmation,
@@ -244,6 +288,7 @@ struct ActiveExerciseSection: View {
             } message: {
                 Text(String(localized: "该动作及所有已录入的组数据将被删除", comment: "Delete exercise confirmation message"))
             }
+
             // MY-1420: cascade confirmation for a main set that owns sub-sets.
             // The swiped row says "第 3 组" but the delete also consumes the
             // sub-set run beneath it — a consequence the row cannot show, so
@@ -346,6 +391,7 @@ struct ActiveExerciseSection: View {
     }
 
     private func addSet() {
+        isCollapsed = false
         _ = Self.insertAppendedMainSet(in: workoutExercise, using: modelContext)
     }
 
