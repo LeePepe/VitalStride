@@ -26,6 +26,8 @@ struct SelectAllTextField: UIViewRepresentable {
     /// Most recent same-exercise weight (kg) used as preset fallback when the
     /// exercise has no seeded default for the tapped bucket.
     var recentWeightKg: Double?
+    var suggestedWeightKg: Double?
+    var suggestedReps: Int?
     /// Called when a left-column function key fires.
     var onLeftAction: ((LeftKeyAction) -> Void)?
     /// Called when a right-column preset key fires. `weightKg` is nil when no
@@ -70,6 +72,8 @@ struct SelectAllTextField: UIViewRepresentable {
             setType: setType,
             exercise: exercise,
             recentWeightKg: recentWeightKg,
+            suggestedWeightKg: suggestedWeightKg,
+            suggestedReps: suggestedReps,
             onLeftAction: onLeftAction,
             onPresetReps: onPresetReps
         )
@@ -86,6 +90,8 @@ struct SelectAllTextField: UIViewRepresentable {
             setType: setType,
             exercise: exercise,
             recentWeightKg: recentWeightKg,
+            suggestedWeightKg: suggestedWeightKg,
+            suggestedReps: suggestedReps,
             onLeftAction: onLeftAction,
             onPresetReps: onPresetReps
         )
@@ -99,6 +105,8 @@ struct SelectAllTextField: UIViewRepresentable {
         private var setType: SetType
         private var exercise: Exercise?
         private var recentWeightKg: Double?
+        private var suggestedWeightKg: Double?
+        private var suggestedReps: Int?
         private var onLeftAction: ((LeftKeyAction) -> Void)?
         private var onPresetReps: ((Double?, Int) -> Void)?
 
@@ -111,6 +119,8 @@ struct SelectAllTextField: UIViewRepresentable {
             setType: SetType,
             exercise: Exercise?,
             recentWeightKg: Double?,
+            suggestedWeightKg: Double?,
+            suggestedReps: Int?,
             onLeftAction: ((LeftKeyAction) -> Void)?,
             onPresetReps: ((Double?, Int) -> Void)?
         ) {
@@ -119,6 +129,8 @@ struct SelectAllTextField: UIViewRepresentable {
             self.setType = setType
             self.exercise = exercise
             self.recentWeightKg = recentWeightKg
+            self.suggestedWeightKg = suggestedWeightKg
+            self.suggestedReps = suggestedReps
             self.onLeftAction = onLeftAction
             self.onPresetReps = onPresetReps
         }
@@ -142,6 +154,8 @@ struct SelectAllTextField: UIViewRepresentable {
             setType: SetType,
             exercise: Exercise?,
             recentWeightKg: Double?,
+            suggestedWeightKg: Double?,
+            suggestedReps: Int?,
             onLeftAction: ((LeftKeyAction) -> Void)?,
             onPresetReps: ((Double?, Int) -> Void)?
         ) {
@@ -149,6 +163,8 @@ struct SelectAllTextField: UIViewRepresentable {
             self.setType = setType
             self.exercise = exercise
             self.recentWeightKg = recentWeightKg
+            self.suggestedWeightKg = suggestedWeightKg
+            self.suggestedReps = suggestedReps
             self.onLeftAction = onLeftAction
             self.onPresetReps = onPresetReps
         }
@@ -163,6 +179,8 @@ struct SelectAllTextField: UIViewRepresentable {
                 setType: setType,
                 exercise: exercise,
                 recentWeightKg: recentWeightKg,
+                suggestedWeightKg: suggestedWeightKg,
+                suggestedReps: suggestedReps,
                 onKeyPress: { [weak self, weak textField] key in
                     guard let self, let textField else { return }
                     self.handleKeyPress(key, on: textField)
@@ -192,7 +210,9 @@ struct SelectAllTextField: UIViewRepresentable {
                 field: field,
                 setType: setType,
                 exercise: exercise,
-                recentWeightKg: recentWeightKg
+                recentWeightKg: recentWeightKg,
+                suggestedWeightKg: suggestedWeightKg,
+                suggestedReps: suggestedReps
             )
         }
 

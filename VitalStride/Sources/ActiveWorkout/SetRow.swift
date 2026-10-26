@@ -87,6 +87,8 @@ private struct WorkoutSetInput: UIViewRepresentable {
         context.coordinator.update(
             field: input.field, setType: input.setType, exercise: input.exercise,
             recentWeightKg: input.recentWeightKg,
+            suggestedWeightKg: input.suggestedWeightKg,
+            suggestedReps: input.suggestedReps,
             onLeftAction: input.onLeftAction, onPresetReps: input.onPresetReps
         )
         context.coordinator.installCustomKeyboardIfNeeded(on: view)
@@ -275,17 +277,19 @@ struct SetRow: View {
             ? LargeWorkoutFieldWidth.unilateralWeight(variant)
             : LargeWorkoutFieldWidth.bilateralWeight(variant)
         return HStack(spacing: 4) {
+            let advice = smartProgressionAdvice()
             weightBox(binding: $weightText, field: .weight, width: weightWidth,
-                      side: exerciseSet.isUnilateral ? "L" : nil)
+                      side: exerciseSet.isUnilateral ? "L" : "总",
+                      suggestion: advice)
             if exerciseSet.isUnilateral {
-                weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R")
+                weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice)
             }
-            repsField(width: variant == .large ? 64 : 44)
+            repsField(width: variant == .large ? 64 : 44, suggestion: advice)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
 
-    private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?) -> some View {
+    private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?, suggestion: ProgressionAdvice?) -> some View {
         HStack(spacing: 2) {
             if let side {
                 Text(side)
@@ -295,16 +299,23 @@ struct SetRow: View {
                     .allowsHitTesting(false)
             }
             weightField(
-                binding: binding, field: field, width: max(44, width - (side == nil ? 0 : 12)),
+                binding: binding, field: field, width: max(36, width - 28),
                 a11yLabel: side == nil
                     ? String(localized: "第 \(index + 1) 组重量", comment: "Set weight")
+                    : side == "总"
+                    ? String(localized: "第 \(index + 1) 组总重量", comment: "Total weight")
                     : (field == .weight
                        ? String(localized: "第 \(index + 1) 组左侧重量", comment: "Left weight")
                        : String(localized: "第 \(index + 1) 组右侧重量", comment: "Right weight")),
-                a11yHint: String(localized: "输入重量数值", comment: "Enter weight")
+                a11yHint: String(localized: "输入重量数值", comment: "Enter weight"),
+                suggestion: suggestion
             )
+            Text(weightUnit.rawValue)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(theme.neutrals.text3)
+                .allowsHitTesting(false)
         }
-        .padding(.horizontal, side == nil ? 0 : 2)
+        .padding(.horizontal, 2)
         .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -393,7 +404,8 @@ struct SetRow: View {
         field: SetField,
         width: CGFloat,
         a11yLabel: String,
-        a11yHint: String
+        a11yHint: String,
+        suggestion: ProgressionAdvice?
     ) -> some View {
         #if canImport(UIKit) && !os(macOS)
         WorkoutSetInput(SelectAllTextField(
@@ -406,6 +418,8 @@ struct SetRow: View {
             exercise: exercise,
             setType: exerciseSet.setType,
             recentWeightKg: recentWeightKg,
+            suggestedWeightKg: suggestion?.suggestedWeight,
+            suggestedReps: suggestion?.suggestedReps,
             onLeftAction: { action in handleLeftAction(action, field: field) },
             onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
         ), theme: theme)
@@ -450,8 +464,9 @@ struct SetRow: View {
     }
 
     @ViewBuilder
-    private func repsField(width: CGFloat) -> some View {
+    private func repsField(width: CGFloat, suggestion: ProgressionAdvice?) -> some View {
         #if canImport(UIKit) && !os(macOS)
+        HStack(spacing: 2) {
         WorkoutSetInput(SelectAllTextField(
             placeholder: String(localized: "次数", comment: ""),
             text: $repsText,
@@ -462,6 +477,8 @@ struct SetRow: View {
             exercise: exercise,
             setType: exerciseSet.setType,
             recentWeightKg: recentWeightKg,
+            suggestedWeightKg: suggestion?.suggestedWeight,
+            suggestedReps: suggestion?.suggestedReps,
             onLeftAction: { action in handleLeftAction(action, field: .reps) },
             onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
         ), theme: theme)
@@ -476,6 +493,11 @@ struct SetRow: View {
             if filtered != newValue { repsText = filtered }
             syncRepsToModel()
             noteSuggestionFieldEdit()
+        }
+        Text(String(localized: "次数", comment: "Repetitions unit"))
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(theme.neutrals.text3)
+            .allowsHitTesting(false)
         }
         #else
         SelectAllTextField(
@@ -781,11 +803,6 @@ struct SetRow: View {
 
     private func handleLeftAction(_ action: LeftKeyAction, field: SetField) {
         switch action {
-        case .addPyramid:
-            #if canImport(UIKit) && !os(macOS)
-            HapticManager.trigger(.exerciseAdded)
-            #endif
-            onAddSubSet(.pyramid)
         case .addDropSet:
             #if canImport(UIKit) && !os(macOS)
             HapticManager.trigger(.exerciseAdded)
@@ -815,6 +832,10 @@ struct SetRow: View {
             HapticManager.trigger(.exerciseAdded)
             #endif
             onCopyToNext()
+        case .applyAISuggestion:
+            if let advice = smartProgressionAdvice() {
+                fillFromSuggestion(advice)
+            }
         }
     }
 

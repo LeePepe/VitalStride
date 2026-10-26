@@ -45,6 +45,7 @@ struct ActiveExerciseSection: View {
     /// MY-1420: the main set awaiting cascade confirmation, plus the resolved
     /// child count / kind so the message names the real consequence.
     @State private var pendingCascadeDeletion: CascadeDeletionRequest?
+    @State private var isCollapsed = false
     /// MY-1420: VoiceOver focus target. Deleting the focused row drops focus
     /// silently, so it is moved explicitly to the parent main set (for a
     /// sub-set) or the nearest surviving row.
@@ -68,6 +69,9 @@ struct ActiveExerciseSection: View {
     private var rowContexts: [RowContext] {
         Self.rowContexts(from: sortedSets)
     }
+
+    private var totalSetCount: Int { sortedSets.count }
+    private var completedSetCount: Int { sortedSets.filter(\.isCompleted).count }
 
     /// Nonisolated so tests can invoke it directly with a pre-sorted array of
     /// `ExerciseSet` without instantiating the SwiftUI view. `sets` MUST already
@@ -99,6 +103,7 @@ struct ActiveExerciseSection: View {
         let contexts = rowContexts
         let canDelete = contexts.count > 1
         return Section {
+            if !isCollapsed {
             ForEach(contexts, id: \.exerciseSet.persistentModelID) { ctx in
                 let exerciseSet = ctx.exerciseSet
                 if exerciseSet.setType.isSubSet {
@@ -107,6 +112,8 @@ struct ActiveExerciseSection: View {
                         weightUnit: weightUnit,
                         isLast: ctx.isLastSubSet,
                         parentSetNumber: ctx.mainSetNumber,
+                        exercise: workoutExercise.exercise,
+                        recentWeightKg: ctx.recentWeightKg,
                         onToggleCompleted: { wasCompleted in
                             if !wasCompleted { onSetCompleted() }
                         },
@@ -168,8 +175,12 @@ struct ActiveExerciseSection: View {
                     }
                 }
             }
+            }
         } header: {
-            HStack(alignment: .center, spacing: 4) {
+            HStack(alignment: .center, spacing: 6) {
+                Image(systemName: completedSetCount == totalSetCount && totalSetCount > 0
+                      ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(completedSetCount == totalSetCount && totalSetCount > 0 ? theme.success : theme.accent)
                 Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
                     // MY-1263 (D2): compact semibold body header in normal mode
                     // (SwiftUI's default `List` section header uses a larger
@@ -206,6 +217,14 @@ struct ActiveExerciseSection: View {
                     }
                     // swiftlint:disable:next line_length
                     .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
+                Text("\(completedSetCount)/\(totalSetCount)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(theme.neutrals.text2)
+                if completedSetCount == totalSetCount, totalSetCount > 0 {
+                    Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
+                        .font(.caption2)
+                        .foregroundStyle(theme.neutrals.text2)
+                }
                 addSetButton
                 Menu {
                     Button {
@@ -233,6 +252,13 @@ struct ActiveExerciseSection: View {
                 }
                 .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
             }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if completedSetCount == totalSetCount, totalSetCount > 0 {
+                    withAnimation { isCollapsed.toggle() }
+                }
+            }
+            .accessibilityValue(String(localized: "\(completedSetCount)/\(totalSetCount) 组", comment: "Exercise completion count"))
             .confirmationDialog(
                 String(localized: "删除动作？", comment: "Delete exercise confirmation title"),
                 isPresented: $showingDeleteConfirmation,
@@ -244,6 +270,7 @@ struct ActiveExerciseSection: View {
             } message: {
                 Text(String(localized: "该动作及所有已录入的组数据将被删除", comment: "Delete exercise confirmation message"))
             }
+
             // MY-1420: cascade confirmation for a main set that owns sub-sets.
             // The swiped row says "第 3 组" but the delete also consumes the
             // sub-set run beneath it — a consequence the row cannot show, so
