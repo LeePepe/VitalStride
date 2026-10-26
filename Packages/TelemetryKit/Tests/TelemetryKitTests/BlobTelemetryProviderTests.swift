@@ -101,6 +101,23 @@ struct BlobTelemetryConfigurationTests {
             "LokiKitBlobEndpoint": "https://example.test/container",
             "LokiKitBlobSAS": "sv=1"
         ]) == nil)
+        #expect(BlobTelemetryConfiguration.resolve(from: [
+            "LokiKitBlobEndpoint": "https://example.test/container",
+            "LokiKitBlobSAS": "sv=1&sig=abc def"
+        ]) == nil)
+    }
+
+    @Test("rejects unsafe SAS values from direct initializers")
+    func rejectsUnsafeDirectInitializerValues() throws {
+        let endpoint = try #require(URL(string: "https://example.test/container"))
+        let configuration = BlobTelemetryConfiguration(
+            endpoint: endpoint, sas: "sv=1&sig=abc def"
+        )
+        #expect(configuration.blobUploadURL(
+            appName: "vitalstride",
+            date: Date(timeIntervalSince1970: 1_704_067_200),
+            batchID: "batch"
+        ) == nil)
     }
 }
 

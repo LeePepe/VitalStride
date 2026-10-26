@@ -28,6 +28,7 @@ public struct BlobTelemetryConfiguration: Equatable, Sendable {
 
     public func blobUploadURL(appName: String, date: Date, batchID: String) -> URL? {
         guard
+            Self.isValidSAS(sas),
             let appName = Self.pathSegment(appName),
             let batchID = Self.pathSegment(batchID),
             !appName.isEmpty,
@@ -79,11 +80,45 @@ public struct BlobTelemetryConfiguration: Equatable, Sendable {
 
     private static func isValidSAS(_ value: String) -> Bool {
         let query = value.hasPrefix("?") ? String(value.dropFirst()) : value
-        guard !query.isEmpty, query.removingPercentEncoding != nil else { return false }
+        guard isSafePercentEncodedQuery(query), query.removingPercentEncoding != nil else {
+            return false
+        }
         var components = URLComponents()
         components.percentEncodedQuery = query
         guard let items = components.queryItems, !items.isEmpty else { return false }
         return items.contains { $0.name == "sig" && !($0.value ?? "").isEmpty }
+    }
+
+    private static func isSafePercentEncodedQuery(_ query: String) -> Bool {
+        guard !query.isEmpty else { return false }
+
+        let allowedPunctuation = Set("!$&'()*+,-./:;=?@_~")
+        let hexDigits = Set("0123456789abcdefABCDEF")
+        let scalars = Array(query.unicodeScalars)
+        var index = 0
+
+        while index < scalars.count {
+            let scalar = scalars[index]
+            if scalar.value == 0x25 {
+                guard index + 2 < scalars.count,
+                      hexDigits.contains(Character(scalars[index + 1])),
+                      hexDigits.contains(Character(scalars[index + 2])) else {
+                    return false
+                }
+                index += 3
+                continue
+            }
+
+            guard scalar.isASCII,
+                  (scalar.value >= 0x30 && scalar.value <= 0x39)
+                    || (scalar.value >= 0x41 && scalar.value <= 0x5A)
+                    || (scalar.value >= 0x61 && scalar.value <= 0x7A)
+                    || allowedPunctuation.contains(Character(scalar)) else {
+                return false
+            }
+            index += 1
+        }
+        return true
     }
 
     private static func pathSegment(_ value: String) -> String? {
