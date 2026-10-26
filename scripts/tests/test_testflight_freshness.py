@@ -277,6 +277,33 @@ class TestFlightRegressionContractTests(unittest.TestCase):
         ]:
             self.assertNotIn(forbidden, self.workflow)
 
+    def test_blob_telemetry_release_injection_is_optional_and_cleaned(self):
+        prepare = self.workflow.split("- name: Prepare telemetry xcconfig\n", 1)[1].split(
+            "\n      - name:", 1
+        )[0]
+        fastlane = self.workflow.split("- name: fastlane beta\n", 1)[1].split(
+            "\n      - name:", 1
+        )[0]
+        cleanup = self.workflow.split("- name: Remove telemetry xcconfig\n", 1)[1].split(
+            "\n      - name:", 1
+        )[0]
+
+        self.assertIn("secrets.LOKIKIT_BLOB_ENDPOINT != ''", prepare)
+        self.assertIn("secrets.LOKIKIT_BLOB_SAS != ''", prepare)
+        self.assertIn("LOKIKIT_BLOB_ENDPOINT: ${{ secrets.LOKIKIT_BLOB_ENDPOINT }}", prepare)
+        self.assertIn("LOKIKIT_BLOB_SAS: ${{ secrets.LOKIKIT_BLOB_SAS }}", prepare)
+        self.assertIn("re.fullmatch", prepare)
+        self.assertIn("path.parent.resolve() != runner_temp", prepare)
+        self.assertIn("runner_temp.is_relative_to(workspace)", prepare)
+        self.assertIn("os.O_EXCL", prepare)
+        self.assertIn("0o600", prepare)
+        self.assertIn("GITHUB_ENV", prepare)
+        self.assertNotIn("LOKIKIT_BLOB_ENDPOINT:", fastlane)
+        self.assertNotIn("LOKIKIT_BLOB_SAS:", fastlane)
+        self.assertIn("if: always()", cleanup)
+        self.assertIn('rm -f -- "$TELEMETRY_XCCONFIG_PATH"', cleanup)
+        self.assertIn('xcconfig: ENV["TELEMETRY_XCCONFIG_PATH"]', FASTFILE.read_text(encoding="utf-8"))
+
 
 class TestFlightGateExecutionTests(unittest.TestCase):
     """Execute the embedded gate with controlled Git responses; never upload or mutate tags."""

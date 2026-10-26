@@ -10,11 +10,13 @@ import VitalUI
 @main
 struct VitalStrideApp: App {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @Environment(\.scenePhase) private var scenePhase
 
     private let container: ModelContainer?
     private let containerError: String?
     private let healthKitService: HealthKitService
     private let healthDataCache: HealthDataCache
+    private let blobTelemetryProvider: BlobTelemetryProvider?
     // Spec 019 Stage 3c (T017/T018): shared sink for `RoutingSignal` emitted
     // by every `AIRouter.execute`. `nil` when the SwiftData container failed
     // to build — the environment key resolves to `nil` and every AI call
@@ -34,6 +36,23 @@ struct VitalStrideApp: App {
 
         let service = HealthKitService(deviceIdentifier: "ios-display")
         healthKitService = service
+
+        let blobProvider = AppTelemetryBootstrap.makeProvider(
+            infoDictionary: Bundle.main.infoDictionary ?? [:],
+            version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
+            build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
+            isDebugBuild: {
+                #if DEBUG
+                true
+                #else
+                false
+                #endif
+            }()
+        )
+        blobTelemetryProvider = blobProvider
+        if let blobProvider {
+            Task { await TelemetryService.shared.register(blobProvider) }
+        }
 
         #if DEBUG
         Task {
@@ -128,6 +147,12 @@ struct VitalStrideApp: App {
                 }
             }
             .designTheme(seed: .teal, neutral: .slate)
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .background, let blobTelemetryProvider else { return }
+                Task {
+                    try? await blobTelemetryProvider.flush()
+                }
+            }
             #if DEBUG
             // spec 020 (MY-1370): XCUITest entry point for ExercisePicker
             // search focus regression. Guarded by `-ExercisePickerTestMode`
@@ -143,6 +168,27 @@ struct VitalStrideApp: App {
             .modifier(SnackbarA11yTestHarnessModifier())
             #endif
         }
+
+    }
+}
+
+enum AppTelemetryBootstrap {
+    static func makeProvider(
+        infoDictionary: [String: Any],
+        version: String,
+        build: String,
+        isDebugBuild: Bool
+    ) -> BlobTelemetryProvider? {
+        guard let configuration = BlobTelemetryConfiguration.resolve(from: infoDictionary) else {
+            return nil
+        }
+        return BlobTelemetryProvider(
+            configuration: configuration,
+            appName: "vitalstride",
+            version: version,
+            build: build,
+            isDebugBuild: isDebugBuild
+        )
     }
 }
 
