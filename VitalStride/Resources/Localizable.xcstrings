@@ -12108,6 +12108,130 @@
         }
       }
     },
+    "active_workout.drop_set.label": {
+      "comment": "Drop-set child label",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↳ %lld.%lld Drop set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↳ %lld.%lld 递减组"
+          }
+        }
+      }
+    },
+    "active_workout.rest_countdown.a11y": {
+      "comment": "Live rest countdown in undo snackbar",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Rest remaining %lld seconds" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "休息剩余 %lld 秒" } }
+      }
+    },
+    "workout.keyboard.ai_suggest": {
+      "comment": "Apply AI smart progression suggestion",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✨ AI"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✨ AI"
+          }
+        }
+      }
+    },
+    "workout.row.reps_unit": {
+      "comment": "Repetitions unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次"
+          }
+        }
+      }
+    },
+    "workout.row.total_prefix": {
+      "comment": "Bilateral total weight prefix",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "总"
+          }
+        }
+      }
+    },
+    "关闭递减组": {
+      "comment": "Delete drop-set row",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Close drop set" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "关闭递减组" } }
+      }
+    },
+    "删除此递减组": {
+      "comment": "Delete drop-set hint",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Delete this drop set" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "删除此递减组" } }
+      }
+    },
+    "递减组完成状态": {
+      "comment": "Drop-set completion",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Drop-set completion" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "递减组完成状态" } }
+      }
+    },
+    "递减组更多操作": {
+      "comment": "Drop-set more actions",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "More drop-set actions" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "递减组更多操作" } }
+      }
+    },
+    "递减组次数": {
+      "comment": "Drop-set reps",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Drop-set reps" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "递减组次数" } }
+      }
+    },
+    "递减组重量": {
+      "comment": "Drop-set weight",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Drop-set weight" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "递减组重量" } }
+      }
+    },
+    "输入数值": {
+      "comment": "Enter drop-set value",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Enter a value" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "输入数值" } }
+      }
+    },
     "workout.row.set_rpe": {
       "comment": "Active workout redesign",
       "extractionState": "manual",

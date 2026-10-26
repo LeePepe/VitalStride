@@ -703,37 +703,7 @@ struct ActiveWorkoutView: View {
     /// Type size.
     @ViewBuilder
     private var undoSnackbarEnvelope: some View {
-        if undoController.pending != nil,
-           restTimer.phase == .resting,
-           let restEnd = restTimer.restEndDate {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                let remaining = max(0, Int(restEnd.timeIntervalSince(context.date)))
-                HStack(spacing: 8) {
-                    Text("⏱ \(remaining)s")
-                        .font(.caption.monospacedDigit().weight(.semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(theme.primary.primary.opacity(0.15), in: Capsule())
-                        .accessibilityLabel(String(localized: "休息剩余 \(remaining) 秒", comment: "Live rest countdown in undo snackbar"))
-                    Text(undoController.pending?.message ?? "")
-                        .font(.subheadline)
-                        .lineLimit(2)
-                        .foregroundStyle(theme.neutrals.text1)
-                    Spacer()
-                    Button {
-                        undoController.undo(using: modelContext)
-                    } label: {
-                        Text(String(localized: "撤销", comment: "Undo deletion snackbar action"))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(theme.primary.primary)
-                            .frame(minWidth: 44, minHeight: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(String(localized: "撤销删除", comment: "Undo deletion"))
-                }
-            }
-        } else {
-            ActiveWorkoutSnackbarLayout.undoEnvelope(
+        ActiveWorkoutSnackbarLayout.undoEnvelope(
             message: undoController.pending?.message,
             undoTitle: String(
                 localized: "active_workout.set_delete.undo_action",
@@ -747,11 +717,11 @@ struct ActiveWorkoutView: View {
                 defaultValue: "Undo deletion",
                 comment: "Undo set deletion a11y label"
             ),
+            restEndDate: restTimer.phase == .resting ? restTimer.restEndDate : nil,
             onUndo: {
                 undoController.undo(using: modelContext)
             }
-            )
-        }
+        )
     }
 
     /// Always renders the rest layout structure regardless of rest timer state.
@@ -931,6 +901,18 @@ struct ActiveWorkoutView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(selectedExerciseID == exercise.persistentModelID ? .isSelected : [])
+                        .accessibilityAction(
+                            named: String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder")
+                        ) {
+                            guard index > 0 else { return }
+                            moveExercises(from: IndexSet(integer: index), to: index - 1)
+                        }
+                        .accessibilityAction(
+                            named: String(localized: "workout.sidebar.move_down", defaultValue: "Move exercise down", comment: "Sidebar reorder")
+                        ) {
+                            guard index < exercises.count - 1 else { return }
+                            moveExercises(from: IndexSet(integer: index), to: index + 2)
+                        }
                         .contextMenu {
                             Button {
                                 moveExercises(from: IndexSet(integer: index), to: index - 1)
@@ -956,6 +938,7 @@ struct ActiveWorkoutView: View {
                         .background(theme.accentSubtle, in: Circle())
                 }
                 .accessibilityIdentifier("workout_sidebar_add_exercise")
+                .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
             }
             .padding(.horizontal, 2)
         }

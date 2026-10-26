@@ -178,9 +178,22 @@ struct ActiveExerciseSection: View {
             }
         } header: {
             HStack(alignment: .center, spacing: 6) {
-                Image(systemName: completedSetCount == totalSetCount && totalSetCount > 0
-                      ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(completedSetCount == totalSetCount && totalSetCount > 0 ? theme.success : theme.accent)
+                if completedSetCount == totalSetCount, totalSetCount > 0 {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(theme.success)
+                } else {
+                    Text("\(workoutExercise.order + 1)")
+                        .font(.caption.monospacedDigit().weight(.bold))
+                        .foregroundStyle(completedSetCount == 0 ? theme.neutrals.text2 : theme.accent)
+                        .frame(minWidth: 22, minHeight: 22)
+                        .background(
+                            Circle().fill(
+                                completedSetCount == 0
+                                    ? theme.neutrals.text2.opacity(0.12)
+                                    : theme.accent.opacity(0.14)
+                            )
+                        )
+                }
                 Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
                     // MY-1263 (D2): compact semibold body header in normal mode
                     // (SwiftUI's default `List` section header uses a larger
@@ -254,9 +267,12 @@ struct ActiveExerciseSection: View {
             }
             .contentShape(Rectangle())
             .onTapGesture {
-                if completedSetCount == totalSetCount, totalSetCount > 0 {
+                if isCollapsed || (completedSetCount == totalSetCount && totalSetCount > 0) {
                     withAnimation { isCollapsed.toggle() }
                 }
+            }
+            .onChange(of: completedSetCount) { _, count in
+                if count < totalSetCount { isCollapsed = false }
             }
             .accessibilityValue(String(localized: "\(completedSetCount)/\(totalSetCount) 组", comment: "Exercise completion count"))
             .confirmationDialog(
@@ -373,6 +389,7 @@ struct ActiveExerciseSection: View {
     }
 
     private func addSet() {
+        isCollapsed = false
         _ = Self.insertAppendedMainSet(in: workoutExercise, using: modelContext)
     }
 

@@ -135,4 +135,18 @@ struct ActiveExerciseSectionAddSetHeaderTests {
             "The add-set action should keep the existing insertion hint contract."
         )
     }
+
+    @Test("Completed sections render an index badge and collapsed sections can expand")
+    func completionAndCollapseContract() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        #expect(source.contains("workoutExercise.order + 1"))
+        #expect(source.contains("if isCollapsed || (completedSetCount == totalSetCount"))
+        #expect(source.contains("isCollapsed = false"))
+        #expect(source.contains("checkmark.circle.fill"))
+    }
 }

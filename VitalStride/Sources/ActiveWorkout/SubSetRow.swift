@@ -21,6 +21,7 @@ struct SubSetRow: View {
     @State private var weightText = ""
     @State private var weightRightText = ""
     @State private var repsText = ""
+    @State private var focusedField: SetField?
 
     var body: some View {
         HStack(spacing: 4) {
@@ -34,13 +35,16 @@ struct SubSetRow: View {
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(.borderless)
+            .contentShape(Rectangle())
+            .accessibilityLabel(String(localized: "递减组完成状态", comment: "Drop-set completion"))
+            .accessibilityHint(String(localized: "双击切换完成状态", comment: "Toggle completion"))
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
-                    inputField(text: $weightText, field: .weight, label: "L")
+                    inputField(text: $weightText, field: .weight, label: exerciseSet.isUnilateral ? "L" : String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"))
                     if exerciseSet.isUnilateral {
                         inputField(text: $weightRightText, field: .weightRight, label: "R")
                     }
-                    inputField(text: $repsText, field: .reps, label: "次")
+                    inputField(text: $repsText, field: .reps, label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
                 }
                 Text(String(
                     format: String(localized: "active_workout.drop_set.label", defaultValue: "↳ %lld.%lld Drop set", comment: "Drop-set child label"),
@@ -57,6 +61,7 @@ struct SubSetRow: View {
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(String(localized: "关闭递减组", comment: "Delete drop-set row"))
+            .accessibilityHint(String(localized: "删除此递减组", comment: "Delete drop-set hint"))
             Menu {
                 Button(role: .destructive, action: onDelete) {
                     Label(String(localized: "删除", comment: "Delete sub-set menu item"), systemImage: "trash")
@@ -66,6 +71,8 @@ struct SubSetRow: View {
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(.borderless)
+            .contentShape(Rectangle())
+            .accessibilityLabel(String(localized: "递减组更多操作", comment: "Drop-set more actions"))
         }
         .padding(.leading, 8)
         .padding(.vertical, 4)
@@ -87,32 +94,82 @@ struct SubSetRow: View {
         .onChange(of: exerciseSet.weight) { _, _ in refreshInputText() }
         .onChange(of: exerciseSet.weightRight) { _, _ in refreshInputText() }
         .onChange(of: exerciseSet.reps) { _, _ in refreshInputText() }
+        .onChange(of: weightUnit) { _, _ in refreshInputText() }
+        .onChange(of: exerciseSet.isUnilateral) { _, _ in refreshInputText() }
     }
 
-    @ViewBuilder
     private func inputField(text: Binding<String>, field: SetField, label: String) -> some View {
         #if canImport(UIKit) && !os(macOS)
-        SelectAllTextField(
-            placeholder: field == .reps ? String(localized: "次", comment: "Repetitions unit") : weightUnit.rawValue,
+        let isTotal = !exerciseSet.isUnilateral && field == .weight
+        let isSide = field != .reps
+        let input = SelectAllTextField(
+            placeholder: field == .reps ? String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit") : weightUnit.rawValue,
             text: text,
             keyboardType: field.isDecimalEnabled ? .decimalPad : .numberPad,
             useCustomKeyboard: true,
             field: field,
             exercise: exercise,
             setType: exerciseSet.setType,
-            recentWeightKg: recentWeightKg
+            recentWeightKg: recentWeightKg,
+            onLeftAction: { action in handleLeftAction(action, field: field) },
+            onPresetReps: { weightKg, reps in applyPreset(weightKg: weightKg, reps: reps) },
+            onFocusChange: { focusedField = $0 }
         )
-        .frame(width: field.isWeightField ? 58 : 48, height: 44)
-        .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(alignment: .leading) {
-            Text(label).font(.caption2.weight(.bold)).foregroundStyle(theme.accent).padding(.leading, 3)
+        return HStack(spacing: 2) {
+            if isSide {
+                Text(label)
+                    .font(.caption2.weight(isTotal ? .semibold : .bold))
+                    .foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)
+                    .fixedSize()
+            }
+            WorkoutSetInput(input, theme: theme)
+                .frame(width: ActiveWorkoutHitTarget.side, height: 44)
+            if field.isWeightField {
+                Text(weightUnit.rawValue)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(theme.neutrals.text3)
+            } else {
+                Text(String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(theme.neutrals.text3)
+            }
         }
+        .padding(.horizontal, 2)
+        .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            if focusedField == field {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(theme.accent, lineWidth: 1.5)
+            }
+        }
+        .accessibilityLabel(field == .reps ? String(localized: "递减组次数", comment: "Drop-set reps") : String(localized: "递减组重量", comment: "Drop-set weight"))
+        .accessibilityHint(String(localized: "输入数值", comment: "Enter drop-set value"))
         .onChange(of: text.wrappedValue) { _, _ in sync(field: field) }
         #else
         TextField("", text: text)
             .frame(width: field.isWeightField ? 58 : 48, height: 44)
             .onChange(of: text.wrappedValue) { _, _ in sync(field: field) }
         #endif
+    }
+
+    private func handleLeftAction(_ action: LeftKeyAction, field: SetField) {
+        switch action {
+        case .toggleUnilateral:
+            exerciseSet.isUnilateral.toggle()
+        case .applyAISuggestion:
+            break
+        default:
+            break
+        }
+    }
+
+    private func applyPreset(weightKg: Double?, reps: Int) {
+        if let weightKg {
+            exerciseSet.weight = weightKg
+            if exerciseSet.isUnilateral { exerciseSet.weightRight = weightKg }
+        }
+        exerciseSet.reps = reps
+        refreshInputText()
     }
 
     private func toggleCompleted() {

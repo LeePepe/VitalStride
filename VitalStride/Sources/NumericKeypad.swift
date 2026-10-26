@@ -159,7 +159,7 @@ struct NumericKeypad: View {
     // Visual constants — north-star §11.
     private static let gridSpacing: CGFloat = 8
     private static let digitMinHeight: CGFloat = 52
-    private static let keyRadius: CGFloat = Radius.inner // 10
+    private static let keyRadius: CGFloat = 8
 
     private static let columns = Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: 3)
 

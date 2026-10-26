@@ -33,6 +33,7 @@ struct SelectAllTextField: UIViewRepresentable {
     /// Called when a right-column preset key fires. `weightKg` is nil when no
     /// value is available and the caller MUST preserve the existing input.
     var onPresetReps: ((Double?, Int) -> Void)?
+    var onFocusChange: ((SetField?) -> Void)?
 
     func makeUIView(context: Context) -> UITextField {
         let textField = UITextField()
@@ -75,7 +76,8 @@ struct SelectAllTextField: UIViewRepresentable {
             suggestedWeightKg: suggestedWeightKg,
             suggestedReps: suggestedReps,
             onLeftAction: onLeftAction,
-            onPresetReps: onPresetReps
+            onPresetReps: onPresetReps,
+            onFocusChange: onFocusChange
         )
         if useCustomKeyboard {
             context.coordinator.installCustomKeyboardIfNeeded(on: textField)
@@ -93,7 +95,8 @@ struct SelectAllTextField: UIViewRepresentable {
             suggestedWeightKg: suggestedWeightKg,
             suggestedReps: suggestedReps,
             onLeftAction: onLeftAction,
-            onPresetReps: onPresetReps
+            onPresetReps: onPresetReps,
+            onFocusChange: onFocusChange
         )
     }
 
@@ -109,6 +112,7 @@ struct SelectAllTextField: UIViewRepresentable {
         private var suggestedReps: Int?
         private var onLeftAction: ((LeftKeyAction) -> Void)?
         private var onPresetReps: ((Double?, Int) -> Void)?
+        private var onFocusChange: ((SetField?) -> Void)?
 
         private weak var textField: UITextField?
         private var installedKeyboard: WorkoutNumericKeyboard?
@@ -122,7 +126,8 @@ struct SelectAllTextField: UIViewRepresentable {
             suggestedWeightKg: Double?,
             suggestedReps: Int?,
             onLeftAction: ((LeftKeyAction) -> Void)?,
-            onPresetReps: ((Double?, Int) -> Void)?
+            onPresetReps: ((Double?, Int) -> Void)?,
+            onFocusChange: ((SetField?) -> Void)? = nil
         ) {
             self.text = text
             self.field = field
@@ -133,6 +138,7 @@ struct SelectAllTextField: UIViewRepresentable {
             self.suggestedReps = suggestedReps
             self.onLeftAction = onLeftAction
             self.onPresetReps = onPresetReps
+            self.onFocusChange = onFocusChange
         }
 
         @objc func textChanged(_ textField: UITextField) {
@@ -140,9 +146,14 @@ struct SelectAllTextField: UIViewRepresentable {
         }
 
         func textFieldDidBeginEditing(_ textField: UITextField) {
+            onFocusChange?(field)
             DispatchQueue.main.async {
                 textField.selectAll(nil)
             }
+        }
+
+        func textFieldDidEndEditing(_ textField: UITextField) {
+            onFocusChange?(nil)
         }
 
         func attach(textField: UITextField) {
@@ -157,7 +168,8 @@ struct SelectAllTextField: UIViewRepresentable {
             suggestedWeightKg: Double?,
             suggestedReps: Int?,
             onLeftAction: ((LeftKeyAction) -> Void)?,
-            onPresetReps: ((Double?, Int) -> Void)?
+            onPresetReps: ((Double?, Int) -> Void)?,
+            onFocusChange: ((SetField?) -> Void)? = nil
         ) {
             self.field = field
             self.setType = setType
@@ -167,6 +179,7 @@ struct SelectAllTextField: UIViewRepresentable {
             self.suggestedReps = suggestedReps
             self.onLeftAction = onLeftAction
             self.onPresetReps = onPresetReps
+            self.onFocusChange = onFocusChange
         }
 
         /// Build and install the custom keyboard on first sight. The keyboard

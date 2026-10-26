@@ -50,7 +50,7 @@ private struct NormalModeHitTargetPadding: ViewModifier {
 /// The shared coordinator keeps selection-aware editing and the custom keyboard
 /// bridge. This row-owned host adds explicit sizing and Strata input colors, so
 /// UIKit's intrinsic size cannot paint over the adjacent L/R label or reps box.
-private struct WorkoutSetInput: UIViewRepresentable {
+struct WorkoutSetInput: UIViewRepresentable {
     let input: SelectAllTextField
     let theme: Theme
 
@@ -89,7 +89,9 @@ private struct WorkoutSetInput: UIViewRepresentable {
             recentWeightKg: input.recentWeightKg,
             suggestedWeightKg: input.suggestedWeightKg,
             suggestedReps: input.suggestedReps,
-            onLeftAction: input.onLeftAction, onPresetReps: input.onPresetReps
+            onLeftAction: input.onLeftAction,
+            onPresetReps: input.onPresetReps,
+            onFocusChange: input.onFocusChange
         )
         context.coordinator.installCustomKeyboardIfNeeded(on: view)
         context.coordinator.refreshCustomKeyboardContextIfInstalled()
@@ -149,6 +151,7 @@ struct SetRow: View {
     @State private var weightText: String = ""
     @State private var weightRightText: String = ""
     @State private var repsText: String = ""
+    @State private var focusedField: SetField?
     @State private var showingRPEDialog = false
     // MY-1203 (spec 006-smart-progression T006): tap-to-fill + override
     // tracking. `pendingSuggestionSnapshot` holds the exact text values the
@@ -279,7 +282,7 @@ struct SetRow: View {
         return HStack(spacing: 4) {
             let advice = smartProgressionAdvice()
             weightBox(binding: $weightText, field: .weight, width: weightWidth,
-                      side: exerciseSet.isUnilateral ? "L" : "总",
+                      side: exerciseSet.isUnilateral ? "L" : String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"),
                       suggestion: advice)
             if exerciseSet.isUnilateral {
                 weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice)
@@ -290,25 +293,27 @@ struct SetRow: View {
     }
 
     private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?, suggestion: ProgressionAdvice?) -> some View {
-        HStack(spacing: 2) {
+        let isTotal = !exerciseSet.isUnilateral && field == .weight
+        return HStack(spacing: 2) {
             if let side {
                 Text(side)
-                    .font(.caption2.weight(.semibold))
+                    .font(.caption2.weight(isTotal ? .semibold : .bold))
                     .fixedSize()
-                    .foregroundStyle(theme.accent)
+                    .foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)
                     .allowsHitTesting(false)
             }
             weightField(
-                binding: binding, field: field, width: max(36, width - 28),
+                binding: binding, field: field, width: max(ActiveWorkoutHitTarget.side, width - 28),
                 a11yLabel: side == nil
                     ? String(localized: "第 \(index + 1) 组重量", comment: "Set weight")
-                    : side == "总"
+                    : isTotal
                     ? String(localized: "第 \(index + 1) 组总重量", comment: "Total weight")
                     : (field == .weight
                        ? String(localized: "第 \(index + 1) 组左侧重量", comment: "Left weight")
                        : String(localized: "第 \(index + 1) 组右侧重量", comment: "Right weight")),
                 a11yHint: String(localized: "输入重量数值", comment: "Enter weight"),
-                suggestion: suggestion
+                suggestion: suggestion,
+                isFocused: focusedField == field
             )
             Text(weightUnit.rawValue)
                 .font(.caption2.weight(.medium))
@@ -317,6 +322,12 @@ struct SetRow: View {
         }
         .padding(.horizontal, 2)
         .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            if focusedField == field {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(theme.accent, lineWidth: 1.5)
+            }
+        }
         .fixedSize(horizontal: true, vertical: false)
     }
 
@@ -405,7 +416,8 @@ struct SetRow: View {
         width: CGFloat,
         a11yLabel: String,
         a11yHint: String,
-        suggestion: ProgressionAdvice?
+        suggestion: ProgressionAdvice?,
+        isFocused: Bool
     ) -> some View {
         #if canImport(UIKit) && !os(macOS)
         WorkoutSetInput(SelectAllTextField(
@@ -421,14 +433,20 @@ struct SetRow: View {
             suggestedWeightKg: suggestion?.suggestedWeight,
             suggestedReps: suggestion?.suggestedReps,
             onLeftAction: { action in handleLeftAction(action, field: field) },
-            onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
+            onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) },
+            onFocusChange: { focusedField = $0 }
         ), theme: theme)
-        .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
+        .overlay {
+            if isFocused {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(theme.accent, lineWidth: 1.5)
+            }
+        }
         .onChange(of: binding.wrappedValue) { _, newValue in
             let filtered = filterDecimalInput(newValue)
             if filtered != newValue { binding.wrappedValue = filtered }
@@ -480,9 +498,9 @@ struct SetRow: View {
             suggestedWeightKg: suggestion?.suggestedWeight,
             suggestedReps: suggestion?.suggestedReps,
             onLeftAction: { action in handleLeftAction(action, field: .reps) },
-            onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) }
+            onPresetReps: { weightKg, reps in handlePresetReps(weightKg: weightKg, reps: reps) },
+            onFocusChange: { focusedField = $0 }
         ), theme: theme)
-        .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         .frame(width: width)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
@@ -498,6 +516,14 @@ struct SetRow: View {
             .font(.caption2.weight(.medium))
             .foregroundStyle(theme.neutrals.text3)
             .allowsHitTesting(false)
+        }
+        .padding(.horizontal, 2)
+        .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            if focusedField == .reps {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(theme.accent, lineWidth: 1.5)
+            }
         }
         #else
         SelectAllTextField(

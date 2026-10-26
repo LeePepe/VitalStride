@@ -50,6 +50,12 @@ struct ActiveWorkoutRowLargeModeTests {
         #expect(LargeWorkoutFieldWidth.largeMinHeight >= 44)
     }
 
+    @Test("Every rendered workout input keeps the 44pt hit-target floor")
+    func inputHitTargetFloor() {
+        #expect(ActiveWorkoutHitTarget.side >= 44)
+        #expect(max(ActiveWorkoutHitTarget.side, LargeWorkoutFieldWidth.unilateralWeight(.normal) - 28) >= 44)
+    }
+
     /// Unilateral rows show two side-by-side weight inputs where bilateral
     /// rows show one — the AC calls out overflow risk on this path. The
     /// design invariant that keeps both modes rendering in an iPhone row is

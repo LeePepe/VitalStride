@@ -115,7 +115,14 @@ struct WorkoutNumericKeyboardContentView: View {
                     functionKey(.addDropSet, title: String(localized: "workout.keyboard.drop", defaultValue: "Drop set", comment: "Add a drop set"))
                     functionKey(.addSet, title: String(localized: "workout.keyboard.add_set", defaultValue: "Add set", comment: "Add a set"))
                     if suggestedWeightKg != nil, suggestedReps != nil {
-                        functionKey(.applyAISuggestion, title: "✨ AI")
+                        functionKey(
+                            .applyAISuggestion,
+                            title: String(
+                                localized: "workout.keyboard.ai_suggest",
+                                defaultValue: "✨ AI",
+                                comment: "Apply AI smart progression suggestion"
+                            )
+                        )
                     }
                     Button(action: onDone) {
                         Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Dismiss workout keyboard"))
@@ -150,7 +157,7 @@ struct WorkoutNumericKeyboardContentView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 52)
                 .foregroundStyle(theme.accent)
-                .background(theme.inner, in: RoundedRectangle(cornerRadius: 12))
+                .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
         .disabled((action == .addDropSet && setType.isSubSet) ||

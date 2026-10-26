@@ -333,6 +333,19 @@ struct ActiveWorkoutSnackbarLayoutTests {
                     #expect(policy.isFABVisible == true)
                 }
             }
+
         }
+    }
+
+    @MainActor
+    @Test("Undo envelope accepts a simultaneous live rest countdown")
+    func undoEnvelopeSupportsRestCountdown() {
+        let envelope = ActiveWorkoutSnackbarLayout.undoEnvelope(
+            message: "Deleted set",
+            restEndDate: Date().addingTimeInterval(30)
+        )
+        _ = envelope
+        let baseline = ActiveWorkoutSnackbarLayout.undoEnvelope(message: "Deleted set")
+        _ = baseline
     }
 }

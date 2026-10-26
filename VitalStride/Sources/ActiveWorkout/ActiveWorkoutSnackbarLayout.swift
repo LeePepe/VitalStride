@@ -390,6 +390,7 @@ enum ActiveWorkoutSnackbarLayout {
         messageColor: Color = .primary,
         undoColor: Color = .blue,
         undoAccessibilityLabel: String = "Undo deletion",
+        restEndDate: Date? = nil,
         onUndo: @escaping () -> Void = {}
     ) -> some View {
         ZStack(alignment: .leading) {
@@ -407,23 +408,42 @@ enum ActiveWorkoutSnackbarLayout {
             }
             .hidden()
 
-            // Active undo content (only when a message is provided)
             if let message {
-                HStack(spacing: Space.gap) {
-                    Text(message)
-                        .font(undoFont)
-                        .lineLimit(2)
-                        .foregroundStyle(messageColor)
-                    Spacer()
-                    Button(action: onUndo) {
-                        Text(undoTitle)
-                            .font(undoFont.weight(.semibold))
-                            .foregroundStyle(undoColor)
-                            .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
-                            .contentShape(Rectangle())
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    HStack(spacing: Space.gap) {
+                        if let restEndDate {
+                            let remaining = max(0, Int(restEndDate.timeIntervalSince(context.date)))
+                            Text("⏱ \(remaining)s")
+                                .font(.caption.monospacedDigit().weight(.semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(Color.accentColor.opacity(0.15), in: Capsule())
+                                .accessibilityLabel(
+                                    String(
+                                        format: String(
+                                            localized: "active_workout.rest_countdown.a11y",
+                                            defaultValue: "Rest remaining %lld seconds",
+                                            comment: "Live rest countdown in undo snackbar"
+                                        ),
+                                        Int64(remaining)
+                                    )
+                                )
+                        }
+                        Text(message)
+                            .font(undoFont)
+                            .lineLimit(2)
+                            .foregroundStyle(messageColor)
+                        Spacer()
+                        Button(action: onUndo) {
+                            Text(undoTitle)
+                                .font(undoFont.weight(.semibold))
+                                .foregroundStyle(undoColor)
+                                .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(undoAccessibilityLabel)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(undoAccessibilityLabel)
                 }
             }
         }
