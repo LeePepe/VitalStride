@@ -4,6 +4,7 @@ import DesignKit
 import SwiftUI
 import Testing
 import UIKit
+import XCTest
 
 @testable import VitalStride
 
@@ -62,6 +63,39 @@ struct WorkoutNumericKeyboardThemeTests {
         #expect(WorkoutNumericKeyboardContentView.weightUnitToggleTitle() == "kg / lb")
         #expect(host.view.bounds.size == CGSize(width: 375, height: 280))
         #expect(host.sizeThatFits(in: host.view.bounds.size).height > 0)
+    }
+}
+
+@MainActor
+final class WorkoutKeyboardUnitRenderingTests: XCTestCase {
+    func testLightAndDarkKeyboardRender() {
+        for isDark in [false, true] {
+            let content = WorkoutNumericKeyboardContentView(
+                field: .weight,
+                setType: .working,
+                exercise: nil,
+                recentWeightKg: 40,
+                theme: WorkoutNumericKeyboard.resolveTheme(isDark: isDark),
+                onKeyPress: { _ in },
+                onLeftAction: { _ in },
+                onPresetReps: { _, _ in },
+                onDone: {}
+            )
+            let host = UIHostingController(rootView: content)
+            host.safeAreaRegions = []
+            let size = CGSize(width: 375, height: WorkoutNumericKeyboard.preferredHeight())
+            host.view.frame = CGRect(origin: .zero, size: size)
+            host.view.layoutIfNeeded()
+
+            let image = UIGraphicsImageRenderer(size: size).image { _ in
+                host.view.drawHierarchy(in: host.view.bounds, afterScreenUpdates: true)
+            }
+            let attachment = XCTAttachment(image: image)
+            attachment.name = isDark ? "Workout keyboard dark" : "Workout keyboard light"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            XCTAssertGreaterThan(host.sizeThatFits(in: size).height, 0)
+        }
     }
 }
 
