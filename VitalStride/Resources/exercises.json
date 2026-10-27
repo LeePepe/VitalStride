@@ -5221,7 +5221,7 @@
     {
       "id": "bb6fc1a3-3e20-557f-99ff-60748b8e9e4e",
       "nameEn": "Band Alternating Biceps Curl",
-      "nameZh": "Band Alternating Biceps Curl",
+      "nameZh": "弹力带交替二头肌弯举",
       "muscleGroup": "arms",
       "equipment": "band",
       "primaryMuscles": [
@@ -5329,7 +5329,7 @@
     {
       "id": "965212cf-b562-5e0b-b3c5-6af8c49b3562",
       "nameEn": "Band Alternating V-Up",
-      "nameZh": "Band Alternating V-Up",
+      "nameZh": "弹力带交替V字卷腹",
       "muscleGroup": "core",
       "equipment": "band",
       "primaryMuscles": [
@@ -5447,7 +5447,7 @@
     {
       "id": "f277a5ec-4f64-5a57-a4dd-f825573bcd06",
       "nameEn": "Band Assisted Pull-Up",
-      "nameZh": "Band Assisted Pull-Up",
+      "nameZh": "弹力带辅助引体向上",
       "muscleGroup": "back",
       "equipment": "band",
       "primaryMuscles": [
@@ -5577,7 +5577,7 @@
     {
       "id": "3a42aaea-1d48-5332-bbc1-a31fba717b97",
       "nameEn": "Band Assisted Wheel Rollerout",
-      "nameZh": "Band Assisted Wheel Rollerout",
+      "nameZh": "弹力带辅助健腹轮滚动",
       "muscleGroup": "core",
       "equipment": "band",
       "primaryMuscles": [
@@ -5695,7 +5695,7 @@
     {
       "id": "85b5e236-656e-510d-9eb1-754f32a2e6b8",
       "nameEn": "Band Bench Press",
-      "nameZh": "Band Bench Press",
+      "nameZh": "弹力带卧推",
       "muscleGroup": "chest",
       "equipment": "band",
       "primaryMuscles": [
@@ -5815,7 +5815,7 @@
     {
       "id": "b559a6f2-e257-5c16-9871-476c26d4eacb",
       "nameEn": "Band Bent-Over Hip Extension",
-      "nameZh": "Band Bent-Over Hip Extension",
+      "nameZh": "弹力带俯身髋部伸展",
       "muscleGroup": "legs",
       "equipment": "band",
       "primaryMuscles": [
@@ -6075,7 +6075,7 @@
     {
       "id": "7c5349ea-6e2c-5a21-8b2f-614bdb7e27c5",
       "nameEn": "Band Close-Grip Pulldown",
-      "nameZh": "Band Close-Grip Pulldown",
+      "nameZh": "弹力带窄握下拉",
       "muscleGroup": "back",
       "equipment": "band",
       "primaryMuscles": [
@@ -6205,7 +6205,7 @@
     {
       "id": "15eedfc8-e571-5189-8d34-f945fef183b6",
       "nameEn": "Band Close-Grip Push-Up",
-      "nameZh": "Band Close-Grip Push-Up",
+      "nameZh": "弹力带窄握俯卧撑",
       "muscleGroup": "arms",
       "equipment": "band",
       "primaryMuscles": [

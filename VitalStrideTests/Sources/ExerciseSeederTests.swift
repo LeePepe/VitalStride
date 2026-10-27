@@ -448,6 +448,76 @@ struct ExerciseSeederTests {
         #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == bundledCatalogVersion())
     }
 
+    @Test("V5 bounded repair handles existing rows and preserves protected provenance")
+    func boundedV5ChineseRepair() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        ExerciseSeeder.seedIfNeeded(context: context, userDefaults: defaults)
+        let ids = [
+            "bb6fc1a3-3e20-557f-99ff-60748b8e9e4e",
+            "965212cf-b562-5e0b-b3c5-6af8c49b3562",
+            "f277a5ec-4f64-5a57-a4dd-f825573bcd06",
+            "3a42aaea-1d48-5332-bbc1-a31fba717b97",
+            "85b5e236-656e-510d-9eb1-754f32a2e6b8",
+            "b559a6f2-e257-5c16-9871-476c26d4eacb",
+            "7c5349ea-6e2c-5a21-8b2f-614bdb7e27c5",
+            "15eedfc8-e571-5189-8d34-f945fef183b6",
+        ]
+        let expectedNames = [
+            "弹力带交替二头肌弯举",
+            "弹力带交替V字卷腹",
+            "弹力带辅助引体向上",
+            "弹力带辅助健腹轮滚动",
+            "弹力带卧推",
+            "弹力带俯身髋部伸展",
+            "弹力带窄握下拉",
+            "弹力带窄握俯卧撑",
+        ]
+        let exercises = try ids.map { try #require(try fetchExercise(presetId: $0, context: context)) }
+        for exercise in exercises {
+            exercise.nameZh = exercise.nameEn
+        }
+        exercises[1].nameZh = "已有翻译"
+        exercises[2].nameEn = "用户改名"
+        exercises[3].isCustom = true
+        let importedWorkout = Workout(type: .strength, startDate: .now, source: .imported,
+                                      exercises: [WorkoutExercise(order: 0, exercise: exercises[4])])
+        context.insert(importedWorkout)
+        try context.save()
+        defaults.set("5", forKey: ExerciseSeeder.seedVersionKey)
+
+        var saveCount = 0
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults,
+                                catalogData: try Data(contentsOf: #require(Bundle.main.url(forResource: "exercises", withExtension: "json")))) {
+            saveCount += 1
+            try $0.save()
+        }
+
+        let repaired = try ids.map { try #require(try fetchExercise(presetId: $0, context: context)) }
+        #expect(repaired[0].nameZh == expectedNames[0])
+        #expect(repaired[1].nameZh == "已有翻译")
+        #expect(repaired[2].nameEn == "用户改名")
+        #expect(repaired[2].nameZh == "用户改名")
+        #expect(repaired[3].nameZh == repaired[3].nameEn)
+        #expect(repaired[4].nameZh == repaired[4].nameEn)
+        #expect(repaired[5].nameZh == expectedNames[5])
+        #expect(repaired[6].nameZh == expectedNames[6])
+        #expect(repaired[7].nameZh == expectedNames[7])
+        #expect(saveCount == 1)
+
+        var repeatSaveCount = 0
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults,
+                                catalogData: try Data(contentsOf: #require(Bundle.main.url(forResource: "exercises", withExtension: "json")))) {
+            repeatSaveCount += 1
+            try $0.save()
+        }
+        #expect(repeatSaveCount == 0)
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == bundledCatalogPresetCount())
+    }
+
     // MARK: - Version Skip + Empty DB Recovery
 
     @Test("Skips seed when version unchanged and presets exist")
