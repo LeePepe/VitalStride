@@ -500,7 +500,7 @@ struct ExerciseSeederTests {
         #expect(repaired[0].nameZh == expectedNames[0])
         #expect(repaired[1].nameZh == "已有翻译")
         #expect(repaired[2].nameEn == "用户改名")
-        #expect(repaired[2].nameZh == "用户改名")
+        #expect(repaired[2].nameZh == "Band Assisted Pull-Up")
         #expect(repaired[3].nameZh == repaired[3].nameEn)
         #expect(repaired[4].nameZh == repaired[4].nameEn)
         #expect(repaired[5].nameZh == expectedNames[5])
