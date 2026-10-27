@@ -1,7 +1,9 @@
 #if canImport(UIKit) && !os(macOS)
 
 import DesignKit
+import SwiftUI
 import Testing
+import UIKit
 
 @testable import VitalStride
 
@@ -37,6 +39,29 @@ struct WorkoutNumericKeyboardThemeTests {
         #expect(LeftKeyAction.allCases.contains(.addDropSet))
         #expect(LeftKeyAction.allCases.contains(.addSet))
         #expect(LeftKeyAction.allCases.contains(.applyAISuggestion))
+    }
+
+    @Test("Rendered keyboard exposes the canonical kg/lb toggle label")
+    @MainActor
+    func renderedWeightUnitLabel() {
+        let content = WorkoutNumericKeyboardContentView(
+            field: .weight,
+            setType: .working,
+            exercise: nil,
+            recentWeightKg: 40,
+            theme: WorkoutNumericKeyboard.resolveTheme(isDark: false),
+            onKeyPress: { _ in },
+            onLeftAction: { _ in },
+            onPresetReps: { _, _ in },
+            onDone: {}
+        )
+        let host = UIHostingController(rootView: content)
+        host.view.frame = CGRect(x: 0, y: 0, width: 375, height: 280)
+        host.view.layoutIfNeeded()
+
+        #expect(WorkoutNumericKeyboardContentView.weightUnitToggleTitle() == "kg / lb")
+        #expect(host.view.bounds.size == CGSize(width: 375, height: 280))
+        #expect(host.sizeThatFits(in: host.view.bounds.size).height > 0)
     }
 }
 
