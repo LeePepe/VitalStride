@@ -277,6 +277,7 @@ struct ActiveExerciseSection: View {
                 if count < totalSetCount { isCollapsed = false }
             }
             .accessibilityValue(String(localized: "\(completedSetCount)/\(totalSetCount) 组", comment: "Exercise completion count"))
+            .background(theme.surface)
             .confirmationDialog(
                 String(localized: "删除动作？", comment: "Delete exercise confirmation title"),
                 isPresented: $showingDeleteConfirmation,

@@ -598,8 +598,66 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         }
     }
 
+    func testPinnedExerciseSectionHeaderOccludesUnderlyingRows() async throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        let exercise = Exercise(nameEn: "Bench Press", nameZh: "卧推", muscleGroup: .chest, equipment: .barbell)
+        context.insert(exercise)
+        let owner = WorkoutExercise(order: 0, exercise: exercise)
+        context.insert(owner)
+        for order in 0..<8 {
+            let set = ExerciseSet(order: order, weight: 60, reps: 10)
+            set.workoutExercise = owner
+            context.insert(set)
+        }
+        try context.save()
+
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 393, height: 500)
+        defer { window.isHidden = true }
+
+        for dark in [false, true] {
+            let content = List {
+                ActiveExerciseSection(
+                    workoutExercise: owner,
+                    onSetCompleted: {},
+                    onSetDeleted: {},
+                    onReplace: {},
+                    onSubstitute: {},
+                    onDelete: {},
+                    undoController: SetDeletionUndoController()
+                )
+            }
+            .listStyle(.plain)
+            .modelContainer(container)
+            .designThemePreview()
+            .preferredColorScheme(dark ? .dark : .light)
+            let host = UIHostingController(rootView: content)
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            try await Task.sleep(for: .milliseconds(200))
+            host.view.layoutIfNeeded()
+
+            let scrollView = try XCTUnwrap(descendants(of: host.view).compactMap { $0 as? UIScrollView }.first)
+            scrollView.setContentOffset(CGPoint(x: 0, y: 100), animated: false)
+            try await Task.sleep(for: .milliseconds(200))
+            host.view.layoutIfNeeded()
+
+            XCTAssertGreaterThan(scrollView.contentSize.height, scrollView.bounds.height)
+            let attachment = XCTAttachment(image: windowImage(window))
+            attachment.name = dark ? "Pinned exercise section header dark" : "Pinned exercise section header light"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
     private func textFields(in view: UIView) -> [UITextField] {
         (view as? UITextField).map { [$0] } ?? view.subviews.flatMap { textFields(in: $0) }
+    }
+
+    private func descendants(of view: UIView) -> [UIView] {
+        view.subviews + view.subviews.flatMap(descendants)
     }
 
     private func windowImage(_ window: UIWindow) -> UIImage {
