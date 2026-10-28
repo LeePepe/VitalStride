@@ -883,7 +883,10 @@ struct ActiveWorkoutView: View {
         } else {
             ScrollViewReader { proxy in
                 HStack(spacing: 0) {
-                    exerciseSidebar(exercises: exercises) { exercise in
+                    exerciseSidebar(
+                        exercises: exercises,
+                        width: sidebarWidth(forListWidth: exerciseListFrame.width)
+                    ) { exercise in
                         dismissKeyboardIfVisible()
                         selectedExerciseID = exercise.persistentModelID
                         withAnimation { proxy.scrollTo(exercise.persistentModelID, anchor: .top) }
@@ -950,6 +953,7 @@ struct ActiveWorkoutView: View {
 
     private func exerciseSidebar(
         exercises: [WorkoutExercise],
+        width: CGFloat,
         onSelect: @escaping (WorkoutExercise) -> Void
     ) -> some View {
         ScrollView {
@@ -972,16 +976,21 @@ struct ActiveWorkoutView: View {
                                 }
                                 Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
                                     .font(.caption2)
-                                    .lineLimit(2)
+                                    .lineLimit(4)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .multilineTextAlignment(.center)
                             }
-                            .frame(maxWidth: .infinity, minHeight: 60)
+                            .frame(maxWidth: .infinity, minHeight: 72, alignment: .top)
                             .padding(.horizontal, 4)
                             .foregroundStyle(selectedExerciseID == exercise.persistentModelID ? theme.accent : theme.foreground)
                             .background(selectedExerciseID == exercise.persistentModelID ? theme.accentSubtle : .clear,
                                         in: RoundedRectangle(cornerRadius: 12))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("workout_sidebar_exercise_\(index)")
+                        .accessibilityLabel(
+                            Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
+                        )
                         .accessibilityAddTraits(selectedExerciseID == exercise.persistentModelID ? .isSelected : [])
                         .accessibilityAction(
                             named: String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder")
@@ -1030,9 +1039,14 @@ struct ActiveWorkoutView: View {
             }
             .padding(.horizontal, 2)
         }
-        .frame(width: 64)
+        .frame(width: width)
         .background(theme.inner)
         .accessibilityIdentifier("workout_exercise_sidebar")
+    }
+
+    private func sidebarWidth(forListWidth listWidth: CGFloat) -> CGFloat {
+        guard listWidth > 0 else { return 64 }
+        return min(max(listWidth * 0.18, 64), 88)
     }
 
     private func dismissKeyboardIfVisible() {

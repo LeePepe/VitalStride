@@ -362,6 +362,36 @@ struct ActiveWorkoutRedesignTests {
         #expect(appended.isUnilateral && appended.weightRight == 55)
         #expect(appended.weight == 55 && appended.reps == 8)
     }
+
+    @Test("Sidebar reorder preserves each workout exercise identity and full name")
+    func sidebarReorderPreservesIdentityAndName() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        let workout = Workout(type: .strength, startDate: Date())
+        context.insert(workout)
+        let names = ["Band Bent-Over Row (Cable)", "Band Bent-Over Row (Barbell)", "Band Chest Fly"]
+        var owners: [WorkoutExercise] = []
+        for (index, name) in names.enumerated() {
+            let exercise = Exercise(nameEn: name, nameZh: name, muscleGroup: .back, equipment: .band)
+            let owner = WorkoutExercise(order: index, exercise: exercise)
+            owner.workout = workout
+            context.insert(exercise)
+            context.insert(owner)
+            owners.append(owner)
+        }
+        try context.save()
+
+        let originalIDs = owners.map(\.persistentModelID)
+        let originalNames = owners.compactMap { $0.exercise?.localizedName }
+        for (index, owner) in owners.reversed().enumerated() {
+            owner.order = index
+        }
+        let sorted = (workout.exercises ?? []).sorted { $0.order < $1.order }
+
+        #expect(sorted.map(\.persistentModelID) == Array(originalIDs.reversed()))
+        #expect(sorted.compactMap { $0.exercise?.localizedName } == Array(originalNames.reversed()))
+        #expect(Set(sorted.map(\.persistentModelID)) == Set(originalIDs))
+    }
 }
 
 #if canImport(UIKit)
@@ -1085,6 +1115,102 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                 }
             }
         }
+
+    func testSidebarNamesWrapWithMeasuredListWidthAndKeepAddExerciseReachable() async throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        let workout = Workout(type: .strength, startDate: Date())
+        context.insert(workout)
+        let names = [
+            "Band Bent-Over Row (Cable)",
+            "Band Bent-Over Row (Barbell)",
+            "Band Bent-Over Row (Dumbbell)",
+            "Band Chest Fly"
+        ]
+        var owners: [WorkoutExercise] = []
+        for (index, name) in names.enumerated() {
+            let exercise = Exercise(nameEn: name, nameZh: name, muscleGroup: .back, equipment: .band)
+            let owner = WorkoutExercise(order: index, exercise: exercise)
+            owner.workout = workout
+            let set = ExerciseSet(order: 0, weight: 0, reps: 10)
+            set.workoutExercise = owner
+            context.insert(exercise)
+            context.insert(owner)
+            context.insert(set)
+            owners.append(owner)
+        }
+        try context.save()
+
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        defer { window.isHidden = true }
+        let defaults = UserDefaults.standard
+        let previousLargeMode = defaults.object(forKey: "activeWorkoutLargeMode")
+        defer { defaults.set(previousLargeMode, forKey: "activeWorkoutLargeMode") }
+
+        for largeMode in [false, true] {
+            defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+            for width in [375, 393] {
+                for dark in [false, true] {
+                    window.frame = CGRect(x: 0, y: 0, width: CGFloat(width), height: 852)
+                    let recorder = ListObservationRecorder()
+                    let content = ActiveWorkoutView(source: .resume(workout))
+                        .modelContainer(container)
+                        .designThemePreview()
+                        .preferredColorScheme(dark ? .dark : .light)
+                        .dynamicTypeSize(.accessibility3)
+                        .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                            onGeometry: { recorder.geometry = $0 },
+                            onRowFrame: { recorder.rowFrames[$0] = $1 }
+                        ))
+                    let host = UIHostingController(rootView: content)
+                    window.rootViewController = host
+                    window.makeKeyAndVisible()
+                    try await Task.sleep(for: .milliseconds(350))
+                    host.view.layoutIfNeeded()
+
+                    let geometry = try XCTUnwrap(recorder.geometry)
+                    let sidebarWidth = geometry.listFrame.minX
+                    XCTAssertGreaterThanOrEqual(sidebarWidth, 64)
+                    XCTAssertGreaterThan(geometry.listFrame.width, 250)
+
+                    let listScrollView = try XCTUnwrap(
+                        descendants(of: host.view).compactMap { $0 as? UIScrollView }.first {
+                            let frame = $0.convert($0.bounds, to: window)
+                            return abs(frame.minX - geometry.listFrame.minX) < 2
+                                && abs(frame.minY - geometry.listFrame.minY) < 2
+                        }
+                    )
+                    listScrollView.setContentOffset(
+                        CGPoint(x: 0, y: max(0, listScrollView.contentSize.height - listScrollView.bounds.height)),
+                        animated: false
+                    )
+                    try await Task.sleep(for: .milliseconds(180))
+                    XCTAssertGreaterThan(listScrollView.contentSize.height, listScrollView.bounds.height)
+
+                    let image = windowImage(window)
+                    let attachment = XCTAttachment(image: image)
+                    attachment.name = "T04 sidebar \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light") accessibility3"
+                    attachment.lifetime = .keepAlways
+                    add(attachment)
+                    if let directory = ProcessInfo.processInfo.environment["T04_EVIDENCE_DIR"] {
+                        let root = URL(fileURLWithPath: directory, isDirectory: true)
+                        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+                        let variant = "\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")"
+                        try XCTUnwrap(image.pngData()).write(
+                            to: root.appendingPathComponent("sidebar-\(variant).png")
+                        )
+                        try "\(geometry.listFrame)\nsidebarWidth=\(sidebarWidth)\ncontentSize=\(listScrollView.contentSize)\n"
+                            .write(
+                                to: root.appendingPathComponent("sidebar-\(variant).frames.txt"),
+                                atomically: true,
+                                encoding: .utf8
+                            )
+                    }
+                }
+            }
+        }
+    }
 
         private func persistT03Evidence(
             image: UIImage,
