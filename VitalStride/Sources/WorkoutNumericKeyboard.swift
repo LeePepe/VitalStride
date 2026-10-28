@@ -74,6 +74,14 @@ struct WorkoutNumericKeyboardContentView: View {
     let onPresetReps: @MainActor (_ weightKg: Double?, _ reps: Int) -> Void
     let onDone: @MainActor () -> Void
 
+    static func weightUnitToggleTitle() -> String {
+        String(
+            localized: "workout.keyboard.weight_unit",
+            defaultValue: "kg / lb",
+            comment: "Toggle between kilogram and pound display units"
+        )
+    }
+
     init(
         field: SetField,
         setType: SetType,
@@ -106,7 +114,10 @@ struct WorkoutNumericKeyboardContentView: View {
                 VStack(spacing: 8) {
                     functionKey(.toggleUnilateral, title: String(localized: "workout.keyboard.mode", defaultValue: "Total / L-R", comment: "Toggle the whole exercise weight mode"))
                     functionKey(.setWarmup, title: String(localized: "workout.keyboard.warmup", defaultValue: "Warmup", comment: "Set warmup type"))
-                    functionKey(.toggleWeightUnit, title: "kg / lbs")
+                    functionKey(
+                        .toggleWeightUnit,
+                        title: Self.weightUnitToggleTitle()
+                    )
                 }
                 .frame(width: 68)
                 NumericKeypad(mode: field.isDecimalEnabled ? .decimal : .integer, onKeyPress: onKeyPress)
