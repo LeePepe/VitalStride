@@ -250,7 +250,8 @@ struct ActiveExerciseSection: View {
                             ? LargeWorkoutFonts.exerciseName(large: true)
                             : Font.system(.body, design: .default).weight(.semibold))
                         .foregroundStyle(theme.neutrals.text1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .layoutPriority(1)
+                        .fixedSize(horizontal: false, vertical: true)
                         .lineLimit(3)
                         .background {
                             GeometryReader { geometry in
@@ -296,6 +297,25 @@ struct ActiveExerciseSection: View {
                     Text("\(completedSetCount)/\(totalSetCount)")
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(theme.neutrals.text2)
+                        .background {
+                            GeometryReader { geometry in
+                                Color.clear
+                                    .onAppear {
+                                        listObservation.onControlFrame(
+                                            workoutExercise.persistentModelID,
+                                            "progress",
+                                            geometry.frame(in: .global)
+                                        )
+                                    }
+                                    .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                        listObservation.onControlFrame(
+                                            workoutExercise.persistentModelID,
+                                            "progress",
+                                            frame
+                                        )
+                                    }
+                            }
+                        }
                     if completedSetCount == totalSetCount, totalSetCount > 0 {
                         Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
                             .font(.caption2)
@@ -373,9 +393,9 @@ struct ActiveExerciseSection: View {
                                 }
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .containerRelativeFrame(.horizontal)
+                    .frame(minWidth: 44, minHeight: 44)
                 }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .onChange(of: completedSetCount) { _, count in
@@ -397,8 +417,9 @@ struct ActiveExerciseSection: View {
                     .padding(.bottom, -15)
             }
             .listRowInsets(EdgeInsets())
-                    .zIndex(1)
-                    .background {
+            .background(theme.neutrals.bg)
+            .zIndex(1)
+            .background {
                 GeometryReader { geometry in
                     Color.clear
                         .onAppear {

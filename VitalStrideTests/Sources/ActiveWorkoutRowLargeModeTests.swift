@@ -985,8 +985,12 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                                     .designThemePreview()
                                     .preferredColorScheme(dark ? .dark : .light)
                                     .dynamicTypeSize(dynamicType)
-                                    .environment(\.activeExerciseSectionInteraction, ActiveExerciseSectionInteraction())
+                                    .environment(\.activeExerciseSectionInteraction, ActiveExerciseSectionInteraction(
+                                        registerToggle: { id, action in recorder.toggleActions[id] = action },
+                                        onCollapseChange: { id, collapsed in recorder.collapseStates[id] = collapsed }
+                                    ))
                                     .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                                        onGeometry: { recorder.geometry = $0 },
                                         onHeaderFrame: { recorder.headerFrames[$0] = $1 },
                                         onControlFrame: {
                                             recorder.controlFrames[$0, default: [:]][$1] = $2
@@ -1002,11 +1006,25 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                                 let ownerID = owner.persistentModelID
                                 let header = try XCTUnwrap(recorder.headerFrames[ownerID])
                                 let controls = recorder.controlFrames[ownerID] ?? [:]
+                                let geometry = try XCTUnwrap(recorder.geometry)
                                 let title = try XCTUnwrap(controls["title"])
-                                assertHeaderControls(controls, header: header, viewport: window.bounds)
+                                assertHeaderControls(controls, header: header, viewport: geometry.listFrame)
+                                let toggle = try XCTUnwrap(recorder.toggleActions[ownerID])
+                                toggle()
+                                try await Task.sleep(for: .milliseconds(100))
+                                XCTAssertNil(recorder.collapseStates[ownerID], "Incomplete title header must preserve its non-collapsing action")
+                                let progress = try XCTUnwrap(controls["progress"])
+                                let addSet = try XCTUnwrap(controls["add-set"])
+                                let menu = try XCTUnwrap(controls["menu"])
                                 XCTAssertTrue(header.insetBy(dx: -1, dy: -1).contains(title))
-                                XCTAssertFalse(title.intersects(try XCTUnwrap(controls["add-set"])))
-                                XCTAssertFalse(title.intersects(try XCTUnwrap(controls["menu"])))
+                                XCTAssertTrue(geometry.listFrame.insetBy(dx: -1, dy: -1).contains(title))
+                                XCTAssertTrue(header.insetBy(dx: -1, dy: -1).contains(progress))
+                                XCTAssertTrue(geometry.listFrame.insetBy(dx: -1, dy: -1).contains(progress))
+                                XCTAssertFalse(title.intersects(progress))
+                                XCTAssertFalse(title.intersects(addSet))
+                                XCTAssertFalse(title.intersects(menu))
+                                XCTAssertFalse(progress.intersects(addSet))
+                                XCTAssertFalse(progress.intersects(menu))
                                 XCTAssertGreaterThan(title.height, 20, "Long title must have measurable rendered height")
 
                                 let image = windowImage(window)
@@ -1014,14 +1032,26 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                                 attachment.name = "T03 \(name) \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light") \(dynamicType)"
                                 attachment.lifetime = .keepAlways
                                 add(attachment)
+                                try persistT03Evidence(
+                                    image: image,
+                                    name: name,
+                                    width: width,
+                                    largeMode: largeMode,
+                                    dark: dark,
+                                    dynamicType: dynamicType,
+                                    title: title,
+                                    header: header,
+                                    geometry: geometry,
+                                    controls: controls
+                                )
                                 titleImages[name] = (try HeaderPixels(image), title)
                             }
 
                             let first = try XCTUnwrap(titleImages[names[0]])
                             let second = try XCTUnwrap(titleImages[names[1]])
                             XCTAssertGreaterThan(
-                                changedPixels(first.image, second.image, in: first.frame),
-                                12,
+                                changedPixels(first.image, second.image, in: first.frame.union(second.frame)),
+                                200,
                                 "Shared-prefix titles must produce different rendered title pixels for their distinguishing words"
                             )
                         }
@@ -1030,7 +1060,39 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             }
         }
 
-    private func textFields(in view: UIView) -> [UITextField] {
+        private func persistT03Evidence(
+            image: UIImage,
+            name: String,
+            width: Int,
+            largeMode: Bool,
+            dark: Bool,
+            dynamicType: DynamicTypeSize,
+            title: CGRect,
+            header: CGRect,
+            geometry: ActiveWorkoutListGeometry,
+            controls: [String: CGRect]
+        ) throws {
+            let directory = ProcessInfo.processInfo.environment["T03_EVIDENCE_DIR"]
+                ?? "/Users/lee/Development/handoff/vs-workout-fixes-20261027/receipts/T03-writer-r2-evidence"
+            let safeName = name.replacingOccurrences(of: " ", with: "-")
+                .replacingOccurrences(of: "(", with: "")
+                .replacingOccurrences(of: ")", with: "")
+            let variant = "\(safeName)-\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")-\(dynamicType)"
+            let root = URL(fileURLWithPath: directory, isDirectory: true)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            let imageURL = root.appendingPathComponent("\(variant).png")
+            try XCTUnwrap(image.pngData()).write(to: imageURL)
+            let frameURL = root.appendingPathComponent("\(variant).frames.txt")
+            let frameText = [
+                "title=\(title)",
+                "header=\(header)",
+                "listFrame=\(geometry.listFrame)",
+                "controls=\(controls)"
+            ].joined(separator: "\n")
+            try frameText.write(to: frameURL, atomically: true, encoding: .utf8)
+        }
+
+        private func textFields(in view: UIView) -> [UITextField] {
         (view as? UITextField).map { [$0] } ?? view.subviews.flatMap { textFields(in: $0) }
     }
 
