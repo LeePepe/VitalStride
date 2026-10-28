@@ -24,6 +24,7 @@ struct CascadeDeletionRequest: Identifiable {
 
 struct ActiveExerciseSection: View {
     @Environment(\.theme) private var theme
+    @Environment(\.activeWorkoutListObservation) private var listObservation
     let workoutExercise: WorkoutExercise
     let onSetCompleted: () -> Void
     let onSetDeleted: () -> Void
@@ -124,6 +125,11 @@ struct ActiveExerciseSection: View {
                     .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
+                    .onGeometryChange(for: CGRect.self) { geometry in
+                        geometry.frame(in: .global)
+                    } action: { frame in
+                        listObservation.onRowFrame(exerciseSet.persistentModelID, frame)
+                    }
                     .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
                     // MY-1420: sub-sets get the same trailing full swipe as
                     // main sets. Sub-sets are always deletable — removing one
@@ -163,6 +169,11 @@ struct ActiveExerciseSection: View {
                     .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
+                    .onGeometryChange(for: CGRect.self) { geometry in
+                        geometry.frame(in: .global)
+                    } action: { frame in
+                        listObservation.onRowFrame(exerciseSet.persistentModelID, frame)
+                    }
                     .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if canDelete {
@@ -247,6 +258,25 @@ struct ActiveExerciseSection: View {
                     }
                 }
                 addSetButton
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear
+                                .onAppear {
+                                    listObservation.onControlFrame(
+                                        workoutExercise.persistentModelID,
+                                        "add-set",
+                                        geometry.frame(in: .global)
+                                    )
+                                }
+                                .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                    listObservation.onControlFrame(
+                                        workoutExercise.persistentModelID,
+                                        "add-set",
+                                        frame
+                                    )
+                                }
+                        }
+                    }
                 Menu {
                     Button {
                         onSubstitute()
@@ -272,11 +302,56 @@ struct ActiveExerciseSection: View {
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear {
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "menu",
+                                    geometry.frame(in: .global)
+                                )
+                            }
+                            .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "menu",
+                                    frame
+                                )
+                            }
+                    }
+                }
             }
             .onChange(of: completedSetCount) { _, count in
                 if count < totalSetCount { isCollapsed = false }
             }
             .accessibilityValue(String(localized: "\(completedSetCount)/\(totalSetCount) 组", comment: "Exercise completion count"))
+            // The surface includes the header's layout padding, rather than
+            // painting only the title/control HStack inside the system material.
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                theme.neutrals.bg
+                    .padding(.horizontal, -20)
+                    .padding(.top, -22)
+                    .padding(.bottom, -15)
+            }
+            .listRowInsets(EdgeInsets())
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear {
+                            listObservation.onHeaderFrame(
+                                workoutExercise.persistentModelID,
+                                geometry.frame(in: .global)
+                            )
+                        }
+                        .onChange(of: geometry.frame(in: .global)) { _, frame in
+                            listObservation.onHeaderFrame(workoutExercise.persistentModelID, frame)
+                        }
+                }
+            }
             .confirmationDialog(
                 String(localized: "删除动作？", comment: "Delete exercise confirmation title"),
                 isPresented: $showingDeleteConfirmation,
