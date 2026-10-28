@@ -29,12 +29,38 @@ struct ActiveWorkoutListDriver: Sendable {
     let scrollTo: @MainActor @Sendable (AnyHashable, UnitPoint) -> Void
 }
 
+struct ActiveWorkoutSidebarItem: Sendable, Equatable {
+    let id: String
+    let name: String
+    let index: Int
+    let completed: Int
+    let total: Int
+
+    var accessibilityLabel: String { "\(index + 1), \(name)" }
+    var accessibilityValue: String {
+        let progress = String(localized: "已完成 \(completed) / \(total) 组", comment: "Completed sets")
+        return completed == total && total > 0
+            ? String(localized: "完成", comment: "Done") + ", " + progress : progress
+    }
+}
+
 struct ActiveWorkoutListObservationSink: Sendable {
     var onGeometry: @MainActor @Sendable (ActiveWorkoutListGeometry) -> Void = { _ in }
     var onReady: @MainActor @Sendable (ActiveWorkoutListDriver) -> Void = { _ in }
     var onRowFrame: @MainActor @Sendable (AnyHashable, CGRect) -> Void = { _, _ in }
     var onHeaderFrame: @MainActor @Sendable (AnyHashable, CGRect) -> Void = { _, _ in }
     var onControlFrame: @MainActor @Sendable (AnyHashable, String, CGRect) -> Void = { _, _, _ in }
+    var onSidebarItems: @MainActor @Sendable ([ActiveWorkoutSidebarItem]) -> Void = { _ in }
+    var onSidebarItemFrame: @MainActor @Sendable (String, CGRect) -> Void = { _, _ in }
+    var onSidebarNameFrame: @MainActor @Sendable (String, CGRect) -> Void = { _, _ in }
+    var onKeyboardVisibility: @MainActor @Sendable (Bool) -> Void = { _ in }
+    var onSidebarDismissKeyboardReady: @MainActor @Sendable (
+        @escaping @MainActor @Sendable () -> Void
+    ) -> Void = { _ in }
+    var onSidebarAddFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onSidebarMoveReady: @MainActor @Sendable (
+        @escaping @MainActor @Sendable (Int, Int) -> Void
+    ) -> Void = { _ in }
 }
 
 private struct ActiveWorkoutListObservationKey: EnvironmentKey {
@@ -431,11 +457,13 @@ struct ActiveWorkoutView: View {
                 NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
             ) { _ in
                 isKeyboardVisible = true
+                listObservation.onKeyboardVisibility(true)
             }
             .onReceive(
                 NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
             ) { _ in
                 isKeyboardVisible = false
+                listObservation.onKeyboardVisibility(false)
             }
             #endif
         }
@@ -883,7 +911,10 @@ struct ActiveWorkoutView: View {
         } else {
             ScrollViewReader { proxy in
                 HStack(spacing: 0) {
-                    exerciseSidebar(exercises: exercises) { exercise in
+                    exerciseSidebar(
+                        exercises: exercises,
+                        width: sidebarWidth(forListWidth: exerciseListFrame.width)
+                    ) { exercise in
                         dismissKeyboardIfVisible()
                         selectedExerciseID = exercise.persistentModelID
                         withAnimation { proxy.scrollTo(exercise.persistentModelID, anchor: .top) }
@@ -948,10 +979,22 @@ struct ActiveWorkoutView: View {
 
     }
 
+    @ViewBuilder
     private func exerciseSidebar(
         exercises: [WorkoutExercise],
+        width: CGFloat,
         onSelect: @escaping (WorkoutExercise) -> Void
     ) -> some View {
+        let sidebarItems = exercises.enumerated().map { index, exercise in
+            let completed = (exercise.sets ?? []).filter(\.isCompleted).count
+            return ActiveWorkoutSidebarItem(
+                id: String(describing: exercise.persistentModelID),
+                name: exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"),
+                index: index,
+                completed: completed,
+                total: (exercise.sets ?? []).count
+            )
+        }
         ScrollView {
             VStack(spacing: 6) {
                 Text(String(localized: "workout.sidebar.title", defaultValue: "Exercises", comment: "Selected exercise sidebar"))
@@ -959,11 +1002,12 @@ struct ActiveWorkoutView: View {
                     .foregroundStyle(theme.secondaryForeground)
                     .padding(.top, 12)
                 ForEach(Array(exercises.enumerated()), id: \.element.persistentModelID) { index, exercise in
+                    let completed = (exercise.sets ?? []).filter(\.isCompleted).count
+                    let total = (exercise.sets ?? []).count
+                    let item = sidebarItems[index]
                     VStack(spacing: 2) {
                         Button { onSelect(exercise) } label: {
                             VStack(spacing: 4) {
-                                let completed = (exercise.sets ?? []).filter(\.isCompleted).count
-                                let total = (exercise.sets ?? []).count
                                 HStack(spacing: 2) {
                                     Text(completed == total && total > 0 ? "✓" : "\(index + 1)")
                                         .font(.caption.monospacedDigit().bold())
@@ -972,16 +1016,53 @@ struct ActiveWorkoutView: View {
                                 }
                                 Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
                                     .font(.caption2)
-                                    .lineLimit(2)
+                                    .lineLimit(nil)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .multilineTextAlignment(.center)
+                                    .background {
+                                        GeometryReader { proxy in
+                                            Color.clear
+                                                .onAppear {
+                                                    listObservation.onSidebarNameFrame(
+                                                        String(describing: exercise.persistentModelID),
+                                                        proxy.frame(in: .global)
+                                                    )
+                                                }
+                                                .onChange(of: proxy.frame(in: .global)) { _, frame in
+                                                    listObservation.onSidebarNameFrame(
+                                                        String(describing: exercise.persistentModelID), frame
+                                                    )
+                                                }
+                                        }
+                                    }
                             }
-                            .frame(maxWidth: .infinity, minHeight: 60)
+                            .frame(maxWidth: .infinity, minHeight: 72, alignment: .top)
                             .padding(.horizontal, 4)
                             .foregroundStyle(selectedExerciseID == exercise.persistentModelID ? theme.accent : theme.foreground)
                             .background(selectedExerciseID == exercise.persistentModelID ? theme.accentSubtle : .clear,
                                         in: RoundedRectangle(cornerRadius: 12))
                         }
                         .buttonStyle(.plain)
+                        .background {
+                            GeometryReader { proxy in
+                                Color.clear
+                                    .onAppear {
+                                        listObservation.onSidebarItemFrame(
+                                            String(describing: exercise.persistentModelID),
+                                            proxy.frame(in: .global)
+                                        )
+                                    }
+                                    .onChange(of: proxy.frame(in: .global)) { _, frame in
+                                        listObservation.onSidebarItemFrame(
+                                            String(describing: exercise.persistentModelID),
+                                            frame
+                                        )
+                                    }
+                            }
+                        }
+                        .accessibilityIdentifier("workout_sidebar_exercise_\(index)")
+                        .accessibilityLabel(Text(verbatim: item.accessibilityLabel))
+                        .accessibilityValue(Text(verbatim: item.accessibilityValue))
                         .accessibilityAddTraits(selectedExerciseID == exercise.persistentModelID ? .isSelected : [])
                         .accessibilityAction(
                             named: String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder")
@@ -1027,12 +1108,39 @@ struct ActiveWorkoutView: View {
                         comment: "Sidebar add exercise button"
                     )
                 )
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .onAppear {
+                                listObservation.onSidebarAddFrame(proxy.frame(in: .global))
+                            }
+                            .onChange(of: proxy.frame(in: .global)) { _, frame in
+                                listObservation.onSidebarAddFrame(frame)
+                            }
+                    }
+                }
             }
             .padding(.horizontal, 2)
         }
-        .frame(width: 64)
+        .frame(width: width)
         .background(theme.inner)
         .accessibilityIdentifier("workout_exercise_sidebar")
+        .onAppear {
+            listObservation.onSidebarItems(sidebarItems)
+            listObservation.onKeyboardVisibility(isKeyboardVisible)
+            listObservation.onSidebarDismissKeyboardReady { dismissKeyboardIfVisible() }
+            listObservation.onSidebarMoveReady { source, destination in
+                moveExercises(from: IndexSet(integer: source), to: destination)
+            }
+        }
+        .onChange(of: sidebarItems) { _, items in
+            listObservation.onSidebarItems(items)
+        }
+    }
+
+    private func sidebarWidth(forListWidth listWidth: CGFloat) -> CGFloat {
+        guard listWidth > 0 else { return 64 }
+        return min(max(listWidth * 0.18, 64), 88)
     }
 
     private func dismissKeyboardIfVisible() {
@@ -1418,6 +1526,8 @@ struct ActiveWorkoutView: View {
 
     private func moveExercises(from source: IndexSet, to destination: Int) {
         var exercises = (workout?.exercises ?? []).sorted { $0.order < $1.order }
+        guard !source.isEmpty, source.allSatisfy({ exercises.indices.contains($0) }),
+              (0...exercises.count).contains(destination) else { return }
         exercises.move(fromOffsets: source, toOffset: destination)
         for (index, exercise) in exercises.enumerated() {
             exercise.order = index

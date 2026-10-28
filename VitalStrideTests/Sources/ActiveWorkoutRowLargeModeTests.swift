@@ -362,6 +362,36 @@ struct ActiveWorkoutRedesignTests {
         #expect(appended.isUnilateral && appended.weightRight == 55)
         #expect(appended.weight == 55 && appended.reps == 8)
     }
+
+    @Test("Stored exercise sort preserves identity and full name; production reorder is verified in rendering suite")
+    func sidebarReorderPreservesIdentityAndName() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        let workout = Workout(type: .strength, startDate: Date())
+        context.insert(workout)
+        let names = ["Band Bent-Over Row (Cable)", "Band Bent-Over Row (Barbell)", "Band Chest Fly"]
+        var owners: [WorkoutExercise] = []
+        for (index, name) in names.enumerated() {
+            let exercise = Exercise(nameEn: name, nameZh: name, muscleGroup: .back, equipment: .band)
+            let owner = WorkoutExercise(order: index, exercise: exercise)
+            owner.workout = workout
+            context.insert(exercise)
+            context.insert(owner)
+            owners.append(owner)
+        }
+        try context.save()
+
+        let originalIDs = owners.map(\.persistentModelID)
+        let originalNames = owners.compactMap { $0.exercise?.localizedName }
+        for (index, owner) in owners.reversed().enumerated() {
+            owner.order = index
+        }
+        let sorted = (workout.exercises ?? []).sorted { $0.order < $1.order }
+
+        #expect(sorted.map(\.persistentModelID) == Array(originalIDs.reversed()))
+        #expect(sorted.compactMap { $0.exercise?.localizedName } == Array(originalNames.reversed()))
+        #expect(Set(sorted.map(\.persistentModelID)) == Set(originalIDs))
+    }
 }
 
 #if canImport(UIKit)
@@ -380,6 +410,16 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         var controlFrames: [AnyHashable: [String: CGRect]] = [:]
         var toggleActions: [AnyHashable: ActiveExerciseSectionInteraction.ToggleAction] = [:]
         var collapseStates: [AnyHashable: Bool] = [:]
+        var sidebarItems: [ActiveWorkoutSidebarItem] = []
+        var sidebarItemFrames: [String: CGRect] = [:]
+        var sidebarNameFrames: [String: CGRect] = [:]
+        var keyboardVisible = false
+        var keyboardDidShow = false
+        var dismissKeyboard: (@MainActor @Sendable () -> Void)?
+        var sidebarAddUpdates = 0
+        var sidebarAddUpdatedAt = ProcessInfo.processInfo.systemUptime
+        var sidebarAddFrame: CGRect?
+        var sidebarMove: (@MainActor @Sendable (Int, Int) -> Void)?
     }
 
     func testSubSetDisplayRefreshPreservesPrecisionAndUserEditsPersist() async throws {
@@ -1086,6 +1126,284 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             }
         }
 
+    func testSidebarNamesWrapWithMeasuredListWidthAndKeepAddExerciseReachable() async throws {
+        let defaults = UserDefaults.standard
+        let previous = defaults.object(forKey: "activeWorkoutLargeMode")
+        defer { defaults.set(previous, forKey: "activeWorkoutLargeMode") }
+        for width in [375, 393] {
+            for largeMode in [false, true] {
+                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                for dynamicType in [DynamicTypeSize.large, .accessibility3] {
+                    for dark in [false, true] {
+                        try await verifySidebar(width: width, largeMode: largeMode, dynamicType: dynamicType, dark: dark)
+                    }
+                }
+            }
+        }
+    }
+
+    private func verifySidebar(width: Int, largeMode: Bool, dynamicType: DynamicTypeSize, dark: Bool) async throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        let workout = Workout(type: .strength, startDate: Date())
+        context.insert(workout)
+        // Twelve bounded entries overflow even the real scene's ordinary-size viewport.
+        // The leading entry keeps BOTH shared-prefix names unselected, with identical chrome.
+        var names = ["Warm-up", "Band Bent-Over Row (Cable)", "Band Bent-Over Row (Barbell)", "弹力带俯身划船"]
+            + (1...8).map { "Band Row \($0)" }
+        let chinese = Locale.current.language.languageCode?.identifier == "zh"
+        names[names.count - 1] = chinese ? "弹力带划船" : "Band Row 8"
+        var owners: [WorkoutExercise] = []
+        for (index, name) in names.enumerated() {
+            let exercise = Exercise(nameEn: index == names.count - 1 ? "Band Row 8" : name,
+                                    nameZh: index == names.count - 1 ? "弹力带划船" : name,
+                                    muscleGroup: .back, equipment: .band)
+            let owner = WorkoutExercise(order: index, exercise: exercise)
+            owner.workout = workout
+            context.insert(exercise)
+            context.insert(owner)
+            for setIndex in 0..<2 {
+                let set = ExerciseSet(order: setIndex, weight: 0, reps: 10, isCompleted: setIndex < index % 3)
+                set.workoutExercise = owner
+                context.insert(set)
+            }
+            owners.append(owner)
+        }
+        try context.save()
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: CGFloat(width), height: 852)
+        let recorder = ListObservationRecorder()
+        let didShow = NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardDidShowNotification, object: nil, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { recorder.keyboardDidShow = true }
+        }
+        let didHide = NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardDidHideNotification, object: nil, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { recorder.keyboardDidShow = false }
+        }
+        defer {
+            NotificationCenter.default.removeObserver(didShow)
+            NotificationCenter.default.removeObserver(didHide)
+        }
+        let content = ActiveWorkoutView(source: .resume(workout))
+            .modelContainer(container)
+            .designThemePreview()
+            .preferredColorScheme(dark ? .dark : .light)
+            .dynamicTypeSize(dynamicType)
+            .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                onGeometry: { recorder.geometry = $0 },
+                onReady: { recorder.driver = $0 },
+                onSidebarItems: { recorder.sidebarItems = $0 },
+                onSidebarItemFrame: { recorder.sidebarItemFrames[$0] = $1 },
+                onSidebarNameFrame: { recorder.sidebarNameFrames[$0] = $1 },
+                onKeyboardVisibility: { recorder.keyboardVisible = $0 },
+                onSidebarDismissKeyboardReady: { recorder.dismissKeyboard = $0 },
+                onSidebarAddFrame: {
+                    recorder.sidebarAddFrame = $0
+                    recorder.sidebarAddUpdates += 1
+                    recorder.sidebarAddUpdatedAt = ProcessInfo.processInfo.systemUptime
+                },
+                onSidebarMoveReady: { recorder.sidebarMove = $0 }
+            ))
+        let host = UIHostingController(rootView: content)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer {
+            window.endEditing(true)
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+        try await Task.sleep(for: .milliseconds(350))
+        host.view.layoutIfNeeded()
+        let geometry = try XCTUnwrap(recorder.geometry)
+        let sidebarWidth = geometry.listFrame.minX
+        XCTAssertEqual(sidebarWidth, 64, accuracy: 0.5)
+        XCTAssertGreaterThan(geometry.listFrame.width, 250)
+        let scroll = try XCTUnwrap(descendants(of: host.view).compactMap { $0 as? UIScrollView }.first {
+            let frame = $0.convert($0.bounds, to: window)
+            return frame.minX < 1 && frame.width <= sidebarWidth + 2
+        })
+        let variant = "T04-\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")-\(dynamicType)"
+        let original = recorder.sidebarItems
+        XCTAssertEqual(original.map(\.name), names)
+        XCTAssertEqual(original.map(\.index), Array(names.indices))
+        XCTAssertEqual(original.map(\.completed), names.indices.map { $0 % 3 })
+        XCTAssertEqual(original.map(\.total), Array(repeating: 2, count: names.count))
+        XCTAssertEqual(Set(original.map(\.id)).count, names.count)
+        for item in original {
+            XCTAssertEqual(item.accessibilityLabel, "\(item.index + 1), \(item.name)")
+            XCTAssertFalse(item.accessibilityValue.isEmpty)
+            if Locale.current.language.languageCode?.identifier == "en" {
+                XCTAssertTrue(item.accessibilityValue.contains("Completed"))
+                XCTAssertEqual(item.accessibilityValue.contains("Done"), item.completed == item.total)
+            } else {
+                XCTAssertTrue(item.accessibilityValue.contains("已完成"))
+            }
+        }
+        var textSignatures: [Int] = []
+        // Each image is scrolled to the actual name; the measured crop contains only Text.
+        for index in [1, 2] {
+            let id = original[index].id
+            let frame = try XCTUnwrap(recorder.sidebarNameFrames[id])
+            let reference = UIHostingController(rootView: Text(names[index]).font(.caption2)
+                .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.center)
+                .dynamicTypeSize(dynamicType))
+            let ideal = reference.sizeThatFits(in: CGSize(width: frame.width, height: 10000))
+            XCTAssertEqual(frame.height, ideal.height, accuracy: 1, "Full original name must retain its uncapped text height")
+            XCTAssertGreaterThan(frame.height, 0)
+            XCTAssertTrue(frame.minX >= 0 && frame.maxX <= sidebarWidth)
+            // UIKit's raw bounds include the root safeAreaInset dock. Use adjusted insets
+            // to show the prefix and distinguishing suffix entirely above that occlusion.
+            let viewport = scroll.convert(scroll.bounds.inset(by: scroll.adjustedContentInset), to: window)
+            scroll.setContentOffset(CGPoint(x: 0, y: scroll.contentOffset.y + frame.minY - viewport.minY), animated: false)
+            try await Task.sleep(for: .milliseconds(100))
+            let prefixImage = windowImage(window)
+            let prefixFrame = try XCTUnwrap(recorder.sidebarNameFrames[id])
+            try persistHeaderEvidence(image: prefixImage, name: "\(variant)-prefix-\(index)",
+                                      frames: "name=\(names[index])\ntextFrame=\(prefixFrame)\nideal=\(ideal)\nviewport=\(viewport)")
+            let suffixReference = UIHostingController(rootView: Text(index == 1 ? "(Cable)" : "(Barbell)")
+                .font(.caption2).fixedSize(horizontal: false, vertical: true).dynamicTypeSize(dynamicType))
+            let suffixHeight = suffixReference.sizeThatFits(in: CGSize(width: frame.width, height: 10000)).height
+            scroll.setContentOffset(CGPoint(x: 0, y: scroll.contentOffset.y + prefixFrame.maxY - viewport.maxY + 8),
+                                    animated: false)
+            try await Task.sleep(for: .milliseconds(100))
+            let visible = try XCTUnwrap(recorder.sidebarNameFrames[id])
+            let suffix = CGRect(x: visible.minX, y: visible.maxY - suffixHeight,
+                                width: visible.width, height: suffixHeight)
+            XCTAssertTrue(viewport.insetBy(dx: -1, dy: -1).contains(suffix), "Entire distinguishing suffix must be unobscured")
+            let image = windowImage(window)
+            textSignatures.append(pixelSignature(try HeaderPixels(image), suffix))
+            try persistHeaderEvidence(image: image, name: "\(variant)-name-\(index)",
+                                      frames: "name=\(names[index])\ntextFrame=\(visible)\nsuffix=\(suffix)\nideal=\(ideal)\nviewport=\(viewport)\nlist=\(geometry.listFrame)")
+            if width == 375 && !largeMode {
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "\(variant)-suffix-\(names[index])"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            }
+        }
+        XCTAssertNotEqual(textSignatures[0], textSignatures[1], "Text-only crops must distinguish Cable and Barbell")
+        for keyboardVisible in [false, true] {
+            if keyboardVisible {
+                let field = try XCTUnwrap(textFields(in: host.view).first { $0.window === window && !$0.isHidden })
+                XCTAssertTrue(field.becomeFirstResponder())
+                let transitionStress = ProcessInfo.processInfo.environment["T04_SIDEBAR_TRANSITION_STRESS"] == "1"
+                try await Task.sleep(for: .milliseconds(transitionStress ? 1 : 500))
+                XCTAssertTrue(field.isFirstResponder)
+            }
+            let settling = try await settleSidebarTail(
+                scroll, host: host, window: window, recorder: recorder,
+                keyboardVisible: keyboardVisible, variant: variant
+            )
+            XCTAssertEqual(recorder.keyboardVisible, keyboardVisible, "Real keyboard notifications must reach root state")
+            XCTAssertGreaterThan(scroll.contentSize.height, scroll.bounds.height + 44, "Fixture must genuinely overflow")
+            let addFrame = try XCTUnwrap(recorder.sidebarAddFrame)
+            let diagnostic = "variant=\(variant), keyboard=\(keyboardVisible), rootKeyboard=\(recorder.keyboardVisible), "
+                + "didShow=\(recorder.keyboardDidShow), firstResponder=\(textFields(in: host.view).contains { $0.isFirstResponder }), "
+                + "uptime=\(ProcessInfo.processInfo.systemUptime), add=\(addFrame), updates=\(recorder.sidebarAddUpdates), "
+                + "frameAge=\(ProcessInfo.processInfo.systemUptime - recorder.sidebarAddUpdatedAt), "
+                + "bounds=\(scroll.bounds), offset=\(scroll.contentOffset), size=\(scroll.contentSize), "
+                + "inset=\(scroll.contentInset), adjusted=\(scroll.adjustedContentInset), "
+                + "window=\(window.bounds), safeArea=\(window.safeAreaInsets), list=\(String(describing: recorder.geometry))"
+            print("T04_TAIL_SAMPLE \(diagnostic)")
+            let viewport = scroll.convert(scroll.bounds.inset(by: scroll.adjustedContentInset), to: window)
+            XCTAssertGreaterThan(scroll.contentOffset.y, 0)
+            XCTAssertGreaterThanOrEqual(addFrame.width, 44)
+            XCTAssertGreaterThanOrEqual(addFrame.height, 44)
+            XCTAssertTrue(viewport.insetBy(dx: -0.5, dy: -0.5).contains(addFrame), "Entire add entry must be reachable: \(diagnostic), viewport=\(viewport), settling=\(settling)")
+            XCTAssertTrue(window.bounds.contains(addFrame))
+            let hit = try XCTUnwrap(window.hitTest(CGPoint(x: addFrame.midX, y: addFrame.midY), with: nil))
+            XCTAssertTrue(hit === scroll || hit.isDescendant(of: scroll), "Add target must hit the actual sidebar")
+            let frames = "processLocale=\(Locale.current.identifier)\nlanguages=\(Locale.preferredLanguages)\n"
+                + "keyboardVisible=\(recorder.keyboardVisible)\nviewport=\(viewport)\nadd=\(addFrame)\n"
+                + "contentSize=\(scroll.contentSize)\noffset=\(scroll.contentOffset)\ndiagnostic=\(diagnostic)\nsettling=\(settling)\nitems=\(recorder.sidebarItems)"
+            try persistHeaderEvidence(image: windowImage(window), name: "\(variant)-keyboard-\(keyboardVisible)", frames: frames)
+            let matrix = XCTAttachment(string: frames)
+            matrix.name = "\(variant)-keyboard-\(keyboardVisible)-frames"
+            matrix.lifetime = .keepAlways
+            add(matrix)
+        }
+        let dismissKeyboard = try XCTUnwrap(recorder.dismissKeyboard)
+        dismissKeyboard() // Same guarded production action used by sidebar selection/list drag.
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertFalse(recorder.keyboardVisible)
+        XCTAssertFalse(textFields(in: host.view).contains { $0.isFirstResponder })
+        dismissKeyboard() // Hidden-state guard is also a no-op on the real action.
+        let move = try XCTUnwrap(recorder.sidebarMove)
+        move(-1, names.count) // Shared production guard must preserve identity on invalid actions.
+        XCTAssertEqual(recorder.sidebarItems, original)
+        move(0, names.count)
+        try await Task.sleep(for: .milliseconds(150))
+        let expected = Array(original.dropFirst()) + [original[0]]
+        XCTAssertEqual(recorder.sidebarItems.map(\.id), expected.map(\.id))
+        XCTAssertEqual(recorder.sidebarItems.map(\.name), expected.map(\.name))
+        XCTAssertEqual(recorder.sidebarItems.map(\.completed), expected.map(\.completed))
+        XCTAssertEqual(recorder.sidebarItems.map(\.total), expected.map(\.total))
+        XCTAssertEqual(recorder.sidebarItems.map(\.index), Array(names.indices))
+        XCTAssertEqual((workout.exercises ?? []).sorted { $0.order < $1.order }.map { String(describing: $0.persistentModelID) },
+                       expected.map(\.id))
+        scroll.setContentOffset(CGPoint(x: 0, y: 0), animated: false)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(recorder.sidebarItems.map(\.id), expected.map(\.id), "Scroll must not recycle model semantics")
+        let driver = try XCTUnwrap(recorder.driver)
+        driver.scrollTo(owners[0].persistentModelID, .bottom)
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertGreaterThan(try XCTUnwrap(recorder.geometry).contentOffset.y, 0, "Scroll the actual main List after reorder")
+        XCTAssertEqual(recorder.sidebarItems.map(\.id), expected.map(\.id))
+        XCTAssertEqual(recorder.sidebarItems.map(\.name), expected.map(\.name))
+        XCTAssertEqual(recorder.sidebarItems.map(\.completed), expected.map(\.completed))
+        XCTAssertEqual(recorder.sidebarItems.map(\.total), expected.map(\.total))
+        XCTAssertEqual(recorder.sidebarItems.map(\.index), Array(names.indices))
+        try persistHeaderEvidence(image: windowImage(window), name: "\(variant)-reordered",
+                                  frames: "before=\(original)\nafter=\(recorder.sidebarItems)\nlist=\(String(describing: recorder.geometry))\n")
+    }
+
+    /// Synchronize with measured native state, not assertion success. A stationary but
+    /// clipped add entry returns to the caller's strict containment/hit-test assertions.
+    private func settleSidebarTail(
+        _ scroll: UIScrollView, host: UIViewController, window: UIWindow,
+        recorder: ListObservationRecorder, keyboardVisible: Bool, variant: String
+    ) async throws -> String {
+        let start = ProcessInfo.processInfo.systemUptime
+        var previous: [CGFloat] = []
+        var stableSince = start
+        var trace: [String] = []
+        while ProcessInfo.processInfo.systemUptime - start < 5 {
+            host.view.layoutIfNeeded()
+            let target = scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom
+            scroll.setContentOffset(CGPoint(x: 0, y: target), animated: false)
+            try await Task.sleep(for: .milliseconds(50))
+            let now = ProcessInfo.processInfo.systemUptime
+            let viewport = scroll.convert(scroll.bounds.inset(by: scroll.adjustedContentInset), to: window)
+            let add = recorder.sidebarAddFrame ?? .null
+            let sample = [scroll.bounds.minY, scroll.bounds.width, scroll.bounds.height,
+                          scroll.contentSize.height, scroll.adjustedContentInset.top, scroll.adjustedContentInset.bottom,
+                          viewport.minY, viewport.height, add.minX, add.minY, add.width, add.height]
+            let responder = textFields(in: host.view).contains { $0.isFirstResponder }
+            let keyboardSettled = recorder.keyboardVisible == keyboardVisible && responder == keyboardVisible
+                && (!keyboardVisible || recorder.keyboardDidShow)
+            trace.append("t=\(now - start), native=\(sample), target=\(target), root=\(recorder.keyboardVisible), "
+                         + "didShow=\(recorder.keyboardDidShow), responder=\(responder), updates=\(recorder.sidebarAddUpdates)")
+            if sample != previous || !keyboardSettled {
+                stableSince = now
+                previous = sample
+            } else if now - stableSince >= 0.2 {
+                return trace.joined(separator: "\n")
+            }
+        }
+        let diagnostic = "\(variant) keyboard=\(keyboardVisible) did not settle in 5s:\n" + trace.joined(separator: "\n")
+        print("T04_TAIL_SETTLE_TIMEOUT \(diagnostic)")
+        let attachment = XCTAttachment(string: diagnostic)
+        attachment.name = "\(variant)-keyboard-\(keyboardVisible)-settle-timeout"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        XCTFail(diagnostic)
+        throw NSError(domain: "T04SidebarGeometry", code: 1, userInfo: [NSLocalizedDescriptionKey: diagnostic])
+    }
+
         private func persistT03Evidence(
             image: UIImage,
             name: String,
@@ -1181,6 +1499,53 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             }
         }
         return changed
+    }
+
+    private func changedPixels(_ image: HeaderPixels, _ first: CGRect, _ second: CGRect) -> Int {
+        let width = min(first.width, second.width)
+        let height = min(first.height, second.height)
+        let xStart = max(0, Int(floor(first.minX * image.scale)))
+        let yStart = max(0, Int(floor(first.minY * image.scale)))
+        let otherXStart = max(0, Int(floor(second.minX * image.scale)))
+        let otherYStart = max(0, Int(floor(second.minY * image.scale)))
+        let pixelWidth = min(Int(ceil(width * image.scale)), image.width - max(xStart, otherXStart))
+        let pixelHeight = min(Int(ceil(height * image.scale)), image.height - max(yStart, otherYStart))
+        var changed = 0
+        for row in 0..<max(0, pixelHeight) {
+            for column in 0..<max(0, pixelWidth) {
+                let leftX = xStart + column
+                let leftY = yStart + row
+                let rightX = otherXStart + column
+                let rightY = otherYStart + row
+                guard leftX < image.width, rightX < image.width,
+                      leftY < image.height, rightY < image.height else { continue }
+                let leftOffset = leftY * image.stride + leftX * 4
+                let rightOffset = rightY * image.stride + rightX * 4
+                let delta = (0..<3).map {
+                    abs(Int(image.bytes[leftOffset + $0]) - Int(image.bytes[rightOffset + $0]))
+                }.max() ?? 0
+                if delta > 12 { changed += 1 }
+            }
+        }
+        return changed
+    }
+
+    private func pixelSignature(_ image: HeaderPixels, _ frame: CGRect) -> Int {
+        let left = max(0, Int(floor(frame.minX * image.scale)))
+        let right = min(image.width, Int(ceil(frame.maxX * image.scale)))
+        let top = max(0, Int(floor(frame.minY * image.scale)))
+        let bottom = min(image.height, Int(ceil(frame.maxY * image.scale)))
+        guard left < right, top < bottom else { return 0 }
+        var signature = 0
+        for y in top..<bottom {
+            for x in left..<right {
+                let offset = y * image.stride + x * 4
+                signature = (signature &* 31) &+ Int(image.bytes[offset])
+                signature = (signature &* 31) &+ Int(image.bytes[offset + 1])
+                signature = (signature &* 31) &+ Int(image.bytes[offset + 2])
+            }
+        }
+        return signature
     }
 
     /// Explicit sRGB RGBA8 conversion handles both ordinary and 16-bit/wide-gamut
