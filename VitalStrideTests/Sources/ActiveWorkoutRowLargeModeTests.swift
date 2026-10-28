@@ -442,7 +442,9 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             defer { window.isHidden = true }
             try await Task.sleep(for: .milliseconds(150))
             host.view.layoutIfNeeded()
-            XCTAssertEqual(textFields(in: host.view).count, unilateral ? 3 : 2)
+            let initialFields = textFields(in: host.view)
+            XCTAssertEqual(initialFields.count, unilateral ? 3 : 2)
+            XCTAssertTrue(initialFields.allSatisfy { ($0.placeholder ?? "").isEmpty })
             XCTAssertEqual(set.weight, 12.25)
             XCTAssertEqual(set.weightRight, unilateral ? 10.75 : nil)
 
@@ -512,6 +514,68 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                 XCTAssertEqual(set.weightRight, 0)
             }
             XCTAssertEqual(set.reps, 0)
+        }
+    }
+
+    func testEmptyMainAndDropRowsRenderOneDescriptorPerSlotInBothAppearances() async throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        let owner = WorkoutExercise(order: 0)
+        context.insert(owner)
+        let set = ExerciseSet(order: 0, weight: 0, reps: 0)
+        set.workoutExercise = owner
+        context.insert(set)
+        let dropSet = ExerciseSet(order: 1, weight: 0, reps: 0, setType: .dropSet)
+        context.insert(dropSet)
+
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 393, height: 300)
+        defer { window.isHidden = true }
+
+        for dark in [false, true] {
+            let main = SetRow(index: 0, exerciseSet: set, weightUnit: .kg, canDelete: true,
+                              exercise: nil, recentWeightKg: nil, onToggleCompleted: { _ in },
+                              onDelete: {}, onAddSubSet: { _ in }, onCopyToNext: {})
+            let drop = SubSetRow(exerciseSet: dropSet, weightUnit: .kg, isLast: true, parentSetNumber: 1,
+                                 exercise: nil, recentWeightKg: nil, onToggleCompleted: { _ in }, onDelete: {})
+            let content = VStack(spacing: 8) {
+                main
+                drop
+            }
+            .modelContainer(container)
+            .designThemePreview()
+            .preferredColorScheme(dark ? .dark : .light)
+            let host = UIHostingController(rootView: content)
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            try await Task.sleep(for: .milliseconds(180))
+            host.view.layoutIfNeeded()
+
+            let fields = textFields(in: host.view)
+            XCTAssertEqual(fields.count, 4)
+            XCTAssertTrue(fields.allSatisfy { ($0.text ?? "").isEmpty && ($0.placeholder ?? "").isEmpty })
+
+            let focused = try XCTUnwrap(fields.first)
+            XCTAssertTrue(focused.becomeFirstResponder())
+            focused.text = "0"
+            focused.sendActions(for: .editingChanged)
+            try await Task.sleep(for: .milliseconds(80))
+            XCTAssertEqual(set.weight, 0)
+            XCTAssertEqual(focused.text, "0")
+            XCTAssertTrue(focused.isFirstResponder)
+            focused.resignFirstResponder()
+
+            let image = XCTAttachment(image: windowImage(window))
+            image.name = "T05 empty main-drop \(dark ? "dark" : "light")"
+            image.lifetime = .keepAlways
+            add(image)
+            let frames = XCTAttachment(string: fields.enumerated().map {
+                "\($0): frame=\($1.convert($1.bounds, to: window)) placeholder=\($1.placeholder ?? "<nil>") text=\($1.text ?? "<nil>")"
+            }.joined(separator: "\n"))
+            frames.name = "T05 empty main-drop frames \(dark ? "dark" : "light")"
+            frames.lifetime = .keepAlways
+            add(frames)
         }
     }
 

@@ -116,7 +116,7 @@ struct SubSetRow: View {
         let isTotal = !exerciseSet.isUnilateral && field == .weight
         let isSide = field != .reps
         let input = SelectAllTextField(
-            placeholder: field == .reps ? String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit") : weightUnit.rawValue,
+            placeholder: "",
             text: editingText,
             keyboardType: field.isDecimalEnabled ? .decimalPad : .numberPad,
             useCustomKeyboard: true,
@@ -165,8 +165,20 @@ struct SubSetRow: View {
         .accessibilityLabel(field == .reps ? String(localized: "递减组次数", comment: "Drop-set reps") : String(localized: "递减组重量", comment: "Drop-set weight"))
         .accessibilityHint(String(localized: "输入数值", comment: "Enter drop-set value"))
         #else
-        return TextField("", text: editingText)
-            .frame(width: field.isWeightField ? 58 : 48, height: 44)
+        return HStack(spacing: 2) {
+            if field != .reps {
+                Text(label)
+                    .font(.caption2.weight(.semibold))
+                    .fixedSize()
+            }
+            TextField("", text: editingText)
+                .frame(width: field.isWeightField ? 58 : 48, height: 44)
+            Text(field.isWeightField
+                 ? weightUnit.rawValue
+                 : String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
+                .font(.caption2.weight(.medium))
+                .allowsHitTesting(false)
+        }
         #endif
     }
 

@@ -425,7 +425,7 @@ struct SetRow: View {
     ) -> some View {
         #if canImport(UIKit) && !os(macOS)
         WorkoutSetInput(SelectAllTextField(
-            placeholder: weightUnit.rawValue,
+            placeholder: "",
             text: binding,
             keyboardType: .decimalPad,
             font: inputUIFont,
@@ -463,14 +463,20 @@ struct SetRow: View {
             noteSuggestionFieldEdit()
         }
         #else
-        SelectAllTextField(
-            placeholder: weightUnit.rawValue,
-            text: binding,
-            keyboardType: .decimalPad
-        )
-        .frame(width: width)
-        .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
-        .modifier(NormalModeHitTargetPadding(active: !largeMode))
+        HStack(spacing: 2) {
+            SelectAllTextField(
+                placeholder: "",
+                text: binding,
+                keyboardType: .decimalPad
+            )
+            .frame(width: width)
+            .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
+            .modifier(NormalModeHitTargetPadding(active: !largeMode))
+            Text(weightUnit.rawValue)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(theme.neutrals.text3)
+                .allowsHitTesting(false)
+        }
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
@@ -491,7 +497,7 @@ struct SetRow: View {
         #if canImport(UIKit) && !os(macOS)
         HStack(spacing: 2) {
         WorkoutSetInput(SelectAllTextField(
-            placeholder: String(localized: "次数", comment: ""),
+            placeholder: "",
             text: $repsText,
             keyboardType: .numberPad,
             font: inputUIFont,
@@ -538,14 +544,20 @@ struct SetRow: View {
             }
         }
         #else
-        SelectAllTextField(
-            placeholder: String(localized: "次数", comment: ""),
-            text: $repsText,
-            keyboardType: .numberPad
-        )
-        .frame(width: width)
-        .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
-        .modifier(NormalModeHitTargetPadding(active: !largeMode))
+        HStack(spacing: 2) {
+            SelectAllTextField(
+                placeholder: "",
+                text: $repsText,
+                keyboardType: .numberPad
+            )
+            .frame(width: width)
+            .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
+            .modifier(NormalModeHitTargetPadding(active: !largeMode))
+            Text(String(localized: "次数", comment: "Repetitions unit"))
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(theme.neutrals.text3)
+                .allowsHitTesting(false)
+        }
         .accessibilityLabel(String(localized: "第 \(index + 1) 组次数", comment: "Set reps a11y label"))
         .accessibilityHint(String(localized: "输入次数", comment: "Enter reps hint"))
         .onChange(of: repsText) { _, newValue in
