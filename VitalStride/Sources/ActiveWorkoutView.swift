@@ -63,6 +63,28 @@ struct ActiveWorkoutListObservationSink: Sendable {
     ) -> Void = { _ in }
 }
 
+struct ActiveWorkoutToolbarObservation: Sendable {
+    var onLargeModeFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onFinishFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onLargeModeAction: @MainActor @Sendable (
+        @escaping @MainActor @Sendable () -> Void
+    ) -> Void = { _ in }
+    var onFinishAction: @MainActor @Sendable (
+        @escaping @MainActor @Sendable () -> Void
+    ) -> Void = { _ in }
+}
+
+private struct ActiveWorkoutToolbarObservationKey: EnvironmentKey {
+    static let defaultValue = ActiveWorkoutToolbarObservation()
+}
+
+extension EnvironmentValues {
+    var activeWorkoutToolbarObservation: ActiveWorkoutToolbarObservation {
+        get { self[ActiveWorkoutToolbarObservationKey.self] }
+        set { self[ActiveWorkoutToolbarObservationKey.self] = newValue }
+    }
+}
+
 private struct ActiveWorkoutListObservationKey: EnvironmentKey {
     static let defaultValue = ActiveWorkoutListObservationSink()
 }
@@ -115,6 +137,7 @@ struct ActiveWorkoutView: View {
     // user applies or cancels a suggestion.
     @Environment(\.routingSignalStore) private var signalStore
     @Environment(\.activeWorkoutListObservation) private var listObservation
+    @Environment(\.activeWorkoutToolbarObservation) private var toolbarObservation
     @State private var exerciseListFrame = CGRect.zero
     @State private var workout: Workout?
     @State private var showingExercisePicker = false
@@ -166,6 +189,17 @@ struct ActiveWorkoutView: View {
 
     init(source: WorkoutStartSource = .blank) {
         self.source = source
+    }
+
+    private func toggleLargeMode() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            largeMode.toggle()
+        }
+        HapticManager.trigger(.setCompleted)
+    }
+
+    private func requestFinish() {
+        showingFinishAlert = true
     }
 
     // MY-1088: header timer font. Stacks with the user's system Dynamic Type
@@ -249,12 +283,7 @@ struct ActiveWorkoutView: View {
                 }
                 // MY-1088: Large Mode toggle. Persisted via @AppStorage above.
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            largeMode.toggle()
-                        }
-                        HapticManager.trigger(.setCompleted)
-                    } label: {
+                    Button(action: toggleLargeMode) {
                         Image(
                             systemName: largeMode
                                 ? "textformat.size.smaller"
@@ -274,12 +303,45 @@ struct ActiveWorkoutView: View {
                                 comment: "Active workout toggle: switch to large text size"
                             )
                     )
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("active_workout_large_mode")
+                    .background {
+                        GeometryReader { proxy in
+                            let frame = proxy.frame(in: .global)
+                            Color.clear
+                                .onAppear {
+                                    toolbarObservation.onLargeModeFrame(frame)
+                                    toolbarObservation.onLargeModeAction(toggleLargeMode)
+                                }
+                                .onChange(of: frame) { _, newFrame in
+                                    toolbarObservation.onLargeModeFrame(newFrame)
+                                }
+                        }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "结束训练", comment: "Finish workout toolbar button")) {
-                        showingFinishAlert = true
-                    }
+                    Button(
+                        String(localized: "结束训练", comment: "Finish workout toolbar button"),
+                        action: requestFinish
+                    )
                     .fontWeight(.semibold)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("active_workout_finish")
+                    .background {
+                        GeometryReader { proxy in
+                            let frame = proxy.frame(in: .global)
+                            Color.clear
+                                .onAppear {
+                                    toolbarObservation.onFinishFrame(frame)
+                                    toolbarObservation.onFinishAction(requestFinish)
+                                }
+                                .onChange(of: frame) { _, newFrame in
+                                    toolbarObservation.onFinishFrame(newFrame)
+                                }
+                        }
+                    }
                 }
             }
             .sheet(isPresented: $showingExercisePicker) {
