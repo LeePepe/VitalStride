@@ -410,6 +410,10 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         var controlFrames: [AnyHashable: [String: CGRect]] = [:]
         var toggleActions: [AnyHashable: ActiveExerciseSectionInteraction.ToggleAction] = [:]
         var collapseStates: [AnyHashable: Bool] = [:]
+        var sidebarItems: [ActiveWorkoutSidebarItem] = []
+        var sidebarItemFrames: [String: CGRect] = [:]
+        var sidebarAddFrame: CGRect?
+        var sidebarMove: (@MainActor @Sendable (Int, Int) -> Void)?
     }
 
     func testSubSetDisplayRefreshPreservesPrecisionAndUserEditsPersist() async throws {
@@ -1125,18 +1129,27 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             "Band Bent-Over Row (Cable)",
             "Band Bent-Over Row (Barbell)",
             "Band Bent-Over Row (Dumbbell)",
-            "Band Chest Fly"
+            "Band Chest Fly",
+            "Band Incline Press",
+            "Band Pullover"
         ]
         var owners: [WorkoutExercise] = []
         for (index, name) in names.enumerated() {
             let exercise = Exercise(nameEn: name, nameZh: name, muscleGroup: .back, equipment: .band)
             let owner = WorkoutExercise(order: index, exercise: exercise)
             owner.workout = workout
-            let set = ExerciseSet(order: 0, weight: 0, reps: 10)
-            set.workoutExercise = owner
             context.insert(exercise)
             context.insert(owner)
-            context.insert(set)
+            for setIndex in 0...index {
+                let set = ExerciseSet(
+                    order: setIndex,
+                    weight: 0,
+                    reps: 10,
+                    isCompleted: index == 0 || setIndex < index
+                )
+                set.workoutExercise = owner
+                context.insert(set)
+            }
             owners.append(owner)
         }
         try context.save()
@@ -1151,74 +1164,121 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         for largeMode in [false, true] {
             defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
             for width in [375, 393] {
+                for dynamicType in [DynamicTypeSize.large, .accessibility3] {
                 for dark in [false, true] {
-                    window.frame = CGRect(x: 0, y: 0, width: CGFloat(width), height: 852)
-                    let recorder = ListObservationRecorder()
-                    let content = ActiveWorkoutView(source: .resume(workout))
-                        .modelContainer(container)
-                        .designThemePreview()
-                        .preferredColorScheme(dark ? .dark : .light)
-                        .dynamicTypeSize(.accessibility3)
-                        .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
-                            onGeometry: { recorder.geometry = $0 },
-                            onRowFrame: { recorder.rowFrames[$0] = $1 }
-                        ))
-                    let host = UIHostingController(rootView: content)
-                    window.rootViewController = host
-                    window.makeKeyAndVisible()
-                    try await Task.sleep(for: .milliseconds(350))
-                    host.view.layoutIfNeeded()
-
-                    let geometry = try XCTUnwrap(recorder.geometry)
-                    let sidebarWidth = geometry.listFrame.minX
-                    XCTAssertGreaterThanOrEqual(sidebarWidth, 64)
-                    XCTAssertGreaterThan(geometry.listFrame.width, 250)
-
-                    let listScrollView = try XCTUnwrap(
-                        descendants(of: host.view).compactMap { $0 as? UIScrollView }.first {
-                            let frame = $0.convert($0.bounds, to: window)
-                            return abs(frame.minX - geometry.listFrame.minX) < 2
-                                && abs(frame.minY - geometry.listFrame.minY) < 2
+                    for keyboardVisible in [false, true] {
+                        for (index, owner) in owners.enumerated() {
+                            owner.order = index
                         }
-                    )
-                    listScrollView.setContentOffset(
-                        CGPoint(x: 0, y: max(0, listScrollView.contentSize.height - listScrollView.bounds.height)),
-                        animated: false
-                    )
-                    try await Task.sleep(for: .milliseconds(180))
-                    XCTAssertGreaterThan(listScrollView.contentSize.height, listScrollView.bounds.height)
+                        try context.save()
+                        window.frame = CGRect(x: 0, y: 0, width: CGFloat(width), height: 540)
+                        let recorder = ListObservationRecorder()
+                        let content = ActiveWorkoutView(source: .resume(workout))
+                            .modelContainer(container)
+                            .designThemePreview()
+                            .preferredColorScheme(dark ? .dark : .light)
+                            .dynamicTypeSize(dynamicType)
+                            .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                                onGeometry: { recorder.geometry = $0 },
+                                onRowFrame: { recorder.rowFrames[$0] = $1 },
+                                onSidebarItems: { recorder.sidebarItems = $0 },
+                                onSidebarItemFrame: { id, frame in recorder.sidebarItemFrames[id] = frame },
+                                onSidebarAddFrame: { recorder.sidebarAddFrame = $0 },
+                                onSidebarMoveReady: { recorder.sidebarMove = $0 }
+                            ))
+                        let host = UIHostingController(rootView: content)
+                        window.rootViewController = host
+                        window.makeKeyAndVisible()
+                        try await Task.sleep(for: .milliseconds(450))
+                        host.view.layoutIfNeeded()
 
-                    let image = windowImage(window)
+                        if keyboardVisible {
+                            let field = try XCTUnwrap(textFields(in: host.view).first)
+                            XCTAssertTrue(field.becomeFirstResponder())
+                            try await Task.sleep(for: .milliseconds(250))
+                        } else {
+                            window.endEditing(true)
+                        }
+
+                        let geometry = try XCTUnwrap(recorder.geometry)
+                        let sidebarWidth = geometry.listFrame.minX
+                        XCTAssertEqual(sidebarWidth, 64, accuracy: 0.5)
+                        XCTAssertGreaterThan(geometry.listFrame.width, 250)
+                        XCTAssertEqual(Set(recorder.sidebarItems.map(\.id)).count, names.count)
+                        XCTAssertEqual(
+                            recorder.sidebarItems.map(\.name),
+                            names,
+                            "Rendered sidebar observations must retain original names"
+                        )
+                        XCTAssertEqual(recorder.sidebarItems.map(\.index), Array(0..<names.count))
+                        XCTAssertEqual(recorder.sidebarItems.map(\.completed), [1, 1, 2, 3, 4, 5])
+                        XCTAssertEqual(recorder.sidebarItems.map(\.total), [1, 2, 3, 4, 5, 6])
+
+                        let first = try XCTUnwrap(recorder.sidebarItemFrames[recorder.sidebarItems[0].id])
+                        let second = try XCTUnwrap(recorder.sidebarItemFrames[recorder.sidebarItems[1].id])
+                        XCTAssertTrue(first.minX >= -1 && first.maxX <= sidebarWidth + 1)
+                        XCTAssertTrue(second.minX >= -1 && second.maxX <= sidebarWidth + 1)
+                        let image = windowImage(window)
+                        let pixels = try HeaderPixels(image)
+                        XCTAssertNotEqual(
+                            pixelSignature(pixels, first),
+                            pixelSignature(pixels, second),
+                            "Adjacent shared-prefix names must render distinct sidebar pixels"
+                        )
+
+                        let sidebarScrollView = try XCTUnwrap(
+                            descendants(of: host.view).compactMap { $0 as? UIScrollView }.first {
+                                let frame = $0.convert($0.bounds, to: window)
+                                return frame.minX < 1 && frame.width <= sidebarWidth + 2
+                            }
+                        )
+                        XCTAssertGreaterThanOrEqual(sidebarScrollView.contentSize.height, sidebarScrollView.bounds.height)
+                        sidebarScrollView.setContentOffset(
+                            CGPoint(x: 0, y: max(0, sidebarScrollView.contentSize.height - sidebarScrollView.bounds.height)),
+                            animated: false
+                        )
+                        try await Task.sleep(for: .milliseconds(180))
+                        let addFrame = try XCTUnwrap(recorder.sidebarAddFrame)
+                        XCTAssertGreaterThanOrEqual(addFrame.width, 43.5)
+                        XCTAssertGreaterThanOrEqual(addFrame.height, 43.5)
+                        XCTAssertTrue(
+                            sidebarScrollView.convert(sidebarScrollView.bounds, to: window)
+                                .insetBy(dx: -1, dy: -1).intersects(addFrame),
+                            "Sidebar add entry must be reachable in the sidebar viewport"
+                        )
+
+                        let originalOrder = recorder.sidebarItems.map(\.id)
+                        let move = try XCTUnwrap(recorder.sidebarMove)
+                        move(0, names.count)
+                        try await Task.sleep(for: .milliseconds(250))
+                        XCTAssertEqual(recorder.sidebarItems.map(\.id), Array(originalOrder.dropFirst()) + [originalOrder[0]])
+                        XCTAssertEqual(recorder.sidebarItems.map(\.name), Array(names.dropFirst()) + [names[0]])
+
+                        let finalImage = windowImage(window)
                     let attachment = XCTAttachment(image: image)
-                    attachment.name = "T04 sidebar \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light") accessibility3"
+                    attachment.name = "T04 sidebar \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light") \(dynamicType) keyboard-\(keyboardVisible ? "visible" : "hidden")"
                     attachment.lifetime = .keepAlways
                     add(attachment)
+                    let tailAttachment = XCTAttachment(image: finalImage)
+                    tailAttachment.name = "T04 sidebar tail \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light") \(dynamicType) keyboard-\(keyboardVisible ? "visible" : "hidden")"
+                    tailAttachment.lifetime = .keepAlways
+                    add(tailAttachment)
                     let frames = XCTAttachment(
                         string: [
-                            "variant=\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")",
+                            "variant=\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")-\(dynamicType)-keyboard-\(keyboardVisible)",
                             "listFrame=\(geometry.listFrame)",
                             "sidebarWidth=\(sidebarWidth)",
-                            "contentSize=\(listScrollView.contentSize)",
-                            "viewport=\(listScrollView.bounds)"
+                            "sidebarItems=\(recorder.sidebarItems)",
+                            "sidebarScrollContentSize=\(sidebarScrollView.contentSize)",
+                            "sidebarViewport=\(sidebarScrollView.bounds)",
+                            "addFrame=\(addFrame)"
                         ].joined(separator: "\n")
                     )
-                    frames.name = "T04 sidebar frames \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light")"
+                    frames.name = "T04 sidebar frames \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light") \(dynamicType) keyboard-\(keyboardVisible ? "visible" : "hidden")"
                     frames.lifetime = .keepAlways
                     add(frames)
-                    if let directory = ProcessInfo.processInfo.environment["T04_EVIDENCE_DIR"] {
-                        let root = URL(fileURLWithPath: directory, isDirectory: true)
-                        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-                        let variant = "\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")"
-                        try XCTUnwrap(image.pngData()).write(
-                            to: root.appendingPathComponent("sidebar-\(variant).png")
-                        )
-                        try "\(geometry.listFrame)\nsidebarWidth=\(sidebarWidth)\ncontentSize=\(listScrollView.contentSize)\n"
-                            .write(
-                                to: root.appendingPathComponent("sidebar-\(variant).frames.txt"),
-                                atomically: true,
-                                encoding: .utf8
-                            )
                     }
+                }
                 }
             }
         }
@@ -1319,6 +1379,53 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             }
         }
         return changed
+    }
+
+    private func changedPixels(_ image: HeaderPixels, _ first: CGRect, _ second: CGRect) -> Int {
+        let width = min(first.width, second.width)
+        let height = min(first.height, second.height)
+        let xStart = max(0, Int(floor(first.minX * image.scale)))
+        let yStart = max(0, Int(floor(first.minY * image.scale)))
+        let otherXStart = max(0, Int(floor(second.minX * image.scale)))
+        let otherYStart = max(0, Int(floor(second.minY * image.scale)))
+        let pixelWidth = min(Int(ceil(width * image.scale)), image.width - max(xStart, otherXStart))
+        let pixelHeight = min(Int(ceil(height * image.scale)), image.height - max(yStart, otherYStart))
+        var changed = 0
+        for row in 0..<max(0, pixelHeight) {
+            for column in 0..<max(0, pixelWidth) {
+                let leftX = xStart + column
+                let leftY = yStart + row
+                let rightX = otherXStart + column
+                let rightY = otherYStart + row
+                guard leftX < image.width, rightX < image.width,
+                      leftY < image.height, rightY < image.height else { continue }
+                let leftOffset = leftY * image.stride + leftX * 4
+                let rightOffset = rightY * image.stride + rightX * 4
+                let delta = (0..<3).map {
+                    abs(Int(image.bytes[leftOffset + $0]) - Int(image.bytes[rightOffset + $0]))
+                }.max() ?? 0
+                if delta > 12 { changed += 1 }
+            }
+        }
+        return changed
+    }
+
+    private func pixelSignature(_ image: HeaderPixels, _ frame: CGRect) -> Int {
+        let left = max(0, Int(floor(frame.minX * image.scale)))
+        let right = min(image.width, Int(ceil(frame.maxX * image.scale)))
+        let top = max(0, Int(floor(frame.minY * image.scale)))
+        let bottom = min(image.height, Int(ceil(frame.maxY * image.scale)))
+        guard left < right, top < bottom else { return 0 }
+        var signature = 0
+        for y in top..<bottom {
+            for x in left..<right {
+                let offset = y * image.stride + x * 4
+                signature = (signature &* 31) &+ Int(image.bytes[offset])
+                signature = (signature &* 31) &+ Int(image.bytes[offset + 1])
+                signature = (signature &* 31) &+ Int(image.bytes[offset + 2])
+            }
+        }
+        return signature
     }
 
     /// Explicit sRGB RGBA8 conversion handles both ordinary and 16-bit/wide-gamut
