@@ -727,7 +727,11 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         driver.scrollTo(owners[1].persistentModelID, .top)
                         try await Task.sleep(for: .milliseconds(150))
                         let nextHeader = try XCTUnwrap(recorder.headerFrames[owners[1].persistentModelID])
-                        let boundaryOffset = scrollView.contentOffset.y + nextHeader.minY - initialHeader.maxY - 4
+                        // Keep the following header just beyond the entire
+                        // reference band. Centering the last row under a tall,
+                        // wrapped header can enter List's header push-off phase,
+                        // where a stationary-baseline pixel comparison is invalid.
+                        let boundaryOffset = scrollView.contentOffset.y + nextHeader.minY - referenceBand.maxY - 4
                         var evidence: [String] = [
                             "rest: add-set=\(addSet) first-row=\(firstRow) inputs=\(inputFrames) intersection=\(addSet.intersects(firstRow))"
                         ]
@@ -738,8 +742,11 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                             try await Task.sleep(for: .milliseconds(180))
                             var actualTargetOffset = offset
                             if position == "boundary" {
+                                // Resolve List's estimated section layout using
+                                // the real final row, keeping its trailing edge
+                                // inside the header before push-off can begin.
                                 let lastRow = try XCTUnwrap(recorder.rowFrames[sets[7].persistentModelID])
-                                actualTargetOffset += lastRow.midY - initialHeader.midY
+                                actualTargetOffset += lastRow.maxY - initialHeader.maxY + 4
                                 recorder.rowFrames.removeAll()
                                 scrollView.setContentOffset(CGPoint(x: 0, y: actualTargetOffset), animated: false)
                                 try await Task.sleep(for: .milliseconds(180))
@@ -767,6 +774,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                                 let lastRow = try XCTUnwrap(recorder.rowFrames[sets[7].persistentModelID])
                                 XCTAssertTrue(lastRow.intersects(header), "Last set must pass under the header at the section boundary")
                                 let next = try XCTUnwrap(recorder.headerFrames[owners[1].persistentModelID])
+                                XCTAssertGreaterThan(next.minY, referenceBand.maxY, "Following header must remain outside the pinned reference band")
                                 XCTAssertLessThan(next.minY, geometry.listFrame.maxY, "Next section must be in the viewport")
                             }
                             let pixels = try HeaderPixels(image)
