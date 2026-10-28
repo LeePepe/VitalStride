@@ -704,7 +704,8 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         scrollView.setContentOffset(CGPoint(x: 0, y: topOffset), animated: false)
                         try await Task.sleep(for: .milliseconds(150))
                         let initialHeader = try XCTUnwrap(recorder.headerFrames[targetID])
-                        let baseline = try HeaderPixels(windowImage(window))
+                        let baselineImage = windowImage(window)
+                        let baseline = try HeaderPixels(baselineImage)
                         let firstRow = try XCTUnwrap(recorder.rowFrames[sets[0].persistentModelID])
                         let addSet = try XCTUnwrap(recorder.controlFrames[targetID]?["add-set"])
                         let inputFrames = firstRowInputFrames(in: host.view, row: firstRow, window: window)
@@ -714,6 +715,11 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         let referenceBand = CGRect(
                             x: listFrame.minX, y: listFrame.minY,
                             width: listFrame.width, height: firstRow.minY - listFrame.minY
+                        )
+                        let variant = "pinned-\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")-\(dynamicType)"
+                        try persistHeaderEvidence(
+                            image: baselineImage, name: "\(variant)-reference",
+                            frames: "band=\(referenceBand) header=\(initialHeader) firstRow=\(firstRow) controls=\(recorder.controlFrames[targetID] ?? [:])"
                         )
                         let middleRow = try XCTUnwrap(recorder.rowFrames[sets[1].persistentModelID])
                         let middleOffset = topOffset + middleRow.midY - initialHeader.midY
@@ -770,6 +776,14 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                             evidence.append("\(position): requested=\(actualTargetOffset) actualOffset=\(geometry.contentOffset.y) "
                                 + "viewport=\(geometry.listFrame) header=\(header) controls=\(controls) "
                                 + "rowsUnderHeader=\(overlappingRows) pixelProof=\(comparison)")
+                            try persistHeaderEvidence(
+                                image: image, name: "\(variant)-\(position)",
+                                frames: (evidence.last ?? "") + "\nheaders=\(recorder.headerFrames)\n"
+                                    + descendants(of: host.view).compactMap { view in
+                                        guard view is UICollectionReusableView else { return nil }
+                                        return "\(type(of: view)): frame=\(view.convert(view.bounds, to: window)) bounds=\(view.bounds)"
+                                    }.joined(separator: "\n")
+                            )
                         }
                         // List contentSize is estimated until distant cells are laid
                         // out. Ask its real collection layout for the final item.
@@ -785,6 +799,10 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         let finalRow = try XCTUnwrap(recorder.rowFrames[finalSet.persistentModelID])
                         XCTAssertTrue(listFrame.contains(finalRow), "Final set must scroll fully into the List viewport")
                         evidence.append("last-content: offset=\(scrollView.contentOffset.y) finalRow=\(finalRow)")
+                        try persistHeaderEvidence(
+                            image: windowImage(window), name: "\(variant)-last-content",
+                            frames: evidence.joined(separator: "\n")
+                        )
                         let frames = XCTAttachment(string: evidence.joined(separator: "\n"))
                         frames.name = "Pinned header geometry \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light") \(dynamicType)"
                         frames.lifetime = .keepAlways
@@ -1072,25 +1090,27 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             geometry: ActiveWorkoutListGeometry,
             controls: [String: CGRect]
         ) throws {
-            let directory = ProcessInfo.processInfo.environment["T03_EVIDENCE_DIR"]
-                ?? "/Users/lee/Development/handoff/vs-workout-fixes-20261027/receipts/T03-writer-r2-evidence"
             let safeName = name.replacingOccurrences(of: " ", with: "-")
                 .replacingOccurrences(of: "(", with: "")
                 .replacingOccurrences(of: ")", with: "")
             let variant = "\(safeName)-\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")-\(dynamicType)"
-            let root = URL(fileURLWithPath: directory, isDirectory: true)
-            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-            let imageURL = root.appendingPathComponent("\(variant).png")
-            try XCTUnwrap(image.pngData()).write(to: imageURL)
-            let frameURL = root.appendingPathComponent("\(variant).frames.txt")
             let frameText = [
                 "title=\(title)",
                 "header=\(header)",
                 "listFrame=\(geometry.listFrame)",
                 "controls=\(controls)"
             ].joined(separator: "\n")
-            try frameText.write(to: frameURL, atomically: true, encoding: .utf8)
+            try persistHeaderEvidence(image: image, name: variant, frames: frameText)
         }
+
+    private func persistHeaderEvidence(image: UIImage, name: String, frames: String) throws {
+        guard let directory = ProcessInfo.processInfo.environment["T03_EVIDENCE_DIR"],
+              !directory.isEmpty else { return }
+        let root = URL(fileURLWithPath: directory, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try XCTUnwrap(image.pngData()).write(to: root.appendingPathComponent("\(name).png"))
+        try frames.write(to: root.appendingPathComponent("\(name).frames.txt"), atomically: true, encoding: .utf8)
+    }
 
         private func textFields(in view: UIView) -> [UITextField] {
         (view as? UITextField).map { [$0] } ?? view.subviews.flatMap { textFields(in: $0) }

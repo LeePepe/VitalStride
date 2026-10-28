@@ -405,19 +405,23 @@ struct ActiveExerciseSection: View {
                 interaction.onCollapseChange(workoutExercise.persistentModelID, collapsed)
             }
             .accessibilityValue(String(localized: "\(completedSetCount)/\(totalSetCount) 组", comment: "Exercise completion count"))
-            // The surface includes the header's layout padding, rather than
-            // painting only the title/control HStack inside the system material.
+            // Keep the title inset inside the measured supplementary view. A
+            // background extended above that view paints over the preceding
+            // pinned header when two sections meet. Put the vertical inset at
+            // the top, retaining a bottom gap even when an expanded List puts
+            // its first row directly against the supplementary view.
             .padding(.horizontal, 8)
-            .padding(.vertical, 8)
+            .padding(.top, 14)
+            .padding(.bottom, 2)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
             .background {
+                // Cover the List's 15pt header-to-row margin without letting
+                // the following header's surface reach into this header.
                 theme.neutrals.bg
-                    .padding(.horizontal, -20)
-                    .padding(.top, -22)
                     .padding(.bottom, -15)
             }
             .listRowInsets(EdgeInsets())
-            .background(theme.neutrals.bg)
             .zIndex(1)
             .background {
                 GeometryReader { geometry in
