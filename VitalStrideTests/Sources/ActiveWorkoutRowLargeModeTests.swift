@@ -1193,6 +1193,18 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     attachment.name = "T04 sidebar \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light") accessibility3"
                     attachment.lifetime = .keepAlways
                     add(attachment)
+                    let frames = XCTAttachment(
+                        string: [
+                            "variant=\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")",
+                            "listFrame=\(geometry.listFrame)",
+                            "sidebarWidth=\(sidebarWidth)",
+                            "contentSize=\(listScrollView.contentSize)",
+                            "viewport=\(listScrollView.bounds)"
+                        ].joined(separator: "\n")
+                    )
+                    frames.name = "T04 sidebar frames \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light")"
+                    frames.lifetime = .keepAlways
+                    add(frames)
                     if let directory = ProcessInfo.processInfo.environment["T04_EVIDENCE_DIR"] {
                         let root = URL(fileURLWithPath: directory, isDirectory: true)
                         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
