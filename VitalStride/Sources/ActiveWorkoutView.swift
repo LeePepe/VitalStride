@@ -63,6 +63,37 @@ struct ActiveWorkoutListObservationSink: Sendable {
     ) -> Void = { _ in }
 }
 
+struct ActiveWorkoutToolbarObservation: Sendable {
+    var isEnabled = false
+    var onLargeModeFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onFinishFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onFinishLabelFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onLargeModeState: @MainActor @Sendable (ActiveWorkoutToolbarState) -> Void = { _ in }
+    var onLargeModeAction: @MainActor @Sendable (
+        @escaping @MainActor @Sendable () -> Void
+    ) -> Void = { _ in }
+    var onFinishAction: @MainActor @Sendable (
+        @escaping @MainActor @Sendable () -> Void
+    ) -> Void = { _ in }
+}
+
+struct ActiveWorkoutToolbarState: Sendable, Equatable {
+    let isLargeMode: Bool
+    let symbolName: String
+    let accessibilityLabel: String
+}
+
+private struct ActiveWorkoutToolbarObservationKey: EnvironmentKey {
+    static let defaultValue = ActiveWorkoutToolbarObservation()
+}
+
+extension EnvironmentValues {
+    var activeWorkoutToolbarObservation: ActiveWorkoutToolbarObservation {
+        get { self[ActiveWorkoutToolbarObservationKey.self] }
+        set { self[ActiveWorkoutToolbarObservationKey.self] = newValue }
+    }
+}
+
 private struct ActiveWorkoutListObservationKey: EnvironmentKey {
     static let defaultValue = ActiveWorkoutListObservationSink()
 }
@@ -75,6 +106,33 @@ extension EnvironmentValues {
 }
 
 private extension View {
+    @ViewBuilder
+    func activeWorkoutToolbarObservation(
+        _ observation: ActiveWorkoutToolbarObservation,
+        frame: @escaping @MainActor @Sendable (CGRect) -> Void,
+        state: @escaping @MainActor @Sendable () -> Void,
+        action: @escaping @MainActor @Sendable () -> Void
+    ) -> some View {
+        if observation.isEnabled {
+            background {
+                GeometryReader { proxy in
+                    let currentFrame = proxy.frame(in: .global)
+                    Color.clear
+                        .onAppear {
+                            frame(currentFrame)
+                            state()
+                            action()
+                        }
+                        .onChange(of: currentFrame) { _, newFrame in
+                            frame(newFrame)
+                        }
+                }
+            }
+        } else {
+            self
+        }
+    }
+
     @ViewBuilder
     func activeWorkoutListScrollObservation(
         listFrame: CGRect,
@@ -115,6 +173,7 @@ struct ActiveWorkoutView: View {
     // user applies or cancels a suggestion.
     @Environment(\.routingSignalStore) private var signalStore
     @Environment(\.activeWorkoutListObservation) private var listObservation
+    @Environment(\.activeWorkoutToolbarObservation) private var toolbarObservation
     @State private var exerciseListFrame = CGRect.zero
     @State private var workout: Workout?
     @State private var showingExercisePicker = false
@@ -168,6 +227,17 @@ struct ActiveWorkoutView: View {
         self.source = source
     }
 
+    private func toggleLargeMode() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            largeMode.toggle()
+        }
+        HapticManager.trigger(.setCompleted)
+    }
+
+    private func requestFinish() {
+        showingFinishAlert = true
+    }
+
     // MY-1088: header timer font. Stacks with the user's system Dynamic Type
     // via `.system(_ style:)` — Large Mode raises the base text style from
     // .title3 to .largeTitle; the system size then scales on top of that.
@@ -180,6 +250,32 @@ struct ActiveWorkoutView: View {
     // Dynamic-Type-stacking approach as `timerFont`.
     private var summaryFont: Font {
         Font.system(largeMode ? .title3 : .subheadline, design: .default)
+    }
+
+    private var largeModeSymbolName: String {
+        largeMode ? "textformat.size.smaller" : "textformat.size.larger"
+    }
+
+    private var largeModeAccessibilityLabel: String {
+        largeMode
+            ? String(
+                localized: "active_workout_toggle_normal_text_size",
+                defaultValue: "Switch to normal text size",
+                comment: "Active workout toggle: switch back to normal text size"
+            )
+            : String(
+                localized: "active_workout_toggle_large_text_size",
+                defaultValue: "Switch to large text size",
+                comment: "Active workout toggle: switch to large text size"
+            )
+    }
+
+    private var largeModeToolbarState: ActiveWorkoutToolbarState {
+        ActiveWorkoutToolbarState(
+            isLargeMode: largeMode,
+            symbolName: largeModeSymbolName,
+            accessibilityLabel: largeModeAccessibilityLabel
+        )
     }
 
     var body: some View {
@@ -249,37 +345,61 @@ struct ActiveWorkoutView: View {
                 }
                 // MY-1088: Large Mode toggle. Persisted via @AppStorage above.
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            largeMode.toggle()
-                        }
-                        HapticManager.trigger(.setCompleted)
-                    } label: {
-                        Image(
-                            systemName: largeMode
-                                ? "textformat.size.smaller"
-                                : "textformat.size.larger"
-                        )
+                    Button(action: toggleLargeMode) {
+                        Image(systemName: largeModeSymbolName)
+                            .fixedSize()
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
-                    .accessibilityLabel(
-                        largeMode
-                            ? String(
-                                localized: "active_workout_toggle_normal_text_size",
-                                defaultValue: "Switch to normal text size",
-                                comment: "Active workout toggle: switch back to normal text size"
-                            )
-                            : String(
-                                localized: "active_workout_toggle_large_text_size",
-                                defaultValue: "Switch to large text size",
-                                comment: "Active workout toggle: switch to large text size"
-                            )
+                    .accessibilityLabel(largeModeAccessibilityLabel)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("active_workout_large_mode")
+                    .padding(.horizontal, 6)
+                    .background(theme.neutrals.inner, in: Capsule())
+                    .overlay(Capsule().stroke(theme.neutrals.border, lineWidth: 1))
+                    .activeWorkoutToolbarObservation(
+                        toolbarObservation,
+                        frame: toolbarObservation.onLargeModeFrame,
+                        state: { toolbarObservation.onLargeModeState(largeModeToolbarState) },
+                        action: { toolbarObservation.onLargeModeAction(toggleLargeMode) }
                     )
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "结束训练", comment: "Finish workout toolbar button")) {
-                        showingFinishAlert = true
+                    .onChange(of: largeMode) { _, _ in
+                        guard toolbarObservation.isEnabled else { return }
+                        toolbarObservation.onLargeModeState(largeModeToolbarState)
+                        toolbarObservation.onLargeModeAction(toggleLargeMode)
                     }
-                    .fontWeight(.semibold)
+                }
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: requestFinish) {
+                        Text(String(localized: "active_workout_finish_short", comment: "Compact Finish toolbar action"))
+                            .fontWeight(.semibold)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .activeWorkoutToolbarObservation(
+                                toolbarObservation,
+                                frame: toolbarObservation.onFinishLabelFrame,
+                                state: {},
+                                action: {}
+                            )
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(String(localized: "结束训练", comment: "Finish workout toolbar button"))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("active_workout_finish")
+                    .padding(.horizontal, 8)
+                    .background(theme.accent.opacity(0.12), in: Capsule())
+                    .overlay(Capsule().stroke(theme.accent, lineWidth: 1))
+                    .activeWorkoutToolbarObservation(
+                        toolbarObservation,
+                        frame: toolbarObservation.onFinishFrame,
+                        state: {},
+                        action: { toolbarObservation.onFinishAction(requestFinish) }
+                    )
                 }
             }
             .sheet(isPresented: $showingExercisePicker) {
