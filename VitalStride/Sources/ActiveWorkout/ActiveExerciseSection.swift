@@ -24,6 +24,7 @@ struct CascadeDeletionRequest: Identifiable {
 
 struct ActiveExerciseSection: View {
     @Environment(\.theme) private var theme
+    @Environment(\.activeWorkoutListObservation) private var listObservation
     let workoutExercise: WorkoutExercise
     let onSetCompleted: () -> Void
     let onSetDeleted: () -> Void
@@ -247,6 +248,25 @@ struct ActiveExerciseSection: View {
                     }
                 }
                 addSetButton
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear
+                                .onAppear {
+                                    listObservation.onControlFrame(
+                                        workoutExercise.persistentModelID,
+                                        "add-set",
+                                        geometry.frame(in: .global)
+                                    )
+                                }
+                                .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                    listObservation.onControlFrame(
+                                        workoutExercise.persistentModelID,
+                                        "add-set",
+                                        frame
+                                    )
+                                }
+                        }
+                    }
                 Menu {
                     Button {
                         onSubstitute()
@@ -272,12 +292,49 @@ struct ActiveExerciseSection: View {
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear {
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "menu",
+                                    geometry.frame(in: .global)
+                                )
+                            }
+                            .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "menu",
+                                    frame
+                                )
+                            }
+                    }
+                }
             }
             .onChange(of: completedSetCount) { _, count in
                 if count < totalSetCount { isCollapsed = false }
             }
             .accessibilityValue(String(localized: "\(completedSetCount)/\(totalSetCount) 组", comment: "Exercise completion count"))
-            .background(theme.surface)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(theme.neutrals.bg)
+            .containerRelativeFrame(.horizontal)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(theme.neutrals.bg)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear {
+                            listObservation.onHeaderFrame(
+                                workoutExercise.persistentModelID,
+                                geometry.frame(in: .global)
+                            )
+                        }
+                        .onChange(of: geometry.frame(in: .global)) { _, frame in
+                            listObservation.onHeaderFrame(workoutExercise.persistentModelID, frame)
+                        }
+                }
+            }
             .confirmationDialog(
                 String(localized: "删除动作？", comment: "Delete exercise confirmation title"),
                 isPresented: $showingDeleteConfirmation,
@@ -316,6 +373,8 @@ struct ActiveExerciseSection: View {
                 ))
             }
         }
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(theme.neutrals.bg)
     }
 
     /// MY-1420: `confirmationDialog(_:isPresented:presenting:)` needs a Bool

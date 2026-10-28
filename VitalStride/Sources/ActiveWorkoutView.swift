@@ -17,6 +17,64 @@ import UIKit
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveWorkout")
 
+struct ActiveWorkoutListGeometry: Equatable {
+    let visibleRect: CGRect
+    let contentOffset: CGPoint
+    let contentSize: CGSize
+    let containerSize: CGSize
+    let listFrame: CGRect
+}
+
+struct ActiveWorkoutListDriver: @unchecked Sendable {
+    let scrollTo: @MainActor @Sendable (AnyHashable, UnitPoint) -> Void
+}
+
+struct ActiveWorkoutListObservationSink: @unchecked Sendable {
+    var onGeometry: @MainActor @Sendable (ActiveWorkoutListGeometry) -> Void = { _ in }
+    var onReady: @MainActor @Sendable (ActiveWorkoutListDriver) -> Void = { _ in }
+    var onHeaderFrame: @MainActor @Sendable (AnyHashable, CGRect) -> Void = { _, _ in }
+    var onControlFrame: @MainActor @Sendable (AnyHashable, String, CGRect) -> Void = { _, _, _ in }
+}
+
+private struct ActiveWorkoutListObservationKey: EnvironmentKey {
+    static let defaultValue = ActiveWorkoutListObservationSink()
+}
+
+extension EnvironmentValues {
+    var activeWorkoutListObservation: ActiveWorkoutListObservationSink {
+        get { self[ActiveWorkoutListObservationKey.self] }
+        set { self[ActiveWorkoutListObservationKey.self] = newValue }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func activeWorkoutListScrollObservation(
+        listFrame: CGRect,
+        sink: ActiveWorkoutListObservationSink
+    ) -> some View {
+        if #available(iOS 18.0, *) {
+            onScrollGeometryChange(
+                for: ActiveWorkoutListGeometry.self,
+                of: { geometry in
+                    ActiveWorkoutListGeometry(
+                        visibleRect: geometry.visibleRect,
+                        contentOffset: geometry.contentOffset,
+                        contentSize: geometry.contentSize,
+                        containerSize: geometry.containerSize,
+                        listFrame: listFrame
+                    )
+                },
+                action: { _, value in
+                    sink.onGeometry(value)
+                }
+            )
+        } else {
+            self
+        }
+    }
+}
+
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.theme) private var theme
@@ -29,6 +87,8 @@ struct ActiveWorkoutView: View {
     // `RoutingSignal`, and the retro-write target for `accepted` after the
     // user applies or cancels a suggestion.
     @Environment(\.routingSignalStore) private var signalStore
+    @Environment(\.activeWorkoutListObservation) private var listObservation
+    @State private var exerciseListFrame = CGRect.zero
     @State private var workout: Workout?
     @State private var showingExercisePicker = false
     @State private var selectedExerciseID: PersistentIdentifier?
@@ -860,10 +920,31 @@ struct ActiveWorkoutView: View {
                     )
                     .environment(\.defaultMinListRowHeight, 44)
                     .accessibilityIdentifier("workout_exercise_list")
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear
+                                .onAppear {
+                                    exerciseListFrame = geometry.frame(in: .global)
+                                }
+                                .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                    exerciseListFrame = frame
+                                }
+                        }
+                    }
+                    .activeWorkoutListScrollObservation(
+                        listFrame: exerciseListFrame,
+                        sink: listObservation
+                    )
+                }
+                .onAppear {
+                    listObservation.onReady(ActiveWorkoutListDriver { id, anchor in
+                        proxy.scrollTo(id, anchor: anchor)
+                    })
                 }
                 .background(theme.neutrals.bg)
             }
         }
+
     }
 
     private func exerciseSidebar(

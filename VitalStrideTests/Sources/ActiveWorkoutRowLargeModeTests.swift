@@ -370,6 +370,14 @@ import UIKit
 /// bridge, to catch stale text, hidden L/R fields and unit-rounding data loss.
 @MainActor
 final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
+    @MainActor
+    private final class ListObservationRecorder {
+        var geometry: ActiveWorkoutListGeometry?
+        var driver: ActiveWorkoutListDriver?
+        var headerFrames: [AnyHashable: CGRect] = [:]
+        var controlFrames: [AnyHashable: [String: CGRect]] = [:]
+    }
+
     func testSubSetDisplayRefreshPreservesPrecisionAndUserEditsPersist() async throws {
         for unilateral in [false, true] {
             let container = try ModelContainerConfiguration.makeTestContainer()
@@ -601,54 +609,86 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
     func testPinnedExerciseSectionHeaderOccludesUnderlyingRows() async throws {
         let container = try ModelContainerConfiguration.makeTestContainer()
         let context = container.mainContext
-        let exercise = Exercise(nameEn: "Bench Press", nameZh: "卧推", muscleGroup: .chest, equipment: .barbell)
-        context.insert(exercise)
-        let owner = WorkoutExercise(order: 0, exercise: exercise)
-        context.insert(owner)
-        for order in 0..<8 {
-            let set = ExerciseSet(order: order, weight: 60, reps: 10)
-            set.workoutExercise = owner
-            context.insert(set)
+        let workout = Workout(type: .strength, startDate: Date())
+        context.insert(workout)
+        var owners: [WorkoutExercise] = []
+        for index in 0..<3 {
+            let exercise = Exercise(
+                nameEn: "Bench Press \(index + 1)",
+                nameZh: "卧推\(index + 1)",
+                muscleGroup: .chest,
+                equipment: .barbell
+            )
+            context.insert(exercise)
+            let owner = WorkoutExercise(order: index, exercise: exercise)
+            owner.workout = workout
+            context.insert(owner)
+            owners.append(owner)
+            for order in 0..<8 {
+                let set = ExerciseSet(order: order, weight: 60, reps: 10)
+                set.workoutExercise = owner
+                context.insert(set)
+            }
         }
         try context.save()
 
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(x: 0, y: 0, width: 393, height: 500)
         defer { window.isHidden = true }
 
-        for dark in [false, true] {
-            let content = List {
-                ActiveExerciseSection(
-                    workoutExercise: owner,
-                    onSetCompleted: {},
-                    onSetDeleted: {},
-                    onReplace: {},
-                    onSubstitute: {},
-                    onDelete: {},
-                    undoController: SetDeletionUndoController()
-                )
+        let defaults = UserDefaults.standard
+        let previousLargeMode = defaults.object(forKey: "activeWorkoutLargeMode")
+        defer { defaults.set(previousLargeMode, forKey: "activeWorkoutLargeMode") }
+
+        for width in [375, 393] {
+            for largeMode in [false, true] {
+                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                for dark in [false, true] {
+                    window.frame = CGRect(x: 0, y: 0, width: CGFloat(width), height: 500)
+                    let recorder = ListObservationRecorder()
+                    let content = ActiveWorkoutView(source: .resume(workout))
+                        .modelContainer(container)
+                        .designThemePreview()
+                        .preferredColorScheme(dark ? .dark : .light)
+                        .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                            onGeometry: { recorder.geometry = $0 },
+                            onReady: { recorder.driver = $0 },
+                            onHeaderFrame: { recorder.headerFrames[$0] = $1 },
+                            onControlFrame: {
+                                recorder.controlFrames[$0, default: [:]][$1] = $2
+                            }
+                        ))
+                    let host = UIHostingController(rootView: content)
+                    window.rootViewController = host
+                    window.makeKeyAndVisible()
+                    try await Task.sleep(for: .milliseconds(250))
+                    host.view.layoutIfNeeded()
+
+                    let driver = try XCTUnwrap(recorder.driver)
+                    let targets = [owners[0], owners[1], owners[2]]
+                    for (position, target) in zip(["top", "middle", "boundary"], targets) {
+                        driver.scrollTo(target.persistentModelID, .top)
+                        try await Task.sleep(for: .milliseconds(120))
+                        host.view.layoutIfNeeded()
+                        let geometry = try XCTUnwrap(recorder.geometry)
+                        let targetID = target.persistentModelID
+                        let headerFrame = try XCTUnwrap(recorder.headerFrames[targetID])
+                        let controlFrames = recorder.controlFrames[targetID] ?? [:]
+                        XCTAssertGreaterThan(geometry.contentSize.height, geometry.containerSize.height)
+                        let image = windowImage(window)
+                        assertPinnedHeaderPixels(
+                            in: image,
+                            listFrame: headerFrame,
+                            hostView: host.view
+                        )
+                        assertHeaderControls(controlFrames, within: headerFrame)
+                        let attachment = XCTAttachment(image: image)
+                        attachment.name = "Pinned header \(position) \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light")"
+                        attachment.lifetime = .keepAlways
+                        add(attachment)
+                    }
+                }
             }
-            .listStyle(.plain)
-            .modelContainer(container)
-            .designThemePreview()
-            .preferredColorScheme(dark ? .dark : .light)
-            let host = UIHostingController(rootView: content)
-            window.rootViewController = host
-            window.makeKeyAndVisible()
-            try await Task.sleep(for: .milliseconds(200))
-            host.view.layoutIfNeeded()
-
-            let scrollView = try XCTUnwrap(descendants(of: host.view).compactMap { $0 as? UIScrollView }.first)
-            scrollView.setContentOffset(CGPoint(x: 0, y: 100), animated: false)
-            try await Task.sleep(for: .milliseconds(200))
-            host.view.layoutIfNeeded()
-
-            XCTAssertGreaterThan(scrollView.contentSize.height, scrollView.bounds.height)
-            let attachment = XCTAttachment(image: windowImage(window))
-            attachment.name = dark ? "Pinned exercise section header dark" : "Pinned exercise section header light"
-            attachment.lifetime = .keepAlways
-            add(attachment)
         }
     }
 
@@ -658,6 +698,64 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
 
     private func descendants(of view: UIView) -> [UIView] {
         view.subviews + view.subviews.flatMap(descendants)
+    }
+
+    private func assertHeaderControls(_ controls: [String: CGRect], within viewport: CGRect) {
+        let headerBand = CGRect(
+            x: viewport.minX,
+            y: viewport.minY - 8,
+            width: viewport.width,
+            height: min(140, viewport.height + 8)
+        )
+        let visibleControls = controls.values.filter {
+            $0.intersects(headerBand) && $0.width >= 44 && $0.height >= 44
+        }
+        XCTAssertGreaterThanOrEqual(visibleControls.count, 2, "Expected add-set and menu controls in pinned header")
+        for frame in visibleControls {
+            XCTAssertGreaterThanOrEqual(frame.width, 44)
+            XCTAssertGreaterThanOrEqual(frame.height, 44)
+            XCTAssertGreaterThanOrEqual(frame.minY, viewport.minY - 9)
+            XCTAssertLessThanOrEqual(frame.maxY, headerBand.maxY + 2)
+        }
+    }
+
+    private func assertPinnedHeaderPixels(
+        in image: UIImage,
+        listFrame: CGRect,
+        hostView: UIView
+    ) {
+        let scale = image.size.width / hostView.bounds.width
+        let top = max(0, Int(listFrame.minY * scale))
+        let bottom = min(Int(image.size.height), top + Int(16 * scale))
+        let left = max(0, Int(listFrame.minX * scale))
+        let right = min(Int(image.size.width) - 1, Int(listFrame.maxX * scale) - 1)
+        let sampleXs = [0.25, 0.35, 0.50, 0.65, 0.80, 0.95].map {
+            left + Int(CGFloat(right - left) * $0)
+        }
+        for y in stride(from: top + Int(2 * scale), to: bottom, by: max(1, Int(scale))) {
+            let center = pixel(in: image, x: sampleXs[2], y: y)
+            for x in sampleXs {
+                let sample = pixel(in: image, x: x, y: y)
+                XCTAssertLessThanOrEqual(colorDistance(center, sample), 48)
+            }
+        }
+    }
+
+    private func pixel(in image: UIImage, x: Int, y: Int) -> (UInt8, UInt8, UInt8) {
+        let cgImage = try! XCTUnwrap(image.cgImage)
+        let data = try! XCTUnwrap(cgImage.dataProvider?.data)
+        let bytes = CFDataGetBytePtr(data)!
+        let offset = y * cgImage.bytesPerRow + x * 4
+        return (bytes[offset], bytes[offset + 1], bytes[offset + 2])
+    }
+
+    private func colorDistance(
+        _ lhs: (UInt8, UInt8, UInt8),
+        _ rhs: (UInt8, UInt8, UInt8)
+    ) -> Int {
+        abs(Int(lhs.0) - Int(rhs.0))
+            + abs(Int(lhs.1) - Int(rhs.1))
+            + abs(Int(lhs.2) - Int(rhs.2))
     }
 
     private func windowImage(_ window: UIWindow) -> UIImage {
