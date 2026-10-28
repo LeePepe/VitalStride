@@ -8,15 +8,15 @@ enum ExerciseSeeder {
     private static let upstreamSource = "hasaneyldrm/exercises-dataset"
     private static let vitalStrideSource = "vitalstride"
     private static let requiredInstructionLanguages: Set<String> = ["en", "es", "fr", "hi", "it", "ko", "pl", "ru", "tr", "zh"]
-    private static let boundedV5ChineseNames: [String: String] = [
-        "bb6fc1a3-3e20-557f-99ff-60748b8e9e4e": "弹力带交替二头肌弯举",
-        "965212cf-b562-5e0b-b3c5-6af8c49b3562": "弹力带交替V字卷腹",
-        "f277a5ec-4f64-5a57-a4dd-f825573bcd06": "弹力带辅助引体向上",
-        "3a42aaea-1d48-5332-bbc1-a31fba717b97": "弹力带辅助健腹轮滚动",
-        "85b5e236-656e-510d-9eb1-754f32a2e6b8": "弹力带卧推",
-        "b559a6f2-e257-5c16-9871-476c26d4eacb": "弹力带俯身髋部伸展",
-        "7c5349ea-6e2c-5a21-8b2f-614bdb7e27c5": "弹力带窄握下拉",
-        "15eedfc8-e571-5189-8d34-f945fef183b6": "弹力带窄握俯卧撑",
+    private static let boundedV5ChineseNameIDs: Set<String> = [
+        "bb6fc1a3-3e20-557f-99ff-60748b8e9e4e",
+        "965212cf-b562-5e0b-b3c5-6af8c49b3562",
+        "f277a5ec-4f64-5a57-a4dd-f825573bcd06",
+        "3a42aaea-1d48-5332-bbc1-a31fba717b97",
+        "85b5e236-656e-510d-9eb1-754f32a2e6b8",
+        "b559a6f2-e257-5c16-9871-476c26d4eacb",
+        "7c5349ea-6e2c-5a21-8b2f-614bdb7e27c5",
+        "15eedfc8-e571-5189-8d34-f945fef183b6",
     ]
 
     static let seedVersionKey = "com.vitalstride.exerciseSeedVersion"
@@ -213,7 +213,7 @@ enum ExerciseSeeder {
 
         let canonicalDTOs = Dictionary(
             catalog.exercises.compactMap { dto -> (String, ExerciseDTO)? in
-                guard boundedV5ChineseNames[dto.id] != nil else { return nil }
+                guard boundedV5ChineseNameIDs.contains(dto.id) else { return nil }
                 return (dto.id, dto)
             },
             uniquingKeysWith: { first, _ in first }
@@ -229,7 +229,7 @@ enum ExerciseSeeder {
                   let dto = canonicalDTOs[presetID],
                   exercise.nameEn == dto.nameEn,
                   exercise.nameZh == exercise.nameEn,
-                  let translation = boundedV5ChineseNames[presetID],
+                  let translation = canonicalDTOs[presetID]?.nameZh,
                   !(exercise.workoutExercises ?? []).contains(where: { workoutExercise in
                       guard let source = workoutExercise.workout?.source else { return false }
                       return source == .imported || source == .healthkit
@@ -311,7 +311,7 @@ enum ExerciseSeeder {
 
         for dto in dtos where dto.source == upstreamSource {
             guard let exercise = existingByID[dto.id] else { continue }
-            if boundedV5ChineseNames[dto.id] != nil {
+            if boundedV5ChineseNameIDs.contains(dto.id) {
                 guard exercise.nameEn == dto.nameEn,
                       !(exercise.workoutExercises ?? []).contains(where: { workoutExercise in
                           guard let source = workoutExercise.workout?.source else { return false }
