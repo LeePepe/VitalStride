@@ -334,7 +334,8 @@ struct ActiveExerciseSection: View {
             .background {
                 theme.neutrals.bg
                     .padding(.horizontal, -20)
-                    .padding(.vertical, -22)
+                    .padding(.top, -22)
+                    .padding(.bottom, -15)
             }
             .listRowInsets(EdgeInsets())
             .background {
