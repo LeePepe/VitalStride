@@ -64,14 +64,22 @@ struct ActiveWorkoutListObservationSink: Sendable {
 }
 
 struct ActiveWorkoutToolbarObservation: Sendable {
+    var isEnabled = false
     var onLargeModeFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
     var onFinishFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onLargeModeState: @MainActor @Sendable (ActiveWorkoutToolbarState) -> Void = { _ in }
     var onLargeModeAction: @MainActor @Sendable (
         @escaping @MainActor @Sendable () -> Void
     ) -> Void = { _ in }
     var onFinishAction: @MainActor @Sendable (
         @escaping @MainActor @Sendable () -> Void
     ) -> Void = { _ in }
+}
+
+struct ActiveWorkoutToolbarState: Sendable, Equatable {
+    let isLargeMode: Bool
+    let symbolName: String
+    let accessibilityLabel: String
 }
 
 private struct ActiveWorkoutToolbarObservationKey: EnvironmentKey {
@@ -97,6 +105,33 @@ extension EnvironmentValues {
 }
 
 private extension View {
+    @ViewBuilder
+    func activeWorkoutToolbarObservation(
+        _ observation: ActiveWorkoutToolbarObservation,
+        frame: @escaping @MainActor @Sendable (CGRect) -> Void,
+        state: @escaping @MainActor @Sendable () -> Void,
+        action: @escaping @MainActor @Sendable () -> Void
+    ) -> some View {
+        if observation.isEnabled {
+            background {
+                GeometryReader { proxy in
+                    let currentFrame = proxy.frame(in: .global)
+                    Color.clear
+                        .onAppear {
+                            frame(currentFrame)
+                            state()
+                            action()
+                        }
+                        .onChange(of: currentFrame) { _, newFrame in
+                            frame(newFrame)
+                        }
+                }
+            }
+        } else {
+            self
+        }
+    }
+
     @ViewBuilder
     func activeWorkoutListScrollObservation(
         listFrame: CGRect,
@@ -216,6 +251,32 @@ struct ActiveWorkoutView: View {
         Font.system(largeMode ? .title3 : .subheadline, design: .default)
     }
 
+    private var largeModeSymbolName: String {
+        largeMode ? "textformat.size.smaller" : "textformat.size.larger"
+    }
+
+    private var largeModeAccessibilityLabel: String {
+        largeMode
+            ? String(
+                localized: "active_workout_toggle_normal_text_size",
+                defaultValue: "Switch to normal text size",
+                comment: "Active workout toggle: switch back to normal text size"
+            )
+            : String(
+                localized: "active_workout_toggle_large_text_size",
+                defaultValue: "Switch to large text size",
+                comment: "Active workout toggle: switch to large text size"
+            )
+    }
+
+    private var largeModeToolbarState: ActiveWorkoutToolbarState {
+        ActiveWorkoutToolbarState(
+            isLargeMode: largeMode,
+            symbolName: largeModeSymbolName,
+            accessibilityLabel: largeModeAccessibilityLabel
+        )
+    }
+
     var body: some View {
         let policy = ActiveWorkoutSnackbarLayout.policy(
             isKeyboardVisible: isKeyboardVisible,
@@ -285,40 +346,29 @@ struct ActiveWorkoutView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: toggleLargeMode) {
                         Image(
-                            systemName: largeMode
-                                ? "textformat.size.smaller"
-                                : "textformat.size.larger"
+                            systemName: largeModeSymbolName
                         )
                     }
-                    .accessibilityLabel(
-                        largeMode
-                            ? String(
-                                localized: "active_workout_toggle_normal_text_size",
-                                defaultValue: "Switch to normal text size",
-                                comment: "Active workout toggle: switch back to normal text size"
-                            )
-                            : String(
-                                localized: "active_workout_toggle_large_text_size",
-                                defaultValue: "Switch to large text size",
-                                comment: "Active workout toggle: switch to large text size"
-                            )
-                    )
+                    .accessibilityLabel(largeModeAccessibilityLabel)
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
                     .accessibilityIdentifier("active_workout_large_mode")
-                    .background {
-                        GeometryReader { proxy in
-                            let frame = proxy.frame(in: .global)
-                            Color.clear
-                                .onAppear {
-                                    toolbarObservation.onLargeModeFrame(frame)
-                                    toolbarObservation.onLargeModeAction(toggleLargeMode)
-                                }
-                                .onChange(of: frame) { _, newFrame in
-                                    toolbarObservation.onLargeModeFrame(newFrame)
-                                }
-                        }
+                    .padding(.horizontal, 6)
+                    .background(theme.neutrals.inner, in: Capsule())
+                    .overlay(Capsule().stroke(theme.neutrals.border, lineWidth: 1))
+                    .activeWorkoutToolbarObservation(
+                        toolbarObservation,
+                        frame: toolbarObservation.onLargeModeFrame,
+                        state: { toolbarObservation.onLargeModeState(largeModeToolbarState) },
+                        action: { toolbarObservation.onLargeModeAction(toggleLargeMode) }
+                    )
+                    .onChange(of: largeMode) { _, _ in
+                        toolbarObservation.onLargeModeState(largeModeToolbarState)
+                        toolbarObservation.onLargeModeAction(toggleLargeMode)
                     }
+                }
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(
@@ -329,19 +379,15 @@ struct ActiveWorkoutView: View {
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
                     .accessibilityIdentifier("active_workout_finish")
-                    .background {
-                        GeometryReader { proxy in
-                            let frame = proxy.frame(in: .global)
-                            Color.clear
-                                .onAppear {
-                                    toolbarObservation.onFinishFrame(frame)
-                                    toolbarObservation.onFinishAction(requestFinish)
-                                }
-                                .onChange(of: frame) { _, newFrame in
-                                    toolbarObservation.onFinishFrame(newFrame)
-                                }
-                        }
-                    }
+                    .padding(.horizontal, 8)
+                    .background(theme.accent.opacity(0.12), in: Capsule())
+                    .overlay(Capsule().stroke(theme.accent, lineWidth: 1))
+                    .activeWorkoutToolbarObservation(
+                        toolbarObservation,
+                        frame: toolbarObservation.onFinishFrame,
+                        state: {},
+                        action: { toolbarObservation.onFinishAction(requestFinish) }
+                    )
                 }
             }
             .sheet(isPresented: $showingExercisePicker) {

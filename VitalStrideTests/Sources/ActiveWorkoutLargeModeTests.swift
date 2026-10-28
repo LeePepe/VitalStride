@@ -83,9 +83,10 @@ final class WorkoutToolbarRenderingTests: XCTestCase {
         let locale = Locale.current.identifier
         for width in [375, 393] {
             for largeMode in [false, true] {
-                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
                 for colorScheme in [ColorScheme.light, .dark] {
                     for dynamicType in [DynamicTypeSize.large, .accessibility3] {
+                        defaults.removeObject(forKey: "activeWorkoutLargeMode")
+                        defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
                         let container = try ModelContainerConfiguration.makeTestContainer()
                         let probe = ToolbarProbe()
                         let view = ActiveWorkoutView(source: .blank)
@@ -105,19 +106,43 @@ final class WorkoutToolbarRenderingTests: XCTestCase {
                         window.frame = CGRect(x: 0, y: 0, width: width, height: 852)
                         window.rootViewController = host
                         window.makeKeyAndVisible()
+                        defer {
+                            window.rootViewController?.dismiss(animated: false)
+                            window.rootViewController = nil
+                            window.isHidden = true
+                        }
 
                         try await Task.sleep(for: .milliseconds(250))
                         host.view.layoutIfNeeded()
 
                         let largeFrame = try XCTUnwrap(probe.largeModeFrame)
                         let finishFrame = try XCTUnwrap(probe.finishFrame)
-                        XCTAssertGreaterThanOrEqual(largeFrame.width, 43.99)
-                        XCTAssertGreaterThanOrEqual(largeFrame.height, 43.99)
-                        XCTAssertGreaterThanOrEqual(finishFrame.width, 43.99)
-                        XCTAssertGreaterThanOrEqual(finishFrame.height, 43.99)
-                        XCTAssertFalse(largeFrame.intersects(finishFrame))
-                        XCTAssertNotNil(window.hitTest(window.convert(largeFrame.center, from: nil), with: nil))
-                        XCTAssertNotNil(window.hitTest(window.convert(finishFrame.center, from: nil), with: nil))
+                        XCTAssertGreaterThanOrEqual(largeFrame.width, 44 - 1e-3)
+                        XCTAssertGreaterThanOrEqual(largeFrame.height, 44 - 1e-3)
+                        XCTAssertGreaterThanOrEqual(finishFrame.width, 44 - 1e-3)
+                        XCTAssertGreaterThanOrEqual(finishFrame.height, 44 - 1e-3)
+                        XCTAssertGreaterThanOrEqual(finishFrame.minX - largeFrame.maxX, 4)
+                        let navigationBar = try XCTUnwrap(
+                            window.rootViewController?.view.descendant(of: UINavigationBar.self)
+                        )
+                        let largeHit = window.hitTest(
+                            window.convert(largeFrame.center, from: nil),
+                            with: nil
+                        )
+                        let finishHit = window.hitTest(
+                            window.convert(finishFrame.center, from: nil),
+                            with: nil
+                        )
+                        probe.hitViewIsInNavigationBar =
+                            largeHit.map(navigationBar.contains) == true &&
+                            finishHit.map(navigationBar.contains) == true
+                        XCTAssertTrue(
+                            probe.hitViewIsInNavigationBar,
+                            "Toolbar frame centers must hit views in the rendered navigation bar"
+                        )
+
+                        let expectedState = ToolbarProbe.state(for: largeMode)
+                        XCTAssertEqual(probe.largeModeState, expectedState)
 
                         let image = UIGraphicsImageRenderer(size: window.bounds.size).image { _ in
                             window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
@@ -131,10 +156,15 @@ final class WorkoutToolbarRenderingTests: XCTestCase {
                         probe.largeModeAction?()
                         try await Task.sleep(for: .milliseconds(100))
                         let expectedMode = !largeMode
-                        XCTAssertEqual(
-                            defaults.bool(forKey: "activeWorkoutLargeMode"),
-                            expectedMode
-                        )
+                        XCTAssertEqual(defaults.bool(forKey: "activeWorkoutLargeMode"), expectedMode)
+                        XCTAssertEqual(probe.largeModeState, ToolbarProbe.state(for: expectedMode))
+                        XCTAssertNil(host.presentedViewController)
+
+                        probe.largeModeAction?()
+                        try await Task.sleep(for: .milliseconds(100))
+                        XCTAssertEqual(defaults.bool(forKey: "activeWorkoutLargeMode"), largeMode)
+                        XCTAssertEqual(probe.largeModeState, expectedState)
+                        XCTAssertNil(host.presentedViewController)
 
                         window.isHidden = true
                         let restoredProbe = ToolbarProbe()
@@ -152,10 +182,8 @@ final class WorkoutToolbarRenderingTests: XCTestCase {
                         try await Task.sleep(for: .milliseconds(100))
                         relaunched.view.layoutIfNeeded()
                         XCTAssertNotNil(restoredProbe.largeModeFrame)
-                        XCTAssertEqual(
-                            expectedMode,
-                            defaults.bool(forKey: "activeWorkoutLargeMode")
-                        )
+                        XCTAssertEqual(defaults.bool(forKey: "activeWorkoutLargeMode"), largeMode)
+                        XCTAssertEqual(restoredProbe.largeModeState, expectedState)
                         XCTAssertNotNil(restoredProbe.finishAction)
                         restoredProbe.finishAction?()
                         try await Task.sleep(for: .milliseconds(100))
@@ -163,6 +191,8 @@ final class WorkoutToolbarRenderingTests: XCTestCase {
                             window.rootViewController?.presentedViewController,
                             "Finish must open the existing confirmation path"
                         )
+                        window.rootViewController?.dismiss(animated: false)
+                        window.rootViewController = nil
                         window.isHidden = true
                     }
                 }
@@ -176,19 +206,53 @@ private extension CGRect {
     var center: CGPoint { CGPoint(x: midX, y: midY) }
 }
 
+private extension UIView {
+    func descendant<T: UIView>(of type: T.Type) -> T? {
+        if let match = self as? T {
+            return match
+        }
+        for child in subviews {
+            if let match = child.descendant(of: type) {
+                return match
+            }
+        }
+        return nil
+    }
+
+    func contains(_ view: UIView) -> Bool {
+        view === self || view.superview.map(contains) == true
+    }
+}
+
 @MainActor
 private final class ToolbarProbe {
     var largeModeFrame: CGRect?
     var finishFrame: CGRect?
+    var largeModeState: ActiveWorkoutToolbarState?
     var largeModeAction: (@MainActor @Sendable () -> Void)?
     var finishAction: (@MainActor @Sendable () -> Void)?
+    var hitViewIsInNavigationBar = false
 
     var observation: ActiveWorkoutToolbarObservation {
         ActiveWorkoutToolbarObservation(
+            isEnabled: true,
             onLargeModeFrame: { [self] frame in largeModeFrame = frame },
             onFinishFrame: { [self] frame in finishFrame = frame },
+            onLargeModeState: { [self] state in largeModeState = state },
             onLargeModeAction: { [self] action in largeModeAction = action },
             onFinishAction: { [self] action in finishAction = action }
+        )
+    }
+
+    static func state(for largeMode: Bool) -> ActiveWorkoutToolbarState {
+        ActiveWorkoutToolbarState(
+            isLargeMode: largeMode,
+            symbolName: largeMode
+                ? "textformat.size.smaller"
+                : "textformat.size.larger",
+            accessibilityLabel: largeMode
+                ? String(localized: "active_workout_toggle_normal_text_size")
+                : String(localized: "active_workout_toggle_large_text_size")
         )
     }
 }
