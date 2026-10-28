@@ -97,12 +97,29 @@ struct ActiveExerciseSectionAddSetHeaderTests {
             sets: [mainSet, lastMainSet, trailingSubSet]
         )
         context.insert(workoutExercise)
+        let neighboringExercise = Exercise(
+            nameEn: "Squat",
+            nameZh: "深蹲",
+            muscleGroup: .legs,
+            equipment: .barbell
+        )
+        context.insert(neighboringExercise)
+        let neighbor = WorkoutExercise(order: 1, exercise: neighboringExercise)
+        let neighborSet = ExerciseSet(order: 0, weight: 110, reps: 5)
+        neighborSet.workoutExercise = neighbor
+        neighbor.sets = [neighborSet]
+        context.insert(neighbor)
+        context.insert(neighborSet)
+        let neighborSnapshot = (neighbor.sets ?? []).sorted { $0.order < $1.order }.map {
+            ($0.persistentModelID, $0.order, $0.weight, $0.reps, $0.workoutExercise?.persistentModelID)
+        }
 
         let appendedSet = ActiveExerciseSection.insertAppendedMainSet(
             in: workoutExercise,
             using: context
         )
 
+        #expect(appendedSet.setType == .working)
         #expect(appendedSet.weight == 90)
         #expect(appendedSet.reps == 6)
         #expect(appendedSet.setType == .working)
@@ -115,6 +132,14 @@ struct ActiveExerciseSectionAddSetHeaderTests {
         #expect(orderedSets.count == 4)
         #expect(orderedSets.map(\.order) == [0, 1, 2, 3])
         #expect(orderedSets.last?.persistentModelID == appendedSet.persistentModelID)
+        #expect(orderedSets.filter { !$0.setType.isSubSet }.count == 3)
+        #expect(workoutExercise.sets?.contains { $0 === appendedSet } == true)
+        #expect(appendedSet.workoutExercise === workoutExercise)
+
+        let neighborAfter = (neighbor.sets ?? []).sorted { $0.order < $1.order }.map {
+            ($0.persistentModelID, $0.order, $0.weight, $0.reps, $0.workoutExercise?.persistentModelID)
+        }
+        #expect(neighborAfter.elementsEqual(neighborSnapshot, by: ==))
     }
 
     @Test("The add-set button keeps its existing localized label and insertion hint")

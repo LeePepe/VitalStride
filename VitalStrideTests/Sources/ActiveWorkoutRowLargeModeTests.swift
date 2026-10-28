@@ -2,6 +2,7 @@ import DesignKit
 import SwiftData
 import SwiftUI
 import Testing
+import UIKit
 import VitalModels
 import XCTest
 
@@ -631,6 +632,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                 context.insert(set)
             }
         }
+
         try context.save()
 
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
@@ -780,6 +782,76 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         }
     }
 
+    func testCompleteHeaderCollapseAndExpansionSeparatesInputsFromAddSet() async throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        let workout = Workout(type: .strength, startDate: Date())
+        context.insert(workout)
+        let exercise = Exercise(
+            nameEn: "Bench Press",
+            nameZh: "卧推",
+            muscleGroup: .chest,
+            equipment: .barbell
+        )
+        context.insert(exercise)
+        let owner = WorkoutExercise(order: 0, exercise: exercise)
+        owner.workout = workout
+        context.insert(owner)
+        for order in 0..<2 {
+            let set = ExerciseSet(order: order, weight: 60, reps: 10, isCompleted: true)
+            set.workoutExercise = owner
+            context.insert(set)
+        }
+        try context.save()
+
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 393, height: 852)
+        defer { window.isHidden = true }
+
+        for dark in [false, true] {
+            let recorder = ListObservationRecorder()
+            let content = ActiveWorkoutView(source: .resume(workout))
+                .modelContainer(container)
+                .designThemePreview()
+                .preferredColorScheme(dark ? .dark : .light)
+                .dynamicTypeSize(.accessibility3)
+                .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                    onGeometry: { recorder.geometry = $0 },
+                    onReady: { recorder.driver = $0 },
+                    onRowFrame: { recorder.rowFrames[$0] = $1 },
+                    onHeaderFrame: { recorder.headerFrames[$0] = $1 },
+                    onControlFrame: {
+                        recorder.controlFrames[$0, default: [:]][$1] = $2
+                    }
+                ))
+            let host = UIHostingController(rootView: content)
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            try await Task.sleep(for: .milliseconds(300))
+            host.view.layoutIfNeeded()
+
+            let ownerID = owner.persistentModelID
+            let header = try XCTUnwrap(recorder.headerFrames[ownerID])
+            let addSet = try XCTUnwrap(recorder.controlFrames[ownerID]?["add-set"])
+            let firstSet = try XCTUnwrap((owner.sets ?? []).min { $0.order < $1.order })
+            let firstRow = try XCTUnwrap(recorder.rowFrames[firstSet.persistentModelID])
+            assertCompleteHeaderSeparation(
+                addSet: addSet,
+                firstRow: firstRow,
+                header: header,
+                fields: textFields(in: host.view).filter {
+                    $0.convert($0.bounds, to: window).intersects(firstRow)
+                }
+            )
+
+            let attachment = XCTAttachment(image: windowImage(window))
+            attachment.name = "Complete header expanded \(dark ? "dark" : "light") accessibility3"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
     func testPinnedHeaderPixelNormalizationHandlesExtendedRange() throws {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
@@ -822,6 +894,21 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         }
         if let add = controls["add-set"], let menu = controls["menu"] {
             XCTAssertFalse(add.intersects(menu), "Header controls must not overlap")
+        }
+    }
+
+    private func assertCompleteHeaderSeparation(
+        addSet: CGRect,
+        firstRow: CGRect,
+        header: CGRect,
+        fields: [UITextField]
+    ) {
+        XCTAssertTrue(header.contains(addSet), "Add-set control must remain inside complete header")
+        XCTAssertGreaterThan(firstRow.minY - addSet.maxY, 0, "Complete expanded header needs vertical separation")
+        XCTAssertFalse(addSet.intersects(firstRow), "Add-set control must not intersect complete first row")
+        for field in fields {
+            let frame = field.convert(field.bounds, to: field.window)
+            XCTAssertFalse(addSet.intersects(frame), "Add-set control must not intersect first-row input \(frame)")
         }
     }
 
