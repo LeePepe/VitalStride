@@ -645,126 +645,136 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             for largeMode in [false, true] {
                 defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
                 for dark in [false, true] {
-                    window.frame = CGRect(x: 0, y: 0, width: CGFloat(width), height: 852)
-                    let recorder = ListObservationRecorder()
-                    let content = ActiveWorkoutView(source: .resume(workout))
-                        .modelContainer(container)
-                        .designThemePreview()
-                        .preferredColorScheme(dark ? .dark : .light)
-                        .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
-                            onGeometry: { recorder.geometry = $0 },
-                            onReady: { recorder.driver = $0 },
-                            onRowFrame: { recorder.rowFrames[$0] = $1 },
-                            onHeaderFrame: { recorder.headerFrames[$0] = $1 },
-                            onControlFrame: {
-                                recorder.controlFrames[$0, default: [:]][$1] = $2
-                            }
-                        ))
-                    let host = UIHostingController(rootView: content)
-                    window.rootViewController = host
-                    window.makeKeyAndVisible()
-                    try await Task.sleep(for: .milliseconds(250))
-                    host.view.layoutIfNeeded()
-
-                    let target = owners[0]
-                    let targetID = target.persistentModelID
-                    let sets = (target.sets ?? []).sorted { $0.order < $1.order }
-                    let listFrame = try XCTUnwrap(recorder.geometry).listFrame
-                    // Select by observed production List geometry in window space,
-                    // never by a child's parent-local frame or a guessed top inset.
-                    let scrollView = try XCTUnwrap(descendants(of: host.view).compactMap { $0 as? UIScrollView }
-                        .first { candidate in
-                            let frame = candidate.convert(candidate.bounds, to: window)
-                            return abs(frame.minX - listFrame.minX) < 2
-                                && abs(frame.minY - listFrame.minY) < 2
-                                && abs(frame.width - listFrame.width) < 2
-                                && candidate.contentSize.height > candidate.bounds.height
-                        }, "No scroll container matches observed production List viewport \(listFrame)")
-                    let unscrolledHeader = try XCTUnwrap(recorder.headerFrames[targetID])
-                    // Remove the initial system top margin before taking the same
-                    // header's pinned reference; no set row is behind it yet.
-                    let topOffset = scrollView.contentOffset.y + unscrolledHeader.minY - listFrame.minY
-                    scrollView.setContentOffset(CGPoint(x: 0, y: topOffset), animated: false)
-                    try await Task.sleep(for: .milliseconds(150))
-                    let initialHeader = try XCTUnwrap(recorder.headerFrames[targetID])
-                    let baseline = try HeaderPixels(windowImage(window))
-                    let firstRow = try XCTUnwrap(recorder.rowFrames[sets[0].persistentModelID])
-                    let referenceBand = CGRect(
-                        x: listFrame.minX, y: listFrame.minY,
-                        width: listFrame.width, height: firstRow.minY - listFrame.minY
-                    )
-                    let middleRow = try XCTUnwrap(recorder.rowFrames[sets[1].persistentModelID])
-                    let middleOffset = topOffset + middleRow.midY - initialHeader.midY
-                    let driver = try XCTUnwrap(recorder.driver)
-                    driver.scrollTo(owners[1].persistentModelID, .top)
-                    try await Task.sleep(for: .milliseconds(150))
-                    let nextHeader = try XCTUnwrap(recorder.headerFrames[owners[1].persistentModelID])
-                    let boundaryOffset = scrollView.contentOffset.y + nextHeader.minY - initialHeader.maxY - 4
-                    var evidence: [String] = []
-                    for (position, offset) in [("top", topOffset), ("middle", middleOffset),
-                                               ("boundary", boundaryOffset)] {
-                        recorder.rowFrames.removeAll()
-                        scrollView.setContentOffset(CGPoint(x: 0, y: offset), animated: false)
-                        try await Task.sleep(for: .milliseconds(180))
-                        var actualTargetOffset = offset
-                        if position == "boundary" {
-                            let lastRow = try XCTUnwrap(recorder.rowFrames[sets[7].persistentModelID])
-                            actualTargetOffset += lastRow.midY - initialHeader.midY
-                            recorder.rowFrames.removeAll()
-                            scrollView.setContentOffset(CGPoint(x: 0, y: actualTargetOffset), animated: false)
-                            try await Task.sleep(for: .milliseconds(180))
-                        }
+                    for dynamicType in [DynamicTypeSize.large, .accessibility3] {
+                        window.frame = CGRect(x: 0, y: 0, width: CGFloat(width), height: 852)
+                        let recorder = ListObservationRecorder()
+                        let content = ActiveWorkoutView(source: .resume(workout))
+                            .modelContainer(container)
+                            .designThemePreview()
+                            .preferredColorScheme(dark ? .dark : .light)
+                            .dynamicTypeSize(dynamicType)
+                            .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                                onGeometry: { recorder.geometry = $0 },
+                                onReady: { recorder.driver = $0 },
+                                onRowFrame: { recorder.rowFrames[$0] = $1 },
+                                onHeaderFrame: { recorder.headerFrames[$0] = $1 },
+                                onControlFrame: {
+                                    recorder.controlFrames[$0, default: [:]][$1] = $2
+                                }
+                            ))
+                        let host = UIHostingController(rootView: content)
+                        window.rootViewController = host
+                        window.makeKeyAndVisible()
+                        try await Task.sleep(for: .milliseconds(250))
                         host.view.layoutIfNeeded()
-                        let geometry = try XCTUnwrap(recorder.geometry)
-                        let header = try XCTUnwrap(recorder.headerFrames[targetID])
-                        let controls = recorder.controlFrames[targetID] ?? [:]
-                        let image = windowImage(window)
-                        let attachment = XCTAttachment(image: image)
-                        attachment.name = "Pinned header \(position) \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light")"
-                        attachment.lifetime = .keepAlways
-                        add(attachment)
-                        XCTAssertGreaterThan(geometry.contentSize.height, geometry.containerSize.height)
-                        XCTAssertEqual(scrollView.contentOffset.y, actualTargetOffset, accuracy: 2, position)
-                        XCTAssertEqual(geometry.contentOffset.y, actualTargetOffset, accuracy: 2, position)
-                        XCTAssertEqual(header.minY, initialHeader.minY, accuracy: 2, position)
-                        assertHeaderControls(controls, header: header, viewport: geometry.listFrame)
-                        let overlappingRows = sets.compactMap { recorder.rowFrames[$0.persistentModelID] }
-                            .filter { $0.intersects(header) }
-                        if position != "top" {
-                            XCTAssertFalse(overlappingRows.isEmpty, "A real set row must pass underneath the pinned header")
-                        }
-                        if position == "boundary" {
-                            let lastRow = try XCTUnwrap(recorder.rowFrames[sets[7].persistentModelID])
-                            XCTAssertTrue(lastRow.intersects(header), "Last set must pass under the header at the section boundary")
-                            let next = try XCTUnwrap(recorder.headerFrames[owners[1].persistentModelID])
-                            XCTAssertLessThan(next.minY, geometry.listFrame.maxY, "Next section must be in the viewport")
-                        }
-                        let pixels = try HeaderPixels(image)
-                        let comparison = assertPinnedHeaderPixels(
-                            pixels, baseline: baseline, band: referenceBand
+
+                        let target = owners[0]
+                        let targetID = target.persistentModelID
+                        let sets = (target.sets ?? []).sorted { $0.order < $1.order }
+                        let listFrame = try XCTUnwrap(recorder.geometry).listFrame
+                        // Select by observed production List geometry in window space,
+                        // never by a child's parent-local frame or a guessed top inset.
+                        let scrollView = try XCTUnwrap(descendants(of: host.view).compactMap { $0 as? UIScrollView }
+                            .first { candidate in
+                                let frame = candidate.convert(candidate.bounds, to: window)
+                                return abs(frame.minX - listFrame.minX) < 2
+                                    && abs(frame.minY - listFrame.minY) < 2
+                                    && abs(frame.width - listFrame.width) < 2
+                                    && candidate.contentSize.height > candidate.bounds.height
+                            }, "No scroll container matches observed production List viewport \(listFrame)")
+                        let unscrolledHeader = try XCTUnwrap(recorder.headerFrames[targetID])
+                        // Remove the initial system top margin before taking the same
+                        // header's pinned reference; no set row is behind it yet.
+                        let topOffset = scrollView.contentOffset.y + unscrolledHeader.minY - listFrame.minY
+                        scrollView.setContentOffset(CGPoint(x: 0, y: topOffset), animated: false)
+                        try await Task.sleep(for: .milliseconds(150))
+                        let initialHeader = try XCTUnwrap(recorder.headerFrames[targetID])
+                        let baseline = try HeaderPixels(windowImage(window))
+                        let firstRow = try XCTUnwrap(recorder.rowFrames[sets[0].persistentModelID])
+                        let addSet = try XCTUnwrap(recorder.controlFrames[targetID]?["add-set"])
+                        XCTAssertFalse(
+                            addSet.intersects(firstRow),
+                            "Add-set control must not intersect the first row at rest: add-set=\(addSet), first-row=\(firstRow)"
                         )
-                        evidence.append("\(position): requested=\(actualTargetOffset) actualOffset=\(geometry.contentOffset.y) "
-                            + "viewport=\(geometry.listFrame) header=\(header) controls=\(controls) "
-                            + "rowsUnderHeader=\(overlappingRows) pixelProof=\(comparison)")
+                        let referenceBand = CGRect(
+                            x: listFrame.minX, y: listFrame.minY,
+                            width: listFrame.width, height: firstRow.minY - listFrame.minY
+                        )
+                        let middleRow = try XCTUnwrap(recorder.rowFrames[sets[1].persistentModelID])
+                        let middleOffset = topOffset + middleRow.midY - initialHeader.midY
+                        let driver = try XCTUnwrap(recorder.driver)
+                        driver.scrollTo(owners[1].persistentModelID, .top)
+                        try await Task.sleep(for: .milliseconds(150))
+                        let nextHeader = try XCTUnwrap(recorder.headerFrames[owners[1].persistentModelID])
+                        let boundaryOffset = scrollView.contentOffset.y + nextHeader.minY - initialHeader.maxY - 4
+                        var evidence: [String] = [
+                            "rest: add-set=\(addSet) first-row=\(firstRow) intersection=\(addSet.intersects(firstRow))"
+                        ]
+                        for (position, offset) in [("top", topOffset), ("middle", middleOffset),
+                                                   ("boundary", boundaryOffset)] {
+                            recorder.rowFrames.removeAll()
+                            scrollView.setContentOffset(CGPoint(x: 0, y: offset), animated: false)
+                            try await Task.sleep(for: .milliseconds(180))
+                            var actualTargetOffset = offset
+                            if position == "boundary" {
+                                let lastRow = try XCTUnwrap(recorder.rowFrames[sets[7].persistentModelID])
+                                actualTargetOffset += lastRow.midY - initialHeader.midY
+                                recorder.rowFrames.removeAll()
+                                scrollView.setContentOffset(CGPoint(x: 0, y: actualTargetOffset), animated: false)
+                                try await Task.sleep(for: .milliseconds(180))
+                            }
+                            host.view.layoutIfNeeded()
+                            let geometry = try XCTUnwrap(recorder.geometry)
+                            let header = try XCTUnwrap(recorder.headerFrames[targetID])
+                            let controls = recorder.controlFrames[targetID] ?? [:]
+                            let image = windowImage(window)
+                            let attachment = XCTAttachment(image: image)
+                            attachment.name = "Pinned header \(position) \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light") \(dynamicType)"
+                            attachment.lifetime = .keepAlways
+                            add(attachment)
+                            XCTAssertGreaterThan(geometry.contentSize.height, geometry.containerSize.height)
+                            XCTAssertEqual(scrollView.contentOffset.y, actualTargetOffset, accuracy: 2, position)
+                            XCTAssertEqual(geometry.contentOffset.y, actualTargetOffset, accuracy: 2, position)
+                            XCTAssertEqual(header.minY, initialHeader.minY, accuracy: 2, position)
+                            assertHeaderControls(controls, header: header, viewport: geometry.listFrame)
+                            let overlappingRows = sets.compactMap { recorder.rowFrames[$0.persistentModelID] }
+                                .filter { $0.intersects(header) }
+                            if position != "top" {
+                                XCTAssertFalse(overlappingRows.isEmpty, "A real set row must pass underneath the pinned header")
+                            }
+                            if position == "boundary" {
+                                let lastRow = try XCTUnwrap(recorder.rowFrames[sets[7].persistentModelID])
+                                XCTAssertTrue(lastRow.intersects(header), "Last set must pass under the header at the section boundary")
+                                let next = try XCTUnwrap(recorder.headerFrames[owners[1].persistentModelID])
+                                XCTAssertLessThan(next.minY, geometry.listFrame.maxY, "Next section must be in the viewport")
+                            }
+                            let pixels = try HeaderPixels(image)
+                            let comparison = assertPinnedHeaderPixels(
+                                pixels, baseline: baseline, band: referenceBand
+                            )
+                            evidence.append("\(position): requested=\(actualTargetOffset) actualOffset=\(geometry.contentOffset.y) "
+                                + "viewport=\(geometry.listFrame) header=\(header) controls=\(controls) "
+                                + "rowsUnderHeader=\(overlappingRows) pixelProof=\(comparison)")
+                        }
+                        // List contentSize is estimated until distant cells are laid
+                        // out. Ask its real collection layout for the final item.
+                        let collection = try XCTUnwrap(scrollView as? UICollectionView)
+                        let lastSection = collection.numberOfSections - 1
+                        let lastItem = collection.numberOfItems(inSection: lastSection) - 1
+                        recorder.rowFrames.removeAll()
+                        collection.scrollToItem(
+                            at: IndexPath(item: lastItem, section: lastSection), at: .bottom, animated: false
+                        )
+                        try await Task.sleep(for: .milliseconds(180))
+                        let finalSet = try XCTUnwrap(owners[2].sets?.max { $0.order < $1.order })
+                        let finalRow = try XCTUnwrap(recorder.rowFrames[finalSet.persistentModelID])
+                        XCTAssertTrue(listFrame.contains(finalRow), "Final set must scroll fully into the List viewport")
+                        evidence.append("last-content: offset=\(scrollView.contentOffset.y) finalRow=\(finalRow)")
+                        let frames = XCTAttachment(string: evidence.joined(separator: "\n"))
+                        frames.name = "Pinned header geometry \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light") \(dynamicType)"
+                        frames.lifetime = .keepAlways
+                        add(frames)
                     }
-                    // List contentSize is estimated until distant cells are laid
-                    // out. Ask its real collection layout for the final item.
-                    let collection = try XCTUnwrap(scrollView as? UICollectionView)
-                    let lastSection = collection.numberOfSections - 1
-                    let lastItem = collection.numberOfItems(inSection: lastSection) - 1
-                    recorder.rowFrames.removeAll()
-                    collection.scrollToItem(
-                        at: IndexPath(item: lastItem, section: lastSection), at: .bottom, animated: false
-                    )
-                    try await Task.sleep(for: .milliseconds(180))
-                    let finalSet = try XCTUnwrap(owners[2].sets?.max { $0.order < $1.order })
-                    let finalRow = try XCTUnwrap(recorder.rowFrames[finalSet.persistentModelID])
-                    XCTAssertTrue(listFrame.contains(finalRow), "Final set must scroll fully into the List viewport")
-                    evidence.append("last-content: offset=\(scrollView.contentOffset.y) finalRow=\(finalRow)")
-                    let frames = XCTAttachment(string: evidence.joined(separator: "\n"))
-                    frames.name = "Pinned header geometry \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light")"
-                    frames.lifetime = .keepAlways
-                    add(frames)
                 }
             }
         }
