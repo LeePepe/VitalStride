@@ -204,6 +204,28 @@ struct ExercisesJSONTests {
         }
     }
 
+    @Test("Only the eight approved Band presets use bounded Chinese names")
+    func boundedBandPresetTranslations() throws {
+        let expected = [
+            "bb6fc1a3-3e20-557f-99ff-60748b8e9e4e": ("Band Alternating Biceps Curl", "弹力带交替二头肌弯举"),
+            "965212cf-b562-5e0b-b3c5-6af8c49b3562": ("Band Alternating V-Up", "弹力带交替V字卷腹"),
+            "f277a5ec-4f64-5a57-a4dd-f825573bcd06": ("Band Assisted Pull-Up", "弹力带辅助引体向上"),
+            "3a42aaea-1d48-5332-bbc1-a31fba717b97": ("Band Assisted Wheel Rollerout", "弹力带辅助健腹轮滚动"),
+            "85b5e236-656e-510d-9eb1-754f32a2e6b8": ("Band Bench Press", "弹力带卧推"),
+            "b559a6f2-e257-5c16-9871-476c26d4eacb": ("Band Bent-Over Hip Extension", "弹力带俯身髋部伸展"),
+            "7c5349ea-6e2c-5a21-8b2f-614bdb7e27c5": ("Band Close-Grip Pulldown", "弹力带窄握下拉"),
+            "15eedfc8-e571-5189-8d34-f945fef183b6": ("Band Close-Grip Push-Up", "弹力带窄握俯卧撑"),
+        ]
+        for (id, names) in expected {
+            let exercise = try #require(exercises.first { $0.id == id })
+            #expect((exercise.nameEn, exercise.nameZh) == names)
+            #expect(exercise.source == "hasaneyldrm/exercises-dataset")
+        }
+
+        let translatedIDs = Set(exercises.filter { $0.nameZh != $0.nameEn }.map(\.id))
+        #expect(translatedIDs.isSuperset(of: Set(expected.keys)))
+    }
+
     @Test("Full catalog resolves to the final 12-section nonempty aggregation")
     func fullCatalogSectionDistribution() {
         let workouts = exercises.map { exercise in

@@ -8,6 +8,16 @@ enum ExerciseSeeder {
     private static let upstreamSource = "hasaneyldrm/exercises-dataset"
     private static let vitalStrideSource = "vitalstride"
     private static let requiredInstructionLanguages: Set<String> = ["en", "es", "fr", "hi", "it", "ko", "pl", "ru", "tr", "zh"]
+    private static let boundedV5ChineseNameIDs: Set<String> = [
+        "bb6fc1a3-3e20-557f-99ff-60748b8e9e4e",
+        "965212cf-b562-5e0b-b3c5-6af8c49b3562",
+        "f277a5ec-4f64-5a57-a4dd-f825573bcd06",
+        "3a42aaea-1d48-5332-bbc1-a31fba717b97",
+        "85b5e236-656e-510d-9eb1-754f32a2e6b8",
+        "b559a6f2-e257-5c16-9871-476c26d4eacb",
+        "7c5349ea-6e2c-5a21-8b2f-614bdb7e27c5",
+        "15eedfc8-e571-5189-8d34-f945fef183b6",
+    ]
 
     static let seedVersionKey = "com.vitalstride.exerciseSeedVersion"
 
@@ -132,6 +142,7 @@ enum ExerciseSeeder {
             // Run before the same-version fast path so existing v5 installations
             // and later CloudKit arrivals receive the narrowly scoped correction.
             let repairedCalfMuscles = try repairCalfRaiseMuscles(context: context, catalog: catalog)
+            let repairedChineseNames = try repairBoundedV5ChineseNames(context: context, catalog: catalog)
             if storedVersion == catalog.version {
                 let presetDescriptor = FetchDescriptor<Exercise>(
                     predicate: #Predicate { $0.presetId != nil }
@@ -139,7 +150,7 @@ enum ExerciseSeeder {
                 let existingPresets = try context.fetch(presetDescriptor)
                 let existingIDs = Set(existingPresets.compactMap(\.presetId))
                 if existingPresets.count == catalogIDs.count, existingIDs == catalogIDs {
-                    if repairedCalfMuscles { try save(context) }
+                    if repairedCalfMuscles || repairedChineseNames { try save(context) }
                     logger.debug("Seed skipped: version \(catalog.version) unchanged")
                     return
                 }
@@ -189,6 +200,43 @@ enum ExerciseSeeder {
             guard let presetID = exercise.presetId, correctedIDs.contains(presetID),
                   exercise.secondaryMuscles.contains("tibialis anterior") else { continue }
             exercise.secondaryMuscles = exercise.secondaryMuscles.filter { $0 != "tibialis anterior" }
+            changed = true
+        }
+        return changed
+    }
+
+    private static func repairBoundedV5ChineseNames(
+        context: ModelContext,
+        catalog: ExerciseCatalog
+    ) throws -> Bool {
+        guard catalog.version == "5" else { return false }
+
+        let canonicalDTOs = Dictionary(
+            catalog.exercises.compactMap { dto -> (String, ExerciseDTO)? in
+                guard boundedV5ChineseNameIDs.contains(dto.id) else { return nil }
+                return (dto.id, dto)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+        guard !canonicalDTOs.isEmpty else { return false }
+
+        let descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.presetId != nil && $0.isCustom == false }
+        )
+        var changed = false
+        for exercise in try context.fetch(descriptor) {
+            guard let presetID = exercise.presetId,
+                  let dto = canonicalDTOs[presetID],
+                  exercise.nameEn == dto.nameEn,
+                  exercise.nameZh == exercise.nameEn,
+                  let translation = canonicalDTOs[presetID]?.nameZh,
+                  !(exercise.workoutExercises ?? []).contains(where: { workoutExercise in
+                      guard let source = workoutExercise.workout?.source else { return false }
+                      return source == .imported || source == .healthkit
+                  }) else {
+                continue
+            }
+            exercise.nameZh = translation
             changed = true
         }
         return changed
@@ -263,6 +311,15 @@ enum ExerciseSeeder {
 
         for dto in dtos where dto.source == upstreamSource {
             guard let exercise = existingByID[dto.id] else { continue }
+            if boundedV5ChineseNameIDs.contains(dto.id) {
+                guard exercise.nameEn == dto.nameEn,
+                      !(exercise.workoutExercises ?? []).contains(where: { workoutExercise in
+                          guard let source = workoutExercise.workout?.source else { return false }
+                          return source == .imported || source == .healthkit
+                      }) else {
+                    continue
+                }
+            }
             exercise.nameEn = dto.nameEn
             exercise.muscleGroup = dto.muscleGroup
             exercise.equipment = dto.equipment
