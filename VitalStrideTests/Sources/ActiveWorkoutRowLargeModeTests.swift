@@ -657,6 +657,10 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                             .designThemePreview()
                             .preferredColorScheme(dark ? .dark : .light)
                             .dynamicTypeSize(dynamicType)
+                            .environment(\.activeExerciseSectionInteraction, ActiveExerciseSectionInteraction(
+                                registerToggle: { id, action in recorder.toggleActions[id] = action },
+                                onCollapseChange: { id, collapsed in recorder.collapseStates[id] = collapsed }
+                            ))
                             .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
                                 onGeometry: { recorder.geometry = $0 },
                                 onReady: { recorder.driver = $0 },
@@ -674,6 +678,13 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
 
                         let target = owners[0]
                         let targetID = target.persistentModelID
+                        // The E66 registered action must preserve the production
+                        // completed-only collapse guard for an incomplete owner.
+                        let toggle = try XCTUnwrap(recorder.toggleActions[targetID])
+                        toggle()
+                        try await Task.sleep(for: .milliseconds(100))
+                        host.view.layoutIfNeeded()
+                        XCTAssertNil(recorder.collapseStates[targetID], "Incomplete header action must not collapse")
                         let sets = (target.sets ?? []).sorted { $0.order < $1.order }
                         let listFrame = try XCTUnwrap(recorder.geometry).listFrame
                         // Select by observed production List geometry in window space,
@@ -696,9 +707,9 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         let baseline = try HeaderPixels(windowImage(window))
                         let firstRow = try XCTUnwrap(recorder.rowFrames[sets[0].persistentModelID])
                         let addSet = try XCTUnwrap(recorder.controlFrames[targetID]?["add-set"])
-                        XCTAssertFalse(
-                            addSet.intersects(firstRow),
-                            "Add-set control must not intersect the first row at rest: add-set=\(addSet), first-row=\(firstRow)"
+                        let inputFrames = firstRowInputFrames(in: host.view, row: firstRow, window: window)
+                        assertHeaderSeparation(
+                            addSet: addSet, firstRow: firstRow, header: initialHeader, inputFrames: inputFrames
                         )
                         let referenceBand = CGRect(
                             x: listFrame.minX, y: listFrame.minY,
@@ -712,7 +723,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         let nextHeader = try XCTUnwrap(recorder.headerFrames[owners[1].persistentModelID])
                         let boundaryOffset = scrollView.contentOffset.y + nextHeader.minY - initialHeader.maxY - 4
                         var evidence: [String] = [
-                            "rest: add-set=\(addSet) first-row=\(firstRow) intersection=\(addSet.intersects(firstRow))"
+                            "rest: add-set=\(addSet) first-row=\(firstRow) inputs=\(inputFrames) intersection=\(addSet.intersects(firstRow))"
                         ]
                         for (position, offset) in [("top", topOffset), ("middle", middleOffset),
                                                    ("boundary", boundaryOffset)] {
@@ -808,61 +819,102 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
 
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(x: 0, y: 0, width: 393, height: 852)
         defer { window.isHidden = true }
+        let defaults = UserDefaults.standard
+        let previousLargeMode = defaults.object(forKey: "activeWorkoutLargeMode")
+        defer { defaults.set(previousLargeMode, forKey: "activeWorkoutLargeMode") }
 
-        for dark in [false, true] {
-            let recorder = ListObservationRecorder()
-            let content = ActiveWorkoutView(source: .resume(workout))
-                .modelContainer(container)
-                .designThemePreview()
-                .preferredColorScheme(dark ? .dark : .light)
-                .dynamicTypeSize(.accessibility3)
-                .environment(\.activeExerciseSectionInteraction, ActiveExerciseSectionInteraction(
-                    registerToggle: { id, action in recorder.toggleActions[id] = action },
-                    onCollapseChange: { id, collapsed in recorder.collapseStates[id] = collapsed }
-                ))
-                .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
-                    onGeometry: { recorder.geometry = $0 },
-                    onReady: { recorder.driver = $0 },
-                    onRowFrame: { recorder.rowFrames[$0] = $1 },
-                    onHeaderFrame: { recorder.headerFrames[$0] = $1 },
-                    onControlFrame: {
-                        recorder.controlFrames[$0, default: [:]][$1] = $2
+        for width in [375, 393] {
+            for largeMode in [false, true] {
+                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                for dark in [false, true] {
+                    for dynamicType in [DynamicTypeSize.large, .accessibility3] {
+                        window.frame = CGRect(x: 0, y: 0, width: CGFloat(width), height: 852)
+                        let recorder = ListObservationRecorder()
+                        let content = ActiveWorkoutView(source: .resume(workout))
+                            .modelContainer(container)
+                            .designThemePreview()
+                            .preferredColorScheme(dark ? .dark : .light)
+                            .dynamicTypeSize(dynamicType)
+                            .environment(\.activeExerciseSectionInteraction, ActiveExerciseSectionInteraction(
+                                registerToggle: { id, action in recorder.toggleActions[id] = action },
+                                onCollapseChange: { id, collapsed in recorder.collapseStates[id] = collapsed }
+                            ))
+                            .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                                onGeometry: { recorder.geometry = $0 },
+                                onReady: { recorder.driver = $0 },
+                                onRowFrame: { recorder.rowFrames[$0] = $1 },
+                                onHeaderFrame: { recorder.headerFrames[$0] = $1 },
+                                onControlFrame: { recorder.controlFrames[$0, default: [:]][$1] = $2 }
+                            ))
+                        let host = UIHostingController(rootView: content)
+                        window.rootViewController = host
+                        window.makeKeyAndVisible()
+                        try await Task.sleep(for: .milliseconds(350))
+                        host.view.layoutIfNeeded()
+                        let ownerID = owner.persistentModelID
+                        let firstSet = try XCTUnwrap((owner.sets ?? []).min { $0.order < $1.order })
+                        let collection = try XCTUnwrap(descendants(of: host.view).compactMap { $0 as? UICollectionView }.first)
+                        let toggle = try XCTUnwrap(recorder.toggleActions[ownerID])
+                        let variant = "\(width)pt \(largeMode ? "large-mode" : "normal") \(dark ? "dark" : "light") \(dynamicType)"
+                        var evidence: [String] = []
+                        for state in ["rest", "collapsed", "expanded"] {
+                            if state != "rest" {
+                                // Discard observations before every transition; fresh
+                                // cell/input measurements below never read this cache.
+                                recorder.rowFrames.removeAll()
+                                toggle()
+                                try await Task.sleep(for: .milliseconds(450))
+                                host.view.layoutIfNeeded()
+                            }
+                            let geometry = try XCTUnwrap(recorder.geometry)
+                            let header = try XCTUnwrap(recorder.headerFrames[ownerID])
+                            let controls = recorder.controlFrames[ownerID] ?? [:]
+                            let addSet = try XCTUnwrap(controls["add-set"])
+                            assertHeaderControls(controls, header: header, viewport: geometry.listFrame)
+                            let rowCount = (0..<collection.numberOfSections).reduce(0) {
+                                $0 + collection.numberOfItems(inSection: $1)
+                            }
+                            if state == "collapsed" {
+                                XCTAssertEqual(recorder.collapseStates[ownerID], true)
+                                XCTAssertEqual(rowCount, 0, "Collapsed production List must remove both set items")
+                                XCTAssertTrue(collection.indexPathsForVisibleItems.isEmpty,
+                                              "Collapsed List must expose no visible set cells")
+                                XCTAssertTrue(collection.visibleCells.flatMap { textFields(in: $0) }.isEmpty,
+                                              "Collapsed List must expose no visible input views")
+                                // Animation can emit intermediate row geometry. Discard
+                                // it after proving the actual List has no set items.
+                                recorder.rowFrames.removeAll()
+                                evidence.append("collapsed: viewport=\(geometry.listFrame) header=\(header) controls=\(controls) items=\(rowCount) inputs=[]")
+                            } else {
+                                if state == "expanded" { XCTAssertEqual(recorder.collapseStates[ownerID], false) }
+                                XCTAssertEqual(rowCount, 2, "Expanded production List must contain both sets")
+                                // UICollectionView may reuse a row without emitting a
+                                // changed SwiftUI geometry value. Measure the CURRENT
+                                // first item's live cell and inputs after each layout.
+                                let section = try XCTUnwrap((0..<collection.numberOfSections).first {
+                                    collection.numberOfItems(inSection: $0) > 0
+                                })
+                                let indexPath = IndexPath(item: 0, section: section)
+                                let cell = try XCTUnwrap(collection.cellForItem(at: indexPath))
+                                XCTAssertTrue(collection.indexPathsForVisibleItems.contains(indexPath))
+                                let firstRow = cell.convert(cell.bounds, to: window)
+                                let inputs = firstRowInputFrames(in: cell, row: firstRow, window: window)
+                                assertHeaderSeparation(addSet: addSet, firstRow: firstRow, header: header, inputFrames: inputs)
+                                evidence.append("\(state): viewport=\(geometry.listFrame) header=\(header) controls=\(controls) firstRow=\(firstRow) inputs=\(inputs) firstSet=\(firstSet.persistentModelID) cell=\(indexPath) items=\(rowCount) gap=\(firstRow.minY - addSet.maxY)")
+                            }
+                            let image = XCTAttachment(image: windowImage(window))
+                            image.name = "T02 complete \(state) \(variant)"
+                            image.lifetime = .keepAlways
+                            add(image)
+                        }
+                        let frames = XCTAttachment(string: evidence.joined(separator: "\n"))
+                        frames.name = "T02 complete geometry \(variant)"
+                        frames.lifetime = .keepAlways
+                        add(frames)
                     }
-                ))
-            let host = UIHostingController(rootView: content)
-            window.rootViewController = host
-            window.makeKeyAndVisible()
-            try await Task.sleep(for: .milliseconds(300))
-            host.view.layoutIfNeeded()
-
-            let ownerID = owner.persistentModelID
-            let header = try XCTUnwrap(recorder.headerFrames[ownerID])
-            let addSet = try XCTUnwrap(recorder.controlFrames[ownerID]?["add-set"])
-            let firstSet = try XCTUnwrap((owner.sets ?? []).min { $0.order < $1.order })
-            let firstRow = try XCTUnwrap(recorder.rowFrames[firstSet.persistentModelID])
-            assertCompleteHeaderSeparation(
-                addSet: addSet,
-                firstRow: firstRow,
-                header: header,
-                fields: textFields(in: host.view).filter {
-                    $0.convert($0.bounds, to: window).intersects(firstRow)
                 }
-            )
-            let toggle = try XCTUnwrap(recorder.toggleActions[ownerID])
-            toggle()
-            try await Task.sleep(for: .milliseconds(250))
-            XCTAssertEqual(recorder.collapseStates[ownerID], true, "Complete header must enter the collapsed production state")
-            XCTAssertFalse(recorder.rowFrames.isEmpty, "Rendered rows were present before collapsing")
-            toggle()
-            try await Task.sleep(for: .milliseconds(250))
-            XCTAssertEqual(recorder.collapseStates[ownerID], false, "The same production action must expand the section")
-
-            let attachment = XCTAttachment(image: windowImage(window))
-            attachment.name = "Complete header expanded \(dark ? "dark" : "light") accessibility3"
-            attachment.lifetime = .keepAlways
-            add(attachment)
+            }
         }
     }
 
@@ -911,18 +963,28 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         }
     }
 
-    private func assertCompleteHeaderSeparation(
-        addSet: CGRect,
-        firstRow: CGRect,
-        header: CGRect,
-        fields: [UITextField]
+    private func firstRowInputFrames(in view: UIView, row: CGRect, window: UIWindow) -> [CGRect] {
+        let frames = textFields(in: view).filter { !$0.isHidden && $0.alpha > 0 && $0.window === window }
+            .map { $0.convert($0.bounds, to: window) }
+            .filter { $0.intersects(row) }
+        XCTAssertEqual(frames.count, 2, "First row must expose both real weight/reps inputs; an empty selection is not evidence")
+        for frame in frames {
+            XCTAssertGreaterThan(frame.width, 0)
+            XCTAssertGreaterThan(frame.height, 0)
+            XCTAssertTrue(row.insetBy(dx: -1, dy: -1).contains(frame), "Input must belong to first row")
+        }
+        return frames
+    }
+
+    private func assertHeaderSeparation(
+        addSet: CGRect, firstRow: CGRect, header: CGRect, inputFrames: [CGRect]
     ) {
-        XCTAssertTrue(header.contains(addSet), "Add-set control must remain inside complete header")
-        XCTAssertGreaterThan(firstRow.minY - addSet.maxY, 0, "Complete expanded header needs vertical separation")
-        XCTAssertFalse(addSet.intersects(firstRow), "Add-set control must not intersect complete first row")
-        for field in fields {
-            let frame = field.convert(field.bounds, to: field.window)
-            XCTAssertFalse(addSet.intersects(frame), "Add-set control must not intersect first-row input \(frame)")
+        XCTAssertTrue(header.contains(addSet), "Add-set control must remain inside header")
+        XCTAssertGreaterThan(firstRow.minY - addSet.maxY, 0, "Expanded header needs vertical separation")
+        XCTAssertFalse(addSet.intersects(firstRow), "Add-set control must not intersect first row")
+        XCTAssertEqual(inputFrames.count, 2)
+        for frame in inputFrames {
+            XCTAssertFalse(addSet.intersects(frame), "Add-set control must not intersect fresh first-row input \(frame)")
         }
     }
 

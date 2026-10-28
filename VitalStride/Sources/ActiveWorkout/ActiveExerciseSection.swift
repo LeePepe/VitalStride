@@ -131,7 +131,9 @@ struct ActiveExerciseSection: View {
         let contexts = rowContexts
         let canDelete = contexts.count > 1
         let toggleAction: ActiveExerciseSectionInteraction.ToggleAction = {
-            withAnimation { isCollapsed.toggle() }
+            if isCollapsed || (completedSetCount == totalSetCount && totalSetCount > 0) {
+                withAnimation { isCollapsed.toggle() }
+            }
         }
         return Section {
             if !isCollapsed {
@@ -282,11 +284,7 @@ struct ActiveExerciseSection: View {
                     }
                 }
                 .contentShape(Rectangle())
-                .onTapGesture {
-                    if isCollapsed || (completedSetCount == totalSetCount && totalSetCount > 0) {
-                        toggleAction()
-                    }
-                }
+                .onTapGesture { toggleAction() }
                 .onAppear {
                     interaction.registerToggle(workoutExercise.persistentModelID, toggleAction)
                 }
