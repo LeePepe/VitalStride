@@ -634,6 +634,24 @@
         }
       }
     },
+    "active_workout_finish_short": {
+      "extractionState": "manual",
+      "comment": "Compact native toolbar label; accessibility retains the full Finish workout action.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "结束"
+          }
+        }
+      }
+    },
     "active_workout_toggle_large_text_size": {
       "extractionState": "manual",
       "localizations": {
