@@ -125,6 +125,11 @@ struct ActiveExerciseSection: View {
                     .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
+                    .onGeometryChange(for: CGRect.self) { geometry in
+                        geometry.frame(in: .global)
+                    } action: { frame in
+                        listObservation.onRowFrame(exerciseSet.persistentModelID, frame)
+                    }
                     .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
                     // MY-1420: sub-sets get the same trailing full swipe as
                     // main sets. Sub-sets are always deletable — removing one
@@ -164,6 +169,11 @@ struct ActiveExerciseSection: View {
                     .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
+                    .onGeometryChange(for: CGRect.self) { geometry in
+                        geometry.frame(in: .global)
+                    } action: { frame in
+                        listObservation.onRowFrame(exerciseSet.persistentModelID, frame)
+                    }
                     .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if canDelete {
@@ -316,11 +326,17 @@ struct ActiveExerciseSection: View {
                 if count < totalSetCount { isCollapsed = false }
             }
             .accessibilityValue(String(localized: "\(completedSetCount)/\(totalSetCount) 组", comment: "Exercise completion count"))
-            .listRowInsets(EdgeInsets())
-            .listRowBackground(theme.neutrals.bg)
-            .containerRelativeFrame(.horizontal)
+            // The surface includes the header's layout padding, rather than
+            // painting only the title/control HStack inside the system material.
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(theme.neutrals.bg)
+            .background {
+                theme.neutrals.bg
+                    .padding(.horizontal, -20)
+                    .padding(.vertical, -22)
+            }
+            .listRowInsets(EdgeInsets())
             .background {
                 GeometryReader { geometry in
                     Color.clear
@@ -373,8 +389,6 @@ struct ActiveExerciseSection: View {
                 ))
             }
         }
-        .listRowInsets(EdgeInsets())
-        .listRowBackground(theme.neutrals.bg)
     }
 
     /// MY-1420: `confirmationDialog(_:isPresented:presenting:)` needs a Bool

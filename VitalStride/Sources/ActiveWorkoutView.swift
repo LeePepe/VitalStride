@@ -25,13 +25,14 @@ struct ActiveWorkoutListGeometry: Equatable {
     let listFrame: CGRect
 }
 
-struct ActiveWorkoutListDriver: @unchecked Sendable {
+struct ActiveWorkoutListDriver: Sendable {
     let scrollTo: @MainActor @Sendable (AnyHashable, UnitPoint) -> Void
 }
 
-struct ActiveWorkoutListObservationSink: @unchecked Sendable {
+struct ActiveWorkoutListObservationSink: Sendable {
     var onGeometry: @MainActor @Sendable (ActiveWorkoutListGeometry) -> Void = { _ in }
     var onReady: @MainActor @Sendable (ActiveWorkoutListDriver) -> Void = { _ in }
+    var onRowFrame: @MainActor @Sendable (AnyHashable, CGRect) -> Void = { _, _ in }
     var onHeaderFrame: @MainActor @Sendable (AnyHashable, CGRect) -> Void = { _, _ in }
     var onControlFrame: @MainActor @Sendable (AnyHashable, String, CGRect) -> Void = { _, _, _ in }
 }
