@@ -67,6 +67,7 @@ struct ActiveWorkoutToolbarObservation: Sendable {
     var isEnabled = false
     var onLargeModeFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
     var onFinishFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onFinishLabelFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
     var onLargeModeState: @MainActor @Sendable (ActiveWorkoutToolbarState) -> Void = { _ in }
     var onLargeModeAction: @MainActor @Sendable (
         @escaping @MainActor @Sendable () -> Void
@@ -345,9 +346,10 @@ struct ActiveWorkoutView: View {
                 // MY-1088: Large Mode toggle. Persisted via @AppStorage above.
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: toggleLargeMode) {
-                        Image(
-                            systemName: largeModeSymbolName
-                        )
+                        Image(systemName: largeModeSymbolName)
+                            .fixedSize()
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .accessibilityLabel(largeModeAccessibilityLabel)
                     .frame(minWidth: 44, minHeight: 44)
@@ -363,19 +365,29 @@ struct ActiveWorkoutView: View {
                         action: { toolbarObservation.onLargeModeAction(toggleLargeMode) }
                     )
                     .onChange(of: largeMode) { _, _ in
+                        guard toolbarObservation.isEnabled else { return }
                         toolbarObservation.onLargeModeState(largeModeToolbarState)
                         toolbarObservation.onLargeModeAction(toggleLargeMode)
                     }
                 }
                 if #available(iOS 26.0, *) {
-                    ToolbarSpacer(.fixed)
+                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(
-                        String(localized: "结束训练", comment: "Finish workout toolbar button"),
-                        action: requestFinish
-                    )
-                    .fontWeight(.semibold)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: requestFinish) {
+                        Text(String(localized: "active_workout_finish_short", comment: "Compact Finish toolbar action"))
+                            .fontWeight(.semibold)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .activeWorkoutToolbarObservation(
+                                toolbarObservation,
+                                frame: toolbarObservation.onFinishLabelFrame,
+                                state: {},
+                                action: {}
+                            )
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(String(localized: "结束训练", comment: "Finish workout toolbar button"))
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
                     .accessibilityIdentifier("active_workout_finish")

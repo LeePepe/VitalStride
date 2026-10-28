@@ -81,6 +81,10 @@ final class WorkoutToolbarRenderingTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
         let locale = Locale.current.identifier
+        if let requestedLanguage = ProcessInfo.processInfo.environment["T07_EXPECTED_LANGUAGE"] {
+            XCTAssertEqual(Locale.current.language.languageCode?.identifier, requestedLanguage == "zh-Hans" ? "zh" : "en")
+            XCTAssertEqual(Locale.current.region?.identifier, requestedLanguage == "zh-Hans" ? "CN" : "US")
+        }
         for width in [375, 393] {
             for largeMode in [false, true] {
                 for colorScheme in [ColorScheme.light, .dark] {
@@ -117,6 +121,9 @@ final class WorkoutToolbarRenderingTests: XCTestCase {
 
                         let largeFrame = try XCTUnwrap(probe.largeModeFrame)
                         let finishFrame = try XCTUnwrap(probe.finishFrame)
+                        let finishLabelFrame = try XCTUnwrap(probe.finishLabelFrame)
+                        XCTAssertTrue(finishFrame.insetBy(dx: -1e-3, dy: -1e-3).contains(finishLabelFrame))
+                        XCTAssertTrue(window.bounds.contains(window.convert(finishFrame, from: nil)))
                         XCTAssertGreaterThanOrEqual(largeFrame.width, 44 - 1e-3)
                         XCTAssertGreaterThanOrEqual(largeFrame.height, 44 - 1e-3)
                         XCTAssertGreaterThanOrEqual(finishFrame.width, 44 - 1e-3)
@@ -141,6 +148,8 @@ final class WorkoutToolbarRenderingTests: XCTestCase {
                             "Toolbar frame centers must hit views in the rendered navigation bar"
                         )
 
+                        XCTAssertFalse(largeHit === finishHit)
+
                         let expectedState = ToolbarProbe.state(for: largeMode)
                         XCTAssertEqual(probe.largeModeState, expectedState)
 
@@ -160,12 +169,6 @@ final class WorkoutToolbarRenderingTests: XCTestCase {
                         XCTAssertEqual(probe.largeModeState, ToolbarProbe.state(for: expectedMode))
                         XCTAssertNil(host.presentedViewController)
 
-                        probe.largeModeAction?()
-                        try await Task.sleep(for: .milliseconds(100))
-                        XCTAssertEqual(defaults.bool(forKey: "activeWorkoutLargeMode"), largeMode)
-                        XCTAssertEqual(probe.largeModeState, expectedState)
-                        XCTAssertNil(host.presentedViewController)
-
                         window.isHidden = true
                         let restoredProbe = ToolbarProbe()
                         let relaunched = UIHostingController(
@@ -182,8 +185,26 @@ final class WorkoutToolbarRenderingTests: XCTestCase {
                         try await Task.sleep(for: .milliseconds(100))
                         relaunched.view.layoutIfNeeded()
                         XCTAssertNotNil(restoredProbe.largeModeFrame)
+                        XCTAssertEqual(defaults.bool(forKey: "activeWorkoutLargeMode"), expectedMode)
+                        XCTAssertEqual(restoredProbe.largeModeState, ToolbarProbe.state(for: expectedMode))
+                        XCTAssertNil(relaunched.presentedViewController)
+                        XCTAssertNotNil(restoredProbe.largeModeAction)
+                        restoredProbe.largeModeAction?()
+                        try await Task.sleep(for: .milliseconds(100))
                         XCTAssertEqual(defaults.bool(forKey: "activeWorkoutLargeMode"), largeMode)
                         XCTAssertEqual(restoredProbe.largeModeState, expectedState)
+                        XCTAssertNil(relaunched.presentedViewController)
+                        let evidence = XCTAttachment(string: """
+                        locale=\(locale); width=\(width); mode=\(largeMode); type=\(dynamicType); scheme=\(colorScheme)
+                        largeFrame=\(largeFrame); finishFrame=\(finishFrame); finishLabelFrame=\(finishLabelFrame)
+                        nativeNavigationBarHits=\(probe.hitViewIsInNavigationBar); distinctHits=\(largeHit !== finishHit)
+                        initial=\(expectedState); toggledAndRestored=\(ToolbarProbe.state(for: expectedMode))
+                        restoredHostToggledBack=\(String(describing: restoredProbe.largeModeState))
+                        stored=\(defaults.bool(forKey: "activeWorkoutLargeMode")); finishIsolated=true
+                        """)
+                        evidence.name = "T07 measured state and geometry \(locale) \(width) \(largeMode) \(dynamicType) \(colorScheme)"
+                        evidence.lifetime = .keepAlways
+                        add(evidence)
                         XCTAssertNotNil(restoredProbe.finishAction)
                         restoredProbe.finishAction?()
                         try await Task.sleep(for: .milliseconds(100))
@@ -228,6 +249,7 @@ private extension UIView {
 private final class ToolbarProbe {
     var largeModeFrame: CGRect?
     var finishFrame: CGRect?
+    var finishLabelFrame: CGRect?
     var largeModeState: ActiveWorkoutToolbarState?
     var largeModeAction: (@MainActor @Sendable () -> Void)?
     var finishAction: (@MainActor @Sendable () -> Void)?
@@ -238,6 +260,7 @@ private final class ToolbarProbe {
             isEnabled: true,
             onLargeModeFrame: { [self] frame in largeModeFrame = frame },
             onFinishFrame: { [self] frame in finishFrame = frame },
+            onFinishLabelFrame: { [self] frame in finishLabelFrame = frame },
             onLargeModeState: { [self] state in largeModeState = state },
             onLargeModeAction: { [self] action in largeModeAction = action },
             onFinishAction: { [self] action in finishAction = action }

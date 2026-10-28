@@ -5,144 +5,117 @@ final class ActiveWorkoutToolbarPersistenceUITests: XCTestCase {
     private let largeModeIdentifier = "active_workout_large_mode"
     private let finishIdentifier = "active_workout_finish"
 
-    func testToolbarPersistsAcrossNativeRelaunchAndFinishRemainsIsolated() {
-        let app = launchActiveWorkout()
-        defer { restoreNormalModeAndTerminate(app) }
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
 
-        let initialLargeMode = app.buttons[largeModeIdentifier]
-        let initialFinish = app.buttons[finishIdentifier]
-        assertToolbarGeometry(largeMode: initialLargeMode, finish: initialFinish)
-        let initialLabel = initialLargeMode.label
-        let initialScreenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        initialScreenshot.name = "T07 native toolbar initial \(localeIdentifier)"
-        initialScreenshot.lifetime = .keepAlways
-        add(initialScreenshot)
-
-        initialLargeMode.tap()
-        let toggledLargeMode = app.buttons[largeModeIdentifier]
-        XCTAssertTrue(toggledLargeMode.waitForExistence(timeout: 5))
-        XCTAssertNotEqual(toggledLargeMode.label, initialLabel)
-        XCTAssertFalse(app.alerts.firstMatch.exists)
-        let toggledScreenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        toggledScreenshot.name = "T07 native toolbar toggled \(localeIdentifier)"
-        toggledScreenshot.lifetime = .keepAlways
-        add(toggledScreenshot)
+    @MainActor
+    func testToolbarPersistsAcrossNativeRelaunchAndFinishRemainsIsolated() throws {
+        let app = XCUIApplication()
+        defer { app.terminate() }
+        launchActiveWorkout(app)
+        // Normalize through the real native action, never a launch preference override.
+        if app.buttons[largeModeIdentifier].label == normalSizeAction {
+            app.buttons[largeModeIdentifier].tap()
+        }
+        assertMode(app, large: false, stage: "initial-normal")
+        app.buttons[largeModeIdentifier].tap()
+        assertMode(app, large: true, stage: "toggled-large")
 
         app.terminate()
-        let restored = launchActiveWorkout()
-        let restoredLargeMode = restored.buttons[largeModeIdentifier]
-        XCTAssertTrue(restoredLargeMode.waitForExistence(timeout: 5))
-        XCTAssertEqual(restoredLargeMode.label, toggledLargeMode.label)
-        assertToolbarGeometry(
-            largeMode: restoredLargeMode,
-            finish: restored.buttons[finishIdentifier]
-        )
+        XCTAssertEqual(app.state, .notRunning)
+        launchActiveWorkout(app)
+        assertMode(app, large: true, stage: "new-process-restored-large")
+        app.buttons[largeModeIdentifier].tap()
+        assertMode(app, large: false, stage: "toggled-back-normal")
 
-        restoredLargeMode.tap()
-        let toggledBack = restored.buttons[largeModeIdentifier]
-        XCTAssertTrue(toggledBack.waitForExistence(timeout: 5))
-        XCTAssertEqual(toggledBack.label, initialLabel)
-        XCTAssertFalse(restored.alerts.firstMatch.exists)
-
-        let finish = restored.buttons[finishIdentifier]
-        XCTAssertTrue(finish.waitForExistence(timeout: 5))
-        finish.tap()
-        let confirmation = restored.alerts.firstMatch
-        XCTAssertTrue(
-            confirmation.waitForExistence(timeout: 5),
-            "Finish must present the existing confirmation alert"
-        )
-        let finishScreenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        finishScreenshot.name = "T07 native toolbar finish confirmation \(localeIdentifier)"
-        finishScreenshot.lifetime = .keepAlways
-        add(finishScreenshot)
-        confirmation.buttons.firstMatch.tap()
+        app.terminate()
+        XCTAssertEqual(app.state, .notRunning)
+        launchActiveWorkout(app)
+        assertMode(app, large: false, stage: "new-process-restored-normal")
+        app.buttons[finishIdentifier].tap()
+        let confirmation = app.alerts.firstMatch
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 10))
+        XCTAssertTrue(confirmation.staticTexts[isChinese ? "完成训练？" : "Finish workout?"].exists)
+        keepScreenshot("finish-confirmation")
+        confirmation.buttons[isChinese ? "取消" : "Cancel"].tap()
         XCTAssertFalse(confirmation.exists)
-        restored.terminate()
+        XCTAssertTrue(app.buttons[largeModeIdentifier].isHittable)
+        // Discard only the blank test workout through the existing confirmation path.
+        app.navigationBars.buttons[isChinese ? "放弃" : "Discard"].tap()
+        let discard = app.alerts.firstMatch
+        XCTAssertTrue(discard.waitForExistence(timeout: 10))
+        discard.buttons[isChinese ? "放弃" : "Discard"].tap()
+        let dismissed = NSPredicate(format: "exists == false")
+        expectation(for: dismissed, evaluatedWith: app.buttons[largeModeIdentifier])
+        waitForExpectations(timeout: 10)
     }
 
-    private var localeIdentifier: String {
-        Locale.current.identifier
-    }
+    private var isChinese: Bool { Locale.current.language.languageCode?.identifier == "zh" }
+    private var normalSizeAction: String { isChinese ? "切换普通字号" : "Switch to normal text size" }
+    private var largeSizeAction: String { isChinese ? "切换大字号" : "Switch to large text size" }
 
-    private func launchActiveWorkout() -> XCUIApplication {
-        let app = XCUIApplication()
+    @MainActor
+    private func launchActiveWorkout(_ app: XCUIApplication) {
+        // Existing onboarding preference, with no production fixture or mode override.
+        app.launchArguments = ["-hasCompletedOnboarding", "YES"]
         app.launch()
-        dismissOnboardingIfNeeded(app)
-
-        let start = firstExisting(
-            in: app,
-            candidates: ["Start Workout", "开始训练"],
-            timeout: 10
-        )
-        XCTAssertTrue(start.waitForExistence(timeout: 10))
-        start.tap()
-
-        let blank = firstExisting(
-            in: app,
-            candidates: ["Blank Workout", "空白训练"],
-            timeout: 10
-        )
-        XCTAssertTrue(blank.waitForExistence(timeout: 10))
-        blank.tap()
-        XCTAssertTrue(app.buttons[largeModeIdentifier].waitForExistence(timeout: 10))
-        return app
-    }
-
-    private func dismissOnboardingIfNeeded(_ app: XCUIApplication) {
-        for label in ["Skip", "跳过", "Later", "稍后再说"] {
-            let button = app.buttons[label]
-            if button.waitForExistence(timeout: 1) {
-                button.tap()
-                return
-            }
+        let workoutTab = app.tabBars.buttons[isChinese ? "训练" : "Workouts"]
+        // A nonempty interrupted workout can present the existing recovery alert.
+        let resume = app.alerts.buttons[isChinese ? "恢复训练" : "Resume"]
+        if resume.waitForExistence(timeout: 2) {
+            resume.tap()
+        } else {
+            XCTAssertTrue(workoutTab.waitForExistence(timeout: 15))
+            workoutTab.tap()
+            let start = app.navigationBars.buttons[isChinese ? "开始训练" : "Start workout"]
+            XCTAssertTrue(start.waitForExistence(timeout: 10))
+            start.tap()
+            let blank = app.buttons.matching(
+                NSPredicate(format: "label BEGINSWITH %@", isChinese ? "空白训练" : "Blank workout")
+            ).firstMatch
+            XCTAssertTrue(blank.waitForExistence(timeout: 10))
+            blank.tap()
         }
+        XCTAssertTrue(app.buttons[largeModeIdentifier].waitForExistence(timeout: 15))
     }
 
-    private func firstExisting(
-        in app: XCUIApplication,
-        candidates: [String],
-        timeout: TimeInterval
-    ) -> XCUIElement {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            for candidate in candidates {
-                let element = app.buttons[candidate]
-                if element.exists {
-                    return element
-                }
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        return app.buttons[candidates[0]]
-    }
-
-    private func assertToolbarGeometry(
-        largeMode: XCUIElement,
-        finish: XCUIElement
-    ) {
-        XCTAssertTrue(largeMode.waitForExistence(timeout: 5))
-        XCTAssertTrue(finish.waitForExistence(timeout: 5))
-        XCTAssertTrue(largeMode.isHittable)
+    @MainActor
+    private func assertMode(_ app: XCUIApplication, large: Bool, stage: String) {
+        let mode = app.buttons[largeModeIdentifier]
+        let finish = app.buttons[finishIdentifier]
+        let expected = large ? normalSizeAction : largeSizeAction
+        let correctLabel = NSPredicate(format: "label == %@", expected)
+        expectation(for: correctLabel, evaluatedWith: mode)
+        waitForExpectations(timeout: 5)
+        XCTAssertFalse(app.alerts.firstMatch.exists, "Large Mode must not request Finish")
+        XCTAssertEqual(finish.label, isChinese ? "结束训练" : "Finish workout")
+        XCTAssertTrue(mode.isHittable)
         XCTAssertTrue(finish.isHittable)
-        XCTAssertGreaterThanOrEqual(largeMode.frame.width, 44 - 1e-3)
-        XCTAssertGreaterThanOrEqual(largeMode.frame.height, 44 - 1e-3)
+        XCTAssertGreaterThanOrEqual(mode.frame.width, 44 - 1e-3)
+        XCTAssertGreaterThanOrEqual(mode.frame.height, 44 - 1e-3)
         XCTAssertGreaterThanOrEqual(finish.frame.width, 44 - 1e-3)
         XCTAssertGreaterThanOrEqual(finish.frame.height, 44 - 1e-3)
-        XCTAssertGreaterThanOrEqual(finish.frame.minX - largeMode.frame.maxX, 4)
+        XCTAssertGreaterThanOrEqual(finish.frame.minX - mode.frame.maxX, 4)
+        XCTAssertEqual(app.navigationBars.buttons.matching(identifier: largeModeIdentifier).count, 1)
+        XCTAssertEqual(app.navigationBars.buttons.matching(identifier: finishIdentifier).count, 1)
+        let evidence = XCTAttachment(string: """
+        stage=\(stage); processLocale=\(Locale.current.identifier); language=\(Locale.preferredLanguages)
+        appState=\(app.state.rawValue); expectedLarge=\(large); label=\(mode.label)
+        largeFrame=\(mode.frame); finishFrame=\(finish.frame); hittable=\(mode.isHittable),\(finish.isHittable)
+        navigationBarMembership=true; finishAlertAbsent=true
+        """)
+        evidence.name = "T07 native state \(stage) \(Locale.current.identifier)"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+        keepScreenshot(stage)
     }
 
-    private func restoreNormalModeAndTerminate(_ app: XCUIApplication) {
-        var app = app
-        if app.state == .notRunning {
-            app = launchActiveWorkout()
-        }
-        let largeMode = app.buttons[largeModeIdentifier]
-        if largeMode.waitForExistence(timeout: 5),
-           (largeMode.label.localizedCaseInsensitiveContains("normal") ||
-            largeMode.label.contains("普通")) {
-            largeMode.tap()
-        }
-        app.terminate()
+    @MainActor
+    private func keepScreenshot(_ stage: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "T07 native \(stage) \(Locale.current.identifier)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 }
