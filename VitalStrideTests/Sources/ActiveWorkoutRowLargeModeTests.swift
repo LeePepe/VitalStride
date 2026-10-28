@@ -414,7 +414,10 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         var sidebarItemFrames: [String: CGRect] = [:]
         var sidebarNameFrames: [String: CGRect] = [:]
         var keyboardVisible = false
+        var keyboardDidShow = false
         var dismissKeyboard: (@MainActor @Sendable () -> Void)?
+        var sidebarAddUpdates = 0
+        var sidebarAddUpdatedAt = ProcessInfo.processInfo.systemUptime
         var sidebarAddFrame: CGRect?
         var sidebarMove: (@MainActor @Sendable (Int, Int) -> Void)?
     }
@@ -1171,6 +1174,20 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(x: 0, y: 0, width: CGFloat(width), height: 852)
         let recorder = ListObservationRecorder()
+        let didShow = NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardDidShowNotification, object: nil, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { recorder.keyboardDidShow = true }
+        }
+        let didHide = NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardDidHideNotification, object: nil, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { recorder.keyboardDidShow = false }
+        }
+        defer {
+            NotificationCenter.default.removeObserver(didShow)
+            NotificationCenter.default.removeObserver(didHide)
+        }
         let content = ActiveWorkoutView(source: .resume(workout))
             .modelContainer(container)
             .designThemePreview()
@@ -1184,7 +1201,11 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                 onSidebarNameFrame: { recorder.sidebarNameFrames[$0] = $1 },
                 onKeyboardVisibility: { recorder.keyboardVisible = $0 },
                 onSidebarDismissKeyboardReady: { recorder.dismissKeyboard = $0 },
-                onSidebarAddFrame: { recorder.sidebarAddFrame = $0 },
+                onSidebarAddFrame: {
+                    recorder.sidebarAddFrame = $0
+                    recorder.sidebarAddUpdates += 1
+                    recorder.sidebarAddUpdatedAt = ProcessInfo.processInfo.systemUptime
+                },
                 onSidebarMoveReady: { recorder.sidebarMove = $0 }
             ))
         let host = UIHostingController(rootView: content)
@@ -1269,32 +1290,36 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             if keyboardVisible {
                 let field = try XCTUnwrap(textFields(in: host.view).first { $0.window === window && !$0.isHidden })
                 XCTAssertTrue(field.becomeFirstResponder())
-                try await Task.sleep(for: .milliseconds(500))
+                let transitionStress = ProcessInfo.processInfo.environment["T04_SIDEBAR_TRANSITION_STRESS"] == "1"
+                try await Task.sleep(for: .milliseconds(transitionStress ? 1 : 500))
                 XCTAssertTrue(field.isFirstResponder)
             }
+            let settling = try await settleSidebarTail(
+                scroll, host: host, window: window, recorder: recorder,
+                keyboardVisible: keyboardVisible, variant: variant
+            )
             XCTAssertEqual(recorder.keyboardVisible, keyboardVisible, "Real keyboard notifications must reach root state")
             XCTAssertGreaterThan(scroll.contentSize.height, scroll.bounds.height + 44, "Fixture must genuinely overflow")
-            scroll.setContentOffset(CGPoint(x: 0, y: scroll.contentSize.height - scroll.bounds.height
-                                           + scroll.adjustedContentInset.bottom), animated: false)
-            try await Task.sleep(for: .milliseconds(180))
-            // Root/keyboard safe-area animation can change the adjusted inset after the
-            // initial scroll. Resolve the real tail against the settled inset again.
-            scroll.setContentOffset(CGPoint(x: 0, y: scroll.contentSize.height - scroll.bounds.height
-                                           + scroll.adjustedContentInset.bottom), animated: false)
-            host.view.layoutIfNeeded()
-            try await Task.sleep(for: .milliseconds(100))
             let addFrame = try XCTUnwrap(recorder.sidebarAddFrame)
+            let diagnostic = "variant=\(variant), keyboard=\(keyboardVisible), rootKeyboard=\(recorder.keyboardVisible), "
+                + "didShow=\(recorder.keyboardDidShow), firstResponder=\(textFields(in: host.view).contains { $0.isFirstResponder }), "
+                + "uptime=\(ProcessInfo.processInfo.systemUptime), add=\(addFrame), updates=\(recorder.sidebarAddUpdates), "
+                + "frameAge=\(ProcessInfo.processInfo.systemUptime - recorder.sidebarAddUpdatedAt), "
+                + "bounds=\(scroll.bounds), offset=\(scroll.contentOffset), size=\(scroll.contentSize), "
+                + "inset=\(scroll.contentInset), adjusted=\(scroll.adjustedContentInset), "
+                + "window=\(window.bounds), safeArea=\(window.safeAreaInsets), list=\(String(describing: recorder.geometry))"
+            print("T04_TAIL_SAMPLE \(diagnostic)")
             let viewport = scroll.convert(scroll.bounds.inset(by: scroll.adjustedContentInset), to: window)
             XCTAssertGreaterThan(scroll.contentOffset.y, 0)
             XCTAssertGreaterThanOrEqual(addFrame.width, 44)
             XCTAssertGreaterThanOrEqual(addFrame.height, 44)
-            XCTAssertTrue(viewport.insetBy(dx: -0.5, dy: -0.5).contains(addFrame), "Entire add entry must be reachable")
+            XCTAssertTrue(viewport.insetBy(dx: -0.5, dy: -0.5).contains(addFrame), "Entire add entry must be reachable: \(diagnostic), viewport=\(viewport), settling=\(settling)")
             XCTAssertTrue(window.bounds.contains(addFrame))
             let hit = try XCTUnwrap(window.hitTest(CGPoint(x: addFrame.midX, y: addFrame.midY), with: nil))
             XCTAssertTrue(hit === scroll || hit.isDescendant(of: scroll), "Add target must hit the actual sidebar")
             let frames = "processLocale=\(Locale.current.identifier)\nlanguages=\(Locale.preferredLanguages)\n"
                 + "keyboardVisible=\(recorder.keyboardVisible)\nviewport=\(viewport)\nadd=\(addFrame)\n"
-                + "contentSize=\(scroll.contentSize)\noffset=\(scroll.contentOffset)\nitems=\(recorder.sidebarItems)"
+                + "contentSize=\(scroll.contentSize)\noffset=\(scroll.contentOffset)\ndiagnostic=\(diagnostic)\nsettling=\(settling)\nitems=\(recorder.sidebarItems)"
             try persistHeaderEvidence(image: windowImage(window), name: "\(variant)-keyboard-\(keyboardVisible)", frames: frames)
             let matrix = XCTAttachment(string: frames)
             matrix.name = "\(variant)-keyboard-\(keyboardVisible)-frames"
@@ -1334,6 +1359,49 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         XCTAssertEqual(recorder.sidebarItems.map(\.index), Array(names.indices))
         try persistHeaderEvidence(image: windowImage(window), name: "\(variant)-reordered",
                                   frames: "before=\(original)\nafter=\(recorder.sidebarItems)\nlist=\(String(describing: recorder.geometry))\n")
+    }
+
+    /// Synchronize with measured native state, not assertion success. A stationary but
+    /// clipped add entry returns to the caller's strict containment/hit-test assertions.
+    private func settleSidebarTail(
+        _ scroll: UIScrollView, host: UIViewController, window: UIWindow,
+        recorder: ListObservationRecorder, keyboardVisible: Bool, variant: String
+    ) async throws -> String {
+        let start = ProcessInfo.processInfo.systemUptime
+        var previous: [CGFloat] = []
+        var stableSince = start
+        var trace: [String] = []
+        while ProcessInfo.processInfo.systemUptime - start < 5 {
+            host.view.layoutIfNeeded()
+            let target = scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom
+            scroll.setContentOffset(CGPoint(x: 0, y: target), animated: false)
+            try await Task.sleep(for: .milliseconds(50))
+            let now = ProcessInfo.processInfo.systemUptime
+            let viewport = scroll.convert(scroll.bounds.inset(by: scroll.adjustedContentInset), to: window)
+            let add = recorder.sidebarAddFrame ?? .null
+            let sample = [scroll.bounds.minY, scroll.bounds.width, scroll.bounds.height,
+                          scroll.contentSize.height, scroll.adjustedContentInset.top, scroll.adjustedContentInset.bottom,
+                          viewport.minY, viewport.height, add.minX, add.minY, add.width, add.height]
+            let responder = textFields(in: host.view).contains { $0.isFirstResponder }
+            let keyboardSettled = recorder.keyboardVisible == keyboardVisible && responder == keyboardVisible
+                && (!keyboardVisible || recorder.keyboardDidShow)
+            trace.append("t=\(now - start), native=\(sample), target=\(target), root=\(recorder.keyboardVisible), "
+                         + "didShow=\(recorder.keyboardDidShow), responder=\(responder), updates=\(recorder.sidebarAddUpdates)")
+            if sample != previous || !keyboardSettled {
+                stableSince = now
+                previous = sample
+            } else if now - stableSince >= 0.2 {
+                return trace.joined(separator: "\n")
+            }
+        }
+        let diagnostic = "\(variant) keyboard=\(keyboardVisible) did not settle in 5s:\n" + trace.joined(separator: "\n")
+        print("T04_TAIL_SETTLE_TIMEOUT \(diagnostic)")
+        let attachment = XCTAttachment(string: diagnostic)
+        attachment.name = "\(variant)-keyboard-\(keyboardVisible)-settle-timeout"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        XCTFail(diagnostic)
+        throw NSError(domain: "T04SidebarGeometry", code: 1, userInfo: [NSLocalizedDescriptionKey: diagnostic])
     }
 
         private func persistT03Evidence(
