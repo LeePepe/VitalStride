@@ -937,7 +937,98 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                 XCTAssertEqual(Int(normalized.bytes[offset + channel]), expected[channel], accuracy: 1)
             }
         }
+
     }
+
+    func testLongExerciseTitlesRenderDistinguishingWordsAndKeepHeaderActionsSeparate() async throws {
+            let names = [
+                "Band Bent-Over Row (Cable)",
+                "Band Bent-Over Row (Barbell)",
+                "弹力带俯身划船"
+            ]
+            let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+            let window = UIWindow(windowScene: scene)
+            defer { window.isHidden = true }
+            let defaults = UserDefaults.standard
+            let previousLargeMode = defaults.object(forKey: "activeWorkoutLargeMode")
+            defer { defaults.set(previousLargeMode, forKey: "activeWorkoutLargeMode") }
+
+            for width in [375, 393] {
+                for largeMode in [false, true] {
+                    defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                    for dark in [false, true] {
+                        for dynamicType in [DynamicTypeSize.large, .accessibility3] {
+                            var titleImages: [String: (image: HeaderPixels, frame: CGRect)] = [:]
+                            for name in names {
+                                let container = try ModelContainerConfiguration.makeTestContainer()
+                                let context = container.mainContext
+                                let workout = Workout(type: .strength, startDate: Date())
+                                let exercise = Exercise(
+                                    nameEn: name,
+                                    nameZh: name,
+                                    muscleGroup: .back,
+                                    equipment: .band
+                                )
+                                let owner = WorkoutExercise(order: 0, exercise: exercise)
+                                owner.workout = workout
+                                let set = ExerciseSet(order: 0, weight: 0, reps: 10)
+                                set.workoutExercise = owner
+                                context.insert(workout)
+                                context.insert(exercise)
+                                context.insert(owner)
+                                context.insert(set)
+                                try context.save()
+
+                                let recorder = ListObservationRecorder()
+                                let content = ActiveWorkoutView(source: .resume(workout))
+                                    .modelContainer(container)
+                                    .designThemePreview()
+                                    .preferredColorScheme(dark ? .dark : .light)
+                                    .dynamicTypeSize(dynamicType)
+                                    .environment(\.activeExerciseSectionInteraction, ActiveExerciseSectionInteraction())
+                                    .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                                        onHeaderFrame: { recorder.headerFrames[$0] = $1 },
+                                        onControlFrame: {
+                                            recorder.controlFrames[$0, default: [:]][$1] = $2
+                                        }
+                                    ))
+                                window.frame = CGRect(x: 0, y: 0, width: CGFloat(width), height: 852)
+                                let host = UIHostingController(rootView: content)
+                                window.rootViewController = host
+                                window.makeKeyAndVisible()
+                                try await Task.sleep(for: .milliseconds(300))
+                                host.view.layoutIfNeeded()
+
+                                let ownerID = owner.persistentModelID
+                                let header = try XCTUnwrap(recorder.headerFrames[ownerID])
+                                let controls = recorder.controlFrames[ownerID] ?? [:]
+                                let title = try XCTUnwrap(controls["title"])
+                                assertHeaderControls(controls, header: header, viewport: window.bounds)
+                                XCTAssertTrue(header.insetBy(dx: -1, dy: -1).contains(title))
+                                XCTAssertFalse(title.intersects(try XCTUnwrap(controls["add-set"])))
+                                XCTAssertFalse(title.intersects(try XCTUnwrap(controls["menu"])))
+                                XCTAssertGreaterThan(title.height, 20, "Long title must have measurable rendered height")
+
+                                let image = windowImage(window)
+                                let attachment = XCTAttachment(image: image)
+                                attachment.name = "T03 \(name) \(width)pt \(largeMode ? "large" : "normal") \(dark ? "dark" : "light") \(dynamicType)"
+                                attachment.lifetime = .keepAlways
+                                add(attachment)
+                                titleImages[name] = (try HeaderPixels(image), title)
+                            }
+
+                            let first = try XCTUnwrap(titleImages[names[0]])
+                            let second = try XCTUnwrap(titleImages[names[1]])
+                            XCTAssertGreaterThan(
+                                changedPixels(first.image, second.image, in: first.frame),
+                                12,
+                                "Shared-prefix titles must produce different rendered title pixels for their distinguishing words"
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
     private func textFields(in view: UIView) -> [UITextField] {
         (view as? UITextField).map { [$0] } ?? view.subviews.flatMap { textFields(in: $0) }
@@ -986,6 +1077,20 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         for frame in inputFrames {
             XCTAssertFalse(addSet.intersects(frame), "Add-set control must not intersect fresh first-row input \(frame)")
         }
+    }
+
+    private func changedPixels(_ image: HeaderPixels, _ other: HeaderPixels, in frame: CGRect) -> Int {
+        let left = max(0, Int(floor(frame.minX * image.scale)))
+        let right = min(image.width, Int(ceil(frame.maxX * image.scale)))
+        let top = max(0, Int(floor(frame.minY * image.scale)))
+        let bottom = min(image.height, Int(ceil(frame.maxY * image.scale)))
+        var changed = 0
+        for y in top..<bottom {
+            for x in left..<right where image.distance(x: x, y: y, to: other) > 12 {
+                changed += 1
+            }
+        }
+        return changed
     }
 
     /// Explicit sRGB RGBA8 conversion handles both ordinary and 16-bit/wide-gamut
