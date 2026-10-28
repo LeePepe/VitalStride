@@ -22,9 +22,36 @@ struct CascadeDeletionRequest: Identifiable {
     var id: PersistentIdentifier { exerciseSet.persistentModelID }
 }
 
+struct ActiveExerciseSectionInteraction: Sendable {
+    typealias ToggleAction = @MainActor @Sendable () -> Void
+
+    var registerToggle: @MainActor @Sendable (AnyHashable, @escaping ToggleAction) -> Void
+    var onCollapseChange: @MainActor @Sendable (AnyHashable, Bool) -> Void
+
+    init(
+        registerToggle: @escaping @MainActor @Sendable (AnyHashable, @escaping ToggleAction) -> Void = { _, _ in },
+        onCollapseChange: @escaping @MainActor @Sendable (AnyHashable, Bool) -> Void = { _, _ in }
+    ) {
+        self.registerToggle = registerToggle
+        self.onCollapseChange = onCollapseChange
+    }
+}
+
+private struct ActiveExerciseSectionInteractionKey: EnvironmentKey {
+    static let defaultValue = ActiveExerciseSectionInteraction()
+}
+
+extension EnvironmentValues {
+    var activeExerciseSectionInteraction: ActiveExerciseSectionInteraction {
+        get { self[ActiveExerciseSectionInteractionKey.self] }
+        set { self[ActiveExerciseSectionInteractionKey.self] = newValue }
+    }
+}
+
 struct ActiveExerciseSection: View {
     @Environment(\.theme) private var theme
     @Environment(\.activeWorkoutListObservation) private var listObservation
+    @Environment(\.activeExerciseSectionInteraction) private var interaction
     let workoutExercise: WorkoutExercise
     let onSetCompleted: () -> Void
     let onSetDeleted: () -> Void
@@ -103,6 +130,9 @@ struct ActiveExerciseSection: View {
     var body: some View {
         let contexts = rowContexts
         let canDelete = contexts.count > 1
+        let toggleAction: ActiveExerciseSectionInteraction.ToggleAction = {
+            withAnimation { isCollapsed.toggle() }
+        }
         return Section {
             if !isCollapsed {
             ForEach(contexts, id: \.exerciseSet.persistentModelID) { ctx in
@@ -254,8 +284,11 @@ struct ActiveExerciseSection: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     if isCollapsed || (completedSetCount == totalSetCount && totalSetCount > 0) {
-                        withAnimation { isCollapsed.toggle() }
+                        toggleAction()
                     }
+                }
+                .onAppear {
+                    interaction.registerToggle(workoutExercise.persistentModelID, toggleAction)
                 }
                 addSetButton
                     .background {
@@ -324,6 +357,9 @@ struct ActiveExerciseSection: View {
             }
             .onChange(of: completedSetCount) { _, count in
                 if count < totalSetCount { isCollapsed = false }
+            }
+            .onChange(of: isCollapsed) { _, collapsed in
+                interaction.onCollapseChange(workoutExercise.persistentModelID, collapsed)
             }
             .accessibilityValue(String(localized: "\(completedSetCount)/\(totalSetCount) 组", comment: "Exercise completion count"))
             // The surface includes the header's layout padding, rather than

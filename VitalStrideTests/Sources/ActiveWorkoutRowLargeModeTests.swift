@@ -378,6 +378,8 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         var rowFrames: [AnyHashable: CGRect] = [:]
         var headerFrames: [AnyHashable: CGRect] = [:]
         var controlFrames: [AnyHashable: [String: CGRect]] = [:]
+        var toggleActions: [AnyHashable: ActiveExerciseSectionInteraction.ToggleAction] = [:]
+        var collapseStates: [AnyHashable: Bool] = [:]
     }
 
     func testSubSetDisplayRefreshPreservesPrecisionAndUserEditsPersist() async throws {
@@ -816,6 +818,10 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                 .designThemePreview()
                 .preferredColorScheme(dark ? .dark : .light)
                 .dynamicTypeSize(.accessibility3)
+                .environment(\.activeExerciseSectionInteraction, ActiveExerciseSectionInteraction(
+                    registerToggle: { id, action in recorder.toggleActions[id] = action },
+                    onCollapseChange: { id, collapsed in recorder.collapseStates[id] = collapsed }
+                ))
                 .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
                     onGeometry: { recorder.geometry = $0 },
                     onReady: { recorder.driver = $0 },
@@ -844,6 +850,14 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     $0.convert($0.bounds, to: window).intersects(firstRow)
                 }
             )
+            let toggle = try XCTUnwrap(recorder.toggleActions[ownerID])
+            toggle()
+            try await Task.sleep(for: .milliseconds(250))
+            XCTAssertEqual(recorder.collapseStates[ownerID], true, "Complete header must enter the collapsed production state")
+            XCTAssertFalse(recorder.rowFrames.isEmpty, "Rendered rows were present before collapsing")
+            toggle()
+            try await Task.sleep(for: .milliseconds(250))
+            XCTAssertEqual(recorder.collapseStates[ownerID], false, "The same production action must expand the section")
 
             let attachment = XCTAttachment(image: windowImage(window))
             attachment.name = "Complete header expanded \(dark ? "dark" : "light") accessibility3"
