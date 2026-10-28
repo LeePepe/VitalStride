@@ -35,6 +35,13 @@ struct ActiveWorkoutSidebarItem: Sendable, Equatable {
     let index: Int
     let completed: Int
     let total: Int
+
+    var accessibilityLabel: String { "\(index + 1), \(name)" }
+    var accessibilityValue: String {
+        let progress = String(localized: "已完成 \(completed) / \(total) 组", comment: "Completed sets")
+        return completed == total && total > 0
+            ? String(localized: "完成", comment: "Done") + ", " + progress : progress
+    }
 }
 
 struct ActiveWorkoutListObservationSink: Sendable {
@@ -45,6 +52,11 @@ struct ActiveWorkoutListObservationSink: Sendable {
     var onControlFrame: @MainActor @Sendable (AnyHashable, String, CGRect) -> Void = { _, _, _ in }
     var onSidebarItems: @MainActor @Sendable ([ActiveWorkoutSidebarItem]) -> Void = { _ in }
     var onSidebarItemFrame: @MainActor @Sendable (String, CGRect) -> Void = { _, _ in }
+    var onSidebarNameFrame: @MainActor @Sendable (String, CGRect) -> Void = { _, _ in }
+    var onKeyboardVisibility: @MainActor @Sendable (Bool) -> Void = { _ in }
+    var onSidebarDismissKeyboardReady: @MainActor @Sendable (
+        @escaping @MainActor @Sendable () -> Void
+    ) -> Void = { _ in }
     var onSidebarAddFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
     var onSidebarMoveReady: @MainActor @Sendable (
         @escaping @MainActor @Sendable (Int, Int) -> Void
@@ -445,11 +457,13 @@ struct ActiveWorkoutView: View {
                 NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
             ) { _ in
                 isKeyboardVisible = true
+                listObservation.onKeyboardVisibility(true)
             }
             .onReceive(
                 NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
             ) { _ in
                 isKeyboardVisible = false
+                listObservation.onKeyboardVisibility(false)
             }
             #endif
         }
@@ -990,6 +1004,7 @@ struct ActiveWorkoutView: View {
                 ForEach(Array(exercises.enumerated()), id: \.element.persistentModelID) { index, exercise in
                     let completed = (exercise.sets ?? []).filter(\.isCompleted).count
                     let total = (exercise.sets ?? []).count
+                    let item = sidebarItems[index]
                     VStack(spacing: 2) {
                         Button { onSelect(exercise) } label: {
                             VStack(spacing: 4) {
@@ -1004,29 +1019,28 @@ struct ActiveWorkoutView: View {
                                     .lineLimit(nil)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .multilineTextAlignment(.center)
+                                    .background {
+                                        GeometryReader { proxy in
+                                            Color.clear
+                                                .onAppear {
+                                                    listObservation.onSidebarNameFrame(
+                                                        String(describing: exercise.persistentModelID),
+                                                        proxy.frame(in: .global)
+                                                    )
+                                                }
+                                                .onChange(of: proxy.frame(in: .global)) { _, frame in
+                                                    listObservation.onSidebarNameFrame(
+                                                        String(describing: exercise.persistentModelID), frame
+                                                    )
+                                                }
+                                        }
+                                    }
                             }
                             .frame(maxWidth: .infinity, minHeight: 72, alignment: .top)
                             .padding(.horizontal, 4)
                             .foregroundStyle(selectedExerciseID == exercise.persistentModelID ? theme.accent : theme.foreground)
                             .background(selectedExerciseID == exercise.persistentModelID ? theme.accentSubtle : .clear,
                                         in: RoundedRectangle(cornerRadius: 12))
-                            .background {
-                                GeometryReader { proxy in
-                                    Color.clear
-                                        .onAppear {
-                                            listObservation.onSidebarItemFrame(
-                                                String(describing: exercise.persistentModelID),
-                                                proxy.frame(in: .global)
-                                            )
-                                        }
-                                        .onChange(of: proxy.frame(in: .global)) { _, frame in
-                                            listObservation.onSidebarItemFrame(
-                                                String(describing: exercise.persistentModelID),
-                                                frame
-                                            )
-                                        }
-                                }
-                            }
                         }
                         .buttonStyle(.plain)
                         .background {
@@ -1047,18 +1061,8 @@ struct ActiveWorkoutView: View {
                             }
                         }
                         .accessibilityIdentifier("workout_sidebar_exercise_\(index)")
-                        .accessibilityLabel(
-                            String(
-                                localized: "第 \(index + 1) 个动作：\(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))",
-                                comment: "Sidebar exercise index and full name"
-                            )
-                        )
-                        .accessibilityValue(
-                            String(
-                                localized: "\(completed)/\(total) 组",
-                                comment: "Sidebar exercise completion count"
-                            )
-                        )
+                        .accessibilityLabel(Text(verbatim: item.accessibilityLabel))
+                        .accessibilityValue(Text(verbatim: item.accessibilityValue))
                         .accessibilityAddTraits(selectedExerciseID == exercise.persistentModelID ? .isSelected : [])
                         .accessibilityAction(
                             named: String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder")
@@ -1123,6 +1127,8 @@ struct ActiveWorkoutView: View {
         .accessibilityIdentifier("workout_exercise_sidebar")
         .onAppear {
             listObservation.onSidebarItems(sidebarItems)
+            listObservation.onKeyboardVisibility(isKeyboardVisible)
+            listObservation.onSidebarDismissKeyboardReady { dismissKeyboardIfVisible() }
             listObservation.onSidebarMoveReady { source, destination in
                 moveExercises(from: IndexSet(integer: source), to: destination)
             }
@@ -1520,6 +1526,8 @@ struct ActiveWorkoutView: View {
 
     private func moveExercises(from source: IndexSet, to destination: Int) {
         var exercises = (workout?.exercises ?? []).sorted { $0.order < $1.order }
+        guard !source.isEmpty, source.allSatisfy({ exercises.indices.contains($0) }),
+              (0...exercises.count).contains(destination) else { return }
         exercises.move(fromOffsets: source, toOffset: destination)
         for (index, exercise) in exercises.enumerated() {
             exercise.order = index
