@@ -422,6 +422,120 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         var sidebarMove: (@MainActor @Sendable (Int, Int) -> Void)?
     }
 
+    @MainActor
+    private final class RowObservationRecorder {
+        struct Descriptor {
+            let field: SetField
+            let kind: String
+            let text: String
+            let frame: CGRect
+        }
+        var descriptors: [AnyHashable: [String: Descriptor]] = [:]
+        var modeActions: [AnyHashable: @MainActor @Sendable () -> Void] = [:]
+
+        var sink: WorkoutRowObservation {
+            WorkoutRowObservation(descriptor: { [weak self] row, field, kind, text, frame in
+                self?.descriptors[row, default: [:]]["\(field.rawValue)-\(kind)"] = Descriptor(
+                    field: field, kind: kind, text: text, frame: frame
+                )
+            }, modeAction: { [weak self] row, action in self?.modeActions[row] = action })
+        }
+    }
+
+    /// Measures Text's own layout and foreground pixels, not an inferred gap
+    /// beside an input. An absent, compressed or occluded descriptor fails.
+    private func assertRowDescriptors(
+        _ recorder: RowObservationRecorder, rows: [ExerciseSet], fields: [UITextField],
+        window: UIWindow, unit: WeightUnit, variant: String
+    ) throws {
+        let image = windowImage(window)
+        let pixels = try HeaderPixels(image)
+        let fieldFrames = fields.map { $0.convert($0.bounds, to: window) }
+        var records = ["variant=\(variant)", "fields=\(fieldFrames)", "texts=\(fields.compactMap(\.text))"]
+        for row in rows {
+            let descriptors = recorder.descriptors[AnyHashable(row.persistentModelID)] ?? [:]
+            let expected: [(SetField, String, String)] = row.isUnilateral
+                ? [(.weight, "prefix", "L"), (.weightRight, "prefix", "R"),
+                   (.weight, "unit", unit.rawValue), (.weightRight, "unit", unit.rawValue),
+                   (.reps, "unit", String(localized: "workout.row.reps_unit", defaultValue: "reps"))]
+                : [(.weight, "prefix", String(localized: "workout.row.total_prefix", defaultValue: "Total")),
+                   (.weight, "unit", unit.rawValue),
+                   (.reps, "unit", String(localized: "workout.row.reps_unit", defaultValue: "reps"))]
+            XCTAssertEqual(descriptors.count, expected.count, variant)
+            for (field, kind, text) in expected {
+                let descriptor = try XCTUnwrap(descriptors["\(field.rawValue)-\(kind)"], variant)
+                XCTAssertEqual(descriptor.text, text, variant)
+                let frame = descriptor.frame
+                XCTAssertGreaterThan(frame.width, 3, variant)
+                XCTAssertGreaterThan(frame.height, 5, variant)
+                XCTAssertTrue(window.bounds.contains(frame), "\(variant): \(frame)")
+                for input in fieldFrames { XCTAssertFalse(frame.intersects(input), "\(variant): \(frame) / \(input)") }
+                let ink = descriptorInk(pixels, frame: frame)
+                XCTAssertGreaterThan(ink.count, 3, "Missing descriptor glyphs: \(variant) \(text) \(frame)")
+                records.append("row=\(row.order) field=\(field.rawValue) kind=\(kind) text=\(descriptor.text) frame=\(frame) inkPixels=\(ink.count) inkFrame=\(ink.frame)")
+            }
+        }
+        for field in fields {
+            // No physical-pixel or ceil allowance: only floating representation.
+            XCTAssertGreaterThanOrEqual(field.bounds.width, 44 - 1e-10, variant)
+            XCTAssertGreaterThanOrEqual(field.bounds.height, 44 - 1e-10, variant)
+            let frame = field.convert(field.bounds, to: window)
+            XCTAssertTrue(window.bounds.contains(frame), "\(variant): \(frame)")
+            let point = field.convert(CGPoint(x: field.bounds.midX, y: field.bounds.midY), to: window)
+            let hit = try XCTUnwrap(window.hitTest(point, with: nil))
+            XCTAssertTrue(hit === field || hit.isDescendant(of: field), variant)
+            let hitFrame = hit.convert(hit.bounds, to: window)
+            XCTAssertGreaterThanOrEqual(hitFrame.width, 44 - 1e-10, variant)
+            XCTAssertGreaterThanOrEqual(hitFrame.height, 44 - 1e-10, variant)
+        }
+        for index in fieldFrames.indices {
+            for other in fieldFrames.indices where other > index {
+                XCTAssertFalse(fieldFrames[index].intersects(fieldFrames[other]), variant)
+            }
+        }
+        let screenshot = XCTAttachment(image: image)
+        screenshot.name = variant
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let geometry = XCTAttachment(string: records.joined(separator: "\n"))
+        geometry.name = "\(variant)-measured-descriptors"
+        geometry.lifetime = .keepAlways
+        add(geometry)
+    }
+
+    private func descriptorInk(_ image: HeaderPixels, frame: CGRect) -> (count: Int, frame: CGRect) {
+        let rect = frame.applying(CGAffineTransform(scaleX: image.scale, y: image.scale)).integral
+        let minX = max(0, Int(rect.minX)), maxX = min(image.width, Int(rect.maxX))
+        let minY = max(0, Int(rect.minY)), maxY = min(image.height, Int(rect.maxY))
+        guard maxX > minX, maxY > minY else { return (0, .zero) }
+        // The modal color is the actual flat input surface in this small Text
+        // frame. Count foreground coverage against it, including antialiasing.
+        var histogram: [Int: Int] = [:]
+        for y in minY..<maxY {
+            for x in minX..<maxX {
+                let offset = y * image.stride + x * 4
+                let rgb = Int(image.bytes[offset]) << 16 | Int(image.bytes[offset + 1]) << 8 | Int(image.bytes[offset + 2])
+                histogram[rgb, default: 0] += 1
+            }
+        }
+        let background = histogram.max { $0.value < $1.value }?.key ?? 0
+        var count = 0
+        var ink = CGRect.null
+        for y in minY..<maxY {
+            for x in minX..<maxX {
+                let offset = y * image.stride + x * 4
+                let distance = (0..<3).map { channel in
+                    abs(Int(image.bytes[offset + channel]) - ((background >> (16 - channel * 8)) & 255))
+                }.max() ?? 0
+                if distance > 30 {
+                    count += 1
+                    ink = ink.union(CGRect(x: x, y: y, width: 1, height: 1))
+                }
+            }
+        }
+        return (count, ink.isNull ? .zero : ink.applying(CGAffineTransform(scaleX: 1 / image.scale, y: 1 / image.scale)))
+    }
+
     func testSubSetDisplayRefreshPreservesPrecisionAndUserEditsPersist() async throws {
         for unilateral in [false, true] {
             let container = try ModelContainerConfiguration.makeTestContainer()
@@ -442,7 +556,9 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             defer { window.isHidden = true }
             try await Task.sleep(for: .milliseconds(150))
             host.view.layoutIfNeeded()
-            XCTAssertEqual(textFields(in: host.view).count, unilateral ? 3 : 2)
+            let initialFields = textFields(in: host.view)
+            XCTAssertEqual(initialFields.count, unilateral ? 3 : 2)
+            XCTAssertTrue(initialFields.allSatisfy { ($0.placeholder ?? "").isEmpty })
             XCTAssertEqual(set.weight, 12.25)
             XCTAssertEqual(set.weightRight, unilateral ? 10.75 : nil)
 
@@ -515,6 +631,68 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         }
     }
 
+    func testEmptyMainAndDropRowsRenderOneDescriptorPerSlotInBothAppearances() async throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        let owner = WorkoutExercise(order: 0)
+        context.insert(owner)
+        let set = ExerciseSet(order: 0, weight: 0, reps: 0)
+        set.workoutExercise = owner
+        context.insert(set)
+        let dropSet = ExerciseSet(order: 1, weight: 0, reps: 0, setType: .dropSet)
+        context.insert(dropSet)
+
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 393, height: 300)
+        defer { window.isHidden = true }
+
+        for dark in [false, true] {
+            let main = SetRow(index: 0, exerciseSet: set, weightUnit: .kg, canDelete: true,
+                              exercise: nil, recentWeightKg: nil, onToggleCompleted: { _ in },
+                              onDelete: {}, onAddSubSet: { _ in }, onCopyToNext: {})
+            let drop = SubSetRow(exerciseSet: dropSet, weightUnit: .kg, isLast: true, parentSetNumber: 1,
+                                 exercise: nil, recentWeightKg: nil, onToggleCompleted: { _ in }, onDelete: {})
+            let content = VStack(spacing: 8) {
+                main
+                drop
+            }
+            .modelContainer(container)
+            .designThemePreview()
+            .preferredColorScheme(dark ? .dark : .light)
+            let host = UIHostingController(rootView: content)
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            try await Task.sleep(for: .milliseconds(180))
+            host.view.layoutIfNeeded()
+
+            let fields = textFields(in: host.view)
+            XCTAssertEqual(fields.count, 4)
+            XCTAssertTrue(fields.allSatisfy { ($0.text ?? "").isEmpty && ($0.placeholder ?? "").isEmpty })
+
+            let focused = try XCTUnwrap(fields.first)
+            XCTAssertTrue(focused.becomeFirstResponder())
+            focused.text = "0"
+            focused.sendActions(for: .editingChanged)
+            try await Task.sleep(for: .milliseconds(80))
+            XCTAssertEqual(set.weight, 0)
+            XCTAssertEqual(focused.text, "0")
+            XCTAssertTrue(focused.isFirstResponder)
+            focused.resignFirstResponder()
+
+            let image = XCTAttachment(image: windowImage(window))
+            image.name = "T05 empty main-drop \(dark ? "dark" : "light")"
+            image.lifetime = .keepAlways
+            add(image)
+            let frames = XCTAttachment(string: fields.enumerated().map {
+                "\($0): frame=\($1.convert($1.bounds, to: window)) placeholder=\($1.placeholder ?? "<nil>") text=\($1.text ?? "<nil>")"
+            }.joined(separator: "\n"))
+            frames.name = "T05 empty main-drop frames \(dark ? "dark" : "light")"
+            frames.lifetime = .keepAlways
+            add(frames)
+        }
+    }
+
     func testFieldsFollowModelAndUnitsWithoutChangingStoredWeights() async throws {
         let defaults = UserDefaults.standard
         let previousUnit = defaults.object(forKey: "weightUnit")
@@ -573,6 +751,223 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         attachment.name = "Unilateral row at sidebar content width"
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    func testT05NativeDescriptorMatrixCoversEmptyFilledModesThemesAndWidths() async throws {
+        let defaults = UserDefaults.standard
+        let previousLarge = defaults.object(forKey: "activeWorkoutLargeMode")
+        defer { defaults.set(previousLarge, forKey: "activeWorkoutLargeMode") }
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        defer { window.isHidden = true }
+
+        for width in [280, 343, 375, 393] {
+            for largeMode in [false, true] {
+                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                for dark in [false, true] {
+                    for unilateral in [false, true] {
+                        for filled in [false, true] {
+                            let container = try ModelContainerConfiguration.makeTestContainer()
+                            let context = container.mainContext
+                            let owner = WorkoutExercise(order: 0)
+                            context.insert(owner)
+                            let main = ExerciseSet(
+                                order: 0,
+                                weight: filled ? 12.5 : 0,
+                                reps: filled ? 8 : 0,
+                                isUnilateral: unilateral,
+                                weightRight: unilateral ? (filled ? 10.75 : 0) : nil
+                            )
+                            main.workoutExercise = owner
+                            let drop = ExerciseSet(
+                                order: 1,
+                                weight: filled ? 7.25 : 0,
+                                reps: filled ? 6 : 0,
+                                setType: .dropSet,
+                                isUnilateral: unilateral,
+                                weightRight: unilateral ? (filled ? 6.5 : 0) : nil
+                            )
+                            drop.workoutExercise = owner
+                            context.insert(main)
+                            context.insert(drop)
+                            let recorder = RowObservationRecorder()
+                            let content = VStack(spacing: 8) {
+                                SetRow(
+                                    index: 0, exerciseSet: main, weightUnit: .kg, canDelete: true,
+                                    exercise: nil, recentWeightKg: nil, onToggleCompleted: { _ in },
+                                    onDelete: {}, onAddSubSet: { _ in }, onCopyToNext: {}
+                                )
+                                SubSetRow(
+                                    exerciseSet: drop, weightUnit: .kg, isLast: true, parentSetNumber: 1,
+                                    exercise: nil, recentWeightKg: nil, onToggleCompleted: { _ in }, onDelete: {}
+                                )
+                            }
+                            .environment(\.workoutRowObservation, recorder.sink)
+                            .modelContainer(container)
+                            .designThemePreview()
+                            .preferredColorScheme(dark ? .dark : .light)
+                            let host = UIHostingController(rootView: content)
+                            window.frame = CGRect(x: 0, y: 0, width: width, height: 300)
+                            window.rootViewController = host
+                            window.makeKeyAndVisible()
+                            try await Task.sleep(for: .milliseconds(120))
+                            host.view.layoutIfNeeded()
+
+                            let fields = textFields(in: host.view)
+                            XCTAssertEqual(fields.count, unilateral ? 6 : 4)
+                            XCTAssertTrue(fields.allSatisfy { ($0.placeholder ?? "").isEmpty })
+                            if filled {
+                                XCTAssertTrue(fields.contains { $0.text == "12.5" })
+                                XCTAssertTrue(fields.contains { $0.text == "8" })
+                                XCTAssertTrue(fields.contains { $0.text == "6" })
+                                XCTAssertTrue(fields.allSatisfy { !($0.text ?? "").isEmpty })
+                            } else {
+                                XCTAssertTrue(fields.allSatisfy { ($0.text ?? "").isEmpty })
+                            }
+                            let variant = "T05-\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")-\(unilateral ? "LR" : "total")-\(filled ? "filled" : "empty")"
+                            try assertRowDescriptors(recorder, rows: [main, drop], fields: fields,
+                                                     window: window, unit: .kg, variant: variant)
+
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func testT05FocusedEditingSelectsAndUpdatesMainAndDropRows() async throws {
+        let defaults = UserDefaults.standard
+        let previousLarge = defaults.object(forKey: "activeWorkoutLargeMode")
+        defer { defaults.set(previousLarge, forKey: "activeWorkoutLargeMode") }
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        defer { window.isHidden = true }
+        for large in [false, true] {
+            defaults.set(large, forKey: "activeWorkoutLargeMode")
+            for dark in [false, true] {
+                for unilateral in [false, true] {
+                    let container = try ModelContainerConfiguration.makeTestContainer()
+                    let owner = WorkoutExercise(order: 0)
+                    container.mainContext.insert(owner)
+                    let main = ExerciseSet(order: 0, weight: 18.375, reps: 8,
+                                           isUnilateral: unilateral, weightRight: unilateral ? 16.125 : nil)
+                    let drop = ExerciseSet(order: 1, weight: 6.25, reps: 6, setType: .dropSet,
+                                           isUnilateral: unilateral, weightRight: unilateral ? 5.125 : nil)
+                    for row in [main, drop] { row.workoutExercise = owner; container.mainContext.insert(row) }
+                    let recorder = RowObservationRecorder()
+                    func content(_ unit: WeightUnit) -> some View {
+                        VStack(spacing: 8) {
+                            SetRow(index: 0, exerciseSet: main, weightUnit: unit, canDelete: true,
+                                   exercise: nil, recentWeightKg: nil, onToggleCompleted: { _ in },
+                                   onDelete: {}, onAddSubSet: { _ in }, onCopyToNext: {})
+                            SubSetRow(exerciseSet: drop, weightUnit: unit, isLast: true, parentSetNumber: 1,
+                                      exercise: nil, recentWeightKg: nil, onToggleCompleted: { _ in }, onDelete: {})
+                        }
+                        .environment(\.workoutRowObservation, recorder.sink)
+                        .modelContainer(container).designThemePreview().preferredColorScheme(dark ? .dark : .light)
+                    }
+                    let host = UIHostingController(rootView: content(.kg))
+                    window.frame = CGRect(x: 0, y: 0, width: 280, height: 400)
+                    window.rootViewController = host
+                    window.makeKeyAndVisible()
+                    try await Task.sleep(for: .milliseconds(150))
+                    XCTAssertEqual(textFields(in: host.view).first?.text, "18.4")
+                    main.reps = 9 // Unfocused display refresh must not round stored kg.
+                    try await Task.sleep(for: .milliseconds(80))
+                    for unit in [WeightUnit.lb, .kg, .lb] {
+                        host.rootView = content(unit)
+                        try await Task.sleep(for: .milliseconds(100))
+                        XCTAssertEqual(main.weight, 18.375, accuracy: 1e-12)
+                        XCTAssertEqual(textFields(in: host.view).first?.text, unit == .kg ? "18.4" : "40.5")
+                        if unilateral { XCTAssertEqual(try XCTUnwrap(main.weightRight), 16.125, accuracy: 1e-12) }
+                    }
+                    for (index, row) in [(0, main), (unilateral ? 3 : 2, drop)] {
+                        let field = try XCTUnwrap(textFields(in: host.view)[index])
+                        XCTAssertTrue(field.becomeFirstResponder())
+                        try await Task.sleep(for: .milliseconds(100))
+                        let selection = try XCTUnwrap(field.selectedTextRange)
+                        XCTAssertEqual(field.offset(from: field.beginningOfDocument, to: selection.start), 0)
+                        XCTAssertEqual(field.offset(from: field.beginningOfDocument, to: selection.end), field.text?.utf16.count)
+                        // Real UITextInput replacement, followed by its existing
+                        // editingChanged target. Never assign filled text as cursor proof.
+                        field.replace(selection, withText: "12.12")
+                        field.sendActions(for: .editingChanged)
+                        try await Task.sleep(for: .milliseconds(80))
+                        let position = try XCTUnwrap(field.position(from: field.beginningOfDocument, offset: 2))
+                        field.selectedTextRange = field.textRange(from: position, to: position)
+                        field.replace(try XCTUnwrap(field.selectedTextRange), withText: "3")
+                        field.sendActions(for: .editingChanged)
+                        try await Task.sleep(for: .milliseconds(80))
+                        XCTAssertEqual(field.text, "123.12")
+                        XCTAssertEqual(field.offset(from: field.beginningOfDocument, to: try XCTUnwrap(field.selectedTextRange).start), 3)
+                        field.deleteBackward()
+                        field.sendActions(for: .editingChanged)
+                        try await Task.sleep(for: .milliseconds(80))
+                        XCTAssertEqual(field.text, "12.12")
+                        XCTAssertEqual(field.offset(from: field.beginningOfDocument, to: try XCTUnwrap(field.selectedTextRange).start), 2)
+                        field.selectedTextRange = field.textRange(from: field.endOfDocument, to: field.endOfDocument)
+                        field.insertText("5")
+                        field.sendActions(for: .editingChanged)
+                        try await Task.sleep(for: .milliseconds(100))
+                        XCTAssertEqual(field.text, "12.125")
+                        XCTAssertEqual(field.offset(from: field.beginningOfDocument, to: try XCTUnwrap(field.selectedTextRange).start), 6)
+                        XCTAssertEqual(row.weight, 12.125 / 2.20462, accuracy: 1e-9)
+                        XCTAssertTrue(field.isFirstResponder)
+                        let variant = "T05-focused-\(row === main ? "main" : "drop")-\(large ? "large" : "normal")-\(dark ? "dark" : "light")-\(unilateral ? "LR" : "total")-lb"
+                        try assertRowDescriptors(recorder, rows: [main, drop], fields: textFields(in: host.view),
+                                                 window: window, unit: .lb, variant: variant)
+                        field.resignFirstResponder()
+                        try await Task.sleep(for: .milliseconds(80))
+                        XCTAssertEqual(row.weight, 12.125 / 2.20462, accuracy: 1e-9)
+                    }
+                }
+            }
+        }
+    }
+
+    func testT05RenderedModeTransitionPreservesTotalAndLRValues() async throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let owner = WorkoutExercise(order: 0)
+        container.mainContext.insert(owner)
+        let main = ExerciseSet(order: 0, weight: 60, reps: 10, isUnilateral: true, weightRight: 55)
+        let drop = ExerciseSet(order: 1, weight: 50, reps: 8, setType: .dropSet, isUnilateral: true, weightRight: 45)
+        for row in [main, drop] { row.workoutExercise = owner; container.mainContext.insert(row) }
+        let recorder = RowObservationRecorder()
+        let content = VStack(spacing: 8) {
+            SetRow(index: 0, exerciseSet: main, weightUnit: .kg, canDelete: true,
+                   exercise: nil, recentWeightKg: nil, onToggleCompleted: { _ in },
+                   onDelete: {}, onAddSubSet: { _ in }, onCopyToNext: {})
+            SubSetRow(exerciseSet: drop, weightUnit: .kg, isLast: true, parentSetNumber: 1,
+                      exercise: nil, recentWeightKg: nil, onToggleCompleted: { _ in }, onDelete: {})
+        }
+        .environment(\.workoutRowObservation, recorder.sink)
+        .modelContainer(container).designThemePreview()
+        let host = UIHostingController(rootView: content)
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 280, height: 400)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        try await Task.sleep(for: .milliseconds(150))
+        XCTAssertEqual(textFields(in: host.view).compactMap(\.text), ["60", "55", "10", "50", "45", "8"])
+        // The sink exposes the row's actual keyboard action closure. No copied
+        // mode logic or direct model mutation substitutes for either action.
+        for row in [main, drop] {
+            let action = try XCTUnwrap(recorder.modeActions[AnyHashable(row.persistentModelID)])
+            action()
+            try await Task.sleep(for: .milliseconds(150))
+            XCTAssertFalse(main.isUnilateral || drop.isUnilateral)
+            XCTAssertEqual(textFields(in: host.view).compactMap(\.text), ["60", "10", "50", "8"])
+            XCTAssertEqual(main.weightRight, 55)
+            XCTAssertEqual(drop.weightRight, 45)
+            action()
+            try await Task.sleep(for: .milliseconds(150))
+            XCTAssertTrue(main.isUnilateral && drop.isUnilateral)
+            XCTAssertEqual(main.weightRight, 55)
+            XCTAssertEqual(drop.weightRight, 45)
+            XCTAssertEqual(textFields(in: host.view).compactMap(\.text), ["60", "55", "10", "50", "45", "8"])
+        }
     }
 
     func testKeyboardLightAndDarkRender() {

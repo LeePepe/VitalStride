@@ -18,6 +18,41 @@ import VitalUI
 import UIKit
 #endif
 
+/// Internal, inert by default. Observes the actual Text layout and the same
+/// mode action used by the row keyboard; it owns no training or selection state.
+struct WorkoutRowObservation: Sendable {
+    var descriptor: @MainActor @Sendable (AnyHashable, SetField, String, String, CGRect) -> Void = { _, _, _, _, _ in }
+    var modeAction: @MainActor @Sendable (AnyHashable, @escaping @MainActor @Sendable () -> Void) -> Void = { _, _ in }
+}
+
+private struct WorkoutRowObservationKey: EnvironmentKey {
+    static let defaultValue = WorkoutRowObservation()
+}
+
+extension EnvironmentValues {
+    var workoutRowObservation: WorkoutRowObservation {
+        get { self[WorkoutRowObservationKey.self] }
+        set { self[WorkoutRowObservationKey.self] = newValue }
+    }
+}
+
+struct WorkoutRowDescriptor: View {
+    @Environment(\.workoutRowObservation) private var observation
+    let row: AnyHashable
+    let field: SetField
+    let kind: String
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .fixedSize()
+            .allowsHitTesting(false)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                observation.descriptor(row, field, kind, text, frame)
+            }
+    }
+}
+
 /// MY-1013: shared 44pt hit-target size for compact SetRow / SubSetRow
 /// controls. Kept as a single source of truth so the SetRow completion
 /// button, SetRow ellipsis Menu trigger, and SubSetRow completion button
@@ -28,6 +63,10 @@ enum ActiveWorkoutHitTarget {
     /// Rendered hit-region side length (pt). Constitution P1-H requires
     /// >= 44pt on iOS; VoiceOver rotor also uses rendered geometry.
     static let side: CGFloat = 44
+
+    /// One extra point keeps native numeric fields at or above 44pt after
+    /// SwiftUI rounds their UIKit-backed layout to the simulator pixel grid.
+    static let numericInputSide: CGFloat = 45
 }
 
 /// Numeric inputs retain a real 44pt interactive height in compact mode.
@@ -38,7 +77,7 @@ private struct NormalModeHitTargetPadding: ViewModifier {
     func body(content: Content) -> some View {
         if active {
             content
-                .frame(minHeight: ActiveWorkoutHitTarget.side)
+                .frame(minHeight: ActiveWorkoutHitTarget.numericInputSide)
                 .contentShape(Rectangle())
         } else {
             content
@@ -104,6 +143,7 @@ struct WorkoutSetInput: UIViewRepresentable {
 #endif
 
 struct SetRow: View {
+    @Environment(\.workoutRowObservation) private var rowObservation
     let index: Int
     let exerciseSet: ExerciseSet
     let weightUnit: WeightUnit
@@ -237,7 +277,12 @@ struct SetRow: View {
                 .accessibilityHidden(true)
         }
         .designSurface(style: .solid, cornerRadius: 16)
-        .onAppear { refreshInputText() }
+        .onAppear {
+            refreshInputText()
+            rowObservation.modeAction(exerciseSet.persistentModelID) {
+                handleLeftAction(.toggleUnilateral, field: .weight)
+            }
+        }
         .onChange(of: weightUnit) { _, _ in refreshInputText() }
         .onChange(of: exerciseSet.weight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
         .onChange(of: exerciseSet.weightRight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
@@ -287,7 +332,7 @@ struct SetRow: View {
             if exerciseSet.isUnilateral {
                 weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice)
             }
-            repsField(width: variant == .large ? 64 : 44, suggestion: advice)
+            repsField(width: variant == .large ? 64 : ActiveWorkoutHitTarget.numericInputSide, suggestion: advice)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -296,14 +341,14 @@ struct SetRow: View {
         let isTotal = !exerciseSet.isUnilateral && field == .weight
         return HStack(spacing: 2) {
             if let side {
-                Text(side)
+                WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: side)
                     .font(.caption2.weight(isTotal ? .semibold : .bold))
                     .fixedSize()
                     .foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)
                     .allowsHitTesting(false)
             }
             weightField(
-                binding: binding, field: field, width: max(ActiveWorkoutHitTarget.side, width - 28),
+                binding: binding, field: field, width: max(ActiveWorkoutHitTarget.numericInputSide, width - 28),
                 a11yLabel: side == nil
                     ? String(localized: "第 \(index + 1) 组重量", comment: "Set weight")
                     : isTotal
@@ -314,7 +359,7 @@ struct SetRow: View {
                 a11yHint: String(localized: "输入重量数值", comment: "Enter weight"),
                 suggestion: suggestion
             )
-            Text(weightUnit.rawValue)
+            WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(theme.neutrals.text3)
                 .allowsHitTesting(false)
@@ -425,7 +470,7 @@ struct SetRow: View {
     ) -> some View {
         #if canImport(UIKit) && !os(macOS)
         WorkoutSetInput(SelectAllTextField(
-            placeholder: weightUnit.rawValue,
+            placeholder: "",
             text: binding,
             keyboardType: .decimalPad,
             font: inputUIFont,
@@ -464,7 +509,7 @@ struct SetRow: View {
         }
         #else
         SelectAllTextField(
-            placeholder: weightUnit.rawValue,
+            placeholder: "",
             text: binding,
             keyboardType: .decimalPad
         )
@@ -491,7 +536,7 @@ struct SetRow: View {
         #if canImport(UIKit) && !os(macOS)
         HStack(spacing: 2) {
         WorkoutSetInput(SelectAllTextField(
-            placeholder: String(localized: "次数", comment: ""),
+            placeholder: "",
             text: $repsText,
             keyboardType: .numberPad,
             font: inputUIFont,
@@ -524,7 +569,8 @@ struct SetRow: View {
             syncRepsToModel()
             noteSuggestionFieldEdit()
         }
-        Text(String(localized: "次数", comment: "Repetitions unit"))
+        WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: .reps, kind: "unit",
+                             text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
             .font(.caption2.weight(.medium))
             .foregroundStyle(theme.neutrals.text3)
             .allowsHitTesting(false)
@@ -538,14 +584,21 @@ struct SetRow: View {
             }
         }
         #else
-        SelectAllTextField(
-            placeholder: String(localized: "次数", comment: ""),
-            text: $repsText,
-            keyboardType: .numberPad
-        )
-        .frame(width: width)
-        .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
-        .modifier(NormalModeHitTargetPadding(active: !largeMode))
+        HStack(spacing: 2) {
+            SelectAllTextField(
+                placeholder: "",
+                text: $repsText,
+                keyboardType: .numberPad
+            )
+            .frame(width: width)
+            .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
+            .modifier(NormalModeHitTargetPadding(active: !largeMode))
+            WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: .reps, kind: "unit",
+                             text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(theme.neutrals.text3)
+                .allowsHitTesting(false)
+        }
         .accessibilityLabel(String(localized: "第 \(index + 1) 组次数", comment: "Set reps a11y label"))
         .accessibilityHint(String(localized: "输入次数", comment: "Enter reps hint"))
         .onChange(of: repsText) { _, newValue in
