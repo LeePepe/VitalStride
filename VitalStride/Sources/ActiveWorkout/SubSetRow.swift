@@ -143,7 +143,10 @@ struct SubSetRow: View {
                     .fixedSize()
             }
             WorkoutSetInput(input, theme: theme)
-                .frame(width: ActiveWorkoutHitTarget.side, height: 44)
+                .frame(
+                    width: ActiveWorkoutHitTarget.numericInputSide,
+                    height: ActiveWorkoutHitTarget.numericInputSide
+                )
             if field.isWeightField {
                 Text(weightUnit.rawValue)
                     .font(.caption2.weight(.medium))
@@ -172,7 +175,7 @@ struct SubSetRow: View {
                     .fixedSize()
             }
             TextField("", text: editingText)
-                .frame(width: field.isWeightField ? 58 : 48, height: 44)
+                .frame(width: field.isWeightField ? 58 : 48, height: ActiveWorkoutHitTarget.numericInputSide)
             Text(field.isWeightField
                  ? weightUnit.rawValue
                  : String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))

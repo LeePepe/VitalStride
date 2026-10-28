@@ -28,6 +28,10 @@ enum ActiveWorkoutHitTarget {
     /// Rendered hit-region side length (pt). Constitution P1-H requires
     /// >= 44pt on iOS; VoiceOver rotor also uses rendered geometry.
     static let side: CGFloat = 44
+
+    /// One extra point keeps native numeric fields at or above 44pt after
+    /// SwiftUI rounds their UIKit-backed layout to the simulator pixel grid.
+    static let numericInputSide: CGFloat = 45
 }
 
 /// Numeric inputs retain a real 44pt interactive height in compact mode.
@@ -38,7 +42,7 @@ private struct NormalModeHitTargetPadding: ViewModifier {
     func body(content: Content) -> some View {
         if active {
             content
-                .frame(minHeight: ActiveWorkoutHitTarget.side)
+                .frame(minHeight: ActiveWorkoutHitTarget.numericInputSide)
                 .contentShape(Rectangle())
         } else {
             content
@@ -287,7 +291,7 @@ struct SetRow: View {
             if exerciseSet.isUnilateral {
                 weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice)
             }
-            repsField(width: variant == .large ? 64 : 44, suggestion: advice)
+            repsField(width: variant == .large ? 64 : ActiveWorkoutHitTarget.numericInputSide, suggestion: advice)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -303,7 +307,7 @@ struct SetRow: View {
                     .allowsHitTesting(false)
             }
             weightField(
-                binding: binding, field: field, width: max(ActiveWorkoutHitTarget.side, width - 28),
+                binding: binding, field: field, width: max(ActiveWorkoutHitTarget.numericInputSide, width - 28),
                 a11yLabel: side == nil
                     ? String(localized: "第 \(index + 1) 组重量", comment: "Set weight")
                     : isTotal
@@ -463,20 +467,14 @@ struct SetRow: View {
             noteSuggestionFieldEdit()
         }
         #else
-        HStack(spacing: 2) {
-            SelectAllTextField(
-                placeholder: "",
-                text: binding,
-                keyboardType: .decimalPad
-            )
-            .frame(width: width)
-            .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
-            .modifier(NormalModeHitTargetPadding(active: !largeMode))
-            Text(weightUnit.rawValue)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(theme.neutrals.text3)
-                .allowsHitTesting(false)
-        }
+        SelectAllTextField(
+            placeholder: "",
+            text: binding,
+            keyboardType: .decimalPad
+        )
+        .frame(width: width)
+        .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
+        .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(a11yHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
@@ -530,7 +528,7 @@ struct SetRow: View {
             syncRepsToModel()
             noteSuggestionFieldEdit()
         }
-        Text(String(localized: "次数", comment: "Repetitions unit"))
+        Text(String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
             .font(.caption2.weight(.medium))
             .foregroundStyle(theme.neutrals.text3)
             .allowsHitTesting(false)
@@ -553,7 +551,7 @@ struct SetRow: View {
             .frame(width: width)
             .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
             .modifier(NormalModeHitTargetPadding(active: !largeMode))
-            Text(String(localized: "次数", comment: "Repetitions unit"))
+            Text(String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(theme.neutrals.text3)
                 .allowsHitTesting(false)
