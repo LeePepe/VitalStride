@@ -18,6 +18,41 @@ import VitalUI
 import UIKit
 #endif
 
+/// Internal, inert by default. Observes the actual Text layout and the same
+/// mode action used by the row keyboard; it owns no training or selection state.
+struct WorkoutRowObservation: Sendable {
+    var descriptor: @MainActor @Sendable (AnyHashable, SetField, String, String, CGRect) -> Void = { _, _, _, _, _ in }
+    var modeAction: @MainActor @Sendable (AnyHashable, @escaping @MainActor @Sendable () -> Void) -> Void = { _, _ in }
+}
+
+private struct WorkoutRowObservationKey: EnvironmentKey {
+    static let defaultValue = WorkoutRowObservation()
+}
+
+extension EnvironmentValues {
+    var workoutRowObservation: WorkoutRowObservation {
+        get { self[WorkoutRowObservationKey.self] }
+        set { self[WorkoutRowObservationKey.self] = newValue }
+    }
+}
+
+struct WorkoutRowDescriptor: View {
+    @Environment(\.workoutRowObservation) private var observation
+    let row: AnyHashable
+    let field: SetField
+    let kind: String
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .fixedSize()
+            .allowsHitTesting(false)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                observation.descriptor(row, field, kind, text, frame)
+            }
+    }
+}
+
 /// MY-1013: shared 44pt hit-target size for compact SetRow / SubSetRow
 /// controls. Kept as a single source of truth so the SetRow completion
 /// button, SetRow ellipsis Menu trigger, and SubSetRow completion button
@@ -108,6 +143,7 @@ struct WorkoutSetInput: UIViewRepresentable {
 #endif
 
 struct SetRow: View {
+    @Environment(\.workoutRowObservation) private var rowObservation
     let index: Int
     let exerciseSet: ExerciseSet
     let weightUnit: WeightUnit
@@ -241,7 +277,12 @@ struct SetRow: View {
                 .accessibilityHidden(true)
         }
         .designSurface(style: .solid, cornerRadius: 16)
-        .onAppear { refreshInputText() }
+        .onAppear {
+            refreshInputText()
+            rowObservation.modeAction(exerciseSet.persistentModelID) {
+                handleLeftAction(.toggleUnilateral, field: .weight)
+            }
+        }
         .onChange(of: weightUnit) { _, _ in refreshInputText() }
         .onChange(of: exerciseSet.weight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
         .onChange(of: exerciseSet.weightRight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
@@ -300,7 +341,7 @@ struct SetRow: View {
         let isTotal = !exerciseSet.isUnilateral && field == .weight
         return HStack(spacing: 2) {
             if let side {
-                Text(side)
+                WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: side)
                     .font(.caption2.weight(isTotal ? .semibold : .bold))
                     .fixedSize()
                     .foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)
@@ -318,7 +359,7 @@ struct SetRow: View {
                 a11yHint: String(localized: "输入重量数值", comment: "Enter weight"),
                 suggestion: suggestion
             )
-            Text(weightUnit.rawValue)
+            WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(theme.neutrals.text3)
                 .allowsHitTesting(false)
@@ -528,7 +569,8 @@ struct SetRow: View {
             syncRepsToModel()
             noteSuggestionFieldEdit()
         }
-        Text(String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
+        WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: .reps, kind: "unit",
+                             text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
             .font(.caption2.weight(.medium))
             .foregroundStyle(theme.neutrals.text3)
             .allowsHitTesting(false)
@@ -551,7 +593,8 @@ struct SetRow: View {
             .frame(width: width)
             .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
             .modifier(NormalModeHitTargetPadding(active: !largeMode))
-            Text(String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
+            WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: .reps, kind: "unit",
+                             text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(theme.neutrals.text3)
                 .allowsHitTesting(false)
