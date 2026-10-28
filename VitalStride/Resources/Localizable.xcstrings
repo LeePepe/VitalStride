@@ -12072,6 +12072,24 @@
         }
       }
     },
+    "workout.keyboard.weight_unit": {
+      "comment": "Toggle between kilogram and pound display units",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kg / lb"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kg / lb"
+          }
+        }
+      }
+    },
     "workout.keyboard.mode": {
       "comment": "Active workout redesign",
       "extractionState": "manual",
