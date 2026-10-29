@@ -165,6 +165,8 @@ struct ActiveWorkoutView: View {
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #if !os(macOS)
     @Environment(\.healthKitService) private var healthKitService
     #endif
@@ -291,6 +293,7 @@ struct ActiveWorkoutView: View {
                 // the header. When keyboard is hidden, standalone header renders.
                 ActiveWorkoutSnackbarLayout.topComposition(
                     policy: policy,
+                    theme: theme,
                     infoBand: {
                         // MY-1262: default mode uses compact info band;
                         // Large Mode keeps its dual-card layout.
@@ -316,6 +319,7 @@ struct ActiveWorkoutView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
                     policy: policy,
+                    theme: theme,
                     undoContent: { undoSnackbarEnvelope },
                     restContent: { restSnackbarEnvelope },
                     fab: {
@@ -331,7 +335,7 @@ struct ActiveWorkoutView: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityFocused($isBottomSnackbarFocused)
             }
-            .activeWorkoutRootAnimation(policy: policy)
+            .activeWorkoutRootAnimation(policy: policy, reduceMotion: reduceMotion)
             .navigationTitle(String(localized: "训练中", comment: "Active workout navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -921,6 +925,7 @@ struct ActiveWorkoutView: View {
             ),
             messageColor: theme.neutrals.text1,
             undoColor: theme.primary.primary,
+            theme: theme,
             undoAccessibilityLabel: String(
                 localized: "active_workout.set_delete.undo_action_a11y",
                 defaultValue: "Undo deletion",
@@ -942,7 +947,8 @@ struct ActiveWorkoutView: View {
         ActiveWorkoutSnackbarLayout.restEnvelope(
             skipTitle: String(localized: "跳过", comment: "Skip rest button visible title"),
             neutralBackground: theme.neutrals.inner,
-            skipBackground: theme.primary.primary.opacity(0.15)
+            skipBackground: theme.primary.primary.opacity(0.15),
+            theme: theme
         ) {
             restSnackbarContent
         }
@@ -980,7 +986,7 @@ struct ActiveWorkoutView: View {
                             .trim(from: 0, to: progress)
                             .stroke(theme.primary.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                             .rotationEffect(.degrees(-90))
-                            .animation(.linear(duration: 1), value: progress)
+                            .animation(reduceMotion ? nil : .linear(duration: 1), value: progress)
                         Text("\(remaining)")
                             .font(.caption)
                             .fontWeight(.semibold)
@@ -1005,6 +1011,7 @@ struct ActiveWorkoutView: View {
             skipTitle: String(localized: "跳过", comment: "Skip rest button visible title"),
             neutralBackground: theme.neutrals.inner,
             skipBackground: theme.primary.primary.opacity(0.15),
+            theme: theme,
             minus10AccessibilityLabel: String(localized: "缩短十秒", comment: "Subtract 10 seconds a11y label"),
             plus10AccessibilityLabel: String(localized: "延长十秒", comment: "Add 10 seconds a11y label"),
             skipAccessibilityLabel: String(localized: "跳过休息", comment: "Skip rest a11y label"),
@@ -1279,8 +1286,11 @@ struct ActiveWorkoutView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(theme.accent)
                 .padding(.horizontal, 20)
-                .frame(minHeight: 48)
-                .designSurface(style: .glass, cornerRadius: 24)
+                .frame(
+                    maxWidth: horizontalSizeClass == .regular ? 400 : .infinity,
+                    minHeight: 44
+                )
+                .designSurface(style: .glass, cornerRadius: 16)
         }
         .buttonStyle(FABButtonStyle())
         .accessibilityIdentifier("workout_add_exercise")
@@ -1946,10 +1956,15 @@ enum HeartRateFormatter {
 }
 
 private struct FABButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+            .scaleEffect(reduceMotion ? 1.0 : (configuration.isPressed ? 0.9 : 1.0))
+            .animation(
+                reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.6),
+                value: configuration.isPressed
+            )
     }
 }
 

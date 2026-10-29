@@ -14,6 +14,7 @@ private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "E
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
     @State private var searchText = ""
@@ -499,7 +500,10 @@ struct ExercisePickerView: View {
                         .padding(.trailing, Self.cardGridIndexBarReserve)
                 }
             }
-            .animation(.easeOut(duration: 0.18), value: draggedEquipment)
+            .animation(
+                reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.18),
+                value: draggedEquipment
+            )
             .onChange(of: equipments) { _, newEquipments in
                 if let current = visibleEquipment, !newEquipments.contains(current) {
                     visibleEquipment = newEquipments.first
@@ -786,10 +790,11 @@ struct ExercisePickerView: View {
     private func equipmentSection(equipment: ExerciseSection, exercises: [Exercise]) -> some View {
         let color = categoryColor(sectionPaletteIndex(for: equipment), theme: theme)
         return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: equipment.sfSymbol)
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(color)
+                    .frame(width: 16, alignment: .center)
                 Text(equipment.localizedName.uppercased())
                     .font(TypeScale.meta)
                     .fontWeight(.bold)
@@ -1086,7 +1091,7 @@ struct PickerBottomBar: View {
                 }
                 .font(.subheadline.weight(.semibold))
                 .fixedSize()
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 12)
                 .frame(minWidth: 44, minHeight: 44)
                 .background(theme.accent, in: RoundedRectangle(cornerRadius: Radius.control))
             }
@@ -1130,6 +1135,7 @@ struct PickerBottomBar: View {
                     searchText = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
+                        .frame(width: 20, height: 20)
                         .frame(width: Space.minTapTarget, height: Space.minTapTarget)
                         .contentShape(Rectangle())
                 }

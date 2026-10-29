@@ -1,3 +1,4 @@
+import DesignKit
 import SwiftUI
 import Testing
 
@@ -18,6 +19,21 @@ import UIKit
 /// 6. Transitions in both directions preserve single-owner invariants and slot migration.
 @Suite("ActiveWorkout snackbar layout (MY-1421, MY-1706)")
 struct ActiveWorkoutSnackbarLayoutTests {
+
+    #if canImport(UIKit) && !os(macOS)
+    @MainActor
+    @Test("Snackbar renders with semantic tokens in both color schemes")
+    func snackbarRendersInLightAndDarkThemes() {
+        for isDark in [false, true] {
+            let view = ActiveWorkoutSnackbarLayout.undoEnvelope(
+                message: "Deleted set",
+                theme: Theme(seed: .teal, neutral: .slate, isDark: isDark)
+            )
+            let host = UIHostingController(rootView: view)
+            #expect(host.sizeThatFits(in: CGSize(width: 320, height: 100)).height > 0)
+        }
+    }
+    #endif
 
     // MARK: - Test 1: List stability (MY-1421)
 

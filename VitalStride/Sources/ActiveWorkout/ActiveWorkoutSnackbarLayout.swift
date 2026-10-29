@@ -121,11 +121,12 @@ enum ActiveWorkoutSnackbarLayout {
     @MainActor
     struct RootAnimationModifier: ViewModifier {
         let policy: AnimationPolicy
+        let reduceMotion: Bool
 
         func body(content: Content) -> some View {
             content
-                .animation(policy.rootAnimation, value: policy.isKeyboardVisible)
-                .animation(policy.rootAnimation, value: policy.snackbarSlot)
+                .animation(reduceMotion ? .easeOut(duration: 0.15) : policy.rootAnimation, value: policy.isKeyboardVisible)
+                .animation(reduceMotion ? .easeOut(duration: 0.15) : policy.rootAnimation, value: policy.snackbarSlot)
         }
     }
 
@@ -204,6 +205,7 @@ enum ActiveWorkoutSnackbarLayout {
     static func bottomSafeAreaGeometry<UndoContent: View, RestContent: View, FAB: View>(
         snackbarSlot: BottomSnackbarSlot,
         isKeyboardVisible: Bool,
+        theme: Theme = Theme(),
         @ViewBuilder undoContent: () -> UndoContent,
         @ViewBuilder restContent: () -> RestContent,
         @ViewBuilder fab: () -> FAB
@@ -215,10 +217,10 @@ enum ActiveWorkoutSnackbarLayout {
                     .padding(.horizontal, Space.cardPadding)
                     .padding(.vertical, Space.gap)
                     .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
-                    .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
+                    .background(snackbarSlot != .none ? AnyShapeStyle(theme.surface) : AnyShapeStyle(.clear))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .shadow(
-                        color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
+                        color: snackbarSlot != .none ? theme.foreground.opacity(0.15) : .clear,
                         radius: 8, y: 4
                     )
                     .padding(.horizontal, Space.cardPadding)
@@ -233,6 +235,7 @@ enum ActiveWorkoutSnackbarLayout {
     @MainActor
     static func bottomSafeAreaContent<UndoContent: View, RestContent: View, FAB: View>(
         policy: AnimationPolicy,
+        theme: Theme = Theme(),
         @ViewBuilder undoContent: () -> UndoContent,
         @ViewBuilder restContent: () -> RestContent,
         @ViewBuilder fab: () -> FAB
@@ -240,6 +243,7 @@ enum ActiveWorkoutSnackbarLayout {
         bottomSafeAreaGeometry(
             snackbarSlot: policy.bottomSlot,
             isKeyboardVisible: policy.isKeyboardVisible,
+            theme: theme,
             undoContent: undoContent,
             restContent: restContent,
             fab: fab
@@ -257,6 +261,7 @@ enum ActiveWorkoutSnackbarLayout {
     static func bottomSafeAreaContent<UndoContent: View, RestContent: View, FAB: View>(
         snackbarSlot: BottomSnackbarSlot,
         isKeyboardVisible: Bool = false,
+        theme: Theme = Theme(),
         @ViewBuilder undoContent: () -> UndoContent,
         @ViewBuilder restContent: () -> RestContent,
         @ViewBuilder fab: () -> FAB
@@ -264,6 +269,7 @@ enum ActiveWorkoutSnackbarLayout {
         bottomSafeAreaGeometry(
             snackbarSlot: snackbarSlot,
             isKeyboardVisible: isKeyboardVisible,
+            theme: theme,
             undoContent: undoContent,
             restContent: restContent,
             fab: fab
@@ -281,6 +287,7 @@ enum ActiveWorkoutSnackbarLayout {
     @MainActor
     static func topLayout<UndoContent: View, RestContent: View>(
         snackbarSlot: BottomSnackbarSlot,
+        theme: Theme = Theme(),
         @ViewBuilder undoContent: () -> UndoContent,
         @ViewBuilder restContent: () -> RestContent
     ) -> some View {
@@ -288,10 +295,10 @@ enum ActiveWorkoutSnackbarLayout {
             .padding(.horizontal, Space.cardPadding)
             .padding(.vertical, Space.gap)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(snackbarSlot != .none ? AnyShapeStyle(.bar) : AnyShapeStyle(.clear))
+            .background(snackbarSlot != .none ? AnyShapeStyle(theme.surface) : AnyShapeStyle(.clear))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .shadow(
-                color: snackbarSlot != .none ? .black.opacity(0.15) : .clear,
+                color: snackbarSlot != .none ? theme.foreground.opacity(0.15) : .clear,
                 radius: 8, y: -4
             )
             .padding(.horizontal, Space.cardPadding)
@@ -307,6 +314,7 @@ enum ActiveWorkoutSnackbarLayout {
     static func topCompositionGeometry<InfoBand: View, UndoContent: View, RestContent: View>(
         snackbarSlot: BottomSnackbarSlot,
         isKeyboardVisible: Bool,
+        theme: Theme = Theme(),
         @ViewBuilder infoBand: () -> InfoBand,
         @ViewBuilder undoContent: () -> UndoContent,
         @ViewBuilder restContent: () -> RestContent
@@ -316,6 +324,7 @@ enum ActiveWorkoutSnackbarLayout {
             if isKeyboardVisible {
                 topLayout(
                     snackbarSlot: snackbarSlot,
+                    theme: theme,
                     undoContent: undoContent,
                     restContent: restContent
                 )
@@ -330,6 +339,7 @@ enum ActiveWorkoutSnackbarLayout {
     @MainActor
     static func topComposition<InfoBand: View, UndoContent: View, RestContent: View>(
         policy: AnimationPolicy,
+        theme: Theme = Theme(),
         @ViewBuilder infoBand: () -> InfoBand,
         @ViewBuilder undoContent: () -> UndoContent,
         @ViewBuilder restContent: () -> RestContent
@@ -337,6 +347,7 @@ enum ActiveWorkoutSnackbarLayout {
         topCompositionGeometry(
             snackbarSlot: policy.topSlot,
             isKeyboardVisible: policy.isKeyboardVisible,
+            theme: theme,
             infoBand: infoBand,
             undoContent: undoContent,
             restContent: restContent
@@ -387,8 +398,9 @@ enum ActiveWorkoutSnackbarLayout {
     static func undoEnvelope(
         message: String?,
         undoTitle: String = "Undo",
-        messageColor: Color = .primary,
-        undoColor: Color = .blue,
+        messageColor: Color? = nil,
+        undoColor: Color? = nil,
+        theme: Theme = Theme(),
         undoAccessibilityLabel: String = "Undo deletion",
         restEndDate: Date? = nil,
         onUndo: @escaping () -> Void = {}
@@ -417,7 +429,7 @@ enum ActiveWorkoutSnackbarLayout {
                                 .font(.caption.monospacedDigit().weight(.semibold))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 5)
-                                .background(Color.accentColor.opacity(0.15), in: Capsule())
+                                .background(theme.accentSubtle, in: Capsule())
                                 .accessibilityLabel(
                                     String(
                                         format: String(
@@ -432,12 +444,12 @@ enum ActiveWorkoutSnackbarLayout {
                         Text(message)
                             .font(undoFont)
                             .lineLimit(2)
-                            .foregroundStyle(messageColor)
+                            .foregroundStyle(messageColor ?? theme.foreground)
                         Spacer()
                         Button(action: onUndo) {
                             Text(undoTitle)
                                 .font(undoFont.weight(.semibold))
-                                .foregroundStyle(undoColor)
+                                .foregroundStyle(undoColor ?? theme.accent)
                                 .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
                                 .contentShape(Rectangle())
                         }
@@ -462,8 +474,9 @@ enum ActiveWorkoutSnackbarLayout {
     @MainActor
     static func restEnvelope<Content: View>(
         skipTitle: String,
-        neutralBackground: Color = Color.gray.opacity(0.15),
-        skipBackground: Color = Color.blue.opacity(0.15),
+        neutralBackground: Color? = nil,
+        skipBackground: Color? = nil,
+        theme: Theme = Theme(),
         @ViewBuilder content: () -> Content
     ) -> some View {
         ZStack(alignment: .leading) {
@@ -476,8 +489,9 @@ enum ActiveWorkoutSnackbarLayout {
                 Spacer()
                 restTimerButtons(
                     skipTitle: skipTitle,
-                    neutralBackground: neutralBackground,
-                    skipBackground: skipBackground
+                    neutralBackground: neutralBackground ?? theme.surfaceSubtle,
+                    skipBackground: skipBackground ?? theme.accentSubtle,
+                    theme: theme
                 )
             }
             .hidden()
@@ -497,7 +511,8 @@ enum ActiveWorkoutSnackbarLayout {
     static func restTimerButton(
         title: String,
         isBold: Bool = false,
-        background: Color = Color.gray.opacity(0.15),
+        background: Color? = nil,
+        theme: Theme = Theme(),
         accessibilityIdentifier: String,
         accessibilityLabel: String,
         action: @escaping () -> Void = {}
@@ -507,7 +522,7 @@ enum ActiveWorkoutSnackbarLayout {
             .fontWeight(isBold ? .semibold : .regular)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(background, in: Capsule())
+            .background(background ?? theme.surfaceSubtle, in: Capsule())
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Capsule())
             .accessibilityIdentifier(accessibilityIdentifier)
@@ -530,8 +545,9 @@ enum ActiveWorkoutSnackbarLayout {
         minus10Title: String = String(localized: "rest_timer.minus10.title", defaultValue: "-10s", comment: "Rest timer subtract 10 seconds button title"),
         plus10Title: String = String(localized: "rest_timer.plus10.title", defaultValue: "+10s", comment: "Rest timer add 10 seconds button title"),
         skipTitle: String,
-        neutralBackground: Color = Color.gray.opacity(0.15),
-        skipBackground: Color = Color.blue.opacity(0.15),
+        neutralBackground: Color? = nil,
+        skipBackground: Color? = nil,
+        theme: Theme = Theme(),
         minus10AccessibilityLabel: String = String(localized: "rest_timer.minus10.a11y", defaultValue: "Subtract 10 seconds", comment: "Rest timer -10s accessibility label"),
         plus10AccessibilityLabel: String = String(localized: "rest_timer.plus10.a11y", defaultValue: "Add 10 seconds", comment: "Rest timer +10s accessibility label"),
         skipAccessibilityLabel: String = String(localized: "rest_timer.skip.a11y", defaultValue: "Skip rest", comment: "Rest timer skip accessibility label"),
@@ -542,14 +558,16 @@ enum ActiveWorkoutSnackbarLayout {
         HStack(spacing: 8) {
             restTimerButton(
                 title: minus10Title,
-                background: neutralBackground,
+                background: neutralBackground ?? theme.surfaceSubtle,
+                theme: theme,
                 accessibilityIdentifier: "rest_button_minus10",
                 accessibilityLabel: minus10AccessibilityLabel,
                 action: onMinus10
             )
             restTimerButton(
                 title: plus10Title,
-                background: neutralBackground,
+                background: neutralBackground ?? theme.surfaceSubtle,
+                theme: theme,
                 accessibilityIdentifier: "rest_button_plus10",
                 accessibilityLabel: plus10AccessibilityLabel,
                 action: onPlus10
@@ -557,7 +575,8 @@ enum ActiveWorkoutSnackbarLayout {
             restTimerButton(
                 title: skipTitle,
                 isBold: true,
-                background: skipBackground,
+                background: skipBackground ?? theme.accentSubtle,
+                theme: theme,
                 accessibilityIdentifier: "rest_button_skip",
                 accessibilityLabel: skipAccessibilityLabel,
                 action: onSkip
@@ -652,8 +671,11 @@ enum ActiveWorkoutFABContainer {
 extension View {
     /// Applies root geometry animations driven by the ActiveWorkout layout policy.
     @MainActor
-    func activeWorkoutRootAnimation(policy: ActiveWorkoutSnackbarLayout.AnimationPolicy) -> some View {
-        modifier(ActiveWorkoutSnackbarLayout.RootAnimationModifier(policy: policy))
+    func activeWorkoutRootAnimation(
+        policy: ActiveWorkoutSnackbarLayout.AnimationPolicy,
+        reduceMotion: Bool = false
+    ) -> some View {
+        modifier(ActiveWorkoutSnackbarLayout.RootAnimationModifier(policy: policy, reduceMotion: reduceMotion))
     }
 
     /// Applies child geometry animation and transition driven by the ActiveWorkout layout policy.

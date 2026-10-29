@@ -152,6 +152,7 @@ struct WorkoutNumericKeyboardContentView: View {
         .padding(.vertical, 8)
         .background(theme.neutrals.bg)
         .environment(\.theme, theme)
+        .environment(\.colorScheme, theme.isDark ? .dark : .light)
         .accessibilityElement(children: .contain)
     }
 
@@ -292,6 +293,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
             onDone: clickingDone
         )
         self.host = UIHostingController(rootView: content)
+        self.host.overrideUserInterfaceStyle = content.theme.isDark ? .dark : .light
         super.init(frame: .zero)
 
         setUp()
@@ -368,6 +370,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
             onPresetReps: existing.onPresetReps,
             onDone: existing.onDone
         )
+        host.overrideUserInterfaceStyle = theme.isDark ? .dark : .light
     }
 
     // MARK: Public API — updating context between key presses
@@ -408,6 +411,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
             onPresetReps: existing.onPresetReps,
             onDone: existing.onDone
         )
+        host.overrideUserInterfaceStyle = currentIsDark() ? .dark : .light
 
         let newHeight = Self.preferredHeight()
         if heightConstraint?.constant != newHeight {

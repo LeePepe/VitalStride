@@ -49,6 +49,7 @@ extension EnvironmentValues {
 }
 
 struct ActiveExerciseSection: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.theme) private var theme
     @Environment(\.activeWorkoutListObservation) private var listObservation
     @Environment(\.activeExerciseSectionInteraction) private var interaction
@@ -411,7 +412,7 @@ struct ActiveExerciseSection: View {
             // the top, retaining a bottom gap even when an expanded List puts
             // its first row directly against the supplementary view.
             .padding(.horizontal, 8)
-            .padding(.top, 14)
+            .padding(.top, 12)
             .padding(.bottom, 2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
@@ -419,7 +420,6 @@ struct ActiveExerciseSection: View {
                 // Cover the List's 15pt header-to-row margin without letting
                 // the following header's surface reach into this header.
                 theme.neutrals.bg
-                    .padding(.bottom, -15)
             }
             .listRowInsets(EdgeInsets())
             .zIndex(1)
@@ -729,11 +729,13 @@ struct ActiveExerciseSection: View {
 /// implicitly by the immutable `struct`. `private` scope keeps this style
 /// bound to `ActiveExerciseSection` — no exported API.
 private struct AddSetButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .opacity(configuration.isPressed ? 0.7 : 1.0)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .scaleEffect(reduceMotion ? 1.0 : (configuration.isPressed ? 0.98 : 1.0))
+            .animation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

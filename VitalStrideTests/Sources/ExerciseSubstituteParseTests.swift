@@ -1,10 +1,41 @@
 import Foundation
 import Testing
+#if canImport(UIKit)
+import SwiftUI
+import UIKit
+#endif
 
 @testable import VitalStride
 
 @Suite("Exercise Substitute JSON Parser Tests")
 struct ExerciseSubstituteParseTests {
+
+    #if canImport(UIKit)
+    @MainActor
+    @Test("Substitute sheet renders all states in light and dark themes")
+    func rendersAllStatesInBothThemes() {
+        let states: [ExerciseSubstituteSheet.ViewState] = [
+            .loading,
+            .results([.init(id: "incline", name: "Incline Press", muscleGroup: "Chest", reason: "Same movement pattern")]),
+            .results([]),
+            .error(message: "Try manual selection")
+        ]
+
+        for scheme in [ColorScheme.light, .dark] {
+            for state in states {
+                let view = ExerciseSubstituteSheet(
+                    state: state,
+                    onSelect: { _ in },
+                    onManualSelect: {}
+                )
+                .environment(\.colorScheme, scheme)
+                .designTheme()
+                let host = UIHostingController(rootView: view)
+                #expect(host.sizeThatFits(in: CGSize(width: 393, height: 852)).height > 0)
+            }
+        }
+    }
+    #endif
 
     @Test("Valid JSON with exactly 3 entries decodes all suggestions in order")
     func validThreeEntryJSONDecodesAll() throws {

@@ -32,6 +32,7 @@ struct ExerciseSubstituteSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         NavigationStack {
@@ -139,6 +140,7 @@ struct ExerciseSubstituteSheet: View {
 
             DesignButton(String(localized: "手动选择", comment: "Manual substitute selection"),
                          fullWidth: true, action: onManualSelect)
+                .frame(maxWidth: horizontalSizeClass == .regular ? 400 : .infinity)
                 .padding(.horizontal, 32)
                 .padding(.top, 4)
         }
@@ -168,7 +170,7 @@ private struct RecommendationCard: View {
                         .font(.caption)
                         .fontWeight(.medium)
                         .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
+                        .padding(.vertical, 4)
                         .background(theme.primary.primary.opacity(0.12))
                         .foregroundStyle(theme.primary.primary)
                         .clipShape(Capsule())
@@ -181,7 +183,7 @@ private struct RecommendationCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
+            .padding(16)
             .designSurface(style: .solid, cornerRadius: 16)
         }
         .buttonStyle(.plain)
