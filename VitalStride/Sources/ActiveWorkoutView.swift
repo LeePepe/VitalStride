@@ -356,12 +356,10 @@ struct ActiveWorkoutView: View {
                             .contentShape(Rectangle())
                     }
                     .accessibilityLabel(largeModeAccessibilityLabel)
+                    .foregroundStyle(largeMode ? theme.accent : theme.foreground)
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
                     .accessibilityIdentifier("active_workout_large_mode")
-                    .padding(.horizontal, 6)
-                    .background(theme.neutrals.inner, in: Capsule())
-                    .overlay(Capsule().stroke(theme.neutrals.border, lineWidth: 1))
                     .activeWorkoutToolbarObservation(
                         toolbarObservation,
                         frame: toolbarObservation.onLargeModeFrame,
@@ -395,9 +393,7 @@ struct ActiveWorkoutView: View {
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
                     .accessibilityIdentifier("active_workout_finish")
-                    .padding(.horizontal, 8)
-                    .background(theme.accent.opacity(0.12), in: Capsule())
-                    .overlay(Capsule().stroke(theme.accent, lineWidth: 1))
+                    .foregroundStyle(theme.accent)
                     .activeWorkoutToolbarObservation(
                         toolbarObservation,
                         frame: toolbarObservation.onFinishFrame,
@@ -606,7 +602,7 @@ struct ActiveWorkoutView: View {
         let volumeKg = totalVolumeKg
         let displayVolume = weightUnit == .lb ? volumeKg * 2.20462 : volumeKg
         let volumeText = Int(displayVolume).formatted()
-        HStack(spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             compactDurationItem
             #if !os(macOS)
             compactHeartRateItem
@@ -632,7 +628,7 @@ struct ActiveWorkoutView: View {
             let minutes = (totalSeconds % 3600) / 60
             let seconds = totalSeconds % 60
             let timeString = String(format: "%d:%02d:%02d", hours, minutes, seconds)
-            HStack(spacing: 4) {
+            HStack(alignment: .center, spacing: 4) {
                 Image(systemName: "timer")
                     .font(.subheadline)
                     .foregroundStyle(theme.neutrals.text2)
@@ -644,6 +640,7 @@ struct ActiveWorkoutView: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(String(localized: "训练时长", comment: "Workout duration a11y label"))
             .accessibilityValue(Text(timeString))
+            .frame(minHeight: 24, alignment: .center)
         }
     }
 
@@ -651,7 +648,7 @@ struct ActiveWorkoutView: View {
     private var compactHeartRateItem: some View {
         let state = heartRateDisplayState
         let bpmText = HeartRateFormatter.displayText(state)
-        return HStack(spacing: 4) {
+        return HStack(alignment: .center, spacing: 4) {
             Image(systemName: "heart.fill")
                 .font(.subheadline)
                 .foregroundStyle(theme.danger)
@@ -663,6 +660,7 @@ struct ActiveWorkoutView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "心率", comment: "Heart rate a11y label"))
         .accessibilityValue(HeartRateFormatter.accessibilityText(state))
+        .frame(minHeight: 24, alignment: .center)
     }
     #endif
 
@@ -671,7 +669,7 @@ struct ActiveWorkoutView: View {
             ? 0.0
             : Double(completedSetCount) / Double(totalSetCount)
         let clamped = min(1, max(0, progress))
-        return HStack(spacing: 6) {
+        return HStack(alignment: .center, spacing: 6) {
             ZStack {
                 Circle()
                     .stroke(theme.neutrals.border, lineWidth: 2)
@@ -683,7 +681,7 @@ struct ActiveWorkoutView: View {
                     )
                     .rotationEffect(.degrees(-90))
             }
-            .frame(width: 16, height: 16)
+            .frame(width: 14, height: 14)
             .accessibilityHidden(true)
             Text("\(completedSetCount)/\(totalSetCount)")
                 .font(.subheadline.monospacedDigit())
@@ -695,6 +693,7 @@ struct ActiveWorkoutView: View {
             localized: "已完成 \(completedSetCount) / \(totalSetCount) 组",
             comment: "Session set progress a11y value"
         ))
+        .frame(minHeight: 24, alignment: .center)
     }
 
     private func compactVolumeItem(volumeText: String, unit: String) -> some View {
@@ -709,6 +708,7 @@ struct ActiveWorkoutView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "总容量", comment: "Session total volume a11y label"))
         .accessibilityValue(Text("\(volumeText) \(unit)"))
+        .frame(minHeight: 24, alignment: .center)
     }
 
     // MARK: - Subviews

@@ -54,6 +54,7 @@ public struct PrimaryPalette: Sendable {
     public let primary, primaryHover, primaryActive: Color
     public let primarySubtle, primaryMuted, primaryBorder: Color
     public let primaryText, onPrimary, onPrimarySubtle, ring: Color
+    public let interactiveFill, onInteractiveFill: Color
 }
 
 private func hsbComponents(_ c: Color) -> (h: Double, s: Double, b: Double) {
@@ -97,6 +98,41 @@ private func contrastChoose(_ bg: Color) -> Color {
 
 private func clamp(_ x: Double) -> Double { min(1, max(0, x)) }
 
+func wcagContrastRatio(_ foreground: Color, _ background: Color) -> Double {
+    let foregroundLuminance = relLuminance(foreground)
+    let backgroundLuminance = relLuminance(background)
+    let lighter = max(foregroundLuminance, backgroundLuminance)
+    let darker = min(foregroundLuminance, backgroundLuminance)
+    return (lighter + 0.05) / (darker + 0.05)
+}
+
+private func interactivePair(seed: Color, isDark: Bool) -> (fill: Color, onFill: Color) {
+    let (h, s, b) = hsbComponents(seed)
+    func c(_ brightness: Double) -> Color {
+        Color(hue: h, saturation: clamp(s), brightness: clamp(brightness))
+    }
+
+    if isDark {
+        let onFill = Color(hex: "#111113")
+        var brightness = min(1, b + 0.25)
+        var fill = c(brightness)
+        while wcagContrastRatio(onFill, fill) < 4.5, brightness < 1 {
+            brightness = min(1, brightness + 0.01)
+            fill = c(brightness)
+        }
+        return (fill, onFill)
+    }
+
+    let onFill = Color.white
+    var brightness = b
+    var fill = c(brightness)
+    while wcagContrastRatio(onFill, fill) < 4.5, brightness > 0.05 {
+        brightness = max(0.05, brightness - 0.01)
+        fill = c(brightness)
+    }
+    return (fill, onFill)
+}
+
 /// One seed → the whole primary token set. Same math as the web `makePrimaryPalette`.
 public func makePrimaryPalette(seed: Color, isDark: Bool) -> PrimaryPalette {
     let (h, s, b) = hsbComponents(seed)
@@ -105,6 +141,7 @@ public func makePrimaryPalette(seed: Color, isDark: Bool) -> PrimaryPalette {
     }
     if isDark {
         let primary = c(h, s - 0.05, b + 0.06)
+        let interactive = interactivePair(seed: seed, isDark: isDark)
         return PrimaryPalette(
             primary: primary,
             primaryHover: c(h, s, b + 0.08),
@@ -115,10 +152,13 @@ public func makePrimaryPalette(seed: Color, isDark: Bool) -> PrimaryPalette {
             primaryText: c(h, s * 0.70, b + 0.28),
             onPrimary: contrastChoose(primary),
             onPrimarySubtle: c(h, s * 0.70, b + 0.28),
-            ring: primary.opacity(0.65)
+            ring: primary.opacity(0.65),
+            interactiveFill: interactive.fill,
+            onInteractiveFill: interactive.onFill
         )
     } else {
         let primary = seed
+        let interactive = interactivePair(seed: seed, isDark: isDark)
         return PrimaryPalette(
             primary: primary,
             primaryHover: c(h, s, b - 0.08),
@@ -129,21 +169,41 @@ public func makePrimaryPalette(seed: Color, isDark: Bool) -> PrimaryPalette {
             primaryText: c(h, min(1, s + 0.10), b - 0.20),
             onPrimary: contrastChoose(primary),
             onPrimarySubtle: c(h, min(1, s + 0.10), b - 0.20),
-            ring: primary.opacity(0.55)
+            ring: primary.opacity(0.55),
+            interactiveFill: interactive.fill,
+            onInteractiveFill: interactive.onFill
         )
     }
 }
 
 /// Resolves the paired Ocean accent; existing seed derivation remains unchanged.
 public func makePrimaryPalette(seed: Seed, isDark: Bool) -> PrimaryPalette {
-    guard seed == .ocean else { return makePrimaryPalette(seed: seed.color, isDark: isDark) }
+    guard seed == .ocean else {
+        let derived = makePrimaryPalette(seed: seed.color, isDark: isDark)
+        guard seed == .teal else { return derived }
+        return PrimaryPalette(
+            primary: derived.primary,
+            primaryHover: derived.primaryHover,
+            primaryActive: derived.primaryActive,
+            primarySubtle: derived.primarySubtle,
+            primaryMuted: derived.primaryMuted,
+            primaryBorder: derived.primaryBorder,
+            primaryText: derived.primaryText,
+            onPrimary: derived.onPrimary,
+            onPrimarySubtle: derived.onPrimarySubtle,
+            ring: derived.ring,
+            interactiveFill: Color(hex: isDark ? "#2DD4BF" : "#0D7A6D"),
+            onInteractiveFill: Color(hex: isDark ? "#111113" : "#FFFFFF")
+        )
+    }
     let accent = Color(hex: isDark ? "#6EC0F7" : "#0A6099")
     let derived = makePrimaryPalette(seed: accent, isDark: isDark)
     return PrimaryPalette(primary: accent, primaryHover: derived.primaryHover,
         primaryActive: derived.primaryActive, primarySubtle: derived.primarySubtle,
         primaryMuted: derived.primaryMuted, primaryBorder: derived.primaryBorder,
         primaryText: derived.primaryText, onPrimary: contrastChoose(accent),
-        onPrimarySubtle: derived.onPrimarySubtle, ring: accent.opacity(0.65))
+        onPrimarySubtle: derived.onPrimarySubtle, ring: accent.opacity(0.65),
+        interactiveFill: derived.interactiveFill, onInteractiveFill: derived.onInteractiveFill)
 }
 
 /// On-brand chart palette — walk the hue wheel from the seed (same offsets as web).

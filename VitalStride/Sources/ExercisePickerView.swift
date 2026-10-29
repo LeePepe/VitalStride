@@ -140,6 +140,7 @@ struct ExercisePickerView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "取消", comment: "Cancel button")) { dismiss() }
+                        .foregroundStyle(theme.foreground)
                 }
             }
             .sheet(item: $presentedSheet) { sheet in
@@ -1065,6 +1066,7 @@ struct PickerBottomBar: View {
     let onConfirm: () -> Void
 
     var body: some View {
+        let isConfirmDisabled = isMultiSelect && selectedCount == 0
         HStack(spacing: 4) {
             searchField
                 .frame(maxWidth: .infinity)
@@ -1093,12 +1095,14 @@ struct PickerBottomBar: View {
                 .fixedSize()
                 .padding(.horizontal, 12)
                 .frame(minWidth: 44, minHeight: 44)
-                .background(theme.accent, in: RoundedRectangle(cornerRadius: Radius.control))
+                .background(
+                    isConfirmDisabled ? theme.inner : theme.interactiveAccent,
+                    in: RoundedRectangle(cornerRadius: Radius.control)
+                )
             }
             .buttonStyle(.plain)
-            .foregroundStyle(theme.onAccent)
-            .disabled(isMultiSelect && selectedCount == 0)
-            .opacity(isMultiSelect && selectedCount == 0 ? 0.5 : 1)
+            .foregroundStyle(isConfirmDisabled ? theme.secondaryForeground : theme.onInteractiveAccent)
+            .disabled(isConfirmDisabled)
             .accessibilityLabel(String(localized: "picker.done", comment: "Confirm exercise selection"))
             .accessibilityValue(String(localized: "picker.selected.count \(selectedCount)", comment: "Selected exercise count"))
             .accessibilityIdentifier("exercise_picker_confirm")

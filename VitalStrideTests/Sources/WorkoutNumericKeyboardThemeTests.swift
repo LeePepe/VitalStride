@@ -8,6 +8,33 @@ import XCTest
 
 @testable import VitalStride
 
+private func keyboardContrastRatio(_ foreground: UIColor, _ background: UIColor) -> Double? {
+    func luminance(_ color: UIColor) -> Double? {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return nil }
+
+        func linear(_ value: CGFloat) -> Double {
+            let component = Double(value)
+            return component <= 0.03928
+                ? component / 12.92
+                : pow((component + 0.055) / 1.055, 2.4)
+        }
+
+        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+    }
+
+    guard let foregroundLuminance = luminance(foreground),
+          let backgroundLuminance = luminance(background) else {
+        return nil
+    }
+    let lighter = max(foregroundLuminance, backgroundLuminance)
+    let darker = min(foregroundLuminance, backgroundLuminance)
+    return (lighter + 0.05) / (darker + 0.05)
+}
+
 @Suite("WorkoutNumericKeyboard.resolveTheme")
 struct WorkoutNumericKeyboardThemeTests {
     @Test("Light theme uses teal seed, slate neutral, isDark false")
@@ -30,6 +57,23 @@ struct WorkoutNumericKeyboardThemeTests {
     func isDarkPassThrough(_ isDark: Bool) {
         let theme = WorkoutNumericKeyboard.resolveTheme(isDark: isDark)
         #expect(theme.isDark == isDark)
+    }
+
+    @Test("Interactive Done button colors meet WCAG AA for every seed and color scheme")
+    @MainActor
+    func interactiveAccentContrast() throws {
+        for isDark in [false, true] {
+            for seed in Seed.allCases {
+                let theme = Theme(seed: seed, neutral: .slate, isDark: isDark)
+                let ratio = try #require(
+                    keyboardContrastRatio(
+                        UIColor(theme.onInteractiveAccent),
+                        UIColor(theme.interactiveAccent)
+                    )
+                )
+                #expect(ratio >= 4.5)
+            }
+        }
     }
 
     @Test("Compact keyboard exposes the supported function actions")

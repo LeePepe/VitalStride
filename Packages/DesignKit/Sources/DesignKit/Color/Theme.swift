@@ -25,6 +25,8 @@ public struct Theme: Sendable {
     public var border: Color { neutrals.border }
     public var accent: Color { primary.primary }
     public var onAccent: Color { primary.onPrimary }
+    public var interactiveAccent: Color { primary.interactiveFill }
+    public var onInteractiveAccent: Color { primary.onInteractiveFill }
     public var accentSubtle: Color { primary.primarySubtle }
     public var critical: Color { danger }
     public var success: Color { Semantic.success(isDark: isDark) }
