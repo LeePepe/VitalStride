@@ -19,6 +19,17 @@ struct ColorSystemTests {
         #expect(dark.onPrimary == .white || dark.onPrimary == .black)
     }
 
+    @Test("interactive accent meets WCAG AA for every seed and color scheme")
+    @MainActor
+    func interactiveAccentContrast() {
+        for isDark in [false, true] {
+            for seed in Seed.allCases {
+                let theme = Theme(seed: seed, neutral: .slate, isDark: isDark)
+                #expect(wcagContrastRatio(theme.onInteractiveAccent, theme.interactiveAccent) >= 4.5)
+            }
+        }
+    }
+
     @Test("chart palette has 8 stops")
     func charts() {
         #expect(chartPalette(seed: Seed.teal.color, isDark: false).count == 8)

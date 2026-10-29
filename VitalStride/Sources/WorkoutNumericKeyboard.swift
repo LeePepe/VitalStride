@@ -139,8 +139,8 @@ struct WorkoutNumericKeyboardContentView: View {
                         Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Dismiss workout keyboard"))
                             .font(.caption.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 44)
-                            .foregroundStyle(theme.primary.primaryText)
-                            .background(theme.primary.primary, in: RoundedRectangle(cornerRadius: 8))
+                            .foregroundStyle(theme.onInteractiveAccent)
+                            .background(theme.interactiveAccent, in: RoundedRectangle(cornerRadius: 8))
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("workout_keyboard_done")

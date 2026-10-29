@@ -52,8 +52,9 @@ struct ExerciseSubstituteSheet: View {
                         )) {
                             dismiss()
                         }
-                    }
+                    .foregroundStyle(theme.foreground)
                 }
+            }
         }
     }
 
@@ -138,8 +139,14 @@ struct ExerciseSubstituteSheet: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
 
-            DesignButton(String(localized: "手动选择", comment: "Manual substitute selection"),
-                         fullWidth: true, action: onManualSelect)
+            Button(action: onManualSelect) {
+                Text(String(localized: "手动选择", comment: "Manual substitute selection"))
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: Space.minTapTarget)
+                    .foregroundStyle(theme.onInteractiveAccent)
+                    .background(theme.interactiveAccent, in: RoundedRectangle(cornerRadius: Radius.control))
+            }
+                .buttonStyle(.plain)
                 .frame(maxWidth: horizontalSizeClass == .regular ? 400 : .infinity)
                 .padding(.horizontal, 32)
                 .padding(.top, 4)
@@ -171,8 +178,8 @@ private struct RecommendationCard: View {
                         .fontWeight(.medium)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(theme.primary.primary.opacity(0.12))
-                        .foregroundStyle(theme.primary.primary)
+                        .background(theme.interactiveAccent)
+                        .foregroundStyle(theme.onInteractiveAccent)
                         .clipShape(Capsule())
                 }
 
