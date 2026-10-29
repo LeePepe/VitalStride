@@ -495,7 +495,7 @@ struct ExercisePickerView: View {
             .overlay(alignment: .trailing) {
                 if let equipment = draggedEquipment ?? indexHUD {
                     sectionPreviewPopup(equipment: equipment)
-                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.85)))
                         .allowsHitTesting(false)
                         .padding(.trailing, Self.cardGridIndexBarReserve)
                 }

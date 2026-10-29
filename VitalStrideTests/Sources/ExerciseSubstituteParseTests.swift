@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 #if canImport(UIKit)
+import DesignKit
 import SwiftUI
 import UIKit
 #endif
@@ -28,8 +29,8 @@ struct ExerciseSubstituteParseTests {
                     onSelect: { _ in },
                     onManualSelect: {}
                 )
-                .environment(\.colorScheme, scheme)
                 .designTheme()
+                .environment(\.colorScheme, scheme)
                 let host = UIHostingController(rootView: view)
                 #expect(host.sizeThatFits(in: CGSize(width: 393, height: 852)).height > 0)
             }

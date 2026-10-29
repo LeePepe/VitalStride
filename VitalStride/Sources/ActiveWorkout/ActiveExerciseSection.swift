@@ -412,7 +412,7 @@ struct ActiveExerciseSection: View {
             // the top, retaining a bottom gap even when an expanded List puts
             // its first row directly against the supplementary view.
             .padding(.horizontal, 8)
-            .padding(.top, 12)
+            .padding(.top, 14)
             .padding(.bottom, 2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
@@ -420,6 +420,7 @@ struct ActiveExerciseSection: View {
                 // Cover the List's 15pt header-to-row margin without letting
                 // the following header's surface reach into this header.
                 theme.neutrals.bg
+                    .padding(.bottom, -15)
             }
             .listRowInsets(EdgeInsets())
             .zIndex(1)
