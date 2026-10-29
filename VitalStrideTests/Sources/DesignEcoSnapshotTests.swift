@@ -1,7 +1,7 @@
 import DesignKit
 import SwiftData
 import SwiftUI
-import Testing
+import XCTest
 import VitalModels
 
 #if canImport(UIKit) && !os(macOS)
@@ -10,8 +10,7 @@ import UIKit
 @testable import VitalStride
 
 @MainActor
-@Suite("Design Eco round 1 snapshots")
-struct DesignEcoSnapshotTests {
+final class DesignEcoSnapshotTests: XCTestCase {
     private static let snapshotSize = CGSize(width: 393, height: 852)
     private static let snapshotNames = [
         "workout-normal-keyboard",
@@ -20,12 +19,11 @@ struct DesignEcoSnapshotTests {
         "exercise-picker",
     ].flatMap { [$0, "\($0)-dark"] }
 
-    @Test("renders all four round 1 screens as PNG files")
-    func rendersRoundOneSnapshots() throws {
+    func testRendersRoundOneSnapshots() throws {
         let outputDirectory = try Self.prepareOutputDirectory()
         let workoutFixture = try Self.makeWorkoutFixture()
         let defaultsSuite = "DesignEcoSnapshotTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: defaultsSuite))
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: defaultsSuite))
         defer { defaults.removePersistentDomain(forName: defaultsSuite) }
 
         for variant in [SnapshotVariant.light, .dark] {
@@ -40,7 +38,7 @@ struct DesignEcoSnapshotTests {
         for name in Self.snapshotNames {
             let url = outputDirectory.appendingPathComponent("\(name).png")
             let data = try Data(contentsOf: url)
-            #expect(data.count > 10_000)
+            XCTAssertGreaterThan(data.count, 10_000)
         }
     }
 
@@ -201,8 +199,8 @@ struct DesignEcoSnapshotTests {
         let image = UIGraphicsImageRenderer(size: snapshotSize, format: format).image { _ in
             host.view.drawHierarchy(in: host.view.bounds, afterScreenUpdates: true)
         }
-        let data = try #require(image.pngData())
-        #expect(data.count > 10_000)
+        let data = try XCTUnwrap(image.pngData())
+        XCTAssertGreaterThan(data.count, 10_000)
         try data.write(
             to: directory.appendingPathComponent("\(name).png"),
             options: .atomic
