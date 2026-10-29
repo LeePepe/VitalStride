@@ -308,7 +308,9 @@ struct ExercisePickerView: View {
     ) -> some View {
         let isSelected = selectedEquipmentFilter == value
         return Button {
-            selectedEquipmentFilter = value
+            withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85)) {
+                selectedEquipmentFilter = value
+            }
         } label: {
             Text(label)
                 .font(.caption.weight(.semibold))
@@ -346,7 +348,11 @@ struct ExercisePickerView: View {
         let selected = selectedMuscleGroup == group
         let count = selectedExercises.filter { group == nil || $0.muscleGroup == group }.count
         let label = group?.localizedName ?? String(localized: "全部", comment: "All muscle groups")
-        return Button { selectedMuscleGroup = group } label: {
+        return Button {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85)) {
+                selectedMuscleGroup = group
+            }
+        } label: {
             VStack(spacing: 3) {
                 Text(label).font(.caption.weight(selected ? .bold : .medium))
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)

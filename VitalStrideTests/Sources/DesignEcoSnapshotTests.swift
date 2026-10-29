@@ -15,11 +15,14 @@ final class DesignEcoSnapshotTests: XCTestCase {
     private static let snapshotNames = [
         "workout-normal-keyboard",
         "workout-large-font",
+        "workout-rtl",
         "substitute-sheet",
         "exercise-picker",
-    ].flatMap { [$0, "\($0)-dark"] }
+    ].flatMap { name in
+        name.hasSuffix("-rtl") ? [name] : [name, "\(name)-dark"]
+    }
 
-    func testRendersRoundTwoSnapshots() throws {
+    func testRendersRoundThreeSnapshots() throws {
         let outputDirectory = try Self.prepareOutputDirectory()
         let workoutFixture = try Self.makeWorkoutFixture()
         let defaultsSuite = "DesignEcoSnapshotTests.\(UUID().uuidString)"
@@ -27,7 +30,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: defaultsSuite) }
 
         for variant in [SnapshotVariant.light, .dark] {
-            try Self.renderRoundTwoScreens(
+            try Self.renderRoundThreeScreens(
                 variant: variant,
                 outputDirectory: outputDirectory,
                 workoutFixture: workoutFixture,
@@ -64,7 +67,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         }
     }
 
-    private static func renderRoundTwoScreens(
+    private static func renderRoundThreeScreens(
         variant: SnapshotVariant,
         outputDirectory: URL,
         workoutFixture: WorkoutFixture,
@@ -112,6 +115,20 @@ final class DesignEcoSnapshotTests: XCTestCase {
             variant: variant
         )
 
+        defaults.set(false, forKey: "activeWorkoutLargeMode")
+        try Self.render(
+            ActiveWorkoutView(source: .resume(workoutFixture.workout))
+                .modelContainer(workoutFixture.container)
+                .designTheme(seed: .teal, neutral: .slate)
+                .environment(\.colorScheme, .light)
+                .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: false))
+                .environment(\.layoutDirection, .rightToLeft)
+                .defaultAppStorage(defaults),
+            named: "workout-rtl",
+            in: outputDirectory,
+            variant: .light
+        )
+
         try Self.render(
             ExerciseSubstituteSheet(
                 state: .results([
@@ -156,12 +173,32 @@ final class DesignEcoSnapshotTests: XCTestCase {
             in: outputDirectory,
             variant: variant
         )
+
+        try Self.render(
+            ExercisePickerView(onConfirm: { _ in })
+                .modelContainer(pickerContainer)
+                .designTheme(seed: .teal, neutral: .slate)
+                .environment(\.colorScheme, .light)
+                .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: false))
+                .environment(\.layoutDirection, .rightToLeft),
+            named: "exercise-picker-rtl",
+            in: outputDirectory,
+            variant: .light
+        )
     }
 
     private static func prepareOutputDirectory() throws -> URL {
         let directory: URL
-        if let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"] {
+        if let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"]
+            ?? ProcessInfo.processInfo.environment["SIMCTL_CHILD_DESIGN_ECO_SNAPSHOT_DIR"] {
             directory = URL(fileURLWithPath: path, isDirectory: true)
+        } else if FileManager.default.fileExists(
+            atPath: "/Users/lee/Development/handoff/design-eco-3r/snapshots/round-3"
+        ) {
+            directory = URL(
+                fileURLWithPath: "/Users/lee/Development/handoff/design-eco-3r/snapshots/round-3",
+                isDirectory: true
+            )
         } else {
             directory = FileManager.default.temporaryDirectory.appendingPathComponent(
                 "design-eco-snapshots/round-2",
@@ -186,6 +223,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         host.view.frame = CGRect(origin: .zero, size: snapshotSize)
         let window = UIWindow(frame: host.view.frame)
         window.rootViewController = host
+        window.overrideUserInterfaceStyle = variant.isDark ? .dark : .light
         window.makeKeyAndVisible()
         if name.hasPrefix("workout-normal-keyboard") {
             NotificationCenter.default.post(

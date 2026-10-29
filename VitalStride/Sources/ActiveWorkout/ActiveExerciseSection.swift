@@ -133,7 +133,9 @@ struct ActiveExerciseSection: View {
         let canDelete = contexts.count > 1
         let toggleAction: ActiveExerciseSectionInteraction.ToggleAction = {
             if isCollapsed || (completedSetCount == totalSetCount && totalSetCount > 0) {
-                withAnimation { isCollapsed.toggle() }
+                withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84)) {
+                    isCollapsed.toggle()
+                }
             }
         }
         return Section {
@@ -221,7 +223,7 @@ struct ActiveExerciseSection: View {
             }
             }
         } header: {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     if completedSetCount == totalSetCount, totalSetCount > 0 {
                         Image(systemName: "checkmark.circle.fill")
@@ -371,7 +373,7 @@ struct ActiveExerciseSection: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                             .foregroundStyle(theme.neutrals.text2)
-                            .frame(minWidth: 44, minHeight: 44)
+                            .frame(width: 45, height: 45)
                             .contentShape(Rectangle())
                     }
                     .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
@@ -394,7 +396,7 @@ struct ActiveExerciseSection: View {
                                 }
                         }
                     }
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(width: 45, height: 45)
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -412,8 +414,8 @@ struct ActiveExerciseSection: View {
             // the top, retaining a bottom gap even when an expanded List puts
             // its first row directly against the supplementary view.
             .padding(.horizontal, 8)
-            .padding(.top, 14)
-            .padding(.bottom, 2)
+            .padding(.top, 6)
+            .padding(.bottom, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
             .background {
@@ -537,16 +539,14 @@ struct ActiveExerciseSection: View {
                     .lineLimit(1)
             }
             .font(.callout.weight(.medium))
-            .frame(minHeight: 44)
-            .padding(.horizontal, 6)
-            .padding(.vertical, largeMode ? 10 : 6)
-            .background(
-                RoundedRectangle(cornerRadius: Radius.inner)
-                    .fill(theme.primary.primarySubtle)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: Radius.inner))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(theme.primary.primarySubtle))
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(AddSetButtonStyle())
+        .frame(width: 45, height: 45)
         .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
         .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
     }
