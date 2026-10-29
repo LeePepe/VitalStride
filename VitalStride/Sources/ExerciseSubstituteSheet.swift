@@ -32,6 +32,7 @@ struct ExerciseSubstituteSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedMuscleFilter: String?
 
@@ -163,7 +164,9 @@ struct ExerciseSubstituteSheet: View {
     ) -> some View {
         let isSelected = selectedMuscleFilter == value
         return Button {
-            selectedMuscleFilter = value
+            withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85)) {
+                selectedMuscleFilter = value
+            }
         } label: {
             Text(label)
                 .font(.caption.weight(.semibold))

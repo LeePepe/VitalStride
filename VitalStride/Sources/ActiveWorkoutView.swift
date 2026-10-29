@@ -230,7 +230,7 @@ struct ActiveWorkoutView: View {
     }
 
     private func toggleLargeMode() {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85)) {
             largeMode.toggle()
         }
         HapticManager.trigger(.setCompleted)
@@ -1135,6 +1135,9 @@ struct ActiveWorkoutView: View {
                     let completed = (exercise.sets ?? []).filter(\.isCompleted).count
                     let total = (exercise.sets ?? []).count
                     let item = sidebarItems[index]
+                    let isSelected = selectedExerciseID == exercise.persistentModelID
+                    let exerciseID = String(describing: exercise.persistentModelID)
+                    let exerciseName = exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise")
                     VStack(spacing: 2) {
                         Button { onSelect(exercise) } label: {
                             VStack(spacing: 4) {
@@ -1144,7 +1147,7 @@ struct ActiveWorkoutView: View {
                                     Text("\(completed)/\(total)")
                                         .font(.caption2.monospacedDigit())
                                 }
-                                Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
+                                Text(exerciseName)
                                     .font(.caption2)
                                     .lineLimit(nil)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -1153,47 +1156,44 @@ struct ActiveWorkoutView: View {
                                         GeometryReader { proxy in
                                             Color.clear
                                                 .onAppear {
-                                                    listObservation.onSidebarNameFrame(
-                                                        String(describing: exercise.persistentModelID),
-                                                        proxy.frame(in: .global)
-                                                    )
+                                                    listObservation.onSidebarNameFrame(exerciseID, proxy.frame(in: .global))
                                                 }
                                                 .onChange(of: proxy.frame(in: .global)) { _, frame in
-                                                    listObservation.onSidebarNameFrame(
-                                                        String(describing: exercise.persistentModelID), frame
-                                                    )
+                                                    listObservation.onSidebarNameFrame(exerciseID, frame)
                                                 }
                                         }
                                     }
                             }
-                            .frame(maxWidth: .infinity, minHeight: 72, alignment: .top)
-                            .padding(.horizontal, 4)
-                            .foregroundStyle(selectedExerciseID == exercise.persistentModelID ? theme.accent : theme.foreground)
-                            .background(selectedExerciseID == exercise.persistentModelID ? theme.accentSubtle : .clear,
+                            .frame(maxWidth: .infinity, minHeight: 60, alignment: .top)
+                            .padding(.horizontal, 2)
+                            .padding(.vertical, 6)
+                            .foregroundStyle(isSelected ? theme.accent : theme.foreground)
+                            .background(isSelected ? theme.accentSubtle : .clear,
                                         in: RoundedRectangle(cornerRadius: 12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(
+                                        isSelected ? theme.accent.opacity(0.35) : Color.clear,
+                                        lineWidth: 1
+                                    )
+                            )
                         }
                         .buttonStyle(.plain)
                         .background {
                             GeometryReader { proxy in
                                 Color.clear
                                     .onAppear {
-                                        listObservation.onSidebarItemFrame(
-                                            String(describing: exercise.persistentModelID),
-                                            proxy.frame(in: .global)
-                                        )
+                                        listObservation.onSidebarItemFrame(exerciseID, proxy.frame(in: .global))
                                     }
                                     .onChange(of: proxy.frame(in: .global)) { _, frame in
-                                        listObservation.onSidebarItemFrame(
-                                            String(describing: exercise.persistentModelID),
-                                            frame
-                                        )
+                                        listObservation.onSidebarItemFrame(exerciseID, frame)
                                     }
                             }
                         }
                         .accessibilityIdentifier("workout_sidebar_exercise_\(index)")
                         .accessibilityLabel(Text(verbatim: item.accessibilityLabel))
                         .accessibilityValue(Text(verbatim: item.accessibilityValue))
-                        .accessibilityAddTraits(selectedExerciseID == exercise.persistentModelID ? .isSelected : [])
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
                         .accessibilityAction(
                             named: String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder")
                         ) {
@@ -1230,6 +1230,7 @@ struct ActiveWorkoutView: View {
                         .frame(width: 44, height: 44)
                         .background(theme.accentSubtle, in: Circle())
                 }
+                .frame(width: 45, height: 45)
                 .accessibilityIdentifier("workout_sidebar_add_exercise")
                 .accessibilityLabel(
                     String(
