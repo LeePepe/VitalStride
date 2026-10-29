@@ -539,6 +539,7 @@ struct ActiveExerciseSection: View {
                     .lineLimit(1)
             }
             .font(.callout.weight(.medium))
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(Capsule().fill(theme.primary.primarySubtle))
@@ -546,7 +547,7 @@ struct ActiveExerciseSection: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(AddSetButtonStyle())
-        .frame(width: 45, height: 45)
+        .frame(minWidth: 45, minHeight: 45)
         .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
         .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
     }

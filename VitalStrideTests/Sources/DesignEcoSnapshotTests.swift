@@ -116,18 +116,20 @@ final class DesignEcoSnapshotTests: XCTestCase {
         )
 
         defaults.set(false, forKey: "activeWorkoutLargeMode")
-        try Self.render(
-            ActiveWorkoutView(source: .resume(workoutFixture.workout))
-                .modelContainer(workoutFixture.container)
-                .designTheme(seed: .teal, neutral: .slate)
-                .environment(\.colorScheme, .light)
-                .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: false))
-                .environment(\.layoutDirection, .rightToLeft)
-                .defaultAppStorage(defaults),
-            named: "workout-rtl",
-            in: outputDirectory,
-            variant: .light
-        )
+        if variant == .light {
+            try Self.render(
+                ActiveWorkoutView(source: .resume(workoutFixture.workout))
+                    .modelContainer(workoutFixture.container)
+                    .designTheme(seed: .teal, neutral: .slate)
+                    .environment(\.colorScheme, .light)
+                    .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: false))
+                    .environment(\.layoutDirection, .rightToLeft)
+                    .defaultAppStorage(defaults),
+                named: "workout-rtl",
+                in: outputDirectory,
+                variant: .light
+            )
+        }
 
         try Self.render(
             ExerciseSubstituteSheet(
@@ -174,17 +176,19 @@ final class DesignEcoSnapshotTests: XCTestCase {
             variant: variant
         )
 
-        try Self.render(
-            ExercisePickerView(onConfirm: { _ in })
-                .modelContainer(pickerContainer)
-                .designTheme(seed: .teal, neutral: .slate)
-                .environment(\.colorScheme, .light)
-                .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: false))
-                .environment(\.layoutDirection, .rightToLeft),
-            named: "exercise-picker-rtl",
-            in: outputDirectory,
-            variant: .light
-        )
+        if variant == .light {
+            try Self.render(
+                ExercisePickerView(onConfirm: { _ in })
+                    .modelContainer(pickerContainer)
+                    .designTheme(seed: .teal, neutral: .slate)
+                    .environment(\.colorScheme, .light)
+                    .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: false))
+                    .environment(\.layoutDirection, .rightToLeft),
+                named: "exercise-picker-rtl",
+                in: outputDirectory,
+                variant: .light
+            )
+        }
     }
 
     private static func prepareOutputDirectory() throws -> URL {
@@ -192,16 +196,9 @@ final class DesignEcoSnapshotTests: XCTestCase {
         if let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"]
             ?? ProcessInfo.processInfo.environment["SIMCTL_CHILD_DESIGN_ECO_SNAPSHOT_DIR"] {
             directory = URL(fileURLWithPath: path, isDirectory: true)
-        } else if FileManager.default.fileExists(
-            atPath: "/Users/lee/Development/handoff/design-eco-3r/snapshots/round-3"
-        ) {
-            directory = URL(
-                fileURLWithPath: "/Users/lee/Development/handoff/design-eco-3r/snapshots/round-3",
-                isDirectory: true
-            )
         } else {
             directory = FileManager.default.temporaryDirectory.appendingPathComponent(
-                "design-eco-snapshots/round-2",
+                "design-eco-snapshots/round-3",
                 isDirectory: true
             )
         }
