@@ -49,6 +49,7 @@ extension EnvironmentValues {
 }
 
 struct ActiveExerciseSection: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.theme) private var theme
     @Environment(\.activeWorkoutListObservation) private var listObservation
     @Environment(\.activeExerciseSectionInteraction) private var interaction
@@ -729,11 +730,13 @@ struct ActiveExerciseSection: View {
 /// implicitly by the immutable `struct`. `private` scope keeps this style
 /// bound to `ActiveExerciseSection` — no exported API.
 private struct AddSetButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .opacity(configuration.isPressed ? 0.7 : 1.0)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .scaleEffect(reduceMotion ? 1.0 : (configuration.isPressed ? 0.98 : 1.0))
+            .animation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
