@@ -18,7 +18,7 @@ struct DesignEcoSnapshotTests {
         "workout-large-font",
         "substitute-sheet",
         "exercise-picker",
-    ]
+    ].flatMap { [$0, "\($0)-dark"] }
 
     @Test("renders all four round 1 screens as PNG files")
     func rendersRoundOneSnapshots() throws {
@@ -28,6 +28,51 @@ struct DesignEcoSnapshotTests {
         let defaults = try #require(UserDefaults(suiteName: defaultsSuite))
         defer { defaults.removePersistentDomain(forName: defaultsSuite) }
 
+        for variant in [SnapshotVariant.light, .dark] {
+            try Self.renderRoundOneScreens(
+                variant: variant,
+                outputDirectory: outputDirectory,
+                workoutFixture: workoutFixture,
+                defaults: defaults
+            )
+        }
+
+        for name in Self.snapshotNames {
+            let url = outputDirectory.appendingPathComponent("\(name).png")
+            let data = try Data(contentsOf: url)
+            #expect(data.count > 10_000)
+        }
+    }
+
+    private enum SnapshotVariant: Equatable {
+        case light
+        case dark
+
+        var colorScheme: ColorScheme {
+            switch self {
+            case .light:
+                .light
+            case .dark:
+                .dark
+            }
+        }
+
+        var isDark: Bool {
+            self == .dark
+        }
+
+        var suffix: String {
+            self == .dark ? "-dark" : ""
+        }
+    }
+
+    private static func renderRoundOneScreens(
+        variant: SnapshotVariant,
+        outputDirectory: URL,
+        workoutFixture: WorkoutFixture,
+        defaults: UserDefaults
+    ) throws {
+        let suffix = variant.suffix
         defaults.set(false, forKey: "activeWorkoutLargeMode")
         try Self.render(
             VStack(spacing: 0) {
@@ -38,7 +83,7 @@ struct DesignEcoSnapshotTests {
                     setType: .working,
                     exercise: workoutFixture.exercise,
                     recentWeightKg: 40,
-                    theme: Theme(seed: .teal, neutral: .slate, isDark: false),
+                    theme: Theme(seed: .teal, neutral: .slate, isDark: variant.isDark),
                     onKeyPress: { _ in },
                     onLeftAction: { _ in },
                     onPresetReps: { _, _ in },
@@ -47,10 +92,10 @@ struct DesignEcoSnapshotTests {
                 .frame(height: 292)
             }
             .modelContainer(workoutFixture.container)
-            .environment(\.colorScheme, .light)
+            .environment(\.colorScheme, variant.colorScheme)
             .designTheme(seed: .teal, neutral: .slate)
             .defaultAppStorage(defaults),
-            named: "workout-normal-keyboard",
+            named: "workout-normal-keyboard\(suffix)",
             in: outputDirectory
         )
 
@@ -58,10 +103,10 @@ struct DesignEcoSnapshotTests {
         try Self.render(
             ActiveWorkoutView(source: .resume(workoutFixture.workout))
                 .modelContainer(workoutFixture.container)
-                .environment(\.colorScheme, .light)
+                .environment(\.colorScheme, variant.colorScheme)
                 .designTheme(seed: .teal, neutral: .slate)
                 .defaultAppStorage(defaults),
-            named: "workout-large-font",
+            named: "workout-large-font\(suffix)",
             in: outputDirectory
         )
 
@@ -90,9 +135,9 @@ struct DesignEcoSnapshotTests {
                 onSelect: { _ in },
                 onManualSelect: {}
             )
-            .environment(\.colorScheme, .light)
+            .environment(\.colorScheme, variant.colorScheme)
             .designTheme(seed: .teal, neutral: .slate),
-            named: "substitute-sheet",
+            named: "substitute-sheet\(suffix)",
             in: outputDirectory
         )
 
@@ -100,23 +145,23 @@ struct DesignEcoSnapshotTests {
         try Self.render(
             ExercisePickerView(onConfirm: { _ in })
                 .modelContainer(pickerContainer)
-                .environment(\.colorScheme, .light)
+                .environment(\.colorScheme, variant.colorScheme)
                 .designTheme(seed: .teal, neutral: .slate),
-            named: "exercise-picker",
+            named: "exercise-picker\(suffix)",
             in: outputDirectory
         )
-
-        for name in Self.snapshotNames {
-            let url = outputDirectory.appendingPathComponent("\(name).png")
-            let data = try Data(contentsOf: url)
-            #expect(data.count > 10_000)
-        }
     }
 
     private static func prepareOutputDirectory() throws -> URL {
-        let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"]
-            ?? "/Users/lee/Development/handoff/design-eco-3r/snapshots/round-1"
-        let directory = URL(fileURLWithPath: path, isDirectory: true)
+        let directory: URL
+        if let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"] {
+            directory = URL(fileURLWithPath: path, isDirectory: true)
+        } else {
+            directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+                "design-eco-snapshots/round-1",
+                isDirectory: true
+            )
+        }
         try FileManager.default.createDirectory(
             at: directory,
             withIntermediateDirectories: true
