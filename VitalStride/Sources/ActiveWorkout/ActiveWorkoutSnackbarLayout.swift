@@ -321,7 +321,7 @@ enum ActiveWorkoutSnackbarLayout {
     ) -> some View {
         VStack(spacing: 0) {
             infoBand()
-            if isKeyboardVisible {
+            if isKeyboardVisible && snackbarSlot != .none {
                 topLayout(
                     snackbarSlot: snackbarSlot,
                     theme: theme,

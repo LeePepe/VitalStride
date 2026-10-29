@@ -20,6 +20,7 @@ struct ExercisePickerView: View {
     @State private var searchText = ""
     @State private var debouncedSearchText = ""
     @State private var selectedMuscleGroup: MuscleGroup?
+    @State private var selectedEquipmentFilter: Equipment?
     @State private var selectedIDs: Set<PersistentIdentifier> = []
     @State private var selectedExercises: [Exercise] = []
     @State private var visibleEquipment: ExerciseSection?
@@ -94,6 +95,19 @@ struct ExercisePickerView: View {
             muscleGroup: selectedMuscleGroup,
             searchText: debouncedSearchText
         )
+    }
+
+    private var filteredEquipmentGroups: [(ExerciseSection, [Exercise])] {
+        guard let selectedEquipmentFilter else { return equipmentGroups }
+        return equipmentGroups.compactMap { section, exercises in
+            let filtered = exercises.filter { $0.equipment == selectedEquipmentFilter }
+            return filtered.isEmpty ? nil : (section, filtered)
+        }
+    }
+
+    private var availableEquipmentFilters: [Equipment] {
+        let available = equipmentGroups.flatMap { $0.1.map(\.equipment) }
+        return Equipment.allCases.filter { available.contains($0) }
     }
 
     static nonisolated func computeEquipmentGroups(
@@ -255,6 +269,53 @@ struct ExercisePickerView: View {
         .padding(.bottom, 8)
     }
 
+    private var equipmentFilterRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                equipmentFilterChip(
+                    label: String(localized: "全部器械", comment: "All equipment filters"),
+                    value: nil
+                )
+                ForEach(availableEquipmentFilters, id: \.self) { equipment in
+                    equipmentFilterChip(
+                        label: equipment.localizedName,
+                        value: equipment
+                    )
+                }
+            }
+            .padding(.horizontal, 8)
+        }
+        .frame(height: 52)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func equipmentFilterChip(
+        label: String,
+        value: Equipment?
+    ) -> some View {
+        let isSelected = selectedEquipmentFilter == value
+        return Button {
+            selectedEquipmentFilter = value
+        } label: {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .frame(height: 36)
+                .foregroundStyle(
+                    isSelected ? theme.onInteractiveAccent : theme.neutrals.text1
+                )
+                .background(
+                    isSelected ? theme.interactiveAccent : theme.neutrals.inner,
+                    in: Capsule()
+                )
+        }
+        .buttonStyle(.plain)
+        .frame(minHeight: 44)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
     private var muscleSidebar: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 4) {
@@ -397,13 +458,14 @@ struct ExercisePickerView: View {
     /// `.scrollDismissesKeyboard` only ever fires for its documented reason
     /// (a user drag), so a query that matches nothing now leaves the search
     /// field focused and the keyboard up while the user keeps editing.
-    @ViewBuilder
     private var exerciseCardGrid: some View {
-        let groups = equipmentGroups
+        let groups = filteredEquipmentGroups
         let equipments = groups.map { $0.0 }
         let showsIndexBar = equipments.count >= 2
-        ScrollViewReader { gridProxy in
-            ZStack(alignment: .trailing) {
+        return VStack(alignment: .leading, spacing: 0) {
+            equipmentFilterRail
+            ScrollViewReader { gridProxy in
+                ZStack(alignment: .trailing) {
                 ScrollView {
                     if groups.isEmpty {
                         // Sized to the scroll container so the placeholder
@@ -519,11 +581,12 @@ struct ExercisePickerView: View {
             // can target the current `visibleEquipment` when it
             // survives (see `resolveMuscleGroupScrollAnchor`), while
             // search resets still fall back to the first section.
-            .onChange(of: scrollResetToken) { _, _ in
-                let target = pendingScrollAnchor ?? groups.first?.0
-                guard let anchor = target else { return }
-                withAnimation(.easeOut(duration: 0.2)) {
-                    gridProxy.scrollTo(anchor, anchor: .top)
+                .onChange(of: scrollResetToken) { _, _ in
+                    let target = pendingScrollAnchor ?? groups.first?.0
+                    guard let anchor = target else { return }
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        gridProxy.scrollTo(anchor, anchor: .top)
+                    }
                 }
             }
         }
@@ -810,7 +873,7 @@ struct ExercisePickerView: View {
                     ExerciseCard(
                         exercise: exercise,
                         isSelected: selectedIDs.contains(exercise.persistentModelID),
-                        showsSelectionIndicator: isMultiSelect
+                        showsSelectionIndicator: true
                     ) {
                         handleCardTap(exercise)
                     }
@@ -847,8 +910,8 @@ struct ExercisePickerView: View {
 /// Attaches the floating search + filter panel to the card grid without letting
 /// it drive a layout-feedback loop.
 ///
-/// The picker previously used `.safeAreaInset(edge: .bottom)`, whose resolved
-/// inset is recomputed *inside* the grid's `LazySubviewPlacements.placeSubviews`
+/// The picker previously used a bottom safe-area inset, whose resolved inset
+/// is recomputed *inside* the grid's `LazySubviewPlacements.placeSubviews`
 /// pass. Because the panel sits over that same lazy grid, its measured height
 /// and the grid's placement never reached a fixed point, and the main thread
 /// spun at 100% CPU in an endless `SafeAreaInsets.resolve` / `LazyVGridLayout`
@@ -903,14 +966,15 @@ private struct ExerciseCard: View {
                     Image(systemName: exercise.equipment.sfSymbol)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(equipmentColor)
-                        .frame(width: 34, height: 34)
+                        .frame(width: 32, height: 32)
                         .background(equipmentColor.opacity(0.14))
                         .clipShape(RoundedRectangle(cornerRadius: 9))
                     Spacer(minLength: 0)
                     if showsSelectionIndicator {
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle")
-                            .font(.system(size: 20))
+                            .font(.system(size: 24))
                             .foregroundStyle(isSelected ? theme.primary.primary : theme.neutrals.text3)
+                            .frame(width: 44, height: 44)
                             .accessibilityHidden(true)
                     }
                 }
@@ -918,18 +982,27 @@ private struct ExerciseCard: View {
                 mediaPreview
 
                 Text(exercise.localizedName)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(theme.neutrals.text1)
                     .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                Text(exercise.muscleGroup.localizedName)
-                    .font(.caption).foregroundStyle(theme.secondaryForeground)
+                HStack(spacing: 4) {
+                    Text(exercise.muscleGroup.localizedName)
+                        .lineLimit(1)
+                    Text("·")
+                        .accessibilityHidden(true)
+                    Text(exercise.equipment.localizedName)
+                        .lineLimit(1)
+                }
+                .font(.caption)
+                .foregroundStyle(theme.secondaryForeground)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, minHeight: 118, alignment: .topLeading)
-            .padding(12)
+            .padding(10)
             .designSurface(style: .solid, cornerRadius: 16)
             .overlay {
                 RoundedRectangle(cornerRadius: 16)
