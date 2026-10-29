@@ -51,6 +51,7 @@ extension EnvironmentValues {
 struct ActiveExerciseSection: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.theme) private var theme
+    @Environment(\.displayScale) private var displayScale
     @Environment(\.activeWorkoutListObservation) private var listObservation
     @Environment(\.activeExerciseSectionInteraction) private var interaction
     let workoutExercise: WorkoutExercise
@@ -79,6 +80,12 @@ struct ActiveExerciseSection: View {
     /// silently, so it is moved explicitly to the parent main set (for a
     /// sub-set) or the nearest surviving row.
     @AccessibilityFocusState private var focusedRowID: PersistentIdentifier?
+
+    // A physical pixel above the 44pt floor keeps fractional simulator
+    // measurements from rounding a header control below the hit-target minimum.
+    private var headerControlHeight: CGFloat {
+        ActiveWorkoutHitTarget.side + 1 / displayScale
+    }
 
     private var sortedSets: [ExerciseSet] {
         (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
@@ -223,182 +230,20 @@ struct ActiveExerciseSection: View {
             }
             }
         } header: {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if completedSetCount == totalSetCount, totalSetCount > 0 {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(theme.success)
-                    } else {
-                        Text("\(workoutExercise.order + 1)")
-                            .font(.caption.monospacedDigit().weight(.bold))
-                            .foregroundStyle(completedSetCount == 0 ? theme.neutrals.text2 : theme.accent)
-                            .frame(minWidth: 22, minHeight: 22)
-                            .background(
-                                Circle().fill(
-                                    completedSetCount == 0
-                                        ? theme.neutrals.text2.opacity(0.12)
-                                        : theme.accent.opacity(0.14)
-                                )
-                            )
-                    }
-                    Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
-                        // MY-1263 (D2): compact semibold body header in normal mode
-                        // (SwiftUI's default `List` section header uses a larger
-                        // title font that dominated the visual band). Large Mode
-                        // continues to use the `.title2` semibold ramp from
-                        // `LargeWorkoutFonts.exerciseName(large:)` for rack-step
-                        // legibility (MY-1091). Text-style-driven so Dynamic Type
-                        // still scales.
-                        .font(largeMode
-                            ? LargeWorkoutFonts.exerciseName(large: true)
-                            : Font.system(.body, design: .default).weight(.semibold))
-                        .foregroundStyle(theme.neutrals.text1)
-                        .layoutPriority(1)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .lineLimit(3)
-                        .background {
-                            GeometryReader { geometry in
-                                Color.clear
-                                    .onAppear {
-                                        listObservation.onControlFrame(
-                                            workoutExercise.persistentModelID,
-                                            "title",
-                                            geometry.frame(in: .global)
-                                        )
-                                    }
-                                    .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                        listObservation.onControlFrame(
-                                            workoutExercise.persistentModelID,
-                                            "title",
-                                            frame
-                                        )
-                                    }
-                            }
-                        }
-                        .contextMenu {
-                            Button {
-                                onSubstitute()
-                            } label: {
-                                // swiftlint:disable:next line_length
-                                Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute context menu item"), systemImage: "sparkles")
-                            }
-                            Button {
-                                onReplace()
-                            } label: {
-                                // swiftlint:disable:next line_length
-                                Label(String(localized: "替换动作", comment: "Replace exercise context menu item"), systemImage: "arrow.triangle.2.circlepath")
-                            }
-                            Button(role: .destructive) {
-                                showingDeleteConfirmation = true
-                            } label: {
-                                // swiftlint:disable:next line_length
-                                Label(String(localized: "删除动作", comment: "Delete exercise context menu item"), systemImage: "trash")
-                            }
-                        }
-                        // swiftlint:disable:next line_length
-                        .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
-                    Text("\(completedSetCount)/\(totalSetCount)")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(theme.neutrals.text2)
-                        .background {
-                            GeometryReader { geometry in
-                                Color.clear
-                                    .onAppear {
-                                        listObservation.onControlFrame(
-                                            workoutExercise.persistentModelID,
-                                            "progress",
-                                            geometry.frame(in: .global)
-                                        )
-                                    }
-                                    .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                        listObservation.onControlFrame(
-                                            workoutExercise.persistentModelID,
-                                            "progress",
-                                            frame
-                                        )
-                                    }
-                            }
-                        }
-                    if completedSetCount == totalSetCount, totalSetCount > 0 {
-                        Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
-                            .font(.caption2)
-                            .foregroundStyle(theme.neutrals.text2)
-                    }
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 6) {
+                    headerTitle(compact: true, toggleAction: toggleAction)
+                    Spacer(minLength: 4)
+                    addSetButtonAndMenu
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { toggleAction() }
-                .onAppear {
-                    interaction.registerToggle(workoutExercise.persistentModelID, toggleAction)
-                }
-                HStack(alignment: .center, spacing: 8) {
-                    Spacer(minLength: 0)
-                    addSetButton
-                        .background {
-                            GeometryReader { geometry in
-                                Color.clear
-                                    .onAppear {
-                                        listObservation.onControlFrame(
-                                            workoutExercise.persistentModelID,
-                                            "add-set",
-                                            geometry.frame(in: .global)
-                                        )
-                                    }
-                                    .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                        listObservation.onControlFrame(
-                                            workoutExercise.persistentModelID,
-                                            "add-set",
-                                            frame
-                                        )
-                                    }
-                            }
-                        }
-                    Menu {
-                        Button {
-                            onSubstitute()
-                        } label: {
-                            // swiftlint:disable:next line_length
-                            Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute menu item"), systemImage: "sparkles")
-                        }
-                        Button {
-                            onReplace()
-                        } label: {
-                            // swiftlint:disable:next line_length
-                            Label(String(localized: "替换动作", comment: "Replace exercise menu item"), systemImage: "arrow.triangle.2.circlepath")
-                        }
-                        Button(role: .destructive) {
-                            showingDeleteConfirmation = true
-                        } label: {
-                            Label(String(localized: "删除动作", comment: "Delete exercise menu item"), systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .foregroundStyle(theme.neutrals.text2)
-                            .frame(width: 45, height: 45)
-                            .contentShape(Rectangle())
+                VStack(alignment: .leading, spacing: 2) {
+                    headerTitle(compact: false, toggleAction: toggleAction)
+                    HStack(alignment: .center, spacing: 8) {
+                        Spacer(minLength: 0)
+                        addSetButtonAndMenu
                     }
-                    .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
-                    .background {
-                        GeometryReader { geometry in
-                            Color.clear
-                                .onAppear {
-                                    listObservation.onControlFrame(
-                                        workoutExercise.persistentModelID,
-                                        "menu",
-                                        geometry.frame(in: .global)
-                                    )
-                                }
-                                .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                    listObservation.onControlFrame(
-                                        workoutExercise.persistentModelID,
-                                        "menu",
-                                        frame
-                                    )
-                                }
-                        }
-                    }
-                    .frame(width: 45, height: 45)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .onChange(of: completedSetCount) { _, count in
@@ -492,6 +337,192 @@ struct ActiveExerciseSection: View {
         )
     }
 
+    private func headerTitle(
+        compact: Bool,
+        toggleAction: @escaping ActiveExerciseSectionInteraction.ToggleAction
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            if completedSetCount == totalSetCount, totalSetCount > 0 {
+                // The completion fraction already conveys status in a compact
+                // row; keep the extra status icons in the roomy fallback.
+                if !compact {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(theme.success)
+                }
+            } else {
+                Text("\(workoutExercise.order + 1)")
+                    .font(.caption.monospacedDigit().weight(.bold))
+                    .foregroundStyle(completedSetCount == 0 ? theme.neutrals.text2 : theme.accent)
+                    .frame(minWidth: 22, minHeight: 22)
+                    .background(
+                        Circle().fill(
+                            completedSetCount == 0
+                                ? theme.neutrals.text2.opacity(0.12)
+                                : theme.accent.opacity(0.14)
+                        )
+                    )
+            }
+            Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
+                // MY-1263 (D2): compact semibold body header in normal mode
+                // (SwiftUI's default `List` section header uses a larger
+                // title font that dominated the visual band). Large Mode
+                // continues to use the `.title2` semibold ramp from
+                // `LargeWorkoutFonts.exerciseName(large:)` for rack-step
+                // legibility (MY-1091). Text-style-driven so Dynamic Type
+                // still scales.
+                .font(largeMode
+                    ? LargeWorkoutFonts.exerciseName(large: true)
+                    : Font.system(.body, design: .default).weight(.semibold))
+                .foregroundStyle(theme.neutrals.text1)
+                .layoutPriority(1)
+                .fixedSize(horizontal: compact, vertical: !compact)
+                .lineLimit(compact ? 1 : 3)
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear {
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "title",
+                                    geometry.frame(in: .global)
+                                )
+                            }
+                            .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "title",
+                                    frame
+                                )
+                            }
+                    }
+                }
+                .contextMenu {
+                    Button {
+                        onSubstitute()
+                    } label: {
+                        // swiftlint:disable:next line_length
+                        Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute context menu item"), systemImage: "sparkles")
+                    }
+                    Button {
+                        onReplace()
+                    } label: {
+                        // swiftlint:disable:next line_length
+                        Label(String(localized: "替换动作", comment: "Replace exercise context menu item"), systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    Button(role: .destructive) {
+                        showingDeleteConfirmation = true
+                    } label: {
+                        // swiftlint:disable:next line_length
+                        Label(String(localized: "删除动作", comment: "Delete exercise context menu item"), systemImage: "trash")
+                    }
+                }
+                // swiftlint:disable:next line_length
+                .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
+            Text("\(completedSetCount)/\(totalSetCount)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(theme.neutrals.text2)
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear {
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "progress",
+                                    geometry.frame(in: .global)
+                                )
+                            }
+                            .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "progress",
+                                    frame
+                                )
+                            }
+                    }
+                }
+            if !compact, completedSetCount == totalSetCount, totalSetCount > 0 {
+                Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
+                    .font(.caption2)
+                    .foregroundStyle(theme.neutrals.text2)
+            }
+        }
+        .fixedSize(horizontal: compact, vertical: false)
+        .contentShape(Rectangle())
+        .onTapGesture { toggleAction() }
+        .onAppear {
+            interaction.registerToggle(workoutExercise.persistentModelID, toggleAction)
+        }
+    }
+
+    @ViewBuilder
+    private var addSetButtonAndMenu: some View {
+        addSetButton
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear {
+                            listObservation.onControlFrame(
+                                workoutExercise.persistentModelID,
+                                "add-set",
+                                geometry.frame(in: .global)
+                            )
+                        }
+                        .onChange(of: geometry.frame(in: .global)) { _, frame in
+                            listObservation.onControlFrame(
+                                workoutExercise.persistentModelID,
+                                "add-set",
+                                frame
+                            )
+                        }
+                }
+            }
+        Menu {
+            Button {
+                onSubstitute()
+            } label: {
+                // swiftlint:disable:next line_length
+                Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute menu item"), systemImage: "sparkles")
+            }
+            Button {
+                onReplace()
+            } label: {
+                // swiftlint:disable:next line_length
+                Label(String(localized: "替换动作", comment: "Replace exercise menu item"), systemImage: "arrow.triangle.2.circlepath")
+            }
+            Button(role: .destructive) {
+                showingDeleteConfirmation = true
+            } label: {
+                Label(String(localized: "删除动作", comment: "Delete exercise menu item"), systemImage: "trash")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .foregroundStyle(theme.neutrals.text2)
+                .frame(width: 45, height: headerControlHeight)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear {
+                        listObservation.onControlFrame(
+                            workoutExercise.persistentModelID,
+                            "menu",
+                            geometry.frame(in: .global)
+                        )
+                    }
+                    .onChange(of: geometry.frame(in: .global)) { _, frame in
+                        listObservation.onControlFrame(
+                            workoutExercise.persistentModelID,
+                            "menu",
+                            frame
+                        )
+                    }
+            }
+        }
+        .frame(width: 45, height: headerControlHeight)
+    }
+
     // MY-1348 (spec 017): visual redesign — subtle-fill inline button.
     // Kept in the section header alongside the exercise title + menu, not as a
     // list row. The row-only spacing/background/separator modifiers are removed so
@@ -543,11 +574,12 @@ struct ActiveExerciseSection: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(Capsule().fill(theme.primary.primarySubtle))
+            .padding(.vertical, 6)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(AddSetButtonStyle())
-        .frame(minWidth: 45, minHeight: 45)
+        .frame(minWidth: 45, minHeight: headerControlHeight)
         .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
         .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
     }
