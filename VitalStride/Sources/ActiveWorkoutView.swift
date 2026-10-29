@@ -360,6 +360,7 @@ struct ActiveWorkoutView: View {
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
                     .accessibilityIdentifier("active_workout_large_mode")
+                    .padding(.horizontal, 6)
                     .activeWorkoutToolbarObservation(
                         toolbarObservation,
                         frame: toolbarObservation.onLargeModeFrame,
@@ -394,6 +395,8 @@ struct ActiveWorkoutView: View {
                     .contentShape(Rectangle())
                     .accessibilityIdentifier("active_workout_finish")
                     .foregroundStyle(theme.accent)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .padding(.horizontal, 8)
                     .activeWorkoutToolbarObservation(
                         toolbarObservation,
                         frame: toolbarObservation.onFinishFrame,

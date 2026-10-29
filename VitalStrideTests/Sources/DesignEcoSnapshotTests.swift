@@ -92,22 +92,24 @@ struct DesignEcoSnapshotTests {
                 .frame(height: 292)
             }
             .modelContainer(workoutFixture.container)
-            .environment(\.colorScheme, variant.colorScheme)
             .designTheme(seed: .teal, neutral: .slate)
+            .environment(\.colorScheme, variant.colorScheme)
             .defaultAppStorage(defaults),
             named: "workout-normal-keyboard\(suffix)",
-            in: outputDirectory
+            in: outputDirectory,
+            variant: variant
         )
 
         defaults.set(true, forKey: "activeWorkoutLargeMode")
         try Self.render(
             ActiveWorkoutView(source: .resume(workoutFixture.workout))
                 .modelContainer(workoutFixture.container)
-                .environment(\.colorScheme, variant.colorScheme)
                 .designTheme(seed: .teal, neutral: .slate)
+                .environment(\.colorScheme, variant.colorScheme)
                 .defaultAppStorage(defaults),
             named: "workout-large-font\(suffix)",
-            in: outputDirectory
+            in: outputDirectory,
+            variant: variant
         )
 
         try Self.render(
@@ -135,20 +137,22 @@ struct DesignEcoSnapshotTests {
                 onSelect: { _ in },
                 onManualSelect: {}
             )
-            .environment(\.colorScheme, variant.colorScheme)
-            .designTheme(seed: .teal, neutral: .slate),
+            .designTheme(seed: .teal, neutral: .slate)
+            .environment(\.colorScheme, variant.colorScheme),
             named: "substitute-sheet\(suffix)",
-            in: outputDirectory
+            in: outputDirectory,
+            variant: variant
         )
 
         let pickerContainer = try Self.makePickerContainer()
         try Self.render(
             ExercisePickerView(onConfirm: { _ in })
                 .modelContainer(pickerContainer)
-                .environment(\.colorScheme, variant.colorScheme)
-                .designTheme(seed: .teal, neutral: .slate),
+                .designTheme(seed: .teal, neutral: .slate)
+                .environment(\.colorScheme, variant.colorScheme),
             named: "exercise-picker\(suffix)",
-            in: outputDirectory
+            in: outputDirectory,
+            variant: variant
         )
     }
 
@@ -172,9 +176,11 @@ struct DesignEcoSnapshotTests {
     private static func render<Content: View>(
         _ content: Content,
         named name: String,
-        in directory: URL
+        in directory: URL,
+        variant: SnapshotVariant
     ) throws {
         let host = UIHostingController(rootView: content)
+        host.overrideUserInterfaceStyle = variant.isDark ? .dark : .light
         host.view.frame = CGRect(origin: .zero, size: snapshotSize)
         let window = UIWindow(frame: host.view.frame)
         window.rootViewController = host
