@@ -194,6 +194,12 @@ final class DesignEcoSnapshotTests: XCTestCase {
             )
         }
         defer {
+            if name.hasPrefix("workout-normal-keyboard") {
+                NotificationCenter.default.post(
+                    name: UIResponder.keyboardWillHideNotification,
+                    object: nil
+                )
+            }
             window.rootViewController = nil
             window.isHidden = true
         }
@@ -273,7 +279,9 @@ final class DesignEcoSnapshotTests: XCTestCase {
         let context = container.mainContext
         let exercises = [
             Exercise(nameEn: "Bench Press", nameZh: "卧推", muscleGroup: .chest, equipment: .barbell),
+            Exercise(nameEn: "Barbell Row", nameZh: "杠铃划船", muscleGroup: .back, equipment: .barbell),
             Exercise(nameEn: "Band Hip Extension", nameZh: "弹力带髋伸展", muscleGroup: .legs, equipment: .band),
+            Exercise(nameEn: "Band Pull Apart", nameZh: "弹力带拉伸", muscleGroup: .shoulders, equipment: .band),
             Exercise(nameEn: "Cable Row", nameZh: "坐姿绳索划船", muscleGroup: .back, equipment: .cable),
             Exercise(nameEn: "Goblet Squat", nameZh: "高脚杯深蹲", muscleGroup: .legs, equipment: .dumbbell),
             Exercise(nameEn: "Push Up", nameZh: "俯卧撑", muscleGroup: .chest, equipment: .bodyweight),

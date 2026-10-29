@@ -98,9 +98,15 @@ struct ExercisePickerView: View {
     }
 
     private var filteredEquipmentGroups: [(ExerciseSection, [Exercise])] {
-        guard let selectedEquipmentFilter else { return equipmentGroups }
+        filteredEquipmentGroups(for: selectedEquipmentFilter)
+    }
+
+    private func filteredEquipmentGroups(
+        for equipmentFilter: Equipment?
+    ) -> [(ExerciseSection, [Exercise])] {
+        guard let equipmentFilter else { return equipmentGroups }
         return equipmentGroups.compactMap { section, exercises in
-            let filtered = exercises.filter { $0.equipment == selectedEquipmentFilter }
+            let filtered = exercises.filter { $0.equipment == equipmentFilter }
             return filtered.isEmpty ? nil : (section, filtered)
         }
     }
@@ -210,6 +216,13 @@ struct ExercisePickerView: View {
                     previouslyVisible: visibleEquipment,
                     in: newGroups.map(\.0)
                 )
+                visibleEquipment = anchor
+                pendingScrollAnchor = anchor
+                scrollResetToken &+= 1
+            }
+            .onChange(of: selectedEquipmentFilter) { _, newFilter in
+                let newGroups = filteredEquipmentGroups(for: newFilter)
+                let anchor = newGroups.first?.0
                 visibleEquipment = anchor
                 pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
@@ -685,13 +698,16 @@ struct ExercisePickerView: View {
     @MainActor
     private func applyVisibleEquipment(_ equipment: ExerciseSection?) {
         guard visibleEquipment != equipment else { return }
+        let hadVisibleEquipment = visibleEquipment != nil
         emitSectionJumpTelemetry(
             from: visibleEquipment,
             to: equipment,
             source: Self.sectionJumpSourceScroll
         )
         visibleEquipment = equipment
-        indexHUD = equipment
+        if hadVisibleEquipment {
+            indexHUD = equipment
+        }
     }
 
     /// MY-1338: canonical `TelemetryIdentifier` values for the
@@ -971,7 +987,7 @@ private struct ExerciseCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: 9))
                     Spacer(minLength: 0)
                     if showsSelectionIndicator {
-                        Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle")
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle.fill")
                             .font(.system(size: 24))
                             .foregroundStyle(isSelected ? theme.primary.primary : theme.neutrals.text3)
                             .frame(width: 44, height: 44)
