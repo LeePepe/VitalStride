@@ -1181,10 +1181,20 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                                 // the real final row, keeping its trailing edge
                                 // inside the header before push-off can begin.
                                 let lastRow = try XCTUnwrap(recorder.rowFrames[sets[7].persistentModelID])
-                                actualTargetOffset += lastRow.maxY - initialHeader.maxY + 4
-                                recorder.rowFrames.removeAll()
-                                scrollView.setContentOffset(CGPoint(x: 0, y: actualTargetOffset), animated: false)
-                                try await Task.sleep(for: .milliseconds(180))
+                                let correction = lastRow.maxY - initialHeader.maxY + 4
+                                let pixel = 1 / scrollView.traitCollection.displayScale
+                                actualTargetOffset = scrollView.contentOffset.y
+                                // Compact headers can already be at this boundary
+                                // within one display pixel. Clearing observations
+                                // for a no-op scroll loses the real row: SwiftUI's
+                                // onGeometryChange only reports changed frames.
+                                if abs(correction) > pixel {
+                                    actualTargetOffset += correction
+                                    recorder.rowFrames.removeAll()
+                                    scrollView.setContentOffset(CGPoint(x: 0, y: actualTargetOffset), animated: false)
+                                    try await Task.sleep(for: .milliseconds(180))
+                                }
+                                evidence.append("boundary correction=\(correction) pixel=\(pixel) target=\(actualTargetOffset)")
                             }
                             host.view.layoutIfNeeded()
                             let geometry = try XCTUnwrap(recorder.geometry)

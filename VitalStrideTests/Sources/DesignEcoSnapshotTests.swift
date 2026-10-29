@@ -5,7 +5,9 @@ import XCTest
 import VitalModels
 
 #if canImport(UIKit) && !os(macOS)
+import ImageIO
 import UIKit
+import UniformTypeIdentifiers
 
 @testable import VitalStride
 
@@ -18,6 +20,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         "workout-rtl",
         "substitute-sheet",
         "exercise-picker",
+        "exercise-picker-rtl",
     ].flatMap { name in
         name.hasSuffix("-rtl") ? [name] : [name, "\(name)-dark"]
     }
@@ -42,6 +45,69 @@ final class DesignEcoSnapshotTests: XCTestCase {
             let url = outputDirectory.appendingPathComponent("\(name).png")
             let data = try Data(contentsOf: url)
             XCTAssertGreaterThan(data.count, 10_000)
+        }
+    }
+
+    @MainActor
+    private final class HeaderFrames {
+        var controls: [AnyHashable: [String: CGRect]] = [:]
+        var headers: [AnyHashable: CGRect] = [:]
+    }
+
+    func testExerciseHeadersAdaptToTitleWidthAndDynamicType() async throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "DesignEcoHeaderLayout"))
+        defaults.set(false, forKey: "activeWorkoutLargeMode")
+        defer { defaults.removePersistentDomain(forName: "DesignEcoHeaderLayout") }
+        let cases: [(String, Bool, DynamicTypeSize, Bool)] = [
+            ("卧推", false, .large, true),
+            ("坐姿绳索划船", true, .large, true),
+            ("Band Bent-Over Row (Cable)", false, .large, false),
+            ("卧推", false, .accessibility3, false),
+        ]
+        for (name, completed, typeSize, compact) in cases {
+            let fixture = try Self.makeWorkoutFixture()
+            fixture.exercise.nameEn = name
+            fixture.exercise.nameZh = name
+            let owner = try XCTUnwrap(fixture.workout.exercises?.first { $0.order == 0 })
+            for exerciseSet in owner.sets ?? [] { exerciseSet.isCompleted = completed }
+            let frames = HeaderFrames()
+            let content = ActiveWorkoutView(source: .resume(fixture.workout))
+                .modelContainer(fixture.container)
+                .designTheme(seed: .teal, neutral: .slate)
+                .dynamicTypeSize(typeSize)
+                .defaultAppStorage(defaults)
+                .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                    onHeaderFrame: { frames.headers[$0] = $1 },
+                    onControlFrame: { frames.controls[$0, default: [:]][$1] = $2 }
+                ))
+            let host = UIHostingController(rootView: content)
+            let window = UIWindow(frame: CGRect(origin: .zero, size: Self.snapshotSize))
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            defer {
+                window.isHidden = true
+                window.rootViewController = nil
+            }
+            try await Task.sleep(for: .milliseconds(350))
+            host.view.layoutIfNeeded()
+            let controls = try XCTUnwrap(frames.controls[owner.persistentModelID])
+            let title = try XCTUnwrap(controls["title"])
+            let progress = try XCTUnwrap(controls["progress"])
+            let addSet = try XCTUnwrap(controls["add-set"])
+            let menu = try XCTUnwrap(controls["menu"])
+            XCTAssertFalse(title.intersects(progress), name)
+            XCTAssertFalse(title.intersects(addSet), name)
+            XCTAssertFalse(addSet.intersects(menu), name)
+            XCTAssertGreaterThanOrEqual(addSet.width, 44, name)
+            XCTAssertGreaterThanOrEqual(addSet.height, 44, name)
+            if compact {
+                XCTAssertLessThan(title.minY, addSet.maxY, name)
+                XCTAssertGreaterThan(title.maxY, addSet.minY, name)
+                let header = try XCTUnwrap(frames.headers[owner.persistentModelID])
+                XCTAssertLessThanOrEqual(header.height, 56, name)
+            } else {
+                XCTAssertGreaterThanOrEqual(addSet.minY, title.maxY, name)
+            }
         }
     }
 
@@ -196,6 +262,13 @@ final class DesignEcoSnapshotTests: XCTestCase {
         if let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"]
             ?? ProcessInfo.processInfo.environment["SIMCTL_CHILD_DESIGN_ECO_SNAPSHOT_DIR"] {
             directory = URL(fileURLWithPath: path, isDirectory: true)
+        } else if FileManager.default.fileExists(
+            atPath: "/Users/lee/Development/handoff/design-eco-3r/snapshots/round-3"
+        ) {
+            directory = URL(
+                fileURLWithPath: "/Users/lee/Development/handoff/design-eco-3r/snapshots/round-3",
+                isDirectory: true
+            )
         } else {
             directory = FileManager.default.temporaryDirectory.appendingPathComponent(
                 "design-eco-snapshots/round-3",
@@ -252,7 +325,19 @@ final class DesignEcoSnapshotTests: XCTestCase {
         }
         let data = try XCTUnwrap(image.pngData())
         XCTAssertGreaterThan(data.count, 10_000)
-        try data.write(
+        // Embed render provenance so a fresh export is distinguishable even
+        // when an unchanged screen reproduces exactly the same pixels.
+        let source = try XCTUnwrap(CGImageSourceCreateWithData(data as CFData, nil))
+        let output = NSMutableData()
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithData(
+            output, UTType.png.identifier as CFString, 1, nil
+        ))
+        let metadata = [kCGImagePropertyPNGDictionary: [
+            kCGImagePropertyPNGDescription: "\(name); rendered \(Date().ISO8601Format())"
+        ]]
+        CGImageDestinationAddImageFromSource(destination, source, 0, metadata as CFDictionary)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        try (output as Data).write(
             to: directory.appendingPathComponent("\(name).png"),
             options: .atomic
         )
