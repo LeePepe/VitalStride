@@ -160,6 +160,7 @@ struct NumericKeypad: View {
     private static let gridSpacing: CGFloat = 8
     private static let digitMinHeight: CGFloat = 52
     private static let keyRadius: CGFloat = 8
+    static let totalGridHeight: CGFloat = 4 * digitMinHeight + 3 * gridSpacing
 
     private static let columns = Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: 3)
 
@@ -183,8 +184,13 @@ struct NumericKeypad: View {
         case .decimal:
             keyButton(.decimal)
         case .integer:
-            Color.clear
-                .frame(minHeight: Self.digitMinHeight)
+            Text(".")
+                .font(TypeScale.title.weight(.semibold))
+                .foregroundStyle(theme.neutrals.text3.opacity(0.4))
+                .frame(maxWidth: .infinity, minHeight: Self.digitMinHeight)
+                .background(theme.neutrals.inner.opacity(0.5))
+                .clipShape(RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous))
+                .disabled(true)
                 .accessibilityHidden(true)
         }
     }

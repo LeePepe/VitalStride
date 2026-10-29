@@ -119,7 +119,7 @@ struct WorkoutNumericKeyboardContentView: View {
                         title: Self.weightUnitToggleTitle()
                     )
                 }
-                .frame(width: 68)
+                .frame(width: 68, height: NumericKeypad.totalGridHeight)
                 NumericKeypad(mode: field.isDecimalEnabled ? .decimal : .integer, onKeyPress: onKeyPress)
                     .layoutPriority(1)
                 VStack(spacing: 8) {
@@ -138,14 +138,14 @@ struct WorkoutNumericKeyboardContentView: View {
                     Button(action: onDone) {
                         Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Dismiss workout keyboard"))
                             .font(.caption.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
                             .foregroundStyle(theme.onInteractiveAccent)
                             .background(theme.interactiveAccent, in: RoundedRectangle(cornerRadius: 8))
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("workout_keyboard_done")
                 }
-                .frame(width: 68)
+                .frame(width: 68, height: NumericKeypad.totalGridHeight)
             }
         }
         .padding(.horizontal, 8)
@@ -163,7 +163,7 @@ struct WorkoutNumericKeyboardContentView: View {
             Text(title)
                 .font(.caption.weight(.medium))
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, minHeight: 52)
+                .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
                 .foregroundStyle(theme.accent)
                 .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         }

@@ -19,7 +19,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         "exercise-picker",
     ].flatMap { [$0, "\($0)-dark"] }
 
-    func testRendersRoundOneSnapshots() throws {
+    func testRendersRoundTwoSnapshots() throws {
         let outputDirectory = try Self.prepareOutputDirectory()
         let workoutFixture = try Self.makeWorkoutFixture()
         let defaultsSuite = "DesignEcoSnapshotTests.\(UUID().uuidString)"
@@ -27,7 +27,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: defaultsSuite) }
 
         for variant in [SnapshotVariant.light, .dark] {
-            try Self.renderRoundOneScreens(
+            try Self.renderRoundTwoScreens(
                 variant: variant,
                 outputDirectory: outputDirectory,
                 workoutFixture: workoutFixture,
@@ -64,7 +64,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         }
     }
 
-    private static func renderRoundOneScreens(
+    private static func renderRoundTwoScreens(
         variant: SnapshotVariant,
         outputDirectory: URL,
         workoutFixture: WorkoutFixture,
@@ -92,6 +92,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
             .modelContainer(workoutFixture.container)
             .designTheme(seed: .teal, neutral: .slate)
             .environment(\.colorScheme, variant.colorScheme)
+            .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
             .defaultAppStorage(defaults),
             named: "workout-normal-keyboard\(suffix)",
             in: outputDirectory,
@@ -104,7 +105,8 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 .modelContainer(workoutFixture.container)
                 .designTheme(seed: .teal, neutral: .slate)
                 .environment(\.colorScheme, variant.colorScheme)
-                .defaultAppStorage(defaults),
+            .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+            .defaultAppStorage(defaults),
             named: "workout-large-font\(suffix)",
             in: outputDirectory,
             variant: variant
@@ -136,7 +138,8 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 onManualSelect: {}
             )
             .designTheme(seed: .teal, neutral: .slate)
-            .environment(\.colorScheme, variant.colorScheme),
+            .environment(\.colorScheme, variant.colorScheme)
+            .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark)),
             named: "substitute-sheet\(suffix)",
             in: outputDirectory,
             variant: variant
@@ -147,7 +150,8 @@ final class DesignEcoSnapshotTests: XCTestCase {
             ExercisePickerView(onConfirm: { _ in })
                 .modelContainer(pickerContainer)
                 .designTheme(seed: .teal, neutral: .slate)
-                .environment(\.colorScheme, variant.colorScheme),
+                .environment(\.colorScheme, variant.colorScheme)
+                .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark)),
             named: "exercise-picker\(suffix)",
             in: outputDirectory,
             variant: variant
@@ -160,7 +164,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
             directory = URL(fileURLWithPath: path, isDirectory: true)
         } else {
             directory = FileManager.default.temporaryDirectory.appendingPathComponent(
-                "design-eco-snapshots/round-1",
+                "design-eco-snapshots/round-2",
                 isDirectory: true
             )
         }
@@ -183,7 +187,19 @@ final class DesignEcoSnapshotTests: XCTestCase {
         let window = UIWindow(frame: host.view.frame)
         window.rootViewController = host
         window.makeKeyAndVisible()
+        if name.hasPrefix("workout-normal-keyboard") {
+            NotificationCenter.default.post(
+                name: UIResponder.keyboardWillShowNotification,
+                object: nil
+            )
+        }
         defer {
+            if name.hasPrefix("workout-normal-keyboard") {
+                NotificationCenter.default.post(
+                    name: UIResponder.keyboardWillHideNotification,
+                    object: nil
+                )
+            }
             window.rootViewController = nil
             window.isHidden = true
         }
@@ -263,7 +279,9 @@ final class DesignEcoSnapshotTests: XCTestCase {
         let context = container.mainContext
         let exercises = [
             Exercise(nameEn: "Bench Press", nameZh: "卧推", muscleGroup: .chest, equipment: .barbell),
+            Exercise(nameEn: "Barbell Row", nameZh: "杠铃划船", muscleGroup: .back, equipment: .barbell),
             Exercise(nameEn: "Band Hip Extension", nameZh: "弹力带髋伸展", muscleGroup: .legs, equipment: .band),
+            Exercise(nameEn: "Band Pull Apart", nameZh: "弹力带拉伸", muscleGroup: .shoulders, equipment: .band),
             Exercise(nameEn: "Cable Row", nameZh: "坐姿绳索划船", muscleGroup: .back, equipment: .cable),
             Exercise(nameEn: "Goblet Squat", nameZh: "高脚杯深蹲", muscleGroup: .legs, equipment: .dumbbell),
             Exercise(nameEn: "Push Up", nameZh: "俯卧撑", muscleGroup: .chest, equipment: .bodyweight),

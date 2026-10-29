@@ -33,6 +33,7 @@ struct ExerciseSubstituteSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var selectedMuscleFilter: String?
 
     var body: some View {
         NavigationStack {
@@ -107,7 +108,9 @@ struct ExerciseSubstituteSheet: View {
                     .foregroundStyle(theme.neutrals.text2)
                     .padding(.horizontal, 4)
 
-                    ForEach(recommendations) { recommendation in
+                    muscleFilterRail(for: recommendations)
+
+                    ForEach(filteredRecommendations(from: recommendations)) { recommendation in
                         RecommendationCard(recommendation: recommendation) {
                             onSelect(recommendation)
                         }
@@ -116,6 +119,69 @@ struct ExerciseSubstituteSheet: View {
                 .padding(16)
             }
         }
+    }
+
+    private func filteredRecommendations(
+        from recommendations: [Recommendation]
+    ) -> [Recommendation] {
+        guard let selectedMuscleFilter else { return recommendations }
+        return recommendations.filter { $0.muscleGroup == selectedMuscleFilter }
+    }
+
+    private func muscleFilters(
+        from recommendations: [Recommendation]
+    ) -> [String] {
+        recommendations.reduce(into: [String]()) { filters, recommendation in
+            guard !filters.contains(recommendation.muscleGroup) else { return }
+            filters.append(recommendation.muscleGroup)
+        }
+    }
+
+    private func muscleFilterRail(
+        for recommendations: [Recommendation]
+    ) -> some View {
+        let filters = muscleFilters(from: recommendations)
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                muscleFilterChip(
+                    label: String(localized: "全部", comment: "All substitute recommendation filters"),
+                    value: nil
+                )
+                ForEach(filters, id: \.self) { filter in
+                    muscleFilterChip(label: filter, value: filter)
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .frame(height: 44)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func muscleFilterChip(
+        label: String,
+        value: String?
+    ) -> some View {
+        let isSelected = selectedMuscleFilter == value
+        return Button {
+            selectedMuscleFilter = value
+        } label: {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .frame(height: 36)
+                .foregroundStyle(
+                    isSelected ? theme.onInteractiveAccent : theme.neutrals.text1
+                )
+                .background(
+                    isSelected ? theme.interactiveAccent : theme.neutrals.inner,
+                    in: Capsule()
+                )
+        }
+        .buttonStyle(.plain)
+        .frame(minHeight: 44)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: - Error / Fallback
@@ -165,29 +231,39 @@ private struct RecommendationCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(recommendation.name)
-                        .font(.headline)
-                        .foregroundStyle(theme.neutrals.text1)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 8)
-                    Text(recommendation.muscleGroup)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(theme.interactiveAccent)
-                        .foregroundStyle(theme.onInteractiveAccent)
-                        .clipShape(Capsule())
-                }
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(recommendation.name)
+                            .font(.headline)
+                            .foregroundStyle(theme.neutrals.text1)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+                            .layoutPriority(1)
+                        Text(recommendation.muscleGroup)
+                            .font(.caption.weight(.medium))
+                            .lineLimit(1)
+                            .padding(.horizontal, 8)
+                            .frame(height: 24)
+                            .background(theme.interactiveAccent, in: Capsule())
+                            .foregroundStyle(theme.onInteractiveAccent)
+                    }
 
-                Text(recommendation.reason)
-                    .font(.subheadline)
-                    .foregroundStyle(theme.neutrals.text2)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Text(recommendation.reason)
+                        .font(.subheadline)
+                        .foregroundStyle(theme.neutrals.text2)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+
+                Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundStyle(theme.interactiveAccent)
+                    .frame(width: 44, height: 44)
+                    .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
