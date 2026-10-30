@@ -81,10 +81,8 @@ struct ActiveExerciseSection: View {
     /// sub-set) or the nearest surviving row.
     @AccessibilityFocusState private var focusedRowID: PersistentIdentifier?
 
-    // A physical pixel above the 44pt floor keeps fractional simulator
-    // measurements from rounding a header control below the hit-target minimum.
     private var headerControlHeight: CGFloat {
-        ActiveWorkoutHitTarget.side + 1 / displayScale
+        ActiveWorkoutHitTarget.side
     }
 
     private var sortedSets: [ExerciseSet] {
@@ -166,7 +164,7 @@ struct ActiveExerciseSection: View {
                     )
                     .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                     .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                    .listRowBackground(theme.neutrals.card)
                     .onGeometryChange(for: CGRect.self) { geometry in
                         geometry.frame(in: .global)
                     } action: { frame in
@@ -210,7 +208,7 @@ struct ActiveExerciseSection: View {
                     // Each set is its own solid item; the exercise has no outer card.
                     .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                     .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                    .listRowBackground(theme.neutrals.card)
                     .onGeometryChange(for: CGRect.self) { geometry in
                         geometry.frame(in: .global)
                     } action: { frame in
@@ -230,61 +228,7 @@ struct ActiveExerciseSection: View {
             }
             }
         } header: {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .center, spacing: 6) {
-                    headerTitle(compact: true, toggleAction: toggleAction)
-                    Spacer(minLength: 4)
-                    addSetButtonAndMenu
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    headerTitle(compact: false, toggleAction: toggleAction)
-                    HStack(alignment: .center, spacing: 8) {
-                        Spacer(minLength: 0)
-                        addSetButtonAndMenu
-                    }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .onChange(of: completedSetCount) { _, count in
-                if count < totalSetCount { isCollapsed = false }
-            }
-            .onChange(of: isCollapsed) { _, collapsed in
-                interaction.onCollapseChange(workoutExercise.persistentModelID, collapsed)
-            }
-            .accessibilityValue(String(localized: "\(completedSetCount)/\(totalSetCount) 组", comment: "Exercise completion count"))
-            // Keep the title inset inside the measured supplementary view. A
-            // background extended above that view paints over the preceding
-            // pinned header when two sections meet. Put the vertical inset at
-            // the top, retaining a bottom gap even when an expanded List puts
-            // its first row directly against the supplementary view.
-            .padding(.horizontal, 8)
-            .padding(.top, 6)
-            .padding(.bottom, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .background {
-                // Cover the List's 15pt header-to-row margin without letting
-                // the following header's surface reach into this header.
-                theme.neutrals.bg
-                    .padding(.bottom, -15)
-            }
-            .listRowInsets(EdgeInsets())
-            .zIndex(1)
-            .background {
-                GeometryReader { geometry in
-                    Color.clear
-                        .onAppear {
-                            listObservation.onHeaderFrame(
-                                workoutExercise.persistentModelID,
-                                geometry.frame(in: .global)
-                            )
-                        }
-                        .onChange(of: geometry.frame(in: .global)) { _, frame in
-                            listObservation.onHeaderFrame(workoutExercise.persistentModelID, frame)
-                        }
-                }
-            }
+            exerciseHeader(toggleAction: toggleAction)
             .confirmationDialog(
                 String(localized: "删除动作？", comment: "Delete exercise confirmation title"),
                 isPresented: $showingDeleteConfirmation,
@@ -323,6 +267,8 @@ struct ActiveExerciseSection: View {
                 ))
             }
         }
+        .listRowBackground(theme.neutrals.card)
+        .background(theme.neutrals.card)
     }
 
     /// MY-1420: `confirmationDialog(_:isPresented:presenting:)` needs a Bool
@@ -335,6 +281,50 @@ struct ActiveExerciseSection: View {
                 if !newValue { pendingCascadeDeletion = nil }
             }
         )
+    }
+
+    private func exerciseHeader(
+        toggleAction: @escaping ActiveExerciseSectionInteraction.ToggleAction
+    ) -> some View {
+        HStack(alignment: .center, spacing: 6) {
+            headerTitle(compact: true, toggleAction: toggleAction)
+            Spacer(minLength: 0)
+            addSetButtonAndMenu
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onChange(of: completedSetCount) { _, count in
+            if count < totalSetCount { isCollapsed = false }
+        }
+        .onChange(of: isCollapsed) { _, collapsed in
+            interaction.onCollapseChange(workoutExercise.persistentModelID, collapsed)
+        }
+        .accessibilityValue(String(
+            localized: "\(completedSetCount)/\(totalSetCount) 组",
+            comment: "Exercise completion count"
+        ))
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, minHeight: 44, maxHeight: 44, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        // The header owns only its 44pt frame. Row backgrounds own List spacing,
+        // so the first card’s top stroke and rounded corners remain uncovered.
+        .background(theme.neutrals.card)
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(theme.neutrals.card)
+        .zIndex(1)
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear {
+                        listObservation.onHeaderFrame(
+                            workoutExercise.persistentModelID,
+                            geometry.frame(in: .global)
+                        )
+                    }
+                    .onChange(of: geometry.frame(in: .global)) { _, frame in
+                        listObservation.onHeaderFrame(workoutExercise.persistentModelID, frame)
+                    }
+            }
+        }
     }
 
     private func headerTitle(
@@ -354,6 +344,25 @@ struct ActiveExerciseSection: View {
                     .font(.caption.monospacedDigit().weight(.bold))
                     .foregroundStyle(completedSetCount == 0 ? theme.neutrals.text2 : theme.accent)
                     .frame(minWidth: 22, minHeight: 22)
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear {
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "order",
+                                    geometry.frame(in: .global)
+                                )
+                            }
+                            .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "order",
+                                    frame
+                                )
+                            }
+                    }
+                }
                     .background(
                         Circle().fill(
                             completedSetCount == 0
@@ -361,6 +370,7 @@ struct ActiveExerciseSection: View {
                                 : theme.accent.opacity(0.14)
                         )
                     )
+                    .fixedSize(horizontal: true, vertical: false)
             }
             Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
                 // MY-1263 (D2): compact semibold body header in normal mode
@@ -375,8 +385,10 @@ struct ActiveExerciseSection: View {
                     : Font.system(.body, design: .default).weight(.semibold))
                 .foregroundStyle(theme.neutrals.text1)
                 .layoutPriority(1)
-                .fixedSize(horizontal: compact, vertical: !compact)
-                .lineLimit(compact ? 1 : 3)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .fixedSize(horizontal: false, vertical: true)
+                .minimumScaleFactor(0.85)
                 .background {
                     GeometryReader { geometry in
                         Color.clear
@@ -421,6 +433,7 @@ struct ActiveExerciseSection: View {
             Text("\(completedSetCount)/\(totalSetCount)")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(theme.neutrals.text2)
+                .fixedSize(horizontal: true, vertical: false)
                 .background {
                     GeometryReader { geometry in
                         Color.clear
@@ -446,7 +459,6 @@ struct ActiveExerciseSection: View {
                     .foregroundStyle(theme.neutrals.text2)
             }
         }
-        .fixedSize(horizontal: compact, vertical: false)
         .contentShape(Rectangle())
         .onTapGesture { toggleAction() }
         .onAppear {
@@ -497,10 +509,13 @@ struct ActiveExerciseSection: View {
         } label: {
             Image(systemName: "ellipsis.circle")
                 .foregroundStyle(theme.neutrals.text2)
-                .frame(width: 45, height: headerControlHeight)
+                .frame(width: 36, height: 36)
+                .frame(width: 44, height: headerControlHeight)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
+        .frame(width: 44, height: headerControlHeight)
+        .contentShape(Rectangle())
         .background {
             GeometryReader { geometry in
                 Color.clear
@@ -520,7 +535,6 @@ struct ActiveExerciseSection: View {
                     }
             }
         }
-        .frame(width: 45, height: headerControlHeight)
     }
 
     // MY-1348 (spec 017): visual redesign — subtle-fill inline button.
@@ -562,24 +576,15 @@ struct ActiveExerciseSection: View {
         Button {
             addSet()
         } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "plus.circle.fill")
-                    .foregroundStyle(theme.primary.primary)
-                Text(String(localized: "添加一组", comment: ""))
-                    .foregroundStyle(theme.primary.primaryText)
-                    .lineLimit(1)
-            }
-            .font(.callout.weight(.medium))
-            .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Capsule().fill(theme.primary.primarySubtle))
-            .padding(.vertical, 6)
-            .frame(minWidth: 44, minHeight: 44)
-            .contentShape(Rectangle())
+            Image(systemName: "plus.circle.fill")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(theme.primary.primary)
+                .frame(width: 36, height: 36)
+                .frame(width: 44, height: headerControlHeight)
+                .contentShape(Rectangle())
         }
         .buttonStyle(AddSetButtonStyle())
-        .frame(minWidth: 45, minHeight: headerControlHeight)
+        .frame(width: 44, height: headerControlHeight)
         .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
         .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
     }
