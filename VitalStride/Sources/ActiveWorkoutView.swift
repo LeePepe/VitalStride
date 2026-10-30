@@ -1287,11 +1287,21 @@ struct ActiveWorkoutView: View {
                     showingExercisePicker = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.caption.weight(.bold))
-                        .frame(width: 44, height: 44)
-                        .background(theme.accentSubtle, in: Circle())
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(theme.primary.primary)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(
+                            theme.primary.primarySubtle,
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(theme.primary.primary.opacity(0.28), lineWidth: 1)
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .frame(width: 45, height: 45)
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, minHeight: 45)
                 .accessibilityIdentifier("workout_sidebar_add_exercise")
                 .accessibilityLabel(
                     String(
