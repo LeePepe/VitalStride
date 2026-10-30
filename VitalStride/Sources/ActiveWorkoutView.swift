@@ -61,6 +61,7 @@ struct ActiveWorkoutListObservationSink: Sendable {
     var onSidebarMoveReady: @MainActor @Sendable (
         @escaping @MainActor @Sendable (Int, Int) -> Void
     ) -> Void = { _ in }
+    var onAddExerciseFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
 }
 
 struct ActiveWorkoutToolbarObservation: Sendable {
@@ -925,7 +926,9 @@ struct ActiveWorkoutView: View {
     @ViewBuilder
     private var undoSnackbarEnvelope: some View {
         ActiveWorkoutSnackbarLayout.undoEnvelope(
-            message: undoController.pending?.message,
+            message: snackbarSlotOverride == .undo
+                ? (undoController.pending?.message ?? "已删除第 1 组")
+                : undoController.pending?.message,
             undoTitle: String(
                 localized: "active_workout.set_delete.undo_action",
                 defaultValue: "Undo",
@@ -1317,6 +1320,18 @@ struct ActiveWorkoutView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityIdentifier("workout_add_exercise")
+        .background {
+            GeometryReader { proxy in
+                let frame = proxy.frame(in: .global)
+                Color.clear
+                    .onAppear {
+                        listObservation.onAddExerciseFrame(frame)
+                    }
+                    .onChange(of: frame) { _, newFrame in
+                        listObservation.onAddExerciseFrame(newFrame)
+                    }
+            }
+        }
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 10)

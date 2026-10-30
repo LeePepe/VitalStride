@@ -194,8 +194,10 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             let noneHeight = measureSlotHeight(slot: .none, sizeCategory: sizeCategory)
             let undoHeight = measureSlotHeight(slot: .undo, sizeCategory: sizeCategory)
             let restHeight = measureSlotHeight(slot: .rest, sizeCategory: sizeCategory)
+            let fabHeight = measureViewHeight(fabPlaceholder, width: 393, sizeCategory: sizeCategory)
 
             let tolerance: CGFloat = 1
+            #expect(abs(noneHeight - (fabHeight + 1)) <= tolerance)
             #expect(noneHeight < undoHeight)
             #expect(noneHeight < restHeight)
             #expect(abs(undoHeight - restHeight) <= tolerance)

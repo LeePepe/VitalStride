@@ -25,18 +25,18 @@ struct ActiveWorkoutSnackbarLayoutTests {
     func inactiveSlotEnvelopeHasZeroHeight() {
         let noneView = ActiveWorkoutSnackbarLayout.slotEnvelope(
             snackbarSlot: .none,
-            undoContent: { Color.red.frame(height: 60) },
-            restContent: { Color.blue.frame(height: 60) }
+            undoContent: { Color.red.frame(height: 52) },
+            restContent: { Color.blue.frame(height: 88) }
         )
         let undoView = ActiveWorkoutSnackbarLayout.slotEnvelope(
             snackbarSlot: .undo,
-            undoContent: { Color.red.frame(height: 60) },
-            restContent: { Color.blue.frame(height: 60) }
+            undoContent: { Color.red.frame(height: 52) },
+            restContent: { Color.blue.frame(height: 88) }
         )
         let restView = ActiveWorkoutSnackbarLayout.slotEnvelope(
             snackbarSlot: .rest,
-            undoContent: { Color.red.frame(height: 60) },
-            restContent: { Color.blue.frame(height: 60) }
+            undoContent: { Color.red.frame(height: 52) },
+            restContent: { Color.blue.frame(height: 88) }
         )
         let noneHost = UIHostingController(rootView: noneView)
         let undoHost = UIHostingController(rootView: undoView)
@@ -47,9 +47,31 @@ struct ActiveWorkoutSnackbarLayoutTests {
         let restHeight = restHost.sizeThatFits(in: width).height
 
         #expect(noneHeight == 0)
-        #expect(undoHeight > 0)
-        #expect(restHeight > 0)
+        #expect(abs(undoHeight - 88) <= 1)
+        #expect(abs(restHeight - 88) <= 1)
         #expect(abs(undoHeight - restHeight) <= 1)
+    }
+
+    @MainActor
+    @Test("Reduced motion uses opacity-only slot transition")
+    func reducedMotionSlotTransition() {
+        #expect(ActiveWorkoutSnackbarLayout.usesSpatialSlotTransition(reduceMotion: false) == true)
+        #expect(ActiveWorkoutSnackbarLayout.usesSpatialSlotTransition(reduceMotion: true) == false)
+
+        let enabled = ActiveWorkoutSnackbarLayout.slotEnvelope(
+            snackbarSlot: .rest,
+            undoContent: { Color.red.frame(height: 52) },
+            restContent: { Color.blue.frame(height: 88) },
+            reduceMotionOverride: false
+        )
+        let reduced = ActiveWorkoutSnackbarLayout.slotEnvelope(
+            snackbarSlot: .undo,
+            undoContent: { Color.red.frame(height: 52) },
+            restContent: { Color.blue.frame(height: 88) },
+            reduceMotionOverride: true
+        )
+        _ = UIHostingController(rootView: enabled)
+        _ = UIHostingController(rootView: reduced)
     }
     #endif
 

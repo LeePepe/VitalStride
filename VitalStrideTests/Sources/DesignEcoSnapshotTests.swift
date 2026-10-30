@@ -63,6 +63,71 @@ final class DesignEcoSnapshotTests: XCTestCase {
         }
     }
 
+    func testAddExerciseButtonDockedAndShiftsWithActiveSnackbar() async throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "DesignEcoAddExerciseFrame"))
+        defer { defaults.removePersistentDomain(forName: "DesignEcoAddExerciseFrame") }
+
+        for largeMode in [false, true] {
+            for isDark in [false, true] {
+                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                var noneFrame: CGRect?
+                var restFrame: CGRect?
+                var undoFrame: CGRect?
+                var safeFrameInWindow = CGRect(origin: .zero, size: Self.snapshotSize)
+
+                for slot in [BottomSnackbarSlot.none, .rest, .undo] {
+                    let fixture = try Self.makeWorkoutFixture()
+                    let frames = HeaderFrames()
+                    let sink = ActiveWorkoutListObservationSink(
+                        onAddExerciseFrame: { frame in
+                            switch slot {
+                            case .none:
+                                noneFrame = frame
+                            case .rest:
+                                restFrame = frame
+                            case .undo:
+                                undoFrame = frame
+                            }
+                        }
+                    )
+                    let theme = Theme(seed: .teal, neutral: .slate, isDark: isDark)
+                    let content = ActiveWorkoutView(
+                        source: .resume(fixture.workout),
+                        snackbarSlotOverride: slot
+                    )
+                    .modelContainer(fixture.container)
+                    .designTheme(seed: .teal, neutral: .slate)
+                    .environment(\.colorScheme, isDark ? .dark : .light)
+                    .environment(\.theme, theme)
+                    .environment(\.activeWorkoutListObservation, sink)
+                    .defaultAppStorage(defaults)
+
+                    let host = UIHostingController(rootView: content)
+                    let window = UIWindow(frame: CGRect(origin: .zero, size: Self.snapshotSize))
+                    window.rootViewController = host
+                    window.overrideUserInterfaceStyle = isDark ? .dark : .light
+                    window.makeKeyAndVisible()
+                    safeFrameInWindow = window.safeAreaLayoutGuide.layoutFrame
+                    defer {
+                        window.isHidden = true
+                        window.rootViewController = nil
+                    }
+
+                    try await Task.sleep(for: .milliseconds(350))
+                    host.view.layoutIfNeeded()
+                }
+
+                let none = try XCTUnwrap(noneFrame)
+                let rest = try XCTUnwrap(restFrame)
+                let undo = try XCTUnwrap(undoFrame)
+                XCTAssertLessThanOrEqual(safeFrameInWindow.maxY - none.maxY, 16)
+                XCTAssertLessThan(rest.maxY, none.minY)
+                XCTAssertLessThan(undo.maxY, none.minY)
+                XCTAssertLessThanOrEqual(abs(rest.maxY - undo.maxY), 1.5)
+            }
+        }
+    }
+
     @MainActor
     private final class HeaderFrames {
         var controls: [AnyHashable: [String: CGRect]] = [:]
