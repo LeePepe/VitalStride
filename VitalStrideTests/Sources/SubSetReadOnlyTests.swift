@@ -48,7 +48,7 @@ struct SubSetReadOnlyTests {
             .deletingLastPathComponent()
             .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SubSetRow.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        #expect(source.contains(".padding(.horizontal, 4)"))
+        #expect(source.contains(".padding(.horizontal, 0)"))
         #expect(source.contains("width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side"))
         #expect(source.contains("ActiveWorkoutHitTarget.numericInputSide"))
         #expect(source.contains(".fixedSize(horizontal: true, vertical: false)"))

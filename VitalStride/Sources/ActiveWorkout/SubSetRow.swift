@@ -138,8 +138,8 @@ struct SubSetRow: View {
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
                     rowObservation.control(exerciseSet.persistentModelID, "metadata", frame)
                 }
-                Spacer(minLength: 0)
             }
+            Spacer(minLength: 0)
             trailingControls
         }
         .padding(.horizontal, 0)

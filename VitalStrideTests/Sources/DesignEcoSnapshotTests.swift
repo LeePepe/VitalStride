@@ -216,7 +216,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 named: "exercise-header-\(largeMode ? "large" : "normal")-\(variant.isDark ? "dark" : "light")",
                 in: outputDirectory,
                 variant: variant,
-                // Include both main rows and the expanded drop row in the
+                // Include both main rows and the two expanded drop rows in the
                 // Large Mode component capture; phone geometry is tested separately.
                 canvasSize: CGSize(width: snapshotSize.width, height: largeMode ? 1_024 : snapshotSize.height)
             )
@@ -262,7 +262,10 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 .defaultAppStorage(defaults),
             named: "workout-large-font\(suffix)",
             in: outputDirectory,
-            variant: variant
+            variant: variant,
+            // Match the Large Mode component capture so both children and
+            // the last-child footer remain above the floating bottom action.
+            canvasSize: CGSize(width: snapshotSize.width, height: 1_024)
         )
 
         defaults.set(false, forKey: "activeWorkoutLargeMode")
@@ -291,7 +294,8 @@ final class DesignEcoSnapshotTests: XCTestCase {
                         .defaultAppStorage(defaults),
                     named: "exercise-header-\(largeMode ? "large" : "normal")-rtl",
                     in: outputDirectory,
-                    variant: .light
+                    variant: .light,
+                    canvasSize: CGSize(width: snapshotSize.width, height: largeMode ? 1_024 : snapshotSize.height)
                 )
             }
         }

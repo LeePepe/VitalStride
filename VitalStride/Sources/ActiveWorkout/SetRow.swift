@@ -572,7 +572,7 @@ struct SetRow: View {
                 }
             }
         ), theme: theme)
-        .frame(width: fieldWidth)
+        .frame(width: width)
         .fixedSize(horizontal: true, vertical: false)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
@@ -599,7 +599,7 @@ struct SetRow: View {
             text: binding,
             keyboardType: .decimalPad
         )
-        .frame(width: fieldWidth)
+        .frame(width: width)
         .fixedSize(horizontal: true, vertical: false)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))

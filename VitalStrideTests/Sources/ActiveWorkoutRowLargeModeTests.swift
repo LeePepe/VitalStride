@@ -704,7 +704,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
 
         for width in [375.0, 393.0] {
             for largeMode in [false, true] {
-                for dark in [false, true] {
+                for (dark, rtl) in [(false, false), (false, true), (true, false), (true, true)] {
                     defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
                     let container = try ModelContainerConfiguration.makeTestContainer()
                     let context = container.mainContext
@@ -737,6 +737,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: dark))
                         .environment(\.colorScheme, dark ? .dark : .light)
                         .defaultAppStorage(defaults)
+                        .environment(\.layoutDirection, rtl ? .rightToLeft : .leftToRight)
                         .environment(\.workoutRowObservation, rows.sink)
                         .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
                             onGeometry: { list.geometry = $0 },
@@ -756,7 +757,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     try await Task.sleep(for: .milliseconds(350))
                     host.view.layoutIfNeeded()
 
-                    let variant = "\(Int(width))-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")"
+                    let variant = "\(Int(width))-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")-\(rtl ? "rtl" : "ltr")"
                     let mainID = AnyHashable(main.persistentModelID)
                     let drop1ID = AnyHashable(drop1.persistentModelID)
                     let drop2ID = AnyHashable(drop2.persistentModelID)
@@ -800,6 +801,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     XCTAssertGreaterThanOrEqual(footerFrame.width, 44, variant)
                     XCTAssertGreaterThanOrEqual(footerFrame.height, 44, variant)
                     XCTAssertTrue(drop2Frame.insetBy(dx: -0.5, dy: -0.5).contains(footerFrame), variant)
+                    XCTAssertGreaterThanOrEqual(drop2Frame.maxY - footerFrame.maxY, 3.5, variant)
                 }
             }
         }
