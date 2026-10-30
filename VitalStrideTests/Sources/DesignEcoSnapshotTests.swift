@@ -64,6 +64,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
     }
 
     func testAddExerciseButtonDockedAndShiftsWithActiveSnackbar() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "DesignEcoAddExerciseFrame"))
         defer { defaults.removePersistentDomain(forName: "DesignEcoAddExerciseFrame") }
 
@@ -77,7 +78,6 @@ final class DesignEcoSnapshotTests: XCTestCase {
 
                 for slot in [BottomSnackbarSlot.none, .rest, .undo] {
                     let fixture = try Self.makeWorkoutFixture()
-                    let frames = HeaderFrames()
                     let sink = ActiveWorkoutListObservationSink(
                         onAddExerciseFrame: { frame in
                             switch slot {
@@ -103,18 +103,23 @@ final class DesignEcoSnapshotTests: XCTestCase {
                     .defaultAppStorage(defaults)
 
                     let host = UIHostingController(rootView: content)
-                    let window = UIWindow(frame: CGRect(origin: .zero, size: Self.snapshotSize))
+                    let window = UIWindow(windowScene: scene)
+                    window.frame = CGRect(origin: .zero, size: Self.snapshotSize)
+                    host.view.frame = window.bounds
                     window.rootViewController = host
                     window.overrideUserInterfaceStyle = isDark ? .dark : .light
                     window.makeKeyAndVisible()
-                    safeFrameInWindow = window.safeAreaLayoutGuide.layoutFrame
                     defer {
                         window.isHidden = true
                         window.rootViewController = nil
                     }
 
-                    try await Task.sleep(for: .milliseconds(350))
+                    host.view.setNeedsLayout()
                     host.view.layoutIfNeeded()
+                    try await Task.sleep(for: .milliseconds(350))
+                    host.view.setNeedsLayout()
+                    host.view.layoutIfNeeded()
+                    safeFrameInWindow = host.view.convert(host.view.safeAreaLayoutGuide.layoutFrame, to: window)
                 }
 
                 let none = try XCTUnwrap(noneFrame)

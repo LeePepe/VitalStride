@@ -17,6 +17,45 @@ import UIKit
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveWorkout")
 
+#if canImport(UIKit) && !os(macOS)
+private struct AddExerciseFrameProbe: UIViewRepresentable {
+    let onFrame: @MainActor @Sendable (CGRect) -> Void
+
+    func makeUIView(context: Context) -> ProbeView {
+        let view = ProbeView()
+        view.isUserInteractionEnabled = false
+        view.onFrame = onFrame
+        return view
+    }
+
+    func updateUIView(_ uiView: ProbeView, context: Context) {
+        uiView.onFrame = onFrame
+        uiView.setNeedsLayout()
+    }
+
+    final class ProbeView: UIView {
+        var onFrame: (@MainActor @Sendable (CGRect) -> Void)?
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            reportFrame()
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            reportFrame()
+        }
+
+        private func reportFrame() {
+            guard let window, !bounds.isEmpty else { return }
+            // Report every UIKit layout pass; SwiftUI onChange can drop a
+            // second safe-area update in the same display frame.
+            onFrame?(convert(bounds, to: window))
+        }
+    }
+}
+#endif
+
 struct ActiveWorkoutListGeometry: Equatable {
     let visibleRect: CGRect
     let contentOffset: CGPoint
@@ -1326,6 +1365,9 @@ struct ActiveWorkoutView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityIdentifier("workout_add_exercise")
         .background {
+            #if canImport(UIKit) && !os(macOS)
+            AddExerciseFrameProbe(onFrame: listObservation.onAddExerciseFrame)
+            #else
             GeometryReader { proxy in
                 let frame = proxy.frame(in: .global)
                 Color.clear
@@ -1336,6 +1378,7 @@ struct ActiveWorkoutView: View {
                         listObservation.onAddExerciseFrame(newFrame)
                     }
             }
+            #endif
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
