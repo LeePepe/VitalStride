@@ -17,8 +17,8 @@ import UIKit
 ///    cause a list jump (constant-height proof via topLayout).
 /// 4. Each rest timer button (Skip, -10s, +10s) has a hit target >= 44×44pt
 ///    verified on the production `restTimerButton` helper.
-/// 5. The bottom safe-area content reserved height is constant across all slot
-///    states (preserves MY-1421 no-list-jump invariant on the production path).
+/// 5. The inactive bottom snackbar slot has zero height; active rest/undo slots
+///    move the FAB upward and remain equal in height.
 /// 6. Production topComposition exercised for both compact and Large Mode headers.
 /// 7. VoiceOver semantics: inactive slotEnvelope branches have accessibilityHidden.
 ///
@@ -134,12 +134,11 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
 
     // MARK: - Test 3: top snackbar constant height (no-list-jump for keyboard path)
 
-    /// The `topLayout` helper uses a ZStack with both undo and rest envelopes
-    /// always laid out (opacity-toggled by slot). The height must be constant
-    /// across `.none`, `.undo`, and `.rest`.
+    /// The top layout uses the same active-only slot contract. `.none` is
+    /// zero-height, while undo and rest remain equal-height.
     /// Production calls `topComposition` which internally delegates to `topLayout`.
     @MainActor
-    @Test("Top snackbar layout height is constant across slot states (no-list-jump)")
+    @Test("Top snackbar layout uses zero-height none slot and equal active heights")
     func topSnackbarConstantHeight() {
         let containerWidth: CGFloat = 393
 
@@ -148,8 +147,8 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         let restHeight = measureTopLayoutHeight(slot: .rest, width: containerWidth)
 
         let tolerance: CGFloat = 1
-        #expect(abs(noneHeight - undoHeight) <= tolerance)
-        #expect(abs(noneHeight - restHeight) <= tolerance)
+        #expect(noneHeight < undoHeight)
+        #expect(noneHeight < restHeight)
         #expect(abs(undoHeight - restHeight) <= tolerance)
     }
 
@@ -187,7 +186,7 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     // MARK: - Test 5: No-list-jump — bottomSafeAreaContent height constant
 
     @MainActor
-    @Test("bottomSafeAreaContent height is constant across all slot states (no-list-jump)")
+    @Test("bottomSafeAreaContent has zero-height none slot and equal active slot heights")
     func bottomSafeAreaContentHeightConstant() {
         let sizeCategories: [UIContentSizeCategory] = [.medium, .accessibilityExtraLarge]
 
@@ -195,10 +194,12 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             let noneHeight = measureSlotHeight(slot: .none, sizeCategory: sizeCategory)
             let undoHeight = measureSlotHeight(slot: .undo, sizeCategory: sizeCategory)
             let restHeight = measureSlotHeight(slot: .rest, sizeCategory: sizeCategory)
+            let fabHeight = measureViewHeight(fabPlaceholder, width: 393, sizeCategory: sizeCategory)
 
             let tolerance: CGFloat = 1
-            #expect(abs(noneHeight - undoHeight) <= tolerance)
-            #expect(abs(noneHeight - restHeight) <= tolerance)
+            #expect(abs(noneHeight - (fabHeight + 1)) <= tolerance)
+            #expect(noneHeight < undoHeight)
+            #expect(noneHeight < restHeight)
             #expect(abs(undoHeight - restHeight) <= tolerance)
         }
     }

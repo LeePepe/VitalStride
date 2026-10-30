@@ -155,43 +155,81 @@ enum ActiveWorkoutSnackbarLayout {
 
     // MARK: - Shared slot envelope (MY-1446)
 
-    /// Shared constant-height envelope used by both bottom and top snackbar
-    /// layouts. Both undo and rest content are ALWAYS laid out in a ZStack.
-    /// Only the active variant has opacity and hit testing; the inactive variant
-    /// is invisible but still contributes its intrinsic height. The ZStack
-    /// height = max(undo, rest), constant across `.none`/`.undo`/`.rest`
-    /// transitions — preserving the MY-1421 no-list-jump invariant.
+    static func usesSpatialSlotTransition(reduceMotion: Bool) -> Bool {
+        !reduceMotion
+    }
+
+    /// Shared envelope used by both bottom and top snackbar layouts.
+    /// `.none` renders a zero-height `EmptyView`. Active undo and rest slots
+    /// lay out both branches in a shared ZStack for equal active height,
+    /// exposing only the active branch via `accessibilityRepresentation`.
     @ViewBuilder
     @MainActor
     static func slotEnvelope<UndoContent: View, RestContent: View>(
         snackbarSlot: BottomSnackbarSlot,
-        @ViewBuilder undoContent: () -> UndoContent,
-        @ViewBuilder restContent: () -> RestContent
+        @ViewBuilder undoContent: @escaping () -> UndoContent,
+        @ViewBuilder restContent: @escaping () -> RestContent,
+        reduceMotionOverride: Bool? = nil
     ) -> some View {
-        // Both branches are always laid out for constant-height contract.
-        // Only the active branch has opacity/hit-testing.
-        ZStack(alignment: .leading) {
-            undoContent()
-                .opacity(snackbarSlot == .undo ? 1 : 0)
-                .allowsHitTesting(snackbarSlot == .undo)
-            restContent()
-                .opacity(snackbarSlot == .rest ? 1 : 0)
-                .allowsHitTesting(snackbarSlot == .rest)
+        if snackbarSlot == .none {
+            EmptyView()
+        } else {
+            ActiveSlotEnvelope(
+                snackbarSlot: snackbarSlot,
+                reduceMotionOverride: reduceMotionOverride,
+                undoContent: undoContent,
+                restContent: restContent
+            )
         }
-        // On iOS 26, `.accessibilityHidden(true)` on an inactive branch does
-        // not suppress its SwiftUI descendants from the accessibility tree.
-        // `.accessibilityRepresentation` completely replaces the ZStack's
-        // accessibility subtree with only the active content, so inactive
-        // labels/buttons are never exposed to VoiceOver or XCUI queries.
-        .accessibilityRepresentation {
-            switch snackbarSlot {
-            case .undo:
+    }
+
+    private struct ActiveSlotEnvelope<UndoContent: View, RestContent: View>: View {
+        let snackbarSlot: BottomSnackbarSlot
+        let reduceMotionOverride: Bool?
+        let undoContent: () -> UndoContent
+        let restContent: () -> RestContent
+        @Environment(\.accessibilityReduceMotion) private var environmentReduceMotion
+
+        init(
+            snackbarSlot: BottomSnackbarSlot,
+            reduceMotionOverride: Bool?,
+            undoContent: @escaping () -> UndoContent,
+            restContent: @escaping () -> RestContent
+        ) {
+            self.snackbarSlot = snackbarSlot
+            self.reduceMotionOverride = reduceMotionOverride
+            self.undoContent = undoContent
+            self.restContent = restContent
+        }
+
+        var body: some View {
+            let reduceMotion = reduceMotionOverride ?? environmentReduceMotion
+            let spatialTransition = ActiveWorkoutSnackbarLayout.usesSpatialSlotTransition(
+                reduceMotion: reduceMotion
+            )
+            ZStack(alignment: .leading) {
                 undoContent()
-            case .rest:
+                    .opacity(snackbarSlot == .undo ? 1 : 0)
+                    .allowsHitTesting(snackbarSlot == .undo)
+                    .accessibilityHidden(snackbarSlot != .undo)
                 restContent()
-            case .none:
-                EmptyView()
+                    .opacity(snackbarSlot == .rest ? 1 : 0)
+                    .allowsHitTesting(snackbarSlot == .rest)
+                    .accessibilityHidden(snackbarSlot != .rest)
             }
+            .accessibilityRepresentation {
+                switch snackbarSlot {
+                case .undo:
+                    undoContent()
+                case .rest:
+                    restContent()
+                case .none:
+                    EmptyView()
+                }
+            }
+            .transition(spatialTransition
+                ? .move(edge: .bottom).combined(with: .opacity)
+                : .opacity)
         }
     }
 
@@ -206,25 +244,34 @@ enum ActiveWorkoutSnackbarLayout {
         snackbarSlot: BottomSnackbarSlot,
         isKeyboardVisible: Bool,
         theme: Theme = Theme(),
-        @ViewBuilder undoContent: () -> UndoContent,
-        @ViewBuilder restContent: () -> RestContent,
-        @ViewBuilder fab: () -> FAB
+        @ViewBuilder undoContent: @escaping () -> UndoContent,
+        @ViewBuilder restContent: @escaping () -> RestContent,
+        @ViewBuilder fab: @escaping () -> FAB
     ) -> some View {
         VStack(spacing: 0) {
             if !isKeyboardVisible {
                 fab()
-                slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
-                    .padding(.horizontal, Space.cardPadding)
-                    .padding(.vertical, Space.gap)
-                    .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
-                    .background(snackbarSlot != .none ? AnyShapeStyle(theme.surface) : AnyShapeStyle(.clear))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(
-                        color: snackbarSlot != .none ? theme.foreground.opacity(0.15) : .clear,
-                        radius: 8, y: 4
-                    )
-                    .padding(.horizontal, Space.cardPadding)
-                    .padding(.bottom, Space.cardPadding)
+                    .frame(maxWidth: .infinity)
+                    .background(theme.neutrals.bg.opacity(0.96))
+                    .overlay(alignment: .top) {
+                        Rectangle()
+                            .fill(theme.neutrals.border)
+                            .frame(height: 1)
+                    }
+                if snackbarSlot != .none {
+                    slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
+                        .padding(.horizontal, Space.cardPadding)
+                        .padding(.vertical, Space.gap)
+                        .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                        .background(theme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .shadow(
+                            color: theme.foreground.opacity(0.15),
+                            radius: 8, y: 4
+                        )
+                        .padding(.horizontal, Space.cardPadding)
+                        .padding(.bottom, Space.cardPadding)
+                }
             }
         }
     }
@@ -236,9 +283,9 @@ enum ActiveWorkoutSnackbarLayout {
     static func bottomSafeAreaContent<UndoContent: View, RestContent: View, FAB: View>(
         policy: AnimationPolicy,
         theme: Theme = Theme(),
-        @ViewBuilder undoContent: () -> UndoContent,
-        @ViewBuilder restContent: () -> RestContent,
-        @ViewBuilder fab: () -> FAB
+        @ViewBuilder undoContent: @escaping () -> UndoContent,
+        @ViewBuilder restContent: @escaping () -> RestContent,
+        @ViewBuilder fab: @escaping () -> FAB
     ) -> some View {
         bottomSafeAreaGeometry(
             snackbarSlot: policy.bottomSlot,
@@ -262,9 +309,9 @@ enum ActiveWorkoutSnackbarLayout {
         snackbarSlot: BottomSnackbarSlot,
         isKeyboardVisible: Bool = false,
         theme: Theme = Theme(),
-        @ViewBuilder undoContent: () -> UndoContent,
-        @ViewBuilder restContent: () -> RestContent,
-        @ViewBuilder fab: () -> FAB
+        @ViewBuilder undoContent: @escaping () -> UndoContent,
+        @ViewBuilder restContent: @escaping () -> RestContent,
+        @ViewBuilder fab: @escaping () -> FAB
     ) -> some View {
         bottomSafeAreaGeometry(
             snackbarSlot: snackbarSlot,
@@ -288,21 +335,25 @@ enum ActiveWorkoutSnackbarLayout {
     static func topLayout<UndoContent: View, RestContent: View>(
         snackbarSlot: BottomSnackbarSlot,
         theme: Theme = Theme(),
-        @ViewBuilder undoContent: () -> UndoContent,
-        @ViewBuilder restContent: () -> RestContent
+        @ViewBuilder undoContent: @escaping () -> UndoContent,
+        @ViewBuilder restContent: @escaping () -> RestContent
     ) -> some View {
-        slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
-            .padding(.horizontal, Space.cardPadding)
-            .padding(.vertical, Space.gap)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(snackbarSlot != .none ? AnyShapeStyle(theme.surface) : AnyShapeStyle(.clear))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .shadow(
-                color: snackbarSlot != .none ? theme.foreground.opacity(0.15) : .clear,
-                radius: 8, y: -4
-            )
-            .padding(.horizontal, Space.cardPadding)
-            .padding(.top, Space.inline)
+        if snackbarSlot == .none {
+            EmptyView()
+        } else {
+            slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
+                .padding(.horizontal, Space.cardPadding)
+                .padding(.vertical, Space.gap)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AnyShapeStyle(theme.surface))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(
+                    color: theme.foreground.opacity(0.15),
+                    radius: 8, y: -4
+                )
+                .padding(.horizontal, Space.cardPadding)
+                .padding(.top, Space.inline)
+        }
     }
 
     // MARK: - Top composition (MY-1446, MY-1706)
@@ -315,9 +366,9 @@ enum ActiveWorkoutSnackbarLayout {
         snackbarSlot: BottomSnackbarSlot,
         isKeyboardVisible: Bool,
         theme: Theme = Theme(),
-        @ViewBuilder infoBand: () -> InfoBand,
-        @ViewBuilder undoContent: () -> UndoContent,
-        @ViewBuilder restContent: () -> RestContent
+        @ViewBuilder infoBand: @escaping () -> InfoBand,
+        @ViewBuilder undoContent: @escaping () -> UndoContent,
+        @ViewBuilder restContent: @escaping () -> RestContent
     ) -> some View {
         VStack(spacing: 0) {
             infoBand()
@@ -340,9 +391,9 @@ enum ActiveWorkoutSnackbarLayout {
     static func topComposition<InfoBand: View, UndoContent: View, RestContent: View>(
         policy: AnimationPolicy,
         theme: Theme = Theme(),
-        @ViewBuilder infoBand: () -> InfoBand,
-        @ViewBuilder undoContent: () -> UndoContent,
-        @ViewBuilder restContent: () -> RestContent
+        @ViewBuilder infoBand: @escaping () -> InfoBand,
+        @ViewBuilder undoContent: @escaping () -> UndoContent,
+        @ViewBuilder restContent: @escaping () -> RestContent
     ) -> some View {
         topCompositionGeometry(
             snackbarSlot: policy.topSlot,
@@ -363,9 +414,9 @@ enum ActiveWorkoutSnackbarLayout {
     @MainActor
     static func topComposition<InfoBand: View, UndoContent: View, RestContent: View>(
         snackbarSlot: BottomSnackbarSlot,
-        @ViewBuilder infoBand: () -> InfoBand,
-        @ViewBuilder undoContent: () -> UndoContent,
-        @ViewBuilder restContent: () -> RestContent
+        @ViewBuilder infoBand: @escaping () -> InfoBand,
+        @ViewBuilder undoContent: @escaping () -> UndoContent,
+        @ViewBuilder restContent: @escaping () -> RestContent
     ) -> some View {
         topCompositionGeometry(
             snackbarSlot: snackbarSlot,

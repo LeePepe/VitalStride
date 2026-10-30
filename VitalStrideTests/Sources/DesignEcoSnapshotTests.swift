@@ -34,6 +34,10 @@ final class DesignEcoSnapshotTests: XCTestCase {
         "exercise-picker",
         "exercise-picker-dark",
         "exercise-picker-rtl",
+        "workout-normal-rest",
+        "workout-normal-rest-dark",
+        "workout-large-rest",
+        "workout-large-rest-dark",
     ]
 
     func testRendersRoundThreeSnapshots() async throws {
@@ -56,6 +60,76 @@ final class DesignEcoSnapshotTests: XCTestCase {
             let url = outputDirectory.appendingPathComponent("\(name).png")
             let data = try Data(contentsOf: url)
             XCTAssertGreaterThan(data.count, 10_000)
+        }
+    }
+
+    func testAddExerciseButtonDockedAndShiftsWithActiveSnackbar() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "DesignEcoAddExerciseFrame"))
+        defer { defaults.removePersistentDomain(forName: "DesignEcoAddExerciseFrame") }
+
+        for largeMode in [false, true] {
+            for isDark in [false, true] {
+                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                var noneFrame: CGRect?
+                var restFrame: CGRect?
+                var undoFrame: CGRect?
+                var safeFrameInWindow = CGRect(origin: .zero, size: Self.snapshotSize)
+
+                for slot in [BottomSnackbarSlot.none, .rest, .undo] {
+                    let fixture = try Self.makeWorkoutFixture()
+                    let sink = ActiveWorkoutListObservationSink(
+                        onAddExerciseFrame: { frame in
+                            switch slot {
+                            case .none:
+                                noneFrame = frame
+                            case .rest:
+                                restFrame = frame
+                            case .undo:
+                                undoFrame = frame
+                            }
+                        }
+                    )
+                    let theme = Theme(seed: .teal, neutral: .slate, isDark: isDark)
+                    let content = ActiveWorkoutView(
+                        source: .resume(fixture.workout),
+                        snackbarSlotOverride: slot
+                    )
+                    .modelContainer(fixture.container)
+                    .designTheme(seed: .teal, neutral: .slate)
+                    .environment(\.colorScheme, isDark ? .dark : .light)
+                    .environment(\.theme, theme)
+                    .environment(\.activeWorkoutListObservation, sink)
+                    .defaultAppStorage(defaults)
+
+                    let host = UIHostingController(rootView: content)
+                    let window = UIWindow(windowScene: scene)
+                    window.frame = CGRect(origin: .zero, size: Self.snapshotSize)
+                    host.view.frame = window.bounds
+                    window.rootViewController = host
+                    window.overrideUserInterfaceStyle = isDark ? .dark : .light
+                    window.makeKeyAndVisible()
+                    defer {
+                        window.isHidden = true
+                        window.rootViewController = nil
+                    }
+
+                    host.view.setNeedsLayout()
+                    host.view.layoutIfNeeded()
+                    try await Task.sleep(for: .milliseconds(350))
+                    host.view.setNeedsLayout()
+                    host.view.layoutIfNeeded()
+                    safeFrameInWindow = host.view.convert(host.view.safeAreaLayoutGuide.layoutFrame, to: window)
+                }
+
+                let none = try XCTUnwrap(noneFrame)
+                let rest = try XCTUnwrap(restFrame)
+                let undo = try XCTUnwrap(undoFrame)
+                XCTAssertLessThanOrEqual(safeFrameInWindow.maxY - none.maxY, 16)
+                XCTAssertLessThan(rest.maxY, none.minY)
+                XCTAssertLessThan(undo.maxY, none.minY)
+                XCTAssertLessThanOrEqual(abs(rest.maxY - undo.maxY), 1.5)
+            }
         }
     }
 
@@ -249,6 +323,24 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 variant: variant,
                 showKeyboard: true,
                 canvasSize: CGSize(width: snapshotSize.width, height: snapshotSize.height + keyboardHeight)
+            )
+        }
+        for largeMode in [false, true] {
+            defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+            try await Self.render(
+                ActiveWorkoutView(
+                    source: .resume(workoutFixture.workout),
+                    snackbarSlotOverride: .rest
+                )
+                .modelContainer(workoutFixture.container)
+                .designTheme(seed: .teal, neutral: .slate)
+                .environment(\.colorScheme, variant.colorScheme)
+                .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                .defaultAppStorage(defaults),
+                named: "workout-\(largeMode ? "large" : "normal")-rest\(suffix)",
+                in: outputDirectory,
+                variant: variant,
+                canvasSize: CGSize(width: snapshotSize.width, height: snapshotSize.height)
             )
         }
 

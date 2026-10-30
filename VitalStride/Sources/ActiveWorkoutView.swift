@@ -17,6 +17,45 @@ import UIKit
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveWorkout")
 
+#if canImport(UIKit) && !os(macOS)
+private struct AddExerciseFrameProbe: UIViewRepresentable {
+    let onFrame: @MainActor @Sendable (CGRect) -> Void
+
+    func makeUIView(context: Context) -> ProbeView {
+        let view = ProbeView()
+        view.isUserInteractionEnabled = false
+        view.onFrame = onFrame
+        return view
+    }
+
+    func updateUIView(_ uiView: ProbeView, context: Context) {
+        uiView.onFrame = onFrame
+        uiView.setNeedsLayout()
+    }
+
+    final class ProbeView: UIView {
+        var onFrame: (@MainActor @Sendable (CGRect) -> Void)?
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            reportFrame()
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            reportFrame()
+        }
+
+        private func reportFrame() {
+            guard let window, !bounds.isEmpty else { return }
+            // Report every UIKit layout pass; SwiftUI onChange can drop a
+            // second safe-area update in the same display frame.
+            onFrame?(convert(bounds, to: window))
+        }
+    }
+}
+#endif
+
 struct ActiveWorkoutListGeometry: Equatable {
     let visibleRect: CGRect
     let contentOffset: CGPoint
@@ -61,6 +100,7 @@ struct ActiveWorkoutListObservationSink: Sendable {
     var onSidebarMoveReady: @MainActor @Sendable (
         @escaping @MainActor @Sendable (Int, Int) -> Void
     ) -> Void = { _ in }
+    var onAddExerciseFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
 }
 
 struct ActiveWorkoutToolbarObservation: Sendable {
@@ -224,9 +264,11 @@ struct ActiveWorkoutView: View {
     @AppStorage("activeWorkoutLargeMode") private var largeMode = false
     @State private var startTime = Date()
     let source: WorkoutStartSource
+    private let snackbarSlotOverride: BottomSnackbarSlot?
 
-    init(source: WorkoutStartSource = .blank) {
+    init(source: WorkoutStartSource = .blank, snackbarSlotOverride: BottomSnackbarSlot? = nil) {
         self.source = source
+        self.snackbarSlotOverride = snackbarSlotOverride
     }
 
     private func toggleLargeMode() {
@@ -907,6 +949,9 @@ struct ActiveWorkoutView: View {
     /// controller independently resets phase→.idle, the slot still resolves
     /// to `.rest` while the presentation is pending.
     private var bottomSnackbarSlot: BottomSnackbarSlot {
+        if let snackbarSlotOverride {
+            return snackbarSlotOverride
+        }
         let effectivePhase: RestPhase = restCompletedPresenter.isBuffered ? .completed : restTimer.phase
         return undoController.slot(restPhase: effectivePhase)
     }
@@ -919,8 +964,15 @@ struct ActiveWorkoutView: View {
     /// Type size.
     @ViewBuilder
     private var undoSnackbarEnvelope: some View {
+        let overrideMessage = snackbarSlotOverride == .undo
+            ? String(
+                localized: "active_workout.set_delete.undo_action_a11y",
+                defaultValue: "Undo deletion",
+                comment: "Undo set deletion a11y label"
+            )
+            : nil
         ActiveWorkoutSnackbarLayout.undoEnvelope(
-            message: undoController.pending?.message,
+            message: undoController.pending?.message ?? overrideMessage,
             undoTitle: String(
                 localized: "active_workout.set_delete.undo_action",
                 defaultValue: "Undo",
@@ -959,7 +1011,16 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var restSnackbarContent: some View {
-        if restCompletedPresenter.isBuffered {
+        if snackbarSlotOverride == .rest {
+            HStack {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(theme.success)
+                Text(String(localized: "休息结束", comment: "Rest completed banner text"))
+                Spacer()
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(String(localized: "休息结束", comment: "Rest completed a11y label"))
+        } else if restCompletedPresenter.isBuffered {
             Button {
                 restCompletedPresenter.dismiss()
                 restTimer.dismissCompleted()
@@ -1288,17 +1349,40 @@ struct ActiveWorkoutView: View {
         } label: {
             Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(theme.accent)
+                .foregroundStyle(theme.primary.primary)
                 .padding(.horizontal, 20)
                 .frame(
                     maxWidth: horizontalSizeClass == .regular ? 400 : .infinity,
-                    minHeight: 44
+                    minHeight: largeMode ? 48 : 44
                 )
-                .designSurface(style: .glass, cornerRadius: 16)
         }
         .buttonStyle(FABButtonStyle())
+        .background(theme.neutrals.card)
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(theme.neutrals.border, lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityIdentifier("workout_add_exercise")
-        .padding(12)
+        .background {
+            #if canImport(UIKit) && !os(macOS)
+            AddExerciseFrameProbe(onFrame: listObservation.onAddExerciseFrame)
+            #else
+            GeometryReader { proxy in
+                let frame = proxy.frame(in: .global)
+                Color.clear
+                    .onAppear {
+                        listObservation.onAddExerciseFrame(frame)
+                    }
+                    .onChange(of: frame) { _, newFrame in
+                        listObservation.onAddExerciseFrame(newFrame)
+                    }
+            }
+            #endif
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
     }
 
     private var totalVolumeKg: Double {
