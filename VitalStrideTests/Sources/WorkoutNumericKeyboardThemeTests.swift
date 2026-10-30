@@ -112,6 +112,86 @@ struct WorkoutNumericKeyboardThemeTests {
 
 @MainActor
 final class WorkoutKeyboardUnitRenderingTests: XCTestCase {
+    func testKeyboardDockHasNoTopOrBottomSlicingStripsInLightAndDark() throws {
+        for isDark in [false, true] {
+            let theme = WorkoutNumericKeyboard.resolveTheme(isDark: isDark)
+            let heights = [CGFloat(280), WorkoutNumericKeyboard.preferredHeight()]
+            for height in heights {
+                let keyboard = WorkoutNumericKeyboard(frame: CGRect(x: 0, y: 0, width: 393, height: height))
+                keyboard.overrideUserInterfaceStyle = isDark ? .dark : .light
+                let window = UIWindow(frame: keyboard.bounds)
+                window.overrideUserInterfaceStyle = isDark ? .dark : .light
+                window.addSubview(keyboard)
+                window.makeKeyAndVisible()
+                keyboard.layoutIfNeeded()
+                window.layoutIfNeeded()
+
+                XCTAssertEqual(keyboard.backgroundColor, UIColor(theme.neutrals.bg))
+                XCTAssertEqual(keyboard.hostingController?.view.backgroundColor, UIColor(theme.neutrals.bg))
+                XCTAssertEqual(keyboard.hostingController?.safeAreaRegions.isEmpty, true)
+
+                let format = UIGraphicsImageRendererFormat()
+                format.scale = 1
+                format.opaque = true
+                let image = UIGraphicsImageRenderer(size: keyboard.bounds.size, format: format).image { _ in
+                    keyboard.drawHierarchy(in: keyboard.bounds, afterScreenUpdates: true)
+                }
+                guard let cgImage = image.cgImage else {
+                    XCTFail("Unable to read rendered keyboard pixels")
+                    continue
+                }
+                let imageWidth = Int(image.size.width)
+                let imageHeight = Int(image.size.height)
+                let bytesPerRow = imageWidth * 4
+                var pixels = [UInt8](repeating: 0, count: imageHeight * bytesPerRow)
+                let colorSpace = CGColorSpaceCreateDeviceRGB()
+                guard let context = CGContext(
+                    data: &pixels,
+                    width: imageWidth,
+                    height: imageHeight,
+                    bitsPerComponent: 8,
+                    bytesPerRow: bytesPerRow,
+                    space: colorSpace,
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                ) else {
+                    XCTFail("Unable to create pixel sampling context")
+                    continue
+                }
+                context.draw(cgImage, in: CGRect(origin: .zero, size: image.size))
+
+                func rgb(at point: CGPoint) -> (CGFloat, CGFloat, CGFloat)? {
+                    let x = Int(point.x)
+                    let y = Int(point.y)
+                    guard x >= 0, y >= 0, x < imageWidth, y < imageHeight else { return nil }
+                    let offset = y * bytesPerRow + x * 4
+                    return (CGFloat(pixels[offset]) / 255, CGFloat(pixels[offset + 1]) / 255, CGFloat(pixels[offset + 2]) / 255)
+                }
+
+                func uicolorRGB(_ color: UIColor) -> (CGFloat, CGFloat, CGFloat) {
+                    var red: CGFloat = 0
+                    var green: CGFloat = 0
+                    var blue: CGFloat = 0
+                    var alpha: CGFloat = 0
+                    color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+                    return (red, green, blue)
+                }
+
+                let resolvedBorder = UIColor(theme.neutrals.border).resolvedColor(with: keyboard.traitCollection)
+                let resolvedBackground = UIColor(theme.neutrals.bg).resolvedColor(with: keyboard.traitCollection)
+                let border = uicolorRGB(resolvedBorder)
+                let background = uicolorRGB(resolvedBackground)
+                if let top = rgb(at: CGPoint(x: 20, y: 0)) {
+                    XCTAssertLessThanOrEqual(max(abs(top.0 - border.0), abs(top.1 - border.1), abs(top.2 - border.2)), 6 / 255, "top=\(top) border=\(border)")
+                }
+                for point in [CGPoint(x: 20, y: 2), CGPoint(x: 20, y: height - 2)] {
+                    guard let pixel = rgb(at: point) else { continue }
+                    XCTAssertLessThanOrEqual(max(abs(pixel.0 - background.0), abs(pixel.1 - background.1), abs(pixel.2 - background.2)), 6 / 255, "point=\(point) pixel=\(pixel) background=\(background)")
+                }
+                window.isHidden = true
+            }
+        }
+    }
+
     func testLightAndDarkKeyboardRender() {
         for isDark in [false, true] {
             let content = WorkoutNumericKeyboardContentView(
