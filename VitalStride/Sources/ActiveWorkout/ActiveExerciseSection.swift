@@ -162,7 +162,7 @@ struct ActiveExerciseSection: View {
                             requestDelete(exerciseSet)
                         }
                     )
-                    .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                    .listRowInsets(EdgeInsets(top: 4, leading: 6, bottom: 4, trailing: 6))
                     .listRowSeparator(.hidden)
                     .listRowBackground(theme.neutrals.card)
                     .onGeometryChange(for: CGRect.self) { geometry in
@@ -206,7 +206,7 @@ struct ActiveExerciseSection: View {
                         }
                     )
                     // Each set is its own solid item; the exercise has no outer card.
-                    .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                    .listRowInsets(EdgeInsets(top: 4, leading: 6, bottom: 4, trailing: 6))
                     .listRowSeparator(.hidden)
                     .listRowBackground(theme.neutrals.card)
                     .onGeometryChange(for: CGRect.self) { geometry in
