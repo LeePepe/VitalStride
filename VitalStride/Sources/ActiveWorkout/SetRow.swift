@@ -302,14 +302,14 @@ struct SetRow: View {
     }
 
     private func rowContent(variant: LargeWorkoutFieldWidth.Variant, compact: Bool) -> some View {
-        HStack(alignment: .center, spacing: compact ? 0 : 4) {
+        HStack(alignment: .center, spacing: 0) {
             completionButton
             inputFields(variant: variant, compact: compact)
-            inlineMetadata(compact: compact)
-            if !compact { Spacer(minLength: 0) }
+            inlineMetadata(compact: exerciseSet.isUnilateral ? compact : true)
+            Spacer(minLength: 0)
             moreMenu
         }
-        .padding(.horizontal, compact ? 0 : 4)
+        .padding(.horizontal, 0)
     }
 
     private var stackedRowContent: some View {
@@ -330,7 +330,8 @@ struct SetRow: View {
         let weightWidth = exerciseSet.isUnilateral
             ? LargeWorkoutFieldWidth.unilateralWeight(variant)
             : LargeWorkoutFieldWidth.bilateralWeight(variant)
-        return HStack(spacing: compact ? 1 : 4) {
+        let bilateral = !exerciseSet.isUnilateral
+        return HStack(spacing: bilateral ? 1 : (compact ? 1 : 4)) {
             let advice = smartProgressionAdvice()
             weightBox(binding: $weightText, field: .weight, width: weightWidth,
                       side: exerciseSet.isUnilateral ? "L" : String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"),
@@ -340,16 +341,17 @@ struct SetRow: View {
             }
             repsField(width: compact ? ActiveWorkoutHitTarget.numericInputSide : (variant == .large ? 64 : ActiveWorkoutHitTarget.numericInputSide), suggestion: advice, compact: compact)
         }
-        .fixedSize(horizontal: !compact, vertical: false)
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?, suggestion: ProgressionAdvice?, compact: Bool = false) -> some View {
         let isTotal = !exerciseSet.isUnilateral && field == .weight
-        let fieldWidth = compact ? ActiveWorkoutHitTarget.numericInputSide : max(ActiveWorkoutHitTarget.numericInputSide, width - 28)
-        return HStack(spacing: compact ? 0.5 : 2) {
+        let bilateral = !exerciseSet.isUnilateral
+        let fieldWidth = bilateral ? ActiveWorkoutHitTarget.numericInputSide : (compact ? ActiveWorkoutHitTarget.numericInputSide : max(ActiveWorkoutHitTarget.numericInputSide, width - 28))
+        return HStack(spacing: bilateral ? 0.5 : (compact ? 0.5 : 2)) {
             if let side {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: side)
-                    .font(compact ? .system(size: 7.5, weight: .medium) : .caption2.weight(isTotal ? .semibold : .bold))
+                    .font(bilateral ? .system(size: 7.5, weight: .medium) : (compact ? .system(size: 7.5, weight: .medium) : .caption2.weight(isTotal ? .semibold : .bold)))
                     .fixedSize()
                     .foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)
                     .allowsHitTesting(false)
@@ -367,11 +369,11 @@ struct SetRow: View {
                 suggestion: suggestion
             )
             WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
-                .font(compact ? .system(size: 7.5, weight: .medium) : .caption2.weight(.medium))
+                .font(bilateral ? .system(size: 7.5, weight: .medium) : (compact ? .system(size: 7.5, weight: .medium) : .caption2.weight(.medium)))
                 .foregroundStyle(theme.neutrals.text3)
                 .allowsHitTesting(false)
         }
-        .padding(.horizontal, compact ? 0 : 2)
+        .padding(.horizontal, bilateral ? 0 : (compact ? 0 : 2))
         .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             if focusedField == field {
@@ -570,7 +572,7 @@ struct SetRow: View {
                 }
             }
         ), theme: theme)
-        .frame(width: width)
+        .frame(width: fieldWidth)
         .fixedSize(horizontal: true, vertical: false)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
@@ -597,7 +599,7 @@ struct SetRow: View {
             text: binding,
             keyboardType: .decimalPad
         )
-        .frame(width: width)
+        .frame(width: fieldWidth)
         .fixedSize(horizontal: true, vertical: false)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
@@ -626,8 +628,10 @@ struct SetRow: View {
         let repsPlaceholder = suggestion.map { "\($0.suggestedReps)" } ?? ""
         let editingHint = String(localized: "输入次数", comment: "Enter reps hint")
         let repsHint = suggestion.map { "\(editingHint)，\(smartProgressionSummaryText($0))" } ?? editingHint
+        let bilateral = !exerciseSet.isUnilateral
+        let fieldWidth = bilateral ? ActiveWorkoutHitTarget.numericInputSide : width
         #if canImport(UIKit) && !os(macOS)
-        HStack(spacing: compact ? 0.5 : 2) {
+        HStack(spacing: bilateral ? 0.5 : (compact ? 0.5 : 2)) {
         WorkoutSetInput(SelectAllTextField(
             placeholder: repsPlaceholder,
             text: $repsText,
@@ -651,7 +655,7 @@ struct SetRow: View {
                 }
             }
         ), theme: theme)
-        .frame(width: width)
+        .frame(width: fieldWidth)
         .fixedSize(horizontal: true, vertical: false)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
@@ -670,11 +674,11 @@ struct SetRow: View {
         }
         WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: .reps, kind: "unit",
                              text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
-            .font(compact ? .system(size: 7.5, weight: .medium) : .caption2.weight(.medium))
+            .font(bilateral ? .system(size: 7.5, weight: .medium) : (compact ? .system(size: 7.5, weight: .medium) : .caption2.weight(.medium)))
             .foregroundStyle(theme.neutrals.text3)
             .allowsHitTesting(false)
         }
-        .padding(.horizontal, compact ? 0 : 2)
+        .padding(.horizontal, bilateral ? 0 : (compact ? 0 : 2))
         .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             if focusedField == .reps {
@@ -683,19 +687,19 @@ struct SetRow: View {
             }
         }
         #else
-        HStack(spacing: compact ? 0.5 : 2) {
+        HStack(spacing: bilateral ? 0.5 : (compact ? 0.5 : 2)) {
             SelectAllTextField(
                 placeholder: repsPlaceholder,
                 text: $repsText,
                 keyboardType: .numberPad
             )
-            .frame(width: width)
+            .frame(width: fieldWidth)
             .fixedSize(horizontal: true, vertical: false)
             .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
             .modifier(NormalModeHitTargetPadding(active: !largeMode))
             WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: .reps, kind: "unit",
                              text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
-                .font(compact ? .system(size: 7.5, weight: .medium) : .caption2.weight(.medium))
+                .font(bilateral ? .system(size: 7.5, weight: .medium) : (compact ? .system(size: 7.5, weight: .medium) : .caption2.weight(.medium)))
                 .foregroundStyle(theme.neutrals.text3)
                 .allowsHitTesting(false)
         }

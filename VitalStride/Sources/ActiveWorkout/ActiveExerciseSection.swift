@@ -620,11 +620,6 @@ struct ActiveExerciseSection: View {
             adjustedWeightRight = mainSet.weightRight.map { $0 * 1.15 }
         }
 
-        // swiftlint:disable:next identifier_name
-        for i in insertIndex..<sets.count {
-            sets[i].order += 1
-        }
-
         let newSet = ExerciseSet(
             order: insertIndex,
             weight: adjustedWeight,
@@ -633,8 +628,12 @@ struct ActiveExerciseSection: View {
             isUnilateral: parentSet.isUnilateral,
             weightRight: adjustedWeightRight
         )
-        newSet.workoutExercise = workoutExercise
         withAnimation(reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.30, dampingFraction: 0.85)) {
+            // swiftlint:disable:next identifier_name
+            for i in insertIndex..<sets.count {
+                sets[i].order += 1
+            }
+            newSet.workoutExercise = workoutExercise
             modelContext.insert(newSet)
         }
     }

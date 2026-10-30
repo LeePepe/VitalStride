@@ -502,7 +502,8 @@ final class DesignEcoSnapshotTests: XCTestCase {
         let sets = [
             ExerciseSet(order: 0, weight: 0, reps: 0, setType: .warmup, isCompleted: false, rpe: 8),
             ExerciseSet(order: 1, weight: 36, reps: 8, setType: .dropSet),
-            ExerciseSet(order: 2, weight: 40, reps: 10, setType: .working, isCompleted: true, rpe: 8),
+            ExerciseSet(order: 2, weight: 30, reps: 8, setType: .dropSet),
+            ExerciseSet(order: 3, weight: 40, reps: 10, setType: .working, isCompleted: true, rpe: 8),
         ]
         let secondSet = ExerciseSet(order: 0, weight: 35, reps: 12, isCompleted: true)
         let workoutExercise = WorkoutExercise(order: 0, exercise: exercise, sets: sets)
