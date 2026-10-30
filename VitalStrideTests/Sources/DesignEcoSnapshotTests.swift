@@ -215,7 +215,10 @@ final class DesignEcoSnapshotTests: XCTestCase {
                     .defaultAppStorage(defaults),
                 named: "exercise-header-\(largeMode ? "large" : "normal")-\(variant.isDark ? "dark" : "light")",
                 in: outputDirectory,
-                variant: variant
+                variant: variant,
+                // Include both main rows and the expanded drop row in the
+                // Large Mode component capture; phone geometry is tested separately.
+                canvasSize: CGSize(width: snapshotSize.width, height: largeMode ? 1_024 : snapshotSize.height)
             )
         }
         for largeMode in [false, true] {

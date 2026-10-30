@@ -432,13 +432,15 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         }
         var descriptors: [AnyHashable: [String: Descriptor]] = [:]
         var modeActions: [AnyHashable: @MainActor @Sendable () -> Void] = [:]
+        var controls: [AnyHashable: [String: CGRect]] = [:]
 
         var sink: WorkoutRowObservation {
             WorkoutRowObservation(descriptor: { [weak self] row, field, kind, text, frame in
                 self?.descriptors[row, default: [:]]["\(field.rawValue)-\(kind)"] = Descriptor(
                     field: field, kind: kind, text: text, frame: frame
                 )
-            }, modeAction: { [weak self] row, action in self?.modeActions[row] = action })
+            }, modeAction: { [weak self] row, action in self?.modeActions[row] = action },
+               control: { [weak self] row, kind, frame in self?.controls[row, default: [:]][kind] = frame })
         }
     }
 
@@ -694,139 +696,155 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
     }
 
     func testHintedBilateralRowsShareOneAxisAtStandardPhoneWidths() async throws {
-        let defaults = UserDefaults.standard
-        let previousLarge = defaults.object(forKey: "activeWorkoutLargeMode")
-        defer { defaults.set(previousLarge, forKey: "activeWorkoutLargeMode") }
-
+        let suite = "HintedBilateralRows.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.set("kg", forKey: "weightUnit")
+        defer { defaults.removePersistentDomain(forName: suite) }
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
 
         for width in [375.0, 393.0] {
             for largeMode in [false, true] {
-                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                for dark in [false, true] {
+                    defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                    let container = try ModelContainerConfiguration.makeTestContainer()
+                    let context = container.mainContext
+                    let exercise = Exercise(
+                        nameEn: "Bench Press",
+                        nameZh: "卧推",
+                        muscleGroup: .chest,
+                        equipment: .barbell
+                    )
+                    let workout = Workout(type: .strength, startDate: Date())
+                    let owner = WorkoutExercise(order: 0, exercise: exercise)
+                    owner.workout = workout
+                    let set = ExerciseSet(
+                        order: 0,
+                        weight: 0,
+                        reps: 0,
+                        setType: .warmup,
+                        isCompleted: false,
+                        rpe: 8
+                    )
+                    set.workoutExercise = owner
 
-                let container = try ModelContainerConfiguration.makeTestContainer()
-                let context = container.mainContext
-                let exercise = Exercise(
-                    nameEn: "Bench Press",
-                    nameZh: "卧推",
-                    muscleGroup: .chest,
-                    equipment: .barbell
-                )
-                let workout = Workout(type: .strength, startDate: Date())
-                let owner = WorkoutExercise(order: 0, exercise: exercise)
-                owner.workout = workout
-                let set = ExerciseSet(
-                    order: 0,
-                    weight: 0,
-                    reps: 0,
-                    setType: .warmup,
-                    isCompleted: false,
-                    rpe: 8
-                )
-                set.workoutExercise = owner
+                    let priorStart = workout.startDate.addingTimeInterval(-86_400)
+                    let priorSets = [ExerciseSet(order: 0, weight: 40, reps: 12, isCompleted: true)]
+                    let priorExercise = WorkoutExercise(order: 0, exercise: exercise, sets: priorSets)
+                    let priorWorkout = Workout(
+                        type: .strength,
+                        startDate: priorStart,
+                        endDate: priorStart.addingTimeInterval(3_600),
+                        exercises: [priorExercise]
+                    )
 
-                let priorStart = workout.startDate.addingTimeInterval(-86_400)
-                let priorSets = [ExerciseSet(order: 0, weight: 40, reps: 12, isCompleted: true)]
-                let priorExercise = WorkoutExercise(order: 0, exercise: exercise, sets: priorSets)
-                let priorWorkout = Workout(
-                    type: .strength,
-                    startDate: priorStart,
-                    endDate: priorStart.addingTimeInterval(3_600),
-                    exercises: [priorExercise]
-                )
+                    context.insert(exercise)
+                    context.insert(workout)
+                    context.insert(owner)
+                    context.insert(set)
+                    context.insert(priorWorkout)
+                    context.insert(priorExercise)
+                    context.insert(priorSets[0])
+                    try context.save()
 
-                context.insert(exercise)
-                context.insert(workout)
-                context.insert(owner)
-                context.insert(set)
-                context.insert(priorWorkout)
-                context.insert(priorExercise)
-                context.insert(priorSets[0])
-                try context.save()
-
-                let row = SetRow(
-                    index: 0,
-                    exerciseSet: set,
-                    weightUnit: .kg,
-                    canDelete: true,
-                    exercise: exercise,
-                    recentWeightKg: nil,
-                    onToggleCompleted: { _ in },
-                    onDelete: {},
-                    onAddSubSet: { _ in },
-                    onCopyToNext: {}
-                )
-                let host = UIHostingController(
-                    rootView: row
-                        .modelContainer(container)
-                        .designThemePreview()
-                )
-                let window = UIWindow(windowScene: scene)
-                window.frame = CGRect(x: 0, y: 0, width: width, height: 220)
-                window.rootViewController = host
-                window.makeKeyAndVisible()
-                defer { window.isHidden = true }
-
-                try await Task.sleep(for: .milliseconds(180))
-                host.view.layoutIfNeeded()
-
-                let fields = textFields(in: host.view)
-                    .filter { !$0.isHidden && $0.alpha > 0 && $0.window === window }
-                    .map { $0.convert($0.bounds, to: window) }
-                XCTAssertEqual(fields.count, 2, "width=\(width) mode=\(largeMode ? "large" : "normal")")
-                XCTAssertGreaterThanOrEqual(fields.count, 2)
-
-                let midYs = fields.map(\.midY)
-                if let firstMidY = midYs.first {
-                    for midY in midYs.dropFirst() {
-                        XCTAssertEqual(midY, firstMidY, accuracy: 1, "width=\(width) mode=\(largeMode ? "large" : "normal") fields must share one axis: \(fields)")
+                    let fixture = (container: container, workout: workout)
+                    let rows = RowObservationRecorder()
+                    let list = ListObservationRecorder()
+                    let content = ActiveWorkoutView(source: .resume(fixture.workout))
+                        .modelContainer(fixture.container)
+                        .designTheme(seed: .teal, neutral: .slate)
+                        .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: dark))
+                        .environment(\.colorScheme, dark ? .dark : .light)
+                        .defaultAppStorage(defaults)
+                        .environment(\.workoutRowObservation, rows.sink)
+                        .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                            onGeometry: { list.geometry = $0 },
+                            onRowFrame: { list.rowFrames[$0] = $1 }
+                        ))
+                    let host = UIHostingController(rootView: content)
+                    host.overrideUserInterfaceStyle = dark ? .dark : .light
+                    let window = UIWindow(windowScene: scene)
+                    window.frame = CGRect(x: 0, y: 0, width: width, height: 852)
+                    window.rootViewController = host
+                    window.makeKeyAndVisible()
+                    defer {
+                        host.view.endEditing(true)
+                        window.isHidden = true
+                        window.rootViewController = nil
                     }
-                }
+                    try await Task.sleep(for: .milliseconds(350))
+                    host.view.layoutIfNeeded()
 
-                for field in fields {
-                    XCTAssertGreaterThanOrEqual(field.width, 44 - 0.001, "width=\(width) mode=\(largeMode ? "large" : "normal")")
-                    XCTAssertGreaterThanOrEqual(field.height, 44 - 0.001)
-                    XCTAssertTrue(window.bounds.contains(field))
-                }
+                    let variant = "\(Int(width))-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")"
+                    let rowID = AnyHashable(set.persistentModelID)
+                    let rowFrame = try XCTUnwrap(list.rowFrames[rowID], variant)
+                    let geometry = try XCTUnwrap(list.geometry, variant)
+                    XCTAssertGreaterThanOrEqual(geometry.listFrame.minX, 64 - 1e-10, variant)
+                    XCTAssertLessThan(rowFrame.width, width - 64, variant)
+                    XCTAssertLessThanOrEqual(rowFrame.height, largeMode ? 82 : 68, variant)
+                    XCTAssertTrue(window.bounds.contains(rowFrame), variant)
 
-                var controlFrames: [CGRect] = []
-                for descendant in descendants(of: host.view) {
-                    guard let button = descendant as? UIButton else { continue }
-                    guard !button.isHidden && button.alpha > 0 && button.window === window else { continue }
-                    let frame = button.convert(button.bounds, to: window)
-                    if frame.width <= 100
-                        && frame.height <= 100
-                        && frame.width >= 44 - 0.001
-                        && frame.height >= 44 - 0.001 {
-                        controlFrames.append(frame)
+                    let descriptors = try XCTUnwrap(rows.descriptors[rowID], variant)
+                    let controls = try XCTUnwrap(rows.controls[rowID], variant)
+                    var frames: [String: CGRect] = [:]
+                    for kind in ["weight-prefix", "weight-unit", "reps-unit"] {
+                        frames[kind] = try XCTUnwrap(descriptors[kind], "\(variant): missing \(kind)").frame
                     }
-                }
-
-                if let firstMidY = midYs.first {
-                    for control in controlFrames {
-                        XCTAssertEqual(
-                            control.midY,
-                            firstMidY,
-                            accuracy: 1,
-                            "width=\(width) mode=\(largeMode ? "large" : "normal") control must share the input axis: \(control)"
-                        )
+                    for kind in ["completion", "metadata", "suggestion", "menu"] {
+                        frames[kind] = try XCTUnwrap(controls[kind], "\(variant): missing \(kind)")
                     }
+                    // A nonempty frame alone can still contain only an ellipsis.
+                    // Reserve enough ink width for each full label at its minimum scale.
+                    let metadataMinimum = ("\(set.setType.displayName) R8" as NSString).size(
+                        withAttributes: [.font: UIFont.systemFont(ofSize: 9, weight: .semibold)]
+                    ).width * 0.65 + 8
+                    let symbol = try XCTUnwrap(UIImage(systemName: "sparkles", withConfiguration: UIImage.SymbolConfiguration(pointSize: 9)))
+                    let suggestionMinimum = ((" 45×8" as NSString).size(
+                        withAttributes: [.font: UIFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)]
+                    ).width + symbol.size.width) * 0.65 + 2
+                    XCTAssertGreaterThanOrEqual(try XCTUnwrap(frames["metadata"]).width, metadataMinimum - 0.5, variant)
+                    XCTAssertGreaterThanOrEqual(try XCTUnwrap(frames["suggestion"]).width, suggestionMinimum - 0.5, variant)
+                    let fields = textFields(in: host.view).filter {
+                        !$0.isHidden && $0.alpha > 0 && $0.window === window
+                            && rowFrame.contains($0.convert($0.bounds, to: window))
+                    }
+                    XCTAssertEqual(fields.count, 2, variant)
+                    for (name, keyboard) in [("weight", UIKeyboardType.decimalPad), ("reps", .numberPad)] {
+                        let field = try XCTUnwrap(fields.first { $0.keyboardType == keyboard }, "\(variant): missing \(name)")
+                        XCTAssertEqual(field.text, "", variant)
+                        XCTAssertEqual(field.placeholder, name == "weight" ? "45" : "8", variant)
+                        frames[name] = field.convert(field.bounds, to: window)
+                    }
+                    for name in ["weight", "reps", "completion", "menu"] {
+                        let frame = try XCTUnwrap(frames[name], variant)
+                        XCTAssertGreaterThanOrEqual(frame.width, 44 - 1e-10, "\(variant): \(name)")
+                        XCTAssertGreaterThanOrEqual(frame.height, 44 - 1e-10, "\(variant): \(name)")
+                    }
+                    for (name, frame) in frames {
+                        XCTAssertGreaterThan(frame.width, 0, "\(variant): \(name)")
+                        XCTAssertGreaterThan(frame.height, 0, "\(variant): \(name)")
+                        XCTAssertTrue(rowFrame.insetBy(dx: -0.5, dy: -0.5).contains(frame),
+                                      "\(variant): \(name)=\(frame) row=\(rowFrame)")
+                        XCTAssertEqual(frame.midY, rowFrame.midY, accuracy: 6,
+                                       "\(variant): \(name) must share the row axis")
+                    }
+                    let ordered = ["completion", "weight-prefix", "weight", "weight-unit", "reps", "reps-unit", "metadata", "suggestion", "menu"]
+                    for pair in zip(ordered, ordered.dropFirst()) {
+                        let leading = try XCTUnwrap(frames[pair.0], variant)
+                        let trailing = try XCTUnwrap(frames[pair.1], variant)
+                        XCTAssertLessThanOrEqual(leading.maxX, trailing.minX + 0.5, "\(variant): \(pair) must not overlap")
+                    }
+                    // Existing pixel checks prove descriptor glyphs are actually painted
+                    // and the native fields retain hittable 44pt regions.
+                    try assertRowDescriptors(rows, rows: [set], fields: fields, window: window, unit: .kg, variant: variant)
+                    let evidence = XCTAttachment(string: "variant=\(variant)\nlist=\(geometry.listFrame)\nrow=\(rowFrame)\nframes=\(frames)")
+                    evidence.name = "single-axis-\(variant)"
+                    evidence.lifetime = .keepAlways
+                    add(evidence)
+                    let image = XCTAttachment(image: windowImage(window))
+                    image.name = "single-axis-\(variant)"
+                    image.lifetime = .keepAlways
+                    add(image)
                 }
-
-                let maxControlHeight = (fields + controlFrames).map(\.height).max() ?? 44
-                let measuredRowHeight = maxControlHeight + 12
-                XCTAssertLessThanOrEqual(
-                    measuredRowHeight,
-                    largeMode ? 76 : 60,
-                    "width=\(width) mode=\(largeMode ? "large" : "normal") rowHeight=\(measuredRowHeight) fields=\(fields)"
-                )
-
-                let evidence = XCTAttachment(
-                    string: "width=\(width)\nlargeMode=\(largeMode)\nrowHeight=\(measuredRowHeight)\nfields=\(fields)"
-                )
-                evidence.name = "single-axis-\(Int(width))-\(largeMode ? "large" : "normal")"
-                evidence.lifetime = .keepAlways
-                add(evidence)
             }
         }
     }
