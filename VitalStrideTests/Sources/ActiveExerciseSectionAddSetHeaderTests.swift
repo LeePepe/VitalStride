@@ -46,8 +46,16 @@ struct ActiveExerciseSectionAddSetHeaderTests {
             "Section content still contains the add-set action. It must stay out of the `Section` content and live in the header beside the exercise title + menu."
         )
         #expect(
-            headerBody.contains("addSetButton"),
-            "The exercise header should contain the add-set action next to the title and menu controls."
+            headerBody.contains("exerciseHeader") && source.contains("addSetButtonAndMenu"),
+            "The exercise header should delegate to a helper containing the add-set action next to the title and menu controls."
+        )
+        #expect(
+            !headerBody.contains("ViewThatFits") && !headerBody.contains("VStack(alignment: .leading"),
+            "The exercise header must not switch to a second-row fallback for long or Large Mode titles."
+        )
+        #expect(
+            source.contains("theme.neutrals.card") && !source.contains("padding(.bottom, -15"),
+            "The pinned header should use the same surface as its set rows without negative bottom bleed."
         )
         #expect(
             sectionBody.contains("ForEach"),

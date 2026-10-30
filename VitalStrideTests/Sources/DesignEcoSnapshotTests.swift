@@ -16,14 +16,22 @@ final class DesignEcoSnapshotTests: XCTestCase {
     private static let snapshotSize = CGSize(width: 393, height: 852)
     private static let snapshotNames = [
         "workout-normal-keyboard",
+        "workout-normal-keyboard-dark",
         "workout-large-font",
+        "workout-large-font-dark",
         "workout-rtl",
+        "exercise-header-normal-light",
+        "exercise-header-normal-dark",
+        "exercise-header-large-light",
+        "exercise-header-large-dark",
+        "exercise-header-normal-rtl",
+        "exercise-header-large-rtl",
         "substitute-sheet",
+        "substitute-sheet-dark",
         "exercise-picker",
+        "exercise-picker-dark",
         "exercise-picker-rtl",
-    ].flatMap { name in
-        name.hasSuffix("-rtl") ? [name] : [name, "\(name)-dark"]
-    }
+    ]
 
     func testRendersRoundThreeSnapshots() throws {
         let outputDirectory = try Self.prepareOutputDirectory()
@@ -100,14 +108,10 @@ final class DesignEcoSnapshotTests: XCTestCase {
             XCTAssertFalse(addSet.intersects(menu), name)
             XCTAssertGreaterThanOrEqual(addSet.width, 44, name)
             XCTAssertGreaterThanOrEqual(addSet.height, 44, name)
-            if compact {
-                XCTAssertLessThan(title.minY, addSet.maxY, name)
-                XCTAssertGreaterThan(title.maxY, addSet.minY, name)
-                let header = try XCTUnwrap(frames.headers[owner.persistentModelID])
-                XCTAssertLessThanOrEqual(header.height, 56, name)
-            } else {
-                XCTAssertGreaterThanOrEqual(addSet.minY, title.maxY, name)
-            }
+            XCTAssertLessThan(title.minY, addSet.maxY, name)
+            XCTAssertGreaterThan(title.maxY, addSet.minY, name)
+            let header = try XCTUnwrap(frames.headers[owner.persistentModelID])
+            XCTAssertLessThanOrEqual(header.height, 44, name)
         }
     }
 
@@ -140,6 +144,21 @@ final class DesignEcoSnapshotTests: XCTestCase {
         defaults: UserDefaults
     ) throws {
         let suffix = variant.suffix
+        for largeMode in [false, true] {
+            defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+            try Self.render(
+                ActiveWorkoutView(source: .resume(workoutFixture.workout))
+                    .frame(height: 560)
+                    .modelContainer(workoutFixture.container)
+                    .designTheme(seed: .teal, neutral: .slate)
+                    .environment(\.colorScheme, variant.colorScheme)
+                    .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                    .defaultAppStorage(defaults),
+                named: "exercise-header-\(largeMode ? "large" : "normal")-\(variant.isDark ? "dark" : "light")",
+                in: outputDirectory,
+                variant: variant
+            )
+        }
         defaults.set(false, forKey: "activeWorkoutLargeMode")
         try Self.render(
             VStack(spacing: 0) {
@@ -195,6 +214,22 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 in: outputDirectory,
                 variant: .light
             )
+            for largeMode in [false, true] {
+                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                try Self.render(
+                    ActiveWorkoutView(source: .resume(workoutFixture.workout))
+                        .frame(height: 560)
+                        .modelContainer(workoutFixture.container)
+                        .designTheme(seed: .teal, neutral: .slate)
+                        .environment(\.colorScheme, .light)
+                        .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: false))
+                        .environment(\.layoutDirection, .rightToLeft)
+                        .defaultAppStorage(defaults),
+                    named: "exercise-header-\(largeMode ? "large" : "normal")-rtl",
+                    in: outputDirectory,
+                    variant: .light
+                )
+            }
         }
 
         try Self.render(
@@ -354,7 +389,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         let context = container.mainContext
         let exercise = Exercise(
             nameEn: "Bench Press",
-            nameZh: "卧推",
+            nameZh: "弹力带俯身髋部伸展",
             muscleGroup: .chest,
             equipment: .barbell
         )
