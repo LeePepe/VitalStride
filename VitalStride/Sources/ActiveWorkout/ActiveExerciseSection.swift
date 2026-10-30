@@ -303,8 +303,11 @@ struct ActiveExerciseSection: View {
         .padding(.horizontal, 8)
         .frame(maxWidth: .infinity, minHeight: 44, maxHeight: 44, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
-        .background(theme.neutrals.card)
+        .background(alignment: .top) {
+            theme.neutrals.card.frame(maxWidth: .infinity, minHeight: 64, maxHeight: 64)
+        }
         .listRowInsets(EdgeInsets())
+        .listRowBackground(theme.neutrals.card)
         .zIndex(1)
         .background {
             GeometryReader { geometry in
@@ -339,6 +342,25 @@ struct ActiveExerciseSection: View {
                     .font(.caption.monospacedDigit().weight(.bold))
                     .foregroundStyle(completedSetCount == 0 ? theme.neutrals.text2 : theme.accent)
                     .frame(minWidth: 22, minHeight: 22)
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear {
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "order",
+                                    geometry.frame(in: .global)
+                                )
+                            }
+                            .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "order",
+                                    frame
+                                )
+                            }
+                    }
+                }
                     .background(
                         Circle().fill(
                             completedSetCount == 0
@@ -346,6 +368,7 @@ struct ActiveExerciseSection: View {
                                 : theme.accent.opacity(0.14)
                         )
                     )
+                    .fixedSize(horizontal: true, vertical: false)
             }
             Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
                 // MY-1263 (D2): compact semibold body header in normal mode
@@ -363,6 +386,7 @@ struct ActiveExerciseSection: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .fixedSize(horizontal: false, vertical: true)
+                .minimumScaleFactor(0.85)
                 .background {
                     GeometryReader { geometry in
                         Color.clear
@@ -407,6 +431,7 @@ struct ActiveExerciseSection: View {
             Text("\(completedSetCount)/\(totalSetCount)")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(theme.neutrals.text2)
+                .fixedSize(horizontal: true, vertical: false)
                 .background {
                     GeometryReader { geometry in
                         Color.clear
@@ -432,7 +457,6 @@ struct ActiveExerciseSection: View {
                     .foregroundStyle(theme.neutrals.text2)
             }
         }
-        .fixedSize(horizontal: compact, vertical: false)
         .contentShape(Rectangle())
         .onTapGesture { toggleAction() }
         .onAppear {
@@ -484,9 +508,12 @@ struct ActiveExerciseSection: View {
             Image(systemName: "ellipsis.circle")
                 .foregroundStyle(theme.neutrals.text2)
                 .frame(width: 36, height: 36)
+                .frame(width: 44, height: headerControlHeight)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
+        .frame(width: 44, height: headerControlHeight)
+        .contentShape(Rectangle())
         .background {
             GeometryReader { geometry in
                 Color.clear
@@ -506,7 +533,6 @@ struct ActiveExerciseSection: View {
                     }
             }
         }
-        .frame(width: 44, height: headerControlHeight)
     }
 
     // MY-1348 (spec 017): visual redesign — subtle-fill inline button.
@@ -552,7 +578,8 @@ struct ActiveExerciseSection: View {
                 .font(.body.weight(.semibold))
                 .foregroundStyle(theme.primary.primary)
                 .frame(width: 36, height: 36)
-            .contentShape(Rectangle())
+                .frame(width: 44, height: headerControlHeight)
+                .contentShape(Rectangle())
         }
         .buttonStyle(AddSetButtonStyle())
         .frame(width: 44, height: headerControlHeight)

@@ -58,6 +58,14 @@ struct ActiveExerciseSectionAddSetHeaderTests {
             "The pinned header should use the same surface as its set rows without negative bottom bleed."
         )
         #expect(
+            source.contains("theme.neutrals.card.frame(maxWidth: .infinity, minHeight: 64, maxHeight: 64)") &&
+            source.contains(".listRowBackground(theme.neutrals.card)") &&
+            source.contains("frame(width: 44, height: headerControlHeight)") &&
+            source.contains(".fixedSize(horizontal: true, vertical: false)") &&
+            source.contains(".minimumScaleFactor(0.85)"),
+            "The header should extend the card surface, use fixed badges and 44pt controls, and compress the title."
+        )
+        #expect(
             sectionBody.contains("ForEach"),
             "Section content should still render the main-set and sub-set rows."
         )

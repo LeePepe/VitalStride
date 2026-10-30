@@ -60,6 +60,8 @@ final class DesignEcoSnapshotTests: XCTestCase {
     private final class HeaderFrames {
         var controls: [AnyHashable: [String: CGRect]] = [:]
         var headers: [AnyHashable: CGRect] = [:]
+        var geometry: (listFrame: CGRect, contentOffset: CGPoint)?
+        var rows: [AnyHashable: CGRect] = [:]
     }
 
     func testExerciseHeadersAdaptToTitleWidthAndDynamicType() async throws {
@@ -112,6 +114,58 @@ final class DesignEcoSnapshotTests: XCTestCase {
             XCTAssertGreaterThan(title.maxY, addSet.minY, name)
             let header = try XCTUnwrap(frames.headers[owner.persistentModelID])
             XCTAssertLessThanOrEqual(header.height, 44, name)
+        }
+    }
+
+    func testTK3HeaderControlsContainmentNormalLargeLTRRTL() async throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "DesignEcoTK3Containment"))
+        defer { defaults.removePersistentDomain(forName: "DesignEcoTK3Containment") }
+
+        for largeMode in [false, true] {
+            for rightToLeft in [false, true] {
+                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                let fixture = try Self.makeWorkoutFixture()
+                fixture.exercise.nameEn = "Band Bent-Over Hip Extension"
+                fixture.exercise.nameZh = "弹力带俯身髋部伸展"
+                let owner = try XCTUnwrap(fixture.workout.exercises?.first { $0.order == 0 })
+                let frames = HeaderFrames()
+                let content = ActiveWorkoutView(source: .resume(fixture.workout))
+                    .modelContainer(fixture.container)
+                    .designTheme(seed: .teal, neutral: .slate)
+                    .environment(\.layoutDirection, rightToLeft ? .rightToLeft : .leftToRight)
+                    .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                        onGeometry: { geometry in
+                            frames.geometry = (geometry.listFrame, geometry.contentOffset)
+                        },
+                        onHeaderFrame: { frames.headers[$0] = $1 },
+                        onControlFrame: { frames.controls[$0, default: [:]][$1] = $2 }
+                    ))
+                    .defaultAppStorage(defaults)
+                let host = UIHostingController(rootView: content)
+                let window = UIWindow(frame: CGRect(origin: .zero, size: Self.snapshotSize))
+                window.rootViewController = host
+                window.makeKeyAndVisible()
+                defer {
+                    window.isHidden = true
+                    window.rootViewController = nil
+                }
+                try await Task.sleep(for: .milliseconds(350))
+                host.view.layoutIfNeeded()
+
+                let header = try XCTUnwrap(frames.headers[owner.persistentModelID])
+                let controls = try XCTUnwrap(frames.controls[owner.persistentModelID])
+                for name in ["order", "add-set", "menu"] {
+                    let frame = try XCTUnwrap(controls[name], "Missing \(name)")
+                    if name != "order" {
+                        XCTAssertGreaterThanOrEqual(frame.width, 44, "\(name) width")
+                        XCTAssertGreaterThanOrEqual(frame.height, 44, "\(name) height")
+                    }
+                    XCTAssertTrue(window.bounds.insetBy(dx: -1, dy: -1).contains(frame),
+                                  "\(largeMode ? "large" : "normal") \(rightToLeft ? "RTL" : "LTR") \(name) frame=\(frame) window=\(window.bounds)")
+                    XCTAssertTrue(header.insetBy(dx: -1, dy: -1).contains(frame),
+                                  "\(name) must stay in header bounds")
+                }
+            }
         }
     }
 
@@ -297,16 +351,9 @@ final class DesignEcoSnapshotTests: XCTestCase {
         if let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"]
             ?? ProcessInfo.processInfo.environment["SIMCTL_CHILD_DESIGN_ECO_SNAPSHOT_DIR"] {
             directory = URL(fileURLWithPath: path, isDirectory: true)
-        } else if FileManager.default.fileExists(
-            atPath: "/Users/lee/Development/handoff/design-eco-3r/snapshots/round-3"
-        ) {
-            directory = URL(
-                fileURLWithPath: "/Users/lee/Development/handoff/design-eco-3r/snapshots/round-3",
-                isDirectory: true
-            )
         } else {
-            directory = FileManager.default.temporaryDirectory.appendingPathComponent(
-                "design-eco-snapshots/round-3",
+            directory = URL(
+                fileURLWithPath: "/Users/lee/Development/handoff/design-eco-r4/snapshots/TK3-VS-HEADER",
                 isDirectory: true
             )
         }
@@ -400,9 +447,9 @@ final class DesignEcoSnapshotTests: XCTestCase {
             equipment: .cable
         )
         let sets = [
-            ExerciseSet(order: 0, weight: 40, reps: 10, isCompleted: true),
-            ExerciseSet(order: 1, weight: 42.5, reps: 8),
-            ExerciseSet(order: 2, weight: 42.5, reps: 8),
+            ExerciseSet(order: 0, weight: 40, reps: 10, setType: .warmup, isCompleted: true),
+            ExerciseSet(order: 1, weight: 42.5, reps: 8, rpe: 8),
+            ExerciseSet(order: 2, weight: 36, reps: 8, setType: .dropSet),
         ]
         let secondSet = ExerciseSet(order: 0, weight: 35, reps: 12, isCompleted: true)
         let workoutExercise = WorkoutExercise(order: 0, exercise: exercise, sets: sets)
