@@ -118,7 +118,17 @@ struct WorkoutSetInput: UIViewRepresentable {
 
     func updateUIView(_ view: UITextField, context: Context) {
         if view.text != input.text { view.text = input.text }
-        view.placeholder = input.placeholder
+        view.placeholder = ""
+        if input.placeholder.isEmpty {
+            view.attributedPlaceholder = nil
+        } else {
+            view.attributedPlaceholder = NSAttributedString(
+                string: input.placeholder,
+                attributes: [
+                    .foregroundColor: UIColor(theme.primary.primary.opacity(0.72))
+                ]
+            )
+        }
         view.font = input.font
         view.textColor = UIColor(theme.foreground)
         view.tintColor = UIColor(theme.accent)
@@ -248,24 +258,10 @@ struct SetRow: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ViewThatFits(in: .horizontal) {
-                rowContent(variant: largeMode ? .large : .normal)
-                rowContent(variant: .largeCompact)
-                stackedRowContent
-            }
-            if exerciseSet.setType != .working {
-                setTypePill(exerciseSet.setType).allowsHitTesting(false)
-            }
-            if let rpe = exerciseSet.rpe {
-                Text(String(format: String(localized: "workout.row.rpe_value", defaultValue: "RPE %lld", comment: "Read-only recorded exertion"), Int64(rpe)))
-                    .font(.caption)
-                    .foregroundStyle(theme.secondaryForeground)
-                    .allowsHitTesting(false)
-            }
-            if let advice = smartProgressionAdvice() {
-                smartProgressionChip(advice)
-            }
+        ViewThatFits(in: .horizontal) {
+            rowContent(variant: largeMode ? .large : .normal)
+            rowContent(variant: .largeCompact)
+            stackedRowContent
         }
         .padding(6)
         .frame(maxWidth: .infinity, minHeight: 56)
@@ -301,9 +297,10 @@ struct SetRow: View {
     }
 
     private func rowContent(variant: LargeWorkoutFieldWidth.Variant) -> some View {
-        HStack(spacing: 4) {
+        HStack(alignment: .center, spacing: 4) {
             completionButton
             inputFields(variant: variant)
+            inlineMetadata
             Spacer(minLength: 0)
             moreMenu
         }
@@ -311,12 +308,15 @@ struct SetRow: View {
 
     private var stackedRowContent: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
+            HStack(alignment: .center) {
                 completionButton
                 Spacer(minLength: 0)
                 moreMenu
             }
-            inputFields(variant: .normal)
+            HStack(alignment: .center, spacing: 4) {
+                inputFields(variant: .normal)
+                inlineMetadata
+            }
         }
     }
 
@@ -433,6 +433,30 @@ struct SetRow: View {
             .background(color.opacity(0.16))
             .foregroundStyle(color)
             .clipShape(Capsule())
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    @ViewBuilder
+    private var inlineMetadata: some View {
+        if exerciseSet.setType != .working {
+            setTypePill(exerciseSet.setType).allowsHitTesting(false)
+        }
+        if let rpe = exerciseSet.rpe {
+            rpePill(rpe).allowsHitTesting(false)
+        }
+    }
+
+    private func rpePill(_ rpe: Int) -> some View {
+        Text(String(format: String(localized: "workout.row.rpe_value", defaultValue: "RPE %lld", comment: "Read-only recorded exertion"), Int64(rpe)))
+            .font(TypeScale.meta)
+            .fontWeight(.medium)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(theme.primary.primary.opacity(0.12), in: Capsule())
+            .foregroundStyle(theme.primary.primary)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
     }
 
     /// Stable seed-family color index per set type (0..4 band from ProtoKit's
@@ -468,9 +492,38 @@ struct SetRow: View {
         a11yHint: String,
         suggestion: ProgressionAdvice?
     ) -> some View {
+        let weightPlaceholder = suggestion.map { advice in
+            let displayWeight = weightUnit == .lb
+                ? advice.suggestedWeight * 2.20462
+                : advice.suggestedWeight
+            return String(
+                format: String(
+                    localized: "建议 %1$@",
+                    defaultValue: "建议 %1$@",
+                    comment: "Inline weight recommendation placeholder"
+                ),
+                formatCaptionWeight(displayWeight)
+            )
+        } ?? ""
+        let weightHint = suggestion.map { advice in
+            let displayWeight = weightUnit == .lb
+                ? advice.suggestedWeight * 2.20462
+                : advice.suggestedWeight
+            return String(
+                format: String(
+                    localized: "%1$@，建议 %2$@%3$@ × %4$lld",
+                    defaultValue: "%1$@，建议 %2$@%3$@ × %4$lld",
+                    comment: "Weight input accessibility hint with progressive overload recommendation"
+                ),
+                a11yHint,
+                formatCaptionWeight(displayWeight),
+                weightUnit.rawValue,
+                Int64(advice.suggestedReps)
+            )
+        } ?? a11yHint
         #if canImport(UIKit) && !os(macOS)
         WorkoutSetInput(SelectAllTextField(
-            placeholder: "",
+            placeholder: weightPlaceholder,
             text: binding,
             keyboardType: .decimalPad,
             font: inputUIFont,
@@ -496,7 +549,7 @@ struct SetRow: View {
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(a11yLabel)
-        .accessibilityHint(a11yHint)
+        .accessibilityHint(weightHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
             let filtered = filterDecimalInput(newValue)
             if filtered != newValue { binding.wrappedValue = filtered }
@@ -509,7 +562,7 @@ struct SetRow: View {
         }
         #else
         SelectAllTextField(
-            placeholder: "",
+            placeholder: weightPlaceholder,
             text: binding,
             keyboardType: .decimalPad
         )
@@ -517,7 +570,7 @@ struct SetRow: View {
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(a11yLabel)
-        .accessibilityHint(a11yHint)
+        .accessibilityHint(weightHint)
         .onChange(of: binding.wrappedValue) { _, newValue in
             let filtered = filterDecimalInput(newValue)
             if filtered != newValue { binding.wrappedValue = filtered }
@@ -533,10 +586,30 @@ struct SetRow: View {
 
     @ViewBuilder
     private func repsField(width: CGFloat, suggestion: ProgressionAdvice?) -> some View {
+        let repsPlaceholder = suggestion.map { advice in
+            String(
+                format: String(
+                    localized: "建议 %1$lld",
+                    defaultValue: "建议 %1$lld",
+                    comment: "Inline reps recommendation placeholder"
+                ),
+                Int64(advice.suggestedReps)
+            )
+        } ?? ""
+        let repsHint = suggestion.map { advice in
+            String(
+                format: String(
+                    localized: "输入次数，建议 %1$lld",
+                    defaultValue: "输入次数，建议 %1$lld",
+                    comment: "Reps input accessibility hint with progressive overload recommendation"
+                ),
+                Int64(advice.suggestedReps)
+            )
+        } ?? String(localized: "输入次数", comment: "Enter reps hint")
         #if canImport(UIKit) && !os(macOS)
         HStack(spacing: 2) {
         WorkoutSetInput(SelectAllTextField(
-            placeholder: "",
+            placeholder: repsPlaceholder,
             text: $repsText,
             keyboardType: .numberPad,
             font: inputUIFont,
@@ -562,7 +635,7 @@ struct SetRow: View {
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(String(localized: "第 \(index + 1) 组次数", comment: "Set reps a11y label"))
-        .accessibilityHint(String(localized: "输入次数", comment: "Enter reps hint"))
+        .accessibilityHint(repsHint)
         .onChange(of: repsText) { _, newValue in
             let filtered = newValue.filter { $0.isNumber }
             if filtered != newValue { repsText = filtered }
@@ -586,7 +659,7 @@ struct SetRow: View {
         #else
         HStack(spacing: 2) {
             SelectAllTextField(
-                placeholder: "",
+                placeholder: repsPlaceholder,
                 text: $repsText,
                 keyboardType: .numberPad
             )
@@ -635,11 +708,13 @@ struct SetRow: View {
 
     private var completionButton: some View {
         Button(action: toggleCompleted) {
-            VStack(spacing: 2) {
+            HStack(alignment: .center, spacing: 4) {
+                Text("\(index + 1)")
+                    .font(.caption2.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(theme.secondaryForeground)
                 Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.secondaryForeground)
-                Text("\(index + 1)").font(.caption2.monospacedDigit()).foregroundStyle(theme.secondaryForeground)
             }
         }
         .buttonStyle(.borderless)

@@ -396,6 +396,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
     private static func prepareOutputDirectory() throws -> URL {
         let directory: URL
         if let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"]
+            ?? ProcessInfo.processInfo.environment["TEST_RUNNER_DESIGN_ECO_SNAPSHOT_DIR"]
             ?? ProcessInfo.processInfo.environment["SIMCTL_CHILD_DESIGN_ECO_SNAPSHOT_DIR"] {
             directory = URL(fileURLWithPath: path, isDirectory: true)
         } else {
@@ -496,10 +497,9 @@ final class DesignEcoSnapshotTests: XCTestCase {
             equipment: .cable
         )
         let sets = [
-            // Combine the available badges on one main row so Warm-up,
-            // RPE, advice and its drop-set fit together even in Large Mode.
             ExerciseSet(order: 0, weight: 40, reps: 10, setType: .warmup, isCompleted: true, rpe: 8),
             ExerciseSet(order: 1, weight: 36, reps: 8, setType: .dropSet),
+            ExerciseSet(order: 2, weight: 0, reps: 0, setType: .working, isCompleted: false),
         ]
         let secondSet = ExerciseSet(order: 0, weight: 35, reps: 12, isCompleted: true)
         let workoutExercise = WorkoutExercise(order: 0, exercise: exercise, sets: sets)
