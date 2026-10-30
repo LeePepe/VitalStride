@@ -157,10 +157,8 @@ enum ActiveWorkoutSnackbarLayout {
 
     /// Shared constant-height envelope used by both bottom and top snackbar
     /// layouts. Both undo and rest content are ALWAYS laid out in a ZStack.
-    /// Only the active variant has opacity and hit testing; the inactive variant
-    /// is invisible but still contributes its intrinsic height. The ZStack
-    /// height = max(undo, rest), constant across `.none`/`.undo`/`.rest`
-    /// transitions — preserving the MY-1421 no-list-jump invariant.
+    /// Only the active branch is rendered. Inactive branches contribute no
+    /// intrinsic height, so `.none` is a true zero-height slot.
     @ViewBuilder
     @MainActor
     static func slotEnvelope<UndoContent: View, RestContent: View>(
@@ -168,21 +166,17 @@ enum ActiveWorkoutSnackbarLayout {
         @ViewBuilder undoContent: () -> UndoContent,
         @ViewBuilder restContent: () -> RestContent
     ) -> some View {
-        // Both branches are always laid out for constant-height contract.
-        // Only the active branch has opacity/hit-testing.
-        ZStack(alignment: .leading) {
-            undoContent()
-                .opacity(snackbarSlot == .undo ? 1 : 0)
-                .allowsHitTesting(snackbarSlot == .undo)
-            restContent()
-                .opacity(snackbarSlot == .rest ? 1 : 0)
-                .allowsHitTesting(snackbarSlot == .rest)
+        Group {
+            switch snackbarSlot {
+            case .undo:
+                undoContent()
+            case .rest:
+                restContent()
+            case .none:
+                EmptyView()
+            }
         }
-        // On iOS 26, `.accessibilityHidden(true)` on an inactive branch does
-        // not suppress its SwiftUI descendants from the accessibility tree.
-        // `.accessibilityRepresentation` completely replaces the ZStack's
-        // accessibility subtree with only the active content, so inactive
-        // labels/buttons are never exposed to VoiceOver or XCUI queries.
+        .transition(.move(edge: .bottom).combined(with: .opacity))
         .accessibilityRepresentation {
             switch snackbarSlot {
             case .undo:
@@ -213,18 +207,27 @@ enum ActiveWorkoutSnackbarLayout {
         VStack(spacing: 0) {
             if !isKeyboardVisible {
                 fab()
-                slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
-                    .padding(.horizontal, Space.cardPadding)
-                    .padding(.vertical, Space.gap)
-                    .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
-                    .background(snackbarSlot != .none ? AnyShapeStyle(theme.surface) : AnyShapeStyle(.clear))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(
-                        color: snackbarSlot != .none ? theme.foreground.opacity(0.15) : .clear,
-                        radius: 8, y: 4
-                    )
-                    .padding(.horizontal, Space.cardPadding)
-                    .padding(.bottom, Space.cardPadding)
+                    .frame(maxWidth: .infinity)
+                    .background(theme.neutrals.bg.opacity(0.96))
+                    .overlay(alignment: .top) {
+                        Rectangle()
+                            .fill(theme.neutrals.border)
+                            .frame(height: 1)
+                    }
+                if snackbarSlot != .none {
+                    slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
+                        .padding(.horizontal, Space.cardPadding)
+                        .padding(.vertical, Space.gap)
+                        .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                        .background(theme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .shadow(
+                            color: theme.foreground.opacity(0.15),
+                            radius: 8, y: 4
+                        )
+                        .padding(.horizontal, Space.cardPadding)
+                        .padding(.bottom, Space.cardPadding)
+                }
             }
         }
     }

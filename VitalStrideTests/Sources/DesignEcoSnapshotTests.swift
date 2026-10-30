@@ -34,6 +34,10 @@ final class DesignEcoSnapshotTests: XCTestCase {
         "exercise-picker",
         "exercise-picker-dark",
         "exercise-picker-rtl",
+        "workout-normal-rest",
+        "workout-normal-rest-dark",
+        "workout-large-rest",
+        "workout-large-rest-dark",
     ]
 
     func testRendersRoundThreeSnapshots() async throws {
@@ -249,6 +253,24 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 variant: variant,
                 showKeyboard: true,
                 canvasSize: CGSize(width: snapshotSize.width, height: snapshotSize.height + keyboardHeight)
+            )
+        }
+        for largeMode in [false, true] {
+            defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+            try await Self.render(
+                ActiveWorkoutView(
+                    source: .resume(workoutFixture.workout),
+                    snackbarSlotOverride: .rest
+                )
+                .modelContainer(workoutFixture.container)
+                .designTheme(seed: .teal, neutral: .slate)
+                .environment(\.colorScheme, variant.colorScheme)
+                .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                .defaultAppStorage(defaults),
+                named: "workout-\(largeMode ? "large" : "normal")-rest\(suffix)",
+                in: outputDirectory,
+                variant: variant,
+                canvasSize: CGSize(width: snapshotSize.width, height: snapshotSize.height)
             )
         }
 

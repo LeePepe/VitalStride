@@ -224,9 +224,11 @@ struct ActiveWorkoutView: View {
     @AppStorage("activeWorkoutLargeMode") private var largeMode = false
     @State private var startTime = Date()
     let source: WorkoutStartSource
+    private let snackbarSlotOverride: BottomSnackbarSlot?
 
-    init(source: WorkoutStartSource = .blank) {
+    init(source: WorkoutStartSource = .blank, snackbarSlotOverride: BottomSnackbarSlot? = nil) {
         self.source = source
+        self.snackbarSlotOverride = snackbarSlotOverride
     }
 
     private func toggleLargeMode() {
@@ -907,6 +909,9 @@ struct ActiveWorkoutView: View {
     /// controller independently resets phase→.idle, the slot still resolves
     /// to `.rest` while the presentation is pending.
     private var bottomSnackbarSlot: BottomSnackbarSlot {
+        if let snackbarSlotOverride {
+            return snackbarSlotOverride
+        }
         let effectivePhase: RestPhase = restCompletedPresenter.isBuffered ? .completed : restTimer.phase
         return undoController.slot(restPhase: effectivePhase)
     }
@@ -959,7 +964,16 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var restSnackbarContent: some View {
-        if restCompletedPresenter.isBuffered {
+        if snackbarSlotOverride == .rest {
+            HStack {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(theme.success)
+                Text(String(localized: "休息结束", comment: "Rest completed banner text"))
+                Spacer()
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(String(localized: "休息结束", comment: "Rest completed a11y label"))
+        } else if restCompletedPresenter.isBuffered {
             Button {
                 restCompletedPresenter.dismiss()
                 restTimer.dismissCompleted()
@@ -1288,17 +1302,24 @@ struct ActiveWorkoutView: View {
         } label: {
             Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(theme.accent)
+                .foregroundStyle(theme.primary.primary)
                 .padding(.horizontal, 20)
                 .frame(
                     maxWidth: horizontalSizeClass == .regular ? 400 : .infinity,
-                    minHeight: 44
+                    minHeight: largeMode ? 48 : 44
                 )
-                .designSurface(style: .glass, cornerRadius: 16)
         }
         .buttonStyle(FABButtonStyle())
+        .background(theme.neutrals.card)
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(theme.neutrals.border, lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityIdentifier("workout_add_exercise")
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
     }
 
     private var totalVolumeKg: Double {
