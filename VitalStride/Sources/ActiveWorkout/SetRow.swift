@@ -302,7 +302,7 @@ struct SetRow: View {
     }
 
     private func rowContent(variant: LargeWorkoutFieldWidth.Variant, compact: Bool) -> some View {
-        HStack(alignment: .center, spacing: compact ? 2 : 4) {
+        HStack(alignment: .center, spacing: compact ? 0 : 4) {
             completionButton
             inputFields(variant: variant, compact: compact)
             inlineMetadata(compact: compact)
@@ -338,18 +338,18 @@ struct SetRow: View {
             if exerciseSet.isUnilateral {
                 weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice, compact: compact)
             }
-            repsField(width: compact ? ActiveWorkoutHitTarget.side : (variant == .large ? 64 : ActiveWorkoutHitTarget.numericInputSide), suggestion: advice, compact: compact)
+            repsField(width: compact ? ActiveWorkoutHitTarget.numericInputSide : (variant == .large ? 64 : ActiveWorkoutHitTarget.numericInputSide), suggestion: advice, compact: compact)
         }
         .fixedSize(horizontal: !compact, vertical: false)
     }
 
     private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?, suggestion: ProgressionAdvice?, compact: Bool = false) -> some View {
         let isTotal = !exerciseSet.isUnilateral && field == .weight
-        let fieldWidth = compact ? ActiveWorkoutHitTarget.side : max(ActiveWorkoutHitTarget.numericInputSide, width - 28)
-        return HStack(spacing: compact ? 1 : 2) {
+        let fieldWidth = compact ? ActiveWorkoutHitTarget.numericInputSide : max(ActiveWorkoutHitTarget.numericInputSide, width - 28)
+        return HStack(spacing: compact ? 0.5 : 2) {
             if let side {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: side)
-                    .font(compact ? .system(size: 9, weight: .medium) : .caption2.weight(isTotal ? .semibold : .bold))
+                    .font(compact ? .system(size: 7.5, weight: .medium) : .caption2.weight(isTotal ? .semibold : .bold))
                     .fixedSize()
                     .foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)
                     .allowsHitTesting(false)
@@ -367,11 +367,11 @@ struct SetRow: View {
                 suggestion: suggestion
             )
             WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
-                .font(compact ? .system(size: 9, weight: .medium) : .caption2.weight(.medium))
+                .font(compact ? .system(size: 7.5, weight: .medium) : .caption2.weight(.medium))
                 .foregroundStyle(theme.neutrals.text3)
                 .allowsHitTesting(false)
         }
-        .padding(.horizontal, compact ? 1 : 2)
+        .padding(.horizontal, compact ? 0 : 2)
         .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             if focusedField == field {
@@ -379,7 +379,7 @@ struct SetRow: View {
                     .stroke(theme.accent, lineWidth: 1.5)
             }
         }
-        .fixedSize(horizontal: compact ? false : true, vertical: false)
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var moreMenu: some View {
@@ -460,14 +460,14 @@ struct SetRow: View {
     }
 
     private func inlineMetadata(compact: Bool = false) -> some View {
-        HStack(spacing: compact ? 2 : 4) {
-            HStack(spacing: compact ? 2 : 4) {
+        HStack(spacing: compact ? 0 : 4) {
+            HStack(spacing: compact ? 1 : 4) {
                 if compact, exerciseSet.setType != .working, let rpe = exerciseSet.rpe {
                     Text("\(exerciseSet.setType.displayName) R\(rpe)")
-                        .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                        .font(.system(size: 8, weight: .semibold).monospacedDigit())
                         .lineLimit(1)
-                        .minimumScaleFactor(0.65)
-                        .padding(.horizontal, 4)
+                        .minimumScaleFactor(0.55)
+                        .padding(.horizontal, 2)
                         .padding(.vertical, 2)
                         .foregroundStyle(categoryColor(setTypeCategoryIndex(exerciseSet.setType), theme: theme))
                         .background(categoryColor(setTypeCategoryIndex(exerciseSet.setType), theme: theme).opacity(0.16), in: Capsule())
@@ -482,7 +482,8 @@ struct SetRow: View {
             }
             // Preserve the short warm-up/RPE label when the suggestion also
             // needs room at the sidebar-constrained 375pt phone width.
-            .frame(minWidth: compact && (exerciseSet.setType != .working || exerciseSet.rpe != nil) ? 30 : nil)
+            // Reserve the complete English Warm-up R8 at the compact font scale.
+            .frame(minWidth: compact && (exerciseSet.setType != .working || exerciseSet.rpe != nil) ? 35 : nil)
             .allowsHitTesting(false)
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
                 rowObservation.control(exerciseSet.persistentModelID, "metadata", frame)
@@ -491,7 +492,6 @@ struct SetRow: View {
                 smartProgressionChip(advice, compact: compact)
             }
         }
-        .layoutPriority(compact ? -1 : 0)
     }
 
     private func rpePill(_ rpe: Int, compact: Bool = false) -> some View {
@@ -571,6 +571,7 @@ struct SetRow: View {
             }
         ), theme: theme)
         .frame(width: width)
+        .fixedSize(horizontal: true, vertical: false)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(a11yLabel)
@@ -597,6 +598,7 @@ struct SetRow: View {
             keyboardType: .decimalPad
         )
         .frame(width: width)
+        .fixedSize(horizontal: true, vertical: false)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(a11yLabel)
@@ -625,7 +627,7 @@ struct SetRow: View {
         let editingHint = String(localized: "输入次数", comment: "Enter reps hint")
         let repsHint = suggestion.map { "\(editingHint)，\(smartProgressionSummaryText($0))" } ?? editingHint
         #if canImport(UIKit) && !os(macOS)
-        HStack(spacing: compact ? 1 : 2) {
+        HStack(spacing: compact ? 0.5 : 2) {
         WorkoutSetInput(SelectAllTextField(
             placeholder: repsPlaceholder,
             text: $repsText,
@@ -650,6 +652,7 @@ struct SetRow: View {
             }
         ), theme: theme)
         .frame(width: width)
+        .fixedSize(horizontal: true, vertical: false)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(String(localized: "第 \(index + 1) 组次数", comment: "Set reps a11y label"))
@@ -667,11 +670,11 @@ struct SetRow: View {
         }
         WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: .reps, kind: "unit",
                              text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
-            .font(compact ? .system(size: 9, weight: .medium) : .caption2.weight(.medium))
+            .font(compact ? .system(size: 7.5, weight: .medium) : .caption2.weight(.medium))
             .foregroundStyle(theme.neutrals.text3)
             .allowsHitTesting(false)
         }
-        .padding(.horizontal, compact ? 1 : 2)
+        .padding(.horizontal, compact ? 0 : 2)
         .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             if focusedField == .reps {
@@ -680,18 +683,19 @@ struct SetRow: View {
             }
         }
         #else
-        HStack(spacing: compact ? 1 : 2) {
+        HStack(spacing: compact ? 0.5 : 2) {
             SelectAllTextField(
                 placeholder: repsPlaceholder,
                 text: $repsText,
                 keyboardType: .numberPad
             )
             .frame(width: width)
+            .fixedSize(horizontal: true, vertical: false)
             .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
             .modifier(NormalModeHitTargetPadding(active: !largeMode))
             WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: .reps, kind: "unit",
                              text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
-                .font(compact ? .system(size: 9, weight: .medium) : .caption2.weight(.medium))
+                .font(compact ? .system(size: 7.5, weight: .medium) : .caption2.weight(.medium))
                 .foregroundStyle(theme.neutrals.text3)
                 .allowsHitTesting(false)
         }
@@ -892,23 +896,25 @@ struct SetRow: View {
             let displayWeight = weightUnit == .lb
                 ? advice.suggestedWeight * 2.20462
                 : advice.suggestedWeight
-            HStack(spacing: 1) {
+            let label = "\(formatCaptionWeight(displayWeight))×\(advice.suggestedReps)"
+            HStack(spacing: 0.5) {
                 // Bound the decorative symbol so it cannot consume the
                 // numeric label's minimum readable width on a 375pt phone.
                 Image(systemName: "sparkles")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 7, height: 9)
+                    .frame(width: 6, height: 8)
                     .foregroundStyle(theme.primary.primary)
                     .accessibilityHidden(true)
-                Text("\(formatCaptionWeight(displayWeight))×\(advice.suggestedReps)")
-                    .font(.system(size: 9).monospacedDigit())
+                Text(label)
+                    .font(.system(size: 8).monospacedDigit())
                     .foregroundStyle(theme.neutrals.text1)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.65)
+                    .minimumScaleFactor(0.55)
             }
             .padding(.horizontal, 1)
             .padding(.vertical, 2)
+            .frame(width: compactSuggestionWidth(label))
             .background(Capsule().fill(theme.primary.primary.opacity(0.12)))
             .contentShape(Capsule())
         } else {
@@ -946,6 +952,19 @@ struct SetRow: View {
             )
             .contentShape(Capsule())
         }
+    }
+
+    /// Give the compact label its full numeric ink width at minimum scale.
+    /// A fixed proposal also keeps ViewThatFits from reserving its unscaled
+    /// ideal width while compressing the adjacent Warm-up/RPE label.
+    private func compactSuggestionWidth(_ text: String) -> CGFloat? {
+        #if canImport(UIKit) && !os(macOS)
+        let font = UIFont.monospacedDigitSystemFont(ofSize: 8, weight: .regular)
+        let textWidth = (text as NSString).size(withAttributes: [.font: font]).width
+        return ceil(textWidth * 0.55 + 6 + 0.5 + 2)
+        #else
+        return nil
+        #endif
     }
 
     /// MY-1203 (T006): populates the row's editable weight/reps inputs from

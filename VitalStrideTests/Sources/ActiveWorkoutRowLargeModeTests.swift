@@ -795,12 +795,11 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     // A nonempty frame alone can still contain only an ellipsis.
                     // Reserve enough ink width for each full label at its minimum scale.
                     let metadataMinimum = ("\(set.setType.displayName) R8" as NSString).size(
-                        withAttributes: [.font: UIFont.systemFont(ofSize: 9, weight: .semibold)]
-                    ).width * 0.65 + 8
-                    let symbol = try XCTUnwrap(UIImage(systemName: "sparkles", withConfiguration: UIImage.SymbolConfiguration(pointSize: 9)))
-                    let suggestionMinimum = ((" 45×8" as NSString).size(
-                        withAttributes: [.font: UIFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)]
-                    ).width + symbol.size.width) * 0.65 + 2
+                        withAttributes: [.font: UIFont.monospacedDigitSystemFont(ofSize: 8, weight: .semibold)]
+                    ).width * 0.55 + 4
+                    let suggestionMinimum = ("45×8" as NSString).size(
+                        withAttributes: [.font: UIFont.monospacedDigitSystemFont(ofSize: 8, weight: .regular)]
+                    ).width * 0.55 + 6 + 0.5 + 2
                     XCTAssertGreaterThanOrEqual(try XCTUnwrap(frames["metadata"]).width, metadataMinimum - 0.5, variant)
                     XCTAssertGreaterThanOrEqual(try XCTUnwrap(frames["suggestion"]).width, suggestionMinimum - 0.5, variant)
                     let fields = textFields(in: host.view).filter {
