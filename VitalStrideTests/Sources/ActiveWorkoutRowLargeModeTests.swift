@@ -695,6 +695,118 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         }
     }
 
+    func testDropSetRowsShareParentColumnGridAndUnclippedFooterAtStandardPhoneWidths() async throws {
+        let defaultsSuite = "DropSetColumnGrid.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: defaultsSuite))
+        defaults.set("kg", forKey: "weightUnit")
+        defer { defaults.removePersistentDomain(forName: defaultsSuite) }
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+
+        for width in [375.0, 393.0] {
+            for largeMode in [false, true] {
+                for (dark, rtl) in [(false, false), (false, true), (true, false), (true, true)] {
+                    defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                    let container = try ModelContainerConfiguration.makeTestContainer()
+                    let context = container.mainContext
+                    let exercise = Exercise(
+                        nameEn: "Bench Press",
+                        nameZh: "卧推",
+                        muscleGroup: .chest,
+                        equipment: .barbell
+                    )
+                    let workout = Workout(type: .strength, startDate: Date())
+                    let owner = WorkoutExercise(order: 0, exercise: exercise)
+                    owner.workout = workout
+                    let main = ExerciseSet(order: 0, weight: 36, reps: 8, setType: .working)
+                    let drop1 = ExerciseSet(order: 1, weight: 30, reps: 8, setType: .dropSet)
+                    let drop2 = ExerciseSet(order: 2, weight: 24, reps: 8, setType: .dropSet)
+                    for set in [main, drop1, drop2] {
+                        set.workoutExercise = owner
+                        context.insert(set)
+                    }
+                    context.insert(exercise)
+                    context.insert(workout)
+                    context.insert(owner)
+                    try context.save()
+
+                    let rows = RowObservationRecorder()
+                    let list = ListObservationRecorder()
+                    let content = ActiveWorkoutView(source: .resume(workout))
+                        .modelContainer(container)
+                        .designTheme(seed: .teal, neutral: .slate)
+                        .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: dark))
+                        .environment(\.colorScheme, dark ? .dark : .light)
+                        .defaultAppStorage(defaults)
+                        .environment(\.layoutDirection, rtl ? .rightToLeft : .leftToRight)
+                        .environment(\.workoutRowObservation, rows.sink)
+                        .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                            onGeometry: { list.geometry = $0 },
+                            onRowFrame: { list.rowFrames[$0] = $1 }
+                        ))
+                    let host = UIHostingController(rootView: content)
+                    host.overrideUserInterfaceStyle = dark ? .dark : .light
+                    let window = UIWindow(windowScene: scene)
+                    window.frame = CGRect(x: 0, y: 0, width: width, height: 852)
+                    window.rootViewController = host
+                    window.makeKeyAndVisible()
+                    defer {
+                        host.view.endEditing(true)
+                        window.isHidden = true
+                        window.rootViewController = nil
+                    }
+                    try await Task.sleep(for: .milliseconds(350))
+                    host.view.layoutIfNeeded()
+
+                    let variant = "\(Int(width))-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")-\(rtl ? "rtl" : "ltr")"
+                    let mainID = AnyHashable(main.persistentModelID)
+                    let drop1ID = AnyHashable(drop1.persistentModelID)
+                    let drop2ID = AnyHashable(drop2.persistentModelID)
+                    let mainFrame = try XCTUnwrap(list.rowFrames[mainID], variant)
+                    let drop1Frame = try XCTUnwrap(list.rowFrames[drop1ID], variant)
+                    let drop2Frame = try XCTUnwrap(list.rowFrames[drop2ID], variant)
+
+                    let mainControls = try XCTUnwrap(rows.controls[mainID], variant)
+                    let drop1Controls = try XCTUnwrap(rows.controls[drop1ID], variant)
+                    let drop2Controls = try XCTUnwrap(rows.controls[drop2ID], variant)
+                    let mainCompletion = try XCTUnwrap(mainControls["completion"], variant)
+                    let mainMenu = try XCTUnwrap(mainControls["menu"], variant)
+
+                    func inputFrames(for rowID: AnyHashable, rowFrame: CGRect) throws -> [CGRect] {
+                        textFields(in: host.view)
+                            .filter { field in
+                                let frame = field.convert(field.bounds, to: window)
+                                return !field.isHidden && field.alpha > 0 && frame.width > 0 && rowFrame.contains(frame)
+                            }
+                            .map { $0.convert($0.bounds, to: window) }
+                            .sorted { $0.minX < $1.minX }
+                    }
+                    let mainInputs = try inputFrames(for: mainID, rowFrame: mainFrame)
+                    let drop1Inputs = try inputFrames(for: drop1ID, rowFrame: drop1Frame)
+                    let drop2Inputs = try inputFrames(for: drop2ID, rowFrame: drop2Frame)
+                    XCTAssertGreaterThanOrEqual(mainInputs.count, 2, variant)
+                    XCTAssertGreaterThanOrEqual(drop1Inputs.count, 2, variant)
+                    XCTAssertGreaterThanOrEqual(drop2Inputs.count, 2, variant)
+
+                    for subInputs in [drop1Inputs, drop2Inputs] {
+                        let subCompletion = try XCTUnwrap((subInputs == drop1Inputs ? drop1Controls : drop2Controls)["completion"], variant)
+                        let subDelete = try XCTUnwrap((subInputs == drop1Inputs ? drop1Controls : drop2Controls)["delete"], variant)
+                        XCTAssertEqual(subCompletion.midX, mainCompletion.midX, accuracy: 1.5, variant)
+                        XCTAssertEqual(subInputs[0].midX, mainInputs[0].midX, accuracy: 1.5, variant)
+                        XCTAssertEqual(subInputs[1].midX, mainInputs[1].midX, accuracy: 1.5, variant)
+                        XCTAssertEqual(subDelete.midX, mainMenu.midX, accuracy: 1.5, variant)
+                    }
+
+                    XCTAssertNil(drop1Controls["footer"], variant)
+                    let footerFrame = try XCTUnwrap(drop2Controls["footer"], variant)
+                    XCTAssertGreaterThanOrEqual(footerFrame.width, 44, variant)
+                    XCTAssertGreaterThanOrEqual(footerFrame.height, 44, variant)
+                    XCTAssertTrue(drop2Frame.insetBy(dx: -0.5, dy: -0.5).contains(footerFrame), variant)
+                    XCTAssertGreaterThanOrEqual(drop2Frame.maxY - footerFrame.maxY, 3.5, variant)
+                }
+            }
+        }
+    }
+
     func testHintedBilateralRowsShareOneAxisAtStandardPhoneWidths() async throws {
         let suite = "HintedBilateralRows.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
