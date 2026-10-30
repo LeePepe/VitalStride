@@ -366,7 +366,10 @@ final class DesignEcoSnapshotTests: XCTestCase {
             let keyboardHeight = WorkoutNumericKeyboard.preferredHeight()
             try await Self.render(
                 VStack(spacing: 0) {
-                    ActiveWorkoutView(source: .resume(workoutFixture.workout))
+                    ActiveWorkoutView(
+                        source: .resume(workoutFixture.workout),
+                        initialKeyboardVisible: true
+                    )
                         .frame(height: snapshotSize.height)
                     WorkoutNumericKeyboardContentView(
                         field: .weight, setType: .warmup, exercise: workoutFixture.exercise,
@@ -377,6 +380,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
                     )
                     .frame(height: keyboardHeight)
                 }
+                .ignoresSafeArea(.container, edges: .bottom)
                 .modelContainer(workoutFixture.container)
                 .designTheme(seed: .teal, neutral: .slate)
                 .environment(\.colorScheme, variant.colorScheme)
@@ -591,6 +595,8 @@ final class DesignEcoSnapshotTests: XCTestCase {
         window.rootViewController = host
         window.overrideUserInterfaceStyle = variant.isDark ? .dark : .light
         window.makeKeyAndVisible()
+        host.view.setNeedsLayout()
+        host.view.layoutIfNeeded()
         if showKeyboard {
             NotificationCenter.default.post(name: UIResponder.keyboardWillShowNotification, object: nil)
         }

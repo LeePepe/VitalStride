@@ -266,9 +266,14 @@ struct ActiveWorkoutView: View {
     let source: WorkoutStartSource
     private let snackbarSlotOverride: BottomSnackbarSlot?
 
-    init(source: WorkoutStartSource = .blank, snackbarSlotOverride: BottomSnackbarSlot? = nil) {
+    init(
+        source: WorkoutStartSource = .blank,
+        snackbarSlotOverride: BottomSnackbarSlot? = nil,
+        initialKeyboardVisible: Bool = false
+    ) {
         self.source = source
         self.snackbarSlotOverride = snackbarSlotOverride
+        self._isKeyboardVisible = State(initialValue: initialKeyboardVisible)
     }
 
     private func toggleLargeMode() {

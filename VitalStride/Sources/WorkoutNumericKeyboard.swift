@@ -148,9 +148,18 @@ struct WorkoutNumericKeyboardContentView: View {
                 .frame(width: 68, height: NumericKeypad.totalGridHeight)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 8)
-        .background(theme.neutrals.bg)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(
+            theme.neutrals.bg
+                .ignoresSafeArea(.all, edges: .bottom)
+        )
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(theme.neutrals.border)
+                .frame(height: 1)
+        }
         .environment(\.theme, theme)
         .environment(\.colorScheme, theme.isDark ? .dark : .light)
         .accessibilityElement(children: .contain)
@@ -206,6 +215,8 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
     /// SwiftUI hosting controller — retained so its view stays anchored while
     /// the keyboard is on-screen.
     private let host: UIHostingController<WorkoutNumericKeyboardContentView>
+    var hostingController: UIHostingController<WorkoutNumericKeyboardContentView>? { host }
+    private let bottomOverhangView = UIView()
 
     /// Height constraint applied on install, including the 44pt header.
     private var heightConstraint: NSLayoutConstraint?
@@ -299,22 +310,38 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         setUp()
     }
 
+    override convenience init(frame: CGRect) {
+        self.init(
+            field: .weight,
+            setType: .working,
+            exercise: nil,
+            recentWeightKg: nil,
+            onKeyPress: { _ in },
+            onLeftAction: { _ in },
+            onPresetReps: { _, _ in },
+            onDone: {}
+        )
+        self.frame = frame
+        setNeedsLayout()
+    }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         return nil
     }
 
     private func setUp() {
-        // Backing UIView is transparent — the hosted SwiftUI content owns the
-        // visible background (`theme.neutrals.bg`), keeping the keyboard on
-        // the DesignKit token pipeline instead of UIKit system colors.
-        backgroundColor = .clear
+        clipsToBounds = false
+        isOpaque = true
         translatesAutoresizingMaskIntoConstraints = false
+        let initialTheme = Self.resolveTheme(isDark: currentIsDark())
+        backgroundColor = UIColor(initialTheme.neutrals.bg)
 
         // A detached inputView owns its full bounds; do not import screen safe-area
         // insets into its fixed keyboard height a second time.
         host.safeAreaRegions = []
-        host.view.backgroundColor = .clear
+        host.view.backgroundColor = UIColor(initialTheme.neutrals.bg)
+        host.view.isOpaque = true
         host.view.translatesAutoresizingMaskIntoConstraints = false
         addSubview(host.view)
         NSLayoutConstraint.activate([
@@ -322,6 +349,18 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
             host.view.trailingAnchor.constraint(equalTo: trailingAnchor),
             host.view.topAnchor.constraint(equalTo: topAnchor),
             host.view.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+
+        bottomOverhangView.translatesAutoresizingMaskIntoConstraints = false
+        bottomOverhangView.isUserInteractionEnabled = false
+        bottomOverhangView.isOpaque = true
+        bottomOverhangView.backgroundColor = UIColor(initialTheme.neutrals.bg)
+        addSubview(bottomOverhangView)
+        NSLayoutConstraint.activate([
+            bottomOverhangView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            bottomOverhangView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            bottomOverhangView.topAnchor.constraint(equalTo: bottomAnchor),
+            bottomOverhangView.heightAnchor.constraint(equalToConstant: 64)
         ])
 
         let height = Self.preferredHeight()
@@ -352,25 +391,42 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
     private func refreshTheme() {
         let existing = host.rootView
         let theme = Self.resolveTheme(isDark: currentIsDark())
-        guard theme.isDark != existing.theme.isDark ||
-              theme.seed != existing.theme.seed ||
-              theme.neutral != existing.theme.neutral else {
-            return
+        if theme.isDark != existing.theme.isDark ||
+           theme.seed != existing.theme.seed ||
+           theme.neutral != existing.theme.neutral {
+            host.rootView = WorkoutNumericKeyboardContentView(
+                field: existing.field,
+                setType: existing.setType,
+                exercise: existing.exercise,
+                recentWeightKg: existing.recentWeightKg,
+                suggestedWeightKg: existing.suggestedWeightKg,
+                suggestedReps: existing.suggestedReps,
+                theme: theme,
+                onKeyPress: existing.onKeyPress,
+                onLeftAction: existing.onLeftAction,
+                onPresetReps: existing.onPresetReps,
+                onDone: existing.onDone
+            )
+            host.overrideUserInterfaceStyle = theme.isDark ? .dark : .light
         }
-        host.rootView = WorkoutNumericKeyboardContentView(
-            field: existing.field,
-            setType: existing.setType,
-            exercise: existing.exercise,
-            recentWeightKg: existing.recentWeightKg,
-            suggestedWeightKg: existing.suggestedWeightKg,
-            suggestedReps: existing.suggestedReps,
-            theme: theme,
-            onKeyPress: existing.onKeyPress,
-            onLeftAction: existing.onLeftAction,
-            onPresetReps: existing.onPresetReps,
-            onDone: existing.onDone
-        )
-        host.overrideUserInterfaceStyle = theme.isDark ? .dark : .light
+        let background = UIColor(theme.neutrals.bg)
+        backgroundColor = background
+        host.view.backgroundColor = background
+        bottomOverhangView.backgroundColor = background
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        refreshTheme()
+        layoutSubviews()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let background = UIColor(Self.resolveTheme(isDark: currentIsDark()).neutrals.bg)
+        backgroundColor = background
+        host.view.backgroundColor = background
+        bottomOverhangView.backgroundColor = background
     }
 
     // MARK: Public API — updating context between key presses
@@ -412,6 +468,11 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
             onDone: existing.onDone
         )
         host.overrideUserInterfaceStyle = currentIsDark() ? .dark : .light
+
+        let background = UIColor(Self.resolveTheme(isDark: currentIsDark()).neutrals.bg)
+        backgroundColor = background
+        host.view.backgroundColor = background
+        bottomOverhangView.backgroundColor = background
 
         let newHeight = Self.preferredHeight()
         if heightConstraint?.constant != newHeight {
