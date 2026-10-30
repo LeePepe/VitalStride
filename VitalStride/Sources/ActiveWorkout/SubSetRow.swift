@@ -9,6 +9,30 @@ import VitalUI
 import UIKit
 #endif
 
+private struct DropSetFooterButton: View {
+    let title: String
+    let theme: Theme
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            action()
+        } label: {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(theme.primary.primary)
+                .frame(minHeight: 36)
+                .padding(.horizontal, 10)
+        }
+        .frame(minWidth: 44, minHeight: 44)
+        .buttonStyle(.plain)
+        .background(theme.primary.primary.opacity(0.12), in: Capsule())
+        .contentShape(Capsule())
+        .padding(.top, 2)
+        .padding(.bottom, 6)
+    }
+}
+
 struct SubSetRow: View {
     @Environment(\.workoutRowObservation) private var rowObservation
     @Environment(\.theme) private var theme
@@ -21,6 +45,7 @@ struct SubSetRow: View {
     let recentWeightKg: Double?
     let onToggleCompleted: (_ wasCompleted: Bool) -> Void
     let onDelete: () -> Void
+    let onAddSubSet: (_ type: SetType) -> Void
 
     @State private var weightText = ""
     @State private var weightRightText = ""
@@ -28,23 +53,35 @@ struct SubSetRow: View {
     @State private var focusedField: SetField?
     @State private var inputWeightUnit: WeightUnit = .kg
 
+    init(
+        exerciseSet: ExerciseSet,
+        weightUnit: WeightUnit,
+        isLast: Bool,
+        parentSetNumber: Int,
+        exercise: Exercise?,
+        recentWeightKg: Double?,
+        onToggleCompleted: @escaping (_ wasCompleted: Bool) -> Void,
+        onDelete: @escaping () -> Void,
+        onAddSubSet: @escaping (_ type: SetType) -> Void = { _ in }
+    ) {
+        self.exerciseSet = exerciseSet
+        self.weightUnit = weightUnit
+        self.isLast = isLast
+        self.parentSetNumber = parentSetNumber
+        self.exercise = exercise
+        self.recentWeightKg = recentWeightKg
+        self.onToggleCompleted = onToggleCompleted
+        self.onDelete = onDelete
+        self.onAddSubSet = onAddSubSet
+    }
+
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 4) {
-                leadingControls
-                inputsAndCaption
-                trailingControls
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 4) {
-                    leadingControls
-                    Spacer(minLength: 0)
-                    trailingControls
-                }
-                inputsAndCaption
+        VStack(alignment: .leading, spacing: 2) {
+            mainAxis
+            if isLast {
+                footer
             }
         }
-        .padding(.leading, 8)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, minHeight: 64)
         .background(theme.inner, in: RoundedRectangle(cornerRadius: 12))
@@ -73,45 +110,57 @@ struct SubSetRow: View {
         .onChange(of: exerciseSet.isUnilateral) { _, _ in refreshInputText() }
     }
 
-    private var leadingControls: some View {
+    private var addSubSetFooterTitle: String {
+        let dropSetTitle = String(
+            localized: "添加递减组",
+            defaultValue: "递减组",
+            comment: "Add drop-set action"
+        )
+        return "+ \(dropSetTitle)"
+    }
+
+    private var mainAxis: some View {
         HStack(spacing: 4) {
+            leadingControls
+            inputsAndCaption
+            trailingControls
+        }
+        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity, minHeight: 44)
+    }
+
+    private var footer: some View {
+        DropSetFooterButton(
+            title: addSubSetFooterTitle,
+            theme: theme,
+            action: { onAddSubSet(.dropSet) }
+        )
+    }
+
+    private var leadingControls: some View {
+        Button(action: toggleCompleted) {
             Text("↳")
                 .font(.caption.weight(.bold))
                 .foregroundStyle(theme.accent)
-                .frame(width: 24)
-            Button(action: toggleCompleted) {
-                Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.neutrals.text2)
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.borderless)
-            .contentShape(Rectangle())
-            .accessibilityLabel(String(localized: "递减组完成状态", comment: "Drop-set completion"))
-            .accessibilityHint(String(localized: "双击切换完成状态", comment: "Toggle completion"))
+            Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.neutrals.text2)
         }
+        .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
+        .buttonStyle(.borderless)
+        .contentShape(Rectangle())
+        .accessibilityLabel(String(localized: "递减组完成状态", comment: "Drop-set completion"))
+        .accessibilityHint(String(localized: "双击切换完成状态", comment: "Toggle completion"))
     }
 
     private var trailingControls: some View {
-        HStack(spacing: 4) {
-            Button(role: .destructive, action: onDelete) {
-                Image(systemName: "xmark")
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(String(localized: "关闭递减组", comment: "Delete drop-set row"))
-            .accessibilityHint(String(localized: "删除此递减组", comment: "Delete drop-set hint"))
-            Menu {
-                Button(role: .destructive, action: onDelete) {
-                    Label(String(localized: "删除", comment: "Delete sub-set menu item"), systemImage: "trash")
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.borderless)
-            .contentShape(Rectangle())
-            .accessibilityLabel(String(localized: "递减组更多操作", comment: "Drop-set more actions"))
+        Button(role: .destructive, action: onDelete) {
+            Image(systemName: "xmark")
         }
+        .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
+        .buttonStyle(.borderless)
+        .contentShape(Rectangle())
+        .accessibilityLabel(String(localized: "关闭递减组", comment: "Delete drop-set row"))
+        .accessibilityHint(String(localized: "删除此递减组", comment: "Delete drop-set hint"))
     }
 
     private var inputsAndCaption: some View {
@@ -179,6 +228,7 @@ struct SubSetRow: View {
                     width: ActiveWorkoutHitTarget.numericInputSide,
                     height: ActiveWorkoutHitTarget.numericInputSide
                 )
+                .fixedSize(horizontal: true, vertical: false)
             if field.isWeightField {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
                     .font(.caption2.weight(.medium))

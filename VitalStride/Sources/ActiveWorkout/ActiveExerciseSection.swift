@@ -160,8 +160,12 @@ struct ActiveExerciseSection: View {
                         },
                         onDelete: {
                             requestDelete(exerciseSet)
+                        },
+                        onAddSubSet: { type in
+                            addSubSet(after: exerciseSet, type: type)
                         }
                     )
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                     .listRowInsets(EdgeInsets(top: 4, leading: 6, bottom: 4, trailing: 6))
                     .listRowSeparator(.hidden)
                     .listRowBackground(theme.neutrals.card)
@@ -597,6 +601,9 @@ struct ActiveExerciseSection: View {
     private func addSubSet(after parentSet: ExerciseSet, type: SetType) {
         let sets = sortedSets
         let parentIndex = sets.firstIndex(where: { $0.persistentModelID == parentSet.persistentModelID }) ?? 0
+        let mainSet = parentSet.setType.isSubSet
+            ? (sets[..<parentIndex].last(where: { !$0.setType.isSubSet }) ?? parentSet)
+            : parentSet
 
         var insertIndex = parentIndex + 1
         while insertIndex < sets.count && sets[insertIndex].setType.isSubSet {
@@ -606,11 +613,11 @@ struct ActiveExerciseSection: View {
         let adjustedWeight: Double
         let adjustedWeightRight: Double?
         if type == .dropSet {
-            adjustedWeight = parentSet.weight * 0.85
-            adjustedWeightRight = parentSet.weightRight.map { $0 * 0.85 }
+            adjustedWeight = mainSet.weight * 0.85
+            adjustedWeightRight = mainSet.weightRight.map { $0 * 0.85 }
         } else {
-            adjustedWeight = parentSet.weight * 1.15
-            adjustedWeightRight = parentSet.weightRight.map { $0 * 1.15 }
+            adjustedWeight = mainSet.weight * 1.15
+            adjustedWeightRight = mainSet.weightRight.map { $0 * 1.15 }
         }
 
         // swiftlint:disable:next identifier_name
@@ -627,7 +634,9 @@ struct ActiveExerciseSection: View {
             weightRight: adjustedWeightRight
         )
         newSet.workoutExercise = workoutExercise
-        modelContext.insert(newSet)
+        withAnimation(reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.30, dampingFraction: 0.85)) {
+            modelContext.insert(newSet)
+        }
     }
 
     /// MY-1420: entry point for every delete affordance (swipe + menu, main
@@ -672,7 +681,10 @@ struct ActiveExerciseSection: View {
             isSubSet: contexts.map { $0.exerciseSet.setType.isSubSet }
         ).map { contexts[$0].exerciseSet.persistentModelID }
 
-        let didDelete = WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
+        var didDelete = false
+        withAnimation(reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.30, dampingFraction: 0.85)) {
+            didDelete = WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
+        }
         guard didDelete else { return }
 
         pendingCascadeDeletion = nil

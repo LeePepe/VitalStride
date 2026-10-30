@@ -40,6 +40,36 @@ struct SubSetReadOnlyTests {
         #expect(source.contains("theme.accent.opacity(0.45)"))
     }
 
+    @Test("Drop-set row uses the shared 44pt grid without the duplicate menu")
+    func dropSetSharedGridContract() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SubSetRow.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        #expect(source.contains(".padding(.horizontal, 4)"))
+        #expect(source.contains("width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side"))
+        #expect(source.contains("ActiveWorkoutHitTarget.numericInputSide"))
+        #expect(source.contains(".fixedSize(horizontal: true, vertical: false)"))
+        #expect(!source.contains("Menu {"))
+        #expect(!source.contains("ViewThatFits(in: .horizontal)"))
+        #expect(source.contains("padding(.bottom, 6)"))
+    }
+
+    @Test("Drop-set insertion and removal use reduce-motion-aware transitions")
+    func dropSetSpringContract() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        #expect(source.contains(".spring(response: 0.30, dampingFraction: 0.85)"))
+        #expect(source.contains(".linear(duration: 0.12)"))
+        #expect(source.contains(".transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top))"))
+    }
+
     // MARK: - Cascade: parent main set deletion removes its sub-sets
 
     @Test("Deleting parent main set cascades to a single Drop Set sub-set")
