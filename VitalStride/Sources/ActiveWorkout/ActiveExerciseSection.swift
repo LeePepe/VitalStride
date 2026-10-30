@@ -164,7 +164,7 @@ struct ActiveExerciseSection: View {
                     )
                     .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                     .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                    .listRowBackground(theme.neutrals.card)
                     .onGeometryChange(for: CGRect.self) { geometry in
                         geometry.frame(in: .global)
                     } action: { frame in
@@ -208,7 +208,7 @@ struct ActiveExerciseSection: View {
                     // Each set is its own solid item; the exercise has no outer card.
                     .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                     .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                    .listRowBackground(theme.neutrals.card)
                     .onGeometryChange(for: CGRect.self) { geometry in
                         geometry.frame(in: .global)
                     } action: { frame in
@@ -267,6 +267,8 @@ struct ActiveExerciseSection: View {
                 ))
             }
         }
+        .listRowBackground(theme.neutrals.card)
+        .background(theme.neutrals.card)
     }
 
     /// MY-1420: `confirmationDialog(_:isPresented:presenting:)` needs a Bool
@@ -303,9 +305,9 @@ struct ActiveExerciseSection: View {
         .padding(.horizontal, 8)
         .frame(maxWidth: .infinity, minHeight: 44, maxHeight: 44, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
-        .background(alignment: .top) {
-            theme.neutrals.card.frame(maxWidth: .infinity, minHeight: 64, maxHeight: 64)
-        }
+        // The header owns only its 44pt frame. Row backgrounds own List spacing,
+        // so the first card’s top stroke and rounded corners remain uncovered.
+        .background(theme.neutrals.card)
         .listRowInsets(EdgeInsets())
         .listRowBackground(theme.neutrals.card)
         .zIndex(1)

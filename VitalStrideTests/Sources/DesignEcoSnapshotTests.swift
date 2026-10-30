@@ -17,6 +17,9 @@ final class DesignEcoSnapshotTests: XCTestCase {
     private static let snapshotNames = [
         "workout-normal-keyboard",
         "workout-normal-keyboard-dark",
+        "workout-large-keyboard",
+        "workout-large-keyboard-dark",
+        "exercise-header-pinned-scroll",
         "workout-large-font",
         "workout-large-font-dark",
         "workout-rtl",
@@ -33,7 +36,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         "exercise-picker-rtl",
     ]
 
-    func testRendersRoundThreeSnapshots() throws {
+    func testRendersRoundThreeSnapshots() async throws {
         let outputDirectory = try Self.prepareOutputDirectory()
         let workoutFixture = try Self.makeWorkoutFixture()
         let defaultsSuite = "DesignEcoSnapshotTests.\(UUID().uuidString)"
@@ -41,7 +44,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: defaultsSuite) }
 
         for variant in [SnapshotVariant.light, .dark] {
-            try Self.renderRoundThreeScreens(
+            try await Self.renderRoundThreeScreens(
                 variant: variant,
                 outputDirectory: outputDirectory,
                 workoutFixture: workoutFixture,
@@ -196,13 +199,15 @@ final class DesignEcoSnapshotTests: XCTestCase {
         outputDirectory: URL,
         workoutFixture: WorkoutFixture,
         defaults: UserDefaults
-    ) throws {
+    ) async throws {
         let suffix = variant.suffix
+        if variant == .light {
+            try await Self.renderPinnedHeader(outputDirectory: outputDirectory, defaults: defaults)
+        }
         for largeMode in [false, true] {
             defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
-            try Self.render(
+            try await Self.render(
                 ActiveWorkoutView(source: .resume(workoutFixture.workout))
-                    .frame(height: 560)
                     .modelContainer(workoutFixture.container)
                     .designTheme(seed: .teal, neutral: .slate)
                     .environment(\.colorScheme, variant.colorScheme)
@@ -213,42 +218,45 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 variant: variant
             )
         }
-        defaults.set(false, forKey: "activeWorkoutLargeMode")
-        try Self.render(
-            VStack(spacing: 0) {
-                ActiveWorkoutView(source: .resume(workoutFixture.workout))
-                    .frame(height: 560)
-                WorkoutNumericKeyboardContentView(
-                    field: .weight,
-                    setType: .working,
-                    exercise: workoutFixture.exercise,
-                    recentWeightKg: 40,
-                    theme: Theme(seed: .teal, neutral: .slate, isDark: variant.isDark),
-                    onKeyPress: { _ in },
-                    onLeftAction: { _ in },
-                    onPresetReps: { _, _ in },
-                    onDone: {}
-                )
-                .frame(height: 292)
-            }
-            .modelContainer(workoutFixture.container)
-            .designTheme(seed: .teal, neutral: .slate)
-            .environment(\.colorScheme, variant.colorScheme)
-            .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
-            .defaultAppStorage(defaults),
-            named: "workout-normal-keyboard\(suffix)",
-            in: outputDirectory,
-            variant: variant
-        )
+        for largeMode in [false, true] {
+            defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+            // Tall component composite: TK3's baseline rows retain their
+            // existing multi-line layout until downstream TK4/TK5 land.
+            let keyboardHeight = WorkoutNumericKeyboard.preferredHeight()
+            try await Self.render(
+                VStack(spacing: 0) {
+                    ActiveWorkoutView(source: .resume(workoutFixture.workout))
+                        .frame(height: snapshotSize.height)
+                    WorkoutNumericKeyboardContentView(
+                        field: .weight, setType: .warmup, exercise: workoutFixture.exercise,
+                        recentWeightKg: 40,
+                        theme: Theme(seed: .teal, neutral: .slate, isDark: variant.isDark),
+                        onKeyPress: { _ in }, onLeftAction: { _ in },
+                        onPresetReps: { _, _ in }, onDone: {}
+                    )
+                    .frame(height: keyboardHeight)
+                }
+                .modelContainer(workoutFixture.container)
+                .designTheme(seed: .teal, neutral: .slate)
+                .environment(\.colorScheme, variant.colorScheme)
+                .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                .defaultAppStorage(defaults),
+                named: "workout-\(largeMode ? "large" : "normal")-keyboard\(suffix)",
+                in: outputDirectory,
+                variant: variant,
+                showKeyboard: true,
+                canvasSize: CGSize(width: snapshotSize.width, height: snapshotSize.height + keyboardHeight)
+            )
+        }
 
         defaults.set(true, forKey: "activeWorkoutLargeMode")
-        try Self.render(
+        try await Self.render(
             ActiveWorkoutView(source: .resume(workoutFixture.workout))
                 .modelContainer(workoutFixture.container)
                 .designTheme(seed: .teal, neutral: .slate)
                 .environment(\.colorScheme, variant.colorScheme)
-            .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
-            .defaultAppStorage(defaults),
+                .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                .defaultAppStorage(defaults),
             named: "workout-large-font\(suffix)",
             in: outputDirectory,
             variant: variant
@@ -256,7 +264,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
 
         defaults.set(false, forKey: "activeWorkoutLargeMode")
         if variant == .light {
-            try Self.render(
+            try await Self.render(
                 ActiveWorkoutView(source: .resume(workoutFixture.workout))
                     .modelContainer(workoutFixture.container)
                     .designTheme(seed: .teal, neutral: .slate)
@@ -270,9 +278,8 @@ final class DesignEcoSnapshotTests: XCTestCase {
             )
             for largeMode in [false, true] {
                 defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
-                try Self.render(
+                try await Self.render(
                     ActiveWorkoutView(source: .resume(workoutFixture.workout))
-                        .frame(height: 560)
                         .modelContainer(workoutFixture.container)
                         .designTheme(seed: .teal, neutral: .slate)
                         .environment(\.colorScheme, .light)
@@ -286,7 +293,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
             }
         }
 
-        try Self.render(
+        try await Self.render(
             ExerciseSubstituteSheet(
                 state: .results([
                     .init(
@@ -320,7 +327,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         )
 
         let pickerContainer = try Self.makePickerContainer()
-        try Self.render(
+        try await Self.render(
             ExercisePickerView(onConfirm: { _ in })
                 .modelContainer(pickerContainer)
                 .designTheme(seed: .teal, neutral: .slate)
@@ -332,7 +339,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         )
 
         if variant == .light {
-            try Self.render(
+            try await Self.render(
                 ExercisePickerView(onConfirm: { _ in })
                     .modelContainer(pickerContainer)
                     .designTheme(seed: .teal, neutral: .slate)
@@ -346,16 +353,53 @@ final class DesignEcoSnapshotTests: XCTestCase {
         }
     }
 
+    private static func renderPinnedHeader(outputDirectory: URL, defaults: UserDefaults) async throws {
+        let fixture = try Self.makeWorkoutFixture()
+        let owner = try XCTUnwrap(fixture.workout.exercises?.first { $0.order == 0 })
+        for order in 2..<10 {
+            let set = ExerciseSet(order: order, weight: 40, reps: 10)
+            set.workoutExercise = owner
+            fixture.container.mainContext.insert(set)
+        }
+        try fixture.container.mainContext.save()
+        defaults.set(false, forKey: "activeWorkoutLargeMode")
+        let frames = HeaderFrames()
+        let content = ActiveWorkoutView(source: .resume(fixture.workout))
+            .modelContainer(fixture.container)
+            .designTheme(seed: .teal, neutral: .slate)
+            .environment(\.colorScheme, .dark)
+            .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: true))
+            .defaultAppStorage(defaults)
+            .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                onGeometry: { frames.geometry = ($0.listFrame, $0.contentOffset) },
+                onRowFrame: { frames.rows[$0] = $1 },
+                onHeaderFrame: { frames.headers[$0] = $1 }
+            ))
+        try await Self.render(content, named: "exercise-header-pinned-scroll", in: outputDirectory, variant: .dark) {
+            host, window in
+            let list = try XCTUnwrap(frames.geometry?.listFrame)
+            let scroll = try XCTUnwrap(Self.descendants(of: host.view).compactMap { $0 as? UIScrollView }.first {
+                abs($0.convert($0.bounds, to: window).minX - list.minX) < 2 && $0.contentSize.height > $0.bounds.height
+            })
+            let first = try XCTUnwrap((owner.sets ?? []).first { $0.order == 0 })
+            let row = try XCTUnwrap(frames.rows[first.persistentModelID])
+            scroll.setContentOffset(CGPoint(x: 0, y: scroll.contentOffset.y + row.midY - list.minY - 22), animated: false)
+            try await Task.sleep(for: .milliseconds(350))
+            host.view.layoutIfNeeded()
+            let header = try XCTUnwrap(frames.headers[owner.persistentModelID])
+            XCTAssertEqual(header.minY, list.minY, accuracy: 2)
+            XCTAssertTrue(frames.rows.values.contains { $0.intersects(header) },
+                          "A real row must scroll underneath the pinned header")
+        }
+    }
+
     private static func prepareOutputDirectory() throws -> URL {
         let directory: URL
         if let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"]
             ?? ProcessInfo.processInfo.environment["SIMCTL_CHILD_DESIGN_ECO_SNAPSHOT_DIR"] {
             directory = URL(fileURLWithPath: path, isDirectory: true)
         } else {
-            directory = URL(
-                fileURLWithPath: "/Users/lee/Development/handoff/design-eco-r4/snapshots/TK3-VS-HEADER",
-                isDirectory: true
-            )
+            directory = FileManager.default.temporaryDirectory
         }
         try FileManager.default.createDirectory(
             at: directory,
@@ -368,41 +412,42 @@ final class DesignEcoSnapshotTests: XCTestCase {
         _ content: Content,
         named name: String,
         in directory: URL,
-        variant: SnapshotVariant
-    ) throws {
+        variant: SnapshotVariant,
+        showKeyboard: Bool = false,
+        canvasSize: CGSize? = nil,
+        prepare: ((UIViewController, UIWindow) async throws -> Void)? = nil
+    ) async throws {
         let host = UIHostingController(rootView: content)
         host.overrideUserInterfaceStyle = variant.isDark ? .dark : .light
-        host.view.frame = CGRect(origin: .zero, size: snapshotSize)
-        let window = UIWindow(frame: host.view.frame)
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let renderSize = canvasSize ?? scene.coordinateSpace.bounds.size
+        host.view.frame = CGRect(origin: .zero, size: renderSize)
+        let window = UIWindow(windowScene: scene)
+        window.frame = host.view.frame
         window.rootViewController = host
         window.overrideUserInterfaceStyle = variant.isDark ? .dark : .light
         window.makeKeyAndVisible()
-        if name.hasPrefix("workout-normal-keyboard") {
-            NotificationCenter.default.post(
-                name: UIResponder.keyboardWillShowNotification,
-                object: nil
-            )
+        if showKeyboard {
+            NotificationCenter.default.post(name: UIResponder.keyboardWillShowNotification, object: nil)
         }
         defer {
-            if name.hasPrefix("workout-normal-keyboard") {
-                NotificationCenter.default.post(
-                    name: UIResponder.keyboardWillHideNotification,
-                    object: nil
-                )
+            if showKeyboard {
+                NotificationCenter.default.post(name: UIResponder.keyboardWillHideNotification, object: nil)
             }
+            host.view.endEditing(true)
             window.rootViewController = nil
             window.isHidden = true
         }
 
         host.view.setNeedsLayout()
         host.view.layoutIfNeeded()
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.35))
+        try await Task.sleep(for: .milliseconds(350))
         host.view.layoutIfNeeded()
-
+        try await prepare?(host, window)
         let format = UIGraphicsImageRendererFormat()
         format.scale = 2
         format.opaque = true
-        let image = UIGraphicsImageRenderer(size: snapshotSize, format: format).image { _ in
+        let image = UIGraphicsImageRenderer(size: renderSize, format: format).image { _ in
             host.view.drawHierarchy(in: host.view.bounds, afterScreenUpdates: true)
         }
         let data = try XCTUnwrap(image.pngData())
@@ -423,6 +468,10 @@ final class DesignEcoSnapshotTests: XCTestCase {
             to: directory.appendingPathComponent("\(name).png"),
             options: .atomic
         )
+    }
+
+    private static func descendants(of view: UIView) -> [UIView] {
+        view.subviews + view.subviews.flatMap { descendants(of: $0) }
     }
 
     private struct WorkoutFixture {
@@ -447,9 +496,10 @@ final class DesignEcoSnapshotTests: XCTestCase {
             equipment: .cable
         )
         let sets = [
-            ExerciseSet(order: 0, weight: 40, reps: 10, setType: .warmup, isCompleted: true),
-            ExerciseSet(order: 1, weight: 42.5, reps: 8, rpe: 8),
-            ExerciseSet(order: 2, weight: 36, reps: 8, setType: .dropSet),
+            // Combine the available badges on one main row so Warm-up,
+            // RPE, advice and its drop-set fit together even in Large Mode.
+            ExerciseSet(order: 0, weight: 40, reps: 10, setType: .warmup, isCompleted: true, rpe: 8),
+            ExerciseSet(order: 1, weight: 36, reps: 8, setType: .dropSet),
         ]
         let secondSet = ExerciseSet(order: 0, weight: 35, reps: 12, isCompleted: true)
         let workoutExercise = WorkoutExercise(order: 0, exercise: exercise, sets: sets)
@@ -472,7 +522,25 @@ final class DesignEcoSnapshotTests: XCTestCase {
         for set in sets + [secondSet] {
             context.insert(set)
         }
+        // A completed prior workout for the same Exercise identity is the input
+        // to PreviousSetLookup and the production smart-progression chip.
+        let priorStart = workout.startDate.addingTimeInterval(-86_400)
+        let priorSets = (0..<2).map {
+            ExerciseSet(order: $0, weight: 40, reps: 12, isCompleted: true)
+        }
+        let priorExercise = WorkoutExercise(order: 0, exercise: exercise, sets: priorSets)
+        let priorWorkout = Workout(type: .strength, startDate: priorStart,
+                                   endDate: priorStart.addingTimeInterval(3_600), exercises: [priorExercise])
+        context.insert(priorWorkout)
+        context.insert(priorExercise)
+        for set in priorSets { context.insert(set) }
         try context.save()
+        let history = try XCTUnwrap(PreviousSetLookup.previousMainSet(
+            currentWorkout: workout, exercise: exercise, mainSetIndex: 0, in: context
+        ))
+        XCTAssertNotNil(SmartProgressionAdvisor.suggest(
+            previousMainSets: [history], userPreferredRepRange: 8...12, muscleGroup: exercise.muscleGroup
+        ))
         return WorkoutFixture(container: container, workout: workout, exercise: exercise)
     }
 
