@@ -925,10 +925,15 @@ struct ActiveWorkoutView: View {
     /// Type size.
     @ViewBuilder
     private var undoSnackbarEnvelope: some View {
+        let overrideMessage = snackbarSlotOverride == .undo
+            ? String(
+                localized: "active_workout.set_delete.undo_action_a11y",
+                defaultValue: "Undo deletion",
+                comment: "Undo set deletion a11y label"
+            )
+            : nil
         ActiveWorkoutSnackbarLayout.undoEnvelope(
-            message: snackbarSlotOverride == .undo
-                ? (undoController.pending?.message ?? "已删除第 1 组")
-                : undoController.pending?.message,
+            message: undoController.pending?.message ?? overrideMessage,
             undoTitle: String(
                 localized: "active_workout.set_delete.undo_action",
                 defaultValue: "Undo",

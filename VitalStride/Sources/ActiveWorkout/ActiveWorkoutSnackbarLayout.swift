@@ -155,14 +155,14 @@ enum ActiveWorkoutSnackbarLayout {
 
     // MARK: - Shared slot envelope (MY-1446)
 
-    /// Shared constant-height envelope used by both bottom and top snackbar
-    /// layouts. Both undo and rest content are ALWAYS laid out in a ZStack.
-    /// Only the active branch is rendered. Inactive branches contribute no
-    /// intrinsic height, so `.none` is a true zero-height slot.
     static func usesSpatialSlotTransition(reduceMotion: Bool) -> Bool {
         !reduceMotion
     }
 
+    /// Shared envelope used by both bottom and top snackbar layouts.
+    /// `.none` renders a zero-height `EmptyView`. Active undo and rest slots
+    /// lay out both branches in a shared ZStack for equal active height,
+    /// exposing only the active branch via `accessibilityRepresentation`.
     @ViewBuilder
     @MainActor
     static func slotEnvelope<UndoContent: View, RestContent: View>(
@@ -211,9 +211,21 @@ enum ActiveWorkoutSnackbarLayout {
                 undoContent()
                     .opacity(snackbarSlot == .undo ? 1 : 0)
                     .allowsHitTesting(snackbarSlot == .undo)
+                    .accessibilityHidden(snackbarSlot != .undo)
                 restContent()
                     .opacity(snackbarSlot == .rest ? 1 : 0)
                     .allowsHitTesting(snackbarSlot == .rest)
+                    .accessibilityHidden(snackbarSlot != .rest)
+            }
+            .accessibilityRepresentation {
+                switch snackbarSlot {
+                case .undo:
+                    undoContent()
+                case .rest:
+                    restContent()
+                case .none:
+                    EmptyView()
+                }
             }
             .transition(spatialTransition
                 ? .move(edge: .bottom).combined(with: .opacity)
