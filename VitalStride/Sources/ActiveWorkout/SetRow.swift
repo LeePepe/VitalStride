@@ -259,11 +259,16 @@ struct SetRow: View {
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            rowContent(variant: largeMode ? .large : .normal)
-            rowContent(variant: .largeCompact)
-            stackedRowContent
+            rowContent(variant: largeMode ? .large : .normal, compact: false)
+            rowContent(variant: .largeCompact, compact: false)
+            rowContent(variant: .normal, compact: false)
+            rowContent(variant: .normal, compact: true)
+            if exerciseSet.isUnilateral {
+                stackedRowContent
+            }
         }
-        .padding(6)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity, minHeight: 56)
         // Only this background handles completion. Inputs and buttons above it
         // own their touches, so editing or opening More never completes a set.
@@ -296,11 +301,11 @@ struct SetRow: View {
         }
     }
 
-    private func rowContent(variant: LargeWorkoutFieldWidth.Variant) -> some View {
-        HStack(alignment: .center, spacing: 4) {
+    private func rowContent(variant: LargeWorkoutFieldWidth.Variant, compact: Bool) -> some View {
+        HStack(alignment: .center, spacing: compact ? 2 : 4) {
             completionButton
-            inputFields(variant: variant)
-            inlineMetadata
+            inputFields(variant: variant, compact: compact)
+            inlineMetadata(compact: compact)
             Spacer(minLength: 0)
             moreMenu
         }
@@ -315,32 +320,33 @@ struct SetRow: View {
             }
             HStack(alignment: .center, spacing: 4) {
                 inputFields(variant: .normal)
-                inlineMetadata
+                inlineMetadata()
             }
         }
     }
 
-    private func inputFields(variant: LargeWorkoutFieldWidth.Variant) -> some View {
+    private func inputFields(variant: LargeWorkoutFieldWidth.Variant, compact: Bool = false) -> some View {
         let weightWidth = exerciseSet.isUnilateral
             ? LargeWorkoutFieldWidth.unilateralWeight(variant)
             : LargeWorkoutFieldWidth.bilateralWeight(variant)
-        return HStack(spacing: 4) {
+        return HStack(spacing: compact ? 2 : 4) {
             let advice = smartProgressionAdvice()
             weightBox(binding: $weightText, field: .weight, width: weightWidth,
                       side: exerciseSet.isUnilateral ? "L" : String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"),
-                      suggestion: advice)
+                      suggestion: advice, compact: compact)
             if exerciseSet.isUnilateral {
-                weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice)
+                weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice, compact: compact)
             }
-            repsField(width: variant == .large ? 64 : ActiveWorkoutHitTarget.numericInputSide, suggestion: advice)
+            repsField(width: compact ? 45 : (variant == .large ? 64 : ActiveWorkoutHitTarget.numericInputSide), suggestion: advice, compact: compact)
         }
-        .fixedSize(horizontal: true, vertical: false)
+        .fixedSize(horizontal: !compact, vertical: false)
     }
 
-    private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?, suggestion: ProgressionAdvice?) -> some View {
+    private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?, suggestion: ProgressionAdvice?, compact: Bool = false) -> some View {
         let isTotal = !exerciseSet.isUnilateral && field == .weight
-        return HStack(spacing: 2) {
-            if let side {
+        let fieldWidth = compact ? 45 : max(ActiveWorkoutHitTarget.numericInputSide, width - 28)
+        return HStack(spacing: compact ? 1 : 2) {
+            if let side, !(compact && !exerciseSet.isUnilateral) {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: side)
                     .font(.caption2.weight(isTotal ? .semibold : .bold))
                     .fixedSize()
@@ -348,7 +354,7 @@ struct SetRow: View {
                     .allowsHitTesting(false)
             }
             weightField(
-                binding: binding, field: field, width: max(ActiveWorkoutHitTarget.numericInputSide, width - 28),
+                binding: binding, field: field, width: fieldWidth,
                 a11yLabel: side == nil
                     ? String(localized: "第 \(index + 1) 组重量", comment: "Set weight")
                     : isTotal
@@ -359,12 +365,14 @@ struct SetRow: View {
                 a11yHint: String(localized: "输入重量数值", comment: "Enter weight"),
                 suggestion: suggestion
             )
-            WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(theme.neutrals.text3)
-                .allowsHitTesting(false)
+            if !(compact && !exerciseSet.isUnilateral) {
+                WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(theme.neutrals.text3)
+                    .allowsHitTesting(false)
+            }
         }
-        .padding(.horizontal, 2)
+        .padding(.horizontal, compact ? 1 : 2)
         .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             if focusedField == field {
@@ -372,11 +380,21 @@ struct SetRow: View {
                     .stroke(theme.accent, lineWidth: 1.5)
             }
         }
-        .fixedSize(horizontal: true, vertical: false)
+        .fixedSize(horizontal: compact ? false : true, vertical: false)
     }
 
     private var moreMenu: some View {
         Menu {
+            if let advice = smartProgressionAdvice() {
+                Button {
+                    fillFromSuggestion(advice)
+                } label: {
+                    Label(
+                        String(localized: "workout.keyboard.ai_suggest", defaultValue: "✨ AI", comment: "Apply smart progression suggestion"),
+                        systemImage: "sparkles"
+                    )
+                }
+            }
             Button { showingRPEDialog = true } label: {
                 Label(String(localized: "workout.row.set_rpe", defaultValue: "Set RPE", comment: "Open RPE dialog"),
                       systemImage: "gauge.medium")
@@ -423,40 +441,71 @@ struct SetRow: View {
     /// Set-type badge in the SEED family (never semantic green/amber/red) so it
     /// doesn't collide with the orange rest-timer / success completion. Rendered
     /// only for non-working set types (warmup / drop-set / pyramid).
-    private func setTypePill(_ type: SetType) -> some View {
+    private func setTypePill(_ type: SetType, compact: Bool = false) -> some View {
         let color = categoryColor(setTypeCategoryIndex(type), theme: theme)
         return Text(type.displayName)
-            .font(TypeScale.meta)
-            .fontWeight(.medium)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 1)
+            .font(compact ? .caption2.weight(.semibold) : TypeScale.meta.weight(.medium))
+            .padding(.horizontal, compact ? 4 : 6)
+            .padding(.vertical, compact ? 2 : 1)
             .background(color.opacity(0.16))
             .foregroundStyle(color)
             .clipShape(Capsule())
             .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
+            .minimumScaleFactor(compact ? 0.7 : 1)
+            .fixedSize(horizontal: !compact, vertical: false)
+            .frame(minWidth: compact ? 28 : 0)
+            .frame(minWidth: compact ? 28 : 0)
     }
 
     @ViewBuilder
-    private var inlineMetadata: some View {
-        if exerciseSet.setType != .working {
-            setTypePill(exerciseSet.setType).allowsHitTesting(false)
-        }
-        if let rpe = exerciseSet.rpe {
-            rpePill(rpe).allowsHitTesting(false)
+    private func inlineMetadata(compact: Bool = false) -> some View {
+        if compact {
+            if exerciseSet.setType != .working, let rpe = exerciseSet.rpe {
+                Text(
+                    "\(exerciseSet.setType.displayName) R\(rpe)"
+                )
+                .font(.caption2.weight(.semibold).monospacedDigit())
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+                .foregroundStyle(categoryColor(setTypeCategoryIndex(exerciseSet.setType), theme: theme))
+                .background(categoryColor(setTypeCategoryIndex(exerciseSet.setType), theme: theme).opacity(0.16), in: Capsule())
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .allowsHitTesting(false)
+            } else {
+                if exerciseSet.setType != .working {
+                    setTypePill(exerciseSet.setType, compact: true).allowsHitTesting(false)
+                }
+                if let rpe = exerciseSet.rpe {
+                    rpePill(rpe, compact: true).allowsHitTesting(false)
+                }
+            }
+            if let advice = smartProgressionAdvice() {
+                smartProgressionChip(advice, compact: true)
+            }
+        } else {
+            if exerciseSet.setType != .working {
+                setTypePill(exerciseSet.setType).allowsHitTesting(false)
+            }
+            if let rpe = exerciseSet.rpe {
+                rpePill(rpe).allowsHitTesting(false)
+            }
+            if let advice = smartProgressionAdvice() {
+                smartProgressionChip(advice)
+            }
         }
     }
 
-    private func rpePill(_ rpe: Int) -> some View {
+    private func rpePill(_ rpe: Int, compact: Bool = false) -> some View {
         Text(String(format: String(localized: "workout.row.rpe_value", defaultValue: "RPE %lld", comment: "Read-only recorded exertion"), Int64(rpe)))
-            .font(TypeScale.meta)
-            .fontWeight(.medium)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
+            .font(compact ? .caption2.weight(.semibold).monospacedDigit() : TypeScale.meta.weight(.medium).monospacedDigit())
+            .padding(.horizontal, compact ? 4 : 6)
+            .padding(.vertical, compact ? 2 : 3)
             .background(theme.primary.primary.opacity(0.12), in: Capsule())
             .foregroundStyle(theme.primary.primary)
             .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
+            .minimumScaleFactor(compact ? 0.7 : 1)
+            .fixedSize(horizontal: !compact, vertical: false)
     }
 
     /// Stable seed-family color index per set type (0..4 band from ProtoKit's
@@ -496,29 +545,14 @@ struct SetRow: View {
             let displayWeight = weightUnit == .lb
                 ? advice.suggestedWeight * 2.20462
                 : advice.suggestedWeight
-            return String(
-                format: String(
-                    localized: "建议 %1$@",
-                    defaultValue: "建议 %1$@",
-                    comment: "Inline weight recommendation placeholder"
-                ),
-                formatCaptionWeight(displayWeight)
-            )
+            return formatCaptionWeight(displayWeight)
         } ?? ""
         let weightHint = suggestion.map { advice in
-            let displayWeight = weightUnit == .lb
-                ? advice.suggestedWeight * 2.20462
-                : advice.suggestedWeight
+            _ = advice
             return String(
-                format: String(
-                    localized: "%1$@，建议 %2$@%3$@ × %4$lld",
-                    defaultValue: "%1$@，建议 %2$@%3$@ × %4$lld",
-                    comment: "Weight input accessibility hint with progressive overload recommendation"
-                ),
-                a11yHint,
-                formatCaptionWeight(displayWeight),
-                weightUnit.rawValue,
-                Int64(advice.suggestedReps)
+                localized: "active_workout.smart_progression.chip_a11y_hint",
+                defaultValue: "Double-tap to fill weight and reps with the suggestion.",
+                comment: "Weight input accessibility hint for a smart progression suggestion"
             )
         } ?? a11yHint
         #if canImport(UIKit) && !os(macOS)
@@ -550,6 +584,11 @@ struct SetRow: View {
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(weightHint)
+        .accessibilityAction(named: String(localized: "workout.keyboard.ai_suggest", defaultValue: "✨ AI", comment: "Apply smart progression suggestion")) {
+            if let advice = suggestion {
+                fillFromSuggestion(advice)
+            }
+        }
         .onChange(of: binding.wrappedValue) { _, newValue in
             let filtered = filterDecimalInput(newValue)
             if filtered != newValue { binding.wrappedValue = filtered }
@@ -571,6 +610,11 @@ struct SetRow: View {
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(weightHint)
+        .accessibilityAction(named: String(localized: "workout.keyboard.ai_suggest", defaultValue: "✨ AI", comment: "Apply smart progression suggestion")) {
+            if let advice = suggestion {
+                fillFromSuggestion(advice)
+            }
+        }
         .onChange(of: binding.wrappedValue) { _, newValue in
             let filtered = filterDecimalInput(newValue)
             if filtered != newValue { binding.wrappedValue = filtered }
@@ -585,25 +629,14 @@ struct SetRow: View {
     }
 
     @ViewBuilder
-    private func repsField(width: CGFloat, suggestion: ProgressionAdvice?) -> some View {
-        let repsPlaceholder = suggestion.map { advice in
-            String(
-                format: String(
-                    localized: "建议 %1$lld",
-                    defaultValue: "建议 %1$lld",
-                    comment: "Inline reps recommendation placeholder"
-                ),
-                Int64(advice.suggestedReps)
-            )
-        } ?? ""
+    private func repsField(width: CGFloat, suggestion: ProgressionAdvice?, compact: Bool = false) -> some View {
+        let repsPlaceholder = suggestion.map { "\($0.suggestedReps)" } ?? ""
         let repsHint = suggestion.map { advice in
-            String(
-                format: String(
-                    localized: "输入次数，建议 %1$lld",
-                    defaultValue: "输入次数，建议 %1$lld",
-                    comment: "Reps input accessibility hint with progressive overload recommendation"
-                ),
-                Int64(advice.suggestedReps)
+            _ = advice
+            return String(
+                localized: "active_workout.smart_progression.chip_a11y_hint",
+                defaultValue: "Double-tap to fill weight and reps with the suggestion.",
+                comment: "Reps input accessibility hint for a smart progression suggestion"
             )
         } ?? String(localized: "输入次数", comment: "Enter reps hint")
         #if canImport(UIKit) && !os(macOS)
@@ -636,17 +669,26 @@ struct SetRow: View {
         .modifier(NormalModeHitTargetPadding(active: !largeMode))
         .accessibilityLabel(String(localized: "第 \(index + 1) 组次数", comment: "Set reps a11y label"))
         .accessibilityHint(repsHint)
+        .accessibilityAction(named: String(localized: "workout.keyboard.ai_suggest", defaultValue: "✨ AI", comment: "Apply smart progression suggestion")) {
+            if let advice = suggestion {
+                fillFromSuggestion(advice)
+            }
+        }
         .onChange(of: repsText) { _, newValue in
             let filtered = newValue.filter { $0.isNumber }
             if filtered != newValue { repsText = filtered }
             syncRepsToModel()
             noteSuggestionFieldEdit()
         }
-        WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: .reps, kind: "unit",
-                             text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
-            .font(.caption2.weight(.medium))
-            .foregroundStyle(theme.neutrals.text3)
-            .allowsHitTesting(false)
+        if !(compact && !exerciseSet.isUnilateral) {
+            if !(compact && !exerciseSet.isUnilateral) {
+                WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: .reps, kind: "unit",
+                                         text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(theme.neutrals.text3)
+                    .allowsHitTesting(false)
+            }
+        }
         }
         .padding(.horizontal, 2)
         .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
@@ -673,7 +715,12 @@ struct SetRow: View {
                 .allowsHitTesting(false)
         }
         .accessibilityLabel(String(localized: "第 \(index + 1) 组次数", comment: "Set reps a11y label"))
-        .accessibilityHint(String(localized: "输入次数", comment: "Enter reps hint"))
+        .accessibilityHint(repsHint)
+        .accessibilityAction(named: String(localized: "workout.keyboard.ai_suggest", defaultValue: "✨ AI", comment: "Apply smart progression suggestion")) {
+            if let advice = suggestion {
+                fillFromSuggestion(advice)
+            }
+        }
         .onChange(of: repsText) { _, newValue in
             let filtered = newValue.filter { $0.isNumber }
             if filtered != newValue { repsText = filtered }
@@ -803,7 +850,7 @@ struct SetRow: View {
     /// The chip is styled as a rounded capsule with a `sparkles` accessory
     /// to distinguish it from the tertiary "上次" caption above it.
     @ViewBuilder
-    private func smartProgressionChip(_ advice: ProgressionAdvice) -> some View {
+    private func smartProgressionChip(_ advice: ProgressionAdvice, compact: Bool = false) -> some View {
         Button {
             fillFromSuggestion(advice)
         } label: {
@@ -815,11 +862,22 @@ struct SetRow: View {
             // — a regression that removes or shrinks the frame anywhere
             // along this path fails the test loudly.
             Self.smartProgressionChipHitTargetContainer {
-                smartProgressionChipLabel(advice)
+                smartProgressionChipLabel(advice, compact: compact)
             }
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            String(
+                format: String(
+                    localized: "active_workout.smart_progression.chip_format",
+                    defaultValue: "Suggested %1$@ × %2$lld",
+                    comment: "Full spoken label for a smart progression suggestion"
+                ),
+                smartProgressionWeightSegment(advice.suggestedWeight),
+                Int64(advice.suggestedReps)
+            ) + ". " + advice.reason
+        )
         .accessibilityHint(
             String(
                 localized: "active_workout.smart_progression.chip_a11y_hint",
@@ -849,40 +907,62 @@ struct SetRow: View {
     }
 
     @ViewBuilder
-    private func smartProgressionChipLabel(_ advice: ProgressionAdvice) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "sparkles")
-                .font(.caption2)
-                .foregroundStyle(theme.primary.primary)
-                .accessibilityHidden(true)
-            Text(
-                String(
-                    format: String(
-                        localized: "active_workout.smart_progression.chip_format",
-                        defaultValue: "Suggested %1$@ × %2$lld",
-                        comment: "SetRow smart-progression chip label. %1$@ is the formatted weight+unit (e.g. \"60kg\"), %2$lld is the reps count. Cataloged in Localizable.xcstrings by 006 T007."
-                    ),
-                    smartProgressionWeightSegment(advice.suggestedWeight),
-                    Int64(advice.suggestedReps)
+    private func smartProgressionChipLabel(_ advice: ProgressionAdvice, compact: Bool = false) -> some View {
+        if compact {
+            let displayWeight = weightUnit == .lb
+                ? advice.suggestedWeight * 2.20462
+                : advice.suggestedWeight
+            HStack(spacing: 2) {
+                Image(systemName: "sparkles")
+                    .font(.caption2)
+                    .foregroundStyle(theme.primary.primary)
+                    .accessibilityHidden(true)
+                Text("\(formatCaptionWeight(displayWeight))×\(advice.suggestedReps)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(theme.neutrals.text1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(minWidth: 36)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(theme.primary.primary.opacity(0.12)))
+            .contentShape(Capsule())
+        } else {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.caption2)
+                    .foregroundStyle(theme.primary.primary)
+                    .accessibilityHidden(true)
+                Text(
+                    String(
+                        format: String(
+                            localized: "active_workout.smart_progression.chip_format",
+                            defaultValue: "Suggested %1$@ × %2$lld",
+                            comment: "SetRow smart-progression chip label. %1$@ is the formatted weight+unit (e.g. \"60kg\"), %2$lld is the reps count. Cataloged in Localizable.xcstrings by 006 T007."
+                        ),
+                        smartProgressionWeightSegment(advice.suggestedWeight),
+                        Int64(advice.suggestedReps)
+                    )
                 )
+                .font(.caption)
+                .foregroundStyle(theme.neutrals.text1)
+                Text(verbatim: "·")
+                    .font(.caption)
+                    .foregroundStyle(theme.neutrals.text2)
+                    .accessibilityHidden(true)
+                Text(advice.reason)
+                    .font(.caption)
+                    .foregroundStyle(theme.neutrals.text2)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule().fill(theme.primary.primary.opacity(0.12))
             )
-            .font(.caption)
-            .foregroundStyle(theme.neutrals.text1)
-            Text(verbatim: "·")
-                .font(.caption)
-                .foregroundStyle(theme.neutrals.text2)
-                .accessibilityHidden(true)
-            Text(advice.reason)
-                .font(.caption)
-                .foregroundStyle(theme.neutrals.text2)
-                .lineLimit(1)
+            .contentShape(Capsule())
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            Capsule().fill(theme.primary.primary.opacity(0.12))
-        )
-        .contentShape(Capsule())
     }
 
     /// MY-1203 (T006): populates the row's editable weight/reps inputs from

@@ -693,6 +693,144 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         }
     }
 
+    func testHintedBilateralRowsShareOneAxisAtStandardPhoneWidths() async throws {
+        let defaults = UserDefaults.standard
+        let previousLarge = defaults.object(forKey: "activeWorkoutLargeMode")
+        defer { defaults.set(previousLarge, forKey: "activeWorkoutLargeMode") }
+
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+
+        for width in [375.0, 393.0] {
+            for largeMode in [false, true] {
+                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+
+                let container = try ModelContainerConfiguration.makeTestContainer()
+                let context = container.mainContext
+                let exercise = Exercise(
+                    nameEn: "Bench Press",
+                    nameZh: "卧推",
+                    muscleGroup: .chest,
+                    equipment: .barbell
+                )
+                let workout = Workout(type: .strength, startDate: Date())
+                let owner = WorkoutExercise(order: 0, exercise: exercise)
+                owner.workout = workout
+                let set = ExerciseSet(
+                    order: 0,
+                    weight: 0,
+                    reps: 0,
+                    setType: .warmup,
+                    isCompleted: false,
+                    rpe: 8
+                )
+                set.workoutExercise = owner
+
+                let priorStart = workout.startDate.addingTimeInterval(-86_400)
+                let priorSets = [ExerciseSet(order: 0, weight: 40, reps: 12, isCompleted: true)]
+                let priorExercise = WorkoutExercise(order: 0, exercise: exercise, sets: priorSets)
+                let priorWorkout = Workout(
+                    type: .strength,
+                    startDate: priorStart,
+                    endDate: priorStart.addingTimeInterval(3_600),
+                    exercises: [priorExercise]
+                )
+
+                context.insert(exercise)
+                context.insert(workout)
+                context.insert(owner)
+                context.insert(set)
+                context.insert(priorWorkout)
+                context.insert(priorExercise)
+                context.insert(priorSets[0])
+                try context.save()
+
+                let row = SetRow(
+                    index: 0,
+                    exerciseSet: set,
+                    weightUnit: .kg,
+                    canDelete: true,
+                    exercise: exercise,
+                    recentWeightKg: nil,
+                    onToggleCompleted: { _ in },
+                    onDelete: {},
+                    onAddSubSet: { _ in },
+                    onCopyToNext: {}
+                )
+                let host = UIHostingController(
+                    rootView: row
+                        .modelContainer(container)
+                        .designThemePreview()
+                )
+                let window = UIWindow(windowScene: scene)
+                window.frame = CGRect(x: 0, y: 0, width: width, height: 220)
+                window.rootViewController = host
+                window.makeKeyAndVisible()
+                defer { window.isHidden = true }
+
+                try await Task.sleep(for: .milliseconds(180))
+                host.view.layoutIfNeeded()
+
+                let fields = textFields(in: host.view)
+                    .filter { !$0.isHidden && $0.alpha > 0 && $0.window === window }
+                    .map { $0.convert($0.bounds, to: window) }
+                XCTAssertEqual(fields.count, 2, "width=\(width) mode=\(largeMode ? "large" : "normal")")
+                XCTAssertGreaterThanOrEqual(fields.count, 2)
+
+                let midYs = fields.map(\.midY)
+                if let firstMidY = midYs.first {
+                    for midY in midYs.dropFirst() {
+                        XCTAssertEqual(midY, firstMidY, accuracy: 1, "width=\(width) mode=\(largeMode ? "large" : "normal") fields must share one axis: \(fields)")
+                    }
+                }
+
+                for field in fields {
+                    XCTAssertGreaterThanOrEqual(field.width, 44 - 0.001, "width=\(width) mode=\(largeMode ? "large" : "normal")")
+                    XCTAssertGreaterThanOrEqual(field.height, 44 - 0.001)
+                    XCTAssertTrue(window.bounds.contains(field))
+                }
+
+                var controlFrames: [CGRect] = []
+                for descendant in descendants(of: host.view) {
+                    guard let button = descendant as? UIButton else { continue }
+                    guard !button.isHidden && button.alpha > 0 && button.window === window else { continue }
+                    let frame = button.convert(button.bounds, to: window)
+                    if frame.width <= 100
+                        && frame.height <= 100
+                        && frame.width >= 44 - 0.001
+                        && frame.height >= 44 - 0.001 {
+                        controlFrames.append(frame)
+                    }
+                }
+
+                if let firstMidY = midYs.first {
+                    for control in controlFrames {
+                        XCTAssertEqual(
+                            control.midY,
+                            firstMidY,
+                            accuracy: 1,
+                            "width=\(width) mode=\(largeMode ? "large" : "normal") control must share the input axis: \(control)"
+                        )
+                    }
+                }
+
+                let maxControlHeight = (fields + controlFrames).map(\.height).max() ?? 44
+                let measuredRowHeight = maxControlHeight + 12
+                XCTAssertLessThanOrEqual(
+                    measuredRowHeight,
+                    largeMode ? 76 : 60,
+                    "width=\(width) mode=\(largeMode ? "large" : "normal") rowHeight=\(measuredRowHeight) fields=\(fields)"
+                )
+
+                let evidence = XCTAttachment(
+                    string: "width=\(width)\nlargeMode=\(largeMode)\nrowHeight=\(measuredRowHeight)\nfields=\(fields)"
+                )
+                evidence.name = "single-axis-\(Int(width))-\(largeMode ? "large" : "normal")"
+                evidence.lifetime = .keepAlways
+                add(evidence)
+            }
+        }
+    }
+
     func testFieldsFollowModelAndUnitsWithoutChangingStoredWeights() async throws {
         let defaults = UserDefaults.standard
         let previousUnit = defaults.object(forKey: "weightUnit")
