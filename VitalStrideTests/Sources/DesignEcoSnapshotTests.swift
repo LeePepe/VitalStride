@@ -133,6 +133,70 @@ final class DesignEcoSnapshotTests: XCTestCase {
         }
     }
 
+    func testSidebarAddButtonMatchesExerciseRailCardWidthAndShape() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "DesignEcoSidebarAddButtonShape"))
+        defer { defaults.removePersistentDomain(forName: "DesignEcoSidebarAddButtonShape") }
+
+        for largeMode in [false, true] {
+            for isDark in [false, true] {
+                for rightToLeft in [false, true] {
+                    defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                    let fixture = try Self.makeWorkoutFixture()
+                    let owner = try XCTUnwrap(fixture.workout.exercises?.first { $0.order == 0 })
+                    let railItemID = String(describing: owner.persistentModelID)
+                    var railItemFrame: CGRect?
+                    var sidebarAddFrame: CGRect?
+
+                    let theme = Theme(seed: .teal, neutral: .slate, isDark: isDark)
+                    let content = ActiveWorkoutView(source: .resume(fixture.workout))
+                        .modelContainer(fixture.container)
+                        .designTheme(seed: .teal, neutral: .slate)
+                        .environment(\.colorScheme, isDark ? .dark : .light)
+                        .environment(\.theme, theme)
+                        .environment(\.layoutDirection, rightToLeft ? .rightToLeft : .leftToRight)
+                        .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                            onSidebarItemFrame: { id, frame in
+                                if id == railItemID {
+                                    railItemFrame = frame
+                                }
+                            },
+                            onSidebarAddFrame: { frame in
+                                sidebarAddFrame = frame
+                            }
+                        ))
+                        .defaultAppStorage(defaults)
+
+                    let host = UIHostingController(rootView: content)
+                    let window = UIWindow(windowScene: scene)
+                    window.frame = CGRect(origin: .zero, size: Self.snapshotSize)
+                    host.view.frame = window.bounds
+                    window.rootViewController = host
+                    window.overrideUserInterfaceStyle = isDark ? .dark : .light
+                    window.makeKeyAndVisible()
+                    defer {
+                        window.isHidden = true
+                        window.rootViewController = nil
+                    }
+
+                    host.view.setNeedsLayout()
+                    host.view.layoutIfNeeded()
+                    try await Task.sleep(for: .milliseconds(350))
+                    host.view.setNeedsLayout()
+                    host.view.layoutIfNeeded()
+
+                    let addFrame = try XCTUnwrap(sidebarAddFrame)
+                    let itemFrame = try XCTUnwrap(railItemFrame)
+                    let variant = "\(largeMode ? "large" : "normal")-\(isDark ? "dark" : "light")-\(rightToLeft ? "rtl" : "ltr")"
+                    XCTAssertEqual(addFrame.width, itemFrame.width, accuracy: 1.5, variant)
+                    XCTAssertEqual(addFrame.minX, itemFrame.minX, accuracy: 1.5, variant)
+                    XCTAssertGreaterThanOrEqual(addFrame.width, 44, variant)
+                    XCTAssertGreaterThanOrEqual(addFrame.height, 44, variant)
+                }
+            }
+        }
+    }
+
     @MainActor
     private final class HeaderFrames {
         var controls: [AnyHashable: [String: CGRect]] = [:]
