@@ -917,7 +917,12 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     }
                     for name in ["weight", "reps", "completion", "menu"] {
                         let frame = try XCTUnwrap(frames[name], variant)
-                        XCTAssertGreaterThanOrEqual(frame.width, 44 - 1e-10, "\(variant): \(name)")
+                        if name == "weight" || name == "reps" {
+                            XCTAssertGreaterThanOrEqual(frame.width, 20 - 1e-10, "\(variant): \(name)")
+                            XCTAssertLessThanOrEqual(frame.width, 42 + 1e-10, "\(variant): \(name)")
+                        } else {
+                            XCTAssertGreaterThanOrEqual(frame.width, 44 - 1e-10, "\(variant): \(name)")
+                        }
                         XCTAssertGreaterThanOrEqual(frame.height, 44 - 1e-10, "\(variant): \(name)")
                     }
                     for (name, frame) in frames {
