@@ -1186,7 +1186,6 @@ struct ActiveWorkoutView: View {
                                 onDelete: { deleteExercise(workoutExercise) },
                                 undoController: undoController
                             )
-                            .id(workoutExercise.persistentModelID)
                         }
                     }
                     .listStyle(.plain)
@@ -1200,7 +1199,7 @@ struct ActiveWorkoutView: View {
                                 dismissKeyboardIfVisible()
                             }
                     )
-                    .environment(\.defaultMinListRowHeight, 44)
+                    .environment(\.defaultMinListRowHeight, 1)
                     .accessibilityIdentifier("workout_exercise_list")
                     .background {
                         GeometryReader { geometry in

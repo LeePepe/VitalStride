@@ -763,6 +763,10 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     let mainFrame = try XCTUnwrap(list.rowFrames[mainID], variant)
                     let drop1Frame = try XCTUnwrap(list.rowFrames[drop1ID], variant)
                     let drop2Frame = try XCTUnwrap(list.rowFrames[drop2ID], variant)
+                    XCTAssertEqual(mainFrame.minX, drop1Frame.minX, accuracy: 1.0, variant)
+                    XCTAssertEqual(mainFrame.width, drop1Frame.width, accuracy: 1.0, variant)
+                    XCTAssertGreaterThanOrEqual(mainFrame.width, 295, variant)
+                    XCTAssertLessThanOrEqual(drop1Frame.minY - mainFrame.maxY, 12.0, variant)
 
                     let mainControls = try XCTUnwrap(rows.controls[mainID], variant)
                     let drop1Controls = try XCTUnwrap(rows.controls[drop1ID], variant)
@@ -901,9 +905,21 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     }
                     // A nonempty frame alone can still contain only an ellipsis.
                     // Reserve enough ink width for each full label at its minimum scale.
-                    let metadataMinimum = ("\(set.setType.displayName) R8" as NSString).size(
-                        withAttributes: [.font: UIFont.monospacedDigitSystemFont(ofSize: 8, weight: .semibold)]
-                    ).width * 0.55 + 4
+                    let warmupShort = String(
+                        localized: "workout.row.warmup_short",
+                        defaultValue: "热",
+                        comment: "Short warmup badge"
+                    )
+                    let metadataText = "\(warmupShort) R8"
+                    let metadataFontSize: CGFloat = largeMode ? 12 : 11
+                    let metadataMinimum = (metadataText as NSString).size(
+                        withAttributes: [
+                            .font: UIFont.monospacedDigitSystemFont(
+                                ofSize: metadataFontSize,
+                                weight: .semibold
+                            )
+                        ]
+                    ).width + 4
                     XCTAssertGreaterThanOrEqual(try XCTUnwrap(frames["metadata"]).width, metadataMinimum - 0.5, variant)
                     let fields = textFields(in: host.view).filter {
                         !$0.isHidden && $0.alpha > 0 && $0.window === window
@@ -1527,7 +1543,16 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         )
                         try await Task.sleep(for: .milliseconds(180))
                         let finalSet = try XCTUnwrap(owners[2].sets?.max { $0.order < $1.order })
-                        let finalRow = try XCTUnwrap(recorder.rowFrames[finalSet.persistentModelID])
+                        var finalRow = try XCTUnwrap(recorder.rowFrames[finalSet.persistentModelID])
+                        if finalRow.maxY > listFrame.maxY {
+                            recorder.rowFrames.removeAll()
+                            collection.setContentOffset(
+                                CGPoint(x: 0, y: collection.contentOffset.y + finalRow.maxY - listFrame.maxY),
+                                animated: false
+                            )
+                            try await Task.sleep(for: .milliseconds(180))
+                            finalRow = try XCTUnwrap(recorder.rowFrames[finalSet.persistentModelID])
+                        }
                         XCTAssertTrue(listFrame.contains(finalRow), "Final set must scroll fully into the List viewport")
                         evidence.append("last-content: offset=\(scrollView.contentOffset.y) finalRow=\(finalRow)")
                         try persistHeaderEvidence(

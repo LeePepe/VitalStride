@@ -166,10 +166,6 @@ struct ActiveExerciseSection: View {
                         }
                     )
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-                    .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
-                    .listRowSeparator(.hidden)
-                    .listSectionSeparator(.hidden)
-                    .listRowBackground(theme.neutrals.card)
                     .onGeometryChange(for: CGRect.self) { geometry in
                         geometry.frame(in: .global)
                     } action: { frame in
@@ -189,6 +185,10 @@ struct ActiveExerciseSection: View {
                             Label(String(localized: "删除", comment: ""), systemImage: "trash")
                         }
                     }
+                    .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
+                    .listRowSeparator(.hidden)
+                    .listSectionSeparator(.hidden)
+                    .listRowBackground(theme.neutrals.card)
                 } else {
                     SetRow(
                         index: ctx.mainSetNumber,
@@ -211,10 +211,6 @@ struct ActiveExerciseSection: View {
                         }
                     )
                     // Each set is its own solid item; the exercise has no outer card.
-                    .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
-                    .listRowSeparator(.hidden)
-                    .listSectionSeparator(.hidden)
-                    .listRowBackground(theme.neutrals.card)
                     .onGeometryChange(for: CGRect.self) { geometry in
                         geometry.frame(in: .global)
                     } action: { frame in
@@ -230,6 +226,10 @@ struct ActiveExerciseSection: View {
                             }
                         }
                     }
+                    .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
+                    .listRowSeparator(.hidden)
+                    .listSectionSeparator(.hidden)
+                    .listRowBackground(theme.neutrals.card)
                 }
             }
             }
@@ -274,7 +274,6 @@ struct ActiveExerciseSection: View {
             }
         }
         .listRowBackground(theme.neutrals.card)
-        .background(theme.neutrals.card)
     }
 
     /// MY-1420: `confirmationDialog(_:isPresented:presenting:)` needs a Bool
@@ -297,6 +296,7 @@ struct ActiveExerciseSection: View {
             Spacer(minLength: 0)
             addSetButtonAndMenu
         }
+        .id(workoutExercise.persistentModelID)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: completedSetCount) { _, count in
             if count < totalSetCount { isCollapsed = false }

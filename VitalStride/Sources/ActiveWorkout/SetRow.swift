@@ -521,9 +521,12 @@ struct SetRow: View {
     }
 
     private func shortSetTypeLabel(_ type: SetType) -> String {
-        let displayName = type.displayName
-        guard displayName.count > 2 else { return displayName }
-        return String(localized: "workout.row.warmup_short", defaultValue: "热", comment: "Short warmup badge")
+        switch type {
+        case .warmup:
+            return String(localized: "workout.row.warmup_short", defaultValue: "热", comment: "Short warmup badge")
+        default:
+            return type.displayName
+        }
     }
 
     /// Stable seed-family color index per set type (0..4 band from ProtoKit's
