@@ -257,6 +257,7 @@ struct SetRow: View {
     // scope forbids editing that file.
     @Environment(\.modelContext) private var modelContext
     @Environment(\.theme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -289,6 +290,10 @@ struct SetRow: View {
         .onChange(of: exerciseSet.weightRight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
         .onChange(of: exerciseSet.reps) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
         .onChange(of: exerciseSet.isUnilateral) { _, _ in refreshInputText() }
+        .animation(
+            reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.28, dampingFraction: 0.85),
+            value: exerciseSet.isCompleted
+        )
         .alert(String(localized: "workout.row.set_rpe", defaultValue: "Set RPE", comment: "RPE dialog title"),
                isPresented: $showingRPEDialog) {
             ForEach(6...10, id: \.self) { value in
@@ -468,7 +473,7 @@ struct SetRow: View {
                     Text("\(exerciseSet.setType.displayName) R\(rpe)")
                         .font(.system(size: 8, weight: .semibold).monospacedDigit())
                         .lineLimit(1)
-                        .minimumScaleFactor(0.55)
+                    .minimumScaleFactor(0.85)
                         .padding(.horizontal, 2)
                         .padding(.vertical, 2)
                         .foregroundStyle(categoryColor(setTypeCategoryIndex(exerciseSet.setType), theme: theme))

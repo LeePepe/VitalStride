@@ -686,6 +686,12 @@ struct ActiveWorkoutView: View {
                 Text(timeString)
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(theme.neutrals.text1)
+                    .contentTransition(reduceMotion ? .opacity : .numericText())
+                    .animation(
+                        reduceMotion ? .easeInOut(duration: 0.15) : .default,
+                        value: timeString
+                    )
+                    .layoutPriority(1)
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(String(localized: "训练时长", comment: "Workout duration a11y label"))
@@ -706,6 +712,12 @@ struct ActiveWorkoutView: View {
             Text(bpmText)
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(theme.neutrals.text1)
+                .contentTransition(reduceMotion ? .opacity : .numericText())
+                .animation(
+                    reduceMotion ? .easeInOut(duration: 0.15) : .default,
+                    value: bpmText
+                )
+                .layoutPriority(1)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "心率", comment: "Heart rate a11y label"))
@@ -736,6 +748,14 @@ struct ActiveWorkoutView: View {
             Text("\(completedSetCount)/\(totalSetCount)")
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(theme.neutrals.text1)
+                .contentTransition(
+                    reduceMotion ? .opacity : .numericText(countsDown: false)
+                )
+                .animation(
+                    reduceMotion ? .easeInOut(duration: 0.15) : .default,
+                    value: completedSetCount
+                )
+                .layoutPriority(1)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "组数进度", comment: "Session set progress a11y label"))
@@ -751,6 +771,12 @@ struct ActiveWorkoutView: View {
             Text(volumeText)
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(theme.neutrals.text1)
+                .contentTransition(reduceMotion ? .opacity : .numericText())
+                .animation(
+                    reduceMotion ? .easeInOut(duration: 0.15) : .default,
+                    value: volumeText
+                )
+                .layoutPriority(1)
             Text(unit)
                 .font(.caption)
                 .foregroundStyle(theme.neutrals.text3)
@@ -1062,6 +1088,14 @@ struct ActiveWorkoutView: View {
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.5)
+                            .contentTransition(
+                                reduceMotion ? .opacity : .numericText(countsDown: true)
+                            )
+                            .animation(
+                                reduceMotion ? .easeInOut(duration: 0.15) : .default,
+                                value: remaining
+                            )
+                            .layoutPriority(1)
                     }
                     .frame(width: 32, height: 32)
                     .accessibilityElement(children: .ignore)
@@ -1215,8 +1249,9 @@ struct ActiveWorkoutView: View {
                                 }
                                 Text(exerciseName)
                                     .font(.caption2)
-                                    .lineLimit(nil)
-                                    .fixedSize(horizontal: false, vertical: true)
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.8)
+                                    .fixedSize(horizontal: false, vertical: false)
                                     .multilineTextAlignment(.center)
                                     .background {
                                         GeometryReader { proxy in
