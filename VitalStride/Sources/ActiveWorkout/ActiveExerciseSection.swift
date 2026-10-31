@@ -166,7 +166,7 @@ struct ActiveExerciseSection: View {
                         }
                     )
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-                    .listRowInsets(EdgeInsets(top: 3, leading: 8, bottom: 3, trailing: 8))
+                    .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
                     .listRowSeparator(.hidden)
                     .listSectionSeparator(.hidden)
                     .listRowBackground(theme.neutrals.card)
@@ -211,7 +211,7 @@ struct ActiveExerciseSection: View {
                         }
                     )
                     // Each set is its own solid item; the exercise has no outer card.
-                    .listRowInsets(EdgeInsets(top: 3, leading: 8, bottom: 3, trailing: 8))
+                    .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
                     .listRowSeparator(.hidden)
                     .listSectionSeparator(.hidden)
                     .listRowBackground(theme.neutrals.card)

@@ -478,10 +478,16 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         }
         for field in fields {
             // No physical-pixel or ceil allowance: only floating representation.
-            XCTAssertGreaterThan(field.bounds.width, 0, variant)
-            XCTAssertGreaterThanOrEqual(field.bounds.height, 36 - 1e-10, variant)
+            XCTAssertGreaterThanOrEqual(field.bounds.width, 44 - 1e-10, variant)
+            XCTAssertGreaterThanOrEqual(field.bounds.height, 44 - 1e-10, variant)
             let frame = field.convert(field.bounds, to: window)
             XCTAssertTrue(window.bounds.contains(frame), "\(variant): \(frame)")
+            let point = field.convert(CGPoint(x: field.bounds.midX, y: field.bounds.midY), to: window)
+            let hit = try XCTUnwrap(window.hitTest(point, with: nil))
+            XCTAssertTrue(hit === field || hit.isDescendant(of: field), variant)
+            let hitFrame = hit.convert(hit.bounds, to: window)
+            XCTAssertGreaterThanOrEqual(hitFrame.width, 44 - 1e-10, variant)
+            XCTAssertGreaterThanOrEqual(hitFrame.height, 44 - 1e-10, variant)
         }
         for index in fieldFrames.indices {
             for other in fieldFrames.indices where other > index {
@@ -783,10 +789,10 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     for subInputs in [drop1Inputs, drop2Inputs] {
                         let subCompletion = try XCTUnwrap((subInputs == drop1Inputs ? drop1Controls : drop2Controls)["completion"], variant)
                         let subDelete = try XCTUnwrap((subInputs == drop1Inputs ? drop1Controls : drop2Controls)["delete"], variant)
-                        XCTAssertEqual(subCompletion.midX, mainCompletion.midX, accuracy: 4.5, variant)
-                        XCTAssertEqual(subInputs[0].midX, mainInputs[0].midX, accuracy: 4.5, variant)
-                        XCTAssertEqual(subInputs[1].midX, mainInputs[1].midX, accuracy: 4.5, variant)
-                        XCTAssertEqual(subDelete.midX, mainMenu.midX, accuracy: 4.5, variant)
+                        XCTAssertEqual(subCompletion.midX, mainCompletion.midX, accuracy: 1.5, variant)
+                        XCTAssertEqual(subInputs[0].midX, mainInputs[0].midX, accuracy: 1.5, variant)
+                        XCTAssertEqual(subInputs[1].midX, mainInputs[1].midX, accuracy: 1.5, variant)
+                        XCTAssertEqual(subDelete.midX, mainMenu.midX, accuracy: 1.5, variant)
                     }
 
                     XCTAssertLessThanOrEqual(drop1Frame.height, 62, variant)
@@ -895,7 +901,10 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     }
                     // A nonempty frame alone can still contain only an ellipsis.
                     // Reserve enough ink width for each full label at its minimum scale.
-                    XCTAssertGreaterThan(try XCTUnwrap(frames["metadata"]).width, 0, variant)
+                    let metadataMinimum = ("\(set.setType.displayName) R8" as NSString).size(
+                        withAttributes: [.font: UIFont.monospacedDigitSystemFont(ofSize: 8, weight: .semibold)]
+                    ).width * 0.55 + 4
+                    XCTAssertGreaterThanOrEqual(try XCTUnwrap(frames["metadata"]).width, metadataMinimum - 0.5, variant)
                     let fields = textFields(in: host.view).filter {
                         !$0.isHidden && $0.alpha > 0 && $0.window === window
                             && rowFrame.contains($0.convert($0.bounds, to: window))
@@ -907,12 +916,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         XCTAssertEqual(field.placeholder, name == "weight" ? "45" : "8", variant)
                         frames[name] = field.convert(field.bounds, to: window)
                     }
-                    for name in ["weight", "reps"] {
-                        let frame = try XCTUnwrap(frames[name], variant)
-                        XCTAssertGreaterThan(frame.width, 0, "\(variant): \(name)")
-                        XCTAssertGreaterThanOrEqual(frame.height, largeMode ? 42 - 1e-10 : 36 - 1e-10, "\(variant): \(name)")
-                    }
-                    for name in ["completion", "menu"] {
+                    for name in ["weight", "reps", "completion", "menu"] {
                         let frame = try XCTUnwrap(frames[name], variant)
                         XCTAssertGreaterThanOrEqual(frame.width, 44 - 1e-10, "\(variant): \(name)")
                         XCTAssertGreaterThanOrEqual(frame.height, 44 - 1e-10, "\(variant): \(name)")

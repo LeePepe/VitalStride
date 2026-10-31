@@ -72,7 +72,12 @@ enum LargeWorkoutInputFont {
     /// Bold monospaced-digit weight/reps input font. Uses text-style-driven
     /// sizing so Dynamic Type stacks on top of Large Mode.
     static func weightReps(large: Bool) -> UIFont {
-        UIFont.monospacedDigitSystemFont(ofSize: large ? 21 : 17, weight: .semibold)
+        let base = UIFont.monospacedDigitSystemFont(
+            ofSize: large ? 21 : 17,
+            weight: .semibold
+        )
+        return UIFontMetrics(forTextStyle: large ? .title3 : .body)
+            .scaledFont(for: base)
     }
     #endif
 }
@@ -160,7 +165,10 @@ enum LargeWorkoutFieldWidth {
     /// crowding — the Large Mode font ramp keeps individual inputs distinct
     /// even at tighter gaps.
     static func rowSpacing(_ variant: Variant) -> CGFloat {
-        6
+        switch variant {
+        case .normal, .large: return 8
+        case .largeCompact: return 6
+        }
     }
 
     /// Row min-height applied to every editable input in Large Mode. 60pt is

@@ -148,7 +148,7 @@ struct WorkoutSetInput: UIViewRepresentable {
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextField, context: Context) -> CGSize? {
-        CGSize(width: proposal.width ?? 60, height: input.font.pointSize >= 20 ? 42 : 36)
+        CGSize(width: proposal.width ?? 60, height: max(44, input.font.lineHeight + 12))
     }
 }
 #endif
@@ -258,6 +258,7 @@ struct SetRow: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -270,7 +271,7 @@ struct SetRow: View {
             }
         }
         .padding(.vertical, 2)
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 0)
         .frame(maxWidth: .infinity, minHeight: largeMode ? 56 : 48)
         // Only this background handles completion. Inputs and buttons above it
         // own their touches, so editing or opening More never completes a set.
@@ -308,7 +309,7 @@ struct SetRow: View {
     }
 
     private func rowContent(variant: LargeWorkoutFieldWidth.Variant, compact: Bool) -> some View {
-        HStack(alignment: .center, spacing: 6) {
+        HStack(alignment: .center, spacing: 4) {
             completionButton
             inputFields(variant: variant, compact: compact)
             inlineMetadata(compact: exerciseSet.isUnilateral ? compact : true)
@@ -316,6 +317,7 @@ struct SetRow: View {
             moreMenu
         }
         .padding(.horizontal, 0)
+        .frame(maxWidth: .infinity)
     }
 
     private var stackedRowContent: some View {
@@ -336,7 +338,7 @@ struct SetRow: View {
         let weightWidth = exerciseSet.isUnilateral
             ? LargeWorkoutFieldWidth.unilateralWeight(variant)
             : LargeWorkoutFieldWidth.bilateralWeight(variant)
-        return HStack(spacing: 6) {
+        return HStack(spacing: 4) {
             let advice = smartProgressionAdvice()
             weightBox(binding: $weightText, field: .weight, width: weightWidth,
                       side: exerciseSet.isUnilateral ? "L" : String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"),
@@ -346,14 +348,14 @@ struct SetRow: View {
             }
             repsField(width: compact ? ActiveWorkoutHitTarget.numericInputSide : (variant == .large ? 64 : ActiveWorkoutHitTarget.numericInputSide), suggestion: advice, compact: compact)
         }
-        .fixedSize(horizontal: true, vertical: false)
+        .fixedSize(horizontal: dynamicTypeSize < .accessibility3, vertical: false)
     }
 
     private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?, suggestion: ProgressionAdvice?, compact: Bool = false) -> some View {
         let isTotal = !exerciseSet.isUnilateral && field == .weight
         let bilateral = !exerciseSet.isUnilateral
         let fieldWidth = bilateral ? ActiveWorkoutHitTarget.numericInputSide : (compact ? ActiveWorkoutHitTarget.numericInputSide : max(ActiveWorkoutHitTarget.numericInputSide, width - 28))
-        return HStack(alignment: .center, spacing: 3) {
+        return HStack(alignment: .center, spacing: 2) {
             if let side {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: side)
                     .font(largeMode ? .footnote.weight(isTotal ? .semibold : .bold) : .caption2.weight(isTotal ? .semibold : .bold))
@@ -378,17 +380,19 @@ struct SetRow: View {
                 .foregroundStyle(theme.neutrals.text3)
                 .allowsHitTesting(false)
         }
-        .padding(.horizontal, 6)
-        .frame(height: largeMode ? 42 : 36)
-        .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
-        .overlay {
-            if focusedField == field {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(theme.accent, lineWidth: 1.5)
-            }
-        }
-        .fixedSize(horizontal: true, vertical: false)
+        .padding(.horizontal, 3)
         .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
+        .background(alignment: .center) {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(theme.inner)
+                .frame(height: largeMode ? 42 : 36)
+                .overlay {
+                    if focusedField == field {
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(theme.accent, lineWidth: 1.5)
+                    }
+                }
+        }
         .contentShape(Rectangle())
     }
 
@@ -464,8 +468,8 @@ struct SetRow: View {
             .clipShape(Capsule())
             .lineLimit(1)
             .minimumScaleFactor(0.85)
-            .fixedSize(horizontal: !compact, vertical: false)
-            .frame(minWidth: compact ? 28 : 0)
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(1)
             .frame(minWidth: compact ? 28 : 0)
     }
 
@@ -473,14 +477,16 @@ struct SetRow: View {
         HStack(spacing: compact ? 0 : 4) {
             HStack(spacing: compact ? 1 : 4) {
                 if compact, exerciseSet.setType != .working, let rpe = exerciseSet.rpe {
-                    Text("\(exerciseSet.setType.displayName) R\(rpe)")
+                    Text("\(shortSetTypeLabel(exerciseSet.setType)) R\(rpe)")
                         .font(largeMode ? .caption.weight(.semibold).monospacedDigit() : .caption2.weight(.semibold).monospacedDigit())
                         .lineLimit(1)
-                    .minimumScaleFactor(0.85)
+                        .minimumScaleFactor(0.85)
                         .padding(.horizontal, 2)
                         .padding(.vertical, 2)
                         .foregroundStyle(categoryColor(setTypeCategoryIndex(exerciseSet.setType), theme: theme))
                         .background(categoryColor(setTypeCategoryIndex(exerciseSet.setType), theme: theme).opacity(0.16), in: Capsule())
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
                 } else {
                     if exerciseSet.setType != .working {
                         setTypePill(exerciseSet.setType, compact: compact)
@@ -490,10 +496,10 @@ struct SetRow: View {
                     }
                 }
             }
-            // Preserve the short warm-up/RPE label when the suggestion also
-            // needs room at the sidebar-constrained 375pt phone width.
-            // Reserve the complete English Warm-up R8 at the compact font scale.
+            // Preserve compact warm-up/RPE metadata in a non-truncating slot
+            // at the sidebar-constrained 375pt phone width.
             .frame(minWidth: compact && (exerciseSet.setType != .working || exerciseSet.rpe != nil) ? 35 : nil)
+            .layoutPriority(1)
             .allowsHitTesting(false)
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
                 rowObservation.control(exerciseSet.persistentModelID, "metadata", frame)
@@ -510,7 +516,14 @@ struct SetRow: View {
             .foregroundStyle(theme.primary.primary)
             .lineLimit(1)
             .minimumScaleFactor(0.85)
-            .fixedSize(horizontal: !compact, vertical: false)
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(1)
+    }
+
+    private func shortSetTypeLabel(_ type: SetType) -> String {
+        let displayName = type.displayName
+        guard displayName.count > 2 else { return displayName }
+        return String(localized: "workout.row.warmup_short", defaultValue: "热", comment: "Short warmup badge")
     }
 
     /// Stable seed-family color index per set type (0..4 band from ProtoKit's
@@ -636,7 +649,7 @@ struct SetRow: View {
         let bilateral = !exerciseSet.isUnilateral
         let fieldWidth = bilateral ? ActiveWorkoutHitTarget.numericInputSide : width
         #if canImport(UIKit) && !os(macOS)
-        HStack(alignment: .center, spacing: 3) {
+        HStack(alignment: .center, spacing: 2) {
         WorkoutSetInput(SelectAllTextField(
             placeholder: repsPlaceholder,
             text: $repsText,
@@ -683,16 +696,19 @@ struct SetRow: View {
             .foregroundStyle(theme.neutrals.text3)
             .allowsHitTesting(false)
         }
-        .padding(.horizontal, 6)
-        .frame(height: largeMode ? 42 : 36)
-        .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
-        .overlay {
-            if focusedField == .reps {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(theme.accent, lineWidth: 1.5)
-            }
-        }
+        .padding(.horizontal, 3)
         .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
+        .background(alignment: .center) {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(theme.inner)
+                .frame(height: largeMode ? 42 : 36)
+                .overlay {
+                    if focusedField == .reps {
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(theme.accent, lineWidth: 1.5)
+                    }
+                }
+        }
         .contentShape(Rectangle())
         #else
         HStack(alignment: .center, spacing: 3) {

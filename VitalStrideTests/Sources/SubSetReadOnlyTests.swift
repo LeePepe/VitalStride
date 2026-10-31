@@ -37,7 +37,7 @@ struct SubSetReadOnlyTests {
         #expect(source.contains("onPresetReps: { weightKg, reps in applyPreset"))
         #expect(source.contains("Image(systemName: \"xmark\")"))
         #expect(source.contains("parentSetNumber"))
-        #expect(source.contains("theme.accent.opacity(0.45)"))
+        #expect(source.contains("theme.accent.opacity(0.55)"))
     }
 
     @Test("Drop-set row uses the shared centered grid without a footer")
@@ -48,7 +48,7 @@ struct SubSetReadOnlyTests {
             .deletingLastPathComponent()
             .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SubSetRow.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        #expect(source.contains("HStack(alignment: .center, spacing: 6)"))
+        #expect(source.contains("HStack(alignment: .center, spacing: 4)"))
         #expect(source.contains("width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side"))
         #expect(source.contains("ActiveWorkoutHitTarget.numericInputSide"))
         #expect(source.contains(".fixedSize(horizontal: true, vertical: false)"))

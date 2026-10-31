@@ -14,7 +14,7 @@ struct SubSetRow: View {
     @Environment(\.theme) private var theme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.isLargeWorkoutMode) private var largeMode
+    @AppStorage("activeWorkoutLargeMode") private var largeMode = false
     let exerciseSet: ExerciseSet
     let weightUnit: WeightUnit
     let isLast: Bool
@@ -56,12 +56,12 @@ struct SubSetRow: View {
     var body: some View {
         mainAxis
         .padding(.vertical, 2)
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 0)
         .frame(maxWidth: .infinity, minHeight: largeMode ? 56 : 48)
-        .background(theme.inner, in: RoundedRectangle(cornerRadius: 12))
+        .designSurface(style: .solid, cornerRadius: 14)
         .overlay(alignment: .leading) {
             Rectangle()
-                .fill(theme.accent.opacity(0.45))
+                .fill(theme.accent.opacity(0.55))
                 .frame(width: 2)
                 .padding(.vertical, 8)
         }
@@ -89,7 +89,7 @@ struct SubSetRow: View {
     }
 
     private var mainAxis: some View {
-        HStack(alignment: .center, spacing: 6) {
+        HStack(alignment: .center, spacing: 4) {
             leadingControls
             if exerciseSet.isUnilateral {
                 inputsAndCaption
@@ -100,6 +100,8 @@ struct SubSetRow: View {
                 .font(largeMode ? .caption.weight(.semibold).monospacedDigit() : .caption2.weight(.semibold).monospacedDigit())
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
                 .foregroundStyle(theme.neutrals.text3)
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
                     rowObservation.control(exerciseSet.persistentModelID, "metadata", frame)
@@ -144,7 +146,7 @@ struct SubSetRow: View {
     }
 
     private var bilateralInputs: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             inputField(text: $weightText, field: .weight,
                        label: String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"))
             inputField(text: $repsText, field: .reps,
@@ -154,7 +156,7 @@ struct SubSetRow: View {
     }
 
     private var inputsAndCaption: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             inputField(text: $weightText, field: .weight, label: "L")
             inputField(text: $weightRightText, field: .weightRight, label: "R")
             inputField(text: $repsText, field: .reps, label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
@@ -179,6 +181,7 @@ struct SubSetRow: View {
             placeholder: "",
             text: editingText,
             keyboardType: field.isDecimalEnabled ? .decimalPad : .numberPad,
+            font: LargeWorkoutInputFont.weightReps(large: largeMode),
             useCustomKeyboard: true,
             field: field,
             exercise: exercise,
@@ -196,7 +199,7 @@ struct SubSetRow: View {
             }
         )
         let bilateral = !exerciseSet.isUnilateral
-        return HStack(alignment: .center, spacing: 3) {
+        return HStack(alignment: .center, spacing: 2) {
             if isSide {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: label)
                     .font(largeMode ? .footnote.weight(isTotal ? .semibold : .bold) : .caption2.weight(isTotal ? .semibold : .bold))
@@ -220,16 +223,19 @@ struct SubSetRow: View {
                     .foregroundStyle(theme.neutrals.text3)
             }
         }
-        .padding(.horizontal, 6)
-        .frame(height: largeMode ? 42 : 36)
-        .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
-        .overlay {
-            if focusedField == field {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(theme.accent, lineWidth: 1.5)
-            }
-        }
+        .padding(.horizontal, 3)
         .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
+        .background(alignment: .center) {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(theme.inner)
+                .frame(height: largeMode ? 42 : 36)
+                .overlay {
+                    if focusedField == field {
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(theme.accent, lineWidth: 1.5)
+                    }
+                }
+        }
         .contentShape(Rectangle())
         .accessibilityLabel(field == .reps ? String(localized: "递减组次数", comment: "Drop-set reps") : String(localized: "递减组重量", comment: "Drop-set weight"))
         .accessibilityHint(String(localized: "输入数值", comment: "Enter drop-set value"))
