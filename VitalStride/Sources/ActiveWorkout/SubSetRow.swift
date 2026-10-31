@@ -28,6 +28,8 @@ struct SubSetRow: View {
     @State private var weightText = ""
     @State private var weightRightText = ""
     @State private var repsText = ""
+    @State private var weightFocusRequestID = 0
+    @State private var repsFocusRequestID = 0
     @State private var focusedField: SetField?
     @State private var inputWeightUnit: WeightUnit = .kg
 
@@ -144,23 +146,25 @@ struct SubSetRow: View {
     private var bilateralInputs: some View {
         HStack(spacing: 4) {
             inputField(text: $weightText, field: .weight,
-                       label: String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"))
+                       label: String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"),
+                       focusRequestID: $weightFocusRequestID)
             inputField(text: $repsText, field: .reps,
-                       label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
+                       label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"),
+                       focusRequestID: $repsFocusRequestID)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
 
     private var inputsAndCaption: some View {
         HStack(spacing: 4) {
-            inputField(text: $weightText, field: .weight, label: "L")
-            inputField(text: $weightRightText, field: .weightRight, label: "R")
-            inputField(text: $repsText, field: .reps, label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
+            inputField(text: $weightText, field: .weight, label: "L", focusRequestID: $weightFocusRequestID)
+            inputField(text: $weightRightText, field: .weightRight, label: "R", focusRequestID: $weightFocusRequestID)
+            inputField(text: $repsText, field: .reps, label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"), focusRequestID: $repsFocusRequestID)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
 
-    private func inputField(text: Binding<String>, field: SetField, label: String) -> some View {
+    private func inputField(text: Binding<String>, field: SetField, label: String, focusRequestID: Binding<Int>) -> some View {
         // Only edits from the input write back. Model/unit refreshes update the
         // display directly, preserving stored precision after display rounding.
         let editingText = Binding<String>(
@@ -201,7 +205,7 @@ struct SubSetRow: View {
                     .foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)
                     .fixedSize()
             }
-            WorkoutSetInput(input, theme: theme)
+            WorkoutSetInput(input, theme: theme, focusRequestID: focusRequestID.wrappedValue)
                 .frame(
                     width: ActiveWorkoutHitTarget.numericInputWidth(
                         large: largeMode,
@@ -235,6 +239,9 @@ struct SubSetRow: View {
                 }
         }
         .contentShape(Rectangle())
+        .onTapGesture {
+            focusRequestID.wrappedValue &+= 1
+        }
         .accessibilityLabel(field == .reps ? String(localized: "递减组次数", comment: "Drop-set reps") : String(localized: "递减组重量", comment: "Drop-set weight"))
         .accessibilityHint(String(localized: "输入数值", comment: "Enter drop-set value"))
         #else

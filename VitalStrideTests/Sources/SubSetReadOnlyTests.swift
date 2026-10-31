@@ -32,7 +32,7 @@ struct SubSetReadOnlyTests {
             .deletingLastPathComponent()
             .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SubSetRow.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        #expect(source.contains("WorkoutSetInput(input, theme: theme)"))
+        #expect(source.contains("WorkoutSetInput(input, theme: theme, focusRequestID: focusRequestID.wrappedValue)"))
         #expect(source.contains("onLeftAction: { action in handleLeftAction"))
         #expect(source.contains("onPresetReps: { weightKg, reps in applyPreset"))
         #expect(source.contains("Image(systemName: \"xmark\")"))
@@ -59,6 +59,22 @@ struct SubSetReadOnlyTests {
         #expect(!source.contains("ViewThatFits(in: .horizontal)"))
         #expect(!source.contains("DropSetFooterButton"))
         #expect(source.contains("frame(height: largeMode ? 42 : 36)"))
+    }
+
+    @Test("Drop-set outer input pills forward taps to their inner inputs")
+    func dropSetInputPillTapFocusContract() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SubSetRow.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        #expect(source.contains("@State private var weightFocusRequestID = 0"))
+        #expect(source.contains("@State private var repsFocusRequestID = 0"))
+        #expect(source.contains("focusRequestID: $weightFocusRequestID"))
+        #expect(source.contains("focusRequestID: $repsFocusRequestID"))
+        #expect(source.contains("focusRequestID.wrappedValue &+= 1"))
+        #expect(source.contains("WorkoutSetInput(input, theme: theme, focusRequestID: focusRequestID.wrappedValue)"))
     }
 
     @Test("Drop-set insertion and removal use reduce-motion-aware transitions")

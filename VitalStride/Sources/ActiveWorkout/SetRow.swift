@@ -96,13 +96,70 @@ private struct NormalModeHitTargetPadding: ViewModifier {
 struct WorkoutSetInput: UIViewRepresentable {
     let input: SelectAllTextField
     let theme: Theme
+    var focusRequestID: Int = 0
 
-    init(_ input: SelectAllTextField, theme: Theme) {
+    init(_ input: SelectAllTextField, theme: Theme, focusRequestID: Int = 0) {
         self.input = input
         self.theme = theme
+        self.focusRequestID = focusRequestID
     }
 
-    func makeCoordinator() -> SelectAllTextField.Coordinator { input.makeCoordinator() }
+    @MainActor
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        let inputCoordinator: SelectAllTextField.Coordinator
+        var lastFocusRequestID = 0
+
+        init(inputCoordinator: SelectAllTextField.Coordinator) {
+            self.inputCoordinator = inputCoordinator
+        }
+
+        @objc func textChanged(_ textField: UITextField) {
+            inputCoordinator.textChanged(textField)
+        }
+
+        func attach(textField: UITextField) {
+            inputCoordinator.attach(textField: textField)
+        }
+
+        func update(
+            field: SetField,
+            setType: SetType,
+            exercise: Exercise?,
+            recentWeightKg: Double?,
+            suggestedWeightKg: Double?,
+            suggestedReps: Int?,
+            onLeftAction: ((LeftKeyAction) -> Void)?,
+            onPresetReps: ((Double?, Int) -> Void)?,
+            onFocusChange: ((SetField?) -> Void)?
+        ) {
+            inputCoordinator.update(
+                field: field, setType: setType, exercise: exercise,
+                recentWeightKg: recentWeightKg, suggestedWeightKg: suggestedWeightKg,
+                suggestedReps: suggestedReps, onLeftAction: onLeftAction,
+                onPresetReps: onPresetReps, onFocusChange: onFocusChange
+            )
+        }
+
+        func installCustomKeyboardIfNeeded(on textField: UITextField) {
+            inputCoordinator.installCustomKeyboardIfNeeded(on: textField)
+        }
+
+        func refreshCustomKeyboardContextIfInstalled() {
+            inputCoordinator.refreshCustomKeyboardContextIfInstalled()
+        }
+
+        func textFieldDidBeginEditing(_ textField: UITextField) {
+            inputCoordinator.textFieldDidBeginEditing(textField)
+        }
+
+        func textFieldDidEndEditing(_ textField: UITextField) {
+            inputCoordinator.textFieldDidEndEditing(textField)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(inputCoordinator: input.makeCoordinator())
+    }
 
     func makeUIView(context: Context) -> UITextField {
         let view = UITextField()
@@ -121,6 +178,12 @@ struct WorkoutSetInput: UIViewRepresentable {
     }
 
     func updateUIView(_ view: UITextField, context: Context) {
+        if focusRequestID != context.coordinator.lastFocusRequestID {
+            context.coordinator.lastFocusRequestID = focusRequestID
+            if !view.isFirstResponder {
+                view.becomeFirstResponder()
+            }
+        }
         if view.text != input.text { view.text = input.text }
         view.placeholder = ""
         if input.placeholder.isEmpty {
@@ -205,6 +268,8 @@ struct SetRow: View {
     @State private var weightText: String = ""
     @State private var weightRightText: String = ""
     @State private var repsText: String = ""
+    @State private var weightFocusRequestID = 0
+    @State private var repsFocusRequestID = 0
     @State private var focusedField: SetField?
     @State private var showingRPEDialog = false
     // MY-1203 (spec 006-smart-progression T006): tap-to-fill + override
@@ -345,16 +410,16 @@ struct SetRow: View {
             let advice = smartProgressionAdvice()
             weightBox(binding: $weightText, field: .weight, width: weightWidth,
                       side: exerciseSet.isUnilateral ? "L" : String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"),
-                      suggestion: advice, compact: compact)
+                      suggestion: advice, compact: compact, focusRequestID: $weightFocusRequestID)
             if exerciseSet.isUnilateral {
-                weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice, compact: compact)
+                weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice, compact: compact, focusRequestID: $weightFocusRequestID)
             }
-            repsField(width: compact ? ActiveWorkoutHitTarget.numericInputWidth(large: false, isWeight: false) : LargeWorkoutFieldWidth.reps(variant), suggestion: advice, compact: compact)
+            repsField(width: compact ? ActiveWorkoutHitTarget.numericInputWidth(large: false, isWeight: false) : LargeWorkoutFieldWidth.reps(variant), suggestion: advice, compact: compact, focusRequestID: $repsFocusRequestID)
         }
         .fixedSize(horizontal: dynamicTypeSize < .accessibility3, vertical: false)
     }
 
-    private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?, suggestion: ProgressionAdvice?, compact: Bool = false) -> some View {
+    private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?, suggestion: ProgressionAdvice?, compact: Bool = false, focusRequestID: Binding<Int>) -> some View {
         let isTotal = !exerciseSet.isUnilateral && field == .weight
         let fieldWidth = ActiveWorkoutHitTarget.numericInputWidth(
             large: largeMode,
@@ -378,7 +443,7 @@ struct SetRow: View {
                        ? String(localized: "第 \(index + 1) 组左侧重量", comment: "Left weight")
                        : String(localized: "第 \(index + 1) 组右侧重量", comment: "Right weight")),
                 a11yHint: String(localized: "输入重量数值", comment: "Enter weight"),
-                suggestion: suggestion
+                suggestion: suggestion, focusRequestID: focusRequestID.wrappedValue
             )
             WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
                 .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
@@ -399,6 +464,9 @@ struct SetRow: View {
                 }
         }
         .contentShape(Rectangle())
+        .onTapGesture {
+            focusRequestID.wrappedValue &+= 1
+        }
     }
 
     private var moreMenu: some View {
@@ -565,7 +633,8 @@ struct SetRow: View {
         width: CGFloat,
         a11yLabel: String,
         a11yHint: String,
-        suggestion: ProgressionAdvice?
+        suggestion: ProgressionAdvice?,
+        focusRequestID: Int
     ) -> some View {
         let weightPlaceholder = suggestion.map { advice in
             let displayWeight = weightUnit == .lb
@@ -597,7 +666,7 @@ struct SetRow: View {
                     refreshInputText()
                 }
             }
-        ), theme: theme)
+        ), theme: theme, focusRequestID: focusRequestID)
         .frame(width: width)
         .fixedSize(horizontal: true, vertical: false)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
@@ -650,7 +719,7 @@ struct SetRow: View {
     }
 
     @ViewBuilder
-    private func repsField(width: CGFloat, suggestion: ProgressionAdvice?, compact: Bool = false) -> some View {
+    private func repsField(width: CGFloat, suggestion: ProgressionAdvice?, compact: Bool = false, focusRequestID: Binding<Int>) -> some View {
         let repsPlaceholder = suggestion.map { "\($0.suggestedReps)" } ?? ""
         let editingHint = String(localized: "输入次数", comment: "Enter reps hint")
         let repsHint = suggestion.map { "\(editingHint)，\(smartProgressionSummaryText($0))" } ?? editingHint
@@ -682,7 +751,7 @@ struct SetRow: View {
                     refreshInputText()
                 }
             }
-        ), theme: theme)
+        ), theme: theme, focusRequestID: focusRequestID.wrappedValue)
         .frame(width: fieldWidth)
         .fixedSize(horizontal: true, vertical: false)
         .frame(minHeight: largeMode ? LargeWorkoutFieldWidth.largeMinHeight : nil)
@@ -720,6 +789,9 @@ struct SetRow: View {
                 }
         }
         .contentShape(Rectangle())
+        .onTapGesture {
+            focusRequestID.wrappedValue &+= 1
+        }
         #else
         HStack(alignment: .center, spacing: 3) {
             SelectAllTextField(

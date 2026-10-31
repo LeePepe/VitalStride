@@ -60,4 +60,21 @@ struct ActiveWorkoutHitTargetTests {
         #expect(source.contains(".contentShape(Rectangle())"))
         #expect(source.contains("numericInputWidth("))
     }
+
+    @Test("SetRow forwards outer pill taps to the inner UIKit input")
+    func setRowPillTapFocusContract() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SetRow.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        #expect(source.contains("var focusRequestID: Int = 0"))
+        #expect(source.contains("var lastFocusRequestID = 0"))
+        #expect(source.contains("view.becomeFirstResponder()"))
+        #expect(source.contains("focusRequestID.wrappedValue &+= 1"))
+        #expect(source.contains("$weightFocusRequestID"))
+        #expect(source.contains("$repsFocusRequestID"))
+        #expect(source.contains("focusRequestID: focusRequestID.wrappedValue"))
+    }
 }
