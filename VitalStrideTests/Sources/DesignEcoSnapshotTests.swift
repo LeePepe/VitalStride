@@ -56,88 +56,72 @@ final class DesignEcoSnapshotTests: XCTestCase {
             )
         }
 
-        func testRendersTK1WidthMatrixSnapshots() async throws {
-            let outputDirectory = try Self.prepareOutputDirectory()
-            let defaults = try XCTUnwrap(UserDefaults(suiteName: "DesignEcoTK1WidthMatrix"))
-            defer { defaults.removePersistentDomain(forName: "DesignEcoTK1WidthMatrix") }
-
-            for width in [CGFloat(375), CGFloat(393)] {
-                let fixture = try Self.makeWorkoutFixture()
-                let pickerContainer = try Self.makePickerContainer()
-                for variant in [SnapshotVariant.light, .dark] {
-                    let suffix = variant.isDark ? "-dark" : "-light"
-                    let size = CGSize(width: width, height: 852)
-                    defaults.set(false, forKey: "activeWorkoutLargeMode")
-                    try await Self.render(
-                        ActiveWorkoutView(source: .resume(fixture.workout), snackbarSlotOverride: .rest)
-                            .modelContainer(fixture.container)
-                            .designTheme(seed: .teal, neutral: .slate)
-                            .environment(\.colorScheme, variant.colorScheme)
-                            .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
-                            .defaultAppStorage(defaults),
-                        named: "tk1-active-workout-\(Int(width))\(suffix)",
-                        in: outputDirectory,
-                        variant: variant,
-                        canvasSize: size
-                    )
-                    try await Self.render(
-                        WorkoutNumericKeyboardContentView(
-                            field: .weight,
-                            setType: .warmup,
-                            exercise: fixture.exercise,
-                            recentWeightKg: 40,
-                            theme: Theme(seed: .teal, neutral: .slate, isDark: variant.isDark),
-                            onKeyPress: { _ in },
-                            onLeftAction: { _ in },
-                            onPresetReps: { _, _ in },
-                            onDone: {}
-                        )
-                        .frame(width: width, height: WorkoutNumericKeyboard.preferredHeight()),
-                        named: "tk1-keyboard-\(Int(width))\(suffix)",
-                        in: outputDirectory,
-                        variant: variant,
-                        canvasSize: CGSize(width: width, height: WorkoutNumericKeyboard.preferredHeight())
-                    )
-                    try await Self.render(
-                        ExercisePickerView(onConfirm: { _ in })
-                            .modelContainer(pickerContainer)
-                            .designTheme(seed: .teal, neutral: .slate)
-                            .environment(\.colorScheme, variant.colorScheme)
-                            .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark)),
-                        named: "tk1-picker-\(Int(width))\(suffix)",
-                        in: outputDirectory,
-                        variant: variant,
-                        canvasSize: size
-                    )
-                    try await Self.render(
-                        ExerciseSubstituteSheet(
-                            state: .results([
-                                .init(
-                                    id: "tk1-long-title",
-                                    name: "弹力带俯身髋部伸展",
-                                    muscleGroup: "臀腿",
-                                    reason: "动作轨迹相近，器械要求更低，适合在家训练。"
-                                ),
-                            ]),
-                            onSelect: { _ in },
-                            onManualSelect: {}
-                        )
-                        .designTheme(seed: .teal, neutral: .slate)
-                        .environment(\.colorScheme, variant.colorScheme)
-                        .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark)),
-                        named: "tk1-substitute-\(Int(width))\(suffix)",
-                        in: outputDirectory,
-                        variant: variant,
-                        canvasSize: size
-                    )
-                }
-            }
-        }
-
         for name in Self.snapshotNames {
             let url = outputDirectory.appendingPathComponent("\(name).png")
             let data = try Data(contentsOf: url)
             XCTAssertGreaterThan(data.count, 10_000)
+        }
+    }
+
+    func testRendersTK1WidthMatrixSnapshots() async throws {
+        let outputDirectory = try Self.prepareOutputDirectory()
+        let defaultsSuite = "DesignEcoTK1WidthMatrix.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: defaultsSuite))
+        defer { defaults.removePersistentDomain(forName: defaultsSuite) }
+
+        for (width, height) in [(CGFloat(375), CGFloat(812)), (CGFloat(393), CGFloat(852))] {
+            let size = CGSize(width: width, height: height)
+            for variant in [SnapshotVariant.light, .dark] {
+                for largeMode in [false, true] {
+                    for rightToLeft in [false, true] {
+                        let fixture = try Self.makeWorkoutFixture()
+                        fixture.exercise.nameEn = "Band Bent-Over Hip Extension"
+                        fixture.exercise.nameZh = "弹力带俯身髋部伸展"
+                        defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                        let appearance = variant.isDark ? "dark" : "light"
+                        let direction = rightToLeft ? "rtl" : "ltr"
+                        let baseName = "tk1-\(Int(width))-\(appearance)-\(largeMode ? "large" : "normal")-\(direction)"
+                        try await Self.render(
+                            ActiveWorkoutView(
+                                source: .resume(fixture.workout),
+                                snackbarSlotOverride: .undo
+                            )
+                            .modelContainer(fixture.container)
+                            .designTheme(seed: .teal, neutral: .slate)
+                            .environment(\.colorScheme, variant.colorScheme)
+                            .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                            .environment(
+                                \.layoutDirection,
+                                rightToLeft ? .rightToLeft : .leftToRight
+                            )
+                            .defaultAppStorage(defaults),
+                            named: "\(baseName)-exercise-header",
+                            in: outputDirectory,
+                            variant: variant,
+                            canvasSize: size
+                        )
+                        try await Self.render(
+                            ActiveWorkoutSnackbarLayout.undoEnvelope(
+                                message: "撤销删除",
+                                theme: Theme(seed: .teal, neutral: .slate, isDark: variant.isDark),
+                                restEndDate: Date().addingTimeInterval(30)
+                            )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                            .designTheme(seed: .teal, neutral: .slate)
+                            .environment(\.colorScheme, variant.colorScheme)
+                            .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                            .environment(
+                                \.layoutDirection,
+                                rightToLeft ? .rightToLeft : .leftToRight
+                            ),
+                            named: "\(baseName)-inline-rest-undo",
+                            in: outputDirectory,
+                            variant: variant,
+                            canvasSize: size
+                        )
+                    }
+                }
+            }
         }
     }
 

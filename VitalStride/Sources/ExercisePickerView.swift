@@ -1010,7 +1010,7 @@ private struct ExerciseCard: View {
                 Text(exercise.localizedName)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(theme.neutrals.text1)
-                    .lineLimit(2)
+                    .lineLimit(2, reservesSpace: true)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1027,7 +1027,12 @@ private struct ExerciseCard: View {
                 .foregroundStyle(theme.secondaryForeground)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, minHeight: 180, alignment: .topLeading)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: 118,
+                maxHeight: .infinity,
+                alignment: .topLeading
+            )
             .padding(10)
             .designSurface(style: .solid, cornerRadius: 16)
             .overlay {

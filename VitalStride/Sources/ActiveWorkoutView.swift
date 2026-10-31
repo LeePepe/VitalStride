@@ -688,7 +688,7 @@ struct ActiveWorkoutView: View {
                     .foregroundStyle(theme.neutrals.text1)
                     .contentTransition(reduceMotion ? .opacity : .numericText())
                     .animation(
-                        reduceMotion ? .easeInOut(duration: 0.15) : .default,
+                        reduceMotion ? nil : .snappy(duration: 0.22),
                         value: timeString
                     )
                     .layoutPriority(1)
@@ -714,7 +714,7 @@ struct ActiveWorkoutView: View {
                 .foregroundStyle(theme.neutrals.text1)
                 .contentTransition(reduceMotion ? .opacity : .numericText())
                 .animation(
-                    reduceMotion ? .easeInOut(duration: 0.15) : .default,
+                    reduceMotion ? nil : .snappy(duration: 0.22),
                     value: bpmText
                 )
                 .layoutPriority(1)
@@ -752,7 +752,7 @@ struct ActiveWorkoutView: View {
                     reduceMotion ? .opacity : .numericText(countsDown: false)
                 )
                 .animation(
-                    reduceMotion ? .easeInOut(duration: 0.15) : .default,
+                    reduceMotion ? nil : .snappy(duration: 0.22),
                     value: completedSetCount
                 )
                 .layoutPriority(1)
@@ -773,7 +773,7 @@ struct ActiveWorkoutView: View {
                 .foregroundStyle(theme.neutrals.text1)
                 .contentTransition(reduceMotion ? .opacity : .numericText())
                 .animation(
-                    reduceMotion ? .easeInOut(duration: 0.15) : .default,
+                    reduceMotion ? nil : .snappy(duration: 0.22),
                     value: volumeText
                 )
                 .layoutPriority(1)
@@ -860,6 +860,11 @@ struct ActiveWorkoutView: View {
                         Text("\(completedSetCount) / \(totalSetCount)")
                             .font(TypeScale.title.monospacedDigit())
                             .foregroundStyle(theme.neutrals.text1)
+                            .contentTransition(reduceMotion ? .opacity : .numericText())
+                            .animation(
+                                reduceMotion ? nil : .snappy(duration: 0.22),
+                                value: completedSetCount
+                            )
                     }
 
                     Spacer(minLength: 0)
@@ -873,6 +878,11 @@ struct ActiveWorkoutView: View {
                             Text(Int(displayVolume).formatted())
                                 .font(TypeScale.display)
                                 .foregroundStyle(theme.neutrals.text1)
+                                .contentTransition(reduceMotion ? .opacity : .numericText())
+                                .animation(
+                                    reduceMotion ? nil : .snappy(duration: 0.22),
+                                    value: displayVolume
+                                )
                             Text(weightUnit.rawValue)
                                 .font(TypeScale.meta)
                                 .foregroundStyle(theme.neutrals.text3)
@@ -924,6 +934,11 @@ struct ActiveWorkoutView: View {
             let timeString = String(format: "%d:%02d:%02d", hours, minutes, seconds)
             Text(timeString)
                 .font(timerFont)
+                .contentTransition(reduceMotion ? .opacity : .numericText())
+                .animation(
+                    reduceMotion ? nil : .snappy(duration: 0.22),
+                    value: timeString
+                )
         }
     }
 
@@ -959,6 +974,11 @@ struct ActiveWorkoutView: View {
             Image(systemName: "heart.fill")
             Text(bpmText)
                 .monospacedDigit()
+                .contentTransition(reduceMotion ? .opacity : .numericText())
+                .animation(
+                    reduceMotion ? nil : .snappy(duration: 0.22),
+                    value: bpmText
+                )
             // Only render the "次/分" unit suffix alongside a real numeric
             // value — showing "未连接 次/分" would be nonsensical.
             if case .value = state {
@@ -1092,7 +1112,7 @@ struct ActiveWorkoutView: View {
                                 reduceMotion ? .opacity : .numericText(countsDown: true)
                             )
                             .animation(
-                                reduceMotion ? .easeInOut(duration: 0.15) : .default,
+                                reduceMotion ? nil : .snappy(duration: 0.22),
                                 value: remaining
                             )
                             .layoutPriority(1)
@@ -1251,7 +1271,7 @@ struct ActiveWorkoutView: View {
                                     .font(.caption2)
                                     .lineLimit(2)
                                     .minimumScaleFactor(0.8)
-                                    .fixedSize(horizontal: false, vertical: false)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .multilineTextAlignment(.center)
                                     .background {
                                         GeometryReader { proxy in
@@ -1265,7 +1285,11 @@ struct ActiveWorkoutView: View {
                                         }
                                     }
                             }
-                            .frame(maxWidth: .infinity, minHeight: 60, alignment: .top)
+                            .frame(
+                                maxWidth: .infinity,
+                                minHeight: largeMode ? 76 : 64,
+                                alignment: .top
+                            )
                             .padding(.horizontal, 2)
                             .padding(.vertical, 6)
                             .foregroundStyle(isSelected ? theme.accent : theme.foreground)
