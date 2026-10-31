@@ -635,7 +635,7 @@ struct ActiveExerciseSection: View {
             isUnilateral: parentSet.isUnilateral,
             weightRight: adjustedWeightRight
         )
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.30, dampingFraction: 0.82)) {
+        withAnimation(reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.30, dampingFraction: 0.85)) {
             // swiftlint:disable:next identifier_name
             for i in insertIndex..<sets.count {
                 sets[i].order += 1
@@ -688,7 +688,7 @@ struct ActiveExerciseSection: View {
         ).map { contexts[$0].exerciseSet.persistentModelID }
 
         var didDelete = false
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.30, dampingFraction: 0.82)) {
+        withAnimation(reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.30, dampingFraction: 0.85)) {
             didDelete = WorkoutSetManager.deleteSet(exerciseSet, from: workoutExercise, using: modelContext)
         }
         guard didDelete else { return }

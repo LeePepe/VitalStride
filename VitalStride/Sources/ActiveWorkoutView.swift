@@ -1269,8 +1269,7 @@ struct ActiveWorkoutView: View {
                                 }
                                 Text(exerciseName)
                                     .font(.caption2)
-                                    .lineLimit(2)
-                                    .minimumScaleFactor(0.8)
+                                    .lineLimit(nil)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .multilineTextAlignment(.center)
                                     .background {
