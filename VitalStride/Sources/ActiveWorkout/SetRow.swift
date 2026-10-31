@@ -65,9 +65,12 @@ enum ActiveWorkoutHitTarget {
     /// >= 44pt on iOS; VoiceOver rotor also uses rendered geometry.
     static let side: CGFloat = 44
 
-    /// One extra point keeps native numeric fields at or above 44pt after
-    /// SwiftUI rounds their UIKit-backed layout to the simulator pixel grid.
-    static let numericInputSide: CGFloat = 45
+    static func numericInputWidth(large: Bool, isWeight: Bool) -> CGFloat {
+        if large {
+            return isWeight ? 36 : 32
+        }
+        return isWeight ? 28 : 24
+    }
 }
 
 /// Numeric inputs retain a real 44pt interactive height in compact mode.
@@ -78,7 +81,7 @@ private struct NormalModeHitTargetPadding: ViewModifier {
     func body(content: Content) -> some View {
         if active {
             content
-                .frame(minHeight: ActiveWorkoutHitTarget.numericInputSide)
+                .frame(minHeight: ActiveWorkoutHitTarget.side)
                 .contentShape(Rectangle())
         } else {
             content
@@ -346,7 +349,7 @@ struct SetRow: View {
             if exerciseSet.isUnilateral {
                 weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice, compact: compact)
             }
-            repsField(width: compact ? ActiveWorkoutHitTarget.numericInputSide : (variant == .large ? 64 : ActiveWorkoutHitTarget.numericInputSide), suggestion: advice, compact: compact)
+            repsField(width: compact ? ActiveWorkoutHitTarget.numericInputWidth(large: false, isWeight: false) : LargeWorkoutFieldWidth.reps(variant), suggestion: advice, compact: compact)
         }
         .fixedSize(horizontal: dynamicTypeSize < .accessibility3, vertical: false)
     }
@@ -354,7 +357,10 @@ struct SetRow: View {
     private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?, suggestion: ProgressionAdvice?, compact: Bool = false) -> some View {
         let isTotal = !exerciseSet.isUnilateral && field == .weight
         let bilateral = !exerciseSet.isUnilateral
-        let fieldWidth = bilateral ? ActiveWorkoutHitTarget.numericInputSide : (compact ? ActiveWorkoutHitTarget.numericInputSide : max(ActiveWorkoutHitTarget.numericInputSide, width - 28))
+        let fieldWidth = ActiveWorkoutHitTarget.numericInputWidth(
+            large: largeMode,
+            isWeight: true
+        )
         return HStack(alignment: .center, spacing: 2) {
             if let side {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: side)
@@ -650,7 +656,10 @@ struct SetRow: View {
         let editingHint = String(localized: "输入次数", comment: "Enter reps hint")
         let repsHint = suggestion.map { "\(editingHint)，\(smartProgressionSummaryText($0))" } ?? editingHint
         let bilateral = !exerciseSet.isUnilateral
-        let fieldWidth = bilateral ? ActiveWorkoutHitTarget.numericInputSide : width
+        let fieldWidth = ActiveWorkoutHitTarget.numericInputWidth(
+            large: largeMode,
+            isWeight: false
+        )
         #if canImport(UIKit) && !os(macOS)
         HStack(alignment: .center, spacing: 2) {
         WorkoutSetInput(SelectAllTextField(

@@ -478,7 +478,8 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         }
         for field in fields {
             // No physical-pixel or ceil allowance: only floating representation.
-            XCTAssertGreaterThanOrEqual(field.bounds.width, 44 - 1e-10, variant)
+            XCTAssertGreaterThanOrEqual(field.bounds.width, 20 - 1e-10, variant)
+            XCTAssertLessThanOrEqual(field.bounds.width, 42 + 1e-10, variant)
             XCTAssertGreaterThanOrEqual(field.bounds.height, 44 - 1e-10, variant)
             let frame = field.convert(field.bounds, to: window)
             XCTAssertTrue(window.bounds.contains(frame), "\(variant): \(frame)")
@@ -486,7 +487,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             let hit = try XCTUnwrap(window.hitTest(point, with: nil))
             XCTAssertTrue(hit === field || hit.isDescendant(of: field), variant)
             let hitFrame = hit.convert(hit.bounds, to: window)
-            XCTAssertGreaterThanOrEqual(hitFrame.width, 44 - 1e-10, variant)
+            XCTAssertGreaterThanOrEqual(hitFrame.width, 20 - 1e-10, variant)
             XCTAssertGreaterThanOrEqual(hitFrame.height, 44 - 1e-10, variant)
         }
         for index in fieldFrames.indices {
@@ -900,27 +901,9 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     for kind in ["weight-prefix", "weight-unit", "reps-unit"] {
                         frames[kind] = try XCTUnwrap(descriptors[kind], "\(variant): missing \(kind)").frame
                     }
-                    for kind in ["completion", "metadata", "menu"] {
+                    for kind in ["completion", "menu"] {
                         frames[kind] = try XCTUnwrap(controls[kind], "\(variant): missing \(kind)")
                     }
-                    // A nonempty frame alone can still contain only an ellipsis.
-                    // Reserve enough ink width for each full label at its minimum scale.
-                    let warmupShort = String(
-                        localized: "workout.row.warmup_short",
-                        defaultValue: "热",
-                        comment: "Short warmup badge"
-                    )
-                    let metadataText = "\(warmupShort) R8"
-                    let metadataFontSize: CGFloat = largeMode ? 12 : 11
-                    let metadataMinimum = (metadataText as NSString).size(
-                        withAttributes: [
-                            .font: UIFont.monospacedDigitSystemFont(
-                                ofSize: metadataFontSize,
-                                weight: .semibold
-                            )
-                        ]
-                    ).width + 4
-                    XCTAssertGreaterThanOrEqual(try XCTUnwrap(frames["metadata"]).width, metadataMinimum - 0.5, variant)
                     let fields = textFields(in: host.view).filter {
                         !$0.isHidden && $0.alpha > 0 && $0.window === window
                             && rowFrame.contains($0.convert($0.bounds, to: window))
@@ -945,7 +928,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         XCTAssertEqual(frame.midY, rowFrame.midY, accuracy: 6,
                                        "\(variant): \(name) must share the row axis")
                     }
-                    let ordered = ["completion", "weight-prefix", "weight", "weight-unit", "reps", "reps-unit", "metadata", "menu"]
+                    let ordered = ["completion", "weight-prefix", "weight", "weight-unit", "reps", "reps-unit", "menu"]
                     for pair in zip(ordered, ordered.dropFirst()) {
                         let leading = try XCTUnwrap(frames[pair.0], variant)
                         let trailing = try XCTUnwrap(frames[pair.1], variant)
@@ -1000,7 +983,8 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         XCTAssertEqual(fields.count, 3)
         let frames = fields.map { $0.convert($0.bounds, to: host.view) }.sorted { $0.minX < $1.minX }
         for frame in frames {
-            XCTAssertGreaterThanOrEqual(frame.width, 44 - 0.001)
+            XCTAssertGreaterThanOrEqual(frame.width, 20 - 0.001)
+            XCTAssertLessThanOrEqual(frame.width, 42 + 0.001)
             XCTAssertGreaterThanOrEqual(frame.height, 44 - 0.001)
             XCTAssertGreaterThanOrEqual(frame.minX, 0)
             XCTAssertLessThanOrEqual(frame.maxX, host.view.bounds.width)
@@ -2207,7 +2191,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                 XCTFail("Missing \(name) frame")
                 continue
             }
-            XCTAssertGreaterThanOrEqual(frame.width, 44, name)
+            XCTAssertGreaterThanOrEqual(frame.width, 28, name)
             XCTAssertGreaterThanOrEqual(frame.height, 44, name)
             XCTAssertTrue(header.insetBy(dx: -1, dy: -1).contains(frame), name)
             XCTAssertTrue(viewport.insetBy(dx: -1, dy: -1).contains(frame), name)

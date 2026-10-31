@@ -55,18 +55,20 @@ struct ActiveExerciseSectionAddSetHeaderTests {
             "The exercise header must keep a single centered axis for long or Large Mode titles."
         )
         #expect(
-            source.contains("theme.neutrals.card") && !source.contains("padding(.bottom, -15"),
-            "The pinned header should use the same surface as its set rows without negative bottom bleed."
+            source.contains("theme.neutrals.bg") && !source.contains("padding(.bottom, -15"),
+            "The pinned header should use the opaque base plane without negative bottom bleed."
         )
         #expect(
-            source.contains(".background(theme.neutrals.card)") &&
-            source.contains(".listRowBackground(theme.neutrals.card)") &&
-            source.contains("frame(width: 44, height: headerControlHeight)") &&
+            source.contains(".background(theme.neutrals.bg)") &&
+            source.contains(".listRowBackground(theme.neutrals.bg)") &&
+            source.contains("HStack(alignment: .center, spacing: 0)") &&
+            source.contains("frame(width: 28, height: headerControlHeight)") &&
             source.contains(".fixedSize(horizontal: true, vertical: false)") &&
             source.contains(".minimumScaleFactor(0.85)") &&
+            source.contains(".truncationMode(.tail)") &&
             source.contains("minHeight: headerControlHeight") &&
             source.contains(".padding(.vertical, 4)"),
-            "The header and row spacing share the card surface, with fixed badges, 44pt controls and a compressible title."
+            "The header must use the unified base plane, compact adjacent actions, and a single-line title."
         )
         #expect(
             sectionBody.contains("ForEach"),

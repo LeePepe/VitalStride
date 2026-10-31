@@ -96,16 +96,6 @@ struct SubSetRow: View {
             } else {
                 bilateralInputs
             }
-            Text("\(parentSetNumber).\(exerciseSet.order)")
-                .font(largeMode ? .caption.weight(.semibold).monospacedDigit() : .caption2.weight(.semibold).monospacedDigit())
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .fixedSize(horizontal: true, vertical: false)
-                .layoutPriority(1)
-                .foregroundStyle(theme.neutrals.text3)
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-                    rowObservation.control(exerciseSet.persistentModelID, "metadata", frame)
-                }
             Spacer(minLength: 0)
             trailingControls
         }
@@ -115,8 +105,10 @@ struct SubSetRow: View {
 
     private var leadingControls: some View {
         Button(action: toggleCompleted) {
-            Text("↳")
-                .font(.caption.weight(.bold))
+            Text("\(parentSetNumber).\(exerciseSet.order)")
+                .font(largeMode ? .footnote : .caption)
+                .monospacedDigit()
+                .fontWeight(.semibold)
                 .foregroundStyle(theme.accent)
             Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
                 .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.neutrals.text2)
@@ -208,8 +200,11 @@ struct SubSetRow: View {
             }
             WorkoutSetInput(input, theme: theme)
                 .frame(
-                    width: ActiveWorkoutHitTarget.numericInputSide,
-                    height: ActiveWorkoutHitTarget.numericInputSide
+                    width: ActiveWorkoutHitTarget.numericInputWidth(
+                        large: largeMode,
+                        isWeight: field.isWeightField
+                    ),
+                    height: largeMode ? 42 : 36
                 )
                 .fixedSize(horizontal: true, vertical: false)
             if field.isWeightField {
@@ -247,7 +242,13 @@ struct SubSetRow: View {
                     .fixedSize()
             }
             TextField("", text: editingText)
-                .frame(width: field.isWeightField ? 58 : 48, height: ActiveWorkoutHitTarget.numericInputSide)
+                .frame(
+                    width: ActiveWorkoutHitTarget.numericInputWidth(
+                        large: largeMode,
+                        isWeight: field.isWeightField
+                    ),
+                    height: largeMode ? 42 : 36
+                )
             WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: field.isWeightField
                  ? weightUnit.rawValue
                  : String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))

@@ -58,5 +58,6 @@ struct ActiveWorkoutHitTargetTests {
         #expect(source.contains(".frame(height: largeMode ? 42 : 36)"))
         #expect(source.contains(".frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)"))
         #expect(source.contains(".contentShape(Rectangle())"))
+        #expect(source.contains("numericInputWidth("))
     }
 }

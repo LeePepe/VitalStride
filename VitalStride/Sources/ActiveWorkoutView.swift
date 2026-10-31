@@ -1190,7 +1190,7 @@ struct ActiveWorkoutView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
-                    .listSectionSpacing(largeMode ? 20 : 8)
+                    .listSectionSpacing(largeMode ? 14 : 10)
                     .scrollDismissesKeyboard(.immediately)
                     .simultaneousGesture(
                         DragGesture(minimumDistance: 8)
