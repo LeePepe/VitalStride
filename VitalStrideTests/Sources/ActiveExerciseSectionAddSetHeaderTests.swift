@@ -62,7 +62,11 @@ struct ActiveExerciseSectionAddSetHeaderTests {
             source.contains(".background(theme.neutrals.bg)") &&
             source.contains(".listRowBackground(theme.neutrals.bg)") &&
             source.contains("HStack(alignment: .center, spacing: 0)") &&
-            source.contains("frame(width: 28, height: headerControlHeight)") &&
+            source.contains("frame(width: 28, height: 28)") &&
+            source.contains("padding(.trailing, 1)") &&
+            source.contains("padding(.leading, 1)") &&
+            source.contains("frame(width: 44, height: headerControlHeight, alignment: .trailing)") &&
+            source.contains("frame(width: 44, height: headerControlHeight, alignment: .leading)") &&
             source.contains(".fixedSize(horizontal: true, vertical: false)") &&
             source.contains(".minimumScaleFactor(0.85)") &&
             source.contains(".truncationMode(.tail)") &&

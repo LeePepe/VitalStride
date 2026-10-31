@@ -311,7 +311,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
             XCTAssertFalse(title.intersects(progress), name)
             XCTAssertFalse(title.intersects(addSet), name)
             XCTAssertFalse(addSet.intersects(menu), name)
-            XCTAssertGreaterThanOrEqual(addSet.width, 28, name)
+            XCTAssertGreaterThanOrEqual(addSet.width, 44, name)
             XCTAssertGreaterThanOrEqual(addSet.height, 44, name)
             XCTAssertLessThan(title.minY, addSet.maxY, name)
             XCTAssertGreaterThan(title.maxY, addSet.minY, name)
@@ -360,7 +360,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 for name in ["order", "add-set", "menu"] {
                     let frame = try XCTUnwrap(controls[name], "Missing \(name)")
                     if name != "order" {
-                        XCTAssertGreaterThanOrEqual(frame.width, 28, "\(name) width")
+                        XCTAssertGreaterThanOrEqual(frame.width, 44, "\(name) width")
                         XCTAssertGreaterThanOrEqual(frame.height, 44, "\(name) height")
                     }
                     XCTAssertTrue(window.bounds.insetBy(dx: -1, dy: -1).contains(frame),

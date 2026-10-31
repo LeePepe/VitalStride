@@ -520,11 +520,12 @@ struct ActiveExerciseSection: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .foregroundStyle(theme.neutrals.text2)
-                    .frame(width: 28, height: headerControlHeight)
+                    .frame(width: 28, height: 28)
+                    .padding(.leading, 1)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
-            .frame(width: 28, height: headerControlHeight)
+            .frame(width: 44, height: headerControlHeight, alignment: .leading)
             .contentShape(Rectangle())
             .background {
                 GeometryReader { geometry in
@@ -590,11 +591,13 @@ struct ActiveExerciseSection: View {
             Image(systemName: "plus.circle.fill")
                 .font(.body.weight(.semibold))
                 .foregroundStyle(theme.primary.primary)
-                .frame(width: 28, height: headerControlHeight)
+                .frame(width: 28, height: 28)
+                .padding(.trailing, 1)
                 .contentShape(Rectangle())
         }
         .buttonStyle(AddSetButtonStyle())
-        .frame(width: 28, height: headerControlHeight)
+        .frame(width: 44, height: headerControlHeight, alignment: .trailing)
+        .contentShape(Rectangle())
         .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
         .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
     }

@@ -2191,7 +2191,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                 XCTFail("Missing \(name) frame")
                 continue
             }
-            XCTAssertGreaterThanOrEqual(frame.width, 28, name)
+            XCTAssertGreaterThanOrEqual(frame.width, 44, name)
             XCTAssertGreaterThanOrEqual(frame.height, 44, name)
             XCTAssertTrue(header.insetBy(dx: -1, dy: -1).contains(frame), name)
             XCTAssertTrue(viewport.insetBy(dx: -1, dy: -1).contains(frame), name)
