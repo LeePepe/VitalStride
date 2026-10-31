@@ -188,7 +188,7 @@ struct ActiveExerciseSection: View {
                     .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
                     .listRowSeparator(.hidden)
                     .listSectionSeparator(.hidden)
-                    .listRowBackground(theme.neutrals.card)
+                    .listRowBackground(theme.neutrals.bg)
                 } else {
                     SetRow(
                         index: ctx.mainSetNumber,
@@ -229,7 +229,7 @@ struct ActiveExerciseSection: View {
                     .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
                     .listRowSeparator(.hidden)
                     .listSectionSeparator(.hidden)
-                    .listRowBackground(theme.neutrals.card)
+                    .listRowBackground(theme.neutrals.bg)
                 }
             }
             }
@@ -273,7 +273,7 @@ struct ActiveExerciseSection: View {
                 ))
             }
         }
-        .listRowBackground(theme.neutrals.card)
+        .listRowBackground(theme.neutrals.bg)
     }
 
     /// MY-1420: `confirmationDialog(_:isPresented:presenting:)` needs a Bool
@@ -317,9 +317,9 @@ struct ActiveExerciseSection: View {
         .padding(.vertical, 4)
         .fixedSize(horizontal: false, vertical: true)
         // The header and rows use one solid card plane without redundant separators.
-        .background(theme.neutrals.card)
+        .background(theme.neutrals.bg)
         .listRowInsets(EdgeInsets())
-        .listRowBackground(theme.neutrals.card)
+        .listRowBackground(theme.neutrals.bg)
         .zIndex(1)
         .background {
             GeometryReader { geometry in
@@ -395,9 +395,10 @@ struct ActiveExerciseSection: View {
                     : Font.system(.body, design: .default).weight(.semibold))
                 .foregroundStyle(theme.neutrals.text1)
                 .layoutPriority(1)
-                .lineLimit(compact ? 1 : 2)
+                .lineLimit(1)
                 .fixedSize(horizontal: false, vertical: false)
                 .minimumScaleFactor(0.85)
+                .truncationMode(.tail)
                 .background {
                     GeometryReader { geometry in
                         Color.clear
@@ -477,27 +478,28 @@ struct ActiveExerciseSection: View {
 
     @ViewBuilder
     private var addSetButtonAndMenu: some View {
-        addSetButton
-            .background {
-                GeometryReader { geometry in
-                    Color.clear
-                        .onAppear {
-                            listObservation.onControlFrame(
-                                workoutExercise.persistentModelID,
-                                "add-set",
-                                geometry.frame(in: .global)
-                            )
-                        }
-                        .onChange(of: geometry.frame(in: .global)) { _, frame in
-                            listObservation.onControlFrame(
-                                workoutExercise.persistentModelID,
-                                "add-set",
-                                frame
-                            )
-                        }
+        HStack(alignment: .center, spacing: 0) {
+            addSetButton
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear {
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "add-set",
+                                    geometry.frame(in: .global)
+                                )
+                            }
+                            .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                listObservation.onControlFrame(
+                                    workoutExercise.persistentModelID,
+                                    "add-set",
+                                    frame
+                                )
+                            }
+                    }
                 }
-            }
-        Menu {
+            Menu {
             Button {
                 onSubstitute()
             } label: {
@@ -515,33 +517,34 @@ struct ActiveExerciseSection: View {
             } label: {
                 Label(String(localized: "删除动作", comment: "Delete exercise menu item"), systemImage: "trash")
             }
-        } label: {
-            Image(systemName: "ellipsis.circle")
-                .foregroundStyle(theme.neutrals.text2)
-                .frame(width: 36, height: 36)
-                .frame(width: 44, height: headerControlHeight)
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
-        .frame(width: 44, height: headerControlHeight)
-        .contentShape(Rectangle())
-        .background {
-            GeometryReader { geometry in
-                Color.clear
-                    .onAppear {
-                        listObservation.onControlFrame(
-                            workoutExercise.persistentModelID,
-                            "menu",
-                            geometry.frame(in: .global)
-                        )
-                    }
-                    .onChange(of: geometry.frame(in: .global)) { _, frame in
-                        listObservation.onControlFrame(
-                            workoutExercise.persistentModelID,
-                            "menu",
-                            frame
-                        )
-                    }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .foregroundStyle(theme.neutrals.text2)
+                    .frame(width: 28, height: 28)
+                    .padding(.leading, 1)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
+            .frame(width: 44, height: headerControlHeight, alignment: .leading)
+            .contentShape(Rectangle())
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear {
+                            listObservation.onControlFrame(
+                                workoutExercise.persistentModelID,
+                                "menu",
+                                geometry.frame(in: .global)
+                            )
+                        }
+                        .onChange(of: geometry.frame(in: .global)) { _, frame in
+                            listObservation.onControlFrame(
+                                workoutExercise.persistentModelID,
+                                "menu",
+                                frame
+                            )
+                        }
+                }
             }
         }
     }
@@ -588,12 +591,13 @@ struct ActiveExerciseSection: View {
             Image(systemName: "plus.circle.fill")
                 .font(.body.weight(.semibold))
                 .foregroundStyle(theme.primary.primary)
-                .frame(width: 36, height: 36)
-                .frame(width: 44, height: headerControlHeight)
+                .frame(width: 28, height: 28)
+                .padding(.trailing, 1)
                 .contentShape(Rectangle())
         }
         .buttonStyle(AddSetButtonStyle())
-        .frame(width: 44, height: headerControlHeight)
+        .frame(width: 44, height: headerControlHeight, alignment: .trailing)
+        .contentShape(Rectangle())
         .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
         .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
     }

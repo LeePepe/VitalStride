@@ -58,5 +58,42 @@ struct ActiveWorkoutHitTargetTests {
         #expect(source.contains(".frame(height: largeMode ? 42 : 36)"))
         #expect(source.contains(".frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)"))
         #expect(source.contains(".contentShape(Rectangle())"))
+        #expect(source.contains("numericInputWidth("))
+    }
+
+    @Test("SetRow forwards outer pill taps to the inner UIKit input")
+    func setRowPillTapFocusContract() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SetRow.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        #expect(source.contains("var focusRequestID: Int = 0"))
+        #expect(source.contains("var lastFocusRequestID = 0"))
+        #expect(source.contains("view.becomeFirstResponder()"))
+        #expect(source.contains("focusRequestID.wrappedValue &+= 1"))
+        #expect(source.contains("@State private var weightRightFocusRequestID = 0"))
+        #expect(source.contains("$weightFocusRequestID"))
+        #expect(source.contains("field: .weightRight, width: weightWidth, side: \"R\", suggestion: advice, compact: compact, focusRequestID: $weightRightFocusRequestID"))
+        #expect(source.contains("$repsFocusRequestID"))
+        #expect(source.contains("focusRequestID: focusRequestID.wrappedValue"))
+    }
+
+    @Test("Unilateral weight pills use independent focus request channels")
+    func unilateralWeightPillFocusRequestsAreIndependent() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SetRow.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        let leftBinding = "field: .weight, width: weightWidth"
+        let rightBinding = "field: .weightRight, width: weightWidth"
+        let leftRange = try #require(source.range(of: leftBinding))
+        let rightRange = try #require(source.range(of: rightBinding))
+        #expect(source[leftRange.lowerBound..<rightRange.lowerBound].contains("$weightFocusRequestID"))
+        #expect(source[rightRange.lowerBound...].contains("$weightRightFocusRequestID"))
+        #expect(!source[rightRange.lowerBound...].prefix(250).contains("$weightFocusRequestID"))
     }
 }
