@@ -291,7 +291,10 @@ struct ActiveExerciseSection: View {
         toggleAction: @escaping ActiveExerciseSectionInteraction.ToggleAction
     ) -> some View {
         HStack(alignment: .center, spacing: 6) {
-            headerTitle(compact: true, toggleAction: toggleAction)
+            ViewThatFits(in: .horizontal) {
+                headerTitle(compact: true, toggleAction: toggleAction)
+                headerTitle(compact: false, toggleAction: toggleAction)
+            }
             Spacer(minLength: 0)
             addSetButtonAndMenu
         }
@@ -307,7 +310,12 @@ struct ActiveExerciseSection: View {
             comment: "Exercise completion count"
         ))
         .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity, minHeight: 44, maxHeight: 44, alignment: .leading)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: headerControlHeight,
+            maxHeight: headerControlHeight,
+            alignment: .leading
+        )
         .fixedSize(horizontal: false, vertical: true)
         // The header owns only its 44pt frame. Row backgrounds own List spacing,
         // so the first card’s top stroke and rounded corners remain uncovered.
@@ -389,9 +397,8 @@ struct ActiveExerciseSection: View {
                     : Font.system(.body, design: .default).weight(.semibold))
                 .foregroundStyle(theme.neutrals.text1)
                 .layoutPriority(1)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(compact ? 1 : 2)
+                .fixedSize(horizontal: false, vertical: false)
                 .minimumScaleFactor(0.85)
                 .background {
                     GeometryReader { geometry in

@@ -37,6 +37,7 @@ struct SubSetRow: View {
     @Environment(\.workoutRowObservation) private var rowObservation
     @Environment(\.theme) private var theme
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let exerciseSet: ExerciseSet
     let weightUnit: WeightUnit
     let isLast: Bool
@@ -108,6 +109,10 @@ struct SubSetRow: View {
         .onChange(of: exerciseSet.reps) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
         .onChange(of: weightUnit) { _, _ in refreshInputText() }
         .onChange(of: exerciseSet.isUnilateral) { _, _ in refreshInputText() }
+        .animation(
+            reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.28, dampingFraction: 0.85),
+            value: exerciseSet.isCompleted
+        )
     }
 
     private var addSubSetFooterTitle: String {

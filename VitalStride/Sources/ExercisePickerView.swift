@@ -299,6 +299,7 @@ struct ExercisePickerView: View {
             .padding(.horizontal, 8)
         }
         .frame(height: 52)
+        .contentShape(Rectangle())
         .accessibilityElement(children: .contain)
     }
 
@@ -355,7 +356,10 @@ struct ExercisePickerView: View {
         } label: {
             VStack(spacing: 3) {
                 Text(label).font(.caption.weight(selected ? .bold : .medium))
-                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .fixedSize(horizontal: false, vertical: false)
                 if count > 0 {
                     Text("\(count)").font(.caption2.bold()).monospacedDigit()
                         .padding(.horizontal, 6).background(theme.accentSubtle, in: Capsule())
@@ -1006,7 +1010,7 @@ private struct ExerciseCard: View {
                 Text(exercise.localizedName)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(theme.neutrals.text1)
-                    .lineLimit(2)
+                    .lineLimit(2, reservesSpace: true)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1023,7 +1027,12 @@ private struct ExerciseCard: View {
                 .foregroundStyle(theme.secondaryForeground)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, minHeight: 118, alignment: .topLeading)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: 118,
+                maxHeight: .infinity,
+                alignment: .topLeading
+            )
             .padding(10)
             .designSurface(style: .solid, cornerRadius: 16)
             .overlay {

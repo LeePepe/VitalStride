@@ -237,13 +237,18 @@ private struct RecommendationCard: View {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(recommendation.name)
-                            .font(.headline)
-                            .foregroundStyle(theme.neutrals.text1)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .multilineTextAlignment(.leading)
-                            .layoutPriority(1)
+                        ViewThatFits(in: .horizontal) {
+                            Text(recommendation.name)
+                                .lineLimit(1)
+                            Text(recommendation.name)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.85)
+                        }
+                        .font(.headline)
+                        .foregroundStyle(theme.neutrals.text1)
+                        .fixedSize(horizontal: false, vertical: false)
+                        .multilineTextAlignment(.leading)
+                        .layoutPriority(1)
                         Text(recommendation.muscleGroup)
                             .font(.caption.weight(.medium))
                             .lineLimit(1)

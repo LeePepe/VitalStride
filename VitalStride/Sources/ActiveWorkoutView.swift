@@ -686,6 +686,12 @@ struct ActiveWorkoutView: View {
                 Text(timeString)
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(theme.neutrals.text1)
+                    .contentTransition(reduceMotion ? .opacity : .numericText())
+                    .animation(
+                        reduceMotion ? nil : .snappy(duration: 0.22),
+                        value: timeString
+                    )
+                    .layoutPriority(1)
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(String(localized: "训练时长", comment: "Workout duration a11y label"))
@@ -706,6 +712,12 @@ struct ActiveWorkoutView: View {
             Text(bpmText)
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(theme.neutrals.text1)
+                .contentTransition(reduceMotion ? .opacity : .numericText())
+                .animation(
+                    reduceMotion ? nil : .snappy(duration: 0.22),
+                    value: bpmText
+                )
+                .layoutPriority(1)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "心率", comment: "Heart rate a11y label"))
@@ -736,6 +748,14 @@ struct ActiveWorkoutView: View {
             Text("\(completedSetCount)/\(totalSetCount)")
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(theme.neutrals.text1)
+                .contentTransition(
+                    reduceMotion ? .opacity : .numericText(countsDown: false)
+                )
+                .animation(
+                    reduceMotion ? nil : .snappy(duration: 0.22),
+                    value: completedSetCount
+                )
+                .layoutPriority(1)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "组数进度", comment: "Session set progress a11y label"))
@@ -751,6 +771,12 @@ struct ActiveWorkoutView: View {
             Text(volumeText)
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(theme.neutrals.text1)
+                .contentTransition(reduceMotion ? .opacity : .numericText())
+                .animation(
+                    reduceMotion ? nil : .snappy(duration: 0.22),
+                    value: volumeText
+                )
+                .layoutPriority(1)
             Text(unit)
                 .font(.caption)
                 .foregroundStyle(theme.neutrals.text3)
@@ -834,6 +860,11 @@ struct ActiveWorkoutView: View {
                         Text("\(completedSetCount) / \(totalSetCount)")
                             .font(TypeScale.title.monospacedDigit())
                             .foregroundStyle(theme.neutrals.text1)
+                            .contentTransition(reduceMotion ? .opacity : .numericText())
+                            .animation(
+                                reduceMotion ? nil : .snappy(duration: 0.22),
+                                value: completedSetCount
+                            )
                     }
 
                     Spacer(minLength: 0)
@@ -847,6 +878,11 @@ struct ActiveWorkoutView: View {
                             Text(Int(displayVolume).formatted())
                                 .font(TypeScale.display)
                                 .foregroundStyle(theme.neutrals.text1)
+                                .contentTransition(reduceMotion ? .opacity : .numericText())
+                                .animation(
+                                    reduceMotion ? nil : .snappy(duration: 0.22),
+                                    value: displayVolume
+                                )
                             Text(weightUnit.rawValue)
                                 .font(TypeScale.meta)
                                 .foregroundStyle(theme.neutrals.text3)
@@ -898,6 +934,11 @@ struct ActiveWorkoutView: View {
             let timeString = String(format: "%d:%02d:%02d", hours, minutes, seconds)
             Text(timeString)
                 .font(timerFont)
+                .contentTransition(reduceMotion ? .opacity : .numericText())
+                .animation(
+                    reduceMotion ? nil : .snappy(duration: 0.22),
+                    value: timeString
+                )
         }
     }
 
@@ -933,6 +974,11 @@ struct ActiveWorkoutView: View {
             Image(systemName: "heart.fill")
             Text(bpmText)
                 .monospacedDigit()
+                .contentTransition(reduceMotion ? .opacity : .numericText())
+                .animation(
+                    reduceMotion ? nil : .snappy(duration: 0.22),
+                    value: bpmText
+                )
             // Only render the "次/分" unit suffix alongside a real numeric
             // value — showing "未连接 次/分" would be nonsensical.
             if case .value = state {
@@ -1062,6 +1108,14 @@ struct ActiveWorkoutView: View {
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.5)
+                            .contentTransition(
+                                reduceMotion ? .opacity : .numericText(countsDown: true)
+                            )
+                            .animation(
+                                reduceMotion ? nil : .snappy(duration: 0.22),
+                                value: remaining
+                            )
+                            .layoutPriority(1)
                     }
                     .frame(width: 32, height: 32)
                     .accessibilityElement(children: .ignore)
@@ -1230,7 +1284,11 @@ struct ActiveWorkoutView: View {
                                         }
                                     }
                             }
-                            .frame(maxWidth: .infinity, minHeight: 60, alignment: .top)
+                            .frame(
+                                maxWidth: .infinity,
+                                minHeight: largeMode ? 76 : 64,
+                                alignment: .top
+                            )
                             .padding(.horizontal, 2)
                             .padding(.vertical, 6)
                             .foregroundStyle(isSelected ? theme.accent : theme.foreground)
