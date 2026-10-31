@@ -32,7 +32,7 @@ and content-hugging numeric fields inside independent hit targets.
 | Row cards | Each `SetRow` and `SubSetRow` is a rounded solid `theme.neutrals.card` card on the base plane; radius `12–16pt`; spacing between exercises `10pt` normal / `14pt` large. |
 | Sticky header | Opaque `theme.neutrals.bg`; dense single row, max height `44pt`, vertical padding `<=4pt`; it fully occludes rows while pinned. |
 | Header title (R27) | `.lineLimit(1)`, `.minimumScaleFactor(0.85)`, `.truncationMode(.tail)` in every mode; no two-line title variant. |
-| Header actions (R26) | `+` and `⋯` share one centered compact cluster, visual containers `28–30pt`, container spacing `0–2pt`, visual gap `<=6pt`; retain independent `>=44×44pt` hit shapes and no overlap. |
+| Header actions (R26) | `+` and `⋯` share one centered compact cluster, each visual frame is `28–30pt` wide × `>=44pt` high (`headerControlHeight`), container spacing is `0–2pt`, visual gap `<=6pt`; retain independent `>=44×44pt` hit targets and no overlap. |
 | Shared row grid | One centered axis: leading identity/completion → weight → reps → actual metadata/actions. Inter-slot gap `6–8pt`; input-internal gap `2–4pt`. |
 | Sub-set identity (R29) | `1.1`/`1.2` appears exactly once in `leadingControls`, beside completion, aligned with the parent index column. Remove the trailing metadata identity and its geometry capture. `↳` is not required when the hierarchical label is present. |
 | Visual input | Solid `theme.neutrals.inset` pill, radius `8pt`, `36pt` normal / `42pt` large height; digits use body-equivalent typography and monospaced digits. |
@@ -120,6 +120,7 @@ The following legacy assertions are explicitly superseded by this contract:
 | `VitalStrideTests/Sources/ActiveWorkoutRowLargeModeTests.swift:810-950` — `frames["suggestion"]`, descriptor ordering, and fixed 44pt frames | Remove chip/descriptor geometry; retain only four-slot layout, text budgets, and independent target checks. |
 | `VitalStrideTests/Sources/SubSetReadOnlyTests.swift:43-60` — shared-grid/no-footer contract | Retain and update naming if needed; add the single leading `1.1`/`1.2` identity invariant. |
 | `VitalStrideTests/Sources/SubSetReadOnlyTests.swift:43-60` — any `↳`-only or inner `numericInputSide` assumptions | Rewrite to permit a cohesive `1.1`/`1.2` leading label and content-hugging inner fields. |
+| `VitalStrideTests/Sources/DesignEcoSnapshotTests.swift:318,366` — legacy `add-set`/`menu` width `>=44pt` assertions | Rewrite to the compact header contract: visual width `>=28pt` and height `>=44pt` (`headerControlHeight`), preserving independent hit-target coverage. |
 
 ## Acceptance and evidence
 

@@ -356,7 +356,6 @@ struct SetRow: View {
 
     private func weightBox(binding: Binding<String>, field: SetField, width: CGFloat, side: String?, suggestion: ProgressionAdvice?, compact: Bool = false) -> some View {
         let isTotal = !exerciseSet.isUnilateral && field == .weight
-        let bilateral = !exerciseSet.isUnilateral
         let fieldWidth = ActiveWorkoutHitTarget.numericInputWidth(
             large: largeMode,
             isWeight: true
@@ -655,7 +654,6 @@ struct SetRow: View {
         let repsPlaceholder = suggestion.map { "\($0.suggestedReps)" } ?? ""
         let editingHint = String(localized: "输入次数", comment: "Enter reps hint")
         let repsHint = suggestion.map { "\(editingHint)，\(smartProgressionSummaryText($0))" } ?? editingHint
-        let bilateral = !exerciseSet.isUnilateral
         let fieldWidth = ActiveWorkoutHitTarget.numericInputWidth(
             large: largeMode,
             isWeight: false

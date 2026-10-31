@@ -105,15 +105,19 @@ struct SubSetRow: View {
 
     private var leadingControls: some View {
         Button(action: toggleCompleted) {
-            Text("\(parentSetNumber).\(exerciseSet.order)")
-                .font(largeMode ? .footnote : .caption)
-                .monospacedDigit()
-                .fontWeight(.semibold)
-                .foregroundStyle(theme.accent)
-            Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.neutrals.text2)
+            HStack(alignment: .center, spacing: 3) {
+                Text("\(parentSetNumber).\(exerciseSet.order)")
+                    .font((largeMode ? Font.caption : Font.caption2).monospacedDigit().weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .foregroundStyle(theme.accent)
+                Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.neutrals.text2)
+            }
         }
-        .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
+        .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
+        .fixedSize(horizontal: true, vertical: false)
         .buttonStyle(.borderless)
         .contentShape(Rectangle())
         .accessibilityLabel(String(localized: "递减组完成状态", comment: "Drop-set completion"))
@@ -190,7 +194,6 @@ struct SubSetRow: View {
                 }
             }
         )
-        let bilateral = !exerciseSet.isUnilateral
         return HStack(alignment: .center, spacing: 2) {
             if isSide {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: label)

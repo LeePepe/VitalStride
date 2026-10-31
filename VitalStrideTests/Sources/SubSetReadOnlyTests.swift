@@ -49,7 +49,7 @@ struct SubSetReadOnlyTests {
             .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SubSetRow.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
         #expect(source.contains("HStack(alignment: .center, spacing: 4)"))
-        #expect(source.contains("width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side"))
+        #expect(source.contains("minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side"))
         #expect(source.contains("ActiveWorkoutHitTarget.numericInputWidth"))
         #expect(source.contains("Text(\"\\(parentSetNumber).\\(exerciseSet.order)\")"))
         #expect(!source.contains("Text(\"↳\")"))
