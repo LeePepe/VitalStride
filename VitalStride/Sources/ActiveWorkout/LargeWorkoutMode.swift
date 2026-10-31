@@ -72,17 +72,12 @@ enum LargeWorkoutInputFont {
     /// Bold monospaced-digit weight/reps input font. Uses text-style-driven
     /// sizing so Dynamic Type stacks on top of Large Mode.
     static func weightReps(large: Bool) -> UIFont {
-        let baseStyle: UIFont.TextStyle = large ? .title1 : .body
-        let base = UIFont.preferredFont(forTextStyle: baseStyle)
-        let descriptor = base.fontDescriptor
-            .addingAttributes([
-                .featureSettings: [[
-                    UIFontDescriptor.FeatureKey.type: kNumberSpacingType,
-                    UIFontDescriptor.FeatureKey.selector: kMonospacedNumbersSelector,
-                ]],
-            ])
-            .withSymbolicTraits(.traitBold) ?? base.fontDescriptor
-        return UIFont(descriptor: descriptor, size: 0)
+        let base = UIFont.monospacedDigitSystemFont(
+            ofSize: large ? 21 : 17,
+            weight: .semibold
+        )
+        return UIFontMetrics(forTextStyle: large ? .title3 : .body)
+            .scaledFont(for: base)
     }
     #endif
 }
@@ -172,7 +167,7 @@ enum LargeWorkoutFieldWidth {
     static func rowSpacing(_ variant: Variant) -> CGFloat {
         switch variant {
         case .normal, .large: return 8
-        case .largeCompact: return 4
+        case .largeCompact: return 6
         }
     }
 
@@ -180,7 +175,7 @@ enum LargeWorkoutFieldWidth {
     /// the AC target; the HIG 44pt floor is preserved implicitly (60 > 44).
     /// Applied to both `.large` and `.largeCompact` — the compact variant
     /// still targets a rack-step-away reading distance.
-    static let largeMinHeight: CGFloat = 60
+    static let largeMinHeight: CGFloat = 56
 
     // MARK: - Bool convenience overloads (retained for the token contract)
     //

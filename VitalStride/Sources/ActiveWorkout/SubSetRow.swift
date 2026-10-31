@@ -9,35 +9,12 @@ import VitalUI
 import UIKit
 #endif
 
-private struct DropSetFooterButton: View {
-    let title: String
-    let theme: Theme
-    let action: () -> Void
-
-    var body: some View {
-        Button {
-            action()
-        } label: {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(theme.primary.primary)
-                .frame(minHeight: 36)
-                .padding(.horizontal, 10)
-        }
-        .frame(minWidth: 44, minHeight: 44)
-        .buttonStyle(.plain)
-        .background(theme.primary.primary.opacity(0.12), in: Capsule())
-        .contentShape(Capsule())
-        .padding(.top, 2)
-        .padding(.bottom, 6)
-    }
-}
-
 struct SubSetRow: View {
     @Environment(\.workoutRowObservation) private var rowObservation
     @Environment(\.theme) private var theme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage("activeWorkoutLargeMode") private var largeMode = false
     let exerciseSet: ExerciseSet
     let weightUnit: WeightUnit
     let isLast: Bool
@@ -77,18 +54,14 @@ struct SubSetRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            mainAxis
-            if isLast {
-                footer
-            }
-        }
-        .padding(.vertical, 4)
-        .frame(maxWidth: .infinity, minHeight: 64)
-        .background(theme.inner, in: RoundedRectangle(cornerRadius: 12))
+        mainAxis
+        .padding(.vertical, 2)
+        .padding(.horizontal, 0)
+        .frame(maxWidth: .infinity, minHeight: largeMode ? 56 : 48)
+        .designSurface(style: .solid, cornerRadius: 14)
         .overlay(alignment: .leading) {
             Rectangle()
-                .fill(theme.accent.opacity(0.45))
+                .fill(theme.accent.opacity(0.55))
                 .frame(width: 2)
                 .padding(.vertical, 8)
         }
@@ -115,52 +88,29 @@ struct SubSetRow: View {
         )
     }
 
-    private var addSubSetFooterTitle: String {
-        let dropSetTitle = String(
-            localized: "添加递减组",
-            defaultValue: "递减组",
-            comment: "Add drop-set action"
-        )
-        return "+ \(dropSetTitle)"
-    }
-
     private var mainAxis: some View {
-        HStack(alignment: .center, spacing: 0) {
+        HStack(alignment: .center, spacing: 4) {
             leadingControls
             if exerciseSet.isUnilateral {
                 inputsAndCaption
             } else {
                 bilateralInputs
-                Text(String(
-                    format: String(localized: "active_workout.drop_set.label", defaultValue: "↳ %lld.%lld Drop set", comment: "Drop-set child label"),
-                    Int64(parentSetNumber), Int64(exerciseSet.order)
-                ))
-                .font(.system(size: 8, weight: .semibold).monospacedDigit())
+            }
+            Text("\(parentSetNumber).\(exerciseSet.order)")
+                .font(largeMode ? .caption.weight(.semibold).monospacedDigit() : .caption2.weight(.semibold).monospacedDigit())
                 .lineLimit(1)
-                .minimumScaleFactor(0.55)
+                .minimumScaleFactor(0.85)
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
                 .foregroundStyle(theme.neutrals.text3)
-                .padding(.leading, 2)
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
                     rowObservation.control(exerciseSet.persistentModelID, "metadata", frame)
                 }
-            }
             Spacer(minLength: 0)
             trailingControls
         }
         .padding(.horizontal, 0)
         .frame(maxWidth: .infinity, minHeight: 44)
-    }
-
-    private var footer: some View {
-        DropSetFooterButton(
-            title: addSubSetFooterTitle,
-            theme: theme,
-            action: { onAddSubSet(.dropSet) }
-        )
-        .padding(.leading, 44)
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-            rowObservation.control(exerciseSet.persistentModelID, "footer", frame)
-        }
     }
 
     private var leadingControls: some View {
@@ -196,7 +146,7 @@ struct SubSetRow: View {
     }
 
     private var bilateralInputs: some View {
-        HStack(spacing: 1) {
+        HStack(spacing: 4) {
             inputField(text: $weightText, field: .weight,
                        label: String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"))
             inputField(text: $repsText, field: .reps,
@@ -206,21 +156,10 @@ struct SubSetRow: View {
     }
 
     private var inputsAndCaption: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 4) {
-                inputField(text: $weightText, field: .weight, label: exerciseSet.isUnilateral ? "L" : String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"))
-                if exerciseSet.isUnilateral {
-                    inputField(text: $weightRightText, field: .weightRight, label: "R")
-                }
-                inputField(text: $repsText, field: .reps, label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
-            }
-            .fixedSize(horizontal: true, vertical: false)
-            Text(String(
-                format: String(localized: "active_workout.drop_set.label", defaultValue: "↳ %lld.%lld Drop set", comment: "Drop-set child label"),
-                Int64(parentSetNumber), Int64(exerciseSet.order)
-            ))
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(theme.neutrals.text3)
+        HStack(spacing: 4) {
+            inputField(text: $weightText, field: .weight, label: "L")
+            inputField(text: $weightRightText, field: .weightRight, label: "R")
+            inputField(text: $repsText, field: .reps, label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
         }
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -242,6 +181,7 @@ struct SubSetRow: View {
             placeholder: "",
             text: editingText,
             keyboardType: field.isDecimalEnabled ? .decimalPad : .numberPad,
+            font: LargeWorkoutInputFont.weightReps(large: largeMode),
             useCustomKeyboard: true,
             field: field,
             exercise: exercise,
@@ -259,10 +199,10 @@ struct SubSetRow: View {
             }
         )
         let bilateral = !exerciseSet.isUnilateral
-        return HStack(spacing: bilateral ? 0.5 : 2) {
+        return HStack(alignment: .center, spacing: 2) {
             if isSide {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: label)
-                    .font(bilateral ? .system(size: 7.5, weight: isTotal ? .semibold : .bold) : .caption2.weight(isTotal ? .semibold : .bold))
+                    .font(largeMode ? .footnote.weight(isTotal ? .semibold : .bold) : .caption2.weight(isTotal ? .semibold : .bold))
                     .foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)
                     .fixedSize()
             }
@@ -274,23 +214,29 @@ struct SubSetRow: View {
                 .fixedSize(horizontal: true, vertical: false)
             if field.isWeightField {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
-                    .font(bilateral ? .system(size: 7.5, weight: .medium) : .caption2.weight(.medium))
+                    .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
                     .foregroundStyle(theme.neutrals.text3)
             } else {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit",
                                      text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
-                    .font(bilateral ? .system(size: 7.5, weight: .medium) : .caption2.weight(.medium))
+                    .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
                     .foregroundStyle(theme.neutrals.text3)
             }
         }
-        .padding(.horizontal, bilateral ? 0 : 2)
-        .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
-        .overlay {
-            if focusedField == field {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(theme.accent, lineWidth: 1.5)
-            }
+        .padding(.horizontal, 3)
+        .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
+        .background(alignment: .center) {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(theme.inner)
+                .frame(height: largeMode ? 42 : 36)
+                .overlay {
+                    if focusedField == field {
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(theme.accent, lineWidth: 1.5)
+                    }
+                }
         }
+        .contentShape(Rectangle())
         .accessibilityLabel(field == .reps ? String(localized: "递减组次数", comment: "Drop-set reps") : String(localized: "递减组重量", comment: "Drop-set weight"))
         .accessibilityHint(String(localized: "输入数值", comment: "Enter drop-set value"))
         #else

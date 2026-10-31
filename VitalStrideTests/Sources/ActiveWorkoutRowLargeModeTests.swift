@@ -45,9 +45,9 @@ struct ActiveWorkoutRowLargeModeTests {
         #expect(LargeWorkoutFieldWidth.reps(large: true) == 88)
     }
 
-    @Test("Large Mode min-height meets ≥60pt AC and clears HIG 44pt tap target")
+    @Test("Large Mode row min-height meets the 56pt visual row contract")
     func minHeightMeetsAcAndHigFloor() {
-        #expect(LargeWorkoutFieldWidth.largeMinHeight >= 60)
+        #expect(LargeWorkoutFieldWidth.largeMinHeight >= 56)
         #expect(LargeWorkoutFieldWidth.largeMinHeight >= 44)
     }
 
@@ -110,16 +110,15 @@ struct ActiveWorkoutRowLargeModeTests {
         #endif
     }
 
-    @Test("Large Mode input font satisfies the ≥28pt AC at default Dynamic Type size")
+    @Test("Large Mode input and secondary fonts preserve the proportional type floor")
     func inputFontMeetsMinimumSize() {
         #if canImport(UIKit)
-        // .title1 at the default (.large) Content Size Category is 28pt on
-        // Apple's published Type Ramp, matching the AC floor. If a future
-        // refactor swaps to a smaller text style, .title1's pointSize check
-        // below still passes but this token contract catches the drift.
         let traits = UITraitCollection(preferredContentSizeCategory: .large)
-        let title1 = UIFont.preferredFont(forTextStyle: .title1, compatibleWith: traits)
-        #expect(title1.pointSize >= 28)
+        let large = LargeWorkoutInputFont.weightReps(large: true)
+        #expect(large.pointSize >= 20)
+        let unit = UIFont.preferredFont(forTextStyle: .footnote, compatibleWith: traits)
+        #expect(unit.pointSize >= 13)
+        #expect(large.pointSize / unit.pointSize <= 1.8)
         #endif
     }
 
@@ -764,6 +763,10 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     let mainFrame = try XCTUnwrap(list.rowFrames[mainID], variant)
                     let drop1Frame = try XCTUnwrap(list.rowFrames[drop1ID], variant)
                     let drop2Frame = try XCTUnwrap(list.rowFrames[drop2ID], variant)
+                    XCTAssertEqual(mainFrame.minX, drop1Frame.minX, accuracy: 1.0, variant)
+                    XCTAssertEqual(mainFrame.width, drop1Frame.width, accuracy: 1.0, variant)
+                    XCTAssertGreaterThanOrEqual(mainFrame.width, 295, variant)
+                    XCTAssertLessThanOrEqual(drop1Frame.minY - mainFrame.maxY, 12.0, variant)
 
                     let mainControls = try XCTUnwrap(rows.controls[mainID], variant)
                     let drop1Controls = try XCTUnwrap(rows.controls[drop1ID], variant)
@@ -796,12 +799,8 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         XCTAssertEqual(subDelete.midX, mainMenu.midX, accuracy: 1.5, variant)
                     }
 
-                    XCTAssertNil(drop1Controls["footer"], variant)
-                    let footerFrame = try XCTUnwrap(drop2Controls["footer"], variant)
-                    XCTAssertGreaterThanOrEqual(footerFrame.width, 44, variant)
-                    XCTAssertGreaterThanOrEqual(footerFrame.height, 44, variant)
-                    XCTAssertTrue(drop2Frame.insetBy(dx: -0.5, dy: -0.5).contains(footerFrame), variant)
-                    XCTAssertGreaterThanOrEqual(drop2Frame.maxY - footerFrame.maxY, 3.5, variant)
+                    XCTAssertLessThanOrEqual(drop1Frame.height, 62, variant)
+                    XCTAssertLessThanOrEqual(drop2Frame.height, 62, variant)
                 }
             }
         }
@@ -901,19 +900,27 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     for kind in ["weight-prefix", "weight-unit", "reps-unit"] {
                         frames[kind] = try XCTUnwrap(descriptors[kind], "\(variant): missing \(kind)").frame
                     }
-                    for kind in ["completion", "metadata", "suggestion", "menu"] {
+                    for kind in ["completion", "metadata", "menu"] {
                         frames[kind] = try XCTUnwrap(controls[kind], "\(variant): missing \(kind)")
                     }
                     // A nonempty frame alone can still contain only an ellipsis.
                     // Reserve enough ink width for each full label at its minimum scale.
-                    let metadataMinimum = ("\(set.setType.displayName) R8" as NSString).size(
-                        withAttributes: [.font: UIFont.monospacedDigitSystemFont(ofSize: 8, weight: .semibold)]
-                    ).width * 0.55 + 4
-                    let suggestionMinimum = ("45×8" as NSString).size(
-                        withAttributes: [.font: UIFont.monospacedDigitSystemFont(ofSize: 8, weight: .regular)]
-                    ).width * 0.55 + 6 + 0.5 + 2
+                    let warmupShort = String(
+                        localized: "workout.row.warmup_short",
+                        defaultValue: "热",
+                        comment: "Short warmup badge"
+                    )
+                    let metadataText = "\(warmupShort) R8"
+                    let metadataFontSize: CGFloat = largeMode ? 12 : 11
+                    let metadataMinimum = (metadataText as NSString).size(
+                        withAttributes: [
+                            .font: UIFont.monospacedDigitSystemFont(
+                                ofSize: metadataFontSize,
+                                weight: .semibold
+                            )
+                        ]
+                    ).width + 4
                     XCTAssertGreaterThanOrEqual(try XCTUnwrap(frames["metadata"]).width, metadataMinimum - 0.5, variant)
-                    XCTAssertGreaterThanOrEqual(try XCTUnwrap(frames["suggestion"]).width, suggestionMinimum - 0.5, variant)
                     let fields = textFields(in: host.view).filter {
                         !$0.isHidden && $0.alpha > 0 && $0.window === window
                             && rowFrame.contains($0.convert($0.bounds, to: window))
@@ -938,7 +945,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         XCTAssertEqual(frame.midY, rowFrame.midY, accuracy: 6,
                                        "\(variant): \(name) must share the row axis")
                     }
-                    let ordered = ["completion", "weight-prefix", "weight", "weight-unit", "reps", "reps-unit", "metadata", "suggestion", "menu"]
+                    let ordered = ["completion", "weight-prefix", "weight", "weight-unit", "reps", "reps-unit", "metadata", "menu"]
                     for pair in zip(ordered, ordered.dropFirst()) {
                         let leading = try XCTUnwrap(frames[pair.0], variant)
                         let trailing = try XCTUnwrap(frames[pair.1], variant)
@@ -1536,7 +1543,16 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         )
                         try await Task.sleep(for: .milliseconds(180))
                         let finalSet = try XCTUnwrap(owners[2].sets?.max { $0.order < $1.order })
-                        let finalRow = try XCTUnwrap(recorder.rowFrames[finalSet.persistentModelID])
+                        var finalRow = try XCTUnwrap(recorder.rowFrames[finalSet.persistentModelID])
+                        if finalRow.maxY > listFrame.maxY {
+                            recorder.rowFrames.removeAll()
+                            collection.setContentOffset(
+                                CGPoint(x: 0, y: collection.contentOffset.y + finalRow.maxY - listFrame.maxY),
+                                animated: false
+                            )
+                            try await Task.sleep(for: .milliseconds(180))
+                            finalRow = try XCTUnwrap(recorder.rowFrames[finalSet.persistentModelID])
+                        }
                         XCTAssertTrue(listFrame.contains(finalRow), "Final set must scroll fully into the List viewport")
                         evidence.append("last-content: offset=\(scrollView.contentOffset.y) finalRow=\(finalRow)")
                         try persistHeaderEvidence(

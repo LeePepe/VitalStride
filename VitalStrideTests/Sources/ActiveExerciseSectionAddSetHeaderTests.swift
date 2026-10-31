@@ -50,8 +50,9 @@ struct ActiveExerciseSectionAddSetHeaderTests {
             "The exercise header should delegate to a helper containing the add-set action next to the title and menu controls."
         )
         #expect(
-            !headerBody.contains("ViewThatFits") && !headerBody.contains("VStack(alignment: .leading"),
-            "The exercise header must not switch to a second-row fallback for long or Large Mode titles."
+            source.contains("HStack(alignment: .center, spacing: 8)") &&
+            !headerBody.contains("VStack(alignment: .leading"),
+            "The exercise header must keep a single centered axis for long or Large Mode titles."
         )
         #expect(
             source.contains("theme.neutrals.card") && !source.contains("padding(.bottom, -15"),
@@ -62,7 +63,9 @@ struct ActiveExerciseSectionAddSetHeaderTests {
             source.contains(".listRowBackground(theme.neutrals.card)") &&
             source.contains("frame(width: 44, height: headerControlHeight)") &&
             source.contains(".fixedSize(horizontal: true, vertical: false)") &&
-            source.contains(".minimumScaleFactor(0.85)"),
+            source.contains(".minimumScaleFactor(0.85)") &&
+            source.contains("minHeight: headerControlHeight") &&
+            source.contains(".padding(.vertical, 4)"),
             "The header and row spacing share the card surface, with fixed badges, 44pt controls and a compressible title."
         )
         #expect(
