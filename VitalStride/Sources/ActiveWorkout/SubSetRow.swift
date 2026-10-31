@@ -137,10 +137,9 @@ struct SubSetRow: View {
                 ))
                 .font(.system(size: 8, weight: .semibold).monospacedDigit())
                 .lineLimit(1)
-                .minimumScaleFactor(0.85)
+                .minimumScaleFactor(0.55)
                 .foregroundStyle(theme.neutrals.text3)
                 .padding(.leading, 2)
-                .frame(width: 76, alignment: .center)
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
                     rowObservation.control(exerciseSet.persistentModelID, "metadata", frame)
                 }

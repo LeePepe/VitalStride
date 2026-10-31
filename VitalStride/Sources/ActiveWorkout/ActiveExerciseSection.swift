@@ -310,7 +310,12 @@ struct ActiveExerciseSection: View {
             comment: "Exercise completion count"
         ))
         .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: headerControlHeight,
+            maxHeight: headerControlHeight,
+            alignment: .leading
+        )
         .fixedSize(horizontal: false, vertical: true)
         // The header owns only its 44pt frame. Row backgrounds own List spacing,
         // so the first card’s top stroke and rounded corners remain uncovered.
