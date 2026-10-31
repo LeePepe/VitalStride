@@ -269,6 +269,7 @@ struct SetRow: View {
     @State private var weightRightText: String = ""
     @State private var repsText: String = ""
     @State private var weightFocusRequestID = 0
+    @State private var weightRightFocusRequestID = 0
     @State private var repsFocusRequestID = 0
     @State private var focusedField: SetField?
     @State private var showingRPEDialog = false
@@ -412,7 +413,7 @@ struct SetRow: View {
                       side: exerciseSet.isUnilateral ? "L" : String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"),
                       suggestion: advice, compact: compact, focusRequestID: $weightFocusRequestID)
             if exerciseSet.isUnilateral {
-                weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice, compact: compact, focusRequestID: $weightFocusRequestID)
+                weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice, compact: compact, focusRequestID: $weightRightFocusRequestID)
             }
             repsField(width: compact ? ActiveWorkoutHitTarget.numericInputWidth(large: false, isWeight: false) : LargeWorkoutFieldWidth.reps(variant), suggestion: advice, compact: compact, focusRequestID: $repsFocusRequestID)
         }

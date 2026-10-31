@@ -29,6 +29,7 @@ struct SubSetRow: View {
     @State private var weightRightText = ""
     @State private var repsText = ""
     @State private var weightFocusRequestID = 0
+    @State private var weightRightFocusRequestID = 0
     @State private var repsFocusRequestID = 0
     @State private var focusedField: SetField?
     @State private var inputWeightUnit: WeightUnit = .kg
@@ -158,7 +159,7 @@ struct SubSetRow: View {
     private var inputsAndCaption: some View {
         HStack(spacing: 4) {
             inputField(text: $weightText, field: .weight, label: "L", focusRequestID: $weightFocusRequestID)
-            inputField(text: $weightRightText, field: .weightRight, label: "R", focusRequestID: $weightFocusRequestID)
+            inputField(text: $weightRightText, field: .weightRight, label: "R", focusRequestID: $weightRightFocusRequestID)
             inputField(text: $repsText, field: .reps, label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"), focusRequestID: $repsFocusRequestID)
         }
         .fixedSize(horizontal: true, vertical: false)
@@ -204,6 +205,7 @@ struct SubSetRow: View {
                     .font(largeMode ? .footnote.weight(isTotal ? .semibold : .bold) : .caption2.weight(isTotal ? .semibold : .bold))
                     .foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)
                     .fixedSize()
+                    .allowsHitTesting(false)
             }
             WorkoutSetInput(input, theme: theme, focusRequestID: focusRequestID.wrappedValue)
                 .frame(
@@ -218,11 +220,13 @@ struct SubSetRow: View {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
                     .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
                     .foregroundStyle(theme.neutrals.text3)
+                    .allowsHitTesting(false)
             } else {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit",
                                      text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
                     .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
                     .foregroundStyle(theme.neutrals.text3)
+                    .allowsHitTesting(false)
             }
         }
         .padding(.horizontal, 3)

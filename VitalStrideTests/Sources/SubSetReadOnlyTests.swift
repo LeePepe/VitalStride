@@ -70,11 +70,15 @@ struct SubSetReadOnlyTests {
             .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SubSetRow.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
         #expect(source.contains("@State private var weightFocusRequestID = 0"))
+        #expect(source.contains("@State private var weightRightFocusRequestID = 0"))
         #expect(source.contains("@State private var repsFocusRequestID = 0"))
         #expect(source.contains("focusRequestID: $weightFocusRequestID"))
+        #expect(source.contains("field: .weightRight, label: \"R\", focusRequestID: $weightRightFocusRequestID"))
         #expect(source.contains("focusRequestID: $repsFocusRequestID"))
         #expect(source.contains("focusRequestID.wrappedValue &+= 1"))
         #expect(source.contains("WorkoutSetInput(input, theme: theme, focusRequestID: focusRequestID.wrappedValue)"))
+        #expect(source.contains(".foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)\n                    .fixedSize()\n                    .allowsHitTesting(false)"))
+        #expect(source.contains(".foregroundStyle(theme.neutrals.text3)\n                    .allowsHitTesting(false)"))
     }
 
     @Test("Drop-set insertion and removal use reduce-motion-aware transitions")
