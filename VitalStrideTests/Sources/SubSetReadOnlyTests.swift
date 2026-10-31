@@ -40,7 +40,7 @@ struct SubSetReadOnlyTests {
         #expect(source.contains("theme.accent.opacity(0.45)"))
     }
 
-    @Test("Drop-set row uses the shared 44pt grid without the duplicate menu")
+    @Test("Drop-set row uses the shared centered grid without a footer")
     func dropSetSharedGridContract() throws {
         let sourceURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -48,13 +48,14 @@ struct SubSetReadOnlyTests {
             .deletingLastPathComponent()
             .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SubSetRow.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        #expect(source.contains(".padding(.horizontal, 0)"))
+        #expect(source.contains("HStack(alignment: .center, spacing: 6)"))
         #expect(source.contains("width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side"))
         #expect(source.contains("ActiveWorkoutHitTarget.numericInputSide"))
         #expect(source.contains(".fixedSize(horizontal: true, vertical: false)"))
         #expect(!source.contains("Menu {"))
         #expect(!source.contains("ViewThatFits(in: .horizontal)"))
-        #expect(source.contains("padding(.bottom, 6)"))
+        #expect(!source.contains("DropSetFooterButton"))
+        #expect(source.contains("frame(height: largeMode ? 42 : 36)"))
     }
 
     @Test("Drop-set insertion and removal use reduce-motion-aware transitions")

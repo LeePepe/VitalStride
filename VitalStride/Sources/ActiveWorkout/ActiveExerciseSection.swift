@@ -166,8 +166,9 @@ struct ActiveExerciseSection: View {
                         }
                     )
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-                    .listRowInsets(EdgeInsets(top: 4, leading: 6, bottom: 4, trailing: 6))
+                    .listRowInsets(EdgeInsets(top: 3, leading: 8, bottom: 3, trailing: 8))
                     .listRowSeparator(.hidden)
+                    .listSectionSeparator(.hidden)
                     .listRowBackground(theme.neutrals.card)
                     .onGeometryChange(for: CGRect.self) { geometry in
                         geometry.frame(in: .global)
@@ -210,8 +211,9 @@ struct ActiveExerciseSection: View {
                         }
                     )
                     // Each set is its own solid item; the exercise has no outer card.
-                    .listRowInsets(EdgeInsets(top: 4, leading: 6, bottom: 4, trailing: 6))
+                    .listRowInsets(EdgeInsets(top: 3, leading: 8, bottom: 3, trailing: 8))
                     .listRowSeparator(.hidden)
+                    .listSectionSeparator(.hidden)
                     .listRowBackground(theme.neutrals.card)
                     .onGeometryChange(for: CGRect.self) { geometry in
                         geometry.frame(in: .global)
@@ -290,11 +292,8 @@ struct ActiveExerciseSection: View {
     private func exerciseHeader(
         toggleAction: @escaping ActiveExerciseSectionInteraction.ToggleAction
     ) -> some View {
-        HStack(alignment: .center, spacing: 6) {
-            ViewThatFits(in: .horizontal) {
-                headerTitle(compact: true, toggleAction: toggleAction)
-                headerTitle(compact: false, toggleAction: toggleAction)
-            }
+        HStack(alignment: .center, spacing: 8) {
+            headerTitle(compact: false, toggleAction: toggleAction)
             Spacer(minLength: 0)
             addSetButtonAndMenu
         }
@@ -313,12 +312,11 @@ struct ActiveExerciseSection: View {
         .frame(
             maxWidth: .infinity,
             minHeight: headerControlHeight,
-            maxHeight: headerControlHeight,
-            alignment: .leading
+            alignment: .center
         )
+        .padding(.vertical, 4)
         .fixedSize(horizontal: false, vertical: true)
-        // The header owns only its 44pt frame. Row backgrounds own List spacing,
-        // so the first card’s top stroke and rounded corners remain uncovered.
+        // The header and rows use one solid card plane without redundant separators.
         .background(theme.neutrals.card)
         .listRowInsets(EdgeInsets())
         .listRowBackground(theme.neutrals.card)
@@ -343,7 +341,7 @@ struct ActiveExerciseSection: View {
         compact: Bool,
         toggleAction: @escaping ActiveExerciseSectionInteraction.ToggleAction
     ) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
+        HStack(alignment: .center, spacing: 8) {
             if completedSetCount == totalSetCount, totalSetCount > 0 {
                 // The completion fraction already conveys status in a compact
                 // row; keep the extra status icons in the roomy fallback.
