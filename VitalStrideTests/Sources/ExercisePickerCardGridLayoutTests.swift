@@ -1,4 +1,5 @@
 import Foundation
+import DesignKit
 import Testing
 
 @testable import VitalStride
@@ -42,10 +43,9 @@ struct ExercisePickerCardGridLayoutTests {
         // exact regression we are guarding), this fails.
         #expect(visible == hidden)
 
-        // Trailing inset must reserve at least the physical width of the
-        // index-bar hit target so the grid never overlaps the bar area,
-        // even when the bar is currently hidden.
-        #expect(visible >= 44)
+        // The reserve follows the DesignKit semantic hit-target contract,
+        // rather than duplicating a platform-specific literal.
+        #expect(visible >= Space.minTapTarget)
     }
 
     @Test("Available card-grid width is invariant across index-bar visibility")
@@ -82,14 +82,14 @@ struct ExercisePickerCardGridLayoutTests {
     @Test("Reserved trailing space covers the full index-bar hit target")
     func trailingInsetCoversIndexBarHitTarget() {
         // The trailing reserve must be strictly greater than horizontal
-        // inset alone — proving space is actually reserved for the index
-        // bar even when it is not rendered.
+        // inset alone and cover the semantic index-bar hit target.
         let trailing = ExercisePickerView.cardGridTrailingInset(showsIndexBar: false)
         #expect(trailing > ExercisePickerView.cardGridHorizontalInset)
+        #expect(trailing >= Space.minTapTarget)
     }
 
     @Test("Vertical inset stays constant across section-count changes")
     func verticalInsetIsConstant() {
-        #expect(ExercisePickerView.cardGridVerticalInset == 16)
+        #expect(ExercisePickerView.cardGridVerticalInset == Space.md)
     }
 }

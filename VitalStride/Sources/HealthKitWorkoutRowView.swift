@@ -21,11 +21,16 @@ struct HealthKitWorkoutRowView: View {
                 HStack(spacing: 8) {
                     Text(Self.formattedDuration(record.duration))
                         .font(.caption)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .layoutPriority(1)
 
                     Text(record.startDate, format: .dateTime.month().day().weekday())
                         .font(.caption)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
+                        .lineLimit(1)
+                        .layoutPriority(1)
                 }
 
                 HStack(spacing: 8) {
@@ -48,16 +53,22 @@ struct HealthKitWorkoutRowView: View {
                         localized: "\(Int(energy.rounded())) kcal",
                         comment: "Workout energy burned display"
                     ))
-                    .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .font(TypeScale.num)
+                    .foregroundStyle(theme.secondaryForeground)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .layoutPriority(1)
                 }
                 if let distance = record.totalDistance, distance > 0 {
                     Text(String(
                         localized: "\(Self.formattedDistance(distance)) km",
                         comment: "Workout distance display"
                     ))
-                    .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .font(TypeScale.num)
+                    .foregroundStyle(theme.secondaryForeground)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .layoutPriority(1)
                 }
             }
         }
@@ -73,7 +84,7 @@ struct HealthKitWorkoutRowView: View {
         if let hr = record.averageHeartRate {
             HStack(spacing: 3) {
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(TypeScale.meta.weight(.medium))
                     .foregroundStyle(theme.danger)
                     .accessibilityHidden(true)
                 Text({
@@ -85,7 +96,10 @@ struct HealthKitWorkoutRowView: View {
                     return String(format: fmt, hr)
                 }())
                 .font(TypeScale.meta)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
+                .monospacedDigit()
+                .lineLimit(1)
+                .layoutPriority(1)
             }
         }
     }

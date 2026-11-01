@@ -40,7 +40,7 @@ struct ExerciseSubstituteSheet: View {
         NavigationStack {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.neutrals.bg)
+                .background(theme.canvas)
                 .navigationTitle(String(
                     localized: "智能替代",
                     comment: "Substitute exercise sheet navigation title"
@@ -83,7 +83,7 @@ struct ExerciseSubstituteSheet: View {
                 comment: "Substitute sheet loading label"
             ))
             .font(.subheadline)
-            .foregroundStyle(theme.neutrals.text2)
+            .foregroundStyle(theme.secondaryForeground)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
@@ -106,7 +106,7 @@ struct ExerciseSubstituteSheet: View {
                         comment: "Substitute sheet results header"
                     ))
                     .font(.subheadline)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                     .padding(.horizontal, 4)
 
                     muscleFilterRail(for: recommendations)
@@ -171,13 +171,13 @@ struct ExerciseSubstituteSheet: View {
             Text(label)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, Space.sm)
                 .frame(height: 36)
                 .foregroundStyle(
-                    isSelected ? theme.onInteractiveAccent : theme.neutrals.text1
+                    isSelected ? theme.onInteractiveAccent : theme.foreground
                 )
                 .background(
-                    isSelected ? theme.interactiveAccent : theme.neutrals.inner,
+                    isSelected ? theme.interactiveAccent : theme.inner,
                     in: Capsule()
                 )
         }
@@ -192,8 +192,8 @@ struct ExerciseSubstituteSheet: View {
     private func errorView(message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 40, weight: .regular))
-                .foregroundStyle(theme.neutrals.text2)
+                .font(TypeScale.metricXL)
+                .foregroundStyle(theme.secondaryForeground)
                 .accessibilityHidden(true)
 
             Text(String(
@@ -204,7 +204,7 @@ struct ExerciseSubstituteSheet: View {
 
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
 
@@ -245,7 +245,7 @@ private struct RecommendationCard: View {
                                 .minimumScaleFactor(0.85)
                         }
                         .font(.headline)
-                        .foregroundStyle(theme.neutrals.text1)
+                        .foregroundStyle(theme.foreground)
                         .fixedSize(horizontal: false, vertical: false)
                         .multilineTextAlignment(.leading)
                         .layoutPriority(1)
@@ -260,7 +260,7 @@ private struct RecommendationCard: View {
 
                     Text(recommendation.reason)
                         .font(.subheadline)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -268,7 +268,7 @@ private struct RecommendationCard: View {
                 .layoutPriority(1)
 
                 Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
-                    .font(.system(size: 24))
+                    .font(TypeScale.title)
                     .foregroundStyle(theme.interactiveAccent)
                     .frame(width: 44, height: 44)
                     .accessibilityHidden(true)

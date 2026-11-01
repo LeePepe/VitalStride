@@ -28,6 +28,34 @@ private let initialWorkoutDisplayLimit = 50
 /// taps "Load more" (MY-1077).
 private let workoutDisplayIncrement = 50
 
+enum WorkoutListSnapshotMode: Sendable, Equatable {
+    case live
+    case populated
+    case empty
+    case loading
+    case error
+}
+
+private struct WorkoutListSnapshotModeKey: EnvironmentKey {
+    static let defaultValue = WorkoutListSnapshotMode.live
+}
+
+private struct WorkoutListSnapshotRecordsKey: EnvironmentKey {
+    static let defaultValue: [HealthWorkoutRecord] = []
+}
+
+extension EnvironmentValues {
+    var workoutListSnapshotMode: WorkoutListSnapshotMode {
+        get { self[WorkoutListSnapshotModeKey.self] }
+        set { self[WorkoutListSnapshotModeKey.self] = newValue }
+    }
+
+    var workoutListSnapshotRecords: [HealthWorkoutRecord] {
+        get { self[WorkoutListSnapshotRecordsKey.self] }
+        set { self[WorkoutListSnapshotRecordsKey.self] = newValue }
+    }
+}
+
 struct WorkoutListView: View {
     /// Unbounded, sort-stable fetch of every completed VitalStride workout.
     /// We intentionally keep this unbounded: HealthKit dedup (see
@@ -69,13 +97,11 @@ struct WorkoutListView: View {
     // preserving the original T007 default.
     @SceneStorage("workoutViewMode") private var viewMode: ViewMode = .list
     @Environment(\.theme) private var theme
+    @Environment(\.workoutListSnapshotMode) private var snapshotMode
+    @Environment(\.workoutListSnapshotRecords) private var snapshotRecords
     // Spec 019 Stage 3c (T017): hand the app-installed sink to the
     // training-advice VM in `onAppear`.
     @Environment(\.routingSignalStore) private var signalStore
-
-    private var hasAnyWorkouts: Bool {
-        !workouts.isEmpty || !healthKitRecords.isEmpty
-    }
 
     @ViewBuilder
     private func listContent(
@@ -172,6 +198,7 @@ struct WorkoutListView: View {
             }
         }
         .task {
+            guard snapshotMode == .live else { return }
             guard privacyConsented else { return }
             adviceViewModel.signalStore = signalStore
             adviceViewModel.loadAdviceIfNeeded(modelContext: modelContext)
@@ -189,9 +216,10 @@ struct WorkoutListView: View {
         // using `unifiedWorkouts` as before.
         let mergeResult = WorkoutListMerger.merge(
             appWorkouts: workouts,
-            healthKitRecords: healthKitRecords
+            healthKitRecords: snapshotMode == .live ? healthKitRecords : snapshotRecords
         )
         let unifiedWorkouts = mergeResult.unified
+        let hasAnyWorkouts = !unifiedWorkouts.isEmpty
         let shouldShowAdviceCard = !unifiedWorkouts.isEmpty && privacyConsented
         // Bound only the App rows that hit the expensive `workout.exercises`
         // fault (MY-1077). HealthKit rows carry no faulting cost so they
@@ -202,18 +230,50 @@ struct WorkoutListView: View {
             appLimit: listDisplayLimit
         )
         let canLoadMore = totalAppCount > min(totalAppCount, listDisplayLimit)
-        let bannerState = currentBannerState(hasAnyItems: !unifiedWorkouts.isEmpty)
+        let bannerState: WorkoutListStateBanner.LoadState? = {
+            switch snapshotMode {
+            case .error: return .failed
+            case .loading: return .loading
+            case .live, .populated, .empty:
+                return currentBannerState(hasAnyItems: hasAnyWorkouts)
+            }
+        }()
         return NavigationStack {
             Group {
-                if !hasAnyWorkouts
+                if snapshotMode == .empty || (snapshotMode == .live && !hasAnyWorkouts
                     && !isLoadingHealthKit
                     && !healthKitLoadFailed
-                    && !healthKitUnauthorized {
-                    ContentUnavailableView(
-                        String(localized: "暂无训练记录", comment: "No workouts empty state title"),
-                        systemImage: "dumbbell",
-                        description: Text(String(localized: "点击 + 开始第一次训练", comment: "No workouts empty state description"))
+                    && !healthKitUnauthorized) {
+                    DesignStateView(
+                        .empty,
+                        title: String(localized: "workout_list.preview.empty_title", comment: "No workouts empty state title"),
+                        message: String(localized: "workout_list.preview.empty_subtitle", comment: "No workouts empty state description"),
+                        actionTitle: String(localized: "action_go", comment: "Open the start workout options"),
+                        action: { showingStartOptions = true }
                     )
+                    .padding(Space.md)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(theme.canvas)
+                } else if snapshotMode == .loading || (snapshotMode == .live && isLoadingHealthKit && !hasAnyWorkouts) {
+                    DesignStateView(
+                        .loading,
+                        title: String(localized: "workout_list.state_banner.loading_title", comment: "Workout list loading title"),
+                        message: String(localized: "workout_list.state_banner.loading_subtitle", comment: "Workout list loading message")
+                    )
+                    .padding(Space.md)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(theme.canvas)
+                } else if snapshotMode == .error && !hasAnyWorkouts {
+                    DesignStateView(
+                        .error,
+                        title: String(localized: "workout_list.state_banner.failed_title", comment: "Workout list error title"),
+                        message: String(localized: "workout_list.state_banner.failed_subtitle", comment: "Workout list error message"),
+                        actionTitle: String(localized: "Retry", comment: "Retry workout list CTA"),
+                        action: { Task { await loadHealthKitWorkouts() } }
+                    )
+                    .padding(Space.md)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(theme.canvas)
                 } else {
                     switch viewMode {
                     case .list:
@@ -234,6 +294,7 @@ struct WorkoutListView: View {
                 }
             }
             .task {
+                guard snapshotMode == .live else { return }
                 await loadHealthKitWorkouts()
             }
             .navigationTitle(
@@ -495,7 +556,9 @@ private struct WorkoutRowView: View {
                 Spacer()
                 Text(workout.startDate, style: .time)
                     .font(.subheadline)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
+                    .lineLimit(1)
+                    .layoutPriority(1)
             }
             HStack {
                 let exerciseCount = workout.exercises?.count ?? 0
@@ -504,7 +567,9 @@ private struct WorkoutRowView: View {
                     systemImage: "figure.strengthtraining.traditional"
                 )
                 .font(.subheadline)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
+                .lineLimit(1)
+                .layoutPriority(1)
 
                 if let endDate = workout.endDate {
                     Spacer()
@@ -514,7 +579,10 @@ private struct WorkoutRowView: View {
                     let remainingMinutes = minutes % 60
                     Text(hours > 0 ? "\(hours)h \(remainingMinutes)m" : "\(minutes)m")
                         .font(.subheadline)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .layoutPriority(1)
                 }
             }
             HStack {
@@ -676,18 +744,24 @@ private struct WorkoutListPreviewFixture: View {
                     }
                 } else if scenario == .empty {
                     Section {
-                        ContentUnavailableView(
-                            String(
+                        DesignStateView(
+                            .empty,
+                            title: String(
                                 localized: "workout_list.preview.empty_title",
                                 defaultValue: "No workouts yet",
                                 comment: "Preview-only empty state title (MY-1359 fixtures)"
                             ),
-                            systemImage: "dumbbell",
-                            description: Text(String(
+                            message: String(
                                 localized: "workout_list.preview.empty_subtitle",
                                 defaultValue: "Tap + to start your first workout",
                                 comment: "Preview-only empty state subtitle (MY-1359 fixtures)"
-                            ))
+                            ),
+                            actionTitle: String(
+                                localized: "workout_list.preview.empty_action",
+                                defaultValue: "Start workout",
+                                comment: "Preview-only empty state action (MY-1359 fixtures)"
+                            ),
+                            action: {}
                         )
                     }
                     .listRowBackground(Color.clear)
@@ -712,10 +786,10 @@ private struct FixtureAppRow: View {
             VStack(alignment: .leading, spacing: Space.hair) {
                 Text(title)
                     .font(TypeScale.body.weight(.semibold))
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                 Text(subtitle)
                     .font(TypeScale.meta)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
             Spacer()
             WorkoutSourceBadge(kind: nil, sourceName: nil, isApp: true)

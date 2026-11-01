@@ -26,7 +26,26 @@ struct StartWorkoutView: View {
     let onStart: (WorkoutStartSource) -> Void
 
     var body: some View {
-        NavigationStack {
+        if snapshotMode == .loading {
+            DesignStateView(
+                .loading,
+                title: String(localized: "正在加载训练", comment: "Start workout loading title"),
+                message: String(localized: "正在准备训练选项。", comment: "Start workout loading message")
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(theme.canvas)
+        } else if snapshotMode == .error {
+            DesignStateView(
+                .error,
+                title: String(localized: "训练选项加载失败", comment: "Start workout error title"),
+                message: String(localized: "请稍后重试。", comment: "Start workout error message"),
+                actionTitle: String(localized: "重试", comment: "Start workout retry button"),
+                action: {}
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(theme.canvas)
+        } else {
+            NavigationStack {
             List {
                 Section {
                     Button {
@@ -39,7 +58,7 @@ struct StartWorkoutView: View {
                                     .font(.body)
                                 Text(String(localized: "从零开始，逐个添加动作", comment: ""))
                                     .font(.caption)
-                                    .foregroundStyle(theme.neutrals.text2)
+                                    .foregroundStyle(theme.secondaryForeground)
                             }
                         } icon: {
                             Image(systemName: "plus.circle.fill")
@@ -95,7 +114,7 @@ struct StartWorkoutView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .background(theme.neutrals.bg)
+            .background(theme.canvas)
             .navigationTitle(String(localized: "开始训练", comment: "Nav title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -103,8 +122,11 @@ struct StartWorkoutView: View {
                     Button(String(localized: "取消", comment: "")) { dismiss() }
                 }
             }
+            }
         }
     }
+
+    @Environment(\.workoutListSnapshotMode) private var snapshotMode
 }
 
 private struct HistoryWorkoutRow: View {
@@ -121,7 +143,7 @@ private struct HistoryWorkoutRow: View {
             if !exerciseNames.isEmpty {
                 Text(exerciseNames.joined(separator: "、"))
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                     .lineLimit(1)
             }
         }
@@ -140,11 +162,12 @@ private struct TemplateRow: View {
                 .font(.body)
             HStack(spacing: 4) {
                 Text(String(localized: "\(exerciseCount) 个动作", comment: "Exercise count label"))
+                    .font(TypeScale.num)
                 Text(verbatim: "·")
                 durationText
             }
             .font(.caption)
-            .foregroundStyle(theme.neutrals.text2)
+            .foregroundStyle(theme.secondaryForeground)
         }
         .task(id: template.persistentModelID) {
             historicalAverage = Self.computeHistoricalAverage(

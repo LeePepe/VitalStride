@@ -179,7 +179,7 @@ struct WorkoutCalendarView: View {
                 ForEach(orderedWeekdayLabels, id: \.self) { label in
                     Text(label)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
                         .frame(maxWidth: .infinity, minHeight: 24)
                         .accessibilityHidden(true)
                 }
@@ -213,7 +213,10 @@ struct WorkoutCalendarView: View {
                 selectedDay = (selectedDay == day) ? nil : day
             } label: {
                 Text("\(dayNumber)")
-                    .font(.body)
+                    .font(TypeScale.num)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .layoutPriority(1)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .background(
                         Circle()
@@ -273,7 +276,7 @@ struct WorkoutCalendarView: View {
         if isSelected {
             return theme.primary.onPrimary
         }
-        return hasWorkout ? theme.primary.primary : theme.neutrals.text1
+        return hasWorkout ? theme.primary.primary : theme.foreground
     }
 
     /// Section rendered below the month grid when a workout day is
@@ -346,7 +349,7 @@ private struct SelectedDayWorkoutRow: View {
         HStack(spacing: 12) {
             Image(systemName: item.displayIcon)
                 .font(.title3)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
                 .frame(width: 32)
                 .accessibilityHidden(true)
 
@@ -357,12 +360,15 @@ private struct SelectedDayWorkoutRow: View {
                 HStack(spacing: 8) {
                     Text(item.startDate, style: .time)
                         .font(.caption)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
                     if let duration = item.duration,
                        let durationText = WorkoutCalendarDurationFormatter.string(from: duration) {
                         Text(durationText)
                             .font(.caption)
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .layoutPriority(1)
                     }
                 }
             }
@@ -371,7 +377,7 @@ private struct SelectedDayWorkoutRow: View {
 
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(theme.neutrals.text3)
+                .foregroundStyle(theme.tertiaryForeground)
                 .accessibilityHidden(true)
         }
         .padding(.vertical, 6)

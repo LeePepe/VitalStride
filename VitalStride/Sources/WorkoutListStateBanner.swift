@@ -6,9 +6,9 @@ import UIKit
 
 /// Load / failure / unauthorized banner shown at the top of the workout list
 /// when the HealthKit fetch cannot render normally. The empty state is handled
-/// separately by `ContentUnavailableView` in `WorkoutListView`.
+/// separately by DesignKit's `DesignStateView` in `WorkoutListView`.
 ///
-/// Design tokens: DesignKit theme neutrals only. No hardcoded colors, radii,
+/// Design tokens: DesignKit semantic theme tokens. No hardcoded colors, radii,
 /// or font sizes.
 ///
 /// Accessibility contract:
@@ -19,8 +19,8 @@ import UIKit
 struct WorkoutListStateBanner: View {
     /// One-of-four presentation state the banner renders for.
     ///
-    /// The empty state is intentionally NOT modelled here — it's owned by
-    /// `WorkoutListView`'s `ContentUnavailableView`.
+    /// The empty state is intentionally NOT modelled here — it is owned by
+    /// `WorkoutListView`'s `DesignStateView`.
     enum LoadState: Equatable {
         case loading
         case failed
@@ -43,10 +43,10 @@ struct WorkoutListStateBanner: View {
             VStack(alignment: .leading, spacing: Space.hair) {
                 Text(title)
                     .font(TypeScale.title)
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                 Text(subtitle)
                     .font(TypeScale.body)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .combine)
@@ -86,7 +86,7 @@ struct WorkoutListStateBanner: View {
         .padding(Space.gap)
         .background(
             RoundedRectangle(cornerRadius: Radius.inner, style: .continuous)
-                .fill(theme.neutrals.inner)
+                .fill(theme.inner)
         )
     }
 

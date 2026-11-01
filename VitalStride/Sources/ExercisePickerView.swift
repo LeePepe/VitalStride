@@ -15,6 +15,7 @@ struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
     @State private var searchText = ""
@@ -316,13 +317,14 @@ struct ExercisePickerView: View {
             Text(label)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, Space.sm)
+                .fixedSize(horizontal: true, vertical: false)
                 .frame(height: 36)
                 .foregroundStyle(
-                    isSelected ? theme.onInteractiveAccent : theme.neutrals.text1
+                    isSelected ? theme.onInteractiveAccent : theme.foreground
                 )
                 .background(
-                    isSelected ? theme.interactiveAccent : theme.neutrals.inner,
+                    isSelected ? theme.interactiveAccent : theme.inner,
                     in: Capsule()
                 )
         }
@@ -340,7 +342,7 @@ struct ExercisePickerView: View {
             }.padding(.vertical, 12)
         }
         .frame(width: Self.muscleSidebarWidth)
-        .contentMargins(.bottom, panelHeight, for: .scrollContent)
+        .contentMargins(.bottom, panelHeight + Space.md, for: .scrollContent)
         .background(theme.inner.opacity(0.5))
         .accessibilityIdentifier("exercise_picker_muscle_sidebar")
     }
@@ -532,9 +534,9 @@ struct ExercisePickerView: View {
                 // reserve matching bottom space with a STATIC margin driven
                 // by the intrinsic `panelHeight`. On iOS 26 the panel is a
                 // `.safeAreaBar` (see `FloatingPanelAttachment`) which
-                // reserves its own space, so `panelHeight` stays 0 here and
-                // this margin is an inert no-op.
-                .contentMargins(.bottom, panelHeight, for: .scrollContent)
+                // reserves its own space, so `panelHeight` stays 0 here;
+                // the token margin keeps the last row clear of the dock.
+                .contentMargins(.bottom, panelHeight + Space.md, for: .scrollContent)
                 // MY-1272: dismiss the search keyboard as soon as the
                 // card grid scrolls. `.immediately` mirrors
                 // `ActiveWorkoutView`'s existing choice: any drag
@@ -845,7 +847,7 @@ struct ExercisePickerView: View {
 
     private func sectionPreviewPopup(equipment: ExerciseSection) -> some View {
         Label(equipment.localizedName, systemImage: equipment.sfSymbol)
-            .lineLimit(1).minimumScaleFactor(0.7)
+            .lineLimit(2)
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(theme.foreground)
             .padding(16)
@@ -857,18 +859,28 @@ struct ExercisePickerView: View {
     @ViewBuilder
     private var emptyState: some View {
         if !debouncedSearchText.isEmpty {
-            ContentUnavailableView.search(text: debouncedSearchText)
+            DesignStateView(
+                .empty,
+                title: String(localized: "没有动作", comment: "No exercises found title"),
+                message: String(localized: "没有找到匹配的动作。", comment: "No exercises search description"),
+                actionTitle: String(localized: "清除搜索", comment: "Clear exercise search CTA"),
+                action: { searchText = ""; debouncedSearchText = "" }
+            )
         } else if let group = selectedMuscleGroup {
-            ContentUnavailableView(
-                String(localized: "没有动作", comment: "No exercises found title"),
-                systemImage: "dumbbell",
-                description: Text(String(localized: "\(group.localizedName)分类下暂无动作", comment: "No exercises in muscle group description"))
+            DesignStateView(
+                .empty,
+                title: String(localized: "没有动作", comment: "No exercises found title"),
+                message: String(localized: "\(group.localizedName)分类下暂无动作", comment: "No exercises in muscle group description"),
+                actionTitle: String(localized: "清除筛选", comment: "Clear exercise filter CTA"),
+                action: { selectedMuscleGroup = nil; selectedEquipmentFilter = nil }
             )
         } else {
-            ContentUnavailableView(
-                String(localized: "没有动作", comment: "No exercises found title"),
-                systemImage: "dumbbell",
-                description: Text(String(localized: "暂无可用动作", comment: "No exercises available description"))
+            DesignStateView(
+                .empty,
+                title: String(localized: "没有动作", comment: "No exercises found title"),
+                message: String(localized: "暂无可用动作", comment: "No exercises available description"),
+                actionTitle: String(localized: "创建动作", comment: "Create custom exercise CTA"),
+                action: { presentedSheet = .create }
             )
         }
     }
@@ -882,16 +894,16 @@ struct ExercisePickerView: View {
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: equipment.sfSymbol)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(TypeScale.meta.weight(.bold))
                     .foregroundStyle(color)
                     .frame(width: 16, alignment: .center)
                 Text(equipment.localizedName.uppercased())
                     .font(TypeScale.meta)
                     .fontWeight(.bold)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                 Text("\(exercises.count)")
                     .font(TypeScale.meta.monospacedDigit())
-                    .foregroundStyle(theme.neutrals.text3)
+                    .foregroundStyle(theme.tertiaryForeground)
             }
 
             LazyVGrid(columns: gridColumns, spacing: 8) {
@@ -976,6 +988,7 @@ private struct FloatingPanelAttachment<Panel: View>: ViewModifier {
 
 private struct ExerciseCard: View {
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let exercise: Exercise
     let isSelected: Bool
     let showsSelectionIndicator: Bool
@@ -990,7 +1003,7 @@ private struct ExerciseCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: exercise.equipment.sfSymbol)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(TypeScale.body.weight(.semibold))
                         .foregroundStyle(equipmentColor)
                         .frame(width: 32, height: 32)
                         .background(equipmentColor.opacity(0.14))
@@ -998,8 +1011,8 @@ private struct ExerciseCard: View {
                     Spacer(minLength: 0)
                     if showsSelectionIndicator {
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundStyle(isSelected ? theme.primary.primary : theme.neutrals.text3)
+                            .font(TypeScale.title)
+                            .foregroundStyle(isSelected ? theme.accent : theme.tertiaryForeground)
                             .frame(width: 44, height: 44)
                             .accessibilityHidden(true)
                     }
@@ -1009,7 +1022,7 @@ private struct ExerciseCard: View {
 
                 Text(exercise.localizedName)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                     .lineLimit(2, reservesSpace: true)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
@@ -1029,8 +1042,7 @@ private struct ExerciseCard: View {
             }
             .frame(
                 maxWidth: .infinity,
-                minHeight: 118,
-                maxHeight: .infinity,
+                minHeight: dynamicTypeSize.isAccessibilitySize ? 148 : 118,
                 alignment: .topLeading
             )
             .padding(10)
@@ -1038,7 +1050,7 @@ private struct ExerciseCard: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 16)
                     .strokeBorder(
-                        isSelected ? theme.primary.primary : theme.neutrals.border,
+                        isSelected ? theme.primary.primary : theme.border,
                         lineWidth: isSelected ? 2 : 1
                     )
             }
@@ -1171,7 +1183,7 @@ struct PickerBottomBar: View {
 
     var body: some View {
         let isConfirmDisabled = isMultiSelect && selectedCount == 0
-        HStack(spacing: 4) {
+        HStack(spacing: Space.xxs) {
             searchField
                 .frame(maxWidth: .infinity)
                 .layoutPriority(1)
@@ -1181,7 +1193,7 @@ struct PickerBottomBar: View {
                         .font(.caption.weight(.semibold)).fixedSize()
                     Image(systemName: "plus").font(.body.weight(.semibold))
                 }
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -1189,7 +1201,7 @@ struct PickerBottomBar: View {
             .accessibilityLabel(String(localized: "picker.create", comment: "Create custom exercise"))
             .accessibilityIdentifier("exercise_picker_create")
             Button(action: onConfirm) {
-                HStack(spacing: 3) {
+                HStack(spacing: Space.xxs) {
                     Text(String(localized: "picker.done", comment: "Confirm exercise selection"))
                     if isMultiSelect && selectedCount > 0 {
                         Text("\(selectedCount)").monospacedDigit()
@@ -1197,22 +1209,24 @@ struct PickerBottomBar: View {
                 }
                 .font(.subheadline.weight(.semibold))
                 .fixedSize()
-                .padding(.horizontal, 12)
-                .frame(minWidth: 44, minHeight: 44)
+                .padding(.horizontal, Space.sm)
+                .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
                 .background(
                     isConfirmDisabled ? theme.inner : theme.interactiveAccent,
                     in: RoundedRectangle(cornerRadius: Radius.control)
                 )
             }
             .buttonStyle(.plain)
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(2)
             .foregroundStyle(isConfirmDisabled ? theme.secondaryForeground : theme.onInteractiveAccent)
             .disabled(isConfirmDisabled)
             .accessibilityLabel(String(localized: "picker.done", comment: "Confirm exercise selection"))
             .accessibilityValue(String(localized: "picker.selected.count \(selectedCount)", comment: "Selected exercise count"))
             .accessibilityIdentifier("exercise_picker_confirm")
         }
-        .padding(8)
-        .designSurface(style: .glass, cornerRadius: 16)
+        .padding(Space.xs)
+        .designSurface(style: .glass, cornerRadius: Radius.control)
     }
 
     // Own the native field here so its identifier belongs only to the input,

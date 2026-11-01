@@ -37,16 +37,16 @@ struct WorkoutSourceBadge: View {
                 .font(TypeScale.meta)
                 .lineLimit(1)
         }
-        .foregroundStyle(theme.neutrals.text2)
+        .foregroundStyle(theme.secondaryForeground)
         .padding(.horizontal, Space.inline)
         .padding(.vertical, Space.chipVertical)
         .background(
             RoundedRectangle(cornerRadius: Radius.badge, style: .continuous)
-                .fill(theme.neutrals.inner)
+                .fill(theme.inner)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Radius.badge, style: .continuous)
-                .stroke(theme.neutrals.border, lineWidth: 0.5)
+                .stroke(theme.border, lineWidth: 0.5)
         )
     }
 
