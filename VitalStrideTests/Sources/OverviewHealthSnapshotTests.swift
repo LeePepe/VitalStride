@@ -343,8 +343,11 @@ struct OverviewDisplayLogicTests {
         @Test("Exports deterministic Group B state snapshots at both compact widths")
         @MainActor
         func exportsFourStatesInBothAppearances() throws {
-            let directory = URL(fileURLWithPath: "/Users/lee/Development/handoff/vs-rem-1101/snapshots", isDirectory: true)
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+                "vs-rem-1101-tk2-snapshots-\(UUID().uuidString)", isDirectory: true
+            )
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
 
             let states = ["populated", "empty", "loading", "error"]
             let appearances: [(String, ColorScheme)] = [("light", .light), ("dark", .dark)]
