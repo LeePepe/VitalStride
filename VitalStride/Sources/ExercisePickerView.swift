@@ -11,6 +11,77 @@ import UIKit
 
 private let signposter = OSSignposter(subsystem: "com.vitalstride", category: "ExercisePicker")
 
+enum ExercisePickerSelectionSource: Equatable, Sendable {
+    case muscle
+    case filter
+    case indexTap
+    case indexScrub
+}
+
+enum ExercisePickerScrollPhase: Equatable, Sendable {
+    case idle
+    case userDragging
+    case decelerating
+    case animating
+    case programmatic
+}
+
+struct ExercisePickerScrollArbitrator {
+    private(set) var selectionGeneration: UInt = 0
+    private(set) var scrollPhase: ExercisePickerScrollPhase = .idle
+    private(set) var programmaticTarget: ExerciseSection?
+    private(set) var programmaticSource: ExercisePickerSelectionSource?
+
+    mutating func requestSelection(
+        target: ExerciseSection,
+        source: ExercisePickerSelectionSource
+    ) -> UInt {
+        if programmaticTarget == target, programmaticSource == source, scrollPhase == .programmatic {
+            return selectionGeneration
+        }
+
+        selectionGeneration &+= 1
+        programmaticTarget = target
+        programmaticSource = source
+        scrollPhase = .programmatic
+        return selectionGeneration
+    }
+
+    mutating func updateScrollPhase(_ phase: ScrollPhase, isScrubbing: Bool) {
+        let mappedPhase: ExercisePickerScrollPhase
+        switch phase {
+        case .idle:
+            mappedPhase = .idle
+        case .tracking, .interacting:
+            mappedPhase = .userDragging
+        case .decelerating:
+            mappedPhase = .decelerating
+        case .animating:
+            mappedPhase = .animating
+        @unknown default:
+            mappedPhase = .idle
+        }
+
+        if mappedPhase == .userDragging, !isScrubbing {
+            programmaticTarget = nil
+            programmaticSource = nil
+        }
+        scrollPhase = mappedPhase
+    }
+
+    func acceptsVisibility(_ section: ExerciseSection) -> Bool {
+        guard let programmaticTarget else { return true }
+        return programmaticTarget == section
+    }
+
+    mutating func settle(generation: UInt) {
+        guard generation == selectionGeneration else { return }
+        programmaticTarget = nil
+        programmaticSource = nil
+        scrollPhase = .idle
+    }
+}
+
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
@@ -63,6 +134,7 @@ struct ExercisePickerView: View {
     // height is intrinsic (does not depend on the margin it drives). On iOS 26
     // the panel is a `.safeAreaBar` and this stays 0.
     @State private var panelHeight: CGFloat = 0
+    @State private var scrollArbitrator = ExercisePickerScrollArbitrator()
 
     let selectionMode: SelectionMode
 
@@ -193,6 +265,13 @@ struct ExercisePickerView: View {
                 guard !Task.isCancelled else { return }
                 indexHUD = nil
             }
+            .task(id: scrollArbitrator.selectionGeneration) {
+                guard scrollArbitrator.programmaticTarget != nil else { return }
+                let generation = scrollArbitrator.selectionGeneration
+                try? await Task.sleep(for: .milliseconds(320))
+                guard !Task.isCancelled else { return }
+                scrollArbitrator.settle(generation: generation)
+            }
             .onChange(of: exerciseRevisions) { _, _ in
                 let newExercises = exercises
                 cachedEquipmentGroups = Self.computeEquipmentGroups(
@@ -218,6 +297,9 @@ struct ExercisePickerView: View {
                     in: newGroups.map(\.0)
                 )
                 visibleEquipment = anchor
+                if let anchor {
+                    _ = scrollArbitrator.requestSelection(target: anchor, source: .muscle)
+                }
                 pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
             }
@@ -225,6 +307,9 @@ struct ExercisePickerView: View {
                 let newGroups = filteredEquipmentGroups(for: newFilter)
                 let anchor = newGroups.first?.0
                 visibleEquipment = anchor
+                if let anchor {
+                    _ = scrollArbitrator.requestSelection(target: anchor, source: .filter)
+                }
                 pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
             }
@@ -247,6 +332,9 @@ struct ExercisePickerView: View {
                     in: newGroups.map(\.0)
                 )
                 visibleEquipment = anchor
+                if let anchor {
+                    _ = scrollArbitrator.requestSelection(target: anchor, source: .filter)
+                }
                 pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
             }
@@ -343,7 +431,7 @@ struct ExercisePickerView: View {
         }
         .frame(width: Self.muscleSidebarWidth)
         .contentMargins(.bottom, panelHeight + Space.md, for: .scrollContent)
-        .background(theme.inner.opacity(0.5))
+        .background(theme.canvas)
         .accessibilityIdentifier("exercise_picker_muscle_sidebar")
     }
 
@@ -572,7 +660,17 @@ struct ExercisePickerView: View {
                         in: equipments,
                         current: visibleEquipment,
                         isDragging: draggedEquipment != nil,
-                        using: applyVisibleEquipment
+                        using: { equipment in
+                            guard let equipment else { return }
+                            guard scrollArbitrator.acceptsVisibility(equipment) else { return }
+                            applyVisibleEquipment(equipment)
+                        }
+                    )
+                }
+                .onScrollPhaseChange { _, newPhase in
+                    scrollArbitrator.updateScrollPhase(
+                        newPhase,
+                        isScrubbing: draggedEquipment != nil
                     )
                 }
 
@@ -594,9 +692,17 @@ struct ExercisePickerView: View {
             )
             .onChange(of: equipments) { _, newEquipments in
                 if let current = visibleEquipment, !newEquipments.contains(current) {
-                    visibleEquipment = newEquipments.first
+                    let replacement = newEquipments.first
+                    visibleEquipment = replacement
+                    if let replacement {
+                        _ = scrollArbitrator.requestSelection(target: replacement, source: .filter)
+                    }
                 } else if visibleEquipment == nil {
-                    visibleEquipment = newEquipments.first
+                    let replacement = newEquipments.first
+                    visibleEquipment = replacement
+                    if let replacement {
+                        _ = scrollArbitrator.requestSelection(target: replacement, source: .filter)
+                    }
                 }
             }
             // MY-1250 reconciliation: filter/search change bumps
@@ -609,6 +715,7 @@ struct ExercisePickerView: View {
                 .onChange(of: scrollResetToken) { _, _ in
                     let target = pendingScrollAnchor ?? groups.first?.0
                     guard let anchor = target else { return }
+                    gridProxy.scrollTo(anchor, anchor: .top)
                     withAnimation(.easeOut(duration: 0.2)) {
                         gridProxy.scrollTo(anchor, anchor: .top)
                     }
@@ -624,7 +731,10 @@ struct ExercisePickerView: View {
             equipments: equipments,
             activeEquipment: draggedEquipment ?? visibleEquipment,
             onSelect: { equipment, animated in
+                let source: ExercisePickerSelectionSource = animated ? .indexTap : .indexScrub
+                _ = scrollArbitrator.requestSelection(target: equipment, source: source)
                 if animated {
+                    gridProxy.scrollTo(equipment, anchor: .top)
                     withAnimation(.easeOut(duration: 0.2)) {
                         gridProxy.scrollTo(equipment, anchor: .top)
                     }
@@ -906,7 +1016,7 @@ struct ExercisePickerView: View {
                     .foregroundStyle(theme.tertiaryForeground)
             }
 
-            LazyVGrid(columns: gridColumns, spacing: 8) {
+            LazyVGrid(columns: gridColumns, spacing: 10) {
                 ForEach(exercises) { exercise in
                     ExerciseCard(
                         exercise: exercise,
@@ -1027,6 +1137,7 @@ private struct ExerciseCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
 
                 HStack(spacing: 4) {
                     Text(exercise.muscleGroup.localizedName)
@@ -1045,7 +1156,7 @@ private struct ExerciseCard: View {
                 minHeight: dynamicTypeSize.isAccessibilitySize ? 148 : 118,
                 alignment: .topLeading
             )
-            .padding(10)
+            .padding(12)
             .designSurface(style: .solid, cornerRadius: 16)
             .overlay {
                 RoundedRectangle(cornerRadius: 16)
@@ -1099,6 +1210,7 @@ private struct EquipmentIndexBar: View {
                 }
             }
             .frame(width: Self.hitWidth, height: height)
+            .liquidGlassCapsule(theme: theme)
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0)
                 .onChanged { value in
@@ -1226,7 +1338,12 @@ struct PickerBottomBar: View {
             .accessibilityIdentifier("exercise_picker_confirm")
         }
         .padding(Space.xs)
-        .designSurface(style: .glass, cornerRadius: Radius.control)
+        .liquidGlassBar(theme: theme, cornerRadius: Radius.control)
+        .overlay {
+            RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
+                .stroke(theme.foreground.opacity(0.12), lineWidth: 0.5)
+        }
+        .shadow(color: .black.opacity(0.14), radius: 12, y: 4)
     }
 
     // Own the native field here so its identifier belongs only to the input,

@@ -21,6 +21,55 @@ import VitalModels
 @Suite("ExercisePicker index-bar sync (MY-1249)")
 struct ExercisePickerIndexSyncTests {
 
+    @Test("deceleration selection owns the target until stale visibility settles")
+    func deceleratingSelectionSuppressesStaleVisibility() {
+        var arbitrator = ExercisePickerScrollArbitrator()
+        arbitrator.updateScrollPhase(.decelerating, isScrubbing: false)
+        let generation = arbitrator.requestSelection(target: .dumbbell, source: .muscle)
+
+        #expect(arbitrator.scrollPhase == .programmatic)
+        #expect(arbitrator.programmaticTarget == .dumbbell)
+        #expect(arbitrator.programmaticSource == .muscle)
+        #expect(!arbitrator.acceptsVisibility(.barbell))
+        #expect(arbitrator.acceptsVisibility(.dumbbell))
+
+        arbitrator.settle(generation: generation &- 1)
+        #expect(arbitrator.programmaticTarget == .dumbbell)
+        arbitrator.settle(generation: generation)
+        #expect(arbitrator.programmaticTarget == nil)
+        #expect(arbitrator.scrollPhase == .idle)
+    }
+
+    @Test("filter and index requests replace an older generation")
+    func newerSelectionGenerationWins() {
+        var arbitrator = ExercisePickerScrollArbitrator()
+        arbitrator.updateScrollPhase(.decelerating, isScrubbing: false)
+        let oldGeneration = arbitrator.requestSelection(target: .barbell, source: .filter)
+        let newGeneration = arbitrator.requestSelection(target: .cable, source: .indexTap)
+
+        #expect(newGeneration > oldGeneration)
+        #expect(arbitrator.programmaticTarget == .cable)
+        #expect(arbitrator.programmaticSource == .indexTap)
+        #expect(!arbitrator.acceptsVisibility(.barbell))
+        #expect(arbitrator.acceptsVisibility(.cable))
+
+        arbitrator.settle(generation: oldGeneration)
+        #expect(arbitrator.programmaticTarget == .cable)
+        arbitrator.settle(generation: newGeneration)
+        #expect(arbitrator.programmaticTarget == nil)
+    }
+
+    @Test("manual interaction releases programmatic ownership")
+    func manualInteractionReclaimsSelection() {
+        var arbitrator = ExercisePickerScrollArbitrator()
+        _ = arbitrator.requestSelection(target: .machine, source: .indexScrub)
+        arbitrator.updateScrollPhase(.interacting, isScrubbing: false)
+
+        #expect(arbitrator.programmaticTarget == nil)
+        #expect(arbitrator.scrollPhase == .userDragging)
+        #expect(arbitrator.acceptsVisibility(.cable))
+    }
+
     @Test("first visible id in equipment order wins the highlight")
     func firstVisibleWins() {
         let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
