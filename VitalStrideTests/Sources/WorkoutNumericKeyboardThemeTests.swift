@@ -80,10 +80,12 @@ struct WorkoutNumericKeyboardThemeTests {
     func compactFunctionActions() {
         #expect(LeftKeyAction.allCases.contains(.toggleUnilateral))
         #expect(LeftKeyAction.allCases.contains(.setWarmup))
+        #expect(LeftKeyAction.allCases.contains(.copyToNext))
         #expect(LeftKeyAction.allCases.contains(.toggleWeightUnit))
         #expect(LeftKeyAction.allCases.contains(.addDropSet))
         #expect(LeftKeyAction.allCases.contains(.addSet))
         #expect(LeftKeyAction.allCases.contains(.applyAISuggestion))
+        #expect(NumericKeypad.totalGridHeight == 232)
     }
 
     @Test("Rendered keyboard exposes the canonical kg/lb toggle label")

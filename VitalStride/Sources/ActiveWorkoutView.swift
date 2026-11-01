@@ -343,10 +343,14 @@ struct ActiveWorkoutView: View {
                     theme: theme,
                     infoBand: {
                         // MY-1262: default mode uses compact info band;
-                        // Large Mode keeps its dual-card layout.
+                        // Large Mode keeps its dual-card layout when the keyboard
+                        // is hidden and collapses sessionStatsCard during active
+                        // keyboard entry to preserve list viewport height.
                         if largeMode {
                             workoutTimer
-                            sessionStatsCard
+                            if !isKeyboardVisible {
+                                sessionStatsCard
+                            }
                         } else {
                             compactInfoBand
                         }
@@ -823,7 +827,7 @@ struct ActiveWorkoutView: View {
             }
         }
         .padding(.horizontal)
-        .padding(.vertical, largeMode ? 16 : 8)
+        .padding(.vertical, largeMode ? 10 : 8)
         .background(theme.neutrals.card)
     }
 
@@ -839,12 +843,12 @@ struct ActiveWorkoutView: View {
     private var sessionStatsCard: some View {
         if totalSetCount > 0 {
             let displayVolume = weightUnit == .lb ? totalVolumeKg * 2.20462 : totalVolumeKg
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 14) {
                     RingGauge(
                         value: totalSetCount == 0 ? 0 : Double(completedSetCount) / Double(totalSetCount),
-                        size: 56,
-                        stroke: 6
+                        size: 48,
+                        stroke: 5
                     )
                     .accessibilityLabel(String(localized: "组数进度", comment: "Session set progress a11y label"))
                     .accessibilityValue(String(
@@ -896,7 +900,7 @@ struct ActiveWorkoutView: View {
                 }
             }
             .padding(.horizontal)
-            .padding(.vertical, 10)
+            .padding(.vertical, 8)
             .background(theme.neutrals.card)
             .overlay(alignment: .top) {
                 Rectangle().fill(theme.neutrals.border).frame(height: 1)
@@ -1190,7 +1194,7 @@ struct ActiveWorkoutView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
-                    .listSectionSpacing(largeMode ? 14 : 10)
+                    .listSectionSpacing(largeMode ? 8 : 6)
                     .scrollDismissesKeyboard(.immediately)
                     .simultaneousGesture(
                         DragGesture(minimumDistance: 8)
