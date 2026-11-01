@@ -37,7 +37,8 @@ struct SubSetReadOnlyTests {
         #expect(source.contains("onPresetReps: { weightKg, reps in applyPreset"))
         #expect(source.contains("Image(systemName: \"xmark\")"))
         #expect(source.contains("parentSetNumber"))
-        #expect(source.contains("theme.accent.opacity(0.55)"))
+        #expect(source.contains(".opacity(0.10)"))
+        #expect(!source.contains(".overlay(alignment: .leading)"))
     }
 
     @Test("Drop-set row uses the shared centered grid without a footer")
@@ -52,6 +53,10 @@ struct SubSetReadOnlyTests {
         #expect(source.contains("minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side"))
         #expect(source.contains("ActiveWorkoutHitTarget.numericInputWidth"))
         #expect(source.contains("Text(\"\\(parentSetNumber).\\(exerciseSet.order)\")"))
+        #expect(source.contains(".frame(width: 19, height: 24, alignment: .trailing)"))
+        #expect(source.contains(".font(.system(size: 18, weight: .medium))"))
+        #expect(source.contains(".padding(.leading, 4)"))
+        #expect(source.contains(".padding(.trailing, 1)"))
         #expect(!source.contains("Text(\"↳\")"))
         #expect(!source.contains("\"metadata\""))
         #expect(source.contains(".fixedSize(horizontal: true, vertical: false)"))

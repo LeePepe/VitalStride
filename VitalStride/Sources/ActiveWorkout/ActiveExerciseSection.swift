@@ -185,7 +185,7 @@ struct ActiveExerciseSection: View {
                             Label(String(localized: "删除", comment: ""), systemImage: "trash")
                         }
                     }
-                    .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
+                    .listRowInsets(EdgeInsets(top: 2, leading: 6, bottom: 2, trailing: 6))
                     .listRowSeparator(.hidden)
                     .listSectionSeparator(.hidden)
                     .listRowBackground(theme.neutrals.bg)
@@ -226,7 +226,7 @@ struct ActiveExerciseSection: View {
                             }
                         }
                     }
-                    .listRowInsets(EdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6))
+                    .listRowInsets(EdgeInsets(top: 2, leading: 6, bottom: 2, trailing: 6))
                     .listRowSeparator(.hidden)
                     .listSectionSeparator(.hidden)
                     .listRowBackground(theme.neutrals.bg)

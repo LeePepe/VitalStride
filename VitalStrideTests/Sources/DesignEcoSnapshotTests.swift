@@ -629,7 +629,10 @@ final class DesignEcoSnapshotTests: XCTestCase {
             ?? ProcessInfo.processInfo.environment["SIMCTL_CHILD_DESIGN_ECO_SNAPSHOT_DIR"] {
             directory = URL(fileURLWithPath: path, isDirectory: true)
         } else {
-            directory = FileManager.default.temporaryDirectory
+            directory = URL(
+                fileURLWithPath: "/Users/lee/Development/handoff/vs-wkp-1101/snapshots",
+                isDirectory: true
+            )
         }
         try FileManager.default.createDirectory(
             at: directory,
