@@ -246,9 +246,9 @@ struct WorkoutListView: View {
                     && !healthKitUnauthorized) {
                     DesignStateView(
                         .empty,
-                        title: String(localized: "暂无训练记录", comment: "No workouts empty state title"),
-                        message: String(localized: "点击开始第一次训练，记录你的进步。", comment: "No workouts empty state description"),
-                        actionTitle: String(localized: "开始训练", comment: "Start first workout CTA"),
+                        title: String(localized: "workout_list.preview.empty_title", comment: "No workouts empty state title"),
+                        message: String(localized: "workout_list.preview.empty_subtitle", comment: "No workouts empty state description"),
+                        actionTitle: String(localized: "action_go", comment: "Open the start workout options"),
                         action: { showingStartOptions = true }
                     )
                     .padding(Space.md)
@@ -257,8 +257,8 @@ struct WorkoutListView: View {
                 } else if snapshotMode == .loading || (snapshotMode == .live && isLoadingHealthKit && !hasAnyWorkouts) {
                     DesignStateView(
                         .loading,
-                        title: String(localized: "正在加载训练", comment: "Workout list loading title"),
-                        message: String(localized: "正在准备你的训练记录。", comment: "Workout list loading message")
+                        title: String(localized: "workout_list.state_banner.loading_title", comment: "Workout list loading title"),
+                        message: String(localized: "workout_list.state_banner.loading_subtitle", comment: "Workout list loading message")
                     )
                     .padding(Space.md)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -266,9 +266,9 @@ struct WorkoutListView: View {
                 } else if snapshotMode == .error && !hasAnyWorkouts {
                     DesignStateView(
                         .error,
-                        title: String(localized: "训练记录加载失败", comment: "Workout list error title"),
-                        message: String(localized: "请重试或检查健康数据权限。", comment: "Workout list error message"),
-                        actionTitle: String(localized: "重试", comment: "Retry workout list CTA"),
+                        title: String(localized: "workout_list.state_banner.failed_title", comment: "Workout list error title"),
+                        message: String(localized: "workout_list.state_banner.failed_subtitle", comment: "Workout list error message"),
+                        actionTitle: String(localized: "Retry", comment: "Retry workout list CTA"),
                         action: { Task { await loadHealthKitWorkouts() } }
                     )
                     .padding(Space.md)

@@ -120,14 +120,6 @@ struct WorkoutDetailView: View {
             // "backing data was detached without resolving faults".
             Color.clear
                 .accessibilityHidden(true)
-        } else if sortedExercises.isEmpty {
-            DesignStateView(
-                .empty,
-                title: String(localized: "暂无训练内容", comment: "Workout detail empty title"),
-                message: String(localized: "这次训练还没有动作或训练组。", comment: "Workout detail empty message"),
-                actionTitle: String(localized: "返回", comment: "Workout detail empty action"),
-                action: { dismiss() }
-            )
         } else {
             detailList
         }
@@ -242,6 +234,18 @@ struct WorkoutDetailView: View {
                             ))
                         )
                     }
+                }
+            }
+
+            if sortedExercises.isEmpty {
+                Section(String(localized: "动作", comment: "Empty workout exercises section")) {
+                    DesignStateView(
+                        .empty,
+                        title: String(localized: "暂无训练内容", comment: "Workout detail empty title"),
+                        message: String(localized: "这次训练还没有动作或训练组。", comment: "Workout detail empty message"),
+                        actionTitle: String(localized: "返回", comment: "Workout detail empty action"),
+                        action: { dismiss() }
+                    )
                 }
             }
 
