@@ -12,5 +12,6 @@ struct OverviewCardContainer<Content: View>: View {
             content()
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxHeight: .infinity, alignment: .topLeading)
     }
 }

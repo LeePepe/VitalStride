@@ -81,10 +81,18 @@ struct AdaptiveCardGrid: View {
                 ForEach(Array(result.segments.enumerated()), id: \.offset) { _, segment in
                     switch segment {
                     case let .gridBatch(batchInsights):
-                        LazyVGrid(columns: Self.gridColumns, spacing: 12) {
-                            ForEach(batchInsights, id: \.key) { insight in
-                                CardVariantFactory.makeCard(for: insight, onAction: onAction)
-                                    .frame(maxHeight: .infinity, alignment: .topLeading)
+                        Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                            ForEach(Array(stride(from: 0, to: batchInsights.count, by: 2)), id: \.self) { start in
+                                GridRow {
+                                    ForEach(batchInsights[start..<min(start + 2, batchInsights.count)], id: \.key) { insight in
+                                        CardVariantFactory.makeCard(for: insight, onAction: onAction)
+                                            .frame(maxHeight: .infinity, alignment: .topLeading)
+                                    }
+                                    if start + 1 >= batchInsights.count {
+                                        Color.clear
+                                            .frame(maxWidth: .infinity)
+                                    }
+                                }
                             }
                         }
                     case let .fullWidth(insight):

@@ -1,6 +1,11 @@
 import Foundation
 import Testing
 import AIService
+#if canImport(UIKit)
+import Combine
+import SwiftUI
+import UIKit
+#endif
 
 @testable import VitalStride
 
@@ -262,28 +267,77 @@ struct GridLayoutEngineTests {
         #expect(filteredCount == 0)
     }
 
-    @Test("Grid cards declare equal-height row contract")
-    func equalHeightRowContract() throws {
-        let source = try String(
-            contentsOfFile: findSourceFile(named: "AdaptiveCardGrid.swift"),
-            encoding: .utf8
-        )
-        #expect(source.contains(".frame(maxHeight: .infinity, alignment: .topLeading)"))
+    #if canImport(UIKit)
+    @Test("Rendered sibling cards share equal row height")
+    @MainActor
+    func equalHeightRowContract() {
+        let collector = CardHeightCollector()
+        let insights = [
+            OverviewInsight(
+                key: "left", cardType: "metric", cardSize: "medium",
+                title: "Steps", content: "8,543"
+            ),
+            OverviewInsight(
+                key: "right", cardType: "metric", cardSize: "medium",
+                title: "Heart Rate", content: "68 BPM",
+                suggestion: "Within range"
+            )
+        ]
+        let root = Grid {
+            GridRow {
+                measuredCard(MetricMediumCardView(insight: insights[0]), index: 0, collector: collector)
+                measuredCard(MetricMediumCardView(insight: insights[1]), index: 1, collector: collector)
+            }
+        }
+        .frame(width: 360)
+        .padding()
+        .designTheme()
+
+        let controller = UIHostingController(rootView: root)
+        controller.view.frame = CGRect(x: 0, y: 0, width: 390, height: 240)
+        controller.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+
+        #expect(collector.heights.count == 2)
+        if collector.heights.count == 2 {
+            #expect(abs(collector.heights[0] - collector.heights[1]) <= 1.0)
+        }
     }
 
-    private func findSourceFile(named fileName: String) -> String {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let enumerator = FileManager.default.enumerator(
-            at: root,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
+    @ViewBuilder
+    private func measuredCard<Content: View>(
+        _ content: Content,
+        index: Int,
+        collector: CardHeightCollector
+    ) -> some View {
+        content.background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        let height = proxy.size.height
+                        Task { @MainActor in
+                            collector.record(height, at: index)
+                        }
+                    }
+                    .onChange(of: proxy.size.height) { _, value in
+                        Task { @MainActor in
+                            collector.record(value, at: index)
+                        }
+                    }
+            }
         )
-        while let url = enumerator?.nextObject() as? URL {
-            if url.lastPathComponent == fileName { return url.path }
-        }
-        return root.appendingPathComponent(fileName).path
     }
+
+    @MainActor
+    private final class CardHeightCollector: ObservableObject {
+        var heights: [CGFloat] = []
+
+        func record(_ height: CGFloat, at index: Int) {
+            if heights.count <= index {
+                heights += Array(repeating: 0, count: index + 1 - heights.count)
+            }
+            heights[index] = height
+        }
+    }
+    #endif
 }

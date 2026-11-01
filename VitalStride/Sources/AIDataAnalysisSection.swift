@@ -58,7 +58,7 @@ struct AIDataAnalysisSection: View {
                 ProgressView()
                 Text(String(localized: "正在分析数据", comment: "AI analysis loading"))
                     .font(.subheadline)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 8)
@@ -130,7 +130,7 @@ struct AIDataAnalysisSection: View {
                     )
                 )
                 .font(.caption)
-                .foregroundStyle(theme.neutrals.text3)
+                .foregroundStyle(theme.secondaryForeground)
             }
             Spacer()
             Button {
@@ -353,9 +353,9 @@ struct AIDataAnalysisSection: View {
     private func trendColor(_ trend: String) -> Color {
         switch trend {
         case "rising": theme.success
-        case "falling": theme.danger
+        case "falling": theme.critical
         case "stable": theme.primary.primary
-        default: theme.neutrals.text3
+        default: theme.secondaryForeground
         }
     }
 

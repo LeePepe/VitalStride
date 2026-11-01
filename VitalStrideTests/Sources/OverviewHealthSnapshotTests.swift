@@ -1,7 +1,9 @@
 import Foundation
+import CryptoKit
 import HealthKit
 import HealthKitService
 import DesignKit
+import AIService
 import SwiftData
 import SwiftUI
 import Testing
@@ -172,6 +174,7 @@ struct HealthSnapshotStateTests {
     func loadAllMetrics() async {
         let mock = MockHealthStore()
         mock.authorizationRequestStatus = .unnecessary
+        setupEmptyResults(for: mock)
         let now = todayAnchor()
 
         let stepSample = HKQuantitySample(
@@ -233,6 +236,39 @@ struct HealthSnapshotStateTests {
         #expect(state.snapshot.todaySteps != nil)
         #expect(state.snapshot.averageBPM == 68)
         #expect(state.snapshot.latestWeight == 75.5)
+    }
+
+    @Test("Authorization loss clears stale snapshot data")
+    @MainActor
+    func authorizationLossClearsStaleData() async {
+        let mock = MockHealthStore()
+        mock.authorizationRequestStatus = .unnecessary
+        let now = todayAnchor()
+        let sample = HKQuantitySample(
+            type: HKQuantityType(.stepCount),
+            quantity: HKQuantity(unit: .count(), doubleValue: 4_000),
+            start: now.addingTimeInterval(-600),
+            end: now
+        )
+        mock.queryResults[HKQuantityType(.stepCount)] = AnchoredQueryResult(
+            samples: [sample], deletedObjectUUIDs: [], newAnchor: HKQueryAnchor(fromValue: 1)
+        )
+        setupEmptyResults(for: mock, except: .stepCount)
+
+        let defaults = UserDefaults(suiteName: "SnapshotTest_\(UUID().uuidString)")!
+        let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test")
+        let service = HealthKitService(healthStore: mock, anchorStore: anchors, deviceIdentifier: "test")
+        let cache = HealthDataCache(dataProvider: service)
+        let state = HealthSnapshotState()
+
+        await state.load(cache: cache, service: service)
+        #expect(state.snapshot.todaySteps == 4_000)
+
+        mock.authorizationRequestStatus = .shouldRequest
+        await state.load(cache: cache, service: service)
+        #expect(!state.isAuthorized)
+        #expect(!state.hasAnyHealthData)
+        #expect(!state.isLoading)
     }
 
     @Test("forceRefresh bypasses cache and returns fresh HealthKit data")
@@ -313,16 +349,40 @@ struct OverviewDisplayLogicTests {
             let appearances: [(String, ColorScheme)] = [("light", .light), ("dark", .dark)]
             let sizes = [(375, 812), (393, 852)]
 
+            let tk1Hashes = try FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: nil
+            )
+            .filter { $0.lastPathComponent.hasPrefix("tk1-") && $0.pathExtension == "png" }
+            .compactMap { try? SHA256.hash(data: Data(contentsOf: $0)) }
+
             for state in states {
                 for (appearanceName, scheme) in appearances {
                     for (width, height) in sizes {
                         let host = OverviewSnapshotHost(state: state)
                             .preferredColorScheme(scheme)
                             .frame(width: CGFloat(width), height: CGFloat(height))
-                        var renderer = ImageRenderer(content: host)
-                        renderer.scale = 1
-                        guard let image = renderer.uiImage, let data = image.pngData() else {
-                            Issue.record("Could not render \(state)-\(appearanceName)-\(width)")
+                        let controller = UIHostingController(rootView: host)
+                        controller.view.frame = CGRect(x: 0, y: 0, width: width, height: height)
+                        controller.view.backgroundColor = .clear
+                        controller.view.setNeedsLayout()
+                        controller.view.layoutIfNeeded()
+
+                        let format = UIGraphicsImageRendererFormat()
+                        format.scale = 3.0
+                        format.opaque = true
+                        let renderer = UIGraphicsImageRenderer(
+                            size: CGSize(width: width, height: height),
+                            format: format
+                        )
+                        let image = renderer.image { context in
+                            controller.view.drawHierarchy(
+                                in: CGRect(x: 0, y: 0, width: width, height: height),
+                                afterScreenUpdates: true
+                            )
+                        }
+                        guard let data = image.pngData() else {
+                            Issue.record("Could not encode \(state)-\(appearanceName)-\(width)")
                             continue
                         }
 
@@ -330,8 +390,10 @@ struct OverviewDisplayLogicTests {
                             "tk2-overview-\(state)-\(appearanceName)-\(width)x\(height).png"
                         )
                         try data.write(to: url, options: .atomic)
-                        #expect(image.size.width == CGFloat(width))
-                        #expect(image.size.height == CGFloat(height))
+                        #expect(data.count > 15_000)
+                        #expect(image.cgImage?.width == width * 3)
+                        #expect(image.cgImage?.height == height * 3)
+                        #expect(!tk1Hashes.contains(SHA256.hash(data: data)))
                     }
                 }
             }
@@ -343,15 +405,17 @@ struct OverviewDisplayLogicTests {
         let state: String
 
         var body: some View {
-            Group {
+            ScrollView {
                 switch state {
                 case "populated":
-                    Card {
-                        VStack(alignment: .leading, spacing: Space.sm) {
-                            SectionHeader("Overview", icon: "heart.fill")
-                            Metric(value: "8,543", label: "Steps")
-                            Sparkline(data: [2, 4, 3, 6, 5], color: Theme().accent)
-                        }
+                    VStack(spacing: 12) {
+                        AdaptiveCardGrid(insights: [
+                            OverviewInsight(key: "steps", cardType: "metric", cardSize: "small", title: "Steps", content: "8,543", iconName: "figure.walk"),
+                            OverviewInsight(key: "heart", cardType: "metric", cardSize: "medium", title: "Heart Rate", content: "68 BPM", suggestion: "Within range", iconName: "heart.fill"),
+                            OverviewInsight(key: "trend", cardType: "trend", cardSize: "wide", title: "Training Trend", content: "7 days")
+                        ])
+                        ActivitySummaryCard(summary: TodayActivitySummary(workoutCount: 3, totalDurationMinutes: 145, totalCalories: 680))
+                        WorkoutTrendChart(workouts: [])
                     }
                 case "empty":
                     DesignStateView(.empty, title: "No health data", message: "Connect HealthKit to see today's summary.", actionTitle: "Open Settings")

@@ -123,7 +123,7 @@ struct HeartRateSummaryCard: View {
         SummaryCardView(
             title: String(localized: "心率", comment: "Heart rate"),
             systemImage: "heart.fill",
-            color: theme.danger,
+            color: theme.primary.primary,
             isLoading: isLoading
         ) {
             if let bpm = latestBPM {
@@ -131,6 +131,8 @@ struct HeartRateSummaryCard: View {
                     .font(TypeScale.display)
                     .monospacedDigit()
                     .layoutPriority(1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                 Text(String(localized: "BPM", comment: "Beats per minute"))
                     .font(.caption)
                     .foregroundStyle(theme.secondaryForeground)
@@ -138,6 +140,8 @@ struct HeartRateSummaryCard: View {
                 Text("--")
                     .font(TypeScale.display)
                     .foregroundStyle(theme.secondaryForeground)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
         }
         .task {

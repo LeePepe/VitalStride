@@ -49,7 +49,7 @@ struct OneRepMaxTrendView: View {
         VStack(spacing: 12) {
             Image(systemName: "chart.xyaxis.line")
                 .font(.system(size: 48))
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
                 .accessibilityHidden(true)
             Text(String(
                 localized: "one_rep_max_trend_empty",
@@ -63,7 +63,7 @@ struct OneRepMaxTrendView: View {
                 comment: "Empty-state hint on per-exercise 1RM trend view"
             ))
             .font(.footnote)
-            .foregroundStyle(theme.neutrals.text2)
+            .foregroundStyle(theme.secondaryForeground)
             .multilineTextAlignment(.center)
         }
         .padding()
@@ -85,7 +85,7 @@ struct OneRepMaxTrendView: View {
                     comment: "Caveat about Epley 1RM estimation accuracy"
                 ))
                 .font(.footnote)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
             }
         }
         .listStyle(.insetGrouped)
@@ -114,7 +114,7 @@ struct OneRepMaxTrendView: View {
                 comment: "Number of sessions on trend chart, e.g. \"7 sessions\""
             ))
             .font(.caption)
-            .foregroundStyle(theme.neutrals.text2)
+            .foregroundStyle(theme.secondaryForeground)
         }
     }
 
@@ -160,6 +160,10 @@ struct OneRepMaxTrendView: View {
                 AxisValueLabel {
                     if let doubleValue = value.as(Double.self) {
                         Text("\(Int(doubleValue)) \(unitRaw)")
+                            .monospacedDigit()
+                            .layoutPriority(1)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                     }
                 }
                 AxisGridLine()
@@ -178,7 +182,7 @@ struct OneRepMaxTrendView: View {
                 comment: "Hint shown when only a single 1RM data point exists"
             ))
             .font(.footnote)
-            .foregroundStyle(theme.neutrals.text2)
+            .foregroundStyle(theme.secondaryForeground)
         }
     }
 

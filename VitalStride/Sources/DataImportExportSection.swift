@@ -34,7 +34,7 @@ struct DataImportExportSection: View {
                             Text(file.importDate, style: .date)
                                 .font(.caption)
                                 .monospacedDigit()
-                                .foregroundStyle(theme.neutrals.text2)
+                                .foregroundStyle(theme.secondaryForeground)
                         }
                     }
                 } label: {
@@ -46,7 +46,7 @@ struct DataImportExportSection: View {
             if let importError {
                 Label(importError, systemImage: "exclamationmark.triangle")
                     .font(.caption)
-                    .foregroundStyle(theme.danger)
+                    .foregroundStyle(theme.critical)
             }
         }
         .fileImporter(

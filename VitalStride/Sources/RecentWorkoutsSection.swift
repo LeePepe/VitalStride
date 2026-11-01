@@ -15,12 +15,12 @@ struct RecentWorkoutsSection: View {
         Card {
             Text(String(localized: "最近训练", comment: ""))
                 .font(TypeScale.title)
-                .foregroundStyle(theme.neutrals.text1)
+                .foregroundStyle(theme.foreground)
 
             if workouts.isEmpty {
                 Text(String(localized: "暂无训练记录", comment: ""))
                     .font(.subheadline)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
             } else {
@@ -53,7 +53,10 @@ private struct RecentWorkoutRow: View {
                         systemImage: workoutTypeIcon(workout.type)
                     )
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
 
                     if let endDate = workout.endDate {
                         let minutes = Int(endDate.timeIntervalSince(workout.startDate)) / 60
@@ -64,7 +67,10 @@ private struct RecentWorkoutRow: View {
                             systemImage: "clock"
                         )
                         .font(.caption)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                     }
 
                     let exerciseCount = workout.exercises?.count ?? 0
@@ -74,7 +80,10 @@ private struct RecentWorkoutRow: View {
                             systemImage: "list.bullet"
                         )
                         .font(.caption)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                     }
                 }
             }
@@ -83,7 +92,7 @@ private struct RecentWorkoutRow: View {
 
             Image(systemName: "chevron.right")
                 .font(.caption)
-                .foregroundStyle(theme.neutrals.text3)
+                .foregroundStyle(theme.secondaryForeground)
         }
         .padding(.vertical, 4)
         .frame(minHeight: 44)

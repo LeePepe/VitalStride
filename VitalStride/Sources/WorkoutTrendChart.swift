@@ -58,7 +58,7 @@ struct WorkoutTrendChart: View {
             HStack {
                 Text(String(localized: "训练趋势", comment: ""))
                     .font(TypeScale.title)
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                 Spacer()
                 Picker(String(localized: "时间范围", comment: ""), selection: $timeRange) {
                     ForEach(TrendTimeRange.allCases, id: \.self) { range in
@@ -86,7 +86,11 @@ struct WorkoutTrendChart: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
                         .annotation(position: .top, alignment: .trailing) {
                             Text(String(localized: "均值 \(Int(averageMinutes))m", comment: "Average minutes annotation on trend chart"))
-                                .font(.caption2)
+                                .font(.caption)
+                                .monospacedDigit()
+                                .layoutPriority(1)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                                 .foregroundStyle(theme.warning)
                         }
                 }
@@ -109,6 +113,10 @@ struct WorkoutTrendChart: View {
                     AxisValueLabel {
                         if let minutes = value.as(Int.self) {
                             Text("\(minutes)m")
+                                .monospacedDigit()
+                                .layoutPriority(1)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                         }
                     }
                     AxisGridLine()
