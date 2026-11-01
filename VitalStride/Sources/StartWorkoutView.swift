@@ -95,7 +95,7 @@ struct StartWorkoutView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .background(theme.neutrals.bg)
+            .background(theme.canvas)
             .navigationTitle(String(localized: "开始训练", comment: "Nav title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -121,7 +121,7 @@ private struct HistoryWorkoutRow: View {
             if !exerciseNames.isEmpty {
                 Text(exerciseNames.joined(separator: "、"))
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                     .lineLimit(1)
             }
         }
@@ -140,11 +140,12 @@ private struct TemplateRow: View {
                 .font(.body)
             HStack(spacing: 4) {
                 Text(String(localized: "\(exerciseCount) 个动作", comment: "Exercise count label"))
+                    .font(TypeScale.num)
                 Text(verbatim: "·")
                 durationText
             }
             .font(.caption)
-            .foregroundStyle(theme.neutrals.text2)
+            .foregroundStyle(theme.secondaryForeground)
         }
         .task(id: template.persistentModelID) {
             historicalAverage = Self.computeHistoricalAverage(

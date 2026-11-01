@@ -43,10 +43,10 @@ struct WorkoutListStateBanner: View {
             VStack(alignment: .leading, spacing: Space.hair) {
                 Text(title)
                     .font(TypeScale.title)
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                 Text(subtitle)
                     .font(TypeScale.body)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .combine)
@@ -86,7 +86,7 @@ struct WorkoutListStateBanner: View {
         .padding(Space.gap)
         .background(
             RoundedRectangle(cornerRadius: Radius.inner, style: .continuous)
-                .fill(theme.neutrals.inner)
+                .fill(theme.inner)
         )
     }
 

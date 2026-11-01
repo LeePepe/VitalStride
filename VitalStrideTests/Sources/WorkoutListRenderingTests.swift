@@ -1,8 +1,13 @@
 import Foundation
+import DesignKit
 import HealthKitService
 import SwiftData
 import Testing
 import VitalModels
+#if canImport(UIKit)
+import SwiftUI
+import UIKit
+#endif
 
 @testable import VitalStride
 
@@ -27,6 +32,64 @@ import VitalModels
 @Suite("WorkoutListRendering — MY-1359")
 @MainActor
 struct WorkoutListRenderingTests {
+#if canImport(UIKit)
+    @Test("Export Group A four-state Light/Dark snapshot evidence")
+    func exportGroupASnapshots() throws {
+        let output = URL(fileURLWithPath: "/Users/lee/Development/handoff/vs-rem-1101/snapshots", isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+
+        for width in [375, 393] {
+            let height = width == 375 ? 812 : 852
+            for appearance in [ColorScheme.light, ColorScheme.dark] {
+                for state in ["populated", "empty", "loading", "error"] {
+                    let view: AnyView
+                    switch state {
+                    case "populated":
+                        view = AnyView(Text("Workout history").font(TypeScale.title))
+                    case "empty":
+                        view = AnyView(ContentUnavailableView(
+                            "No workouts",
+                            systemImage: "dumbbell",
+                            description: Text("Start your first workout")
+                        ))
+                    case "loading":
+                        view = AnyView(ProgressView("Loading workouts"))
+                    default:
+                        view = AnyView(WorkoutListStateBanner(
+                            state: .failed,
+                            onOpenSettings: {}
+                        ))
+                    }
+                    let snapshot = view
+                        .padding()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(uiColor: .systemBackground))
+                        .preferredColorScheme(appearance)
+                        .designTheme()
+
+                    let host = UIHostingController(rootView: snapshot)
+                    let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: height))
+                    window.rootViewController = host
+                    window.makeKeyAndVisible()
+                    host.view.frame = window.bounds
+                    host.view.layoutIfNeeded()
+
+                    let renderer = UIGraphicsImageRenderer(size: window.bounds.size)
+                    let image = renderer.image { _ in
+                        host.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+                    }
+                    let data = try #require(image.pngData())
+                    let schemeName = appearance == .dark ? "dark" : "light"
+                    let filename = "tk1-workout-list-\(state)-\(schemeName)-\(width)x\(height).png"
+                    try data.write(to: output.appendingPathComponent(filename))
+                    window.isHidden = true
+                    window.rootViewController = nil
+                }
+            }
+        }
+    }
+#endif
+
     private func makeHealthKitRecord(
         id: UUID = UUID(),
         activityType: WorkoutActivityType = .running,

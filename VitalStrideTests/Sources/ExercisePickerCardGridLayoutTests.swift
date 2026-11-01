@@ -1,4 +1,5 @@
 import Foundation
+import DesignKit
 import Testing
 
 @testable import VitalStride
@@ -90,6 +91,6 @@ struct ExercisePickerCardGridLayoutTests {
 
     @Test("Vertical inset stays constant across section-count changes")
     func verticalInsetIsConstant() {
-        #expect(ExercisePickerView.cardGridVerticalInset == 16)
+        #expect(ExercisePickerView.cardGridVerticalInset == Space.md)
     }
 }

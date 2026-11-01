@@ -845,7 +845,7 @@ struct ExercisePickerView: View {
 
     private func sectionPreviewPopup(equipment: ExerciseSection) -> some View {
         Label(equipment.localizedName, systemImage: equipment.sfSymbol)
-            .lineLimit(1).minimumScaleFactor(0.7)
+            .lineLimit(2)
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(theme.foreground)
             .padding(16)
@@ -882,16 +882,16 @@ struct ExercisePickerView: View {
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: equipment.sfSymbol)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(TypeScale.meta.weight(.bold))
                     .foregroundStyle(color)
                     .frame(width: 16, alignment: .center)
                 Text(equipment.localizedName.uppercased())
                     .font(TypeScale.meta)
                     .fontWeight(.bold)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                 Text("\(exercises.count)")
                     .font(TypeScale.meta.monospacedDigit())
-                    .foregroundStyle(theme.neutrals.text3)
+                    .foregroundStyle(theme.tertiaryForeground)
             }
 
             LazyVGrid(columns: gridColumns, spacing: 8) {
@@ -990,7 +990,7 @@ private struct ExerciseCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: exercise.equipment.sfSymbol)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(TypeScale.body.weight(.semibold))
                         .foregroundStyle(equipmentColor)
                         .frame(width: 32, height: 32)
                         .background(equipmentColor.opacity(0.14))
@@ -998,8 +998,8 @@ private struct ExerciseCard: View {
                     Spacer(minLength: 0)
                     if showsSelectionIndicator {
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundStyle(isSelected ? theme.primary.primary : theme.neutrals.text3)
+                            .font(TypeScale.title)
+                            .foregroundStyle(isSelected ? theme.accent : theme.tertiaryForeground)
                             .frame(width: 44, height: 44)
                             .accessibilityHidden(true)
                     }
@@ -1009,7 +1009,7 @@ private struct ExerciseCard: View {
 
                 Text(exercise.localizedName)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                     .lineLimit(2, reservesSpace: true)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)

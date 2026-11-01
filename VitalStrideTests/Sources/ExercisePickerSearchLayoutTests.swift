@@ -70,7 +70,11 @@ struct ExercisePickerSearchLayoutTests {
                 host.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
             }
             let data = try #require(image.pngData())
-            let path = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("vswr-t2-picker-\(name).png")
+            let output = URL(fileURLWithPath: "/Users/lee/Development/handoff/vs-rem-1101/snapshots", isDirectory: true)
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            let path = output.appendingPathComponent(
+                "tk1-exercise-picker-\(name)-393x852.png"
+            )
             try data.write(to: path)
             Attachment.record(Array(data), named: "vswr-t2-picker-\(name).png")
             #expect(data.count > 10_000)

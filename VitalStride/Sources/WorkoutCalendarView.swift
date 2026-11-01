@@ -213,7 +213,7 @@ struct WorkoutCalendarView: View {
                 selectedDay = (selectedDay == day) ? nil : day
             } label: {
                 Text("\(dayNumber)")
-                    .font(.body)
+                    .font(TypeScale.num)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .background(
                         Circle()

@@ -83,12 +83,14 @@ struct HealthKitWorkoutDetailView: View {
                 Section {
                     LabeledContent(String(localized: "workout_detail_avg_heart_rate", defaultValue: "Average Heart Rate", comment: "Average heart rate label in workout summary")) {
                         Text(String(localized: "\(stats.averageHeartRate) bpm", comment: "Heart rate value with unit, e.g. 142 bpm"))
+                            .font(TypeScale.num)
                     }
                     .accessibilityLabel(
                         Text(String(localized: "workout_detail_avg_heart_rate_a11y", defaultValue: "Average heart rate \(stats.averageHeartRate) beats per minute", comment: "Average heart rate a11y"))
                     )
                     LabeledContent(String(localized: "workout_detail_max_heart_rate", defaultValue: "Max Heart Rate", comment: "Max heart rate label in workout summary")) {
                         Text(String(localized: "\(stats.maxHeartRate) bpm", comment: "Heart rate value with unit, e.g. 155 bpm"))
+                            .font(TypeScale.num)
                     }
                     .accessibilityLabel(
                         Text(String(localized: "workout_detail_max_heart_rate_a11y", defaultValue: "Max heart rate \(stats.maxHeartRate) beats per minute", comment: "Max heart rate a11y"))
@@ -96,6 +98,7 @@ struct HealthKitWorkoutDetailView: View {
                     if let hrr = stats.heartRateRecovery1Min {
                         LabeledContent(String(localized: "workout_detail_hrr_1min", defaultValue: "1-min HRR", comment: "1-minute heart rate recovery (HRR) label in workout summary")) {
                             Text(String(localized: "\(hrr) bpm", comment: "Heart rate value with unit, e.g. 24 bpm"))
+                                .font(TypeScale.num)
                         }
                         .accessibilityLabel(
                             Text(String(localized: "workout_detail_hrr_1min_a11y", defaultValue: "1-minute heart rate recovery \(hrr) beats per minute", comment: "1-minute heart rate recovery a11y"))
@@ -108,14 +111,14 @@ struct HealthKitWorkoutDetailView: View {
                                 ForEach(zones) { zone in
                                     HStack(spacing: 8) {
                                         Circle()
-                                            .fill(HeartRateZoneStackedBar.color(forZoneId: zone.id))
+                                            .fill(HeartRateZoneStackedBar.color(forZoneId: zone.id, theme: theme))
                                             .frame(width: 8, height: 8)
                                         Text(zone.localizedName)
                                             .font(.footnote)
                                             .foregroundStyle(theme.neutrals.text2)
                                         Spacer()
                                         Text("\(Int(zone.percentage * 100))%")
-                                            .font(.footnote.bold())
+                                            .font(TypeScale.num.bold())
                                     }
                                 }
                             }
