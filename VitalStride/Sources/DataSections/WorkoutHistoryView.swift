@@ -8,6 +8,7 @@ struct WorkoutHistoryView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
 
     private let logger = Logger(subsystem: "com.vitalstride", category: "WorkoutHistory")
 
@@ -25,11 +26,11 @@ struct WorkoutHistoryView: View {
                     VStack(spacing: 4) {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.title3)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.warning)
                             .accessibilityHidden(true)
                         Text(errorMessage)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.secondaryForeground)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 200)
@@ -40,11 +41,11 @@ struct WorkoutHistoryView: View {
                     VStack(spacing: 4) {
                         Image(systemName: "figure.run")
                             .font(.title3)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.secondaryForeground)
                             .accessibilityHidden(true)
                         Text(String(localized: "暂无运动记录", comment: "No workout records"))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(theme.secondaryForeground)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 200)
@@ -80,11 +81,11 @@ struct WorkoutHistoryView: View {
                 HStack(spacing: 8) {
                     Text(formattedDuration(workout.duration))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                                .foregroundStyle(theme.secondaryForeground)
 
                     Text(workout.startDate, format: .dateTime.month().day().weekday())
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.secondaryForeground)
                 }
             }
 
@@ -97,7 +98,7 @@ struct WorkoutHistoryView: View {
                         comment: "Workout energy"
                     ))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
                 }
                 if let distance = workout.totalDistance, distance > 0 {
                     Text(String(
@@ -105,7 +106,7 @@ struct WorkoutHistoryView: View {
                         comment: "Workout distance"
                     ))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
                 }
             }
         }

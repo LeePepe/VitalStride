@@ -14,16 +14,18 @@ struct MetricSmallCardView: View {
                 if let icon = insight.iconName {
                     Image(systemName: icon)
                         .font(TypeScale.meta)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
                 }
                 Text(insight.content)
                     .font(TypeScale.display)
-                    .foregroundStyle(theme.neutrals.text1)
-                    .minimumScaleFactor(0.6)
+                    .foregroundStyle(theme.foreground)
+                    .minimumScaleFactor(0.85)
                     .lineLimit(1)
+                    .layoutPriority(1)
+                    .monospacedDigit()
                 Text(insight.title)
                     .font(TypeScale.meta)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -56,19 +58,21 @@ struct MetricMediumCardView: View {
                     if let icon = insight.iconName {
                         Image(systemName: icon)
                             .font(TypeScale.meta.weight(.semibold))
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                     }
                     Text(insight.title)
                         .font(TypeScale.meta.weight(.semibold))
-                        .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                         .lineLimit(1)
                 }
 
                 Text(insight.content)
                     .font(TypeScale.display)
-                    .foregroundStyle(theme.neutrals.text1)
-                    .minimumScaleFactor(0.6)
+                    .foregroundStyle(theme.foreground)
+                    .minimumScaleFactor(0.85)
                     .lineLimit(1)
+                    .layoutPriority(1)
+                    .monospacedDigit()
 
                 if let suggestion = insight.suggestion, !suggestion.isEmpty {
                     HStack(spacing: 4) {

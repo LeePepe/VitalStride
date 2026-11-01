@@ -67,9 +67,10 @@ private struct MuscleGroupChip: View {
 
             Text(group.localizedName)
                 .font(TypeScale.body)
-                .foregroundStyle(theme.neutrals.text1)
+                .foregroundStyle(theme.foreground)
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .minimumScaleFactor(0.85)
+                .layoutPriority(1)
 
             Spacer(minLength: 4)
 
@@ -108,7 +109,7 @@ private enum FrequencyLevel {
 
     func iconColor(_ theme: Theme) -> Color {
         switch self {
-        case .zero: theme.neutrals.text3
+        case .zero: theme.secondaryForeground
         case .low: theme.primary.primary
         case .high: theme.primary.primaryText
         }
@@ -116,7 +117,7 @@ private enum FrequencyLevel {
 
     func badgeForeground(_ theme: Theme) -> Color {
         switch self {
-        case .zero: theme.neutrals.text3
+        case .zero: theme.secondaryForeground
         case .low: theme.primary.onPrimary
         case .high: theme.primary.onPrimary
         }
@@ -124,7 +125,7 @@ private enum FrequencyLevel {
 
     func badgeBackground(_ theme: Theme) -> Color {
         switch self {
-        case .zero: theme.neutrals.text3.opacity(0.2)
+        case .zero: theme.secondaryForeground.opacity(0.2)
         case .low: theme.primary.primary
         case .high: theme.primary.primaryText
         }

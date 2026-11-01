@@ -17,7 +17,7 @@ struct ListWideCardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(insight.title)
                     .font(TypeScale.title)
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                     .lineLimit(1)
 
                 if items.isEmpty {
@@ -39,12 +39,12 @@ struct ListWideCardView: View {
                 HStack {
                     Text(item.label)
                         .font(TypeScale.body)
-                        .foregroundStyle(theme.neutrals.text1)
+                        .foregroundStyle(theme.foreground)
                     Spacer()
                     if let value = item.value {
                         Text(value)
                             .font(TypeScale.num)
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                     }
                 }
             }
@@ -53,7 +53,7 @@ struct ListWideCardView: View {
                 let remaining = items.count - maxItems
                 Text("+\(remaining) \(String(localized: "list_more", defaultValue: "more"))")
                     .font(TypeScale.meta)
-                    .foregroundStyle(theme.neutrals.text3)
+                    .foregroundStyle(theme.secondaryForeground)
             }
         }
     }
@@ -62,7 +62,7 @@ struct ListWideCardView: View {
     private var emptyContent: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
             .font(TypeScale.meta)
-            .foregroundStyle(theme.neutrals.text3)
+            .foregroundStyle(theme.secondaryForeground)
     }
 
     private func listAccessibilityLabel(maxItems: Int) -> String {
@@ -101,7 +101,7 @@ struct ListLargeCardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(insight.title)
                     .font(TypeScale.title)
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                     .lineLimit(1)
 
                 if items.isEmpty {
@@ -123,12 +123,12 @@ struct ListLargeCardView: View {
                 HStack {
                     Text(item.label)
                         .font(TypeScale.body)
-                        .foregroundStyle(theme.neutrals.text1)
+                        .foregroundStyle(theme.foreground)
                     Spacer()
                     if let value = item.value {
                         Text(value)
                             .font(TypeScale.num)
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                     }
                 }
                 if item.id != items.last?.id {
@@ -142,7 +142,7 @@ struct ListLargeCardView: View {
     private var emptyContent: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
             .font(TypeScale.meta)
-            .foregroundStyle(theme.neutrals.text3)
+            .foregroundStyle(theme.secondaryForeground)
     }
 
     private var fullListAccessibilityLabel: String {

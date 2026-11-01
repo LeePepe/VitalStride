@@ -454,14 +454,15 @@ struct SetRow: View {
         .padding(.horizontal, 3)
         .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
         .background(alignment: .center) {
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(theme.inner)
                 .frame(height: largeMode ? 42 : 36)
                 .overlay {
-                    if focusedField == field {
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(theme.accent, lineWidth: 1.5)
-                    }
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(
+                            focusedField == field ? theme.accent : theme.neutrals.border.opacity(0.65),
+                            lineWidth: focusedField == field ? 1.5 : 1
+                        )
                 }
         }
         .contentShape(Rectangle())
@@ -779,14 +780,15 @@ struct SetRow: View {
         .padding(.horizontal, 3)
         .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
         .background(alignment: .center) {
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(theme.inner)
                 .frame(height: largeMode ? 42 : 36)
                 .overlay {
-                    if focusedField == .reps {
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(theme.accent, lineWidth: 1.5)
-                    }
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(
+                            focusedField == .reps ? theme.accent : theme.neutrals.border.opacity(0.65),
+                            lineWidth: focusedField == .reps ? 1.5 : 1
+                        )
                 }
         }
         .contentShape(Rectangle())
@@ -851,14 +853,19 @@ struct SetRow: View {
 
     private var completionButton: some View {
         Button(action: toggleCompleted) {
-            HStack(alignment: .center, spacing: 4) {
+            HStack(alignment: .center, spacing: 2) {
                 Text("\(index + 1)")
                     .font(.caption2.monospacedDigit().weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                     .foregroundStyle(theme.secondaryForeground)
+                    .frame(width: 19, alignment: .trailing)
                 Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.secondaryForeground)
             }
+            .padding(.leading, 4)
+            .padding(.trailing, 1)
         }
         .buttonStyle(.borderless)
         // MY-1013: unambiguous 44pt hit target (Constitution P1-H). The prior

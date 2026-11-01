@@ -17,7 +17,7 @@ struct SummaryWideCardView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(insight.title)
                     .font(TypeScale.title)
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                     .lineLimit(1)
 
                 if entries.isEmpty {
@@ -39,12 +39,14 @@ struct SummaryWideCardView: View {
                 VStack(spacing: 4) {
                     Text(entry.value)
                         .font(TypeScale.display)
-                        .foregroundStyle(theme.neutrals.text1)
-                        .minimumScaleFactor(0.6)
+                        .foregroundStyle(theme.foreground)
+                        .minimumScaleFactor(0.85)
                         .lineLimit(1)
+                        .layoutPriority(1)
+                        .monospacedDigit()
                     Text(entry.key)
                         .font(TypeScale.meta)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity)
@@ -61,7 +63,7 @@ struct SummaryWideCardView: View {
     private var emptyContent: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
             .font(TypeScale.meta)
-            .foregroundStyle(theme.neutrals.text3)
+            .foregroundStyle(theme.secondaryForeground)
     }
 
     private var summaryAccessibilityLabel: String {
@@ -99,7 +101,7 @@ struct SummaryLargeCardView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(insight.title)
                     .font(TypeScale.title)
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                     .lineLimit(1)
 
                 if entries.isEmpty {
@@ -121,12 +123,14 @@ struct SummaryLargeCardView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(entry.value)
                         .font(TypeScale.display)
-                        .foregroundStyle(theme.neutrals.text1)
-                        .minimumScaleFactor(0.6)
+                        .foregroundStyle(theme.foreground)
+                        .minimumScaleFactor(0.85)
                         .lineLimit(1)
+                        .layoutPriority(1)
+                        .monospacedDigit()
                     Text(entry.key)
                         .font(TypeScale.meta)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -139,7 +143,7 @@ struct SummaryLargeCardView: View {
     private var emptyContent: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
             .font(TypeScale.meta)
-            .foregroundStyle(theme.neutrals.text3)
+            .foregroundStyle(theme.secondaryForeground)
     }
 
     private var summaryAccessibilityLabel: String {

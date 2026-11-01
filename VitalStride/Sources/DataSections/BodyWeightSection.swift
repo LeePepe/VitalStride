@@ -118,10 +118,10 @@ struct BodyWeightSection: View {
             VStack(spacing: 4) {
                 Image(systemName: "scalemass")
                     .font(.title3)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                 Text(String(localized: "无法加载体重数据", comment: "Body weight load error"))
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
             .frame(height: 120)
             .frame(maxWidth: .infinity)
@@ -129,10 +129,10 @@ struct BodyWeightSection: View {
             VStack(spacing: 4) {
                 Image(systemName: "scalemass")
                     .font(.title3)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                 Text(String(localized: "暂无体重数据", comment: "No body weight data"))
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
             .frame(height: 120)
             .frame(maxWidth: .infinity)
@@ -246,13 +246,13 @@ private struct StatItemDouble: View {
         VStack(spacing: 2) {
             Text(label)
                 .font(TypeScale.meta)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
             Text(formattedValue)
                 .font(TypeScale.title)
-                .foregroundStyle(showSign ? (value >= 0 ? theme.danger : theme.success) : theme.neutrals.text1)
+                .foregroundStyle(showSign ? (value >= 0 ? theme.critical : theme.success) : theme.foreground)
             Text(unit)
                 .font(TypeScale.meta)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
         }
     }
 
@@ -329,7 +329,7 @@ struct BodyWeightChartView: View {
 
             if let selectedPoint {
                 RuleMark(x: .value("Selected", selectedPoint.date))
-                    .foregroundStyle(theme.neutrals.text3)
+                    .foregroundStyle(theme.secondaryForeground)
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 2]))
                     .annotation(
                         position: .top,
@@ -367,10 +367,10 @@ struct BodyWeightChartView: View {
                 .font(.caption.bold())
             Text(weightUnit.rawValue)
                 .font(.caption2)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
             Text(point.date.formatted(.dateTime.month().day()))
                 .font(.caption2)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
@@ -463,10 +463,10 @@ struct BodyWeightDetailView: View {
                     VStack(spacing: 4) {
                         Image(systemName: "scalemass")
                             .font(.title3)
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                         Text(String(localized: "无法加载体重数据", comment: "Body weight load error"))
                             .font(.caption)
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 200)
@@ -524,7 +524,7 @@ struct BodyWeightDetailView: View {
                             Text(point.date, format: .dateTime.month().day().weekday())
                             Spacer()
                             Text("\(formatted(displayWeight(point.weight))) \(weightUnit.rawValue)")
-                                .foregroundStyle(theme.neutrals.text2)
+                                .foregroundStyle(theme.secondaryForeground)
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(
@@ -553,7 +553,7 @@ struct BodyWeightDetailView: View {
             Label(label, systemImage: image)
             Spacer()
             Text("\(value) \(weightUnit.rawValue)")
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
         }
         .accessibilityElement(children: .combine)
     }

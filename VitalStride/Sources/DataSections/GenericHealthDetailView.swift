@@ -307,7 +307,7 @@ struct GenericHealthDetailView: View {
                             defaultValue: "Loading…",
                             comment: "Loading indicator label"))
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 200)
@@ -331,7 +331,7 @@ struct GenericHealthDetailView: View {
                             defaultValue: "Updating…",
                             comment: "Refreshing indicator label"))
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                 Spacer()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -349,11 +349,11 @@ struct GenericHealthDetailView: View {
             VStack(spacing: 4) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.title3)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                     .accessibilityHidden(true)
                 Text(message)
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 200)
@@ -366,11 +366,11 @@ struct GenericHealthDetailView: View {
             VStack(spacing: 4) {
                 Image(systemName: sampleType.systemImage)
                     .font(.title3)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                     .accessibilityHidden(true)
                 Text(String(localized: "暂无数据", comment: "No data available"))
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 200)
@@ -443,7 +443,7 @@ struct GenericHealthDetailView: View {
             Spacer()
             Text(windowRangeText)
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(theme.neutrals.text1)
+                .foregroundStyle(theme.foreground)
                 .accessibilityLabel(
                     String(
                         format: String(
@@ -505,7 +505,7 @@ struct GenericHealthDetailView: View {
             HStack {
                 Text(day.date, format: .dateTime.year().month().day().weekday())
                     .font(.subheadline)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                 Spacer()
                 Text("\(formattedValue(convertedValue(day.value))) \(displayUnitLabel)")
                     .font(.subheadline.weight(.semibold))
@@ -606,7 +606,7 @@ struct GenericHealthDetailView: View {
                     Text(item.date, format: .dateTime.month().day().weekday())
                     Spacer()
                     Text("\(formattedValue(convertedValue(item.value))) \(displayUnitLabel)")
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(
@@ -625,7 +625,7 @@ struct GenericHealthDetailView: View {
             Label(label, systemImage: image)
             Spacer()
             Text("\(value) \(displayUnitLabel)")
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label) \(value) \(displayUnitLabel)")

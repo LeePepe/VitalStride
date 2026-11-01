@@ -63,7 +63,7 @@ struct SettingsView: View {
                 Text(appVersion)
                     .font(TypeScale.num)
                     .monospacedDigit()
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
 
             NavigationLink {
@@ -90,7 +90,7 @@ struct AcknowledgementsView: View {
             Section {
                 Text(String(localized: "VitalStride 使用了以下开源技术和框架：", comment: ""))
                     .font(.subheadline)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
 
             Section("Apple Frameworks") {
@@ -113,7 +113,7 @@ struct AcknowledgementsView: View {
                 .font(.body)
             Text(description)
                 .font(.caption)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
         }
     }
 }

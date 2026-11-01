@@ -13,6 +13,7 @@ struct TodayActivitySummary: Equatable {
 }
 
 struct ActivitySummaryCard: View {
+    @Environment(\.theme) private var theme
     let summary: TodayActivitySummary
     private let dailyGoalMinutes = 60
 
@@ -26,6 +27,7 @@ struct ActivitySummaryCard: View {
             HStack {
                 Text(String(localized: "今日活动", comment: ""))
                     .font(TypeScale.title)
+                    .foregroundStyle(theme.foreground)
                 Spacer()
             }
 
@@ -73,15 +75,19 @@ private struct StatRow: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
                 .frame(width: 20)
             Text(label)
                 .font(TypeScale.body)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
             Spacer()
             Text(value)
                 .font(TypeScale.num).fontWeight(.semibold)
-                .foregroundStyle(theme.neutrals.text1)
+                .foregroundStyle(theme.foreground)
+                .monospacedDigit()
+                .layoutPriority(1)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
         }
     }
 }
@@ -114,7 +120,7 @@ struct ActivityRing: View {
                     .font(TypeScale.title).monospacedDigit()
                 Text("%")
                     .font(TypeScale.meta)
-                    .foregroundStyle(theme.neutrals.text3)
+                    .foregroundStyle(theme.secondaryForeground)
             }
             .accessibilityHidden(true)
         }

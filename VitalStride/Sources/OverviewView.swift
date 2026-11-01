@@ -187,6 +187,7 @@ struct OverviewView: View {
 // MARK: - Last Updated Label
 
 private struct LastUpdatedLabel: View {
+    @Environment(\.theme) private var theme
     let date: Date
 
     private static let formatter: RelativeDateTimeFormatter = {
@@ -203,8 +204,9 @@ private struct LastUpdatedLabel: View {
                 defaultValue: "上次更新于 \(relativeTime)"
             )
         )
-        .font(.caption)
-        .foregroundStyle(.tertiary)
+        .font(TypeScale.meta)
+        .foregroundStyle(theme.secondaryForeground)
+        .lineLimit(1)
         .frame(maxWidth: .infinity, alignment: .center)
     }
 }
@@ -416,11 +418,15 @@ private struct OverviewHealthSnapshot: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(String(localized: "健康数据", comment: ""), icon: "heart.fill")
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                StepsSummaryCard(preloaded: snapshot.todaySteps)
-                HeartRateSummaryCard(preloaded: snapshot.averageBPM)
-                SleepSummaryCard(preloaded: snapshot.lastNightSleep)
-                WeightSummaryCard(preloaded: snapshot.latestWeight)
+            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                GridRow {
+                    StepsSummaryCard(preloaded: snapshot.todaySteps)
+                    HeartRateSummaryCard(preloaded: snapshot.averageBPM)
+                }
+                GridRow {
+                    SleepSummaryCard(preloaded: snapshot.lastNightSleep)
+                    WeightSummaryCard(preloaded: snapshot.latestWeight)
+                }
             }
         }
     }

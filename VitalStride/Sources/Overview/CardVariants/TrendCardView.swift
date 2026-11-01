@@ -18,7 +18,7 @@ struct TrendMediumCardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(insight.title)
                     .font(TypeScale.meta.weight(.semibold))
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                     .lineLimit(1)
 
                 if dataPoints.isEmpty {
@@ -57,7 +57,7 @@ struct TrendMediumCardView: View {
     private var noDataView: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
             .font(TypeScale.meta)
-            .foregroundStyle(theme.neutrals.text3)
+            .foregroundStyle(theme.secondaryForeground)
             .frame(height: 50)
     }
 
@@ -86,7 +86,7 @@ struct TrendWideCardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(insight.title)
                     .font(TypeScale.title)
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                     .lineLimit(1)
 
                 if dataPoints.isEmpty {
@@ -136,7 +136,7 @@ struct TrendWideCardView: View {
     private var noDataPlaceholder: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
             .font(TypeScale.meta)
-            .foregroundStyle(theme.neutrals.text3)
+            .foregroundStyle(theme.secondaryForeground)
             .frame(height: 120)
     }
 
@@ -172,12 +172,12 @@ struct TrendLargeCardView: View {
                 HStack {
                     Text(insight.title)
                         .font(TypeScale.title)
-                        .foregroundStyle(theme.neutrals.text1)
+                        .foregroundStyle(theme.foreground)
                     Spacer()
                     if let suggestion = insight.suggestion, !suggestion.isEmpty {
                         Text(suggestion)
                             .font(TypeScale.meta)
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                     }
                 }
 
@@ -238,7 +238,7 @@ struct TrendLargeCardView: View {
     private var noDataPlaceholder: some View {
         Text(String(localized: "no_data", defaultValue: "No data"))
             .font(TypeScale.meta)
-            .foregroundStyle(theme.neutrals.text3)
+            .foregroundStyle(theme.secondaryForeground)
             .frame(height: 200)
     }
 

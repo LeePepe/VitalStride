@@ -90,7 +90,7 @@ struct HealthKitPermissionSection: View {
                 ForEach(Self.requestedTypes, id: \.0) { name, icon in
                     Label(name, systemImage: icon)
                         .font(.subheadline)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
                 }
             } label: {
                 Label(String(localized: "请求的数据类型", comment: ""), systemImage: "list.bullet")

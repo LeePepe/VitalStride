@@ -151,15 +151,24 @@ enum NumericKeypadInputHandler {
 #if canImport(UIKit)
 import UIKit
 
+struct KeyboardKeyButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .opacity(configuration.isPressed ? 0.88 : 1.0)
+            .animation(.easeOut(duration: 0.085), value: configuration.isPressed)
+    }
+}
+
 struct NumericKeypad: View {
     @Environment(\.theme) private var theme
     let mode: NumericKeypadMode
     let onKeyPress: @MainActor (NumericKeypadKey) -> Void
 
-    // Visual constants — north-star §11.
-    private static let gridSpacing: CGFloat = 8
-    private static let digitMinHeight: CGFloat = 52
-    private static let keyRadius: CGFloat = 8
+    // Visual constants — north-star §11 & Five-Layer Craft 4×52pt module.
+    static let gridSpacing: CGFloat = 8
+    static let digitMinHeight: CGFloat = 52
+    static let keyRadius: CGFloat = 8
     static let totalGridHeight: CGFloat = 4 * digitMinHeight + 3 * gridSpacing
 
     private static let columns = Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: 3)
@@ -187,9 +196,15 @@ struct NumericKeypad: View {
             Text(".")
                 .font(TypeScale.title.weight(.semibold))
                 .foregroundStyle(theme.neutrals.text3.opacity(0.4))
-                .frame(maxWidth: .infinity, minHeight: Self.digitMinHeight)
-                .background(theme.neutrals.inner.opacity(0.5))
-                .clipShape(RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous))
+                .frame(maxWidth: .infinity, minHeight: Self.digitMinHeight, maxHeight: Self.digitMinHeight)
+                .background(
+                    theme.neutrals.inner.opacity(0.5),
+                    in: RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous)
+                        .strokeBorder(theme.neutrals.border.opacity(0.35), lineWidth: 1)
+                )
                 .disabled(true)
                 .accessibilityHidden(true)
         }
@@ -205,11 +220,17 @@ struct NumericKeypad: View {
                 .fontWeight(.semibold)
                 .monospacedDigit()
                 .foregroundStyle(keyForeground(key))
-                .frame(maxWidth: .infinity, minHeight: Self.digitMinHeight)
-                .background(theme.neutrals.inner)
-                .clipShape(RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous))
+                .frame(maxWidth: .infinity, minHeight: Self.digitMinHeight, maxHeight: Self.digitMinHeight)
+                .background(
+                    theme.neutrals.inner,
+                    in: RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous)
+                        .strokeBorder(theme.neutrals.border.opacity(0.75), lineWidth: 1)
+                )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(KeyboardKeyButtonStyle())
         .accessibilityLabel(key.a11yLabel)
         .accessibilityAddTraits(.isKeyboardKey)
     }

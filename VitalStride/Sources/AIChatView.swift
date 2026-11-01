@@ -312,14 +312,14 @@ struct AIChatView<EmptyContent: View>: View {
         VStack(spacing: 12) {
             Image(systemName: "bubble.left.and.bubble.right")
                 .font(.system(size: 36))
-                .foregroundStyle(theme.neutrals.text3)
+                .foregroundStyle(theme.secondaryForeground)
 
             Text(String(
                 localized: "向 AI 助手提问关于训练和健康的问题",
                 comment: "Chat empty state prompt"
             ))
             .font(TypeScale.body)
-            .foregroundStyle(theme.neutrals.text2)
+            .foregroundStyle(theme.secondaryForeground)
             .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -339,10 +339,10 @@ struct AIChatView<EmptyContent: View>: View {
             .font(TypeScale.body)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(theme.neutrals.inner)
+            .background(theme.inner)
             .overlay(
                 RoundedRectangle(cornerRadius: 22)
-                    .stroke(theme.neutrals.border, lineWidth: 1)
+                    .stroke(theme.border, lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 22))
             .accessibilityLabel(String(localized: "向 AI 提问", comment: "Chat input a11y label"))
@@ -352,7 +352,7 @@ struct AIChatView<EmptyContent: View>: View {
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 26))
-                    .foregroundStyle(viewModel.canSend ? theme.primary.primary : theme.neutrals.text3)
+                    .foregroundStyle(viewModel.canSend ? theme.primary.primary : theme.secondaryForeground)
                     .frame(minWidth: 44, minHeight: 44)
             }
             .disabled(!viewModel.canSend)
@@ -360,7 +360,7 @@ struct AIChatView<EmptyContent: View>: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(theme.neutrals.card)
+        .background(theme.surface)
     }
 
     private func scrollToLast(proxy: ScrollViewProxy) {
@@ -422,13 +422,13 @@ struct AIChatMessageBubble: View {
         } else {
             Text(message.content)
                 .font(TypeScale.body)
-                .foregroundStyle(theme.neutrals.text1)
+                .foregroundStyle(theme.foreground)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(theme.neutrals.card, in: RoundedRectangle(cornerRadius: 16))
+                .background(theme.surface, in: RoundedRectangle(cornerRadius: 16))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(theme.neutrals.border, lineWidth: 1)
+                        .stroke(theme.border, lineWidth: 1)
                 )
                 .textSelection(.enabled)
         }
@@ -438,7 +438,7 @@ struct AIChatMessageBubble: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(errorMessage)
                 .font(TypeScale.meta)
-                .foregroundStyle(theme.danger)
+                .foregroundStyle(theme.critical)
 
             Button(action: onRetry) {
                 HStack(spacing: 4) {
@@ -479,7 +479,7 @@ struct AIChatTypingIndicator: View {
             HStack(spacing: 4) {
                 ForEach(0..<3, id: \.self) { index in
                     Circle()
-                        .fill(theme.neutrals.text3)
+                        .fill(theme.secondaryForeground)
                         .frame(width: 6, height: 6)
                         .opacity(index == phase ? 1.0 : 0.3)
                 }
@@ -487,10 +487,10 @@ struct AIChatTypingIndicator: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(theme.neutrals.card, in: RoundedRectangle(cornerRadius: 16))
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(theme.neutrals.border, lineWidth: 1)
+                .stroke(theme.border, lineWidth: 1)
         )
         .accessibilityLabel(String(localized: "AI 正在回复", comment: "Typing indicator a11y"))
         .accessibilityAddTraits(.updatesFrequently)
