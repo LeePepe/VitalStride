@@ -418,11 +418,15 @@ private struct OverviewHealthSnapshot: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(String(localized: "健康数据", comment: ""), icon: "heart.fill")
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                StepsSummaryCard(preloaded: snapshot.todaySteps)
-                HeartRateSummaryCard(preloaded: snapshot.averageBPM)
-                SleepSummaryCard(preloaded: snapshot.lastNightSleep)
-                WeightSummaryCard(preloaded: snapshot.latestWeight)
+            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                GridRow {
+                    StepsSummaryCard(preloaded: snapshot.todaySteps)
+                    HeartRateSummaryCard(preloaded: snapshot.averageBPM)
+                }
+                GridRow {
+                    SleepSummaryCard(preloaded: snapshot.lastNightSleep)
+                    WeightSummaryCard(preloaded: snapshot.latestWeight)
+                }
             }
         }
     }

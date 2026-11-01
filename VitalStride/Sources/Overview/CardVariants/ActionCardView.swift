@@ -25,7 +25,7 @@ struct ActionSmallCardView: View {
 
                 Text(insight.content)
                     .font(TypeScale.meta.weight(.medium))
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
@@ -73,11 +73,11 @@ struct ActionWideCardView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(insight.title)
                         .font(TypeScale.title)
-                        .foregroundStyle(theme.neutrals.text1)
+                        .foregroundStyle(theme.foreground)
                         .lineLimit(1)
                     Text(insight.content)
                         .font(TypeScale.body)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
                         .lineLimit(2)
                 }
 

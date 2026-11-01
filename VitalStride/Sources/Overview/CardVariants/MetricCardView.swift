@@ -14,7 +14,7 @@ struct MetricSmallCardView: View {
                 if let icon = insight.iconName {
                     Image(systemName: icon)
                         .font(TypeScale.meta)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
                 }
                 Text(insight.content)
                     .font(TypeScale.display)
@@ -58,7 +58,7 @@ struct MetricMediumCardView: View {
                     if let icon = insight.iconName {
                         Image(systemName: icon)
                             .font(TypeScale.meta.weight(.semibold))
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                     }
                     Text(insight.title)
                         .font(TypeScale.meta.weight(.semibold))

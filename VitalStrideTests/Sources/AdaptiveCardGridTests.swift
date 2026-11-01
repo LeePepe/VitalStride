@@ -2,7 +2,7 @@ import Foundation
 import Testing
 import AIService
 #if canImport(UIKit)
-import Combine
+import DesignKit
 import SwiftUI
 import UIKit
 #endif
@@ -268,10 +268,9 @@ struct GridLayoutEngineTests {
     }
 
     #if canImport(UIKit)
-    @Test("Rendered sibling cards share equal row height")
+    @Test("Rendered AdaptiveCardGrid surfaces share equal row height")
     @MainActor
-    func equalHeightRowContract() {
-        let collector = CardHeightCollector()
+    func equalHeightRowContract() throws {
         let insights = [
             OverviewInsight(
                 key: "left", cardType: "metric", cardSize: "medium",
@@ -280,63 +279,78 @@ struct GridLayoutEngineTests {
             OverviewInsight(
                 key: "right", cardType: "metric", cardSize: "medium",
                 title: "Heart Rate", content: "68 BPM",
-                suggestion: "Within range"
+                suggestion: "Higher this week"
             )
         ]
-        let root = Grid {
-            GridRow {
-                measuredCard(MetricMediumCardView(insight: insights[0]), index: 0, collector: collector)
-                measuredCard(MetricMediumCardView(insight: insights[1]), index: 1, collector: collector)
+        for isDark in [false, true] {
+            let theme = Theme(isDark: isDark)
+            let root = ScrollView {
+                AdaptiveCardGrid(insights: insights)
+                    .padding(16)
             }
-        }
-        .frame(width: 360)
-        .padding()
-        .designTheme()
+            .environment(\.theme, theme)
+            .background(theme.canvas)
+            let controller = UIHostingController(rootView: root)
+            let window = try overviewSnapshotWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 300))
+            window.overrideUserInterfaceStyle = isDark ? .dark : .light
+            controller.overrideUserInterfaceStyle = window.overrideUserInterfaceStyle
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            defer { window.isHidden = true; window.rootViewController = nil }
+            controller.view.frame = window.bounds
+            controller.view.setNeedsLayout()
+            controller.view.layoutIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
 
-        let controller = UIHostingController(rootView: root)
-        controller.view.frame = CGRect(x: 0, y: 0, width: 390, height: 240)
-        controller.view.layoutIfNeeded()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-
-        #expect(collector.heights.count == 2)
-        if collector.heights.count == 2 {
-            #expect(abs(collector.heights[0] - collector.heights[1]) <= 1.0)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 3.0
+            let image = UIGraphicsImageRenderer(bounds: window.bounds, format: format).image { _ in
+                #expect(window.drawHierarchy(in: window.bounds, afterScreenUpdates: true))
+            }
+            let bitmap = try #require(image.cgImage)
+            // Sample blank vertical strips INSIDE the painted Card backgrounds,
+            // before the text inset. This detects intrinsic-height surfaces even
+            // when their transparent outer Grid slots have identical heights.
+            let left = try surfaceRun(bitmap, x: 22 * 3, color: UIColor(theme.surface))
+            let right = try surfaceRun(bitmap, x: 207 * 3, color: UIColor(theme.surface))
+            #expect(left.count > 80 * 3)
+            #expect(right.count > 80 * 3)
+            #expect(abs(left.count - right.count) <= 1, "Painted sibling heights must agree within one pixel")
+            #expect(abs(left.lowerBound - right.lowerBound) <= 1)
+            #expect(abs(left.upperBound - right.upperBound) <= 1)
         }
     }
 
-    @ViewBuilder
-    private func measuredCard<Content: View>(
-        _ content: Content,
-        index: Int,
-        collector: CardHeightCollector
-    ) -> some View {
-        content.background(
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear {
-                        let height = proxy.size.height
-                        Task { @MainActor in
-                            collector.record(height, at: index)
-                        }
-                    }
-                    .onChange(of: proxy.size.height) { _, value in
-                        Task { @MainActor in
-                            collector.record(value, at: index)
-                        }
-                    }
+    private func surfaceRun(_ image: CGImage, x: Int, color: UIColor) throws -> Range<Int> {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        #expect(color.getRed(&red, green: &green, blue: &blue, alpha: &alpha))
+        let expected = [red, green, blue].map { Int(($0 * 255).rounded()) }
+        let stride = image.width * 4
+        var pixels = [UInt8](repeating: 0, count: stride * image.height)
+        return try pixels.withUnsafeMutableBytes { buffer in
+            let context = try #require(CGContext(
+                data: buffer.baseAddress, width: image.width, height: image.height,
+                bitsPerComponent: 8, bytesPerRow: stride,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ))
+            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            var best = 0..<0
+            var start = 0
+            for y in 0...image.height {
+                let offset = y * stride + x * 4
+                let matches = y < image.height && (0..<3).allSatisfy {
+                    abs(Int(buffer[offset + $0]) - expected[$0]) <= 2
+                }
+                if !matches {
+                    if y - start > best.count { best = start..<y }
+                    start = y + 1
+                }
             }
-        )
-    }
-
-    @MainActor
-    private final class CardHeightCollector: ObservableObject {
-        var heights: [CGFloat] = []
-
-        func record(_ height: CGFloat, at index: Int) {
-            if heights.count <= index {
-                heights += Array(repeating: 0, count: index + 1 - heights.count)
-            }
-            heights[index] = height
+            return best
         }
     }
     #endif

@@ -188,11 +188,15 @@ struct DataView: View {
 
     private var summarySection: some View {
         Section {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                StepsSummaryCard()
-                HeartRateSummaryCard()
-                SleepSummaryCard()
-                WeightSummaryCard()
+            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                GridRow {
+                    StepsSummaryCard()
+                    HeartRateSummaryCard()
+                }
+                GridRow {
+                    SleepSummaryCard()
+                    WeightSummaryCard()
+                }
             }
             .padding(.vertical, 4)
         }

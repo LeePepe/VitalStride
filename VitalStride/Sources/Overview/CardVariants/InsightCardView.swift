@@ -17,7 +17,7 @@ struct InsightMediumCardView: View {
                         .foregroundStyle(theme.primary.primary)
                     Text(insight.title)
                         .font(TypeScale.meta.weight(.semibold))
-                        .foregroundStyle(theme.neutrals.text1)
+                        .foregroundStyle(theme.foreground)
                         .lineLimit(1)
                 }
 
@@ -25,7 +25,7 @@ struct InsightMediumCardView: View {
                     .font(TypeScale.body)
                     .lineSpacing(3)
                     .lineLimit(3)
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
@@ -59,14 +59,14 @@ struct InsightWideCardView: View {
                         .foregroundStyle(theme.primary.primary)
                     Text(insight.title)
                         .font(TypeScale.title)
-                        .foregroundStyle(theme.neutrals.text1)
+                        .foregroundStyle(theme.foreground)
                         .lineLimit(1)
                 }
 
                 Text(insight.content)
                     .font(TypeScale.body)
                     .lineSpacing(3)
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
 
                 if let suggestion = insight.suggestion, !suggestion.isEmpty {
                     HStack(spacing: 6) {
@@ -75,7 +75,7 @@ struct InsightWideCardView: View {
                             .foregroundStyle(theme.primary.primary)
                         Text(suggestion)
                             .font(TypeScale.meta.weight(.semibold))
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                     }
                     .padding(.top, 2)
                 }

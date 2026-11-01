@@ -5,6 +5,7 @@ import HealthKitService
 import DesignKit
 import AIService
 import SwiftData
+import VitalModels
 import SwiftUI
 import Testing
 #if canImport(UIKit)
@@ -360,26 +361,28 @@ struct OverviewDisplayLogicTests {
                 for (appearanceName, scheme) in appearances {
                     for (width, height) in sizes {
                         let host = OverviewSnapshotHost(state: state)
+                            .environment(\.theme, Theme(isDark: scheme == .dark))
                             .preferredColorScheme(scheme)
                             .frame(width: CGFloat(width), height: CGFloat(height))
                         let controller = UIHostingController(rootView: host)
-                        controller.view.frame = CGRect(x: 0, y: 0, width: width, height: height)
+                        let window = try overviewSnapshotWindow(frame: CGRect(x: 0, y: 0, width: width, height: height))
+                        window.overrideUserInterfaceStyle = scheme == .dark ? .dark : .light
+                        controller.overrideUserInterfaceStyle = window.overrideUserInterfaceStyle
+                        window.rootViewController = controller
+                        window.makeKeyAndVisible()
+                        defer { window.isHidden = true; window.rootViewController = nil }
+                        controller.view.frame = window.bounds
                         controller.view.backgroundColor = .clear
                         controller.view.setNeedsLayout()
                         controller.view.layoutIfNeeded()
+                        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
 
                         let format = UIGraphicsImageRendererFormat()
                         format.scale = 3.0
                         format.opaque = true
-                        let renderer = UIGraphicsImageRenderer(
-                            size: CGSize(width: width, height: height),
-                            format: format
-                        )
-                        let image = renderer.image { context in
-                            controller.view.drawHierarchy(
-                                in: CGRect(x: 0, y: 0, width: width, height: height),
-                                afterScreenUpdates: true
-                            )
+                        let renderer = UIGraphicsImageRenderer(bounds: window.bounds, format: format)
+                        let image = renderer.image { _ in
+                            #expect(window.drawHierarchy(in: window.bounds, afterScreenUpdates: true))
                         }
                         guard let data = image.pngData() else {
                             Issue.record("Could not encode \(state)-\(appearanceName)-\(width)")
@@ -404,31 +407,62 @@ struct OverviewDisplayLogicTests {
     private struct OverviewSnapshotHost: View {
         let state: String
 
+        @Environment(\.theme) private var theme
+
+        private var sampleWorkouts: [Workout] {
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: Date())
+            return [1, 3, 5].map { daysAgo in
+                let start = today.addingTimeInterval(-Double(daysAgo) * 86400 + 36000)
+                return Workout(type: .strength, startDate: start,
+                               endDate: start.addingTimeInterval(Double(30 + daysAgo * 5) * 60))
+            }
+        }
+
         var body: some View {
-            ScrollView {
-                switch state {
-                case "populated":
-                    VStack(spacing: 12) {
-                        AdaptiveCardGrid(insights: [
-                            OverviewInsight(key: "steps", cardType: "metric", cardSize: "small", title: "Steps", content: "8,543", iconName: "figure.walk"),
-                            OverviewInsight(key: "heart", cardType: "metric", cardSize: "medium", title: "Heart Rate", content: "68 BPM", suggestion: "Within range", iconName: "heart.fill"),
-                            OverviewInsight(key: "trend", cardType: "trend", cardSize: "wide", title: "Training Trend", content: "7 days")
-                        ])
-                        ActivitySummaryCard(summary: TodayActivitySummary(workoutCount: 3, totalDurationMinutes: 145, totalCalories: 680))
-                        WorkoutTrendChart(workouts: [])
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        switch state {
+                        case "populated":
+                            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                                GridRow {
+                                    StepsSummaryCard(preloaded: 8543)
+                                    HeartRateSummaryCard(preloaded: 68)
+                                }
+                                GridRow {
+                                    SleepSummaryCard(preloaded: 7.5 * 3600)
+                                    WeightSummaryCard(preloaded: 72.4)
+                                }
+                            }
+                            AdaptiveCardGrid(insights: [
+                                OverviewInsight(key: "recovery", cardType: "metric", cardSize: "small", title: "Recovery", content: "92%"),
+                                OverviewInsight(key: "active", cardType: "metric", cardSize: "small", title: "Active days", content: "3")
+                            ])
+                            AITrainingAdviceCard(
+                                state: .loaded(TrainingRecommendation(
+                                    title: "Ready for your next session", muscleGroups: ["back"],
+                                    exercises: ["Row"], reasoning: "Recovered after a rest day."
+                                ), source: .fresh),
+                                isExpanded: false, onToggleExpand: {}, onRefresh: {}
+                            )
+                            ActivitySummaryCard(summary: TodayActivitySummary(workoutCount: 3, totalDurationMinutes: 145, totalCalories: 680))
+                            WorkoutTrendChart(workouts: sampleWorkouts)
+                        case "empty":
+                            DesignStateView(.empty, title: "No health data", message: "Connect HealthKit to see today's summary.", actionTitle: "Open Settings")
+                        case "loading":
+                            DesignStateView(.loading, title: "Loading summary", message: "Preparing the latest health data.")
+                        default:
+                            DesignStateView(.error, title: "Summary unavailable", message: "Try again to refresh the latest health data.", actionTitle: "Retry")
+                        }
                     }
-                case "empty":
-                    DesignStateView(.empty, title: "No health data", message: "Connect HealthKit to see today's summary.", actionTitle: "Open Settings")
-                case "loading":
-                    DesignStateView(.loading, title: "Loading summary", message: "Preparing the latest health data.")
-                default:
-                    DesignStateView(.error, title: "Summary unavailable", message: "Try again to refresh the latest health data.", actionTitle: "Retry")
+                    .padding(16)
                 }
+                .background(theme.canvas)
+                .navigationTitle("Overview")
+                .navigationBarTitleDisplayMode(.inline)
             }
             .designTheme(seed: .ocean, neutral: .slate)
-            .padding(16)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(Theme().canvas)
         }
     }
     #endif
@@ -700,3 +734,22 @@ private func setupEmptyResults(for mock: MockHealthStore, except excludedType: H
         )
     }
 }
+
+#if canImport(UIKit)
+/// UIKit only paints drawHierarchy snapshots for windows in a foreground scene.
+@MainActor
+func overviewSnapshotWindow(frame: CGRect) throws -> UIWindow {
+    let deadline = Date().addingTimeInterval(2)
+    while !UIApplication.shared.connectedScenes.contains(where: { $0.activationState == .foregroundActive }),
+          Date() < deadline {
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+    }
+    let scene = try #require(UIApplication.shared.connectedScenes
+        .compactMap { $0 as? UIWindowScene }
+        .first { $0.activationState == .foregroundActive })
+    let window = UIWindow(frame: frame)
+    window.windowScene = scene
+    window.frame = frame
+    return window
+}
+#endif

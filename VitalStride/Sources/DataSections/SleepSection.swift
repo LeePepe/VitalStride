@@ -197,7 +197,7 @@ enum SleepStageInfo: String, CaseIterable, Identifiable {
         case .deep: theme.chart(3)
         case .core: theme.chart(0)
         case .rem: theme.chart(2)
-        case .awake: theme.neutrals.text3
+        case .awake: theme.secondaryForeground
         }
     }
 
@@ -248,10 +248,10 @@ struct SleepSection: View {
             VStack(spacing: 4) {
                 Image(systemName: "bed.double")
                     .font(.title3)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                 Text(String(localized: "无法加载睡眠数据", comment: "Sleep load error"))
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
             .frame(height: 120)
             .frame(maxWidth: .infinity)
@@ -259,10 +259,10 @@ struct SleepSection: View {
             VStack(spacing: 4) {
                 Image(systemName: "bed.double")
                     .font(.title3)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                 Text(String(localized: "暂无睡眠数据", comment: "No sleep data"))
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
             .frame(height: 120)
             .frame(maxWidth: .infinity)
@@ -345,7 +345,7 @@ private struct SleepStatItem: View {
         VStack(spacing: 2) {
             Text(label)
                 .font(TypeScale.meta)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
             Text(formatDuration(duration))
                 .font(TypeScale.title)
         }
@@ -445,7 +445,7 @@ struct SleepChartView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(night.date.formatted(.dateTime.month().day()))
                 .font(.caption2)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
             Text(formatDuration(night.totalSleep))
                 .font(.caption.bold())
         }
@@ -533,10 +533,10 @@ struct SleepDetailView: View {
                     VStack(spacing: 4) {
                         Image(systemName: "bed.double")
                             .font(.title3)
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                         Text(String(localized: "无法加载睡眠数据", comment: "Sleep load error"))
                             .font(.caption)
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 200)
@@ -580,7 +580,7 @@ struct SleepDetailView: View {
                                 Text(night.date, format: .dateTime.month().day().weekday())
                                 Spacer()
                                 Text(formatDuration(night.totalSleep))
-                                    .foregroundStyle(theme.neutrals.text2)
+                                    .foregroundStyle(theme.secondaryForeground)
                             }
                             HStack(spacing: 8) {
                                 stageLabel(String(localized: "深睡", comment: "Deep"), duration: night.deep, color: SleepStageInfo.deep.color(theme: theme))
@@ -614,7 +614,7 @@ struct SleepDetailView: View {
             Label(label, systemImage: image)
             Spacer()
             Text(value)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
         }
         .accessibilityElement(children: .combine)
     }
@@ -625,7 +625,7 @@ struct SleepDetailView: View {
                 .fill(color)
                 .frame(width: 6, height: 6)
             Text("\(name) \(formatDuration(duration))")
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
         }
     }
 

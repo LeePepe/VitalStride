@@ -69,60 +69,67 @@ struct WorkoutTrendChart: View {
                 .frame(width: 120)
             }
 
-            Chart {
-                ForEach(chartData) { item in
-                    LineMark(
-                        x: .value(String(localized: "日期", comment: ""), item.date, unit: .day),
-                        y: .value(String(localized: "时长", comment: ""), item.totalMinutes)
-                    )
-                    .foregroundStyle(theme.chart(0))
-                    .interpolationMethod(.catmullRom)
-                    .symbol(Circle().strokeBorder(lineWidth: 1.5))
-                }
+            if workouts.isEmpty {
+                Label(String(localized: "暂无训练记录", comment: "Empty workout trend"), systemImage: "chart.xyaxis.line")
+                    .font(TypeScale.body)
+                    .foregroundStyle(theme.secondaryForeground)
+                    .frame(maxWidth: .infinity, minHeight: 80)
+            } else {
+                Chart {
+                    ForEach(chartData) { item in
+                        LineMark(
+                            x: .value(String(localized: "日期", comment: ""), item.date, unit: .day),
+                            y: .value(String(localized: "时长", comment: ""), item.totalMinutes)
+                        )
+                        .foregroundStyle(theme.chart(0))
+                        .interpolationMethod(.catmullRom)
+                        .symbol(Circle().strokeBorder(lineWidth: 1.5))
+                    }
 
-                if averageMinutes > 0 {
-                    RuleMark(y: .value(String(localized: "均值", comment: ""), averageMinutes))
-                        .foregroundStyle(theme.warning)
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
-                        .annotation(position: .top, alignment: .trailing) {
-                            Text(String(localized: "均值 \(Int(averageMinutes))m", comment: "Average minutes annotation on trend chart"))
-                                .font(.caption)
-                                .monospacedDigit()
-                                .layoutPriority(1)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                                .foregroundStyle(theme.warning)
+                    if averageMinutes > 0 {
+                        RuleMark(y: .value(String(localized: "均值", comment: ""), averageMinutes))
+                            .foregroundStyle(theme.warning)
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 3]))
+                            .annotation(position: .top, alignment: .trailing) {
+                                Text(String(localized: "均值 \(Int(averageMinutes))m", comment: "Average minutes annotation on trend chart"))
+                                    .font(.caption)
+                                    .monospacedDigit()
+                                    .layoutPriority(1)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.85)
+                                    .foregroundStyle(theme.warning)
+                            }
+                    }
+                }
+                .chartXAxis {
+                    if timeRange == .week {
+                        AxisMarks(values: .stride(by: .day)) { value in
+                            AxisValueLabel(format: .dateTime.weekday(.abbreviated))
+                            AxisGridLine()
                         }
-                }
-            }
-            .chartXAxis {
-                if timeRange == .week {
-                    AxisMarks(values: .stride(by: .day)) { value in
-                        AxisValueLabel(format: .dateTime.weekday(.abbreviated))
-                        AxisGridLine()
-                    }
-                } else {
-                    AxisMarks(values: .automatic(desiredCount: 6)) { value in
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                        AxisGridLine()
-                    }
-                }
-            }
-            .chartYAxis {
-                AxisMarks { value in
-                    AxisValueLabel {
-                        if let minutes = value.as(Int.self) {
-                            Text("\(minutes)m")
-                                .monospacedDigit()
-                                .layoutPriority(1)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
+                    } else {
+                        AxisMarks(values: .automatic(desiredCount: 6)) { value in
+                            AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                            AxisGridLine()
                         }
                     }
-                    AxisGridLine()
                 }
+                .chartYAxis {
+                    AxisMarks { value in
+                        AxisValueLabel {
+                            if let minutes = value.as(Int.self) {
+                                Text("\(minutes)m")
+                                    .monospacedDigit()
+                                    .layoutPriority(1)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.85)
+                            }
+                        }
+                        AxisGridLine()
+                    }
+                }
+                .frame(height: 200)
             }
-            .frame(height: 200)
         }
     }
 }
