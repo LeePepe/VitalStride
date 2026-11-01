@@ -132,7 +132,7 @@ struct StepsSection: View {
         } else if let errorMessage {
             Text(errorMessage)
                 .font(.caption)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
                 .frame(height: 120)
                 .frame(maxWidth: .infinity)
         } else {
@@ -151,7 +151,7 @@ struct StepsSection: View {
             HStack {
                 Text(day.date, format: .dateTime.month().day().weekday())
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                 Spacer()
                 Text(
                     "\(day.totalSteps.formatted(.number)) "
@@ -247,7 +247,7 @@ struct StepsSection: View {
         VStack(spacing: 2) {
             Text(label)
                 .font(TypeScale.meta)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
             Text(value.formatted(.number))
                 .font(TypeScale.title)
         }
@@ -349,7 +349,7 @@ struct StepsDetailView: View {
                 Section {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
                         .frame(maxWidth: .infinity)
                         .frame(height: 200)
                 }
@@ -390,7 +390,7 @@ struct StepsDetailView: View {
                                 "\(item.totalSteps.formatted(.number)) "
                                     + String(localized: "步", comment: "Steps unit")
                             )
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(
@@ -422,7 +422,7 @@ struct StepsDetailView: View {
                 HStack {
                     Text(day.date, format: .dateTime.year().month().day().weekday())
                         .font(.subheadline)
-                        .foregroundStyle(theme.neutrals.text2)
+                        .foregroundStyle(theme.secondaryForeground)
                     Spacer()
                     Text(
                         "\(day.totalSteps.formatted(.number)) "
@@ -492,7 +492,7 @@ struct StepsDetailView: View {
             Label(label, systemImage: image)
             Spacer()
             Text(value.formatted(.number))
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
         }
         .accessibilityElement(children: .combine)
     }

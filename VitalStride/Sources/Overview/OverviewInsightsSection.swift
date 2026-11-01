@@ -104,6 +104,7 @@ struct OverviewInsightsSection: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.routingSignalStore) private var signalStore
+    @Environment(\.theme) private var theme
 
     var body: some View {
         Group {
@@ -112,7 +113,7 @@ struct OverviewInsightsSection: View {
                     ProgressView()
                     Text(String(localized: "ai_analyzing", defaultValue: "AI Analyzing..."))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
                 }
                 .frame(maxWidth: .infinity)
                 .padding()

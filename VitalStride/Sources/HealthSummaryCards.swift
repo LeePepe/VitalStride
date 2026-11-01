@@ -16,20 +16,24 @@ struct SummaryCardView<Content: View>: View {
 
     var body: some View {
         Card {
-            Label(title, systemImage: systemImage)
-                .font(TypeScale.meta)
-                .fontWeight(.semibold)
-                .foregroundStyle(color)
+            VStack(alignment: .leading, spacing: Space.gap) {
+                Label(title, systemImage: systemImage)
+                    .font(TypeScale.meta)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(color)
 
-            if isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .center)
-            } else {
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    content()
+                if isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, minHeight: 30, alignment: .center)
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        content()
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .combine)
     }
 }
@@ -38,6 +42,7 @@ struct SummaryCardView<Content: View>: View {
 
 struct StepsSummaryCard: View {
     @State private var todaySteps: Int?
+    @State private var hasError = false
     @State private var isLoading: Bool
     private let needsFetch: Bool
     @Environment(\.healthDataCache) private var cache
@@ -62,16 +67,25 @@ struct StepsSummaryCard: View {
             color: theme.primary.primary,
             isLoading: isLoading
         ) {
-            if let steps = todaySteps {
+            if hasError {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(TypeScale.display)
+                    .foregroundStyle(theme.warning)
+                    .accessibilityLabel(String(localized: "无法加载步数数据", comment: "Health summary load error"))
+            } else if let steps = todaySteps {
                 Text(steps.formatted(.number))
                     .font(TypeScale.display)
+                    .monospacedDigit()
+                    .layoutPriority(1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                 Text(String(localized: "步", comment: "Steps unit"))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             } else {
                 Text("--")
                     .font(TypeScale.display)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             }
         }
         .task {
@@ -87,6 +101,7 @@ struct StepsSummaryCard: View {
             let aggregated = StepsAggregator.aggregateByDay(dataPoints: dataPoints, in: interval)
             todaySteps = aggregated.last?.totalSteps
         } catch {
+            hasError = true
             TelemetryService.shared.trackNonisolated(
                 .healthSummaryLoadFailed(sampleType: "stepCount")
             )
@@ -99,6 +114,7 @@ struct StepsSummaryCard: View {
 
 struct HeartRateSummaryCard: View {
     @State private var latestBPM: Int?
+    @State private var hasError = false
     @State private var isLoading: Bool
     private let needsFetch: Bool
     @Environment(\.healthDataCache) private var cache
@@ -120,19 +136,30 @@ struct HeartRateSummaryCard: View {
         SummaryCardView(
             title: String(localized: "心率", comment: "Heart rate"),
             systemImage: "heart.fill",
-            color: theme.danger,
+            color: theme.primary.primary,
             isLoading: isLoading
         ) {
-            if let bpm = latestBPM {
+            if hasError {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(TypeScale.display)
+                    .foregroundStyle(theme.warning)
+                    .accessibilityLabel(String(localized: "无法加载心率数据", comment: "Health summary load error"))
+            } else if let bpm = latestBPM {
                 Text(bpm.formatted())
                     .font(TypeScale.display)
+                    .monospacedDigit()
+                    .layoutPriority(1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                 Text(String(localized: "BPM", comment: "Beats per minute"))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             } else {
                 Text("--")
                     .font(TypeScale.display)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
         }
         .task {
@@ -150,6 +177,7 @@ struct HeartRateSummaryCard: View {
                 latestBPM = Int(avg.rounded())
             }
         } catch {
+            hasError = true
             TelemetryService.shared.trackNonisolated(
                 .healthSummaryLoadFailed(sampleType: "heartRate")
             )
@@ -162,6 +190,7 @@ struct HeartRateSummaryCard: View {
 
 struct SleepSummaryCard: View {
     @State private var lastNightSleep: TimeInterval?
+    @State private var hasError = false
     @State private var isLoading: Bool
     private let needsFetch: Bool
     @Environment(\.healthDataCache) private var cache
@@ -186,13 +215,22 @@ struct SleepSummaryCard: View {
             color: theme.primary.primary,
             isLoading: isLoading
         ) {
-            if let sleep = lastNightSleep {
+            if hasError {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(TypeScale.display)
+                    .foregroundStyle(theme.warning)
+                    .accessibilityLabel(String(localized: "无法加载睡眠数据", comment: "Health summary load error"))
+            } else if let sleep = lastNightSleep {
                 Text(formatDuration(sleep))
                     .font(TypeScale.display)
+                    .monospacedDigit()
+                    .layoutPriority(1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             } else {
                 Text("--")
                     .font(TypeScale.display)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             }
         }
         .task {
@@ -208,6 +246,7 @@ struct SleepSummaryCard: View {
             let nights = SleepAggregator.aggregateByNight(dataPoints: dataPoints, in: interval)
             lastNightSleep = nights.last?.totalSleep
         } catch {
+            hasError = true
             TelemetryService.shared.trackNonisolated(
                 .healthSummaryLoadFailed(sampleType: "sleep")
             )
@@ -220,6 +259,7 @@ struct SleepSummaryCard: View {
 
 struct WeightSummaryCard: View {
     @State private var latestWeight: Double?
+    @State private var hasError = false
     @State private var isLoading: Bool
     private let needsFetch: Bool
     @Environment(\.healthDataCache) private var cache
@@ -244,16 +284,25 @@ struct WeightSummaryCard: View {
             color: theme.primary.primary,
             isLoading: isLoading
         ) {
-            if let weight = latestWeight {
+            if hasError {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(TypeScale.display)
+                    .foregroundStyle(theme.warning)
+                    .accessibilityLabel(String(localized: "无法加载体重数据", comment: "Health summary load error"))
+            } else if let weight = latestWeight {
                 Text(weight.formatted(.number.precision(.fractionLength(1))))
                     .font(TypeScale.display)
+                    .monospacedDigit()
+                    .layoutPriority(1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                 Text(String(localized: "kg", comment: "Kilogram"))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             } else {
                 Text("--")
                     .font(TypeScale.display)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             }
         }
         .task {
@@ -269,6 +318,7 @@ struct WeightSummaryCard: View {
             let points = WeightAnalyzer.extractWeightPoints(from: dataPoints, in: interval)
             latestWeight = points.last?.weight
         } catch {
+            hasError = true
             TelemetryService.shared.trackNonisolated(
                 .healthSummaryLoadFailed(sampleType: "bodyMass")
             )

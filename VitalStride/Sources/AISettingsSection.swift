@@ -90,12 +90,12 @@ struct AISettingsSection: View {
                     .tint(theme.primary.primary)
                 Spacer()
                 Text("••••••••")
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                 Button(role: .destructive) {
                     showClearConfirmation = true
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(theme.neutrals.text3)
+                        .foregroundStyle(theme.secondaryForeground)
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)

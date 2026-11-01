@@ -124,10 +124,10 @@ struct AIQuickAnalysisCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(analysisType.title)
                     .font(TypeScale.title)
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                 Text(analysisType.subtitle)
                     .font(TypeScale.meta)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
 
             Spacer()
@@ -151,15 +151,17 @@ struct AIQuickAnalysisCard: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(theme.primary.primary)
+        .buttonStyle(.plain)
+        .foregroundStyle(theme.onInteractiveAccent)
+        .background(theme.interactiveAccent, in: RoundedRectangle(cornerRadius: Radius.control))
+        .frame(minHeight: 44)
         .accessibilityHint(String(localized: "点击开始 AI 分析", comment: "Start analysis a11y hint"))
     }
 
     private var loadingContent: some View {
         Text(String(localized: "正在组装数据并分析…", comment: "Loading analysis text"))
             .font(TypeScale.body)
-            .foregroundStyle(theme.neutrals.text2)
+            .foregroundStyle(theme.secondaryForeground)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.updatesFrequently)
     }
@@ -168,7 +170,7 @@ struct AIQuickAnalysisCard: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(text)
                 .font(TypeScale.body)
-                .foregroundStyle(theme.neutrals.text1)
+                .foregroundStyle(theme.foreground)
                 .textSelection(.enabled)
                 .accessibilityLabel(text)
 
@@ -181,7 +183,7 @@ struct AIQuickAnalysisCard: View {
                 }
                 .frame(minHeight: 44)
             }
-            .foregroundStyle(theme.neutrals.text2)
+            .foregroundStyle(theme.secondaryForeground)
         }
     }
 
@@ -189,7 +191,7 @@ struct AIQuickAnalysisCard: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(message)
                 .font(TypeScale.body)
-                .foregroundStyle(theme.danger)
+                .foregroundStyle(theme.critical)
 
             Button(action: onRetry) {
                 HStack(spacing: 4) {

@@ -66,15 +66,15 @@ struct AIView: View {
 
                 Image(systemName: "key.fill")
                     .font(.system(size: 48))
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
 
                 Text(String(localized: "需要配置 API Key", comment: "API key required title"))
                     .font(.title2.bold())
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
 
                 Text(String(localized: "AI 分析功能需要智谱 AI 的 API Key。请在设置中配置后再使用。", comment: "API key required description"))
                     .font(.subheadline)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
 
@@ -88,12 +88,13 @@ struct AIView: View {
                     )
                     .font(.headline)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.plain)
+                .frame(minHeight: 44)
                 .accessibilityHint(String(localized: "切换到设置页面配置 API Key", comment: "API key settings a11y hint"))
                 #else
                 Text(String(localized: "请在侧边栏「设置」中配置 API Key", comment: "macOS API key guide"))
                     .font(.subheadline)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                 #endif
 
                 Spacer(minLength: 40)
@@ -116,7 +117,7 @@ struct AIView: View {
 
                 Text(String(localized: "隐私告知", comment: "Privacy notice title"))
                     .font(.title2.bold())
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
 
                 Card {
                     privacyBullet(
@@ -141,7 +142,8 @@ struct AIView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.plain)
+                .frame(minHeight: 44)
                 .accessibilityHint(String(localized: "确认隐私告知并开始使用 AI 功能", comment: "Accept privacy a11y hint"))
 
                 Spacer(minLength: 40)
@@ -159,7 +161,7 @@ struct AIView: View {
                 .frame(width: 24)
             Text(text)
                 .font(.subheadline)
-                .foregroundStyle(theme.neutrals.text1)
+                .foregroundStyle(theme.foreground)
         }
     }
 
@@ -193,7 +195,7 @@ struct AIView: View {
             HStack {
                 Text(String(localized: "ai_quick_analysis_section_title", comment: "Quick analysis section title above the chat"))
                     .font(TypeScale.title)
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(theme.foreground)
                 Spacer()
                 if hasMessages {
                     Button {
@@ -202,7 +204,7 @@ struct AIView: View {
                         }
                     } label: {
                         Image(systemName: quickAnalysisCollapsed ? "chevron.down" : "chevron.up")
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                             .frame(minWidth: 44, minHeight: 44)
                     }
                     .accessibilityLabel(quickAnalysisCollapsed

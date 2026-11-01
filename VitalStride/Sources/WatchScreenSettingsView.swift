@@ -262,7 +262,7 @@ struct WatchScreenSettingsView: View {
                     )
                 )
                 .font(.caption)
-                .foregroundStyle(theme.neutrals.text3)
+                .foregroundStyle(theme.secondaryForeground)
                 Toggle("", isOn: .constant(true))
                     .labelsHidden()
                     .disabled(true)

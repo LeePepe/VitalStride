@@ -27,7 +27,7 @@ struct DataAISummaryCard: View {
                     .accessibilityAddTraits(.updatesFrequently)
                 Text(String(localized: "正在分析…", comment: "AI summary loading text"))
                     .font(.subheadline)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
             }
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 8)
@@ -88,7 +88,7 @@ struct DataAISummaryCard: View {
 
             Text(truncatedSummary(result.summary))
                 .font(.caption)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(theme.secondaryForeground)
                 .lineLimit(2)
         }
         .accessibilityElement(children: .ignore)
@@ -112,7 +112,7 @@ struct DataAISummaryCard: View {
                     .font(.caption.weight(.medium))
                 Text(suggestion)
                     .font(.caption)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -131,7 +131,7 @@ struct DataAISummaryCard: View {
                     )
                 )
                 .font(.caption2)
-                .foregroundStyle(theme.neutrals.text3)
+                .foregroundStyle(theme.secondaryForeground)
                 .accessibilityLabel(
                     String(
                         localized: "上次更新 \(generatedAt, format: .relative(presentation: .named))",
@@ -156,9 +156,9 @@ struct DataAISummaryCard: View {
     private func trendColor(_ trend: String) -> Color {
         switch trend {
         case "rising": theme.success
-        case "falling": theme.danger
+        case "falling": theme.critical
         case "stable": theme.primary.primary
-        default: theme.neutrals.text3
+        default: theme.secondaryForeground
         }
     }
 
