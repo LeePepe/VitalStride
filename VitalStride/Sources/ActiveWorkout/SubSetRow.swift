@@ -62,12 +62,6 @@ struct SubSetRow: View {
         .padding(.horizontal, 0)
         .frame(maxWidth: .infinity, minHeight: largeMode ? 56 : 48)
         .designSurface(style: .solid, cornerRadius: 14)
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(theme.accent.opacity(0.55))
-                .frame(width: 2)
-                .padding(.vertical, 8)
-        }
         .contentShape(Rectangle())
         .background {
             Button(action: toggleCompleted) { Color.clear.contentShape(Rectangle()) }
@@ -108,19 +102,33 @@ struct SubSetRow: View {
 
     private var leadingControls: some View {
         Button(action: toggleCompleted) {
-            HStack(alignment: .center, spacing: 3) {
+            HStack(alignment: .center, spacing: 2) {
                 Text("\(parentSetNumber).\(exerciseSet.order)")
-                    .font((largeMode ? Font.caption : Font.caption2).monospacedDigit().weight(.semibold))
+                    .font(.caption2.monospacedDigit().weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
-                    .fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(theme.accent)
+                    .frame(width: 19, height: 24, alignment: .trailing)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill((exerciseSet.isCompleted ? theme.success : theme.accent).opacity(0.10))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(
+                                (exerciseSet.isCompleted ? theme.success : theme.accent).opacity(0.24),
+                                lineWidth: 1
+                            )
+                    )
                 Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.neutrals.text2)
             }
+            .padding(.leading, 4)
+            .padding(.trailing, 1)
         }
         .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
-        .fixedSize(horizontal: true, vertical: false)
+        .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
         .buttonStyle(.borderless)
         .contentShape(Rectangle())
         .accessibilityLabel(String(localized: "递减组完成状态", comment: "Drop-set completion"))
@@ -232,14 +240,15 @@ struct SubSetRow: View {
         .padding(.horizontal, 3)
         .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
         .background(alignment: .center) {
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(theme.inner)
                 .frame(height: largeMode ? 42 : 36)
                 .overlay {
-                    if focusedField == field {
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(theme.accent, lineWidth: 1.5)
-                    }
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(
+                            focusedField == field ? theme.accent : theme.neutrals.border.opacity(0.65),
+                            lineWidth: focusedField == field ? 1.5 : 1
+                        )
                 }
         }
         .contentShape(Rectangle())
@@ -283,6 +292,13 @@ struct SubSetRow: View {
         case .addSet:
             if let owner = exerciseSet.workoutExercise {
                 _ = ActiveExerciseSection.insertAppendedMainSet(in: owner, using: modelContext)
+            }
+        case .copyToNext:
+            if let owner = exerciseSet.workoutExercise {
+                #if canImport(UIKit) && !os(macOS)
+                HapticManager.trigger(.exerciseAdded)
+                #endif
+                ActiveExerciseSection.copyToNext(from: exerciseSet, in: owner, using: modelContext)
             }
         case .applyAISuggestion:
             break

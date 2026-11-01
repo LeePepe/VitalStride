@@ -29,13 +29,14 @@ and content-hugging numeric fields inside independent hit targets.
 | Area | Contract |
 |---|---|
 | Base plane (R28) | `theme.neutrals.bg` is the shared opaque plane for `List`, `ActiveExerciseSection` header, and every section/row `.listRowBackground`. No two-tone trench. |
-| Row cards | Each `SetRow` and `SubSetRow` is a rounded solid `theme.neutrals.card` card on the base plane; radius `12–16pt`; spacing between exercises `10pt` normal / `14pt` large. |
+| Row cards | Each `SetRow` and `SubSetRow` is a rounded solid `theme.neutrals.card` card on the base plane; radius `12–16pt`; spacing between exercises `6pt` normal / `8pt` large; row vertical insets are `2pt` per edge. |
 | Sticky header | Opaque `theme.neutrals.bg`; dense single row, max height `44pt`, vertical padding `<=4pt`; it fully occludes rows while pinned. |
 | Header title (R27) | `.lineLimit(1)`, `.minimumScaleFactor(0.85)`, `.truncationMode(.tail)` in every mode; no two-line title variant. |
 | Header actions (R26) | `+` and `⋯` share one centered compact cluster with `0pt` HStack spacing. Each icon has a `28pt` visual frame, with the `+` padded `.trailing` by `1pt` and `⋯` padded `.leading` by `1pt`, leaving a `2pt` visual gap across their shared boundary. Each control retains an independent, non-overlapping `44×44pt` outer hit target (`width: 44, height: headerControlHeight`), aligned `.trailing` for `+` and `.leading` for `⋯`. |
-| Shared row grid | One centered axis: leading identity/completion → weight → reps → actual metadata/actions. Inter-slot gap `6–8pt`; input-internal gap `2–4pt`. |
-| Sub-set identity (R29) | `1.1`/`1.2` appears exactly once in `leadingControls`, beside completion, aligned with the parent index column. Remove the trailing metadata identity and its geometry capture. `↳` is not required when the hierarchical label is present. |
-| Visual input | Solid `theme.neutrals.inset` pill, radius `8pt`, `36pt` normal / `42pt` large height; digits use body-equivalent typography and monospaced digits. |
+| Shared row grid | One centered axis: leading identity/completion → weight → reps → actual metadata/actions. Inter-slot gap `4–8pt`; input-internal gap `2–4pt`. Both `SetRow` and `SubSetRow` right-align their index (`1` vs `1.1`) in a fixed `19pt` slot beside an identical `18pt` completion circle inside a `44×44pt` leading control so the circle and all input pills align on the exact same vertical X-axis. |
+| Sub-set identity (R29) | `1.1`/`1.2` appears exactly once in `leadingControls`, beside completion, aligned with the parent index column, inside a compact semantic badge using the accent/success token tint. There is no leading accent bar or trailing metadata identity; `↳` is not required when the hierarchical label is present. |
+| Visual input | Solid `theme.neutrals.inset` (`theme.inner`) pill, radius `8pt`, `36pt` normal / `42pt` large height, `1pt` `theme.neutrals.border.opacity(0.65)` resting border (`1.5pt` `theme.accent` focus border); digits use body-equivalent typography and monospaced digits. |
+| Custom keyboard 5-col × 4-row grid | All 5 columns in `WorkoutNumericKeyboardContentView` lock to the `4 × 52pt + 3 × 8pt = 232pt` vertical module (`74pt` side columns, `6pt` column gap, `10pt` horizontal padding). Left column: `整体 / 左右`, `热身组`, `复制下组`, `kg / lb` (`52pt` each). Right column: `递减组` (`52pt`), `添加一组` (`52pt`), and either `✨ AI` (`52pt`) + `完成` (`52pt`) or a 2-row tall `完成` key (`112pt`). Inactive side keys use `theme.neutrals.text1` on `theme.inner` with `1pt` border; `theme.accent` tint is reserved for active mode keys (`热身组` / `递减组` / `✨ AI`) and `theme.interactiveAccent` for `完成`. |
 | Inner numeric width (R26) | `WorkoutSetInput` hugs numeric content: `24–32pt` normal and `32–42pt` large, with a deterministic cap based on the displayed value/placeholder. Never assign the outer hit-target width to the inner field. |
 | Outer numeric target | Composite weight/reps pill owns `minWidth/minHeight >=44pt` and `contentShape(Rectangle())`; taps anywhere on prefix, digits, unit, or padding focus the inner field. |
 | Typography | Primary numerics `17pt` normal / `22pt` large; units/prefixes `11–12pt` / `14–15pt`; no text below `11pt`; accent ratios remain `<=1.8:1`. |
@@ -131,3 +132,36 @@ no title wrap, no oversized action gap, no numeric ellipsis, and no lost hit tar
 Pure visual acceptance uses iPhone Simulator light/dark snapshots, not a physical
 device requirement. The design-contract static checker must report zero raw color
 violations and all required sections present.
+
+## Design system & version
+
+- Design system: Strata-Core / local `DesignKit` parity.
+- Token source: `DesignTokens@0.2.0`.
+- Platform: iOS; appearance coverage is light and dark.
+- Minimum touch target: `44×44pt`; Dynamic Type and VoiceOver remain supported.
+
+## Semantic token profile
+
+- Canvas: `theme.neutrals.bg`.
+- Raised row surface: `theme.neutrals.card`.
+- Inset controls: `theme.inner`.
+- Primary and secondary text: `theme.neutrals.text1` / `theme.neutrals.text2`.
+- Drop-set identity: `theme.accent` or `theme.success` with token-backed opacity.
+- Filled action: `theme.interactiveAccent` / `theme.onInteractiveAccent`.
+
+## Required view states
+
+| State | Required behavior |
+|---|---|
+| `populated` | Two exercise sections, aligned rows, expanded drop-set, and 232pt keyboard. |
+| `empty` | Stable base plane with an explanation and one add-set action. |
+| `loading` | Geometry-matched header and row skeleton with no layout shift. |
+| `error` | Inline cause and retry action without substituting zero values. |
+
+## Redlines & CI gate
+
+- No raw Hex/RGB colors or app-local replacement token tables.
+- No leading accent bar, duplicate sub-set identity, numeric ellipsis, or lost
+  `44×44pt` hit target.
+- The design-contract checker must pass for both the frozen design and this
+  repository contract before delivery.

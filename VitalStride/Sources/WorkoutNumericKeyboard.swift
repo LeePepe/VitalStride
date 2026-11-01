@@ -108,47 +108,70 @@ struct WorkoutNumericKeyboardContentView: View {
         self.onDone = onDone
     }
 
+    private static let sideColumnWidth: CGFloat = 74
+    private static let columnSpacing: CGFloat = 6
+    private static let rowSpacing: CGFloat = NumericKeypad.gridSpacing
+    private static let keyHeight: CGFloat = NumericKeypad.digitMinHeight
+    private static let doubleRowKeyHeight: CGFloat = NumericKeypad.digitMinHeight * 2 + NumericKeypad.gridSpacing
+
+    private var hasAISuggestion: Bool {
+        suggestedWeightKg != nil && suggestedReps != nil
+    }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            HStack(alignment: .top, spacing: 8) {
-                VStack(spacing: 8) {
-                    functionKey(.toggleUnilateral, title: String(localized: "workout.keyboard.mode", defaultValue: "Total / L-R", comment: "Toggle the whole exercise weight mode"))
-                    functionKey(.setWarmup, title: String(localized: "workout.keyboard.warmup", defaultValue: "Warmup", comment: "Set warmup type"))
-                    functionKey(
-                        .toggleWeightUnit,
-                        title: Self.weightUnitToggleTitle()
-                    )
-                }
-                .frame(width: 68, height: NumericKeypad.totalGridHeight)
-                NumericKeypad(mode: field.isDecimalEnabled ? .decimal : .integer, onKeyPress: onKeyPress)
-                    .layoutPriority(1)
-                VStack(spacing: 8) {
-                    functionKey(.addDropSet, title: String(localized: "workout.keyboard.drop", defaultValue: "Drop set", comment: "Add a drop set"))
-                    functionKey(.addSet, title: String(localized: "workout.keyboard.add_set", defaultValue: "Add set", comment: "Add a set"))
-                    if suggestedWeightKg != nil, suggestedReps != nil {
-                        functionKey(
-                            .applyAISuggestion,
-                            title: String(
-                                localized: "workout.keyboard.ai_suggest",
-                                defaultValue: "✨ AI",
-                                comment: "Apply AI smart progression suggestion"
-                            )
-                        )
-                    }
-                    Button(action: onDone) {
-                        Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Dismiss workout keyboard"))
-                            .font(.caption.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
-                            .foregroundStyle(theme.onInteractiveAccent)
-                            .background(theme.interactiveAccent, in: RoundedRectangle(cornerRadius: 8))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("workout_keyboard_done")
-                }
-                .frame(width: 68, height: NumericKeypad.totalGridHeight)
+        HStack(alignment: .top, spacing: Self.columnSpacing) {
+            VStack(spacing: Self.rowSpacing) {
+                functionKey(
+                    .toggleUnilateral,
+                    title: String(localized: "workout.keyboard.mode", defaultValue: "Total / L-R", comment: "Toggle the whole exercise weight mode")
+                )
+                functionKey(
+                    .setWarmup,
+                    title: String(localized: "workout.keyboard.warmup", defaultValue: "Warmup", comment: "Set warmup type"),
+                    isActive: setType == .warmup
+                )
+                functionKey(
+                    .copyToNext,
+                    title: String(localized: "workout_keyboard.copy_label", defaultValue: "Copy", comment: "Copy to next set")
+                )
+                functionKey(
+                    .toggleWeightUnit,
+                    title: Self.weightUnitToggleTitle()
+                )
             }
+            .frame(width: Self.sideColumnWidth, height: NumericKeypad.totalGridHeight)
+
+            NumericKeypad(mode: field.isDecimalEnabled ? .decimal : .integer, onKeyPress: onKeyPress)
+                .layoutPriority(1)
+
+            VStack(spacing: Self.rowSpacing) {
+                functionKey(
+                    .addDropSet,
+                    title: String(localized: "workout.keyboard.drop", defaultValue: "Drop set", comment: "Add a drop set"),
+                    isActive: setType == .dropSet
+                )
+                functionKey(
+                    .addSet,
+                    title: String(localized: "workout.keyboard.add_set", defaultValue: "Add set", comment: "Add a set")
+                )
+                if hasAISuggestion {
+                    functionKey(
+                        .applyAISuggestion,
+                        title: String(
+                            localized: "workout.keyboard.ai_suggest",
+                            defaultValue: "✨ AI",
+                            comment: "Apply AI smart progression suggestion"
+                        ),
+                        isActive: true
+                    )
+                    doneKey(height: Self.keyHeight)
+                } else {
+                    doneKey(height: Self.doubleRowKeyHeight)
+                }
+            }
+            .frame(width: Self.sideColumnWidth, height: NumericKeypad.totalGridHeight)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(
@@ -165,20 +188,50 @@ struct WorkoutNumericKeyboardContentView: View {
         .accessibilityElement(children: .contain)
     }
 
-    private func functionKey(_ action: LeftKeyAction, title: String) -> some View {
-        Button {
+    private func doneKey(height: CGFloat) -> some View {
+        Button(action: onDone) {
+            Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Dismiss workout keyboard"))
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
+                .foregroundStyle(theme.onInteractiveAccent)
+                .background(
+                    theme.interactiveAccent,
+                    in: RoundedRectangle(cornerRadius: NumericKeypad.keyRadius, style: .continuous)
+                )
+        }
+        .buttonStyle(KeyboardKeyButtonStyle())
+        .accessibilityIdentifier("workout_keyboard_done")
+        .accessibilityAddTraits(.isKeyboardKey)
+    }
+
+    private func functionKey(_ action: LeftKeyAction, title: String, isActive: Bool = false) -> some View {
+        let isDisabled = (action == .addDropSet && setType.isSubSet) ||
+            (action == .applyAISuggestion && !hasAISuggestion)
+        return Button {
             onLeftAction(action)
         } label: {
             Text(title)
-                .font(.caption.weight(.medium))
+                .font(.caption.weight(isActive ? .semibold : .medium))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
-                .foregroundStyle(theme.accent)
-                .background(theme.inner, in: RoundedRectangle(cornerRadius: 8))
+                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity, minHeight: Self.keyHeight, maxHeight: Self.keyHeight)
+                .foregroundStyle((isActive ? theme.accent : theme.neutrals.text1).opacity(isDisabled ? 0.45 : 1.0))
+                .background(
+                    isActive ? theme.accent.opacity(0.15) : theme.inner,
+                    in: RoundedRectangle(cornerRadius: NumericKeypad.keyRadius, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: NumericKeypad.keyRadius, style: .continuous)
+                        .strokeBorder(
+                            isActive ? theme.accent.opacity(0.55) : theme.neutrals.border.opacity(0.75),
+                            lineWidth: 1
+                        )
+                )
         }
-        .buttonStyle(.plain)
-        .disabled((action == .addDropSet && setType.isSubSet) ||
-                  (action == .applyAISuggestion && (suggestedWeightKg == nil || suggestedReps == nil)))
+        .buttonStyle(KeyboardKeyButtonStyle())
+        .disabled(isDisabled)
         .accessibilityIdentifier("workout_keyboard_" + action.rawValue)
         .accessibilityAddTraits(.isKeyboardKey)
     }
