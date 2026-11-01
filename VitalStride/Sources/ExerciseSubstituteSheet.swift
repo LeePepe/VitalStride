@@ -174,10 +174,10 @@ struct ExerciseSubstituteSheet: View {
                 .padding(.horizontal, 12)
                 .frame(height: 36)
                 .foregroundStyle(
-                    isSelected ? theme.onInteractiveAccent : theme.neutrals.text1
+                    isSelected ? theme.onInteractiveAccent : theme.foreground
                 )
                 .background(
-                    isSelected ? theme.interactiveAccent : theme.neutrals.inner,
+                    isSelected ? theme.interactiveAccent : theme.inner,
                     in: Capsule()
                 )
         }

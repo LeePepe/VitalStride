@@ -99,17 +99,41 @@ struct WorkoutDetailView: View {
 
     @ViewBuilder
     private var content: some View {
-        if isDeleting {
+        if snapshotMode == .loading {
+            DesignStateView(
+                .loading,
+                title: String(localized: "正在加载训练详情", comment: "Workout detail loading title"),
+                message: String(localized: "正在准备训练数据。", comment: "Workout detail loading message")
+            )
+        } else if snapshotMode == .error {
+            DesignStateView(
+                .error,
+                title: String(localized: "训练详情加载失败", comment: "Workout detail error title"),
+                message: String(localized: "请稍后重试。", comment: "Workout detail error message"),
+                actionTitle: String(localized: "重试", comment: "Workout detail retry button"),
+                action: {}
+            )
+        } else if isDeleting {
             // Once deletion begins, stop reading any property on `workout`.
             // If SwiftData detaches the backing store before dismissal, reading
             // e.g. `\Workout.type` on the stale reference traps with
             // "backing data was detached without resolving faults".
             Color.clear
                 .accessibilityHidden(true)
+        } else if sortedExercises.isEmpty {
+            DesignStateView(
+                .empty,
+                title: String(localized: "暂无训练内容", comment: "Workout detail empty title"),
+                message: String(localized: "这次训练还没有动作或训练组。", comment: "Workout detail empty message"),
+                actionTitle: String(localized: "返回", comment: "Workout detail empty action"),
+                action: { dismiss() }
+            )
         } else {
             detailList
         }
     }
+
+    @Environment(\.workoutListSnapshotMode) private var snapshotMode
 
     private var detailList: some View {
         List {
@@ -128,17 +152,26 @@ struct WorkoutDetailView: View {
                 LabeledContent(String(localized: "动作数", comment: "")) {
                     Text("\(sortedExercises.count)")
                         .font(TypeScale.num)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .layoutPriority(1)
                 }
                 let totalSets = sortedExercises
                     .reduce(0) { $0 + ($1.sets?.count ?? 0) }
                 LabeledContent(String(localized: "总组数", comment: "")) {
                     Text("\(totalSets)")
                         .font(TypeScale.num)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .layoutPriority(1)
                 }
                 if workout.hasWorkingSets {
                     LabeledContent(String(localized: "总训练量", comment: "Total training volume in workout summary")) {
                         Text("\(displayWeight(workout.overallWorkingVolume), specifier: "%.0f") \(weightUnit.rawValue)")
                             .font(TypeScale.num)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .layoutPriority(1)
                     }
                     .accessibilityLabel(
                         Text(verbatim: "\(String(localized: "总训练量", comment: "Total volume a11y")) \(Int(displayWeight(workout.overallWorkingVolume))) \(weightUnit.a11yName)")
@@ -153,6 +186,9 @@ struct WorkoutDetailView: View {
                     LabeledContent(String(localized: "平均心率", comment: "Average heart rate in workout summary")) {
                         Text(String(localized: "\(stats.averageHeartRate) bpm", comment: "Heart rate value with unit, e.g. 142 bpm"))
                             .font(TypeScale.num)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .layoutPriority(1)
                     }
                     .accessibilityLabel(
                         Text(String(localized: "平均心率 \(stats.averageHeartRate) 次每分钟", comment: "Average heart rate a11y"))
@@ -160,6 +196,9 @@ struct WorkoutDetailView: View {
                     LabeledContent(String(localized: "最高心率", comment: "Max heart rate in workout summary")) {
                         Text(String(localized: "\(stats.maxHeartRate) bpm", comment: "Heart rate value with unit, e.g. 155 bpm"))
                             .font(TypeScale.num)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .layoutPriority(1)
                     }
                     .accessibilityLabel(
                         Text(String(localized: "最高心率 \(stats.maxHeartRate) 次每分钟", comment: "Max heart rate a11y"))
@@ -168,6 +207,9 @@ struct WorkoutDetailView: View {
                         LabeledContent(String(localized: "workout_detail_hrr_1min", defaultValue: "1-min HRR", comment: "1-minute heart rate recovery (HRR) label in workout summary")) {
                             Text(String(localized: "\(hrr) bpm", comment: "Heart rate value with unit, e.g. 24 bpm"))
                                 .font(TypeScale.num)
+                                .monospacedDigit()
+                                .lineLimit(1)
+                                .layoutPriority(1)
                         }
                         .accessibilityLabel(
                             Text(String(localized: "workout_detail_hrr_1min_a11y", defaultValue: "1-minute heart rate recovery \(hrr) beats per minute", comment: "1-minute heart rate recovery a11y"))
@@ -208,17 +250,23 @@ struct WorkoutDetailView: View {
                 Section(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: "")) {
                     if sets.isEmpty {
                         Text(String(localized: "无记录", comment: ""))
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                     } else {
                         ForEach(Array(sets.enumerated()), id: \.element.persistentModelID) { index, exerciseSet in
                             HStack {
                                 Text(String(localized: "第 \(index + 1) 组", comment: "Set index label"))
-                                    .foregroundStyle(theme.neutrals.text2)
+                                    .foregroundStyle(theme.secondaryForeground)
                                     .frame(width: 60, alignment: .leading)
                                 Text("\(displayWeight(exerciseSet.weight), specifier: "%.1f") \(weightUnit.rawValue)")
+                                    .monospacedDigit()
+                                    .lineLimit(1)
+                                    .layoutPriority(1)
                                 Text("×")
-                                    .foregroundStyle(theme.neutrals.text2)
+                                    .foregroundStyle(theme.secondaryForeground)
                                 Text(String(localized: "\(exerciseSet.reps) 次", comment: "Reps count label"))
+                                    .monospacedDigit()
+                                    .lineLimit(1)
+                                    .layoutPriority(1)
                                 Spacer()
                                 if exerciseSet.setType == .warmup {
                                     Text(String(localized: "热身", comment: ""))
@@ -245,27 +293,36 @@ struct WorkoutDetailView: View {
                             HStack {
                                 Text(String(localized: "总组数", comment: "Per-exercise total sets"))
                                     .font(.footnote)
-                                    .foregroundStyle(theme.neutrals.text2)
+                                    .foregroundStyle(theme.secondaryForeground)
                                 Spacer()
                                 Text("\(workoutExercise.totalSetsCount)")
                                     .font(.footnote.bold())
+                                    .monospacedDigit()
+                                    .lineLimit(1)
+                                    .layoutPriority(1)
                             }
                             HStack {
                                 Text(String(localized: "总次数", comment: "Per-exercise total reps"))
                                     .font(.footnote)
-                                    .foregroundStyle(theme.neutrals.text2)
+                                    .foregroundStyle(theme.secondaryForeground)
                                 Spacer()
                                 Text("\(workoutExercise.totalRepsCount)")
                                     .font(.footnote.bold())
+                                    .monospacedDigit()
+                                    .lineLimit(1)
+                                    .layoutPriority(1)
                             }
                             if workoutExercise.workingVolume > 0 {
                                 HStack {
                                     Text(String(localized: "总训练量", comment: "Per-exercise total volume"))
                                         .font(.footnote)
-                                        .foregroundStyle(theme.neutrals.text2)
+                                        .foregroundStyle(theme.secondaryForeground)
                                     Spacer()
                                     Text("\(displayWeight(workoutExercise.workingVolume), specifier: "%.0f") \(weightUnit.rawValue)")
                                         .font(.footnote.bold())
+                                        .monospacedDigit()
+                                        .lineLimit(1)
+                                        .layoutPriority(1)
                                 }
                             }
                             oneRepMaxSection(for: workoutExercise)
@@ -315,10 +372,13 @@ struct WorkoutDetailView: View {
             HStack {
                 Text(String(localized: "workout_detail_estimated_1rm", defaultValue: "Estimated 1RM", comment: "Per-exercise estimated one-rep max label"))
                     .font(.footnote)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(theme.secondaryForeground)
                 Spacer()
                 Text("\(displayWeight(oneRepMax), specifier: "%.1f") \(weightUnit.rawValue)")
                     .font(.footnote.bold())
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .layoutPriority(1)
             }
             if let exerciseModel = workoutExercise.exercise {
                 NavigationLink {

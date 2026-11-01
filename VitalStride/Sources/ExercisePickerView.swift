@@ -15,6 +15,7 @@ struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
     @State private var searchText = ""
@@ -316,13 +317,14 @@ struct ExercisePickerView: View {
             Text(label)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, Space.sm)
+                .fixedSize(horizontal: true, vertical: false)
                 .frame(height: 36)
                 .foregroundStyle(
-                    isSelected ? theme.onInteractiveAccent : theme.neutrals.text1
+                    isSelected ? theme.onInteractiveAccent : theme.foreground
                 )
                 .background(
-                    isSelected ? theme.interactiveAccent : theme.neutrals.inner,
+                    isSelected ? theme.interactiveAccent : theme.inner,
                     in: Capsule()
                 )
         }
@@ -857,18 +859,28 @@ struct ExercisePickerView: View {
     @ViewBuilder
     private var emptyState: some View {
         if !debouncedSearchText.isEmpty {
-            ContentUnavailableView.search(text: debouncedSearchText)
+            DesignStateView(
+                .empty,
+                title: String(localized: "没有动作", comment: "No exercises found title"),
+                message: String(localized: "没有找到匹配的动作。", comment: "No exercises search description"),
+                actionTitle: String(localized: "清除搜索", comment: "Clear exercise search CTA"),
+                action: { searchText = ""; debouncedSearchText = "" }
+            )
         } else if let group = selectedMuscleGroup {
-            ContentUnavailableView(
-                String(localized: "没有动作", comment: "No exercises found title"),
-                systemImage: "dumbbell",
-                description: Text(String(localized: "\(group.localizedName)分类下暂无动作", comment: "No exercises in muscle group description"))
+            DesignStateView(
+                .empty,
+                title: String(localized: "没有动作", comment: "No exercises found title"),
+                message: String(localized: "\(group.localizedName)分类下暂无动作", comment: "No exercises in muscle group description"),
+                actionTitle: String(localized: "清除筛选", comment: "Clear exercise filter CTA"),
+                action: { selectedMuscleGroup = nil; selectedEquipmentFilter = nil }
             )
         } else {
-            ContentUnavailableView(
-                String(localized: "没有动作", comment: "No exercises found title"),
-                systemImage: "dumbbell",
-                description: Text(String(localized: "暂无可用动作", comment: "No exercises available description"))
+            DesignStateView(
+                .empty,
+                title: String(localized: "没有动作", comment: "No exercises found title"),
+                message: String(localized: "暂无可用动作", comment: "No exercises available description"),
+                actionTitle: String(localized: "创建动作", comment: "Create custom exercise CTA"),
+                action: { presentedSheet = .create }
             )
         }
     }
@@ -976,6 +988,7 @@ private struct FloatingPanelAttachment<Panel: View>: ViewModifier {
 
 private struct ExerciseCard: View {
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let exercise: Exercise
     let isSelected: Bool
     let showsSelectionIndicator: Bool
@@ -1029,7 +1042,7 @@ private struct ExerciseCard: View {
             }
             .frame(
                 maxWidth: .infinity,
-                minHeight: 118,
+                minHeight: dynamicTypeSize.isAccessibilitySize ? 142 : 118,
                 maxHeight: .infinity,
                 alignment: .topLeading
             )
@@ -1038,7 +1051,7 @@ private struct ExerciseCard: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 16)
                     .strokeBorder(
-                        isSelected ? theme.primary.primary : theme.neutrals.border,
+                        isSelected ? theme.primary.primary : theme.border,
                         lineWidth: isSelected ? 2 : 1
                     )
             }

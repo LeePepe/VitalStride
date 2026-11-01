@@ -39,19 +39,25 @@ struct HealthKitWorkoutDetailView: View {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(Self.formattedDate(record.startDate))
                         Text(Self.formattedTimeRange(start: record.startDate, end: record.endDate))
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(theme.secondaryForeground)
                     }
                 }
                 .accessibilityElement(children: .combine)
 
                 LabeledContent(String(localized: "时长", comment: "Workout duration label")) {
                     Text(Self.formattedDuration(record.duration))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .layoutPriority(1)
                 }
 
                 if let energy = record.totalEnergyBurned {
                     let formatted = Self.formattedEnergy(energy, unit: energyUnit)
                     LabeledContent(String(localized: "消耗热量", comment: "Calories burned label")) {
                         Text(formatted)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .layoutPriority(1)
                     }
                     .accessibilityLabel(
                         Text(String(
@@ -65,6 +71,9 @@ struct HealthKitWorkoutDetailView: View {
                     let formatted = Self.formattedDistance(distance, unit: distanceUnit)
                     LabeledContent(String(localized: "距离", comment: "Distance label")) {
                         Text(formatted)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .layoutPriority(1)
                     }
                     .accessibilityLabel(
                         Text(String(
@@ -84,6 +93,9 @@ struct HealthKitWorkoutDetailView: View {
                     LabeledContent(String(localized: "workout_detail_avg_heart_rate", defaultValue: "Average Heart Rate", comment: "Average heart rate label in workout summary")) {
                         Text(String(localized: "\(stats.averageHeartRate) bpm", comment: "Heart rate value with unit, e.g. 142 bpm"))
                             .font(TypeScale.num)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .layoutPriority(1)
                     }
                     .accessibilityLabel(
                         Text(String(localized: "workout_detail_avg_heart_rate_a11y", defaultValue: "Average heart rate \(stats.averageHeartRate) beats per minute", comment: "Average heart rate a11y"))
@@ -91,6 +103,9 @@ struct HealthKitWorkoutDetailView: View {
                     LabeledContent(String(localized: "workout_detail_max_heart_rate", defaultValue: "Max Heart Rate", comment: "Max heart rate label in workout summary")) {
                         Text(String(localized: "\(stats.maxHeartRate) bpm", comment: "Heart rate value with unit, e.g. 155 bpm"))
                             .font(TypeScale.num)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .layoutPriority(1)
                     }
                     .accessibilityLabel(
                         Text(String(localized: "workout_detail_max_heart_rate_a11y", defaultValue: "Max heart rate \(stats.maxHeartRate) beats per minute", comment: "Max heart rate a11y"))
@@ -99,6 +114,9 @@ struct HealthKitWorkoutDetailView: View {
                         LabeledContent(String(localized: "workout_detail_hrr_1min", defaultValue: "1-min HRR", comment: "1-minute heart rate recovery (HRR) label in workout summary")) {
                             Text(String(localized: "\(hrr) bpm", comment: "Heart rate value with unit, e.g. 24 bpm"))
                                 .font(TypeScale.num)
+                                .monospacedDigit()
+                                .lineLimit(1)
+                                .layoutPriority(1)
                         }
                         .accessibilityLabel(
                             Text(String(localized: "workout_detail_hrr_1min_a11y", defaultValue: "1-minute heart rate recovery \(hrr) beats per minute", comment: "1-minute heart rate recovery a11y"))
@@ -115,10 +133,13 @@ struct HealthKitWorkoutDetailView: View {
                                             .frame(width: 8, height: 8)
                                         Text(zone.localizedName)
                                             .font(.footnote)
-                                            .foregroundStyle(theme.neutrals.text2)
+                                            .foregroundStyle(theme.secondaryForeground)
                                         Spacer()
                                         Text("\(Int(zone.percentage * 100))%")
                                             .font(TypeScale.num.bold())
+                                            .monospacedDigit()
+                                            .lineLimit(1)
+                                            .layoutPriority(1)
                                     }
                                 }
                             }

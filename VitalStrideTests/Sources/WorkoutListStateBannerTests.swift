@@ -5,12 +5,10 @@ import Testing
 
 // MARK: - WorkoutListStateBanner — MY-1359 four-state contract
 
-/// The banner has three explicit states (`loading` / `failed` / `unauthorized`);
-/// the fourth "empty" state is owned by `WorkoutListView`'s
-/// `ContentUnavailableView` outside the banner. These tests assert the state
-/// discriminator behaves as a pure value type (equatable, exhaustive) — which
-/// is what `WorkoutListView.currentBannerState(...)` and the SwiftUI switch
-/// rely on to keep the four states mutually exclusive.
+/// The banner has three explicit HealthKit states (`loading` / `failed` /
+/// `unauthorized`); the empty state is owned by WorkoutListView's
+/// DesignKit `DesignStateView`. These tests assert the state discriminator and
+/// the banner's semantic control hooks remain exhaustive and distinct.
 @Suite("WorkoutListStateBanner — MY-1359")
 @MainActor
 struct WorkoutListStateBannerTests {

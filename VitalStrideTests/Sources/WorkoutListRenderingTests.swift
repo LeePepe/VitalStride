@@ -41,29 +41,28 @@ struct WorkoutListRenderingTests {
         for width in [375, 393] {
             let height = width == 375 ? 812 : 852
             for appearance in [ColorScheme.light, ColorScheme.dark] {
-                for state in ["populated", "empty", "loading", "error"] {
-                    let view: AnyView
+                for state in [WorkoutListSnapshotMode.populated, .empty, .loading, .error] {
+                    let stateName: String
                     switch state {
-                    case "populated":
-                        view = AnyView(Text("Workout history").font(TypeScale.title))
-                    case "empty":
-                        view = AnyView(ContentUnavailableView(
-                            "No workouts",
-                            systemImage: "dumbbell",
-                            description: Text("Start your first workout")
-                        ))
-                    case "loading":
-                        view = AnyView(ProgressView("Loading workouts"))
-                    default:
-                        view = AnyView(WorkoutListStateBanner(
-                            state: .failed,
-                            onOpenSettings: {}
-                        ))
+                    case .populated: stateName = "populated"
+                    case .empty: stateName = "empty"
+                    case .loading: stateName = "loading"
+                    case .error: stateName = "error"
+                    case .live: Issue.record("Live mode is not a snapshot state"); continue
                     }
-                    let snapshot = view
-                        .padding()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color(uiColor: .systemBackground))
+
+                    let container = try makeSnapshotContainer(populated: state == .populated)
+                    let records = state == .populated
+                        ? [makeHealthKitRecord(
+                            startDate: Date(timeIntervalSince1970: 1_700_000_000),
+                            averageHeartRate: 142
+                        )]
+                        : []
+                    let snapshot = WorkoutListView()
+                        .modelContainer(container)
+                        .environment(AppNavigation())
+                        .environment(\.workoutListSnapshotMode, state)
+                        .environment(\.workoutListSnapshotRecords, records)
                         .preferredColorScheme(appearance)
                         .designTheme()
 
@@ -79,8 +78,12 @@ struct WorkoutListRenderingTests {
                         host.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
                     }
                     let data = try #require(image.pngData())
+                    #expect(data.count > 15_000)
+                    #expect(image.cgImage?.width == width * 3)
+                    #expect(image.cgImage?.height == height * 3)
+                    #expect(stateName == "populated" || records.isEmpty)
                     let schemeName = appearance == .dark ? "dark" : "light"
-                    let filename = "tk1-workout-list-\(state)-\(schemeName)-\(width)x\(height).png"
+                    let filename = "tk1-workout-list-\(stateName)-\(schemeName)-\(width)x\(height).png"
                     try data.write(to: output.appendingPathComponent(filename))
                     window.isHidden = true
                     window.rootViewController = nil
@@ -88,7 +91,82 @@ struct WorkoutListRenderingTests {
             }
         }
     }
+
+    @Test("Start Workout and Workout Detail production state shells render")
+    func renderProductionStateShells() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let workout = Workout(
+            type: .strength,
+            startDate: Date(timeIntervalSince1970: 1_700_000_000),
+            endDate: Date(timeIntervalSince1970: 1_700_001_800)
+        )
+        context.insert(workout)
+        try context.save()
+
+        for mode in [WorkoutListSnapshotMode.loading, .error] {
+            let startView = AnyView(
+                StartWorkoutView(onStart: { _ in })
+                    .modelContainer(container)
+                    .environment(\.workoutListSnapshotMode, mode)
+                    .designTheme()
+            )
+            let detailView = AnyView(
+                WorkoutDetailView(workout: workout)
+                    .modelContainer(container)
+                    .environment(\.workoutListSnapshotMode, mode)
+                    .designTheme()
+            )
+
+            for view in [startView, detailView] {
+                let host = UIHostingController(rootView: view)
+                let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+                window.rootViewController = host
+                window.makeKeyAndVisible()
+                host.view.frame = window.bounds
+                host.view.layoutIfNeeded()
+                let renderer = UIGraphicsImageRenderer(size: window.bounds.size)
+                let image = renderer.image { _ in
+                    host.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+                }
+                let data = try #require(image.pngData())
+                #expect(data.count > 15_000)
+                #expect(image.cgImage?.width == 1179)
+                #expect(image.cgImage?.height == 2556)
+                window.isHidden = true
+                window.rootViewController = nil
+            }
+        }
+    }
 #endif
+
+    private func makeSnapshotContainer(populated: Bool) throws -> ModelContainer {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        guard populated else { return container }
+
+        let context = ModelContext(container)
+        let exercise = Exercise(
+            nameEn: "Bench Press",
+            nameZh: "卧推",
+            muscleGroup: .chest,
+            equipment: .barbell
+        )
+        let workout = Workout(
+            type: .strength,
+            startDate: Date(timeIntervalSince1970: 1_700_000_000 - 1_800),
+            endDate: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        let workoutExercise = WorkoutExercise(order: 0, exercise: exercise)
+        workoutExercise.workout = workout
+        let exerciseSet = ExerciseSet(order: 0, weight: 60, reps: 8, setType: .working)
+        exerciseSet.workoutExercise = workoutExercise
+        context.insert(exercise)
+        context.insert(workout)
+        context.insert(workoutExercise)
+        context.insert(exerciseSet)
+        try context.save()
+        return container
+    }
 
     private func makeHealthKitRecord(
         id: UUID = UUID(),

@@ -22,10 +22,15 @@ struct HealthKitWorkoutRowView: View {
                     Text(Self.formattedDuration(record.duration))
                         .font(.caption)
                         .foregroundStyle(theme.secondaryForeground)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .layoutPriority(1)
 
                     Text(record.startDate, format: .dateTime.month().day().weekday())
                         .font(.caption)
                         .foregroundStyle(theme.secondaryForeground)
+                        .lineLimit(1)
+                        .layoutPriority(1)
                 }
 
                 HStack(spacing: 8) {
@@ -50,6 +55,9 @@ struct HealthKitWorkoutRowView: View {
                     ))
                     .font(TypeScale.num)
                     .foregroundStyle(theme.secondaryForeground)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .layoutPriority(1)
                 }
                 if let distance = record.totalDistance, distance > 0 {
                     Text(String(
@@ -58,6 +66,9 @@ struct HealthKitWorkoutRowView: View {
                     ))
                     .font(TypeScale.num)
                     .foregroundStyle(theme.secondaryForeground)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .layoutPriority(1)
                 }
             }
         }
@@ -86,6 +97,9 @@ struct HealthKitWorkoutRowView: View {
                 }())
                 .font(TypeScale.meta)
                 .foregroundStyle(theme.secondaryForeground)
+                .monospacedDigit()
+                .lineLimit(1)
+                .layoutPriority(1)
             }
         }
     }
