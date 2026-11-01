@@ -261,4 +261,29 @@ struct GridLayoutEngineTests {
         let (_, filteredCount) = GridLayoutEngine.segment(insights)
         #expect(filteredCount == 0)
     }
+
+    @Test("Grid cards declare equal-height row contract")
+    func equalHeightRowContract() throws {
+        let source = try String(
+            contentsOfFile: findSourceFile(named: "AdaptiveCardGrid.swift"),
+            encoding: .utf8
+        )
+        #expect(source.contains(".frame(maxHeight: .infinity, alignment: .topLeading)"))
+    }
+
+    private func findSourceFile(named fileName: String) -> String {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+        while let url = enumerator?.nextObject() as? URL {
+            if url.lastPathComponent == fileName { return url.path }
+        }
+        return root.appendingPathComponent(fileName).path
+    }
 }

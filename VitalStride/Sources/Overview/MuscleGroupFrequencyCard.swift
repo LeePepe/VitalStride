@@ -67,9 +67,10 @@ private struct MuscleGroupChip: View {
 
             Text(group.localizedName)
                 .font(TypeScale.body)
-                .foregroundStyle(theme.neutrals.text1)
+                .foregroundStyle(theme.foreground)
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .minimumScaleFactor(0.85)
+                .layoutPriority(1)
 
             Spacer(minLength: 4)
 

@@ -25,6 +25,7 @@ struct DataView: View {
     @Environment(\.healthDataCache) private var healthDataCache
     @Environment(\.modelContext) private var modelContext
     @Environment(\.routingSignalStore) private var signalStore
+    @Environment(\.theme) private var theme
     #if os(iOS)
     @Environment(AppNavigation.self) private var navigation: AppNavigation?
     #endif
@@ -133,7 +134,7 @@ struct DataView: View {
             VStack(spacing: 12) {
                 Image(systemName: "heart.text.square")
                     .font(.largeTitle)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.accent)
                 Text(String(localized: "需要 HealthKit 授权", comment: ""))
                     .font(.headline)
                 #if os(iOS)
@@ -142,7 +143,7 @@ struct DataView: View {
                     comment: "iOS unauthorized HealthKit explanatory copy in DataView authorization CTA section"
                 ))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
                     .multilineTextAlignment(.center)
                 Button {
                     navigation?.selectedTab = .settings
@@ -161,7 +162,7 @@ struct DataView: View {
                     comment: "macOS unauthorized HealthKit explanatory copy in DataView authorization CTA section"
                 ))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
                     .multilineTextAlignment(.center)
                 #endif
             }
@@ -177,7 +178,7 @@ struct DataView: View {
                 Spacer()
                 ProgressView()
                 Text(String(localized: "正在检测可用数据…", comment: "Loading available data types"))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
                 Spacer()
             }
             .accessibilityElement(children: .combine)

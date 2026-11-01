@@ -84,6 +84,7 @@ struct AdaptiveCardGrid: View {
                         LazyVGrid(columns: Self.gridColumns, spacing: 12) {
                             ForEach(batchInsights, id: \.key) { insight in
                                 CardVariantFactory.makeCard(for: insight, onAction: onAction)
+                                    .frame(maxHeight: .infinity, alignment: .topLeading)
                             }
                         }
                     case let .fullWidth(insight):

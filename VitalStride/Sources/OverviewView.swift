@@ -187,6 +187,7 @@ struct OverviewView: View {
 // MARK: - Last Updated Label
 
 private struct LastUpdatedLabel: View {
+    @Environment(\.theme) private var theme
     let date: Date
 
     private static let formatter: RelativeDateTimeFormatter = {
@@ -203,8 +204,9 @@ private struct LastUpdatedLabel: View {
                 defaultValue: "上次更新于 \(relativeTime)"
             )
         )
-        .font(.caption)
-        .foregroundStyle(.tertiary)
+        .font(TypeScale.meta)
+        .foregroundStyle(theme.secondaryForeground)
+        .lineLimit(1)
         .frame(maxWidth: .infinity, alignment: .center)
     }
 }

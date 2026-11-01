@@ -1,9 +1,13 @@
 import Foundation
 import HealthKit
 import HealthKitService
+import DesignKit
 import SwiftData
 import SwiftUI
 import Testing
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @testable import VitalStride
 
@@ -144,11 +148,8 @@ struct HealthSnapshotStateTests {
     func loadAuthorizedNoData() async {
         let mock = MockHealthStore()
         mock.authorizationRequestStatus = .unnecessary
-        for sampleType in HealthSampleType.allCases {
-            mock.queryResults[sampleType.hkSampleType] = AnchoredQueryResult(
-                samples: [], deletedObjectUUIDs: [], newAnchor: HKQueryAnchor(fromValue: 0)
-            )
-        }
+        setupEmptyResults(for: mock)
+        #expect(mock.queryResults.count == HealthSampleType.allCases.count)
 
         let defaults = UserDefaults(suiteName: "SnapshotTest_\(UUID().uuidString)")!
         let anchors = HealthKitAnchorStore(defaults: defaults, keyPrefix: "test")
@@ -296,6 +297,77 @@ struct OverviewDisplayLogicTests {
         #expect(showWorkouts)
         #expect(!showEmpty)
     }
+
+    // MARK: - Four-State / Appearance Snapshot Evidence
+
+    #if canImport(UIKit)
+    @Suite("Overview four-state snapshot evidence")
+    struct OverviewFourStateSnapshotTests {
+        @Test("Exports deterministic Group B state snapshots at both compact widths")
+        @MainActor
+        func exportsFourStatesInBothAppearances() throws {
+            let directory = URL(fileURLWithPath: "/Users/lee/Development/handoff/vs-rem-1101/snapshots", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+            let states = ["populated", "empty", "loading", "error"]
+            let appearances: [(String, ColorScheme)] = [("light", .light), ("dark", .dark)]
+            let sizes = [(375, 812), (393, 852)]
+
+            for state in states {
+                for (appearanceName, scheme) in appearances {
+                    for (width, height) in sizes {
+                        let host = OverviewSnapshotHost(state: state)
+                            .preferredColorScheme(scheme)
+                            .frame(width: CGFloat(width), height: CGFloat(height))
+                        var renderer = ImageRenderer(content: host)
+                        renderer.scale = 1
+                        guard let image = renderer.uiImage, let data = image.pngData() else {
+                            Issue.record("Could not render \(state)-\(appearanceName)-\(width)")
+                            continue
+                        }
+
+                        let url = directory.appendingPathComponent(
+                            "tk2-overview-\(state)-\(appearanceName)-\(width)x\(height).png"
+                        )
+                        try data.write(to: url, options: .atomic)
+                        #expect(image.size.width == CGFloat(width))
+                        #expect(image.size.height == CGFloat(height))
+                    }
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private struct OverviewSnapshotHost: View {
+        let state: String
+
+        var body: some View {
+            Group {
+                switch state {
+                case "populated":
+                    Card {
+                        VStack(alignment: .leading, spacing: Space.sm) {
+                            SectionHeader("Overview", icon: "heart.fill")
+                            Metric(value: "8,543", label: "Steps")
+                            Sparkline(data: [2, 4, 3, 6, 5], color: Theme().accent)
+                        }
+                    }
+                case "empty":
+                    DesignStateView(.empty, title: "No health data", message: "Connect HealthKit to see today's summary.", actionTitle: "Open Settings")
+                case "loading":
+                    DesignStateView(.loading, title: "Loading summary", message: "Preparing the latest health data.")
+                default:
+                    DesignStateView(.error, title: "Summary unavailable", message: "Try again to refresh the latest health data.", actionTitle: "Retry")
+                }
+            }
+            .designTheme(seed: .ocean, neutral: .slate)
+            .padding(16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(Theme().canvas)
+        }
+    }
+    #endif
 
     @Test("With health data only, only health snapshot shown")
     func healthOnly() {
@@ -557,7 +629,7 @@ private func todayAnchor(calendar: Calendar = .current) -> Date {
     return max(now, noonToday)
 }
 
-private func setupEmptyResults(for mock: MockHealthStore, except excludedType: HealthSampleType) {
+private func setupEmptyResults(for mock: MockHealthStore, except excludedType: HealthSampleType? = nil) {
     for sampleType in HealthSampleType.allCases where sampleType != excludedType {
         mock.queryResults[sampleType.hkSampleType] = AnchoredQueryResult(
             samples: [], deletedObjectUUIDs: [], newAnchor: HKQueryAnchor(fromValue: 0)

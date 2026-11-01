@@ -30,6 +30,7 @@ struct SummaryCardView<Content: View>: View {
                 }
             }
         }
+        .frame(maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .combine)
     }
 }
@@ -65,13 +66,15 @@ struct StepsSummaryCard: View {
             if let steps = todaySteps {
                 Text(steps.formatted(.number))
                     .font(TypeScale.display)
+                    .monospacedDigit()
+                    .layoutPriority(1)
                 Text(String(localized: "步", comment: "Steps unit"))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             } else {
                 Text("--")
                     .font(TypeScale.display)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             }
         }
         .task {
@@ -126,13 +129,15 @@ struct HeartRateSummaryCard: View {
             if let bpm = latestBPM {
                 Text(bpm.formatted())
                     .font(TypeScale.display)
+                    .monospacedDigit()
+                    .layoutPriority(1)
                 Text(String(localized: "BPM", comment: "Beats per minute"))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             } else {
                 Text("--")
                     .font(TypeScale.display)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             }
         }
         .task {
@@ -189,10 +194,12 @@ struct SleepSummaryCard: View {
             if let sleep = lastNightSleep {
                 Text(formatDuration(sleep))
                     .font(TypeScale.display)
+                    .monospacedDigit()
+                    .layoutPriority(1)
             } else {
                 Text("--")
                     .font(TypeScale.display)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             }
         }
         .task {
@@ -247,13 +254,15 @@ struct WeightSummaryCard: View {
             if let weight = latestWeight {
                 Text(weight.formatted(.number.precision(.fractionLength(1))))
                     .font(TypeScale.display)
+                    .monospacedDigit()
+                    .layoutPriority(1)
                 Text(String(localized: "kg", comment: "Kilogram"))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             } else {
                 Text("--")
                     .font(TypeScale.display)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryForeground)
             }
         }
         .task {
