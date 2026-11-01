@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import DesignKit
 import HealthKitService
 import SwiftData
@@ -29,18 +30,19 @@ import UIKit
 ///    (so the row can render the correct `WorkoutSourceBadge`).
 /// 4. `WorkoutSourceBadge.accessibilityLabel(...)` yields non-empty, distinct
 ///    labels for the badge variants the row combines into its own a11y label.
-@Suite("WorkoutListRendering — MY-1359")
+@Suite("WorkoutListRendering — MY-1359", .serialized)
 @MainActor
 struct WorkoutListRenderingTests {
 #if canImport(UIKit)
     @Test("Export Group A four-state Light/Dark snapshot evidence")
-    func exportGroupASnapshots() throws {
-        let output = URL(fileURLWithPath: "/Users/lee/Development/handoff/vs-rem-1101/snapshots", isDirectory: true)
+    func exportGroupASnapshots() async throws {
+        let output = TK1SnapshotRenderer.outputDirectory
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
 
         for width in [375, 393] {
             let height = width == 375 ? 812 : 852
             for appearance in [ColorScheme.light, ColorScheme.dark] {
+                var stateHashes: Set<String> = []
                 for state in [WorkoutListSnapshotMode.populated, .empty, .loading, .error] {
                     let stateName: String
                     switch state {
@@ -66,17 +68,9 @@ struct WorkoutListRenderingTests {
                         .preferredColorScheme(appearance)
                         .designTheme()
 
-                    let host = UIHostingController(rootView: snapshot)
-                    let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: height))
-                    window.rootViewController = host
-                    window.makeKeyAndVisible()
-                    host.view.frame = window.bounds
-                    host.view.layoutIfNeeded()
-
-                    let renderer = UIGraphicsImageRenderer(size: window.bounds.size)
-                    let image = renderer.image { _ in
-                        host.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
-                    }
+                    let image = try await TK1SnapshotRenderer.render(
+                        snapshot, size: CGSize(width: width, height: height), appearance: appearance
+                    )
                     let data = try #require(image.pngData())
                     #expect(data.count > 15_000)
                     #expect(image.cgImage?.width == width * 3)
@@ -85,15 +79,15 @@ struct WorkoutListRenderingTests {
                     let schemeName = appearance == .dark ? "dark" : "light"
                     let filename = "tk1-workout-list-\(stateName)-\(schemeName)-\(width)x\(height).png"
                     try data.write(to: output.appendingPathComponent(filename))
-                    window.isHidden = true
-                    window.rootViewController = nil
+                    stateHashes.insert(SHA256.hash(data: data).description)
                 }
+                #expect(stateHashes.count == 4, "Each workout state must render distinct production content")
             }
         }
     }
 
     @Test("Start Workout and Workout Detail production state shells render")
-    func renderProductionStateShells() throws {
+    func renderProductionStateShells() async throws {
         let container = try ModelContainerConfiguration.makeTestContainer()
         let context = ModelContext(container)
         let workout = Workout(
@@ -119,22 +113,13 @@ struct WorkoutListRenderingTests {
             )
 
             for view in [startView, detailView] {
-                let host = UIHostingController(rootView: view)
-                let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
-                window.rootViewController = host
-                window.makeKeyAndVisible()
-                host.view.frame = window.bounds
-                host.view.layoutIfNeeded()
-                let renderer = UIGraphicsImageRenderer(size: window.bounds.size)
-                let image = renderer.image { _ in
-                    host.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
-                }
+                let image = try await TK1SnapshotRenderer.render(
+                    view, size: CGSize(width: 393, height: 852), appearance: .light
+                )
                 let data = try #require(image.pngData())
                 #expect(data.count > 15_000)
                 #expect(image.cgImage?.width == 1179)
                 #expect(image.cgImage?.height == 2556)
-                window.isHidden = true
-                window.rootViewController = nil
             }
         }
     }
@@ -369,3 +354,69 @@ struct WorkoutListRenderingTests {
         #expect(strava.contains("Strava"))
     }
 }
+
+#if canImport(UIKit)
+/// Scene-backed production rendering shared by the TK1 evidence suites.
+@MainActor
+enum TK1SnapshotRenderer {
+    private static var isRendering = false
+    static var outputDirectory: URL {
+        if let path = ProcessInfo.processInfo.environment["VS_SNAPSHOT_EXPORT_DIR"], !path.isEmpty {
+            return URL(fileURLWithPath: path, isDirectory: true)
+        }
+        return FileManager.default.temporaryDirectory.appendingPathComponent(
+            "vs-tk1-snapshots-\(UUID().uuidString)", isDirectory: true
+        )
+    }
+
+    static func pumpRunLoop() {
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+    }
+
+    static func render<Content: View>(
+        _ content: Content, size: CGSize, appearance: ColorScheme,
+        prepareForCapture: (UIView) async throws -> Void = { _ in }
+    ) async throws -> UIImage {
+        // Swift Testing may schedule these suites concurrently. Keep scene
+        // ownership exclusive while yielding to SwiftUI's MainActor tasks.
+        while isRendering { try await Task.sleep(for: .milliseconds(50)) }
+        isRendering = true
+        defer { isRendering = false }
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = try #require(scenes.first { $0.activationState == .foregroundActive } ?? scenes.first)
+        let previousKeyWindow = scene.windows.first { $0.isKeyWindow }
+        let window = UIWindow(windowScene: scene)
+        let controller = UIHostingController(rootView: content)
+        let style: UIUserInterfaceStyle = appearance == .dark ? .dark : .light
+        window.overrideUserInterfaceStyle = style
+        controller.overrideUserInterfaceStyle = style
+        window.rootViewController = controller
+        window.frame = CGRect(origin: .zero, size: size)
+        window.makeKeyAndVisible()
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            previousKeyWindow?.makeKey()
+        }
+        controller.view.frame = window.bounds
+        // Allow SwiftUI tasks, safe-area bars and scene appearance to settle.
+        for _ in 0..<8 {
+            try await Task.sleep(for: .milliseconds(50))
+            pumpRunLoop()
+            window.layoutIfNeeded()
+            controller.view.layoutIfNeeded()
+        }
+        try await prepareForCapture(controller.view)
+        pumpRunLoop()
+        controller.view.layoutIfNeeded()
+        #expect(window.windowScene != nil)
+        #expect(window.bounds.size == size)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 3.0
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        return renderer.image { _ in
+            #expect(controller.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true))
+        }
+    }
+}
+#endif

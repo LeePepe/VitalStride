@@ -240,7 +240,7 @@ struct WorkoutListView: View {
         }()
         return NavigationStack {
             Group {
-                if snapshotMode == .empty || (!hasAnyWorkouts
+                if snapshotMode == .empty || (snapshotMode == .live && !hasAnyWorkouts
                     && !isLoadingHealthKit
                     && !healthKitLoadFailed
                     && !healthKitUnauthorized) {
@@ -254,7 +254,7 @@ struct WorkoutListView: View {
                     .padding(Space.md)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(theme.canvas)
-                } else if snapshotMode == .loading || (isLoadingHealthKit && !hasAnyWorkouts) {
+                } else if snapshotMode == .loading || (snapshotMode == .live && isLoadingHealthKit && !hasAnyWorkouts) {
                     DesignStateView(
                         .loading,
                         title: String(localized: "正在加载训练", comment: "Workout list loading title"),

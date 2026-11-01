@@ -171,7 +171,7 @@ struct ExerciseSubstituteSheet: View {
             Text(label)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, Space.sm)
                 .frame(height: 36)
                 .foregroundStyle(
                     isSelected ? theme.onInteractiveAccent : theme.foreground

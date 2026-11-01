@@ -30,7 +30,7 @@ struct ExercisePickerSearchLayoutTests {
 
     @Test("Rendered picker evidence: light, dark, filtered empty and accessibility size")
     @MainActor
-    func renderPickerEvidence() throws {
+    func renderPickerEvidence() async throws {
         let container = try ModelContainerConfiguration.makeTestContainer()
         for (name, group, equipment) in [
             ("Bench Press", MuscleGroup.chest, Equipment.barbell),
@@ -56,23 +56,17 @@ struct ExercisePickerSearchLayoutTests {
                 .environment(\.dynamicTypeSize, size)
                 .preferredColorScheme(scheme)
                 .designTheme()
-            let host = UIHostingController(rootView: view)
-            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
-            window.rootViewController = host
-            window.makeKeyAndVisible()
-            host.view.frame = window.bounds
-            host.view.setNeedsLayout()
-            host.view.layoutIfNeeded()
-            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.4))
-            host.view.layoutIfNeeded()
-            let renderer = UIGraphicsImageRenderer(size: window.bounds.size)
-            let image = renderer.image { _ in
-                host.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            let image = try await TK1SnapshotRenderer.render(
+                view, size: CGSize(width: 393, height: 852), appearance: scheme
+            ) { root in
+                if size.isAccessibilitySize {
+                    try await revealBottomExerciseRow(in: root)
+                }
             }
             let data = try #require(image.pngData())
             #expect(image.cgImage?.width == 1179)
             #expect(image.cgImage?.height == 2556)
-            let output = URL(fileURLWithPath: "/Users/lee/Development/handoff/vs-rem-1101/snapshots", isDirectory: true)
+            let output = TK1SnapshotRenderer.outputDirectory
             try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
             let path = output.appendingPathComponent(
                 "tk1-exercise-picker-\(name)-393x852.png"
@@ -80,9 +74,32 @@ struct ExercisePickerSearchLayoutTests {
             try data.write(to: path)
             Attachment.record(Array(data), named: "vswr-t2-picker-\(name).png")
             #expect(data.count > 15_000)
-            window.isHidden = true
-            window.rootViewController = nil
         }
+    }
+    /// At accessibility sizes the fixture is taller than the viewport. Scroll
+    /// the real grid to its final row to verify Cable Row's full title and
+    /// metadata, plus the bottom clearance provided by the production dock.
+    @MainActor
+    private func revealBottomExerciseRow(in root: UIView) async throws {
+        func scrollViews(in view: UIView) -> [UIScrollView] {
+            (view as? UIScrollView).map { [$0] } ?? view.subviews.flatMap { scrollViews(in: $0) }
+        }
+        let grids = scrollViews(in: root).filter {
+            $0.bounds.width > root.bounds.width / 2 && $0.bounds.height > root.bounds.height / 2
+        }
+        let grid = try #require(grids.first)
+        #expect(grids.count == 1)
+        let bottom = max(-grid.adjustedContentInset.top,
+                         grid.contentSize.height - grid.bounds.height + grid.adjustedContentInset.bottom)
+        grid.setContentOffset(CGPoint(x: grid.contentOffset.x, y: bottom), animated: false)
+        // Wait for the normal 700ms equipment-index HUD to dismiss before
+        // inspecting the underlying title and metadata.
+        for _ in 0..<20 {
+            try await Task.sleep(for: .milliseconds(50))
+            TK1SnapshotRenderer.pumpRunLoop()
+            grid.layoutIfNeeded()
+        }
+        #expect(grid.contentOffset.y == bottom)
     }
     #endif
 }

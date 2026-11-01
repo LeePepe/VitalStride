@@ -342,7 +342,7 @@ struct ExercisePickerView: View {
             }.padding(.vertical, 12)
         }
         .frame(width: Self.muscleSidebarWidth)
-        .contentMargins(.bottom, panelHeight, for: .scrollContent)
+        .contentMargins(.bottom, panelHeight + Space.md, for: .scrollContent)
         .background(theme.inner.opacity(0.5))
         .accessibilityIdentifier("exercise_picker_muscle_sidebar")
     }
@@ -534,9 +534,9 @@ struct ExercisePickerView: View {
                 // reserve matching bottom space with a STATIC margin driven
                 // by the intrinsic `panelHeight`. On iOS 26 the panel is a
                 // `.safeAreaBar` (see `FloatingPanelAttachment`) which
-                // reserves its own space, so `panelHeight` stays 0 here and
-                // this margin is an inert no-op.
-                .contentMargins(.bottom, panelHeight, for: .scrollContent)
+                // reserves its own space, so `panelHeight` stays 0 here;
+                // the token margin keeps the last row clear of the dock.
+                .contentMargins(.bottom, panelHeight + Space.md, for: .scrollContent)
                 // MY-1272: dismiss the search keyboard as soon as the
                 // card grid scrolls. `.immediately` mirrors
                 // `ActiveWorkoutView`'s existing choice: any drag
@@ -1042,8 +1042,7 @@ private struct ExerciseCard: View {
             }
             .frame(
                 maxWidth: .infinity,
-                minHeight: dynamicTypeSize.isAccessibilitySize ? 142 : 118,
-                maxHeight: .infinity,
+                minHeight: dynamicTypeSize.isAccessibilitySize ? 148 : 118,
                 alignment: .topLeading
             )
             .padding(10)
@@ -1184,7 +1183,7 @@ struct PickerBottomBar: View {
 
     var body: some View {
         let isConfirmDisabled = isMultiSelect && selectedCount == 0
-        HStack(spacing: 4) {
+        HStack(spacing: Space.xxs) {
             searchField
                 .frame(maxWidth: .infinity)
                 .layoutPriority(1)
@@ -1194,7 +1193,7 @@ struct PickerBottomBar: View {
                         .font(.caption.weight(.semibold)).fixedSize()
                     Image(systemName: "plus").font(.body.weight(.semibold))
                 }
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -1202,7 +1201,7 @@ struct PickerBottomBar: View {
             .accessibilityLabel(String(localized: "picker.create", comment: "Create custom exercise"))
             .accessibilityIdentifier("exercise_picker_create")
             Button(action: onConfirm) {
-                HStack(spacing: 3) {
+                HStack(spacing: Space.xxs) {
                     Text(String(localized: "picker.done", comment: "Confirm exercise selection"))
                     if isMultiSelect && selectedCount > 0 {
                         Text("\(selectedCount)").monospacedDigit()
@@ -1210,22 +1209,24 @@ struct PickerBottomBar: View {
                 }
                 .font(.subheadline.weight(.semibold))
                 .fixedSize()
-                .padding(.horizontal, 12)
-                .frame(minWidth: 44, minHeight: 44)
+                .padding(.horizontal, Space.sm)
+                .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
                 .background(
                     isConfirmDisabled ? theme.inner : theme.interactiveAccent,
                     in: RoundedRectangle(cornerRadius: Radius.control)
                 )
             }
             .buttonStyle(.plain)
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(2)
             .foregroundStyle(isConfirmDisabled ? theme.secondaryForeground : theme.onInteractiveAccent)
             .disabled(isConfirmDisabled)
             .accessibilityLabel(String(localized: "picker.done", comment: "Confirm exercise selection"))
             .accessibilityValue(String(localized: "picker.selected.count \(selectedCount)", comment: "Selected exercise count"))
             .accessibilityIdentifier("exercise_picker_confirm")
         }
-        .padding(8)
-        .designSurface(style: .glass, cornerRadius: 16)
+        .padding(Space.xs)
+        .designSurface(style: .glass, cornerRadius: Radius.control)
     }
 
     // Own the native field here so its identifier belongs only to the input,
