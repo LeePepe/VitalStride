@@ -21,6 +21,60 @@ import VitalModels
 @Suite("ExercisePicker index-bar sync (MY-1249)")
 struct ExercisePickerIndexSyncTests {
 
+    @Test("deceleration selection owns the target until stale visibility settles")
+    func deceleratingSelectionSuppressesStaleVisibility() {
+        var arbitrator = ExercisePickerScrollArbitrator()
+        arbitrator.updateScrollPhase(.decelerating, isScrubbing: false)
+        let generation = arbitrator.requestSelection(target: .dumbbell, source: .muscle)
+
+        #expect(arbitrator.scrollPhase == .programmatic)
+        #expect(arbitrator.programmaticTarget == .dumbbell)
+        #expect(arbitrator.programmaticSource == .muscle)
+        #expect(!arbitrator.acceptsVisibility(.barbell))
+        #expect(arbitrator.acceptsVisibility(.dumbbell))
+
+        arbitrator.settle(generation: generation &- 1)
+        #expect(arbitrator.programmaticTarget == .dumbbell)
+        arbitrator.settle(generation: generation)
+        #expect(arbitrator.programmaticTarget == nil)
+        #expect(arbitrator.scrollPhase == .idle)
+    }
+
+    @Test("filter and index requests replace an older generation")
+    func newerSelectionGenerationWins() {
+        var arbitrator = ExercisePickerScrollArbitrator()
+        arbitrator.updateScrollPhase(.decelerating, isScrubbing: false)
+        let oldGeneration = arbitrator.requestSelection(target: .barbell, source: .filter)
+        let newGeneration = arbitrator.requestSelection(target: .cable, source: .indexTap)
+
+        #expect(newGeneration > oldGeneration)
+        #expect(arbitrator.programmaticTarget == .cable)
+        #expect(arbitrator.programmaticSource == .indexTap)
+        #expect(!arbitrator.acceptsVisibility(.barbell))
+        #expect(arbitrator.acceptsVisibility(.cable))
+
+        arbitrator.settle(generation: oldGeneration)
+        #expect(arbitrator.programmaticTarget == .cable)
+        arbitrator.settle(generation: newGeneration)
+        #expect(arbitrator.programmaticTarget == nil)
+    }
+
+    @Test("manual interaction releases programmatic ownership after request-frame callbacks")
+    func manualInteractionReclaimsSelection() {
+        var arbitrator = ExercisePickerScrollArbitrator()
+        _ = arbitrator.requestSelection(target: .machine, source: .indexScrub)
+        arbitrator.updateScrollPhase(.interacting, isScrubbing: false)
+
+        #expect(arbitrator.programmaticTarget == .machine)
+        #expect(arbitrator.scrollPhase == .programmatic)
+
+        arbitrator.updateScrollPhase(.decelerating, isScrubbing: false)
+        arbitrator.updateScrollPhase(.interacting, isScrubbing: false)
+        #expect(arbitrator.programmaticTarget == nil)
+        #expect(arbitrator.scrollPhase == .userDragging)
+        #expect(arbitrator.acceptsVisibility(.cable))
+    }
+
     @Test("first visible id in equipment order wins the highlight")
     func firstVisibleWins() {
         let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
@@ -335,27 +389,55 @@ struct ExercisePickerIndexSyncTests {
         #expect(current == .cable)
     }
 
-    /// After drag ends, the next scroll-callback frame MUST reconcile
-    /// `visibleEquipment` to the actual top-visible section reported by the
-    /// scroll view — otherwise the highlight would freeze on the drag target
-    /// even when the grid subsequently scrolls independently.
-    @Test("drag end reconciles highlight to actual top-visible section (MY-1338)")
+    @Test("drag end retains the scrub target through the settle window")
     func dragEndReconcilesToScroll() {
         let order: [ExerciseSection] = [.barbell, .dumbbell, .machine, .cable]
         var writeCount = 0
         var current: ExerciseSection? = .machine // last drag target
 
-        // Drag has ended; scroll animations settle; the grid is actually
-        // top-anchored at `.dumbbell` (perhaps the animated scrollTo(.machine)
-        // did not fully reach the top before the finger lifted). The next
-        // callback MUST update the highlight.
+        // A long-held scrub is re-armed at finger-up, so ownership remains
+        // active while the final scroll settles.
+        var arbitrator = ExercisePickerScrollArbitrator()
+        _ = arbitrator.requestSelection(target: .machine, source: .indexScrub)
+        _ = arbitrator.rearmSelection(target: .machine, source: .indexScrub)
+        #expect(arbitrator.programmaticTarget == .machine)
+        #expect(arbitrator.lastSelectedTarget == .machine)
+
         _ = ExercisePickerView.applyVisibleIds(
             [.dumbbell, .machine],
             in: order,
             current: current,
+            preferred: arbitrator.programmaticTarget ?? arbitrator.lastSelectedTarget,
             isDragging: false
         ) { current = $0; writeCount += 1 }
 
+        #expect(current == .machine)
+        #expect(writeCount == 0)
+    }
+
+    @Test("bottom-clamped target wins while upper section remains visible")
+    func bottomClampedTargetRetainsVisibility() {
+        let order: [ExerciseSection] = [.dumbbell, .bodyweight, .cable]
+        var current: ExerciseSection? = .bodyweight
+        var writeCount = 0
+
+        _ = ExercisePickerView.applyVisibleIds(
+            [.dumbbell, .bodyweight],
+            in: order,
+            current: current,
+            preferred: .bodyweight,
+            isDragging: false
+        ) { current = $0; writeCount += 1 }
+        #expect(current == .bodyweight)
+        #expect(writeCount == 0)
+
+        _ = ExercisePickerView.applyVisibleIds(
+            [.dumbbell],
+            in: order,
+            current: current,
+            preferred: .bodyweight,
+            isDragging: false
+        ) { current = $0; writeCount += 1 }
         #expect(current == .dumbbell)
         #expect(writeCount == 1)
     }
