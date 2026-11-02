@@ -1502,11 +1502,14 @@ struct ActiveWorkoutView: View {
         .foregroundStyle(subFgColor)
         .lineLimit(1)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
                 sidebarInlineReorderControls(
                     index: index,
                     exerciseName: exerciseName,
@@ -2005,10 +2008,9 @@ struct ActiveWorkoutView: View {
     }
 
     private func sidebarWidth(forListWidth listWidth: CGFloat, isReordering: Bool) -> CGFloat {
-        let collapsed: CGFloat = largeMode ? 76 : 64
         guard isReordering else {
-            guard listWidth > 0 else { return collapsed }
-            return min(max(listWidth * 0.18, collapsed), 88)
+            guard listWidth > 0 else { return 64 }
+            return min(max(listWidth * 0.18, 64), 88)
         }
         let expanded: CGFloat = largeMode ? 280 : 260
         return min(expanded, max(236, listWidth > 0 ? listWidth * 0.74 : expanded))
