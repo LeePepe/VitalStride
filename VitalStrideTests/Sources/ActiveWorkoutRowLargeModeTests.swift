@@ -2336,4 +2336,96 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         }
     }
 }
+
+@MainActor
+final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
+    func testSidebarSelectionReachesBottomAndReorderActionsStayWithinRail() async throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        let workout = Workout(type: .strength, startDate: Date())
+        context.insert(workout)
+        var exercises: [WorkoutExercise] = []
+        for index in 0..<6 {
+            let exercise = Exercise(
+                nameEn: "Exercise \(index + 1)",
+                nameZh: index == 5 ? "弹力带窄握下拉" : "动作 \(index + 1)",
+                muscleGroup: .back,
+                equipment: .band
+            )
+            let set = ExerciseSet(order: 0, weight: 20, reps: 10)
+            let owner = WorkoutExercise(order: index, exercise: exercise, sets: [set])
+            owner.workout = workout
+            context.insert(exercise)
+            context.insert(owner)
+            context.insert(set)
+            exercises.append(owner)
+        }
+        try context.save()
+
+        var select: (@MainActor @Sendable (PersistentIdentifier) -> Void)?
+        var driver: ActiveWorkoutListDriver?
+        var toggle: (@MainActor @Sendable () -> Void)?
+        var move: (@MainActor @Sendable (Int, Int) -> Void)?
+        var selectedID: PersistentIdentifier?
+        var geometry: ActiveWorkoutListGeometry?
+        var headers: [AnyHashable: CGRect] = [:]
+        let sink = ActiveWorkoutListObservationSink(
+            onGeometry: { geometry = $0 },
+            onReady: { driver = $0 },
+            onHeaderFrame: { headers[$0] = $1 },
+            onSidebarMoveReady: { move = $0 },
+            onSidebarSelect: { select = $0 },
+            onSidebarSelectionState: { selectedID = $0 },
+            onSidebarReorderToggle: { toggle = $0 }
+        )
+        let content = ActiveWorkoutView(source: .resume(workout))
+            .modelContainer(container)
+            .designTheme(seed: .teal, neutral: .slate)
+            .environment(\.activeWorkoutListObservation, sink)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        let host = UIHostingController(rootView: content)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertNotNil(select)
+        select?(exercises[0].persistentModelID)
+        select?(exercises[2].persistentModelID)
+        select?(exercises[5].persistentModelID)
+        driver?.scrollTo(exercises[5].persistentModelID, .top)
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertEqual(selectedID, exercises[5].persistentModelID)
+        if let centerScroll = Self.descendants(of: host.view).compactMap({ $0 as? UIScrollView }).first(where: {
+            $0.convert($0.bounds, to: window).minX > 50 && $0.contentSize.height > $0.bounds.height
+        }) {
+            centerScroll.setContentOffset(
+                CGPoint(x: 0, y: min(400, centerScroll.contentSize.height - centerScroll.bounds.height)),
+                animated: false
+            )
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        let listGeometry = try XCTUnwrap(geometry)
+        let bottomHeader = headers[exercises[5].persistentModelID] ?? listGeometry.visibleRect
+        XCTAssertGreaterThanOrEqual(listGeometry.contentOffset.y, 0)
+        XCTAssertTrue(listGeometry.visibleRect.insetBy(dx: -1, dy: -1).contains(bottomHeader))
+
+        toggle?()
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertNotNil(move)
+        move?(5, 4)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(exercises[5].order, 4)
+        XCTAssertEqual(exercises[0].order, 0)
+        XCTAssertEqual(exercises[5].order, 4)
+    }
+
+    private static func descendants(of view: UIView) -> [UIView] {
+        view.subviews + view.subviews.flatMap { descendants(of: $0) }
+    }
+}
+
 #endif
