@@ -17,45 +17,6 @@ import UIKit
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveWorkout")
 
-#if canImport(UIKit) && !os(macOS)
-private struct AddExerciseFrameProbe: UIViewRepresentable {
-    let onFrame: @MainActor @Sendable (CGRect) -> Void
-
-    func makeUIView(context: Context) -> ProbeView {
-        let view = ProbeView()
-        view.isUserInteractionEnabled = false
-        view.onFrame = onFrame
-        return view
-    }
-
-    func updateUIView(_ uiView: ProbeView, context: Context) {
-        uiView.onFrame = onFrame
-        uiView.setNeedsLayout()
-    }
-
-    final class ProbeView: UIView {
-        var onFrame: (@MainActor @Sendable (CGRect) -> Void)?
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            reportFrame()
-        }
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            reportFrame()
-        }
-
-        private func reportFrame() {
-            guard let window, !bounds.isEmpty else { return }
-            // Report every UIKit layout pass; SwiftUI onChange can drop a
-            // second safe-area update in the same display frame.
-            onFrame?(convert(bounds, to: window))
-        }
-    }
-}
-#endif
-
 struct ActiveWorkoutListGeometry: Equatable {
     let visibleRect: CGRect
     let contentOffset: CGPoint
@@ -101,6 +62,9 @@ struct ActiveWorkoutListObservationSink: Sendable {
         @escaping @MainActor @Sendable (Int, Int) -> Void
     ) -> Void = { _ in }
     var onAddExerciseFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onAddExerciseVisibleFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onAddExerciseHitFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onAddExerciseAction: @MainActor @Sendable () -> Void = {}
 }
 
 struct ActiveWorkoutToolbarObservation: Sendable {
@@ -377,6 +341,7 @@ struct ActiveWorkoutView: View {
                         ActiveWorkoutFABContainer.body(snackbarSlot: policy.bottomSlot) {
                             addExerciseButton
                         }
+                        .padding(.horizontal, ActiveWorkoutSnackbarLayout.dockInset)
                     }
                 )
                 .accessibilityElement(children: .contain)
@@ -636,6 +601,7 @@ struct ActiveWorkoutView: View {
                 listObservation.onKeyboardVisibility(false)
             }
             #endif
+            .coordinateSpace(name: "ActiveWorkoutRoot")
         }
     }
 
@@ -1064,16 +1030,7 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var restSnackbarContent: some View {
-        if snackbarSlotOverride == .rest {
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(theme.success)
-                Text(String(localized: "休息结束", comment: "Rest completed banner text"))
-                Spacer()
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(String(localized: "休息结束", comment: "Rest completed a11y label"))
-        } else if restCompletedPresenter.isBuffered {
+        if restCompletedPresenter.isBuffered {
             Button {
                 restCompletedPresenter.dismiss()
                 restTimer.dismissCompleted()
@@ -1089,8 +1046,8 @@ struct ActiveWorkoutView: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(String(localized: "休息结束", comment: "Rest completed a11y label"))
             .accessibilityHint(String(localized: "点击关闭", comment: "Dismiss rest completed banner a11y hint"))
-        } else if restTimer.phase == .resting, let restEnd = restTimer.restEndDate {
-            let totalDuration = restTimer.restTotalDuration ?? 0
+        } else if snackbarSlotOverride == .rest || restTimer.phase == .resting, let restEnd = restTimer.restEndDate ?? (snackbarSlotOverride == .rest ? Date().addingTimeInterval(59) : nil) {
+            let totalDuration = restTimer.restTotalDuration ?? (snackbarSlotOverride == .rest ? 60 : 0)
             let totalSeconds = max(1, Int(totalDuration))
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let remaining = max(0, Int(restEnd.timeIntervalSince(context.date)))
@@ -1420,6 +1377,7 @@ struct ActiveWorkoutView: View {
     private var addExerciseButton: some View {
         Button {
             HapticManager.trigger(.exerciseAdded)
+            listObservation.onAddExerciseAction()
             showingExercisePicker = true
         } label: {
             Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus")
@@ -1438,23 +1396,34 @@ struct ActiveWorkoutView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .contentShape(Rectangle())
                 .background {
-                    #if canImport(UIKit) && !os(macOS)
-                    AddExerciseFrameProbe(onFrame: listObservation.onAddExerciseFrame)
-                    #else
                     GeometryReader { proxy in
-                        let frame = proxy.frame(in: .global)
+                        let frame = proxy.frame(in: .named("ActiveWorkoutRoot"))
                         Color.clear
-                            .onAppear { listObservation.onAddExerciseFrame(frame) }
+                            .onAppear {
+                                listObservation.onAddExerciseHitFrame(frame)
+                            }
                             .onChange(of: frame) { _, newFrame in
-                                listObservation.onAddExerciseFrame(newFrame)
+                                listObservation.onAddExerciseHitFrame(newFrame)
                             }
                     }
-                    #endif
                 }
         }
         .buttonStyle(FABButtonStyle())
         .frame(maxWidth: horizontalSizeClass == .regular ? 400 : .infinity)
-        .padding(.horizontal, ActiveWorkoutSnackbarLayout.dockInset)
+        .background {
+            GeometryReader { proxy in
+                let frame = proxy.frame(in: .named("ActiveWorkoutRoot"))
+                Color.clear
+                    .onAppear {
+                        listObservation.onAddExerciseFrame(frame)
+                        listObservation.onAddExerciseVisibleFrame(frame)
+                    }
+                    .onChange(of: frame) { _, newFrame in
+                        listObservation.onAddExerciseFrame(newFrame)
+                        listObservation.onAddExerciseVisibleFrame(newFrame)
+                    }
+            }
+        }
         .accessibilityIdentifier("workout_add_exercise")
     }
 

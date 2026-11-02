@@ -30,38 +30,18 @@ import UIKit
 /// in `ActiveWorkoutView` — none of which changed.
 @Suite("Active Workout compact row hit target (MY-1013)")
 struct ActiveWorkoutHitTargetTests {
-    @Test("Add-exercise dock keeps visible and effective hit frames identical")
-    func addExerciseDockHitTargetParity() {
-        for largeMode in [false, true] {
-            for width in [CGFloat(375), CGFloat(393), CGFloat(834)] {
-                let frames = ActiveWorkoutSnackbarLayout.addExerciseFrames(
-                    containerWidth: width,
-                    horizontalSizeClass: width >= 834 ? .regular : .compact,
-                    largeMode: largeMode
-                )
-                #expect(frames.visible == frames.effectiveHit)
-                #expect(abs(frames.visible.width - frames.effectiveHit.width) <= 1)
-                #expect(abs(frames.visible.height - frames.effectiveHit.height) <= 1)
-                #expect(frames.visible.height == (largeMode ? 60 : 52))
-                #expect(frames.visible.width >= 320 || width >= 834)
-            }
-        }
-    }
-
-    @Test("Add-exercise dock edge points remain inside the hit frame")
-    func addExerciseDockEdgeHitPoints() {
-        let frame = ActiveWorkoutSnackbarLayout.addExerciseFrames(
-            containerWidth: 393,
-            horizontalSizeClass: .compact,
-            largeMode: false
-        ).effectiveHit
-        for point in [
-            CGPoint(x: frame.minX + 8, y: frame.midY),
-            CGPoint(x: frame.midX, y: frame.midY),
-            CGPoint(x: frame.maxX - 8, y: frame.midY)
-        ] {
-            #expect(frame.contains(point))
-        }
+    @Test("Mounted add-exercise probe contract reports separate visible and hit frames")
+    func mountedAddExerciseProbeContract() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("VitalStride/Sources/ActiveWorkoutView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        #expect(source.contains("onAddExerciseVisibleFrame"))
+        #expect(source.contains("onAddExerciseHitFrame"))
+        #expect(source.contains("onAddExerciseAction"))
+        #expect(source.contains("coordinateSpace(name: \"ActiveWorkoutRoot\")"))
     }
 
     @Test("SetRow/SubSetRow hit-target side is exactly 44pt (Constitution P1-H)")

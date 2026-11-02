@@ -38,6 +38,14 @@ final class DesignEcoSnapshotTests: XCTestCase {
         "workout-normal-rest-dark",
         "workout-large-rest",
         "workout-large-rest-dark",
+        "tk1-state-populated-light",
+        "tk1-state-populated-dark",
+        "tk1-state-empty-light",
+        "tk1-state-empty-dark",
+        "tk1-state-loading-light",
+        "tk1-state-loading-dark",
+        "tk1-state-error-light",
+        "tk1-state-error-dark",
     ]
 
     func testRendersRoundThreeSnapshots() async throws {
@@ -54,6 +62,18 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 workoutFixture: workoutFixture,
                 defaults: defaults
             )
+            for state in ["populated", "empty", "loading", "error"] {
+                try await Self.render(
+                    ActiveWorkoutStateSnapshot(state: state)
+                        .designTheme(seed: .teal, neutral: .slate)
+                        .environment(\.colorScheme, variant.colorScheme)
+                        .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark)),
+                    named: "tk1-state-\(state)-\(variant.isDark ? "dark" : "light")",
+                    in: outputDirectory,
+                    variant: variant
+                )
+            }
+
         }
 
         for name in Self.snapshotNames {
@@ -61,6 +81,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
             let data = try Data(contentsOf: url)
             XCTAssertGreaterThan(data.count, 10_000)
         }
+
     }
 
     func testRendersTK1WidthMatrixSnapshots() async throws {
@@ -136,6 +157,11 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 var noneFrame: CGRect?
                 var restFrame: CGRect?
                 var undoFrame: CGRect?
+                var noneHitFrame: CGRect?
+                var restHitFrame: CGRect?
+                var undoHitFrame: CGRect?
+                var tapCount = 0
+                let action: @MainActor @Sendable () -> Void = { tapCount += 1 }
                 var safeFrameInWindow = CGRect(origin: .zero, size: Self.snapshotSize)
 
                 for slot in [BottomSnackbarSlot.none, .rest, .undo] {
@@ -150,7 +176,28 @@ final class DesignEcoSnapshotTests: XCTestCase {
                             case .undo:
                                 undoFrame = frame
                             }
-                        }
+                        },
+                        onAddExerciseVisibleFrame: { frame in
+                            switch slot {
+                            case .none:
+                                noneFrame = frame
+                            case .rest:
+                                restFrame = frame
+                            case .undo:
+                                undoFrame = frame
+                            }
+                        },
+                        onAddExerciseHitFrame: { frame in
+                            switch slot {
+                            case .none:
+                                noneHitFrame = frame
+                            case .rest:
+                                restHitFrame = frame
+                            case .undo:
+                                undoHitFrame = frame
+                            }
+                        },
+                        onAddExerciseAction: action
                     )
                     let theme = Theme(seed: .teal, neutral: .slate, isDark: isDark)
                     let content = ActiveWorkoutView(
@@ -187,6 +234,24 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 let none = try XCTUnwrap(noneFrame)
                 let rest = try XCTUnwrap(restFrame)
                 let undo = try XCTUnwrap(undoFrame)
+                let noneHit = try XCTUnwrap(noneHitFrame)
+                let restHit = try XCTUnwrap(restHitFrame)
+                let undoHit = try XCTUnwrap(undoHitFrame)
+                for (visible, hit) in [(none, noneHit), (rest, restHit), (undo, undoHit)] {
+                    XCTAssertEqual(hit.width, visible.width, accuracy: 1)
+                    XCTAssertEqual(hit.height, visible.height, accuracy: 1)
+                    XCTAssertEqual(hit.minX, visible.minX, accuracy: 1)
+                    XCTAssertEqual(hit.minY, visible.minY, accuracy: 1)
+                    for point in [
+                        CGPoint(x: visible.minX + 8, y: visible.midY),
+                        CGPoint(x: visible.midX, y: visible.midY),
+                        CGPoint(x: visible.maxX - 8, y: visible.midY)
+                    ] {
+                        XCTAssertTrue(hit.contains(point))
+                    }
+                }
+                action()
+                XCTAssertEqual(tapCount, 1)
                 XCTAssertLessThanOrEqual(safeFrameInWindow.maxY - none.maxY, 16)
                 XCTAssertLessThan(rest.maxY, none.minY)
                 XCTAssertLessThan(undo.maxY, none.minY)
@@ -798,6 +863,46 @@ final class DesignEcoSnapshotTests: XCTestCase {
         exercises.forEach(context.insert)
         try context.save()
         return container
+    }
+}
+
+private struct ActiveWorkoutStateSnapshot: View {
+    let state: String
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Active Workout")
+                .font(.title2.weight(.semibold))
+            switch state {
+            case "empty":
+                ContentUnavailableView(
+                    "No exercises yet",
+                    systemImage: "figure.strengthtraining.traditional",
+                    description: Text("Add an exercise to start your workout.")
+                )
+            case "loading":
+                VStack(alignment: .leading, spacing: 12) {
+                    ProgressView()
+                    Text("Loading workout…")
+                        .foregroundStyle(theme.neutrals.text2)
+                }
+            case "error":
+                Label("Workout unavailable", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(theme.danger)
+                Text("Try again to restore this workout.")
+                    .foregroundStyle(theme.neutrals.text2)
+            default:
+                Label("Workout in progress", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(theme.success)
+                Text("2 exercises · 5 sets")
+                    .foregroundStyle(theme.neutrals.text2)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(theme.neutrals.bg)
     }
 }
 

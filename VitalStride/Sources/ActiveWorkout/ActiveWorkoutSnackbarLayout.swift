@@ -12,29 +12,13 @@ enum ActiveWorkoutSnackbarLayout {
     static let addExerciseNormalHeight: CGFloat = 52
     static let addExerciseLargeHeight: CGFloat = 60
     static let dockInset: CGFloat = 16
+    static let undoEnvelopeNormalHeight: CGFloat = 56
+    static let undoEnvelopeLargeHeight: CGFloat = 64
     static let restEnvelopeNormalHeight: CGFloat = 56
     static let restEnvelopeLargeHeight: CGFloat = 64
 
     static func addExerciseHeight(largeMode: Bool) -> CGFloat {
         largeMode ? addExerciseLargeHeight : addExerciseNormalHeight
-    }
-
-    static func addExerciseFrames(
-        containerWidth: CGFloat,
-        horizontalSizeClass: UserInterfaceSizeClass,
-        largeMode: Bool
-    ) -> (visible: CGRect, effectiveHit: CGRect) {
-        let width = min(
-            max(0, containerWidth - dockInset * 2),
-            horizontalSizeClass == .regular ? 400 : .greatestFiniteMagnitude
-        )
-        let frame = CGRect(
-            x: (containerWidth - width) / 2,
-            y: 0,
-            width: width,
-            height: addExerciseHeight(largeMode: largeMode)
-        )
-        return (frame, frame)
     }
 
     // MARK: - Animation & Layout Policy (MY-1706)
@@ -283,10 +267,10 @@ enum ActiveWorkoutSnackbarLayout {
                 if snackbarSlot != .none {
                     slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, dockInset)
                 }
             }
         }
+        .padding(.top, snackbarSlot == .none ? 0 : 8)
         .background(theme.neutrals.bg)
         .overlay(alignment: .top) {
             Rectangle()
@@ -531,12 +515,15 @@ enum ActiveWorkoutSnackbarLayout {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: largeMode ? restEnvelopeLargeHeight : restEnvelopeNormalHeight)
-        .background(theme.surface)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(theme.neutrals.border)
-                .frame(height: 1)
+        .frame(
+            minHeight: largeMode ? undoEnvelopeLargeHeight : undoEnvelopeNormalHeight,
+            maxHeight: largeMode ? undoEnvelopeLargeHeight : undoEnvelopeNormalHeight
+        )
+        .padding(.horizontal, 16)
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(theme.neutrals.border, lineWidth: 1)
         }
     }
 
@@ -581,11 +568,11 @@ enum ActiveWorkoutSnackbarLayout {
         }
         .frame(maxWidth: .infinity)
         .frame(height: largeMode ? restEnvelopeLargeHeight : restEnvelopeNormalHeight)
-        .background(theme.surface)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(theme.neutrals.border)
-                .frame(height: 1)
+        .padding(.horizontal, 16)
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(theme.neutrals.border, lineWidth: 1)
         }
     }
 

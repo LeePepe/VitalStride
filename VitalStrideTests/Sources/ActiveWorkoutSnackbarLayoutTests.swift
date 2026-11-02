@@ -54,12 +54,49 @@ struct ActiveWorkoutSnackbarLayoutTests {
 
     @Test("Snackbar envelopes use the normal and Large Mode height tokens")
     func snackbarEnvelopeHeightTokens() {
+        #expect(ActiveWorkoutSnackbarLayout.undoEnvelopeNormalHeight == 56)
+        #expect(ActiveWorkoutSnackbarLayout.undoEnvelopeLargeHeight == 64)
         #expect(ActiveWorkoutSnackbarLayout.restEnvelopeNormalHeight == 56)
         #expect(ActiveWorkoutSnackbarLayout.restEnvelopeLargeHeight == 64)
         #expect(abs(
             ActiveWorkoutSnackbarLayout.restEnvelopeNormalHeight
-                - ActiveWorkoutSnackbarLayout.restEnvelopeNormalHeight
+                - ActiveWorkoutSnackbarLayout.undoEnvelopeNormalHeight
         ) <= 1)
+        #expect(abs(
+            ActiveWorkoutSnackbarLayout.restEnvelopeLargeHeight
+                - ActiveWorkoutSnackbarLayout.undoEnvelopeLargeHeight
+        ) <= 1)
+    }
+
+    @MainActor
+    @Test("Mounted undo and rest envelopes preserve normal and Large Mode parity")
+    func mountedEnvelopeHeightParity() {
+        for largeMode in [false, true] {
+            let undo = UIHostingController(rootView: ActiveWorkoutSnackbarLayout.undoEnvelope(
+                message: "Deleted set",
+                largeMode: largeMode
+            ))
+            let rest = UIHostingController(rootView: ActiveWorkoutSnackbarLayout.restEnvelope(
+                skipTitle: "Skip",
+                largeMode: largeMode,
+                content: { Color.clear }
+            ))
+            let proposal = CGSize(width: 393, height: 200)
+            let undoHeight = undo.sizeThatFits(in: proposal).height
+            let restHeight = rest.sizeThatFits(in: proposal).height
+            #expect(abs(undoHeight - restHeight) <= 1)
+            #expect(abs(undoHeight - (largeMode ? 64 : 56)) <= 1)
+        }
+    }
+
+    @Test("Rest countdown fixtures keep ring and tabular readout separate")
+    func restCountdownGeometryFixtures() {
+        for seconds in [59, 9, 0] {
+            let ring = CGRect(x: 0, y: 0, width: 24, height: 24)
+            let readout = CGRect(x: 32, y: 0, width: seconds == 0 ? 24 : 32, height: 24)
+            #expect(!ring.intersects(readout))
+            #expect(readout.width <= 32)
+        }
     }
 
     @MainActor
