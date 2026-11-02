@@ -17,45 +17,6 @@ import UIKit
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveWorkout")
 
-#if canImport(UIKit) && !os(macOS)
-private struct AddExerciseFrameProbe: UIViewRepresentable {
-    let onFrame: @MainActor @Sendable (CGRect) -> Void
-
-    func makeUIView(context: Context) -> ProbeView {
-        let view = ProbeView()
-        view.isUserInteractionEnabled = false
-        view.onFrame = onFrame
-        return view
-    }
-
-    func updateUIView(_ uiView: ProbeView, context: Context) {
-        uiView.onFrame = onFrame
-        uiView.setNeedsLayout()
-    }
-
-    final class ProbeView: UIView {
-        var onFrame: (@MainActor @Sendable (CGRect) -> Void)?
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            reportFrame()
-        }
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            reportFrame()
-        }
-
-        private func reportFrame() {
-            guard let window, !bounds.isEmpty else { return }
-            // Report every UIKit layout pass; SwiftUI onChange can drop a
-            // second safe-area update in the same display frame.
-            onFrame?(convert(bounds, to: window))
-        }
-    }
-}
-#endif
-
 struct ActiveWorkoutListGeometry: Equatable {
     let visibleRect: CGRect
     let contentOffset: CGPoint
@@ -101,6 +62,9 @@ struct ActiveWorkoutListObservationSink: Sendable {
         @escaping @MainActor @Sendable (Int, Int) -> Void
     ) -> Void = { _ in }
     var onAddExerciseFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onAddExerciseVisibleFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onAddExerciseHitFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
+    var onAddExerciseAction: @MainActor @Sendable () -> Void = {}
 }
 
 struct ActiveWorkoutToolbarObservation: Sendable {
@@ -371,16 +335,14 @@ struct ActiveWorkoutView: View {
                 ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
                     policy: policy,
                     theme: theme,
+                    dockHorizontalInset: horizontalSizeClass == .regular ? 24 : ActiveWorkoutSnackbarLayout.dockInset,
                     undoContent: { undoSnackbarEnvelope },
                     restContent: { restSnackbarEnvelope },
                     fab: {
-                        HStack {
-                            Spacer()
-                            ActiveWorkoutFABContainer.body(snackbarSlot: policy.bottomSlot) {
-                                addExerciseButton
-                            }
-                            Spacer()
+                        ActiveWorkoutFABContainer.body(snackbarSlot: policy.bottomSlot) {
+                            addExerciseButton
                         }
+                        .padding(.horizontal, horizontalSizeClass == .regular ? 24 : ActiveWorkoutSnackbarLayout.dockInset)
                     }
                 )
                 .accessibilityElement(children: .contain)
@@ -640,6 +602,7 @@ struct ActiveWorkoutView: View {
                 listObservation.onKeyboardVisibility(false)
             }
             #endif
+            .coordinateSpace(name: "ActiveWorkoutRoot")
         }
     }
 
@@ -1042,6 +1005,7 @@ struct ActiveWorkoutView: View {
                 comment: "Undo set deletion a11y label"
             ),
             restEndDate: restTimer.phase == .resting ? restTimer.restEndDate : nil,
+            largeMode: largeMode,
             onUndo: {
                 undoController.undo(using: modelContext)
             }
@@ -1057,8 +1021,9 @@ struct ActiveWorkoutView: View {
         ActiveWorkoutSnackbarLayout.restEnvelope(
             skipTitle: String(localized: "跳过", comment: "Skip rest button visible title"),
             neutralBackground: theme.neutrals.inner,
-            skipBackground: theme.primary.primary.opacity(0.15),
-            theme: theme
+            skipBackground: theme.interactiveAccent,
+            theme: theme,
+            largeMode: largeMode
         ) {
             restSnackbarContent
         }
@@ -1066,16 +1031,7 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var restSnackbarContent: some View {
-        if snackbarSlotOverride == .rest {
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(theme.success)
-                Text(String(localized: "休息结束", comment: "Rest completed banner text"))
-                Spacer()
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(String(localized: "休息结束", comment: "Rest completed a11y label"))
-        } else if restCompletedPresenter.isBuffered {
+        if restCompletedPresenter.isBuffered {
             Button {
                 restCompletedPresenter.dismiss()
                 restTimer.dismissCompleted()
@@ -1091,41 +1047,16 @@ struct ActiveWorkoutView: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(String(localized: "休息结束", comment: "Rest completed a11y label"))
             .accessibilityHint(String(localized: "点击关闭", comment: "Dismiss rest completed banner a11y hint"))
-        } else if restTimer.phase == .resting, let restEnd = restTimer.restEndDate {
-            let totalDuration = restTimer.restTotalDuration ?? 0
+        } else if snackbarSlotOverride == .rest || restTimer.phase == .resting, let restEnd = restTimer.restEndDate ?? (snackbarSlotOverride == .rest ? Date().addingTimeInterval(59) : nil) {
+            let totalDuration = restTimer.restTotalDuration ?? (snackbarSlotOverride == .rest ? 60 : 0)
             let totalSeconds = max(1, Int(totalDuration))
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let remaining = max(0, Int(restEnd.timeIntervalSince(context.date)))
-                let progress = 1.0 - Double(remaining) / Double(totalSeconds)
-                HStack {
-                    ZStack {
-                        Circle()
-                            .stroke(theme.neutrals.border, lineWidth: 3)
-                        Circle()
-                            .trim(from: 0, to: progress)
-                            .stroke(theme.primary.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
-                            .animation(reduceMotion ? nil : .linear(duration: 1), value: progress)
-                        Text("\(remaining)")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .monospacedDigit()
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
-                            .contentTransition(
-                                reduceMotion ? .opacity : .numericText(countsDown: true)
-                            )
-                            .animation(
-                                reduceMotion ? nil : .snappy(duration: 0.22),
-                                value: remaining
-                            )
-                            .layoutPriority(1)
-                    }
-                    .frame(width: 32, height: 32)
-                    .accessibilityElement(children: .ignore)
-                    // swiftlint:disable:next line_length
-                    .accessibilityLabel(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer progress a11y label"))
-                    Spacer()
+                HStack(spacing: 8) {
+                    ActiveWorkoutRestStatus(
+                        remaining: remaining, totalSeconds: totalSeconds, theme: theme
+                    )
+                    Spacer(minLength: 0)
                     restAdjustButtons
                 }
             }
@@ -1137,7 +1068,7 @@ struct ActiveWorkoutView: View {
         ActiveWorkoutSnackbarLayout.restTimerButtons(
             skipTitle: String(localized: "跳过", comment: "Skip rest button visible title"),
             neutralBackground: theme.neutrals.inner,
-            skipBackground: theme.primary.primary.opacity(0.15),
+            skipBackground: theme.interactiveAccent,
             theme: theme,
             minus10AccessibilityLabel: String(localized: "缩短十秒", comment: "Subtract 10 seconds a11y label"),
             plus10AccessibilityLabel: String(localized: "延长十秒", comment: "Add 10 seconds a11y label"),
@@ -1421,44 +1352,57 @@ struct ActiveWorkoutView: View {
     private var addExerciseButton: some View {
         Button {
             HapticManager.trigger(.exerciseAdded)
+            listObservation.onAddExerciseAction()
             showingExercisePicker = true
         } label: {
             Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(theme.primary.primary)
-                .padding(.horizontal, 20)
+                .foregroundStyle(theme.interactiveAccent)
                 .frame(
                     maxWidth: horizontalSizeClass == .regular ? 400 : .infinity,
-                    minHeight: largeMode ? 48 : 44
+                    minHeight: ActiveWorkoutSnackbarLayout.addExerciseHeight(largeMode: largeMode)
                 )
+                .background(theme.neutrals.card)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(theme.neutrals.border, lineWidth: 1)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .contentShape(Rectangle())
+                .background {
+                    GeometryReader { proxy in
+                        let frame = proxy.frame(in: .global)
+                        Color.clear
+                            .onAppear {
+                                listObservation.onAddExerciseHitFrame(frame)
+                            }
+                            .onChange(of: frame) { _, newFrame in
+                                listObservation.onAddExerciseHitFrame(newFrame)
+                            }
+                    }
+                }
         }
+        #if canImport(UIKit) && !os(macOS)
+        .buttonStyle(ActiveWorkoutAddButtonStyle())
+        #else
         .buttonStyle(FABButtonStyle())
-        .background(theme.neutrals.card)
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(theme.neutrals.border, lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .accessibilityIdentifier("workout_add_exercise")
+        #endif
+        .frame(maxWidth: horizontalSizeClass == .regular ? 400 : .infinity)
         .background {
-            #if canImport(UIKit) && !os(macOS)
-            AddExerciseFrameProbe(onFrame: listObservation.onAddExerciseFrame)
-            #else
             GeometryReader { proxy in
                 let frame = proxy.frame(in: .global)
                 Color.clear
                     .onAppear {
                         listObservation.onAddExerciseFrame(frame)
+                        listObservation.onAddExerciseVisibleFrame(frame)
                     }
                     .onChange(of: frame) { _, newFrame in
                         listObservation.onAddExerciseFrame(newFrame)
+                        listObservation.onAddExerciseVisibleFrame(newFrame)
                     }
             }
-            #endif
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
+        .accessibilityIdentifier("workout_add_exercise")
     }
 
     private var totalVolumeKg: Double {

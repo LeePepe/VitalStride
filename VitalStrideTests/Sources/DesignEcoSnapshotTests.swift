@@ -38,6 +38,14 @@ final class DesignEcoSnapshotTests: XCTestCase {
         "workout-normal-rest-dark",
         "workout-large-rest",
         "workout-large-rest-dark",
+        "tk1-state-populated-light",
+        "tk1-state-populated-dark",
+        "tk1-state-empty-light",
+        "tk1-state-empty-dark",
+        "tk1-state-loading-light",
+        "tk1-state-loading-dark",
+        "tk1-state-error-light",
+        "tk1-state-error-dark",
     ]
 
     func testRendersRoundThreeSnapshots() async throws {
@@ -54,6 +62,31 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 workoutFixture: workoutFixture,
                 defaults: defaults
             )
+            for state in ["populated", "empty", "loading", "error"] {
+                let fixture = try Self.makeWorkoutFixture()
+                if state == "empty" {
+                    fixture.workout.exercises = []
+                    try fixture.container.mainContext.save()
+                }
+                defaults.set(false, forKey: "activeWorkoutLargeMode")
+                try await Self.render(
+                    ActiveWorkoutView(
+                        source: .resume(fixture.workout),
+                        snackbarSlotOverride: state == "populated" ? .rest : BottomSnackbarSlot.none
+                    )
+                    .modelContainer(fixture.container)
+                    .modifier(WorkoutSnapshotState(state: state))
+                    .designTheme(seed: .teal, neutral: .slate)
+                    .environment(\.locale, Locale(identifier: "zh-Hans"))
+                    .environment(\.colorScheme, variant.colorScheme)
+                    .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                    .defaultAppStorage(defaults),
+                    named: "tk1-state-\(state)-\(variant.isDark ? "dark" : "light")",
+                    in: outputDirectory,
+                    variant: variant
+                )
+            }
+
         }
 
         for name in Self.snapshotNames {
@@ -61,6 +94,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
             let data = try Data(contentsOf: url)
             XCTAssertGreaterThan(data.count, 10_000)
         }
+
     }
 
     func testRendersTK1WidthMatrixSnapshots() async throws {
@@ -104,8 +138,11 @@ final class DesignEcoSnapshotTests: XCTestCase {
                             ActiveWorkoutSnackbarLayout.undoEnvelope(
                                 message: "撤销删除",
                                 theme: Theme(seed: .teal, neutral: .slate, isDark: variant.isDark),
-                                restEndDate: Date().addingTimeInterval(30)
+                                restEndDate: Date().addingTimeInterval(30),
+                                largeMode: largeMode
                             )
+                            .padding(.horizontal, ActiveWorkoutSnackbarLayout.dockInset)
+                            .padding(.bottom, 4)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                             .designTheme(seed: .teal, neutral: .slate)
                             .environment(\.colorScheme, variant.colorScheme)
@@ -136,7 +173,9 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 var noneFrame: CGRect?
                 var restFrame: CGRect?
                 var undoFrame: CGRect?
-                var safeFrameInWindow = CGRect(origin: .zero, size: Self.snapshotSize)
+                var noneHitFrame: CGRect?
+                var restHitFrame: CGRect?
+                var undoHitFrame: CGRect?
 
                 for slot in [BottomSnackbarSlot.none, .rest, .undo] {
                     let fixture = try Self.makeWorkoutFixture()
@@ -149,6 +188,26 @@ final class DesignEcoSnapshotTests: XCTestCase {
                                 restFrame = frame
                             case .undo:
                                 undoFrame = frame
+                            }
+                        },
+                        onAddExerciseVisibleFrame: { frame in
+                            switch slot {
+                            case .none:
+                                noneFrame = frame
+                            case .rest:
+                                restFrame = frame
+                            case .undo:
+                                undoFrame = frame
+                            }
+                        },
+                        onAddExerciseHitFrame: { frame in
+                            switch slot {
+                            case .none:
+                                noneHitFrame = frame
+                            case .rest:
+                                restHitFrame = frame
+                            case .undo:
+                                undoHitFrame = frame
                             }
                         }
                     )
@@ -181,16 +240,35 @@ final class DesignEcoSnapshotTests: XCTestCase {
                     try await Task.sleep(for: .milliseconds(350))
                     host.view.setNeedsLayout()
                     host.view.layoutIfNeeded()
-                    safeFrameInWindow = host.view.convert(host.view.safeAreaLayoutGuide.layoutFrame, to: window)
                 }
 
                 let none = try XCTUnwrap(noneFrame)
                 let rest = try XCTUnwrap(restFrame)
                 let undo = try XCTUnwrap(undoFrame)
-                XCTAssertLessThanOrEqual(safeFrameInWindow.maxY - none.maxY, 16)
+                let noneHit = try XCTUnwrap(noneHitFrame)
+                let restHit = try XCTUnwrap(restHitFrame)
+                let undoHit = try XCTUnwrap(undoHitFrame)
+                for (visible, hit) in [(none, noneHit), (rest, restHit), (undo, undoHit)] {
+                    XCTAssertEqual(hit.width, visible.width, accuracy: 1)
+                    XCTAssertEqual(hit.height, visible.height, accuracy: 1)
+                    XCTAssertEqual(hit.minX, visible.minX, accuracy: 1)
+                    XCTAssertEqual(hit.minY, visible.minY, accuracy: 1)
+                }
+                for slot in [BottomSnackbarSlot.none, .rest, .undo] {
+                    let result = try await MountedAddExerciseInteraction.check(
+                        largeMode: largeMode, isDark: isDark, slot: slot
+                    )
+                    XCTAssertGreaterThanOrEqual(result.visible.width, 320)
+                    XCTAssertEqual(result.activations, 3)
+                }
+                XCTAssertGreaterThanOrEqual(none.minY, 0)
                 XCTAssertLessThan(rest.maxY, none.minY)
                 XCTAssertLessThan(undo.maxY, none.minY)
                 XCTAssertLessThanOrEqual(abs(rest.maxY - undo.maxY), 1.5)
+                let expectedHeight = largeMode ? 60.0 : 52.0
+                XCTAssertEqual(none.height, expectedHeight, accuracy: 1.5)
+                XCTAssertEqual(rest.height, expectedHeight, accuracy: 1.5)
+                XCTAssertEqual(undo.height, expectedHeight, accuracy: 1.5)
             }
         }
     }
@@ -794,6 +872,37 @@ final class DesignEcoSnapshotTests: XCTestCase {
         exercises.forEach(context.insert)
         try context.save()
         return container
+    }
+}
+
+/// State decorations retain the real workout list, navigation and production dock.
+private struct WorkoutSnapshotState: ViewModifier {
+    let state: String
+    @State private var showsError = true
+    @Environment(\.theme) private var theme
+
+    func body(content: Content) -> some View {
+        content
+            .redacted(reason: state == "loading" ? .placeholder : [])
+            .disabled(state == "loading")
+            .overlay {
+                if state == "loading" { ProgressView().controlSize(.large) }
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if state == "error" && showsError {
+                    HStack {
+                        Label(String(localized: "active_workout.substitute.error_generic"),
+                              systemImage: "exclamationmark.triangle.fill")
+                            .font(.subheadline)
+                        Spacer()
+                        Button(String(localized: "重试")) { showsError = false }
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .padding(.horizontal, 16)
+                    .foregroundStyle(theme.neutrals.text1)
+                    .background(theme.surface)
+                }
+            }
     }
 }
 

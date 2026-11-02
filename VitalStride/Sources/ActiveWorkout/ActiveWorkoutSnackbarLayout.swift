@@ -9,6 +9,18 @@ import SwiftUI
 /// MY-1446: extended to provide safe-area-driven rendering that guarantees
 /// non-overlap between snackbar, FAB, and info band by construction (VStack).
 enum ActiveWorkoutSnackbarLayout {
+    static let addExerciseNormalHeight: CGFloat = 52
+    static let addExerciseLargeHeight: CGFloat = 60
+    static let dockInset: CGFloat = 16
+    static let undoEnvelopeNormalHeight: CGFloat = 56
+    static let undoEnvelopeLargeHeight: CGFloat = 64
+    static let restEnvelopeNormalHeight: CGFloat = 56
+    static let restEnvelopeLargeHeight: CGFloat = 64
+
+    static func addExerciseHeight(largeMode: Bool) -> CGFloat {
+        largeMode ? addExerciseLargeHeight : addExerciseNormalHeight
+    }
+
     // MARK: - Animation & Layout Policy (MY-1706)
 
     /// MainActor-isolated animation and layout policy describing root and child
@@ -244,35 +256,29 @@ enum ActiveWorkoutSnackbarLayout {
         snackbarSlot: BottomSnackbarSlot,
         isKeyboardVisible: Bool,
         theme: Theme = Theme(),
+        dockHorizontalInset: CGFloat = dockInset,
         @ViewBuilder undoContent: @escaping () -> UndoContent,
         @ViewBuilder restContent: @escaping () -> RestContent,
         @ViewBuilder fab: @escaping () -> FAB
     ) -> some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 8) {
             if !isKeyboardVisible {
                 fab()
                     .frame(maxWidth: .infinity)
-                    .background(theme.neutrals.bg.opacity(0.96))
-                    .overlay(alignment: .top) {
-                        Rectangle()
-                            .fill(theme.neutrals.border)
-                            .frame(height: 1)
-                    }
                 if snackbarSlot != .none {
                     slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
-                        .padding(.horizontal, Space.cardPadding)
-                        .padding(.vertical, Space.gap)
-                        .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
-                        .background(theme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .shadow(
-                            color: theme.foreground.opacity(0.15),
-                            radius: 8, y: 4
-                        )
-                        .padding(.horizontal, Space.cardPadding)
-                        .padding(.bottom, Space.cardPadding)
+                        .frame(maxWidth: 400, alignment: .leading)
+                        .padding(.horizontal, dockHorizontalInset)
+                        .padding(.bottom, snackbarSlot == .none ? 0 : 4)
                 }
             }
+        }
+        .padding(.top, 8)
+        .background(theme.neutrals.bg)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(theme.neutrals.border)
+                .frame(height: 1)
         }
     }
 
@@ -283,6 +289,7 @@ enum ActiveWorkoutSnackbarLayout {
     static func bottomSafeAreaContent<UndoContent: View, RestContent: View, FAB: View>(
         policy: AnimationPolicy,
         theme: Theme = Theme(),
+        dockHorizontalInset: CGFloat = dockInset,
         @ViewBuilder undoContent: @escaping () -> UndoContent,
         @ViewBuilder restContent: @escaping () -> RestContent,
         @ViewBuilder fab: @escaping () -> FAB
@@ -291,6 +298,7 @@ enum ActiveWorkoutSnackbarLayout {
             snackbarSlot: policy.bottomSlot,
             isKeyboardVisible: policy.isKeyboardVisible,
             theme: theme,
+            dockHorizontalInset: dockHorizontalInset,
             undoContent: undoContent,
             restContent: restContent,
             fab: fab
@@ -309,6 +317,7 @@ enum ActiveWorkoutSnackbarLayout {
         snackbarSlot: BottomSnackbarSlot,
         isKeyboardVisible: Bool = false,
         theme: Theme = Theme(),
+        dockHorizontalInset: CGFloat = dockInset,
         @ViewBuilder undoContent: @escaping () -> UndoContent,
         @ViewBuilder restContent: @escaping () -> RestContent,
         @ViewBuilder fab: @escaping () -> FAB
@@ -317,6 +326,7 @@ enum ActiveWorkoutSnackbarLayout {
             snackbarSlot: snackbarSlot,
             isKeyboardVisible: isKeyboardVisible,
             theme: theme,
+            dockHorizontalInset: dockHorizontalInset,
             undoContent: undoContent,
             restContent: restContent,
             fab: fab
@@ -454,6 +464,7 @@ enum ActiveWorkoutSnackbarLayout {
         theme: Theme = Theme(),
         undoAccessibilityLabel: String = "Undo deletion",
         restEndDate: Date? = nil,
+        largeMode: Bool = false,
         onUndo: @escaping () -> Void = {}
     ) -> some View {
         ZStack(alignment: .leading) {
@@ -510,6 +521,17 @@ enum ActiveWorkoutSnackbarLayout {
                 }
             }
         }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity)
+        .frame(
+            minHeight: largeMode ? undoEnvelopeLargeHeight : undoEnvelopeNormalHeight,
+            maxHeight: largeMode ? undoEnvelopeLargeHeight : undoEnvelopeNormalHeight
+        )
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(theme.neutrals.border, lineWidth: 1)
+        }
     }
 
     // MARK: - Rest envelope (MY-1446, testable)
@@ -528,6 +550,7 @@ enum ActiveWorkoutSnackbarLayout {
         neutralBackground: Color? = nil,
         skipBackground: Color? = nil,
         theme: Theme = Theme(),
+        largeMode: Bool = false,
         @ViewBuilder content: () -> Content
     ) -> some View {
         ZStack(alignment: .leading) {
@@ -550,6 +573,14 @@ enum ActiveWorkoutSnackbarLayout {
             // Active rest content
             content()
         }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity)
+        .frame(height: largeMode ? restEnvelopeLargeHeight : restEnvelopeNormalHeight)
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(theme.neutrals.border, lineWidth: 1)
+        }
     }
 
     // MARK: - Rest timer button layout (MY-1446, testable)
@@ -563,6 +594,7 @@ enum ActiveWorkoutSnackbarLayout {
         title: String,
         isBold: Bool = false,
         background: Color? = nil,
+        foreground: Color? = nil,
         theme: Theme = Theme(),
         accessibilityIdentifier: String,
         accessibilityLabel: String,
@@ -571,6 +603,7 @@ enum ActiveWorkoutSnackbarLayout {
         Button(title, action: action)
             .font(.caption)
             .fontWeight(isBold ? .semibold : .regular)
+            .foregroundStyle(foreground ?? theme.foreground)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(background ?? theme.surfaceSubtle, in: Capsule())
@@ -627,6 +660,7 @@ enum ActiveWorkoutSnackbarLayout {
                 title: skipTitle,
                 isBold: true,
                 background: skipBackground ?? theme.accentSubtle,
+                foreground: theme.onInteractiveAccent,
                 theme: theme,
                 accessibilityIdentifier: "rest_button_skip",
                 accessibilityLabel: skipAccessibilityLabel,
@@ -735,3 +769,132 @@ extension View {
         modifier(ActiveWorkoutSnackbarLayout.ChildAnimationModifier(policy: policy))
     }
 }
+
+/// Production timer status; optical geometry is observed on the actual ring/readout.
+struct ActiveWorkoutRestStatus: View {
+    let remaining: Int
+    let totalSeconds: Int
+    let theme: Theme
+    var onRingFrame: @MainActor (CGRect) -> Void = { _ in }
+    var onReadoutFrame: @MainActor (CGRect) -> Void = { _ in }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ZStack {
+                Circle().stroke(theme.neutrals.border, lineWidth: 2.5)
+                Circle()
+                    .trim(from: 0, to: 1 - Double(remaining) / Double(max(1, totalSeconds)))
+                    .stroke(theme.primary.primary, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .animation(reduceMotion ? nil : .linear(duration: 1), value: remaining)
+            }
+            .frame(width: 24, height: 24)
+            .background {
+                GeometryReader { proxy in
+                    let frame = proxy.frame(in: .named("RestStatus"))
+                    Color.clear.onAppear { onRingFrame(frame) }
+                        .onChange(of: frame) { _, value in onRingFrame(value) }
+                }
+            }
+            Text(String(format: "%02d", remaining))
+                .font(.system(size: 20).monospacedDigit().weight(.semibold))
+                .lineLimit(1)
+                .layoutPriority(1)
+                .fixedSize()
+                .contentTransition(reduceMotion ? .opacity : .numericText(countsDown: true))
+                .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: remaining)
+                .background {
+                    GeometryReader { proxy in
+                        let frame = proxy.frame(in: .named("RestStatus"))
+                        Color.clear.onAppear { onReadoutFrame(frame) }
+                            .onChange(of: frame) { _, value in onReadoutFrame(value) }
+                    }
+                }
+        }
+        .frame(minHeight: 44)
+        .coordinateSpace(name: "RestStatus")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer progress a11y label"))
+    }
+}
+
+#Preview("Rest status — light") {
+    ActiveWorkoutRestStatus(remaining: 59, totalSeconds: 60, theme: Theme())
+}
+
+#Preview("Rest status — dark") {
+    ActiveWorkoutRestStatus(remaining: 9, totalSeconds: 60, theme: Theme(isDark: true))
+        .preferredColorScheme(.dark)
+}
+
+#if canImport(UIKit) && !os(macOS)
+import UIKit
+
+/// Keeps the SwiftUI Button action and label, with a native full-label touch surface.
+/// The primitive style owns dispatch, so a press cannot also fire a second SwiftUI tap.
+struct ActiveWorkoutAddButtonStyle: PrimitiveButtonStyle {
+    @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .overlay {
+                AddExerciseActivationSurface(
+                    onActivate: { configuration.trigger() },
+                    onPressChanged: { isPressed = $0 }
+                )
+                .accessibilityHidden(true)
+            }
+            .scaleEffect(isPressed && !reduceMotion ? 0.97 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: isPressed)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { configuration.trigger() }
+    }
+}
+
+private struct AddExerciseActivationSurface: UIViewRepresentable {
+    let onActivate: @MainActor () -> Void
+    let onPressChanged: @MainActor (Bool) -> Void
+
+    func makeUIView(context: Context) -> UIButton {
+        let button = UIButton(type: .custom)
+        button.accessibilityIdentifier = "workout_add_exercise_hit_surface"
+        button.isAccessibilityElement = false
+        button.accessibilityElementsHidden = true
+        button.addAction(UIAction { _ in
+            context.coordinator.onPressChanged(true)
+        }, for: .touchDown)
+        button.addAction(UIAction { _ in
+            context.coordinator.onPressChanged(false)
+            context.coordinator.onActivate()
+        }, for: .touchUpInside)
+        button.addAction(UIAction { _ in
+            context.coordinator.onPressChanged(false)
+        }, for: [.touchCancel, .touchUpOutside])
+        return button
+    }
+
+    func updateUIView(_ uiView: UIButton, context: Context) {
+        uiView.isEnabled = context.environment.isEnabled
+        context.coordinator.onActivate = onActivate
+        context.coordinator.onPressChanged = onPressChanged
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onActivate: onActivate, onPressChanged: onPressChanged)
+    }
+
+    @MainActor
+    final class Coordinator {
+        var onActivate: @MainActor () -> Void
+        var onPressChanged: @MainActor (Bool) -> Void
+
+        init(onActivate: @escaping @MainActor () -> Void,
+             onPressChanged: @escaping @MainActor (Bool) -> Void) {
+            self.onActivate = onActivate
+            self.onPressChanged = onPressChanged
+        }
+    }
+}
+#endif
