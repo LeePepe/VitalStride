@@ -184,6 +184,16 @@ struct ActiveWorkoutListObservationSink: Sendable {
     var onSidebarReorderToggle: @MainActor @Sendable (
         @escaping @MainActor @Sendable () -> Void
     ) -> Void = { _ in }
+    var onSidebarReorderModeState: @MainActor @Sendable (Bool) -> Void = { _ in }
+    var onSidebarReorderToggleAction: @MainActor @Sendable (
+        @escaping @MainActor @Sendable () -> Void
+    ) -> Void = { _ in }
+    var onSidebarMoveUpAction: @MainActor @Sendable (
+        @escaping @MainActor @Sendable (Int) -> Void
+    ) -> Void = { _ in }
+    var onSidebarMoveDownAction: @MainActor @Sendable (
+        @escaping @MainActor @Sendable (Int) -> Void
+    ) -> Void = { _ in }
     var onAddExerciseFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
     var onAddExerciseVisibleFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
     var onAddExerciseHitFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
@@ -304,6 +314,7 @@ struct ActiveWorkoutView: View {
     @Environment(\.activeWorkoutListObservation) private var listObservation
     @Environment(\.activeWorkoutToolbarObservation) private var toolbarObservation
     @State private var exerciseListFrame = CGRect.zero
+    @State private var scrollToExerciseAction: ((PersistentIdentifier) -> Void)?
     #if canImport(UIKit) && !os(macOS)
     @State private var scrollViewBox = ActiveWorkoutScrollViewBox()
     #endif
@@ -311,6 +322,7 @@ struct ActiveWorkoutView: View {
     @State private var showingExercisePicker = false
     @State private var selectedExerciseID: PersistentIdentifier?
     @State private var isSidebarReordering = false
+    @State private var draggedSidebarExerciseID: PersistentIdentifier?
     @State private var showingFinishAlert = false
     @State private var showingDiscardAlert = false
     @State private var exerciseToReplace: WorkoutExercise?
@@ -476,6 +488,9 @@ struct ActiveWorkoutView: View {
                 .accessibilityFocused($isBottomSnackbarFocused)
             }
             .activeWorkoutRootAnimation(policy: policy, reduceMotion: reduceMotion)
+            .onChange(of: isSidebarReordering) { _, value in
+                listObservation.onSidebarReorderModeState(value)
+            }
             .navigationTitle(String(localized: "训练中", comment: "Active workout navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1210,6 +1225,12 @@ struct ActiveWorkoutView: View {
     @ViewBuilder
     private var exerciseList: some View {
         let exercises = sortedExercises
+        let overlaySelect: (WorkoutExercise) -> Void = { exercise in
+            dismissKeyboardIfVisible()
+            selectedExerciseID = exercise.persistentModelID
+            listObservation.onSidebarSelectionState(exercise.persistentModelID)
+            scrollToExerciseAction?(exercise.persistentModelID)
+        }
         if exercises.isEmpty {
             ContentUnavailableView(
                 String(localized: "添加第一个动作", comment: "Empty active workout title"),
@@ -1318,10 +1339,29 @@ struct ActiveWorkoutView: View {
                             }
                         }
                     }
-                    exerciseSidebar(
-                        exercises: exercises,
-                        width: sidebarWidth(forListWidth: exerciseListFrame.width)
-                    ) { exercise in selectExercise(exercise) }
+                    let collapsedWidth = sidebarWidth(
+                        forListWidth: exerciseListFrame.width,
+                        isReordering: false
+                    )
+                    Color.clear
+                        .frame(width: collapsedWidth)
+                        .overlay(alignment: .leading) {
+                            if !isSidebarReordering {
+                                exerciseSidebar(
+                                    exercises: exercises,
+                                    width: collapsedWidth,
+                                    onSelect: selectExercise,
+                                    onMove: { source, destination in
+                                        moveSidebarExercise(
+                                            source: source,
+                                            destination: destination,
+                                            exercises: exercises,
+                                            selectExercise: selectExercise
+                                        )
+                                    }
+                                )
+                            }
+                        }
                     List {
                         ForEach(exercises) { workoutExercise in
                             ActiveExerciseSection(
@@ -1382,8 +1422,42 @@ struct ActiveWorkoutView: View {
                             proxy.scrollTo(id, anchor: anchor)
                         }
                     })
+                    scrollToExerciseAction = { id in
+                        withAnimation {
+                            proxy.scrollTo(id, anchor: .top)
+                        }
+                    }
                 }
                 .background(theme.neutrals.bg)
+                .overlay(alignment: .leading) {
+                    if isSidebarReordering {
+                        Rectangle()
+                            .fill(theme.neutrals.bg.opacity(0.22))
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                setSidebarReordering(false, selectExercise: overlaySelect)
+                            }
+                            .overlay(alignment: .leading) {
+                                exerciseSidebar(
+                                    exercises: exercises,
+                                    width: sidebarWidth(
+                                        forListWidth: exerciseListFrame.width,
+                                        isReordering: true
+                                    ),
+                                    onSelect: overlaySelect,
+                                    onMove: { source, destination in
+                                        moveSidebarExercise(
+                                            source: source,
+                                            destination: destination,
+                                            exercises: exercises,
+                                            selectExercise: overlaySelect
+                                        )
+                                    }
+                                )
+                                .transition(.move(edge: .leading).combined(with: .opacity))
+                            }
+                    }
+                }
             }
         }
 
@@ -1397,7 +1471,8 @@ struct ActiveWorkoutView: View {
     private func exerciseSidebar(
         exercises: [WorkoutExercise],
         width: CGFloat,
-        onSelect: @escaping (WorkoutExercise) -> Void
+        onSelect: @escaping (WorkoutExercise) -> Void,
+        onMove: @escaping (Int, Int) -> Void
     ) -> some View {
         let sidebarItems = exercises.enumerated().map { index, exercise in
             let completed = (exercise.sets ?? []).filter(\.isCompleted).count
@@ -1419,14 +1494,17 @@ struct ActiveWorkoutView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .layoutPriority(1)
                     Button {
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
-                            isSidebarReordering.toggle()
-                        }
+                        setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
                     } label: {
-                        Image(systemName: isSidebarReordering ? "checkmark" : "arrow.up.arrow.down")
+                        Label(
+                            isSidebarReordering
+                                ? String(localized: "完成", comment: "Finish exercise reordering")
+                                : String(localized: "排序", comment: "Start exercise reordering"),
+                            systemImage: isSidebarReordering ? "checkmark" : "arrow.up.arrow.down"
+                        )
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(isSidebarReordering ? theme.onAccent : theme.accent)
-                            .frame(maxWidth: .infinity, minHeight: 40)
+                            .frame(maxWidth: .infinity, minHeight: 44)
                             .background(
                                 isSidebarReordering ? theme.accent : theme.accentSubtle,
                                 in: RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -1434,7 +1512,6 @@ struct ActiveWorkoutView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .frame(maxWidth: .infinity, minHeight: 44)
                     .accessibilityLabel(
                         String(
                             localized: isSidebarReordering
@@ -1451,7 +1528,11 @@ struct ActiveWorkoutView: View {
                     )
                     .accessibilityAddTraits(isSidebarReordering ? .isSelected : [])
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(
+                    minWidth: isSidebarReordering ? 110 : 0,
+                    maxWidth: .infinity,
+                    alignment: .leading
+                )
                 ForEach(Array(exercises.enumerated()), id: \.element.persistentModelID) { index, exercise in
                     let completed = (exercise.sets ?? []).filter(\.isCompleted).count
                     let total = (exercise.sets ?? []).count
@@ -1490,11 +1571,7 @@ struct ActiveWorkoutView: View {
                                         }
                                     }
                             }
-                            .frame(
-                                maxWidth: .infinity,
-                                minHeight: largeMode ? 62 : 50,
-                                alignment: .leading
-                            )
+                            .frame(maxWidth: .infinity, minHeight: largeMode ? 60 : 52, alignment: .leading)
                             .padding(.horizontal, 2)
                             .padding(.vertical, largeMode ? 8 : 6)
                             .foregroundStyle(theme.foreground)
@@ -1511,6 +1588,41 @@ struct ActiveWorkoutView: View {
                         }
                         .buttonStyle(.plain)
                         .frame(maxWidth: .infinity, minHeight: 44)
+                        .simultaneousGesture(
+                            LongPressGesture(minimumDuration: 0.35)
+                                .onEnded { _ in
+                                    guard !isSidebarReordering else { return }
+                                    onSelect(exercise)
+                                    setSidebarReordering(true, selectExercise: onSelect)
+                                }
+                        )
+                        .gesture(
+                            DragGesture(minimumDistance: 6, coordinateSpace: .named("sidebarReorderList"))
+                                .onChanged { _ in
+                                    guard isSidebarReordering else { return }
+                                    draggedSidebarExerciseID = exercise.persistentModelID
+                                }
+                                .onEnded { value in
+                                    defer { draggedSidebarExerciseID = nil }
+                                    guard isSidebarReordering else { return }
+                                    let step = largeMode ? 60 : 52
+                                    let offset = Int((value.translation.height / CGFloat(step)).rounded())
+                                    guard offset != 0 else { return }
+                                    let target = min(max(index + offset, 0), exercises.count - 1)
+                                    guard target != index else { return }
+                                    onMove(index, target > index ? target + 1 : target)
+                                }
+                        )
+                        .scaleEffect(
+                            draggedSidebarExerciseID == exercise.persistentModelID && !reduceMotion ? 1.02 : 1
+                        )
+                        .shadow(
+                            color: theme.neutrals.border.opacity(
+                                draggedSidebarExerciseID == exercise.persistentModelID ? 0.35 : 0
+                            ),
+                            radius: draggedSidebarExerciseID == exercise.persistentModelID ? 8 : 0
+                        )
+                        .zIndex(draggedSidebarExerciseID == exercise.persistentModelID ? 1 : 0)
                         .background {
                             GeometryReader { proxy in
                                 Color.clear
@@ -1530,23 +1642,23 @@ struct ActiveWorkoutView: View {
                             named: String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder")
                         ) {
                             guard index > 0 else { return }
-                            moveExercises(from: IndexSet(integer: index), to: index - 1)
+                            onMove(index, index - 1)
                         }
                         .accessibilityAction(
                             named: String(localized: "workout.sidebar.move_down", defaultValue: "Move exercise down", comment: "Sidebar reorder")
                         ) {
                             guard index < exercises.count - 1 else { return }
-                            moveExercises(from: IndexSet(integer: index), to: index + 2)
+                            onMove(index, index + 2)
                         }
                         .contextMenu {
                             Button {
-                                moveExercises(from: IndexSet(integer: index), to: index - 1)
+                                onMove(index, index - 1)
                             } label: {
                                 Label(String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder"), systemImage: "chevron.up")
                             }
                             .disabled(index == 0)
                             Button {
-                                moveExercises(from: IndexSet(integer: index), to: index + 2)
+                                onMove(index, index + 2)
                             } label: {
                                 Label(String(localized: "workout.sidebar.move_down", defaultValue: "Move exercise down", comment: "Sidebar reorder"), systemImage: "chevron.down")
                             }
@@ -1555,31 +1667,29 @@ struct ActiveWorkoutView: View {
                         if isSidebarReordering {
                             HStack(spacing: 2) {
                                 Button {
-                                    moveExercises(from: IndexSet(integer: index), to: index - 1)
+                                    onMove(index, index - 1)
                                 } label: {
                                     Image(systemName: "chevron.up")
                                         .font(.caption.weight(.bold))
-                                        .frame(width: 32, height: 32)
+                                        .frame(width: 44, height: 44)
+                                        .contentShape(Rectangle())
                                 }
                                 .disabled(index == 0)
                                 .accessibilityLabel(
                                     String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder")
                                 )
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .contentShape(Rectangle())
                                 Button {
-                                    moveExercises(from: IndexSet(integer: index), to: index + 2)
+                                    onMove(index, index + 2)
                                 } label: {
                                     Image(systemName: "chevron.down")
                                         .font(.caption.weight(.bold))
-                                        .frame(width: 32, height: 32)
+                                        .frame(width: 44, height: 44)
+                                        .contentShape(Rectangle())
                                 }
                                 .disabled(index == exercises.count - 1)
                                 .accessibilityLabel(
                                     String(localized: "workout.sidebar.move_down", defaultValue: "Move exercise down", comment: "Sidebar reorder")
                                 )
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .contentShape(Rectangle())
                             }
                             .foregroundStyle(theme.accent)
                             .transition(.opacity)
@@ -1628,45 +1738,102 @@ struct ActiveWorkoutView: View {
             .padding(.horizontal, 2)
         }
         .frame(width: width)
-        .background(theme.inner)
+        .coordinateSpace(name: "sidebarReorderList")
+        .background(theme.neutrals.card)
         .accessibilityIdentifier("workout_exercise_sidebar")
         .onAppear {
             listObservation.onSidebarItems(sidebarItems)
             listObservation.onKeyboardVisibility(isKeyboardVisible)
+            listObservation.onSidebarReorderModeState(isSidebarReordering)
             listObservation.onSidebarDismissKeyboardReady { dismissKeyboardIfVisible() }
             listObservation.onSidebarSelect { id in
                 guard let exercise = sortedExercises.first(where: { $0.persistentModelID == id }) else { return }
                 onSelect(exercise)
             }
             listObservation.onSidebarReorderToggle {
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
-                    isSidebarReordering.toggle()
-                }
+                setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
             }
             listObservation.onSidebarMoveReady { source, destination in
-                moveExercises(from: IndexSet(integer: source), to: destination)
+                onMove(source, destination)
+            }
+            listObservation.onSidebarReorderToggleAction {
+                setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
+            }
+            listObservation.onSidebarMoveUpAction { index in
+                guard index > 0 else { return }
+                onMove(index, index - 1)
+            }
+            listObservation.onSidebarMoveDownAction { index in
+                guard index < exercises.count - 1 else { return }
+                onMove(index, index + 2)
             }
         }
         .onChange(of: sidebarItems) { _, items in
             listObservation.onSidebarItems(items)
+            listObservation.onSidebarReorderModeState(isSidebarReordering)
             listObservation.onSidebarSelect { id in
                 guard let exercise = sortedExercises.first(where: { $0.persistentModelID == id }) else { return }
                 onSelect(exercise)
             }
             listObservation.onSidebarReorderToggle {
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
-                    isSidebarReordering.toggle()
-                }
+                setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
             }
             listObservation.onSidebarMoveReady { source, destination in
-                moveExercises(from: IndexSet(integer: source), to: destination)
+                onMove(source, destination)
+            }
+            listObservation.onSidebarReorderToggleAction {
+                setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
+            }
+            listObservation.onSidebarMoveUpAction { index in
+                guard index > 0 else { return }
+                onMove(index, index - 1)
+            }
+            listObservation.onSidebarMoveDownAction { index in
+                guard index < exercises.count - 1 else { return }
+                onMove(index, index + 2)
             }
         }
     }
 
-    private func sidebarWidth(forListWidth listWidth: CGFloat) -> CGFloat {
-        guard listWidth > 0 else { return 64 }
-        return min(max(listWidth * 0.18, 64), 88)
+    private func sidebarWidth(forListWidth listWidth: CGFloat, isReordering: Bool) -> CGFloat {
+        let collapsed: CGFloat = largeMode ? 76 : 64
+        guard isReordering else {
+            guard listWidth > 0 else { return collapsed }
+            return min(max(listWidth * 0.18, collapsed), 88)
+        }
+        let expanded: CGFloat = largeMode ? 280 : 260
+        return min(expanded, max(236, listWidth > 0 ? listWidth * 0.74 : expanded))
+    }
+
+    private func setSidebarReordering(
+        _ value: Bool,
+        selectExercise: @escaping (WorkoutExercise) -> Void
+    ) {
+        let animation: Animation = reduceMotion
+            ? .easeInOut(duration: 0.15)
+            : .spring(response: 0.32, dampingFraction: 0.84)
+        withAnimation(animation) {
+            isSidebarReordering = value
+        }
+        listObservation.onSidebarReorderModeState(value)
+        HapticManager.trigger(.setCompleted)
+        if !value, let selectedExerciseID,
+           let selected = sortedExercises.first(where: { $0.persistentModelID == selectedExerciseID }) {
+            selectExercise(selected)
+        }
+    }
+
+    private func moveSidebarExercise(
+        source: Int,
+        destination: Int,
+        exercises: [WorkoutExercise],
+        selectExercise: @escaping (WorkoutExercise) -> Void
+    ) {
+        guard exercises.indices.contains(source) else { return }
+        let movedExercise = exercises[source]
+        moveExercises(from: IndexSet(integer: source), to: destination)
+        HapticManager.trigger(.setCompleted)
+        selectExercise(movedExercise)
     }
 
     private func dismissKeyboardIfVisible() {

@@ -813,12 +813,11 @@ final class DesignEcoSnapshotTests: XCTestCase {
 
     private static func snapshotOutputDirectory() throws -> URL {
         let directory: URL
-        if let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"]
-            ?? ProcessInfo.processInfo.environment["TEST_RUNNER_DESIGN_ECO_SNAPSHOT_DIR"]
-            ?? ProcessInfo.processInfo.environment["SIMCTL_CHILD_DESIGN_ECO_SNAPSHOT_DIR"] {
+        if let path = ProcessInfo.processInfo.environment["VITALSTRIDE_SNAPSHOT_OUTPUT_DIR"] {
             directory = URL(fileURLWithPath: path, isDirectory: true)
         } else {
             directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("vs-nvr-1102-snapshots", isDirectory: true)
         }
 
         try FileManager.default.createDirectory(
