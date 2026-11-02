@@ -47,7 +47,7 @@ private struct ActiveWorkoutScrollViewProbe: UIViewRepresentable {
         }
 
         @available(*, unavailable)
-        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        required init?(coder: NSCoder) { nil }
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
@@ -60,48 +60,34 @@ private struct ActiveWorkoutScrollViewProbe: UIViewRepresentable {
         }
 
         func resolveIfNeeded() {
-            var root: UIView? = superview
-            while let parent = root?.superview {
-                root = parent
-                if root is UIWindow { break }
+            guard let ownWindow = window else { return }
+            var container = superview
+            while let searchRoot = container, searchRoot.window === ownWindow {
+                if let collectionView = Self.findCollectionView(in: searchRoot) {
+                    resolveRetryCount = 0
+                    onResolve(collectionView)
+                    return
+                }
+                if searchRoot === ownWindow { break }
+                container = searchRoot.superview
             }
-            let appWindow = UIApplication.shared.connectedScenes
-                .compactMap { ($0 as? UIWindowScene)?.keyWindow }
-                .first
-            guard let searchRoot = window ?? appWindow ?? root else { return }
-            if let collectionView = Self.findCollectionView(in: searchRoot) {
-                resolveRetryCount = 0
-                onResolve(collectionView)
-            } else {
-                if let scrollView = Self.findMainScrollView(in: searchRoot) {
-                    onResolve(scrollView)
-                }
-                guard resolveRetryCount < 10 else { return }
-                resolveRetryCount += 1
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-                    self?.resolveIfNeeded()
-                }
+            guard resolveRetryCount < 10 else { return }
+            resolveRetryCount += 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.resolveIfNeeded()
             }
         }
 
         private static func findCollectionView(in view: UIView) -> UICollectionView? {
             if let collectionView = view as? UICollectionView, collectionView.bounds.width > 120 {
+                if let flowLayout = collectionView.collectionViewLayout as? UICollectionViewFlowLayout,
+                   flowLayout.scrollDirection == .horizontal {
+                    return nil
+                }
                 return collectionView
             }
             for subview in view.subviews {
                 if let found = findCollectionView(in: subview) {
-                    return found
-                }
-            }
-            return nil
-        }
-
-        private static func findMainScrollView(in view: UIView) -> UIScrollView? {
-            if let scrollView = view as? UIScrollView, scrollView.bounds.width > 120 {
-                return scrollView
-            }
-            for subview in view.subviews {
-                if let found = findMainScrollView(in: subview) {
                     return found
                 }
             }
@@ -1279,33 +1265,16 @@ struct ActiveWorkoutView: View {
                                                 - collectionView.bounds.height
                                                 + collectionView.adjustedContentInset.bottom
                                         )
-                                        let maxOffsetX = max(
-                                            0,
-                                            collectionView.contentSize.width
-                                                - collectionView.bounds.width
-                                                + collectionView.adjustedContentInset.right
-                                        )
-                                        let targetX = min(
-                                            max(0, attributes.frame.minX - collectionView.adjustedContentInset.left),
-                                            maxOffsetX
-                                        )
                                         let targetY = min(
                                             max(0, attributes.frame.minY - collectionView.adjustedContentInset.top),
                                             maxOffsetY
                                         )
                                         collectionView.setContentOffset(
-                                            CGPoint(x: targetX, y: targetY),
+                                            CGPoint(x: 0, y: targetY),
                                             animated: false
                                         )
                                         collectionView.layoutIfNeeded()
                                     }
-                                    var rectInContent = collectionView.layoutAttributesForItem(at: targetIndexPath)?.frame
-                                        ?? CGRect(
-                                            x: 0,
-                                            y: collectionView.contentOffset.y,
-                                            width: collectionView.bounds.width,
-                                            height: 44
-                                        )
                                     let visibleSize: CGSize = {
                                         if collectionView.bounds.width > 0 && collectionView.bounds.height > 0 {
                                             return collectionView.bounds.size
@@ -1315,37 +1284,6 @@ struct ActiveWorkoutView: View {
                                         }
                                         return CGSize(width: 320, height: 600)
                                     }()
-                                    let currentVisibleRect = CGRect(
-                                        origin: collectionView.contentOffset,
-                                        size: visibleSize
-                                    )
-                                    if !currentVisibleRect.insetBy(dx: -1, dy: -1).intersects(rectInContent) {
-                                        let maxOffsetY = max(
-                                            0,
-                                            collectionView.contentSize.height
-                                                - collectionView.bounds.height
-                                                + collectionView.adjustedContentInset.bottom
-                                        )
-                                        let maxOffsetX = max(
-                                            0,
-                                            collectionView.contentSize.width
-                                                - collectionView.bounds.width
-                                                + collectionView.adjustedContentInset.right
-                                        )
-                                        let correctedOffsetX = min(
-                                            max(0, rectInContent.minX - collectionView.adjustedContentInset.left),
-                                            maxOffsetX
-                                        )
-                                        let correctedOffsetY = min(
-                                            max(0, rectInContent.minY - collectionView.adjustedContentInset.top),
-                                            maxOffsetY
-                                        )
-                                        collectionView.setContentOffset(
-                                            CGPoint(x: correctedOffsetX, y: correctedOffsetY),
-                                            animated: false
-                                        )
-                                        collectionView.layoutIfNeeded()
-                                    }
                                     let finalVisibleRect = CGRect(
                                         origin: collectionView.contentOffset,
                                         size: visibleSize
@@ -1359,20 +1297,23 @@ struct ActiveWorkoutView: View {
                                             listFrame: exerciseListFrame
                                         )
                                     )
-                                    listObservation.onHeaderFrame(
-                                        exercise.persistentModelID,
-                                        rectInContent
-                                    )
+                                    if let attributes = collectionView.layoutAttributesForItem(at: targetIndexPath) {
+                                        let globalHeaderRect = collectionView.convert(attributes.frame, to: nil)
+                                        listObservation.onHeaderFrame(exercise.persistentModelID, globalHeaderRect)
+                                    }
                                 }
                             }
                             #endif
                         }
                         DispatchQueue.main.async {
+                            guard selectedExerciseID == exercise.persistentModelID else { return }
                             scrollToSelection()
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                guard selectedExerciseID == exercise.persistentModelID else { return }
                                 scrollToSelection()
                             }
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.40) {
+                                guard selectedExerciseID == exercise.persistentModelID else { return }
                                 scrollToSelection()
                             }
                         }
@@ -1398,6 +1339,7 @@ struct ActiveWorkoutView: View {
                                 onDelete: { deleteExercise(workoutExercise) },
                                 undoController: undoController
                             )
+                            .id(workoutExercise.persistentModelID)
                         }
                     }
                     .listStyle(.plain)

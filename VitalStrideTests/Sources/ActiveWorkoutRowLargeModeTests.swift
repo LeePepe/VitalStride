@@ -2380,7 +2380,13 @@ final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
             .modelContainer(container)
             .designTheme(seed: .teal, neutral: .slate)
             .environment(\.activeWorkoutListObservation, sink)
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        let window: UIWindow
+        if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
+            window = UIWindow(windowScene: scene)
+        } else {
+            window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        }
+        window.frame = CGRect(x: 0, y: 0, width: 393, height: 852)
         let host = UIHostingController(rootView: content)
         window.rootViewController = host
         window.makeKeyAndVisible()
@@ -2392,14 +2398,15 @@ final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(500))
         XCTAssertNotNil(select)
         select?(exercises[5].persistentModelID)
-        for _ in 0..<20 where headers[exercises[5].persistentModelID] == nil {
+        for _ in 0..<20 where (geometry?.contentOffset.y ?? 0) <= 0
+            || headers[exercises[5].persistentModelID] == nil {
             try await Task.sleep(for: .milliseconds(100))
         }
         XCTAssertEqual(selectedID, exercises[5].persistentModelID)
         let listGeometry = try XCTUnwrap(geometry)
         let bottomHeader = try XCTUnwrap(headers[exercises[5].persistentModelID])
-        XCTAssertGreaterThanOrEqual(listGeometry.contentOffset.y, 0)
-        XCTAssertTrue(listGeometry.visibleRect.insetBy(dx: -1, dy: -1).intersects(bottomHeader))
+        XCTAssertGreaterThan(listGeometry.contentOffset.y, 0)
+        XCTAssertTrue(listGeometry.listFrame.insetBy(dx: -2, dy: -2).intersects(bottomHeader))
 
         toggle?()
         try await Task.sleep(for: .milliseconds(100))

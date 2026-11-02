@@ -188,10 +188,12 @@ final class DesignEcoSnapshotTests: XCTestCase {
                     named: "workout-populated-selected-6\(largeMode ? "-large" : "")\(variant.suffix)",
                     in: outputDirectory,
                     variant: variant
-                ) { _, _ in
+                ) { host, _ in
                     try await Task.sleep(for: .milliseconds(50))
+                    XCTAssertNotNil(select)
                     select?(sixthID)
                     try await Task.sleep(for: .milliseconds(350))
+                    host.view.layoutIfNeeded()
                 }
             }
         }

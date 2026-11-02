@@ -320,7 +320,6 @@ struct ActiveExerciseSection: View {
         .listRowInsets(EdgeInsets())
         .listRowBackground(theme.neutrals.bg)
         .zIndex(1)
-        .id(workoutExercise.persistentModelID)
         .background {
             GeometryReader { geometry in
                 Color.clear
