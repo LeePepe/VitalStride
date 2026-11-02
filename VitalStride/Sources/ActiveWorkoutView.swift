@@ -1557,7 +1557,7 @@ struct ActiveWorkoutView: View {
         .foregroundStyle(subFgColor)
         .lineLimit(1)
                         }
-                        .frame(minWidth: 110, maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .layoutPriority(1)
                     }
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -2032,12 +2032,11 @@ struct ActiveWorkoutView: View {
     }
 
     private func sidebarWidth(forListWidth listWidth: CGFloat, isReordering: Bool) -> CGFloat {
-        guard isReordering else {
-            guard listWidth > 0 else { return 64 }
-            return min(max(listWidth * 0.18, 64), 88)
-        }
+        let collapsed: CGFloat = listWidth > 0 ? min(max(listWidth * 0.18, 64), 88) : 64
+        guard isReordering else { return collapsed }
         let expanded: CGFloat = largeMode ? 280 : 260
-        return min(expanded, max(236, listWidth > 0 ? listWidth * 0.74 : expanded))
+        let containerWidth: CGFloat = listWidth > 0 ? (listWidth + collapsed) : expanded
+        return min(expanded, max(236, containerWidth > 0 ? containerWidth * 0.74 : expanded))
     }
 
     private func setSidebarReordering(
