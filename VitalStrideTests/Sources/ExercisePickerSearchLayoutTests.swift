@@ -53,7 +53,7 @@ struct ExercisePickerSearchLayoutTests {
         ] {
             let view = ExercisePickerView(initialMuscleGroup: group, onSelect: { _ in })
                 .modelContainer(container)
-                .environment(\.dynamicTypeSize, size)
+                .dynamicTypeSize(size)
                 .preferredColorScheme(scheme)
                 .designTheme()
             let image = try await TK1SnapshotRenderer.render(

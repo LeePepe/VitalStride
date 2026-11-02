@@ -31,6 +31,9 @@ struct ExercisePickerScrollArbitrator {
     private(set) var scrollPhase: ExercisePickerScrollPhase = .idle
     private(set) var programmaticTarget: ExerciseSection?
     private(set) var programmaticSource: ExercisePickerSelectionSource?
+    private(set) var lastSelectedTarget: ExerciseSection?
+    private(set) var wasScrollingWhenRequested = false
+    private var hasObservedPostRequestPhase = false
 
     mutating func requestSelection(
         target: ExerciseSection,
@@ -40,9 +43,30 @@ struct ExercisePickerScrollArbitrator {
             return selectionGeneration
         }
 
+        wasScrollingWhenRequested = scrollPhase == .userDragging
+            || scrollPhase == .decelerating
+            || scrollPhase == .animating
         selectionGeneration &+= 1
         programmaticTarget = target
         programmaticSource = source
+        lastSelectedTarget = target
+        hasObservedPostRequestPhase = false
+        scrollPhase = .programmatic
+        return selectionGeneration
+    }
+
+    mutating func rearmSelection(
+        target: ExerciseSection,
+        source: ExercisePickerSelectionSource
+    ) -> UInt {
+        wasScrollingWhenRequested = scrollPhase == .userDragging
+            || scrollPhase == .decelerating
+            || scrollPhase == .animating
+        selectionGeneration &+= 1
+        programmaticTarget = target
+        programmaticSource = source
+        lastSelectedTarget = target
+        hasObservedPostRequestPhase = false
         scrollPhase = .programmatic
         return selectionGeneration
     }
@@ -62,9 +86,27 @@ struct ExercisePickerScrollArbitrator {
             mappedPhase = .idle
         }
 
+        if programmaticTarget != nil {
+            if mappedPhase == .userDragging, !isScrubbing {
+                if hasObservedPostRequestPhase {
+                    programmaticTarget = nil
+                    programmaticSource = nil
+                    lastSelectedTarget = nil
+                    scrollPhase = .userDragging
+                    return
+                }
+                hasObservedPostRequestPhase = true
+                scrollPhase = .programmatic
+                return
+            }
+            if mappedPhase == .decelerating || mappedPhase == .idle || mappedPhase == .animating {
+                hasObservedPostRequestPhase = true
+                scrollPhase = .programmatic
+                return
+            }
+        }
         if mappedPhase == .userDragging, !isScrubbing {
-            programmaticTarget = nil
-            programmaticSource = nil
+            lastSelectedTarget = nil
         }
         scrollPhase = mappedPhase
     }
@@ -87,6 +129,7 @@ struct ExercisePickerView: View {
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.sizeCategory) private var sizeCategory
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.nameEn) private var exercises: [Exercise]
     @State private var searchText = ""
@@ -124,6 +167,7 @@ struct ExercisePickerView: View {
     // bumps so the `.onChange(scrollResetToken)` handler picks the correct
     // section without re-deriving intent.
     @State private var pendingScrollAnchor: ExerciseSection?
+    @State private var pendingScrollWasMoving = false
     // Measured height of the floating search+filter panel, used ONLY on the
     // iOS 18 fallback path. There the panel is a non-layout `.overlay` (NOT
     // `.safeAreaInset`) so it cannot feed back into the scroll grid's
@@ -216,7 +260,21 @@ struct ExercisePickerView: View {
     }
 
     private var gridColumns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 8), count: Self.gridColumnCount)
+        let isAccessibilityLayout: Bool
+        switch dynamicTypeSize {
+        case .accessibility1, .accessibility2, .accessibility3, .accessibility4, .accessibility5:
+            isAccessibilityLayout = true
+        default:
+            isAccessibilityLayout = false
+        }
+        let usesSingleColumn = isAccessibilityLayout
+            || sizeCategory.isAccessibilityCategory
+            || sizeCategory != .large
+            || dynamicTypeSize != .large
+        return Array(
+            repeating: GridItem(.flexible(), spacing: 10),
+            count: usesSingleColumn ? 1 : Self.gridColumnCount
+        )
     }
 
     var body: some View {
@@ -267,9 +325,11 @@ struct ExercisePickerView: View {
             }
             .task(id: scrollArbitrator.selectionGeneration) {
                 guard scrollArbitrator.programmaticTarget != nil else { return }
+                guard draggedEquipment == nil else { return }
                 let generation = scrollArbitrator.selectionGeneration
                 try? await Task.sleep(for: .milliseconds(320))
                 guard !Task.isCancelled else { return }
+                guard draggedEquipment == nil else { return }
                 scrollArbitrator.settle(generation: generation)
             }
             .onChange(of: exerciseRevisions) { _, _ in
@@ -299,6 +359,7 @@ struct ExercisePickerView: View {
                 visibleEquipment = anchor
                 if let anchor {
                     _ = scrollArbitrator.requestSelection(target: anchor, source: .muscle)
+                    pendingScrollWasMoving = scrollArbitrator.wasScrollingWhenRequested
                 }
                 pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
@@ -309,6 +370,7 @@ struct ExercisePickerView: View {
                 visibleEquipment = anchor
                 if let anchor {
                     _ = scrollArbitrator.requestSelection(target: anchor, source: .filter)
+                    pendingScrollWasMoving = scrollArbitrator.wasScrollingWhenRequested
                 }
                 pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
@@ -334,6 +396,7 @@ struct ExercisePickerView: View {
                 visibleEquipment = anchor
                 if let anchor {
                     _ = scrollArbitrator.requestSelection(target: anchor, source: .filter)
+                    pendingScrollWasMoving = scrollArbitrator.wasScrollingWhenRequested
                 }
                 pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
@@ -352,6 +415,48 @@ struct ExercisePickerView: View {
         cachedEquipmentGroups = Self.computeEquipmentGroups(
             from: exercises, muscleGroup: selectedMuscleGroup, searchText: debouncedSearchText
         )
+    }
+
+    private func handleMuscleTap(_ group: MuscleGroup?) {
+        guard selectedMuscleGroup == group else {
+            selectedMuscleGroup = group
+            return
+        }
+
+        let groups = Self.computeEquipmentGroups(
+            from: exercises,
+            muscleGroup: group,
+            searchText: debouncedSearchText
+        )
+        cachedEquipmentGroups = groups
+        let anchor = Self.resolveMuscleGroupScrollAnchor(
+            previouslyVisible: visibleEquipment,
+            in: groups.map(\.0)
+        )
+        visibleEquipment = anchor
+        pendingScrollAnchor = anchor
+        if let anchor {
+            _ = scrollArbitrator.requestSelection(target: anchor, source: .muscle)
+            pendingScrollWasMoving = scrollArbitrator.wasScrollingWhenRequested
+        }
+        scrollResetToken &+= 1
+    }
+
+    private func handleEquipmentFilterTap(_ value: Equipment?) {
+        guard selectedEquipmentFilter == value else {
+            selectedEquipmentFilter = value
+            return
+        }
+
+        let groups = filteredEquipmentGroups(for: value)
+        let anchor = groups.first?.0
+        visibleEquipment = anchor
+        pendingScrollAnchor = anchor
+        if let anchor {
+            _ = scrollArbitrator.requestSelection(target: anchor, source: .filter)
+            pendingScrollWasMoving = scrollArbitrator.wasScrollingWhenRequested
+        }
+        scrollResetToken &+= 1
     }
 
     static let panelHorizontalInset: CGFloat = 12
@@ -399,7 +504,7 @@ struct ExercisePickerView: View {
         let isSelected = selectedEquipmentFilter == value
         return Button {
             withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85)) {
-                selectedEquipmentFilter = value
+                handleEquipmentFilterTap(value)
             }
         } label: {
             Text(label)
@@ -412,7 +517,7 @@ struct ExercisePickerView: View {
                     isSelected ? theme.onInteractiveAccent : theme.foreground
                 )
                 .background(
-                    isSelected ? theme.interactiveAccent : theme.inner,
+                    isSelected ? theme.interactiveAccent.opacity(0.82) : theme.surfaceSubtle.opacity(0.72),
                     in: Capsule()
                 )
         }
@@ -441,7 +546,7 @@ struct ExercisePickerView: View {
         let label = group?.localizedName ?? String(localized: "全部", comment: "All muscle groups")
         return Button {
             withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85)) {
-                selectedMuscleGroup = group
+                handleMuscleTap(group)
             }
         } label: {
             VStack(spacing: 3) {
@@ -457,7 +562,13 @@ struct ExercisePickerView: View {
             }
             .frame(maxWidth: .infinity, minHeight: 48)
             .foregroundStyle(selected ? theme.accent : theme.foreground)
-            .background(selected ? theme.accentSubtle : .clear, in: RoundedRectangle(cornerRadius: 12))
+            .background(selected ? theme.accentSubtle : .clear, in: Capsule())
+            .overlay(alignment: .trailing) {
+                Rectangle()
+                    .fill(theme.border.opacity(0.5))
+                    .frame(width: 0.5)
+                    .padding(.vertical, 8)
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -659,6 +770,7 @@ struct ExercisePickerView: View {
                         visibleIds,
                         in: equipments,
                         current: visibleEquipment,
+                        preferred: scrollArbitrator.programmaticTarget ?? scrollArbitrator.lastSelectedTarget,
                         isDragging: draggedEquipment != nil,
                         using: { equipment in
                             guard let equipment else { return }
@@ -715,9 +827,16 @@ struct ExercisePickerView: View {
                 .onChange(of: scrollResetToken) { _, _ in
                     let target = pendingScrollAnchor ?? groups.first?.0
                     guard let anchor = target else { return }
-                    gridProxy.scrollTo(anchor, anchor: .top)
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        gridProxy.scrollTo(anchor, anchor: .top)
+                    if pendingScrollWasMoving || reduceMotion {
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) {
+                            gridProxy.scrollTo(anchor, anchor: .top)
+                        }
+                    } else {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            gridProxy.scrollTo(anchor, anchor: .top)
+                        }
                     }
                 }
             }
@@ -733,16 +852,17 @@ struct ExercisePickerView: View {
             onSelect: { equipment, animated in
                 let source: ExercisePickerSelectionSource = animated ? .indexTap : .indexScrub
                 _ = scrollArbitrator.requestSelection(target: equipment, source: source)
-                if animated {
-                    gridProxy.scrollTo(equipment, anchor: .top)
-                    withAnimation(.easeOut(duration: 0.2)) {
+                let wasMoving = scrollArbitrator.wasScrollingWhenRequested
+                if wasMoving || reduceMotion || !animated {
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
                         gridProxy.scrollTo(equipment, anchor: .top)
                     }
                 } else {
-                    // Drag scrub: jump immediately with no per-frame
-                    // animation so rapid equipment changes don't stack
-                    // competing 0.2s scroll animations to tall sections.
-                    gridProxy.scrollTo(equipment, anchor: .top)
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        gridProxy.scrollTo(equipment, anchor: .top)
+                    }
                 }
                 // MY-1338: drag owns the highlight while
                 // `draggedEquipment != nil` — the scroll-derived
@@ -773,7 +893,14 @@ struct ExercisePickerView: View {
             onDragEnded: {
                 let count = dragScrubCount
                 dragScrubCount = 0
+                let finalTarget = draggedEquipment
                 indexHUD = draggedEquipment
+                if let finalTarget {
+                    _ = scrollArbitrator.rearmSelection(
+                        target: finalTarget,
+                        source: .indexScrub
+                    )
+                }
                 draggedEquipment = nil
                 // MY-1338: emit the scrub-count telemetry regardless of
                 // whether the scrub visited any sections; a zero-count
@@ -908,13 +1035,19 @@ struct ExercisePickerView: View {
         _ visibleIds: [ExerciseSection],
         in order: [ExerciseSection],
         current: ExerciseSection?,
+        preferred: ExerciseSection? = nil,
         isDragging: Bool,
         using setter: (ExerciseSection?) -> Void
     ) -> ExerciseSection? {
         if isDragging {
             return current
         }
-        let resolved = firstVisibleEquipment(from: visibleIds, in: order)
+        let resolved: ExerciseSection?
+        if let preferred, visibleIds.contains(preferred) {
+            resolved = preferred
+        } else {
+            resolved = firstVisibleEquipment(from: visibleIds, in: order)
+        }
         if resolved != current {
             setter(resolved)
         }
@@ -1156,7 +1289,7 @@ private struct ExerciseCard: View {
                 minHeight: dynamicTypeSize.isAccessibilitySize ? 148 : 118,
                 alignment: .topLeading
             )
-            .padding(12)
+            .padding(10)
             .designSurface(style: .solid, cornerRadius: 16)
             .overlay {
                 RoundedRectangle(cornerRadius: 16)
@@ -1202,15 +1335,19 @@ private struct EquipmentIndexBar: View {
         GeometryReader { geometry in
             let height = min(geometry.size.height, CGFloat(equipments.count) * 28)
             VStack(spacing: 0) {
-                ForEach(equipments, id: \.self) { equipment in
-                    Text(ExercisePickerSectionGrouping.indexCharacter(for: equipment))
-                        .font(.caption2.weight(activeEquipment == equipment ? .heavy : .medium))
-                        .foregroundStyle(activeEquipment == equipment ? theme.accent : theme.secondaryForeground)
-                        .frame(width: 16, height: height / CGFloat(max(equipments.count, 1)))
+                VStack(spacing: 0) {
+                    ForEach(equipments, id: \.self) { equipment in
+                        Text(ExercisePickerSectionGrouping.indexCharacter(for: equipment))
+                            .font(.caption2.weight(activeEquipment == equipment ? .heavy : .medium))
+                            .foregroundStyle(activeEquipment == equipment ? theme.accent : theme.secondaryForeground)
+                            .frame(width: 16, height: height / CGFloat(max(equipments.count, 1)))
+                    }
                 }
+                .padding(.vertical, 6)
+                .frame(width: 24)
+                .liquidGlassCapsule(theme: theme)
             }
             .frame(width: Self.hitWidth, height: height)
-            .liquidGlassCapsule(theme: theme)
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0)
                 .onChanged { value in
@@ -1325,7 +1462,7 @@ struct PickerBottomBar: View {
                 .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
                 .background(
                     isConfirmDisabled ? theme.inner : theme.interactiveAccent,
-                    in: RoundedRectangle(cornerRadius: Radius.control)
+                    in: Capsule()
                 )
             }
             .buttonStyle(.plain)
@@ -1338,11 +1475,7 @@ struct PickerBottomBar: View {
             .accessibilityIdentifier("exercise_picker_confirm")
         }
         .padding(Space.xs)
-        .liquidGlassBar(theme: theme, cornerRadius: Radius.control)
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
-                .stroke(theme.foreground.opacity(0.12), lineWidth: 0.5)
-        }
+        .liquidGlassBar(theme: theme, cornerRadius: 20)
         .shadow(color: .black.opacity(0.14), radius: 12, y: 4)
     }
 
@@ -1386,9 +1519,11 @@ struct PickerBottomBar: View {
         .padding(.leading, Space.sm)
         .padding(.trailing, searchText.isEmpty ? Space.sm : 0)
         .frame(minHeight: Space.minTapTarget)
-        .background(theme.inner, in: RoundedRectangle(cornerRadius: Radius.control))
-        .overlay(RoundedRectangle(cornerRadius: Radius.control)
-            .stroke(isSearchFocused ? theme.accent : theme.border, lineWidth: 1))
+        .background(theme.inner.opacity(0.65), in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(isSearchFocused ? theme.accent.opacity(0.65) : theme.foreground.opacity(0.10), lineWidth: 0.5)
+        }
     }
 }
 
