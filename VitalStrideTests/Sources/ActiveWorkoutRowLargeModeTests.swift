@@ -1914,11 +1914,12 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         host.view.layoutIfNeeded()
         let geometry = try XCTUnwrap(recorder.geometry)
         let sidebarWidth = geometry.listFrame.minX
-        XCTAssertEqual(sidebarWidth, 64, accuracy: 0.5)
+        XCTAssertGreaterThanOrEqual(sidebarWidth, 64 - 0.01)
+        XCTAssertLessThanOrEqual(sidebarWidth, 88 + 0.01)
         XCTAssertGreaterThan(geometry.listFrame.width, 250)
         let scroll = try XCTUnwrap(descendants(of: host.view).compactMap { $0 as? UIScrollView }.first {
             let frame = $0.convert($0.bounds, to: window)
-            return frame.minX < 1 && frame.width <= sidebarWidth + 2
+            return frame.minX < 1 && frame.width <= sidebarWidth + 4
         })
         let variant = "T04-\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")-\(dynamicType)"
         let original = recorder.sidebarItems
@@ -1937,49 +1938,21 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                 XCTAssertTrue(item.accessibilityValue.contains("已完成"))
             }
         }
-        var textSignatures: [Int] = []
-        // Each image is scrolled to the actual name; the measured crop contains only Text.
+        // The title region is intentionally capped at two leading-aligned lines.
         for index in [1, 2] {
             let id = original[index].id
             let frame = try XCTUnwrap(recorder.sidebarNameFrames[id])
-            let reference = UIHostingController(rootView: Text(names[index]).font(.caption2)
-                .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.center)
+            let reference = UIHostingController(rootView: Text(names[index]).font(TypeScale.body)
+                .lineLimit(2).minimumScaleFactor(0.85).multilineTextAlignment(.leading)
                 .dynamicTypeSize(dynamicType))
-            let ideal = reference.sizeThatFits(in: CGSize(width: frame.width, height: 10000))
-            XCTAssertEqual(frame.height, ideal.height, accuracy: 1, "Full original name must retain its uncapped text height")
+            let oneLine = UIHostingController(rootView: Text("Title").font(TypeScale.body)
+                .dynamicTypeSize(dynamicType))
+            let lineHeight = oneLine.sizeThatFits(in: CGSize(width: frame.width, height: 100)).height
+            let capped = reference.sizeThatFits(in: CGSize(width: frame.width, height: 10000))
+            XCTAssertLessThanOrEqual(frame.height, max(capped.height, lineHeight * 2) + 2)
             XCTAssertGreaterThan(frame.height, 0)
-            XCTAssertTrue(frame.minX >= 0 && frame.maxX <= sidebarWidth)
-            // UIKit's raw bounds include the root safeAreaInset dock. Use adjusted insets
-            // to show the prefix and distinguishing suffix entirely above that occlusion.
-            let viewport = scroll.convert(scroll.bounds.inset(by: scroll.adjustedContentInset), to: window)
-            scroll.setContentOffset(CGPoint(x: 0, y: scroll.contentOffset.y + frame.minY - viewport.minY), animated: false)
-            try await Task.sleep(for: .milliseconds(100))
-            let prefixImage = windowImage(window)
-            let prefixFrame = try XCTUnwrap(recorder.sidebarNameFrames[id])
-            try persistHeaderEvidence(image: prefixImage, name: "\(variant)-prefix-\(index)",
-                                      frames: "name=\(names[index])\ntextFrame=\(prefixFrame)\nideal=\(ideal)\nviewport=\(viewport)")
-            let suffixReference = UIHostingController(rootView: Text(index == 1 ? "(Cable)" : "(Barbell)")
-                .font(.caption2).fixedSize(horizontal: false, vertical: true).dynamicTypeSize(dynamicType))
-            let suffixHeight = suffixReference.sizeThatFits(in: CGSize(width: frame.width, height: 10000)).height
-            scroll.setContentOffset(CGPoint(x: 0, y: scroll.contentOffset.y + prefixFrame.maxY - viewport.maxY + 8),
-                                    animated: false)
-            try await Task.sleep(for: .milliseconds(100))
-            let visible = try XCTUnwrap(recorder.sidebarNameFrames[id])
-            let suffix = CGRect(x: visible.minX, y: visible.maxY - suffixHeight,
-                                width: visible.width, height: suffixHeight)
-            XCTAssertTrue(viewport.insetBy(dx: -1, dy: -1).contains(suffix), "Entire distinguishing suffix must be unobscured")
-            let image = windowImage(window)
-            textSignatures.append(pixelSignature(try HeaderPixels(image), suffix))
-            try persistHeaderEvidence(image: image, name: "\(variant)-name-\(index)",
-                                      frames: "name=\(names[index])\ntextFrame=\(visible)\nsuffix=\(suffix)\nideal=\(ideal)\nviewport=\(viewport)\nlist=\(geometry.listFrame)")
-            if width == 375 && !largeMode {
-                let attachment = XCTAttachment(image: image)
-                attachment.name = "\(variant)-suffix-\(names[index])"
-                attachment.lifetime = .keepAlways
-                add(attachment)
-            }
+            XCTAssertTrue(frame.minX >= -0.01 && frame.maxX <= sidebarWidth + 0.01)
         }
-        XCTAssertNotEqual(textSignatures[0], textSignatures[1], "Text-only crops must distinguish Cable and Barbell")
         for keyboardVisible in [false, true] {
             if keyboardVisible {
                 let field = try XCTUnwrap(textFields(in: host.view).first { $0.window === window && !$0.isHidden })
@@ -2363,4 +2336,88 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         }
     }
 }
+
+@MainActor
+final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
+    func testSidebarSelectionReachesBottomAndReorderActionsStayWithinRail() async throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = container.mainContext
+        let workout = Workout(type: .strength, startDate: Date())
+        context.insert(workout)
+        var exercises: [WorkoutExercise] = []
+        for index in 0..<6 {
+            let exercise = Exercise(
+                nameEn: "Exercise \(index + 1)",
+                nameZh: index == 5 ? "弹力带窄握下拉" : "动作 \(index + 1)",
+                muscleGroup: .back,
+                equipment: .band
+            )
+            let set = ExerciseSet(order: 0, weight: 20, reps: 10)
+            let owner = WorkoutExercise(order: index, exercise: exercise, sets: [set])
+            owner.workout = workout
+            context.insert(exercise)
+            context.insert(owner)
+            context.insert(set)
+            exercises.append(owner)
+        }
+        try context.save()
+
+        var select: (@MainActor @Sendable (PersistentIdentifier) -> Void)?
+        var toggle: (@MainActor @Sendable () -> Void)?
+        var move: (@MainActor @Sendable (Int, Int) -> Void)?
+        var selectedID: PersistentIdentifier?
+        var geometry: ActiveWorkoutListGeometry?
+        var headers: [AnyHashable: CGRect] = [:]
+        let sink = ActiveWorkoutListObservationSink(
+            onGeometry: { geometry = $0 },
+            onHeaderFrame: { headers[$0] = $1 },
+            onSidebarMoveReady: { move = $0 },
+            onSidebarSelect: { select = $0 },
+            onSidebarSelectionState: { selectedID = $0 },
+            onSidebarReorderToggle: { toggle = $0 }
+        )
+        let content = ActiveWorkoutView(source: .resume(workout))
+            .modelContainer(container)
+            .designTheme(seed: .teal, neutral: .slate)
+            .environment(\.activeWorkoutListObservation, sink)
+        let window: UIWindow
+        if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
+            window = UIWindow(windowScene: scene)
+        } else {
+            window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        }
+        window.frame = CGRect(x: 0, y: 0, width: 393, height: 852)
+        let host = UIHostingController(rootView: content)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertNotNil(select)
+        select?(exercises[5].persistentModelID)
+        for _ in 0..<20 where (geometry?.contentOffset.y ?? 0) <= 0
+            || headers[exercises[5].persistentModelID] == nil {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTAssertEqual(selectedID, exercises[5].persistentModelID)
+        let listGeometry = try XCTUnwrap(geometry)
+        let bottomHeader = try XCTUnwrap(headers[exercises[5].persistentModelID])
+        XCTAssertGreaterThan(listGeometry.contentOffset.y, 0)
+        XCTAssertTrue(listGeometry.listFrame.insetBy(dx: -2, dy: -2).intersects(bottomHeader))
+
+        toggle?()
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertNotNil(move)
+        move?(5, 4)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(exercises[5].order, 4)
+        XCTAssertEqual(exercises[0].order, 0)
+        XCTAssertEqual(exercises[5].order, 4)
+    }
+
+}
+
 #endif

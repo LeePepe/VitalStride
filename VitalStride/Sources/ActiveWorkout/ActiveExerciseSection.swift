@@ -296,7 +296,6 @@ struct ActiveExerciseSection: View {
             Spacer(minLength: 0)
             addSetButtonAndMenu
         }
-        .id(workoutExercise.persistentModelID)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: completedSetCount) { _, count in
             if count < totalSetCount { isCollapsed = false }

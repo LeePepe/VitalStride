@@ -49,7 +49,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
     ]
 
     func testRendersRoundThreeSnapshots() async throws {
-        let outputDirectory = try Self.prepareOutputDirectory()
+        let outputDirectory = try Self.snapshotOutputDirectory()
         let workoutFixture = try Self.makeWorkoutFixture()
         let defaultsSuite = "DesignEcoSnapshotTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: defaultsSuite))
@@ -98,7 +98,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
     }
 
     func testRendersTK1WidthMatrixSnapshots() async throws {
-        let outputDirectory = try Self.prepareOutputDirectory()
+        let outputDirectory = try Self.snapshotOutputDirectory()
         let defaultsSuite = "DesignEcoTK1WidthMatrix.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: defaultsSuite))
         defer { defaults.removePersistentDomain(forName: defaultsSuite) }
@@ -157,9 +157,120 @@ final class DesignEcoSnapshotTests: XCTestCase {
                             canvasSize: size
                         )
                     }
+
                 }
             }
         }
+    }
+
+    func testRendersTK1R2RequiredStateSnapshots() async throws {
+        let outputDirectory = try Self.snapshotOutputDirectory()
+        let suiteName = "DesignEcoTK1R2.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        for variant in [SnapshotVariant.light, .dark] {
+            for largeMode in [false, true] {
+                let fixture = try Self.makeSixExerciseFixture()
+                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                var select: (@MainActor @Sendable (PersistentIdentifier) -> Void)?
+                let sixthID = try XCTUnwrap(fixture.workout.exercises?.sorted { $0.order < $1.order }.last?.persistentModelID)
+                let sink = ActiveWorkoutListObservationSink(onSidebarSelect: { select = $0 })
+                let content = ActiveWorkoutView(source: .resume(fixture.workout))
+                    .modelContainer(fixture.container)
+                    .designTheme(seed: .teal, neutral: .slate)
+                    .environment(\.colorScheme, variant.colorScheme)
+                    .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                    .environment(\.activeWorkoutListObservation, sink)
+                    .defaultAppStorage(defaults)
+                try await Self.render(
+                    content,
+                    named: "workout-populated-selected-6\(largeMode ? "-large" : "")\(variant.suffix)",
+                    in: outputDirectory,
+                    variant: variant
+                ) { host, _ in
+                    try await Task.sleep(for: .milliseconds(50))
+                    XCTAssertNotNil(select)
+                    select?(sixthID)
+                    try await Task.sleep(for: .milliseconds(350))
+                    host.view.layoutIfNeeded()
+                }
+            }
+        }
+
+        for variant in [SnapshotVariant.light, .dark] {
+            let fixture = try Self.makeSixExerciseFixture()
+            defaults.set(false, forKey: "activeWorkoutLargeMode")
+            var toggle: (@MainActor @Sendable () -> Void)?
+            let content = ActiveWorkoutView(source: .resume(fixture.workout))
+                .modelContainer(fixture.container)
+                .designTheme(seed: .teal, neutral: .slate)
+                .environment(\.colorScheme, variant.colorScheme)
+                .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                .environment(
+                    \.activeWorkoutListObservation,
+                    ActiveWorkoutListObservationSink(onSidebarReorderToggle: { toggle = $0 })
+                )
+                .defaultAppStorage(defaults)
+            try await Self.render(
+                content,
+                named: "workout-reorder-mode\(variant.suffix)",
+                in: outputDirectory,
+                variant: variant
+            ) { _, _ in
+                try await Task.sleep(for: .milliseconds(50))
+                toggle?()
+                try await Task.sleep(for: .milliseconds(350))
+            }
+        }
+
+        let empty = try Self.makeEmptyWorkoutFixture()
+        for variant in [SnapshotVariant.light, .dark] {
+            let content = ActiveWorkoutView(source: .resume(empty.workout))
+                .modelContainer(empty.container)
+                .designTheme(seed: .teal, neutral: .slate)
+                .environment(\.colorScheme, variant.colorScheme)
+                .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                .defaultAppStorage(defaults)
+            try await Self.render(
+                content,
+                named: "workout-empty\(variant.suffix)",
+                in: outputDirectory,
+                variant: variant
+            )
+        }
+
+        for variant in [SnapshotVariant.light, .dark] {
+            let fixture = try Self.makeSixExerciseFixture()
+            for largeMode in [false, true] {
+                defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+                let content = ActiveWorkoutView(source: .resume(fixture.workout))
+                    .modelContainer(fixture.container)
+                    .designTheme(seed: .teal, neutral: .slate)
+                    .environment(\.colorScheme, variant.colorScheme)
+                    .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                    .defaultAppStorage(defaults)
+                try await Self.render(
+                    content,
+                    named: "workout-\(largeMode ? "large-font" : "normal-keyboard")\(variant.suffix)",
+                    in: outputDirectory,
+                    variant: variant
+                )
+            }
+        }
+        let rtlFixture = try Self.makeSixExerciseFixture()
+        try await Self.render(
+            ActiveWorkoutView(source: .resume(rtlFixture.workout))
+                .modelContainer(rtlFixture.container)
+                .designTheme(seed: .teal, neutral: .slate)
+                .environment(\.colorScheme, .light)
+                .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: false))
+                .environment(\.layoutDirection, .rightToLeft)
+                .defaultAppStorage(defaults),
+            named: "workout-rtl",
+            in: outputDirectory,
+            variant: .light
+        )
     }
 
     func testAddExerciseButtonDockedAndShiftsWithActiveSnackbar() async throws {
@@ -700,7 +811,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         }
     }
 
-    private static func prepareOutputDirectory() throws -> URL {
+    private static func snapshotOutputDirectory() throws -> URL {
         let directory: URL
         if let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"]
             ?? ProcessInfo.processInfo.environment["TEST_RUNNER_DESIGN_ECO_SNAPSHOT_DIR"]
@@ -709,6 +820,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         } else {
             directory = FileManager.default.temporaryDirectory
         }
+
         try FileManager.default.createDirectory(
             at: directory,
             withIntermediateDirectories: true
@@ -728,7 +840,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         let host = UIHostingController(rootView: content)
         host.overrideUserInterfaceStyle = variant.isDark ? .dark : .light
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
-        let renderSize = canvasSize ?? scene.coordinateSpace.bounds.size
+        let renderSize = canvasSize ?? Self.snapshotSize
         host.view.frame = CGRect(origin: .zero, size: renderSize)
         let window = UIWindow(windowScene: scene)
         window.frame = host.view.frame
@@ -851,6 +963,39 @@ final class DesignEcoSnapshotTests: XCTestCase {
         XCTAssertNotNil(SmartProgressionAdvisor.suggest(
             previousMainSets: [history], userPreferredRepRange: 8...12, muscleGroup: exercise.muscleGroup
         ))
+        return WorkoutFixture(container: container, workout: workout, exercise: exercise)
+    }
+
+    private static func makeSixExerciseFixture() throws -> WorkoutFixture {
+        let fixture = try makeWorkoutFixture()
+        let context = fixture.container.mainContext
+        for index in 2..<6 {
+            let exercise = Exercise(
+                nameEn: "Band Exercise \(index + 1)",
+                nameZh: index == 5 ? "弹力带窄握下拉" : "动作 \(index + 1)",
+                muscleGroup: .back,
+                equipment: .band
+            )
+            let owner = WorkoutExercise(
+                order: index,
+                exercise: exercise,
+                sets: [ExerciseSet(order: 0, weight: 20, reps: 10, isCompleted: index.isMultiple(of: 2))]
+            )
+            owner.workout = fixture.workout
+            context.insert(exercise)
+            context.insert(owner)
+            for set in owner.sets ?? [] { context.insert(set) }
+        }
+        try context.save()
+        return fixture
+    }
+
+    private static func makeEmptyWorkoutFixture() throws -> WorkoutFixture {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let workout = Workout(type: .strength, startDate: Date())
+        container.mainContext.insert(workout)
+        try container.mainContext.save()
+        let exercise = Exercise(nameEn: "Empty", nameZh: "空", muscleGroup: .core, equipment: .bodyweight)
         return WorkoutFixture(container: container, workout: workout, exercise: exercise)
     }
 
