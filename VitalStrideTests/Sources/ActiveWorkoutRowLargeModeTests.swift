@@ -419,6 +419,8 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         var sidebarAddUpdatedAt = ProcessInfo.processInfo.systemUptime
         var sidebarAddFrame: CGRect?
         var sidebarMove: (@MainActor @Sendable (Int, Int) -> Void)?
+        var sidebarMoveUp: (@MainActor @Sendable (Int) -> Void)?
+        var sidebarMoveDown: (@MainActor @Sendable (Int) -> Void)?
     }
 
     @MainActor
@@ -2365,16 +2367,26 @@ final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
         var select: (@MainActor @Sendable (PersistentIdentifier) -> Void)?
         var toggle: (@MainActor @Sendable () -> Void)?
         var move: (@MainActor @Sendable (Int, Int) -> Void)?
+        var moveUp: (@MainActor @Sendable (Int) -> Void)?
+        var moveDown: (@MainActor @Sendable (Int) -> Void)?
         var selectedID: PersistentIdentifier?
         var geometry: ActiveWorkoutListGeometry?
         var headers: [AnyHashable: CGRect] = [:]
+        var sidebarNameFrames: [String: CGRect] = [:]
+        var sidebarItemFrames: [String: CGRect] = [:]
+        var reorderModeState = false
         let sink = ActiveWorkoutListObservationSink(
             onGeometry: { geometry = $0 },
             onHeaderFrame: { headers[$0] = $1 },
+            onSidebarItemFrame: { sidebarItemFrames[$0] = $1 },
+            onSidebarNameFrame: { sidebarNameFrames[$0] = $1 },
             onSidebarMoveReady: { move = $0 },
             onSidebarSelect: { select = $0 },
             onSidebarSelectionState: { selectedID = $0 },
-            onSidebarReorderToggle: { toggle = $0 }
+            onSidebarReorderToggle: { toggle = $0 },
+            onSidebarReorderModeState: { reorderModeState = $0 },
+            onSidebarMoveUpAction: { moveUp = $0 },
+            onSidebarMoveDownAction: { moveDown = $0 }
         )
         let content = ActiveWorkoutView(source: .resume(workout))
             .modelContainer(container)
@@ -2408,14 +2420,37 @@ final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
         XCTAssertGreaterThan(listGeometry.contentOffset.y, 0)
         XCTAssertTrue(listGeometry.listFrame.insetBy(dx: -2, dy: -2).intersects(bottomHeader))
 
+        let firstID = String(describing: exercises[0].persistentModelID)
+        let collapsedNameFrame = try XCTUnwrap(sidebarNameFrames[firstID])
+        XCTAssertLessThan(collapsedNameFrame.width, 110)
         toggle?()
         try await Task.sleep(for: .milliseconds(100))
+        XCTAssertTrue(reorderModeState)
+        let expandedNameFrame = try XCTUnwrap(sidebarNameFrames[firstID])
+        XCTAssertGreaterThanOrEqual(expandedNameFrame.width, 110)
+        let expandedItemFrame = try XCTUnwrap(sidebarItemFrames[firstID])
+        XCTAssertGreaterThanOrEqual(expandedItemFrame.maxX, 236)
         XCTAssertNotNil(move)
         move?(5, 4)
         try await Task.sleep(for: .milliseconds(100))
         XCTAssertEqual(exercises[5].order, 4)
         XCTAssertEqual(exercises[0].order, 0)
         XCTAssertEqual(exercises[5].order, 4)
+
+        moveUp?(4)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(exercises[5].order, 3)
+        XCTAssertEqual(selectedID, exercises[5].persistentModelID)
+        XCTAssertGreaterThan(try XCTUnwrap(geometry).contentOffset.y, 0)
+
+        moveDown?(3)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(exercises[5].order, 4)
+        XCTAssertEqual(selectedID, exercises[5].persistentModelID)
+
+        toggle?()
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertFalse(reorderModeState)
     }
 
 }

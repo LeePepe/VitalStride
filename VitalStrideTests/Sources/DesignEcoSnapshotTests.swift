@@ -164,6 +164,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
     }
 
     func testRendersTK1R2RequiredStateSnapshots() async throws {
+        var retainedFixtures: [WorkoutFixture] = []
         let outputDirectory = try Self.snapshotOutputDirectory()
         let suiteName = "DesignEcoTK1R2.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -172,6 +173,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         for variant in [SnapshotVariant.light, .dark] {
             for largeMode in [false, true] {
                 let fixture = try Self.makeSixExerciseFixture()
+                retainedFixtures.append(fixture)
                 defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
                 var select: (@MainActor @Sendable (PersistentIdentifier) -> Void)?
                 let sixthID = try XCTUnwrap(fixture.workout.exercises?.sorted { $0.order < $1.order }.last?.persistentModelID)
@@ -200,6 +202,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
 
         for variant in [SnapshotVariant.light, .dark] {
             let fixture = try Self.makeSixExerciseFixture()
+            retainedFixtures.append(fixture)
             defaults.set(false, forKey: "activeWorkoutLargeMode")
             var toggle: (@MainActor @Sendable () -> Void)?
             let content = ActiveWorkoutView(source: .resume(fixture.workout))
@@ -225,6 +228,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         }
 
         let empty = try Self.makeEmptyWorkoutFixture()
+        retainedFixtures.append(empty)
         for variant in [SnapshotVariant.light, .dark] {
             let content = ActiveWorkoutView(source: .resume(empty.workout))
                 .modelContainer(empty.container)
@@ -242,6 +246,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
 
         for variant in [SnapshotVariant.light, .dark] {
             let fixture = try Self.makeSixExerciseFixture()
+            retainedFixtures.append(fixture)
             for largeMode in [false, true] {
                 defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
                 let content = ActiveWorkoutView(source: .resume(fixture.workout))
@@ -259,6 +264,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
             }
         }
         let rtlFixture = try Self.makeSixExerciseFixture()
+        retainedFixtures.append(rtlFixture)
         try await Self.render(
             ActiveWorkoutView(source: .resume(rtlFixture.workout))
                 .modelContainer(rtlFixture.container)
@@ -274,6 +280,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
     }
 
     func testAddExerciseButtonDockedAndShiftsWithActiveSnackbar() async throws {
+        var retainedFixtures: [WorkoutFixture] = []
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "DesignEcoAddExerciseFrame"))
         defer { defaults.removePersistentDomain(forName: "DesignEcoAddExerciseFrame") }
@@ -290,6 +297,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
 
                 for slot in [BottomSnackbarSlot.none, .rest, .undo] {
                     let fixture = try Self.makeWorkoutFixture()
+                    retainedFixtures.append(fixture)
                     let sink = ActiveWorkoutListObservationSink(
                         onAddExerciseFrame: { frame in
                             switch slot {
@@ -813,12 +821,11 @@ final class DesignEcoSnapshotTests: XCTestCase {
 
     private static func snapshotOutputDirectory() throws -> URL {
         let directory: URL
-        if let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"]
-            ?? ProcessInfo.processInfo.environment["TEST_RUNNER_DESIGN_ECO_SNAPSHOT_DIR"]
-            ?? ProcessInfo.processInfo.environment["SIMCTL_CHILD_DESIGN_ECO_SNAPSHOT_DIR"] {
+        if let path = ProcessInfo.processInfo.environment["VITALSTRIDE_SNAPSHOT_OUTPUT_DIR"] {
             directory = URL(fileURLWithPath: path, isDirectory: true)
         } else {
             directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("vs-nvr-1102-snapshots", isDirectory: true)
         }
 
         try FileManager.default.createDirectory(
