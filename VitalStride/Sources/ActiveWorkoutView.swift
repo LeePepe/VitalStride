@@ -1238,19 +1238,23 @@ struct ActiveWorkoutView: View {
         } else {
             ScrollViewReader { proxy in
                 let selectExercise: @MainActor @Sendable (WorkoutExercise) -> Void = { exercise in
+                    let targetID = exercise.persistentModelID
+                    let orderedSnapshot: [(id: PersistentIdentifier, setCount: Int)] = sortedExercises.map {
+                        (id: $0.persistentModelID, setCount: ($0.sets ?? []).count)
+                    }
                     dismissKeyboardIfVisible()
-                    selectedExerciseID = exercise.persistentModelID
-                    listObservation.onSidebarSelectionState(exercise.persistentModelID)
+                    selectedExerciseID = targetID
+                    listObservation.onSidebarSelectionState(targetID)
                     let scrollToSelection = {
+                        #if canImport(UIKit) && !os(macOS)
+                        guard let collectionView = scrollViewBox.value as? UICollectionView,
+                              collectionView.window != nil else { return }
+                        #endif
                         withAnimation {
-                            proxy.scrollTo(exercise.persistentModelID, anchor: .top)
+                            proxy.scrollTo(targetID, anchor: .top)
                         }
                         #if canImport(UIKit) && !os(macOS)
-                        let currentExercises = self.sortedExercises
-                        if let collectionView = scrollViewBox.value as? UICollectionView,
-                           let index = currentExercises.firstIndex(where: {
-                               $0.persistentModelID == exercise.persistentModelID
-                           }) {
+                        if let index = orderedSnapshot.firstIndex(where: { $0.id == targetID }) {
                             collectionView.layoutIfNeeded()
                             let targetIndexPath: IndexPath? = {
                                 if collectionView.numberOfSections > index,
@@ -1259,8 +1263,8 @@ struct ActiveWorkoutView: View {
                                         ? IndexPath(item: 0, section: index)
                                         : nil
                                 } else if collectionView.numberOfSections == 1 {
-                                    let precedingItems = currentExercises.prefix(index).reduce(0) { count, exercise in
-                                        count + 1 + (exercise.sets?.count ?? 0)
+                                    let precedingItems = orderedSnapshot.prefix(index).reduce(0) { count, item in
+                                        count + 1 + item.setCount
                                     }
                                     let totalItems = collectionView.numberOfItems(inSection: 0)
                                     guard totalItems > 0 else { return nil }
@@ -1315,21 +1319,21 @@ struct ActiveWorkoutView: View {
                                 )
                                 if let attributes = collectionView.layoutAttributesForItem(at: targetIndexPath) {
                                     let globalHeaderRect = collectionView.convert(attributes.frame, to: nil)
-                                    listObservation.onHeaderFrame(exercise.persistentModelID, globalHeaderRect)
+                                    listObservation.onHeaderFrame(targetID, globalHeaderRect)
                                 }
                             }
                         }
                         #endif
                     }
                     DispatchQueue.main.async {
-                        guard selectedExerciseID == exercise.persistentModelID else { return }
+                        guard selectedExerciseID == targetID else { return }
                         scrollToSelection()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                            guard selectedExerciseID == exercise.persistentModelID else { return }
+                            guard selectedExerciseID == targetID else { return }
                             scrollToSelection()
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.40) {
-                            guard selectedExerciseID == exercise.persistentModelID else { return }
+                            guard selectedExerciseID == targetID else { return }
                             scrollToSelection()
                         }
                     }
@@ -1378,10 +1382,15 @@ struct ActiveWorkoutView: View {
                         GeometryReader { geometry in
                             Color.clear
                                 .onAppear {
-                                    exerciseListFrame = geometry.frame(in: .global)
+                                    let frame = geometry.frame(in: .global)
+                                    if frame.width > 0 && frame.height > 0 && frame != exerciseListFrame {
+                                        exerciseListFrame = frame
+                                    }
                                 }
                                 .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                    exerciseListFrame = frame
+                                    if frame.width > 0 && frame.height > 0 && frame != exerciseListFrame {
+                                        exerciseListFrame = frame
+                                    }
                                 }
                         }
                     }
