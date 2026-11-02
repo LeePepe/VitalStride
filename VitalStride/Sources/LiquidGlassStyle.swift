@@ -29,13 +29,15 @@ extension View {
     /// layout-stable.
     @ViewBuilder
     func liquidGlassBar(theme: Theme, cornerRadius: CGFloat = 0) -> some View {
-        if #available(iOS 26.0, macOS 26.0, *) {
-            self.glassEffect(.regular, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        } else {
-            self
-                .background(theme.neutrals.card)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        }
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return self
+            .background(.ultraThinMaterial, in: shape)
+            .background(theme.surface.opacity(0.68), in: shape)
+            .clipShape(shape)
+            .overlay {
+                shape.stroke(theme.foreground.opacity(0.16), lineWidth: 0.75)
+            }
+            .modifier(LiquidGlassEffectModifier(cornerRadius: cornerRadius))
     }
 
     /// Gated Liquid Glass capsule for floating capsule chrome (index bar).
@@ -49,6 +51,22 @@ extension View {
                 .background(theme.neutrals.inner.opacity(0.85))
                 .clipShape(Capsule())
                 .overlay(Capsule().stroke(theme.neutrals.border, lineWidth: 1))
+        }
+    }
+}
+
+private struct LiquidGlassEffectModifier: ViewModifier {
+    let cornerRadius: CGFloat
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            content.glassEffect(
+                .regular,
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+        } else {
+            content
         }
     }
 }

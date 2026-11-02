@@ -360,14 +360,14 @@ struct WorkoutListRenderingTests {
 @MainActor
 enum TK1SnapshotRenderer {
     private static var isRendering = false
-    static var outputDirectory: URL {
+    static let outputDirectory: URL = {
         if let path = ProcessInfo.processInfo.environment["VS_SNAPSHOT_EXPORT_DIR"], !path.isEmpty {
             return URL(fileURLWithPath: path, isDirectory: true)
         }
         return FileManager.default.temporaryDirectory.appendingPathComponent(
             "vs-tk1-snapshots-\(UUID().uuidString)", isDirectory: true
         )
-    }
+    }()
 
     static func pumpRunLoop() {
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))
