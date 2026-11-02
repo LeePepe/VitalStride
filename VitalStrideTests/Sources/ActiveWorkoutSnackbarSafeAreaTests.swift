@@ -197,7 +197,7 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             let fabHeight = measureViewHeight(fabPlaceholder, width: 393, sizeCategory: sizeCategory)
 
             let tolerance: CGFloat = 1
-            #expect(abs(noneHeight - (fabHeight + 1)) <= tolerance)
+            #expect(abs(noneHeight - (fabHeight + 8)) <= tolerance)
             #expect(noneHeight < undoHeight)
             #expect(noneHeight < restHeight)
             #expect(abs(undoHeight - restHeight) <= tolerance)

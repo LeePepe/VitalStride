@@ -52,6 +52,71 @@ struct ActiveWorkoutSnackbarLayoutTests {
         #expect(abs(undoHeight - restHeight) <= 1)
     }
 
+    @Test("Snackbar envelopes use the normal and Large Mode height tokens")
+    func snackbarEnvelopeHeightTokens() {
+        #expect(ActiveWorkoutSnackbarLayout.undoEnvelopeNormalHeight == 56)
+        #expect(ActiveWorkoutSnackbarLayout.undoEnvelopeLargeHeight == 64)
+        #expect(ActiveWorkoutSnackbarLayout.restEnvelopeNormalHeight == 56)
+        #expect(ActiveWorkoutSnackbarLayout.restEnvelopeLargeHeight == 64)
+        #expect(abs(
+            ActiveWorkoutSnackbarLayout.restEnvelopeNormalHeight
+                - ActiveWorkoutSnackbarLayout.undoEnvelopeNormalHeight
+        ) <= 1)
+        #expect(abs(
+            ActiveWorkoutSnackbarLayout.restEnvelopeLargeHeight
+                - ActiveWorkoutSnackbarLayout.undoEnvelopeLargeHeight
+        ) <= 1)
+    }
+
+    @MainActor
+    @Test("Mounted undo and rest envelopes preserve normal and Large Mode parity")
+    func mountedEnvelopeHeightParity() {
+        for largeMode in [false, true] {
+            let undo = UIHostingController(rootView: ActiveWorkoutSnackbarLayout.undoEnvelope(
+                message: "Deleted set",
+                largeMode: largeMode
+            ))
+            let rest = UIHostingController(rootView: ActiveWorkoutSnackbarLayout.restEnvelope(
+                skipTitle: "Skip",
+                largeMode: largeMode,
+                content: { Color.clear }
+            ))
+            let proposal = CGSize(width: 393, height: 200)
+            let undoHeight = undo.sizeThatFits(in: proposal).height
+            let restHeight = rest.sizeThatFits(in: proposal).height
+            #expect(abs(undoHeight - restHeight) <= 1)
+            #expect(abs(undoHeight - (largeMode ? 64 : 56)) <= 1)
+        }
+    }
+
+    @MainActor
+    @Test("Mounted production countdown separates the ring and tabular readout")
+    func restCountdownGeometryFixtures() async throws {
+        for seconds in [59, 9, 0] {
+            var ringFrame: CGRect?
+            var readoutFrame: CGRect?
+            let content = ActiveWorkoutRestStatus(
+                remaining: seconds, totalSeconds: 60, theme: Theme(),
+                onRingFrame: { ringFrame = $0 }, onReadoutFrame: { readoutFrame = $0 }
+            )
+            let host = UIHostingController(rootView: content)
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 100))
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            defer { window.isHidden = true; window.rootViewController = nil }
+            host.view.setNeedsLayout()
+            host.view.layoutIfNeeded()
+            try await Task.sleep(for: .milliseconds(50))
+            host.view.layoutIfNeeded()
+            let ring = try #require(ringFrame)
+            let readout = try #require(readoutFrame)
+            #expect(abs(ring.width - 24) <= 0.5)
+            #expect(readout.minX >= ring.maxX + 6)
+            #expect(!ring.intersects(readout))
+            #expect(readout.height >= 20)
+        }
+    }
+
     @MainActor
     @Test("Reduced motion uses opacity-only slot transition")
     func reducedMotionSlotTransition() {
