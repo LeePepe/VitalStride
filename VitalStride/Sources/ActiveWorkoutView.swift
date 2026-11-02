@@ -1463,6 +1463,205 @@ struct ActiveWorkoutView: View {
 
     }
 
+    @ViewBuilder
+    private func sidebarExpandedReorderRow(
+            exercise: WorkoutExercise,
+            index: Int,
+            completed: Int,
+            total: Int,
+            isSelected: Bool,
+            exerciseID: String,
+            exerciseName: String,
+            exerciseCount: Int,
+            onSelect: @escaping (WorkoutExercise) -> Void,
+            onMove: @escaping (Int, Int) -> Void
+    ) -> some View {
+            let fgColor: Color = isSelected ? theme.interactiveAccent : theme.foreground
+            let subFgColor: Color = isSelected
+                ? theme.interactiveAccent
+                : (completed == total && total > 0 ? theme.success : theme.secondaryForeground)
+            let cardBg: Color = isSelected ? theme.interactiveAccent.opacity(0.16) : theme.neutrals.card
+            let borderColor: Color = isSelected ? theme.interactiveAccent : theme.neutrals.border
+            let indexText: String = completed == total && total > 0 ? "✓" : "\(index + 1)"
+            let progressText: String = "\(completed)/\(total)"
+
+            HStack(alignment: .center, spacing: 6) {
+                Button { onSelect(exercise) } label: {
+                    HStack(alignment: .center, spacing: 8) {
+                        Text(indexText)
+                            .font(.caption.monospacedDigit().bold())
+                            .contentTransition(.numericText())
+                            .foregroundStyle(subFgColor)
+                            .frame(width: 20, alignment: .center)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(exerciseName)
+        .font(TypeScale.body)
+        .foregroundStyle(fgColor)
+        .multilineTextAlignment(.leading)
+        .lineLimit(2)
+        .minimumScaleFactor(0.85)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        listObservation.onSidebarNameFrame(
+                            exerciseID,
+                            proxy.frame(in: .global)
+                        )
+                    }
+                    .onChange(of: proxy.frame(in: .global)) {
+                        _, frame in
+                        listObservation.onSidebarNameFrame(exerciseID, frame)
+                    }
+            }
+        }
+                            Text(progressText)
+        .font(.caption2.monospacedDigit())
+        .foregroundStyle(subFgColor)
+        .lineLimit(1)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                sidebarInlineReorderControls(
+                    index: index,
+                    exerciseName: exerciseName,
+                    exerciseCount: exerciseCount,
+                    onMove: onMove
+                )
+            }
+            .frame(maxWidth: .infinity, minHeight: largeMode ? 60 : 52)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(borderColor, lineWidth: 1.5)
+            )
+    }
+
+    @ViewBuilder
+    private func sidebarInlineReorderControls(
+            index: Int,
+            exerciseName: String,
+            exerciseCount: Int,
+            onMove: @escaping (Int, Int) -> Void
+    ) -> some View {
+            HStack(spacing: 0) {
+                Button {
+                    onMove(index, index - 1)
+                } label: {
+                    Image(systemName: "chevron.up")
+                        .font(.caption.weight(.semibold))
+                        .frame(width: 32, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(index == 0)
+                .opacity(index == 0 ? 0.32 : 1)
+                .accessibilityLabel(
+                    String(
+                        localized: "active_workout.sidebar.move_up",
+                        defaultValue: "上移 \(exerciseName)"
+                    )
+                )
+                Button {
+                    onMove(index, index + 2)
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .frame(width: 32, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(index == exerciseCount - 1)
+                .opacity(index == exerciseCount - 1 ? 0.32 : 1)
+                .accessibilityLabel(
+                    String(
+                        localized: "active_workout.sidebar.move_down",
+                        defaultValue: "下移 \(exerciseName)"
+                    )
+                )
+                Image(systemName: "line.3.horizontal")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(theme.secondaryForeground)
+                    .frame(width: 20, height: 44)
+                    .contentShape(Rectangle())
+                    .accessibilityHidden(true)
+            }
+    }
+
+    @ViewBuilder
+    private func sidebarCollapsedRailRow(
+            exercise: WorkoutExercise,
+            index: Int,
+            completed: Int,
+            total: Int,
+            isSelected: Bool,
+            exerciseID: String,
+            exerciseName: String,
+            onSelect: @escaping (WorkoutExercise) -> Void
+    ) -> some View {
+            let cardBg: Color = isSelected ? theme.accentSubtle : theme.neutrals.card
+            let borderColor: Color = isSelected
+                ? theme.accent.opacity(0.35)
+                : theme.neutrals.border.opacity(0.45)
+            let indexText: String = completed == total && total > 0 ? "✓" : "\(index + 1)"
+            let progressText: String = "\(completed)/\(total)"
+
+            Button { onSelect(exercise) } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 2) {
+                        Text(indexText)
+                            .font(.caption.monospacedDigit().bold())
+                            .contentTransition(.numericText())
+                        Text(progressText)
+                            .font(.caption2.monospacedDigit())
+                            .layoutPriority(1)
+                            .lineLimit(1)
+                    }
+                    .lineLimit(1)
+                    .foregroundStyle(theme.secondaryForeground)
+                    Text(exerciseName)
+                        .font(TypeScale.body)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background {
+                            GeometryReader { proxy in
+        Color.clear
+            .onAppear {
+                listObservation.onSidebarNameFrame(
+                    exerciseID,
+                    proxy.frame(in: .global)
+                )
+            }
+            .onChange(of: proxy.frame(in: .global)) { _, frame in
+                listObservation.onSidebarNameFrame(exerciseID, frame)
+            }
+                            }
+                        }
+                }
+                .frame(maxWidth: .infinity, minHeight: largeMode ? 60 : 52, alignment: .leading)
+                .padding(.horizontal, 2)
+                .padding(.vertical, largeMode ? 8 : 6)
+                .foregroundStyle(theme.foreground)
+                .background(cardBg, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(borderColor, lineWidth: 1)
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, minHeight: 44)
+    }
+
     private var sortedExercises: [WorkoutExercise] {
         (workout?.exercises ?? []).sorted { $0.order < $1.order }
     }
@@ -1542,173 +1741,29 @@ struct ActiveWorkoutView: View {
                     let exerciseName = exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise")
                     Group {
                         if isSidebarReordering {
-                            HStack(alignment: .center, spacing: 6) {
-                                Button { onSelect(exercise) } label: {
-                                    HStack(alignment: .center, spacing: 8) {
-                                        Text(completed == total && total > 0 ? "✓" : "\(index + 1)")
-                                            .font(.caption.monospacedDigit().bold())
-                                            .contentTransition(.numericText())
-                                            .foregroundStyle(
-                                                isSelected
-                                                    ? theme.interactiveAccent
-                                                    : (completed == total && total > 0
-                                                        ? theme.success
-                                                        : theme.secondaryForeground)
-                                            )
-                                            .frame(width: 20, alignment: .center)
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(exerciseName)
-                                                .font(TypeScale.body)
-                                                .foregroundStyle(isSelected ? theme.interactiveAccent : theme.foreground)
-                                                .multilineTextAlignment(.leading)
-                                                .lineLimit(2)
-                                                .minimumScaleFactor(0.85)
-                                                .fixedSize(horizontal: false, vertical: true)
-                                                .frame(maxWidth: .infinity, alignment: .leading)
-                                                .background {
-                                                    GeometryReader { proxy in
-                                                        Color.clear
-                                                            .onAppear {
-                                                                listObservation.onSidebarNameFrame(
-                                                                    exerciseID,
-                                                                    proxy.frame(in: .global)
-                                                                )
-                                                            }
-                                                            .onChange(of: proxy.frame(in: .global)) {
-                                                                _, frame in
-                                                                listObservation.onSidebarNameFrame(exerciseID, frame)
-                                                            }
-                                                    }
-                                                }
-                                            Text("\(completed)/\(total)")
-                                                .font(.caption2.monospacedDigit())
-                                                .foregroundStyle(
-                                                    isSelected
-                                                        ? theme.interactiveAccent
-                                                        : (completed == total && total > 0
-                                                            ? theme.success
-                                                            : theme.secondaryForeground)
-                                                )
-                                                .lineLimit(1)
-                                        }
-                                    }
-                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                HStack(spacing: 0) {
-                                    Button {
-                                        onMove(index, index - 1)
-                                    } label: {
-                                        Image(systemName: "chevron.up")
-                                            .font(.caption.weight(.semibold))
-                                            .frame(width: 32, height: 44)
-                                            .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(index == 0)
-                                    .opacity(index == 0 ? 0.32 : 1)
-                                    .accessibilityLabel(
-                                        String(
-                                            localized: "active_workout.sidebar.move_up",
-                                            defaultValue: "上移 \(exerciseName)"
-                                        )
-                                    )
-                                    Button {
-                                        onMove(index, index + 2)
-                                    } label: {
-                                        Image(systemName: "chevron.down")
-                                            .font(.caption.weight(.semibold))
-                                            .frame(width: 32, height: 44)
-                                            .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(index == exercises.count - 1)
-                                    .opacity(index == exercises.count - 1 ? 0.32 : 1)
-                                    .accessibilityLabel(
-                                        String(
-                                            localized: "active_workout.sidebar.move_down",
-                                            defaultValue: "下移 \(exerciseName)"
-                                        )
-                                    )
-                                    Image(systemName: "line.3.horizontal")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(theme.secondaryForeground)
-                                        .frame(width: 20, height: 44)
-                                        .contentShape(Rectangle())
-                                        .accessibilityHidden(true)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, minHeight: largeMode ? 60 : 52)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 6)
-                            .background(
-                                isSelected ? theme.interactiveAccent.opacity(0.16) : theme.neutrals.card,
-                                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(
-                                        isSelected ? theme.interactiveAccent : theme.neutrals.border,
-                                        lineWidth: 1.5
-                                    )
+                            sidebarExpandedReorderRow(
+                                exercise: exercise,
+                                index: index,
+                                completed: completed,
+                                total: total,
+                                isSelected: isSelected,
+                                exerciseID: exerciseID,
+                                exerciseName: exerciseName,
+                                exerciseCount: exercises.count,
+                                onSelect: onSelect,
+                                onMove: onMove
                             )
                         } else {
-                            Button { onSelect(exercise) } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack(spacing: 2) {
-                                        Text(completed == total && total > 0 ? "✓" : "\(index + 1)")
-                                            .font(.caption.monospacedDigit().bold())
-                                            .contentTransition(.numericText())
-                                        Text("\(completed)/\(total)")
-                                            .font(.caption2.monospacedDigit())
-                                            .layoutPriority(1)
-                                            .lineLimit(1)
-                                    }
-                                    .lineLimit(1)
-                                    .foregroundStyle(theme.secondaryForeground)
-                                    Text(exerciseName)
-                                        .font(TypeScale.body)
-                                        .lineLimit(2)
-                                        .minimumScaleFactor(0.85)
-                                        .multilineTextAlignment(.leading)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background {
-                                            GeometryReader { proxy in
-                                                Color.clear
-                                                    .onAppear {
-                                                        listObservation.onSidebarNameFrame(
-                                                            exerciseID,
-                                                            proxy.frame(in: .global)
-                                                        )
-                                                    }
-                                                    .onChange(of: proxy.frame(in: .global)) { _, frame in
-                                                        listObservation.onSidebarNameFrame(exerciseID, frame)
-                                                    }
-                                            }
-                                        }
-                                }
-                                .frame(maxWidth: .infinity, minHeight: largeMode ? 60 : 52, alignment: .leading)
-                                .padding(.horizontal, 2)
-                                .padding(.vertical, largeMode ? 8 : 6)
-                                .foregroundStyle(theme.foreground)
-                                .background(
-                                    isSelected ? theme.accentSubtle : theme.neutrals.card,
-                                    in: RoundedRectangle(cornerRadius: 12)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(
-                                            isSelected
-                                                ? theme.accent.opacity(0.35)
-                                                : theme.neutrals.border.opacity(0.45),
-                                            lineWidth: 1
-                                        )
-                                )
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .frame(maxWidth: .infinity, minHeight: 44)
+                            sidebarCollapsedRailRow(
+                                exercise: exercise,
+                                index: index,
+                                completed: completed,
+                                total: total,
+                                isSelected: isSelected,
+                                exerciseID: exerciseID,
+                                exerciseName: exerciseName,
+                                onSelect: onSelect
+                            )
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -1758,7 +1813,8 @@ struct ActiveWorkoutView: View {
                                         listObservation.onSidebarItemFrame(exerciseID, frame)
                                     }
                             }
-                        }
+
+                            }
                         .accessibilityIdentifier("workout_sidebar_exercise_\(index)")
                         .accessibilityLabel(Text(verbatim: item.accessibilityLabel))
                         .accessibilityValue(Text(verbatim: item.accessibilityValue))
