@@ -374,12 +374,8 @@ struct ActiveWorkoutView: View {
                     undoContent: { undoSnackbarEnvelope },
                     restContent: { restSnackbarEnvelope },
                     fab: {
-                        HStack {
-                            Spacer()
-                            ActiveWorkoutFABContainer.body(snackbarSlot: policy.bottomSlot) {
-                                addExerciseButton
-                            }
-                            Spacer()
+                        ActiveWorkoutFABContainer.body(snackbarSlot: policy.bottomSlot) {
+                            addExerciseButton
                         }
                     }
                 )
@@ -1042,6 +1038,7 @@ struct ActiveWorkoutView: View {
                 comment: "Undo set deletion a11y label"
             ),
             restEndDate: restTimer.phase == .resting ? restTimer.restEndDate : nil,
+            largeMode: largeMode,
             onUndo: {
                 undoController.undo(using: modelContext)
             }
@@ -1057,8 +1054,9 @@ struct ActiveWorkoutView: View {
         ActiveWorkoutSnackbarLayout.restEnvelope(
             skipTitle: String(localized: "跳过", comment: "Skip rest button visible title"),
             neutralBackground: theme.neutrals.inner,
-            skipBackground: theme.primary.primary.opacity(0.15),
-            theme: theme
+            skipBackground: theme.interactiveAccent,
+            theme: theme,
+            largeMode: largeMode
         ) {
             restSnackbarContent
         }
@@ -1097,21 +1095,23 @@ struct ActiveWorkoutView: View {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let remaining = max(0, Int(restEnd.timeIntervalSince(context.date)))
                 let progress = 1.0 - Double(remaining) / Double(totalSeconds)
-                HStack {
-                    ZStack {
-                        Circle()
-                            .stroke(theme.neutrals.border, lineWidth: 3)
-                        Circle()
-                            .trim(from: 0, to: progress)
-                            .stroke(theme.primary.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
-                            .animation(reduceMotion ? nil : .linear(duration: 1), value: progress)
+                HStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        ZStack {
+                            Circle()
+                                .stroke(theme.neutrals.border, lineWidth: 2)
+                            Circle()
+                                .trim(from: 0, to: progress)
+                                .stroke(theme.primary.primary, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
+                                .animation(reduceMotion ? nil : .linear(duration: 1), value: progress)
+                        }
+                        .frame(width: 24, height: 24)
                         Text("\(remaining)")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .monospacedDigit()
+                            .font(.system(size: 20).monospacedDigit().weight(.semibold))
                             .lineLimit(1)
-                            .minimumScaleFactor(0.5)
+                            .minimumScaleFactor(0.9)
+                            .layoutPriority(1)
                             .contentTransition(
                                 reduceMotion ? .opacity : .numericText(countsDown: true)
                             )
@@ -1119,13 +1119,12 @@ struct ActiveWorkoutView: View {
                                 reduceMotion ? nil : .snappy(duration: 0.22),
                                 value: remaining
                             )
-                            .layoutPriority(1)
                     }
-                    .frame(width: 32, height: 32)
+                    .frame(minHeight: 44)
                     .accessibilityElement(children: .ignore)
                     // swiftlint:disable:next line_length
                     .accessibilityLabel(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer progress a11y label"))
-                    Spacer()
+                    Spacer(minLength: 0)
                     restAdjustButtons
                 }
             }
@@ -1137,7 +1136,7 @@ struct ActiveWorkoutView: View {
         ActiveWorkoutSnackbarLayout.restTimerButtons(
             skipTitle: String(localized: "跳过", comment: "Skip rest button visible title"),
             neutralBackground: theme.neutrals.inner,
-            skipBackground: theme.primary.primary.opacity(0.15),
+            skipBackground: theme.interactiveAccent,
             theme: theme,
             minus10AccessibilityLabel: String(localized: "缩短十秒", comment: "Subtract 10 seconds a11y label"),
             plus10AccessibilityLabel: String(localized: "延长十秒", comment: "Add 10 seconds a11y label"),
@@ -1425,40 +1424,38 @@ struct ActiveWorkoutView: View {
         } label: {
             Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(theme.primary.primary)
-                .padding(.horizontal, 20)
+                .foregroundStyle(theme.interactiveAccent)
                 .frame(
-                    maxWidth: horizontalSizeClass == .regular ? 400 : .infinity,
-                    minHeight: largeMode ? 48 : 44
+                    maxWidth: .infinity,
+                    minHeight: ActiveWorkoutSnackbarLayout.addExerciseHeight(largeMode: largeMode)
                 )
+                .padding(.horizontal, 20)
+                .background(theme.neutrals.card)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(theme.neutrals.border, lineWidth: 1)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .contentShape(Rectangle())
+                .background {
+                    #if canImport(UIKit) && !os(macOS)
+                    AddExerciseFrameProbe(onFrame: listObservation.onAddExerciseFrame)
+                    #else
+                    GeometryReader { proxy in
+                        let frame = proxy.frame(in: .global)
+                        Color.clear
+                            .onAppear { listObservation.onAddExerciseFrame(frame) }
+                            .onChange(of: frame) { _, newFrame in
+                                listObservation.onAddExerciseFrame(newFrame)
+                            }
+                    }
+                    #endif
+                }
         }
         .buttonStyle(FABButtonStyle())
-        .background(theme.neutrals.card)
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(theme.neutrals.border, lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .frame(maxWidth: horizontalSizeClass == .regular ? 400 : .infinity)
+        .padding(.horizontal, ActiveWorkoutSnackbarLayout.dockInset)
         .accessibilityIdentifier("workout_add_exercise")
-        .background {
-            #if canImport(UIKit) && !os(macOS)
-            AddExerciseFrameProbe(onFrame: listObservation.onAddExerciseFrame)
-            #else
-            GeometryReader { proxy in
-                let frame = proxy.frame(in: .global)
-                Color.clear
-                    .onAppear {
-                        listObservation.onAddExerciseFrame(frame)
-                    }
-                    .onChange(of: frame) { _, newFrame in
-                        listObservation.onAddExerciseFrame(newFrame)
-                    }
-            }
-            #endif
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
     }
 
     private var totalVolumeKg: Double {

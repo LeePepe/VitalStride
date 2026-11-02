@@ -191,6 +191,10 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 XCTAssertLessThan(rest.maxY, none.minY)
                 XCTAssertLessThan(undo.maxY, none.minY)
                 XCTAssertLessThanOrEqual(abs(rest.maxY - undo.maxY), 1.5)
+                let expectedHeight = largeMode ? 60.0 : 52.0
+                XCTAssertEqual(none.height, expectedHeight, accuracy: 1.5)
+                XCTAssertEqual(rest.height, expectedHeight, accuracy: 1.5)
+                XCTAssertEqual(undo.height, expectedHeight, accuracy: 1.5)
             }
         }
     }

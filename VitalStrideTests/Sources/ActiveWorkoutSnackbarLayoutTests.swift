@@ -52,6 +52,16 @@ struct ActiveWorkoutSnackbarLayoutTests {
         #expect(abs(undoHeight - restHeight) <= 1)
     }
 
+    @Test("Snackbar envelopes use the normal and Large Mode height tokens")
+    func snackbarEnvelopeHeightTokens() {
+        #expect(ActiveWorkoutSnackbarLayout.restEnvelopeNormalHeight == 56)
+        #expect(ActiveWorkoutSnackbarLayout.restEnvelopeLargeHeight == 64)
+        #expect(abs(
+            ActiveWorkoutSnackbarLayout.restEnvelopeNormalHeight
+                - ActiveWorkoutSnackbarLayout.restEnvelopeNormalHeight
+        ) <= 1)
+    }
+
     @MainActor
     @Test("Reduced motion uses opacity-only slot transition")
     func reducedMotionSlotTransition() {
