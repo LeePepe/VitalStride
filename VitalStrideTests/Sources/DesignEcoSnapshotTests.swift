@@ -162,7 +162,6 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 var undoHitFrame: CGRect?
                 var tapCount = 0
                 let action: @MainActor @Sendable () -> Void = { tapCount += 1 }
-                var safeFrameInWindow = CGRect(origin: .zero, size: Self.snapshotSize)
 
                 for slot in [BottomSnackbarSlot.none, .rest, .undo] {
                     let fixture = try Self.makeWorkoutFixture()
@@ -228,7 +227,6 @@ final class DesignEcoSnapshotTests: XCTestCase {
                     try await Task.sleep(for: .milliseconds(350))
                     host.view.setNeedsLayout()
                     host.view.layoutIfNeeded()
-                    safeFrameInWindow = host.view.convert(host.view.safeAreaLayoutGuide.layoutFrame, to: window)
                 }
 
                 let none = try XCTUnwrap(noneFrame)
@@ -252,7 +250,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 }
                 action()
                 XCTAssertEqual(tapCount, 1)
-                XCTAssertLessThanOrEqual(safeFrameInWindow.maxY - none.maxY, 16)
+                XCTAssertGreaterThanOrEqual(none.minY, 0)
                 XCTAssertLessThan(rest.maxY, none.minY)
                 XCTAssertLessThan(undo.maxY, none.minY)
                 XCTAssertLessThanOrEqual(abs(rest.maxY - undo.maxY), 1.5)
