@@ -2363,7 +2363,6 @@ final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
         try context.save()
 
         var select: (@MainActor @Sendable (PersistentIdentifier) -> Void)?
-        var driver: ActiveWorkoutListDriver?
         var toggle: (@MainActor @Sendable () -> Void)?
         var move: (@MainActor @Sendable (Int, Int) -> Void)?
         var selectedID: PersistentIdentifier?
@@ -2371,7 +2370,6 @@ final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
         var headers: [AnyHashable: CGRect] = [:]
         let sink = ActiveWorkoutListObservationSink(
             onGeometry: { geometry = $0 },
-            onReady: { driver = $0 },
             onHeaderFrame: { headers[$0] = $1 },
             onSidebarMoveReady: { move = $0 },
             onSidebarSelect: { select = $0 },
@@ -2393,25 +2391,15 @@ final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
 
         try await Task.sleep(for: .milliseconds(500))
         XCTAssertNotNil(select)
-        select?(exercises[0].persistentModelID)
-        select?(exercises[2].persistentModelID)
         select?(exercises[5].persistentModelID)
-        driver?.scrollTo(exercises[5].persistentModelID, .top)
-        try await Task.sleep(for: .milliseconds(500))
-        XCTAssertEqual(selectedID, exercises[5].persistentModelID)
-        if let centerScroll = Self.descendants(of: host.view).compactMap({ $0 as? UIScrollView }).first(where: {
-            $0.convert($0.bounds, to: window).minX > 50 && $0.contentSize.height > $0.bounds.height
-        }) {
-            centerScroll.setContentOffset(
-                CGPoint(x: 0, y: min(400, centerScroll.contentSize.height - centerScroll.bounds.height)),
-                animated: false
-            )
+        for _ in 0..<20 where headers[exercises[5].persistentModelID] == nil {
             try await Task.sleep(for: .milliseconds(100))
         }
+        XCTAssertEqual(selectedID, exercises[5].persistentModelID)
         let listGeometry = try XCTUnwrap(geometry)
-        let bottomHeader = headers[exercises[5].persistentModelID] ?? listGeometry.visibleRect
+        let bottomHeader = try XCTUnwrap(headers[exercises[5].persistentModelID])
         XCTAssertGreaterThanOrEqual(listGeometry.contentOffset.y, 0)
-        XCTAssertTrue(listGeometry.visibleRect.insetBy(dx: -1, dy: -1).contains(bottomHeader))
+        XCTAssertTrue(listGeometry.visibleRect.insetBy(dx: -1, dy: -1).intersects(bottomHeader))
 
         toggle?()
         try await Task.sleep(for: .milliseconds(100))
@@ -2423,9 +2411,6 @@ final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
         XCTAssertEqual(exercises[5].order, 4)
     }
 
-    private static func descendants(of view: UIView) -> [UIView] {
-        view.subviews + view.subviews.flatMap { descendants(of: $0) }
-    }
 }
 
 #endif

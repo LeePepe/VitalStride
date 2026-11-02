@@ -30,10 +30,14 @@ private struct ActiveWorkoutScrollViewProbe: UIViewRepresentable {
         ProbeView(onResolve: onResolve)
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {}
+    func updateUIView(_ uiView: UIView, context: Context) {
+        guard let probeView = uiView as? ProbeView else { return }
+        probeView.onResolve = onResolve
+        probeView.resolveIfNeeded()
+    }
 
     private final class ProbeView: UIView {
-        let onResolve: @MainActor @Sendable (UIScrollView) -> Void
+        var onResolve: @MainActor @Sendable (UIScrollView) -> Void
 
         init(onResolve: @escaping @MainActor @Sendable (UIScrollView) -> Void) {
             self.onResolve = onResolve
@@ -46,13 +50,29 @@ private struct ActiveWorkoutScrollViewProbe: UIViewRepresentable {
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
+            resolveIfNeeded()
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            resolveIfNeeded()
+        }
+
+        func resolveIfNeeded() {
             var ancestor: UIView? = superview
+            var fallbackScrollView: UIScrollView?
             while let view = ancestor {
-                if let scrollView = view as? UIScrollView {
-                    onResolve(scrollView)
+                if let collectionView = view as? UICollectionView {
+                    onResolve(collectionView)
                     return
                 }
+                if fallbackScrollView == nil {
+                    fallbackScrollView = view as? UIScrollView
+                }
                 ancestor = view.superview
+            }
+            if let fallbackScrollView {
+                onResolve(fallbackScrollView)
             }
         }
     }
@@ -264,6 +284,9 @@ struct ActiveWorkoutView: View {
     @Environment(\.activeWorkoutListObservation) private var listObservation
     @Environment(\.activeWorkoutToolbarObservation) private var toolbarObservation
     @State private var exerciseListFrame = CGRect.zero
+    #if canImport(UIKit) && !os(macOS)
+    @State private var scrollViewBox = ActiveWorkoutScrollViewBox()
+    #endif
     @State private var workout: Workout?
     @State private var showingExercisePicker = false
     @State private var selectedExerciseID: PersistentIdentifier?
@@ -1198,7 +1221,7 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var exerciseList: some View {
-        let exercises = (workout?.exercises ?? []).sorted { $0.order < $1.order }
+        let exercises = sortedExercises
         if exercises.isEmpty {
             ContentUnavailableView(
                 String(localized: "添加第一个动作", comment: "Empty active workout title"),
@@ -1211,9 +1234,6 @@ struct ActiveWorkoutView: View {
                 )
             )
         } else {
-            #if canImport(UIKit) && !os(macOS)
-            let scrollViewBox = ActiveWorkoutScrollViewBox()
-            #endif
             ScrollViewReader { proxy in
                 HStack(spacing: 0) {
                     let selectExercise: @MainActor @Sendable (WorkoutExercise) -> Void = { exercise in
@@ -1238,6 +1258,9 @@ struct ActiveWorkoutView: View {
                                     ) ?? collectionView.cellForItem(at: indexPath)
                                     if let targetView {
                                         let frame = targetView.convert(targetView.bounds, to: nil)
+                                        listObservation.onHeaderFrame(exercise.persistentModelID, frame)
+                                    } else if let attributes = collectionView.layoutAttributesForItem(at: indexPath) {
+                                        let frame = collectionView.convert(attributes.frame, to: nil)
                                         listObservation.onHeaderFrame(exercise.persistentModelID, frame)
                                     }
                                 }
@@ -1323,6 +1346,10 @@ struct ActiveWorkoutView: View {
             }
         }
 
+    }
+
+    private var sortedExercises: [WorkoutExercise] {
+        (workout?.exercises ?? []).sorted { $0.order < $1.order }
     }
 
     @ViewBuilder
@@ -1567,7 +1594,7 @@ struct ActiveWorkoutView: View {
             listObservation.onKeyboardVisibility(isKeyboardVisible)
             listObservation.onSidebarDismissKeyboardReady { dismissKeyboardIfVisible() }
             listObservation.onSidebarSelect { id in
-                guard let exercise = exercises.first(where: { $0.persistentModelID == id }) else { return }
+                guard let exercise = sortedExercises.first(where: { $0.persistentModelID == id }) else { return }
                 onSelect(exercise)
             }
             listObservation.onSidebarReorderToggle {
@@ -1581,6 +1608,18 @@ struct ActiveWorkoutView: View {
         }
         .onChange(of: sidebarItems) { _, items in
             listObservation.onSidebarItems(items)
+            listObservation.onSidebarSelect { id in
+                guard let exercise = sortedExercises.first(where: { $0.persistentModelID == id }) else { return }
+                onSelect(exercise)
+            }
+            listObservation.onSidebarReorderToggle {
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+                    isSidebarReordering.toggle()
+                }
+            }
+            listObservation.onSidebarMoveReady { source, destination in
+                moveExercises(from: IndexSet(integer: source), to: destination)
+            }
         }
     }
 

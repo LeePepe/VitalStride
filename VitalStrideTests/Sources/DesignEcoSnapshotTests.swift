@@ -41,7 +41,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
     ]
 
     func testRendersRoundThreeSnapshots() async throws {
-        let outputDirectory = try Self.prepareOutputDirectory()
+        let outputDirectory = try Self.snapshotOutputDirectory()
         let workoutFixture = try Self.makeWorkoutFixture()
         let defaultsSuite = "DesignEcoSnapshotTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: defaultsSuite))
@@ -64,7 +64,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
     }
 
     func testRendersTK1WidthMatrixSnapshots() async throws {
-        let outputDirectory = try Self.prepareOutputDirectory()
+        let outputDirectory = try Self.snapshotOutputDirectory()
         let defaultsSuite = "DesignEcoTK1WidthMatrix.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: defaultsSuite))
         defer { defaults.removePersistentDomain(forName: defaultsSuite) }
@@ -127,8 +127,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
     }
 
     func testRendersTK1R2RequiredStateSnapshots() async throws {
-        let outputDirectory = URL(fileURLWithPath: "/Users/lee/Development/handoff/vs-nav-1102/snapshots", isDirectory: true)
-        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+        let outputDirectory = try Self.snapshotOutputDirectory()
         let suiteName = "DesignEcoTK1R2.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -732,7 +731,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
         }
     }
 
-    private static func prepareOutputDirectory() throws -> URL {
+    private static func snapshotOutputDirectory() throws -> URL {
         let directory: URL
         if let path = ProcessInfo.processInfo.environment["DESIGN_ECO_SNAPSHOT_DIR"]
             ?? ProcessInfo.processInfo.environment["TEST_RUNNER_DESIGN_ECO_SNAPSHOT_DIR"]
