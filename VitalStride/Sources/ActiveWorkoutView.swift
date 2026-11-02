@@ -1279,12 +1279,22 @@ struct ActiveWorkoutView: View {
                                                 - collectionView.bounds.height
                                                 + collectionView.adjustedContentInset.bottom
                                         )
+                                        let maxOffsetX = max(
+                                            0,
+                                            collectionView.contentSize.width
+                                                - collectionView.bounds.width
+                                                + collectionView.adjustedContentInset.right
+                                        )
+                                        let targetX = min(
+                                            max(0, attributes.frame.minX - collectionView.adjustedContentInset.left),
+                                            maxOffsetX
+                                        )
                                         let targetY = min(
                                             max(0, attributes.frame.minY - collectionView.adjustedContentInset.top),
                                             maxOffsetY
                                         )
                                         collectionView.setContentOffset(
-                                            CGPoint(x: 0, y: targetY),
+                                            CGPoint(x: targetX, y: targetY),
                                             animated: false
                                         )
                                         collectionView.layoutIfNeeded()
@@ -1316,12 +1326,22 @@ struct ActiveWorkoutView: View {
                                                 - collectionView.bounds.height
                                                 + collectionView.adjustedContentInset.bottom
                                         )
+                                        let maxOffsetX = max(
+                                            0,
+                                            collectionView.contentSize.width
+                                                - collectionView.bounds.width
+                                                + collectionView.adjustedContentInset.right
+                                        )
+                                        let correctedOffsetX = min(
+                                            max(0, rectInContent.minX - collectionView.adjustedContentInset.left),
+                                            maxOffsetX
+                                        )
                                         let correctedOffsetY = min(
                                             max(0, rectInContent.minY - collectionView.adjustedContentInset.top),
                                             maxOffsetY
                                         )
                                         collectionView.setContentOffset(
-                                            CGPoint(x: collectionView.contentOffset.x, y: correctedOffsetY),
+                                            CGPoint(x: correctedOffsetX, y: correctedOffsetY),
                                             animated: false
                                         )
                                         collectionView.layoutIfNeeded()
