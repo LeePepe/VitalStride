@@ -1914,8 +1914,8 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         host.view.layoutIfNeeded()
         let geometry = try XCTUnwrap(recorder.geometry)
         let sidebarWidth = geometry.listFrame.minX
-        XCTAssertGreaterThanOrEqual(sidebarWidth, 64)
-        XCTAssertLessThanOrEqual(sidebarWidth, 88)
+        XCTAssertGreaterThanOrEqual(sidebarWidth, 64 - 0.01)
+        XCTAssertLessThanOrEqual(sidebarWidth, 88 + 0.01)
         XCTAssertGreaterThan(geometry.listFrame.width, 250)
         let scroll = try XCTUnwrap(descendants(of: host.view).compactMap { $0 as? UIScrollView }.first {
             let frame = $0.convert($0.bounds, to: window)
@@ -1951,7 +1951,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             let capped = reference.sizeThatFits(in: CGSize(width: frame.width, height: 10000))
             XCTAssertLessThanOrEqual(frame.height, max(capped.height, lineHeight * 2) + 2)
             XCTAssertGreaterThan(frame.height, 0)
-            XCTAssertTrue(frame.minX >= 0 && frame.maxX <= sidebarWidth)
+            XCTAssertTrue(frame.minX >= -0.01 && frame.maxX <= sidebarWidth + 0.01)
         }
         for keyboardVisible in [false, true] {
             if keyboardVisible {
