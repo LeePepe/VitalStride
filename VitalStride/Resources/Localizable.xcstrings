@@ -12036,6 +12036,78 @@
         }
       }
     },
+    "workout.sidebar.reorder": {
+      "comment": "Sidebar reorder mode toggle",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reorder exercises"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "调整动作顺序"
+          }
+        }
+      }
+    },
+    "workout.sidebar.reorder_done": {
+      "comment": "Sidebar reorder mode toggle",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done reordering"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成排序"
+          }
+        }
+      }
+    },
+    "workout.sidebar.reordering": {
+      "comment": "Sidebar reorder mode active",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已开启"
+          }
+        }
+      }
+    },
+    "workout.sidebar.reorder_off": {
+      "comment": "Sidebar reorder mode inactive",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未开启"
+          }
+        }
+      }
+    },
     "workout.keyboard.reps": {
       "comment": "Editing repetitions",
       "extractionState": "manual",
