@@ -184,3 +184,11 @@ Inactive snackbar slots collapse to zero height. Rest and Undo envelopes are
 44pt action targets, safe-area containment, Dynamic Type, and light/dark token
 parity. The rest status cluster separates a 24pt progress ring from tabular
 seconds; the `59`, `09`, and `00` fixtures must not overlap or truncate.
+
+The dock always reserves 8pt above the add action, including the inactive
+snackbar state. Snackbar cards use 14pt internal content padding, 16pt compact /
+24pt regular external horizontal margins, and 4pt below the active card. The
+24pt rest ring uses a 2.5pt stroke; mounted 59/09/00 readouts stay at least 6pt
+from its frame. Interaction verification mounts `ActiveWorkoutView`, hit-tests
+left/center/right points, and dispatches the mounted native touch control through UIKit. Snapshot provenance uses embedded PNG render timestamps
+strictly after the candidate commit; filesystem modification times are insufficient.

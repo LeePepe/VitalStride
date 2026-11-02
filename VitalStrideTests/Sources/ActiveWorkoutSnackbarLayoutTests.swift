@@ -89,13 +89,31 @@ struct ActiveWorkoutSnackbarLayoutTests {
         }
     }
 
-    @Test("Rest countdown fixtures keep ring and tabular readout separate")
-    func restCountdownGeometryFixtures() {
+    @MainActor
+    @Test("Mounted production countdown separates the ring and tabular readout")
+    func restCountdownGeometryFixtures() async throws {
         for seconds in [59, 9, 0] {
-            let ring = CGRect(x: 0, y: 0, width: 24, height: 24)
-            let readout = CGRect(x: 32, y: 0, width: seconds == 0 ? 24 : 32, height: 24)
+            var ringFrame: CGRect?
+            var readoutFrame: CGRect?
+            let content = ActiveWorkoutRestStatus(
+                remaining: seconds, totalSeconds: 60, theme: Theme(),
+                onRingFrame: { ringFrame = $0 }, onReadoutFrame: { readoutFrame = $0 }
+            )
+            let host = UIHostingController(rootView: content)
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 100))
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            defer { window.isHidden = true; window.rootViewController = nil }
+            host.view.setNeedsLayout()
+            host.view.layoutIfNeeded()
+            try await Task.sleep(for: .milliseconds(50))
+            host.view.layoutIfNeeded()
+            let ring = try #require(ringFrame)
+            let readout = try #require(readoutFrame)
+            #expect(abs(ring.width - 24) <= 0.5)
+            #expect(readout.minX >= ring.maxX + 6)
             #expect(!ring.intersects(readout))
-            #expect(readout.width <= 32)
+            #expect(readout.height >= 20)
         }
     }
 

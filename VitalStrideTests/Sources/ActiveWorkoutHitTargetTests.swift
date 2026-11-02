@@ -1,5 +1,8 @@
 import SwiftUI
 import Testing
+import SwiftData
+import VitalModels
+import DesignKit
 
 #if canImport(UIKit) && !os(macOS)
 import UIKit
@@ -30,19 +33,21 @@ import UIKit
 /// in `ActiveWorkoutView` — none of which changed.
 @Suite("Active Workout compact row hit target (MY-1013)")
 struct ActiveWorkoutHitTargetTests {
-    @Test("Mounted add-exercise probe contract reports separate visible and hit frames")
-    func mountedAddExerciseProbeContract() throws {
-        let sourceURL = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("VitalStride/Sources/ActiveWorkoutView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        #expect(source.contains("onAddExerciseVisibleFrame"))
-        #expect(source.contains("onAddExerciseHitFrame"))
-        #expect(source.contains("onAddExerciseAction"))
-        #expect(source.contains("coordinateSpace(name: \"ActiveWorkoutRoot\")"))
+    #if canImport(UIKit) && !os(macOS)
+    @MainActor
+    @Test("Mounted add-exercise pill has full-width geometry and edge/center activation")
+    func mountedAddExerciseProbeContract() async throws {
+        for largeMode in [false, true] {
+            let result = try await MountedAddExerciseInteraction.check(largeMode: largeMode)
+            #expect(result.visible.width >= 320)
+            #expect(abs(result.hit.width - result.visible.width) <= 1)
+            #expect(abs(result.hit.height - result.visible.height) <= 1)
+            #expect(abs(result.hit.minX - result.visible.minX) <= 1)
+            #expect(abs(result.hit.minY - result.visible.minY) <= 1)
+            #expect(result.activations == 3)
+        }
     }
+    #endif
 
     @Test("SetRow/SubSetRow hit-target side is exactly 44pt (Constitution P1-H)")
     func hitTargetSideIsHigMinimum() {
@@ -111,3 +116,91 @@ struct ActiveWorkoutHitTargetTests {
         #expect(!source[rightRange.lowerBound...].prefix(250).contains("$weightFocusRequestID"))
     }
 }
+
+#if canImport(UIKit) && !os(macOS)
+/// Shared mounted interaction harness; failures throw in both XCTest and Swift Testing.
+@MainActor
+enum MountedAddExerciseInteraction {
+    struct Result {
+        let visible: CGRect
+        let hit: CGRect
+        let activations: Int
+    }
+
+    static func check(
+        largeMode: Bool, isDark: Bool = false, slot: BottomSnackbarSlot = .none
+    ) async throws -> Result {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let workout = Workout(type: .strength, startDate: Date(), exercises: [])
+        container.mainContext.insert(workout)
+        try container.mainContext.save()
+        let suite = "TK1.MountedAdd.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite),
+              let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first
+        else { throw failure("Missing host scene/defaults") }
+        defaults.set(largeMode, forKey: "activeWorkoutLargeMode")
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var visibleFrame: CGRect?
+        var hitFrame: CGRect?
+        var tapCount = 0
+        let content = ActiveWorkoutView(source: .resume(workout), snackbarSlotOverride: slot)
+            .modelContainer(container)
+            .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: isDark))
+            .environment(\.activeWorkoutListObservation, ActiveWorkoutListObservationSink(
+                onAddExerciseVisibleFrame: { visibleFrame = $0 },
+                onAddExerciseHitFrame: { hitFrame = $0 },
+                onAddExerciseAction: { tapCount += 1 }
+            ))
+            .defaultAppStorage(defaults)
+        let host = UIHostingController(rootView: content)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 393, height: 852)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        host.view.setNeedsLayout()
+        host.view.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(350))
+        host.view.setNeedsLayout()
+        host.view.layoutIfNeeded()
+        guard let visible = visibleFrame, let hit = hitFrame,
+              visible.width >= 320,
+              abs(hit.width - visible.width) <= 1,
+              abs(hit.height - visible.height) <= 1,
+              abs(hit.minX - visible.minX) <= 1,
+              abs(hit.minY - visible.minY) <= 1
+        else { throw failure("Visible/hit frame parity: \(String(describing: visibleFrame)) / \(String(describing: hitFrame))") }
+
+        let points = [CGPoint(x: visible.minX + 8, y: visible.midY),
+                      CGPoint(x: visible.midX, y: visible.midY),
+                      CGPoint(x: visible.maxX - 8, y: visible.midY)]
+        var mountedControl: UIControl?
+        for (index, point) in points.enumerated() {
+            guard let target = host.view.hitTest(point, with: nil) as? UIControl,
+                  target.accessibilityIdentifier == "workout_add_exercise_hit_surface",
+                  mountedControl == nil || mountedControl === target
+            else { throw failure("Point \(point) missed the mounted add-exercise control") }
+            mountedControl = target
+            let nativeFrame = target.convert(target.bounds, to: host.view)
+            guard abs(nativeFrame.width - visible.width) <= 1,
+                  abs(nativeFrame.height - visible.height) <= 1,
+                  abs(nativeFrame.minX - visible.minX) <= 1,
+                  abs(nativeFrame.minY - visible.minY) <= 1
+            else { throw failure("Native interactive bounds differ from the visible pill") }
+            // Dispatch the same UIControl event produced by a successful touch;
+            // the primitive style triggers the original SwiftUI Button action.
+            target.sendActions(for: .touchUpInside)
+            guard tapCount == index + 1 else { throw failure("Mounted activation count=\(tapCount), expected=\(index + 1)") }
+        }
+        try await Task.sleep(for: .milliseconds(500))
+        host.presentedViewController?.dismiss(animated: false)
+        try await Task.sleep(for: .milliseconds(200))
+        return Result(visible: visible, hit: hit, activations: tapCount)
+    }
+
+    private static func failure(_ message: String) -> NSError {
+        NSError(domain: "TK1.MountedAddExercise", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: message])
+    }
+}
+#endif

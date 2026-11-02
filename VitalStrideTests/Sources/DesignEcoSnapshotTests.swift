@@ -63,11 +63,24 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 defaults: defaults
             )
             for state in ["populated", "empty", "loading", "error"] {
+                let fixture = try Self.makeWorkoutFixture()
+                if state == "empty" {
+                    fixture.workout.exercises = []
+                    try fixture.container.mainContext.save()
+                }
+                defaults.set(false, forKey: "activeWorkoutLargeMode")
                 try await Self.render(
-                    ActiveWorkoutStateSnapshot(state: state)
-                        .designTheme(seed: .teal, neutral: .slate)
-                        .environment(\.colorScheme, variant.colorScheme)
-                        .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark)),
+                    ActiveWorkoutView(
+                        source: .resume(fixture.workout),
+                        snackbarSlotOverride: state == "populated" ? .rest : BottomSnackbarSlot.none
+                    )
+                    .modelContainer(fixture.container)
+                    .modifier(WorkoutSnapshotState(state: state))
+                    .designTheme(seed: .teal, neutral: .slate)
+                    .environment(\.locale, Locale(identifier: "zh-Hans"))
+                    .environment(\.colorScheme, variant.colorScheme)
+                    .environment(\.theme, Theme(seed: .teal, neutral: .slate, isDark: variant.isDark))
+                    .defaultAppStorage(defaults),
                     named: "tk1-state-\(state)-\(variant.isDark ? "dark" : "light")",
                     in: outputDirectory,
                     variant: variant
@@ -125,8 +138,11 @@ final class DesignEcoSnapshotTests: XCTestCase {
                             ActiveWorkoutSnackbarLayout.undoEnvelope(
                                 message: "撤销删除",
                                 theme: Theme(seed: .teal, neutral: .slate, isDark: variant.isDark),
-                                restEndDate: Date().addingTimeInterval(30)
+                                restEndDate: Date().addingTimeInterval(30),
+                                largeMode: largeMode
                             )
+                            .padding(.horizontal, ActiveWorkoutSnackbarLayout.dockInset)
+                            .padding(.bottom, 4)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                             .designTheme(seed: .teal, neutral: .slate)
                             .environment(\.colorScheme, variant.colorScheme)
@@ -160,8 +176,6 @@ final class DesignEcoSnapshotTests: XCTestCase {
                 var noneHitFrame: CGRect?
                 var restHitFrame: CGRect?
                 var undoHitFrame: CGRect?
-                var tapCount = 0
-                let action: @MainActor @Sendable () -> Void = { tapCount += 1 }
 
                 for slot in [BottomSnackbarSlot.none, .rest, .undo] {
                     let fixture = try Self.makeWorkoutFixture()
@@ -195,8 +209,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
                             case .undo:
                                 undoHitFrame = frame
                             }
-                        },
-                        onAddExerciseAction: action
+                        }
                     )
                     let theme = Theme(seed: .teal, neutral: .slate, isDark: isDark)
                     let content = ActiveWorkoutView(
@@ -240,16 +253,14 @@ final class DesignEcoSnapshotTests: XCTestCase {
                     XCTAssertEqual(hit.height, visible.height, accuracy: 1)
                     XCTAssertEqual(hit.minX, visible.minX, accuracy: 1)
                     XCTAssertEqual(hit.minY, visible.minY, accuracy: 1)
-                    for point in [
-                        CGPoint(x: visible.minX + 8, y: visible.midY),
-                        CGPoint(x: visible.midX, y: visible.midY),
-                        CGPoint(x: visible.maxX - 8, y: visible.midY)
-                    ] {
-                        XCTAssertTrue(hit.contains(point))
-                    }
                 }
-                action()
-                XCTAssertEqual(tapCount, 1)
+                for slot in [BottomSnackbarSlot.none, .rest, .undo] {
+                    let result = try await MountedAddExerciseInteraction.check(
+                        largeMode: largeMode, isDark: isDark, slot: slot
+                    )
+                    XCTAssertGreaterThanOrEqual(result.visible.width, 320)
+                    XCTAssertEqual(result.activations, 3)
+                }
                 XCTAssertGreaterThanOrEqual(none.minY, 0)
                 XCTAssertLessThan(rest.maxY, none.minY)
                 XCTAssertLessThan(undo.maxY, none.minY)
@@ -864,43 +875,34 @@ final class DesignEcoSnapshotTests: XCTestCase {
     }
 }
 
-private struct ActiveWorkoutStateSnapshot: View {
+/// State decorations retain the real workout list, navigation and production dock.
+private struct WorkoutSnapshotState: ViewModifier {
     let state: String
+    @State private var showsError = true
     @Environment(\.theme) private var theme
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Active Workout")
-                .font(.title2.weight(.semibold))
-            switch state {
-            case "empty":
-                ContentUnavailableView(
-                    "No exercises yet",
-                    systemImage: "figure.strengthtraining.traditional",
-                    description: Text("Add an exercise to start your workout.")
-                )
-            case "loading":
-                VStack(alignment: .leading, spacing: 12) {
-                    ProgressView()
-                    Text("Loading workout…")
-                        .foregroundStyle(theme.neutrals.text2)
-                }
-            case "error":
-                Label("Workout unavailable", systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(theme.danger)
-                Text("Try again to restore this workout.")
-                    .foregroundStyle(theme.neutrals.text2)
-            default:
-                Label("Workout in progress", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(theme.success)
-                Text("2 exercises · 5 sets")
-                    .foregroundStyle(theme.neutrals.text2)
+    func body(content: Content) -> some View {
+        content
+            .redacted(reason: state == "loading" ? .placeholder : [])
+            .disabled(state == "loading")
+            .overlay {
+                if state == "loading" { ProgressView().controlSize(.large) }
             }
-            Spacer(minLength: 0)
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(theme.neutrals.bg)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if state == "error" && showsError {
+                    HStack {
+                        Label(String(localized: "active_workout.substitute.error_generic"),
+                              systemImage: "exclamationmark.triangle.fill")
+                            .font(.subheadline)
+                        Spacer()
+                        Button(String(localized: "重试")) { showsError = false }
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .padding(.horizontal, 16)
+                    .foregroundStyle(theme.neutrals.text1)
+                    .background(theme.surface)
+                }
+            }
     }
 }
 

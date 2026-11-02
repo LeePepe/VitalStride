@@ -335,13 +335,14 @@ struct ActiveWorkoutView: View {
                 ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
                     policy: policy,
                     theme: theme,
+                    dockHorizontalInset: horizontalSizeClass == .regular ? 24 : ActiveWorkoutSnackbarLayout.dockInset,
                     undoContent: { undoSnackbarEnvelope },
                     restContent: { restSnackbarEnvelope },
                     fab: {
                         ActiveWorkoutFABContainer.body(snackbarSlot: policy.bottomSlot) {
                             addExerciseButton
                         }
-                        .padding(.horizontal, ActiveWorkoutSnackbarLayout.dockInset)
+                        .padding(.horizontal, horizontalSizeClass == .regular ? 24 : ActiveWorkoutSnackbarLayout.dockInset)
                     }
                 )
                 .accessibilityElement(children: .contain)
@@ -1051,36 +1052,10 @@ struct ActiveWorkoutView: View {
             let totalSeconds = max(1, Int(totalDuration))
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let remaining = max(0, Int(restEnd.timeIntervalSince(context.date)))
-                let progress = 1.0 - Double(remaining) / Double(totalSeconds)
                 HStack(spacing: 8) {
-                    HStack(spacing: 8) {
-                        ZStack {
-                            Circle()
-                                .stroke(theme.neutrals.border, lineWidth: 2)
-                            Circle()
-                                .trim(from: 0, to: progress)
-                                .stroke(theme.primary.primary, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                                .rotationEffect(.degrees(-90))
-                                .animation(reduceMotion ? nil : .linear(duration: 1), value: progress)
-                        }
-                        .frame(width: 24, height: 24)
-                        Text("\(remaining)")
-                            .font(.system(size: 20).monospacedDigit().weight(.semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.9)
-                            .layoutPriority(1)
-                            .contentTransition(
-                                reduceMotion ? .opacity : .numericText(countsDown: true)
-                            )
-                            .animation(
-                                reduceMotion ? nil : .snappy(duration: 0.22),
-                                value: remaining
-                            )
-                    }
-                    .frame(minHeight: 44)
-                    .accessibilityElement(children: .ignore)
-                    // swiftlint:disable:next line_length
-                    .accessibilityLabel(String(localized: "休息中 \(remaining)s / \(totalSeconds)s", comment: "Rest timer progress a11y label"))
+                    ActiveWorkoutRestStatus(
+                        remaining: remaining, totalSeconds: totalSeconds, theme: theme
+                    )
                     Spacer(minLength: 0)
                     restAdjustButtons
                 }
@@ -1384,10 +1359,9 @@ struct ActiveWorkoutView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(theme.interactiveAccent)
                 .frame(
-                    maxWidth: .infinity,
+                    maxWidth: horizontalSizeClass == .regular ? 400 : .infinity,
                     minHeight: ActiveWorkoutSnackbarLayout.addExerciseHeight(largeMode: largeMode)
                 )
-                .padding(.horizontal, 20)
                 .background(theme.neutrals.card)
                 .overlay {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -1397,7 +1371,7 @@ struct ActiveWorkoutView: View {
                 .contentShape(Rectangle())
                 .background {
                     GeometryReader { proxy in
-                        let frame = proxy.frame(in: .named("ActiveWorkoutRoot"))
+                        let frame = proxy.frame(in: .global)
                         Color.clear
                             .onAppear {
                                 listObservation.onAddExerciseHitFrame(frame)
@@ -1408,11 +1382,15 @@ struct ActiveWorkoutView: View {
                     }
                 }
         }
+        #if canImport(UIKit) && !os(macOS)
+        .buttonStyle(ActiveWorkoutAddButtonStyle())
+        #else
         .buttonStyle(FABButtonStyle())
+        #endif
         .frame(maxWidth: horizontalSizeClass == .regular ? 400 : .infinity)
         .background {
             GeometryReader { proxy in
-                let frame = proxy.frame(in: .named("ActiveWorkoutRoot"))
+                let frame = proxy.frame(in: .global)
                 Color.clear
                     .onAppear {
                         listObservation.onAddExerciseFrame(frame)
