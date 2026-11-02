@@ -1244,6 +1244,56 @@ struct ActiveWorkoutView: View {
             )
         } else {
             ScrollViewReader { proxy in
+                let persistentSidebarSelect: @MainActor @Sendable (WorkoutExercise) -> Void = { exercise in
+                    dismissKeyboardIfVisible()
+                    selectedExerciseID = exercise.persistentModelID
+                    listObservation.onSidebarSelectionState(exercise.persistentModelID)
+                    withAnimation {
+                        proxy.scrollTo(exercise.persistentModelID, anchor: .top)
+                    }
+                    for delay in [0.15, 0.40] {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                            guard selectedExerciseID == exercise.persistentModelID else { return }
+                            withAnimation {
+                                proxy.scrollTo(exercise.persistentModelID, anchor: .top)
+                            }
+                        }
+                    }
+                    #if canImport(UIKit) && !os(macOS)
+                    if let collectionView = scrollViewBox.value as? UICollectionView,
+                       let index = exercises.firstIndex(where: { $0.persistentModelID == exercise.persistentModelID }) {
+                        collectionView.layoutIfNeeded()
+                        let targetIndexPath: IndexPath? = {
+                            if collectionView.numberOfSections > index,
+                               collectionView.numberOfSections > 1 {
+                                return collectionView.numberOfItems(inSection: index) > 0
+                                    ? IndexPath(item: 0, section: index)
+                                    : nil
+                            }
+                            guard collectionView.numberOfSections == 1 else { return nil }
+                            let precedingItems = exercises.prefix(index).reduce(0) { count, exercise in
+                                count + 1 + (exercise.sets?.count ?? 0)
+                            }
+                            let totalItems = collectionView.numberOfItems(inSection: 0)
+                            guard totalItems > 0 else { return nil }
+                            return IndexPath(
+                                item: min(precedingItems, totalItems - 1),
+                                section: 0
+                            )
+                        }()
+                        if let targetIndexPath {
+                            collectionView.scrollToItem(at: targetIndexPath, at: .top, animated: false)
+                            collectionView.layoutIfNeeded()
+                            if let attributes = collectionView.layoutAttributesForItem(at: targetIndexPath) {
+                                listObservation.onHeaderFrame(
+                                    exercise.persistentModelID,
+                                    collectionView.convert(attributes.frame, to: nil)
+                                )
+                            }
+                        }
+                    }
+                    #endif
+                }
                 HStack(spacing: 0) {
                     let selectExercise: @MainActor @Sendable (WorkoutExercise) -> Void = { exercise in
                         dismissKeyboardIfVisible()
@@ -1345,23 +1395,6 @@ struct ActiveWorkoutView: View {
                     )
                     Color.clear
                         .frame(width: collapsedWidth)
-                        .overlay(alignment: .leading) {
-                            if !isSidebarReordering {
-                                exerciseSidebar(
-                                    exercises: exercises,
-                                    width: collapsedWidth,
-                                    onSelect: selectExercise,
-                                    onMove: { source, destination in
-                                        moveSidebarExercise(
-                                            source: source,
-                                            destination: destination,
-                                            exercises: exercises,
-                                            selectExercise: selectExercise
-                                        )
-                                    }
-                                )
-                            }
-                        }
                     List {
                         ForEach(exercises) { workoutExercise in
                             ActiveExerciseSection(
@@ -1416,6 +1449,37 @@ struct ActiveWorkoutView: View {
                     })
                     #endif
                 }
+                .overlay(alignment: .leading) {
+                    ZStack(alignment: .leading) {
+                        if isSidebarReordering {
+                            Rectangle()
+                                .fill(theme.neutrals.bg.opacity(0.22))
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    setSidebarReordering(false, selectExercise: overlaySelect)
+                                }
+                        }
+                        exerciseSidebar(
+                            exercises: exercises,
+                            width: sidebarWidth(
+                                forListWidth: exerciseListFrame.width,
+                                isReordering: isSidebarReordering
+                            ),
+                            onSelect: isSidebarReordering ? overlaySelect : persistentSidebarSelect,
+                            onMove: { source, destination in
+                                moveSidebarExercise(
+                                    source: source,
+                                    destination: destination,
+                                    exercises: exercises,
+                                    selectExercise: overlaySelect
+                                )
+                            }
+                        )
+                        .transaction { transaction in
+                            transaction.animation = nil
+                        }
+                    }
+                }
                 .onAppear {
                     listObservation.onReady(ActiveWorkoutListDriver { id, anchor in
                         DispatchQueue.main.async {
@@ -1429,15 +1493,6 @@ struct ActiveWorkoutView: View {
                     }
                 }
                 .background(theme.neutrals.bg)
-                .overlay(alignment: .leading) {
-                    if isSidebarReordering {
-                        exerciseSidebarOverlay(
-                            exercises: exercises,
-                            listWidth: exerciseListFrame.width,
-                            onSelect: overlaySelect
-                        )
-                    }
-                }
             }
         }
 
@@ -1502,14 +1557,15 @@ struct ActiveWorkoutView: View {
         .foregroundStyle(subFgColor)
         .lineLimit(1)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(minWidth: 110, maxWidth: .infinity, alignment: .leading)
+                        .layoutPriority(1)
                     }
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(1)
+                .buttonStyle(.plain)
                 sidebarInlineReorderControls(
                     index: index,
                     exerciseName: exerciseName,
@@ -1643,38 +1699,6 @@ struct ActiveWorkoutView: View {
             }
             .buttonStyle(.plain)
             .frame(maxWidth: .infinity, minHeight: 44)
-    }
-
-    @ViewBuilder
-    private func exerciseSidebarOverlay(
-        exercises: [WorkoutExercise],
-        listWidth: CGFloat,
-        onSelect: @escaping (WorkoutExercise) -> Void
-    ) -> some View {
-        let expandedWidth = sidebarWidth(forListWidth: listWidth, isReordering: true)
-
-        Rectangle()
-            .fill(theme.neutrals.bg.opacity(0.22))
-            .contentShape(Rectangle())
-            .onTapGesture {
-                setSidebarReordering(false, selectExercise: onSelect)
-            }
-            .overlay(alignment: .leading) {
-                exerciseSidebar(
-                    exercises: exercises,
-                    width: expandedWidth,
-                    onSelect: onSelect,
-                    onMove: { source, destination in
-                        moveSidebarExercise(
-                            source: source,
-                            destination: destination,
-                            exercises: exercises,
-                            selectExercise: onSelect
-                        )
-                    }
-                )
-                .transition(.move(edge: .leading).combined(with: .opacity))
-            }
     }
 
     @ViewBuilder
