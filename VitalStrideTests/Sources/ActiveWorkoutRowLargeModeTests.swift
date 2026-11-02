@@ -2373,10 +2373,12 @@ final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
         var geometry: ActiveWorkoutListGeometry?
         var headers: [AnyHashable: CGRect] = [:]
         var sidebarNameFrames: [String: CGRect] = [:]
+        var sidebarItemFrames: [String: CGRect] = [:]
         var reorderModeState = false
         let sink = ActiveWorkoutListObservationSink(
             onGeometry: { geometry = $0 },
             onHeaderFrame: { headers[$0] = $1 },
+            onSidebarItemFrame: { sidebarItemFrames[$0] = $1 },
             onSidebarNameFrame: { sidebarNameFrames[$0] = $1 },
             onSidebarMoveReady: { move = $0 },
             onSidebarSelect: { select = $0 },
@@ -2426,7 +2428,8 @@ final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
         XCTAssertTrue(reorderModeState)
         let expandedNameFrame = try XCTUnwrap(sidebarNameFrames[firstID])
         XCTAssertGreaterThanOrEqual(expandedNameFrame.width, 110)
-        XCTAssertGreaterThanOrEqual(expandedNameFrame.maxX, 236)
+        let expandedItemFrame = try XCTUnwrap(sidebarItemFrames[firstID])
+        XCTAssertGreaterThanOrEqual(expandedItemFrame.maxX, 236)
         XCTAssertNotNil(move)
         move?(5, 4)
         try await Task.sleep(for: .milliseconds(100))
