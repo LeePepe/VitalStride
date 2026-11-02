@@ -1320,13 +1320,56 @@ struct ActiveWorkoutView: View {
                                         )
                                         collectionView.layoutIfNeeded()
                                     }
-                                    let rectInContent = collectionView.layoutAttributesForItem(at: targetIndexPath)?.frame
+                                    var rectInContent = collectionView.layoutAttributesForItem(at: targetIndexPath)?.frame
                                         ?? CGRect(
                                             x: 0,
                                             y: collectionView.contentOffset.y,
                                             width: collectionView.bounds.width,
                                             height: 44
                                         )
+                                    let visibleSize: CGSize = {
+                                        if collectionView.bounds.width > 0 && collectionView.bounds.height > 0 {
+                                            return collectionView.bounds.size
+                                        }
+                                        if exerciseListFrame.width > 0 && exerciseListFrame.height > 0 {
+                                            return exerciseListFrame.size
+                                        }
+                                        return CGSize(width: 320, height: 600)
+                                    }()
+                                    let currentVisibleRect = CGRect(
+                                        origin: collectionView.contentOffset,
+                                        size: visibleSize
+                                    )
+                                    if !currentVisibleRect.insetBy(dx: -1, dy: -1).intersects(rectInContent) {
+                                        let maxOffsetY = max(
+                                            0,
+                                            collectionView.contentSize.height
+                                                - collectionView.bounds.height
+                                                + collectionView.adjustedContentInset.bottom
+                                        )
+                                        let correctedOffsetY = min(
+                                            max(0, rectInContent.minY - collectionView.adjustedContentInset.top),
+                                            maxOffsetY
+                                        )
+                                        collectionView.setContentOffset(
+                                            CGPoint(x: collectionView.contentOffset.x, y: correctedOffsetY),
+                                            animated: false
+                                        )
+                                        collectionView.layoutIfNeeded()
+                                    }
+                                    let finalVisibleRect = CGRect(
+                                        origin: collectionView.contentOffset,
+                                        size: visibleSize
+                                    )
+                                    listObservation.onGeometry(
+                                        ActiveWorkoutListGeometry(
+                                            visibleRect: finalVisibleRect,
+                                            contentOffset: collectionView.contentOffset,
+                                            contentSize: collectionView.contentSize,
+                                            containerSize: visibleSize,
+                                            listFrame: exerciseListFrame
+                                        )
+                                    )
                                     listObservation.onHeaderFrame(
                                         exercise.persistentModelID,
                                         rectInContent
