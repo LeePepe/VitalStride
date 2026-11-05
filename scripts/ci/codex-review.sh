@@ -17,6 +17,7 @@
 #   PR_NUMBER, BASE_SHA, HEAD_SHA, BASE_REPO, GH_TOKEN
 #
 # Provider 与认证配置由独立的 review home ($CODEX_REVIEW_HOME 或 ~/.codex-review) 提供。
+# REVIEW_LOGICAL_MODEL、MAGPIE_BASE_URL、RAVEN_BASE_URL 可选地启用本机逻辑路由。
 # 独立 review home 保留原 model/effort、关闭 hooks/MCP 和只读沙箱配置。
 # 运维与 trusted-base 迁移顺序见 raven-review-operations.md。
 
@@ -242,6 +243,24 @@ if [ -z "$VERDICT_JSON" ] || [ "$VERDICT_JSON" = "null" ]; then
     exit 1
 fi
 
+MODEL_ATTRIBUTION="$(
+    printf %s "$VERDICT_JSON" | python3 "$SCRIPT_DIR/review-raven.py" extract-attribution
+)"
+SERVED_MODEL="${MODEL_ATTRIBUTION%%	*}"
+LOGICAL_MODEL="${MODEL_ATTRIBUTION#*	}"
+if [ -z "$SERVED_MODEL" ] && [ -n "${REVIEW_SERVED_MODEL:-}" ]; then
+    SERVED_MODEL="$(
+        printf %s "$REVIEW_SERVED_MODEL" |
+            python3 "$SCRIPT_DIR/review-raven.py" sanitize-model
+    )"
+fi
+if [ -z "$LOGICAL_MODEL" ] && [ -n "${REVIEW_LOGICAL_MODEL:-}" ]; then
+    LOGICAL_MODEL="$(
+        printf %s "$REVIEW_LOGICAL_MODEL" |
+            python3 "$SCRIPT_DIR/review-raven.py" sanitize-model
+    )"
+fi
+
 VERDICT="$(printf %s "$VERDICT_JSON" | jq -r '.verdict')"
 SUMMARY="$(printf %s "$VERDICT_JSON" | jq -r '.summary')"
 N_BLOCK="$(printf %s "$VERDICT_JSON" | jq -r '.blockers | length')"
@@ -267,7 +286,15 @@ render() {
         printf %s "$VERDICT_JSON" | jq -r \
             '.notes[] | "- `\(.file)\(if .line then ":\(.line)" else "" end)` — \(.note)"'
     fi
-    printf '\n\n<sub>由本地 codex 自动生成。critical/high = 阻塞合并。</sub>\n'
+    if [ -n "$SERVED_MODEL" ]; then
+        printf '\n\n<sub>由本地 codex 自动生成（served by %s；logical model %s）。critical/high = 阻塞合并。</sub>\n' \
+            "$SERVED_MODEL" "${LOGICAL_MODEL:-${REVIEW_LOGICAL_MODEL:-unknown}}"
+    elif [ -n "$LOGICAL_MODEL" ] || [ -n "${REVIEW_LOGICAL_MODEL:-}" ]; then
+        printf '\n\n<sub>由本地 codex 自动生成（logical model %s）。critical/high = 阻塞合并。</sub>\n' \
+            "${LOGICAL_MODEL:-$REVIEW_LOGICAL_MODEL}"
+    else
+        printf '\n\n<sub>由本地 codex 自动生成。critical/high = 阻塞合并。</sub>\n'
+    fi
 }
 stage post-comment
 BODY="$(render)"

@@ -40,6 +40,53 @@ class ReviewRoutingTests(unittest.TestCase):
             {} if env is None else env,
         )
 
+    def test_logical_model_and_magpie_gateway_are_opt_in(self):
+        command = self.command({
+            "REVIEW_LOGICAL_MODEL": "group/reviewing",
+            "MAGPIE_BASE_URL": "http://127.0.0.1:3425/v1",
+        })
+        self.assertIn("model=group/reviewing", command)
+        self.assertIn("model_provider=magpie", command)
+        self.assertIn("model_providers.magpie.base_url=http://127.0.0.1:3425/v1", command)
+
+    def test_raven_base_url_is_magpie_fallback(self):
+        command = self.command({
+            "REVIEW_LOGICAL_MODEL": "group/reviewing",
+            "RAVEN_BASE_URL": "http://127.0.0.1:7024/v1",
+        })
+        self.assertIn("model_providers.magpie.base_url=http://127.0.0.1:7024/v1", command)
+
+    def test_served_and_logical_model_attribution_extraction(self):
+        payload = {
+            "response": {
+                "served_model": "reviewer-model",
+                "logical_model": "group/reviewing",
+            }
+        }
+        self.assertEqual("reviewer-model", raven.extract_served_model(payload))
+        self.assertEqual("group/reviewing", raven.extract_logical_model(payload))
+
+    def test_model_attribution_is_sanitized_for_sticky_comment(self):
+        payload = {
+            "served_model": "served\r\n@<`" + ("x" * 70),
+            "logical_model": "logical\r\n@<`" + ("y" * 70),
+        }
+        served, logical = raven.attribution_from_payload(payload)
+        self.assertEqual("served＠‹´" + ("x" * 51), served)
+        self.assertEqual("logical＠‹´" + ("y" * 50), logical)
+        self.assertLessEqual(len(served), 60)
+        self.assertLessEqual(len(logical), 60)
+
+    def test_attribution_cli_sanitizes_extracted_models(self):
+        result = subprocess.run(
+            [sys.executable, str(HELPER), "extract-attribution"],
+            input=json.dumps({"served_model": "a\n@<`", "logical_model": "group/reviewing"}),
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertEqual("a＠‹´\tgroup/reviewing\n", result.stdout)
+
     def test_arbitrary_provider_selected_in_review_home_is_accepted_without_cli_overrides(self):
         for provider_name in ("raven", "custom-provider", "openai", "claude", "deepseek-local"):
             with self.subTest(provider_name=provider_name):

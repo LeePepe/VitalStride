@@ -1,0 +1,25 @@
+name: stuck-PR bot
+
+on:
+  schedule:
+    - cron: '27,57 * * * *'
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+  issues: write
+  checks: read
+  contents: read
+
+jobs:
+  report:
+    uses: LeePepe/shared-ci/.github/workflows/stuck-pr-bot.yml@838e10a059979e6732446cb26edc95d173cc7e3a
+    with:
+      failure-hours: 2
+      open-hours: 24
+      stale-days: 14
+      draft-days: 7
+      auto-merge-grace-minutes: 30
+      thread-hours: 24
+      summary-assignee: ${{ github.repository_owner }}
+      mention-allowlist: ${{ github.repository_owner }}

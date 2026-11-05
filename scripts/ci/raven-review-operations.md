@@ -1,5 +1,12 @@
 # Raven review operations
 
+This repository syncs the reusable review capabilities from
+`LeePepe/shared-ci@838e10a059979e6732446cb26edc95d173cc7e3a`. The local Codex
+gate may route logical model `group/reviewing` through Magpie at `:3425`; when
+Magpie is not configured, `RAVEN_BASE_URL` may provide the Raven `:7024`
+endpoint as its fallback. Review responses may report both `served_model` and
+`logical_model`; the gate preserves those attributions in its sticky comment.
+
 The trusted local `codex-review.sh` gate invokes the standard Codex CLI through
 `review-raven.py`. Provider selection and connection configuration are governed
 exclusively by the isolated review home: `$CODEX_HOME/config.toml`, where
