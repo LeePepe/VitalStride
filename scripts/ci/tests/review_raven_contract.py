@@ -66,6 +66,27 @@ class ReviewRoutingTests(unittest.TestCase):
         self.assertEqual("reviewer-model", raven.extract_served_model(payload))
         self.assertEqual("group/reviewing", raven.extract_logical_model(payload))
 
+    def test_model_attribution_is_sanitized_for_sticky_comment(self):
+        payload = {
+            "served_model": "served\r\n@<`" + ("x" * 70),
+            "logical_model": "logical\r\n@<`" + ("y" * 70),
+        }
+        served, logical = raven.attribution_from_payload(payload)
+        self.assertEqual("served＠‹´" + ("x" * 51), served)
+        self.assertEqual("logical＠‹´" + ("y" * 50), logical)
+        self.assertLessEqual(len(served), 60)
+        self.assertLessEqual(len(logical), 60)
+
+    def test_attribution_cli_sanitizes_extracted_models(self):
+        result = subprocess.run(
+            [sys.executable, str(HELPER), "extract-attribution"],
+            input=json.dumps({"served_model": "a\n@<`", "logical_model": "group/reviewing"}),
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertEqual("a＠‹´\tgroup/reviewing\n", result.stdout)
+
     def test_arbitrary_provider_selected_in_review_home_is_accepted_without_cli_overrides(self):
         for provider_name in ("raven", "custom-provider", "openai", "claude", "deepseek-local"):
             with self.subTest(provider_name=provider_name):

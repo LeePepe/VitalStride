@@ -244,38 +244,21 @@ if [ -z "$VERDICT_JSON" ] || [ "$VERDICT_JSON" = "null" ]; then
 fi
 
 MODEL_ATTRIBUTION="$(
-    VERDICT_JSON="$VERDICT_JSON" python3 - <<'PY'
-import json
-import os
-
-payload = json.loads(os.environ["VERDICT_JSON"])
-
-def find(value, keys):
-    if isinstance(value, dict):
-        for key in keys:
-            candidate = value.get(key)
-            if isinstance(candidate, str) and candidate.strip():
-                return candidate.strip()
-        for child in value.values():
-            found = find(child, keys)
-            if found:
-                return found
-    elif isinstance(value, list):
-        for child in value:
-            found = find(child, keys)
-            if found:
-                return found
-    return ""
-
-served = find(payload, ("served_model", "servedModel"))
-logical = find(payload, ("logical_model", "logicalModel"))
-print(f"{served}\t{logical}")
-PY
+    printf %s "$VERDICT_JSON" | python3 "$SCRIPT_DIR/review-raven.py" extract-attribution
 )"
 SERVED_MODEL="${MODEL_ATTRIBUTION%%	*}"
 LOGICAL_MODEL="${MODEL_ATTRIBUTION#*	}"
 if [ -z "$SERVED_MODEL" ] && [ -n "${REVIEW_SERVED_MODEL:-}" ]; then
-    SERVED_MODEL="$REVIEW_SERVED_MODEL"
+    SERVED_MODEL="$(
+        printf %s "$REVIEW_SERVED_MODEL" |
+            python3 "$SCRIPT_DIR/review-raven.py" sanitize-model
+    )"
+fi
+if [ -z "$LOGICAL_MODEL" ] && [ -n "${REVIEW_LOGICAL_MODEL:-}" ]; then
+    LOGICAL_MODEL="$(
+        printf %s "$REVIEW_LOGICAL_MODEL" |
+            python3 "$SCRIPT_DIR/review-raven.py" sanitize-model
+    )"
 fi
 
 VERDICT="$(printf %s "$VERDICT_JSON" | jq -r '.verdict')"

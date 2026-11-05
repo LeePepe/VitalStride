@@ -4,10 +4,25 @@
 Keep CODEX_HOME, provider, model, tools and review policy separate from daily Codex.
 Never load auth files, print credential values, edit configuration or retry.
 """
+import json
 import os
 from pathlib import Path
 import sys
 import tomllib
+
+
+def sanitize_model(value):
+    """Make model attribution safe for the sticky GitHub comment footer."""
+
+    if not isinstance(value, str):
+        return ""
+    return (
+        value.replace("\r", "")
+        .replace("\n", "")[:60]
+        .replace("@", "＠")
+        .replace("<", "‹")
+        .replace("`", "´")
+    )
 
 
 def _environment_value(environment, key):
@@ -82,6 +97,14 @@ def extract_logical_model(payload):
     return None
 
 
+def attribution_from_payload(payload):
+    """Return sanitized served/logical attribution as a tab-separated pair."""
+
+    served = sanitize_model(extract_served_model(payload))
+    logical = sanitize_model(extract_logical_model(payload))
+    return served, logical
+
+
 def build_command(config_path, binary, arguments, environment=None):
     try:
         config = tomllib.loads(Path(config_path).read_text())
@@ -98,6 +121,17 @@ def main():
     if len(sys.argv) < 2:
         print("[codex-review] expected Codex binary and exec arguments", file=sys.stderr)
         return 1
+    if sys.argv[1] == "sanitize-model":
+        print(sanitize_model(sys.stdin.read()), end="")
+        return 0
+    if sys.argv[1] == "extract-attribution":
+        try:
+            served, logical = attribution_from_payload(json.load(sys.stdin))
+        except (ValueError, UnicodeError):
+            print("[codex-review] invalid review attribution JSON", file=sys.stderr)
+            return 1
+        print(f"{served}\t{logical}")
+        return 0
     review_home = os.environ.get("CODEX_HOME")
     if not review_home or not review_home.strip():
         print("[codex-review] Setup failed: CODEX_HOME environment variable is required", file=sys.stderr)
