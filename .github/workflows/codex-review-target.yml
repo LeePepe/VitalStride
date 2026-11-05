@@ -35,6 +35,9 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_REPO: ${{ github.repository }}
+          REVIEW_LOGICAL_MODEL: group/reviewing
+          MAGPIE_BASE_URL: http://127.0.0.1:3425/v1
+          RAVEN_BASE_URL: http://127.0.0.1:7024/v1
         run: scripts/ci/codex-review.sh
 
   codex-review-target-fork:
