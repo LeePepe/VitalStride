@@ -35,7 +35,7 @@ struct ActiveWorkoutMotionTrajectoryTests {
             fab: { Color.clear.frame(width: 60, height: 60) }
         )
         let host = UIHostingController(rootView: view)
-        #expect(host.sizeThatFits(in: CGSize(width: 393, height: .infinity)).height == 0)
+        #expect(host.sizeThatFits(in: CGSize(width: 393, height: CGFloat.infinity)).height == 0)
     }
     #endif
 
