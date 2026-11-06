@@ -483,10 +483,10 @@ struct ActiveWorkoutView: View {
                         .padding(.horizontal, horizontalSizeClass == .regular ? 24 : ActiveWorkoutSnackbarLayout.dockInset)
                     }
                 )
+                .activeWorkoutRootAnimation(policy: policy, reduceMotion: reduceMotion)
                 .accessibilityElement(children: .contain)
                 .accessibilityFocused($isBottomSnackbarFocused)
             }
-            .activeWorkoutRootAnimation(policy: policy, reduceMotion: reduceMotion)
             .onChange(of: isSidebarReordering) { _, value in
                 listObservation.onSidebarReorderModeState(value)
             }

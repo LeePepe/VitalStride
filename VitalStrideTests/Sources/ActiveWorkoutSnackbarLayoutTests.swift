@@ -12,7 +12,7 @@ import UIKit
 ///
 /// These tests verify:
 /// 1. The workout list does not shift vertically when the rest snackbar appears or disappears.
-/// 2. When keyboard is visible, snackbar edge resolves to .top.
+/// 2. When keyboard is visible, snackbar edge remains .bottom.
 /// 3. All 6 settled keyboard/snackbar states resolve through one production AnimationPolicy.
 /// 4. Exactly one root geometry-animation owner, no child animation, and no child transition.
 /// 5. Mutation sensitivity: rejects child animation, child transition, and missing root owner.
@@ -210,19 +210,13 @@ struct ActiveWorkoutSnackbarLayoutTests {
 
     // MARK: - Test 2: Snackbar keyboard awareness (MY-1421)
 
-    /// When the custom numeric keyboard is visible, the snackbar must switch
-    /// to the top edge so it doesn't overlap the keyboard and remains fully
-    /// visible. Before MY-1421 the snackbar always used `.bottom` regardless
-    /// of keyboard state.
-    @Test("Snackbar edge switches to .top when keyboard is visible")
-    func snackbarEdgeSwitchesToTopWithKeyboard() {
-        // Without keyboard: bottom edge
+    @Test("Snackbar stays in the bottom safe-area inset when keyboard is visible")
+    func snackbarEdgeRemainsBottomWithKeyboard() {
         let edgeNoKeyboard = ActiveWorkoutSnackbarLayout.resolveEdge(isKeyboardVisible: false)
         #expect(edgeNoKeyboard == .bottom)
 
-        // With keyboard: top edge so it doesn't overlap
         let edgeWithKeyboard = ActiveWorkoutSnackbarLayout.resolveEdge(isKeyboardVisible: true)
-        #expect(edgeWithKeyboard == .top)
+        #expect(edgeWithKeyboard == .bottom)
     }
 
     // MARK: - Test 3: Six Settled States Production Policy Matrix (MY-1706 / AC-001, AC-002)
@@ -275,16 +269,16 @@ struct ActiveWorkoutSnackbarLayoutTests {
             PolicyMatrixCase(
                 isKeyboardVisible: true,
                 requestedSlot: .rest,
-                expectedTopSlot: .rest,
-                expectedBottomSlot: .none,
+                expectedTopSlot: .none,
+                expectedBottomSlot: .rest,
                 expectedFABVisible: false
             ),
             // State 6: Visible keyboard + Undo snackbar
             PolicyMatrixCase(
                 isKeyboardVisible: true,
                 requestedSlot: .undo,
-                expectedTopSlot: .undo,
-                expectedBottomSlot: .none,
+                expectedTopSlot: .none,
+                expectedBottomSlot: .undo,
                 expectedFABVisible: false
             ),
         ]
@@ -342,8 +336,8 @@ struct ActiveWorkoutSnackbarLayoutTests {
             #expect(hiddenPolicy.isFABVisible == true)
             #expect(hiddenPolicy.hasSingleAnimationOwner == true)
 
-            #expect(visiblePolicy.topSlot == slot)
-            #expect(visiblePolicy.bottomSlot == .none)
+            #expect(visiblePolicy.topSlot == .none)
+            #expect(visiblePolicy.bottomSlot == slot)
             #expect(visiblePolicy.isFABVisible == false)
             #expect(visiblePolicy.hasSingleAnimationOwner == true)
 
@@ -459,15 +453,9 @@ struct ActiveWorkoutSnackbarLayoutTests {
                 )
                 // Single policy instance drives both mode presentations
                 #expect(policy.hasSingleAnimationOwner == true)
-                if isKeyboardVisible {
-                    #expect(policy.topSlot == slot)
-                    #expect(policy.bottomSlot == .none)
-                    #expect(policy.isFABVisible == false)
-                } else {
-                    #expect(policy.topSlot == .none)
-                    #expect(policy.bottomSlot == slot)
-                    #expect(policy.isFABVisible == true)
-                }
+                #expect(policy.topSlot == .none)
+                #expect(policy.bottomSlot == slot)
+                #expect(policy.isFABVisible == !isKeyboardVisible)
             }
 
         }

@@ -42,7 +42,7 @@ enum ActiveWorkoutSnackbarLayout {
         /// Whether the add-exercise FAB should be visible at the bottom
         let isFABVisible: Bool
 
-        /// Root geometry animation owner (.easeInOut(duration: 0.2) in production)
+        /// Root geometry animation owner aligned with the system keyboard spring.
         let rootAnimation: Animation?
 
         /// Child geometry animation driver (nil in production — single owner invariant)
@@ -67,8 +67,12 @@ enum ActiveWorkoutSnackbarLayout {
             hasRootAnimation && !hasChildAnimation && !hasChildTransition
         }
 
-        /// Production default animation duration / curve
-        static let defaultAnimation: Animation = .easeInOut(duration: 0.2)
+        /// Production animation matches the system keyboard safe-area curve.
+        static let defaultAnimation: Animation = .interpolatingSpring(
+            mass: 3,
+            stiffness: 1000,
+            damping: 500
+        )
 
         /// Factory for production policy
         static func production(
@@ -78,8 +82,8 @@ enum ActiveWorkoutSnackbarLayout {
             AnimationPolicy(
                 isKeyboardVisible: isKeyboardVisible,
                 snackbarSlot: snackbarSlot,
-                topSlot: isKeyboardVisible ? snackbarSlot : .none,
-                bottomSlot: isKeyboardVisible ? .none : snackbarSlot,
+                topSlot: .none,
+                bottomSlot: snackbarSlot,
                 isFABVisible: !isKeyboardVisible,
                 rootAnimation: defaultAnimation,
                 childAnimation: nil,
@@ -98,8 +102,8 @@ enum ActiveWorkoutSnackbarLayout {
             AnimationPolicy(
                 isKeyboardVisible: isKeyboardVisible,
                 snackbarSlot: snackbarSlot,
-                topSlot: isKeyboardVisible ? snackbarSlot : .none,
-                bottomSlot: isKeyboardVisible ? .none : snackbarSlot,
+                topSlot: .none,
+                bottomSlot: snackbarSlot,
                 isFABVisible: !isKeyboardVisible,
                 rootAnimation: rootAnimation,
                 childAnimation: childAnimation,
@@ -119,12 +123,10 @@ enum ActiveWorkoutSnackbarLayout {
         .production(isKeyboardVisible: isKeyboardVisible, snackbarSlot: snackbarSlot)
     }
 
-    /// Determines which edge the snackbar should render at based on keyboard
-    /// visibility. When the custom numeric keyboard is on screen, the snackbar
-    /// moves to the top edge so it remains fully visible and never overlaps
-    /// the keyboard.
+    /// The snackbar always belongs to the bottom safe-area inset. SwiftUI's
+    /// keyboard safe area places it directly above the keyboard when visible.
     static func resolveEdge(isKeyboardVisible: Bool) -> VerticalEdge {
-        isKeyboardVisible ? .top : .bottom
+        .bottom
     }
 
     // MARK: - Production Animation Modifiers (MY-1706)
@@ -261,24 +263,28 @@ enum ActiveWorkoutSnackbarLayout {
         @ViewBuilder restContent: @escaping () -> RestContent,
         @ViewBuilder fab: @escaping () -> FAB
     ) -> some View {
-        VStack(spacing: 8) {
-            if !isKeyboardVisible {
-                fab()
-                    .frame(maxWidth: .infinity)
+        if isKeyboardVisible && snackbarSlot == .none {
+            EmptyView()
+        } else {
+            VStack(spacing: 8) {
+                if !isKeyboardVisible {
+                    fab()
+                        .frame(maxWidth: .infinity)
+                }
                 if snackbarSlot != .none {
                     slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
                         .frame(maxWidth: 400, alignment: .leading)
                         .padding(.horizontal, dockHorizontalInset)
-                        .padding(.bottom, snackbarSlot == .none ? 0 : 4)
+                        .padding(.bottom, 4)
                 }
             }
-        }
-        .padding(.top, 8)
-        .background(theme.neutrals.bg)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(theme.neutrals.border)
-                .frame(height: 1)
+            .padding(.top, 8)
+            .background(theme.neutrals.bg)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(theme.neutrals.border)
+                    .frame(height: 1)
+            }
         }
     }
 
@@ -679,9 +685,8 @@ enum ActiveWorkoutSnackbarLayout {
 ///
 /// Rules:
 /// - `.none` → clear both bottom and top focus
-/// - Active slot (`.undo`/`.rest`) + keyboard visible → top focus only
-/// - Active slot + keyboard hidden → bottom focus only
-/// - Keyboard visibility change with active slot → migrate focus
+/// - Active slot (`.undo`/`.rest`) → bottom focus only
+/// - Keyboard visibility changes do not migrate the snackbar out of the bottom inset
 struct SnackbarFocusRouter {
     /// Focus state pair: (bottomFocused, topFocused)
     struct FocusState: Equatable {
@@ -700,11 +705,7 @@ struct SnackbarFocusRouter {
         case .none:
             return .cleared
         case .undo, .rest:
-            if isKeyboardVisible {
-                return FocusState(bottomFocused: false, topFocused: true)
-            } else {
-                return FocusState(bottomFocused: true, topFocused: false)
-            }
+            return FocusState(bottomFocused: true, topFocused: false)
         }
     }
 
@@ -715,11 +716,7 @@ struct SnackbarFocusRouter {
         currentSlot: BottomSnackbarSlot
     ) -> FocusState? {
         guard currentSlot != .none else { return nil }
-        if keyboardNowVisible {
-            return FocusState(bottomFocused: false, topFocused: true)
-        } else {
-            return FocusState(bottomFocused: true, topFocused: false)
-        }
+        return FocusState(bottomFocused: true, topFocused: false)
     }
 }
 

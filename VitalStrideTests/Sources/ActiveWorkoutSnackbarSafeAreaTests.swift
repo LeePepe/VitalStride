@@ -13,13 +13,14 @@ import UIKit
 /// 1. The FAB and bottom snackbar frames must not intersect (VStack proof).
 /// 2. The bottom snackbar must be fully contained within the safe area
 ///    (exercised through a real safeAreaInset host/window with non-zero bottom inset).
-/// 3. When the snackbar is at the top edge (keyboard visible), it must not
-///    cause a list jump (constant-height proof via topLayout).
+/// 3. When the keyboard is visible, the snackbar remains in the bottom inset
+///    and the inactive bottom geometry is exactly zero.
 /// 4. Each rest timer button (Skip, -10s, +10s) has a hit target >= 44×44pt
 ///    verified on the production `restTimerButton` helper.
 /// 5. The inactive bottom snackbar slot has zero height; active rest/undo slots
 ///    move the FAB upward and remain equal in height.
-/// 6. Production topComposition exercised for both compact and Large Mode headers.
+/// 6. Keyboard-visible bottom geometry preserves the active snackbar and removes
+///    inactive padding and border residue.
 /// 7. VoiceOver semantics: inactive slotEnvelope branches have accessibilityHidden.
 ///
 /// Tests use `sizeThatFits`-based measurement (not UIKit view hierarchy
@@ -132,24 +133,21 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         window.isHidden = true
     }
 
-    // MARK: - Test 3: top snackbar constant height (no-list-jump for keyboard path)
+    // MARK: - Test 3: keyboard-visible bottom geometry
 
-    /// The top layout uses the same active-only slot contract. `.none` is
-    /// zero-height, while undo and rest remain equal-height.
-    /// Production calls `topComposition` which internally delegates to `topLayout`.
     @MainActor
-    @Test("Top snackbar layout uses zero-height none slot and equal active heights")
-    func topSnackbarConstantHeight() {
+    @Test("Keyboard-visible inactive bottom geometry has zero height")
+    func keyboardVisibleInactiveBottomGeometryIsZero() {
         let containerWidth: CGFloat = 393
-
-        let noneHeight = measureTopLayoutHeight(slot: .none, width: containerWidth)
-        let undoHeight = measureTopLayoutHeight(slot: .undo, width: containerWidth)
-        let restHeight = measureTopLayoutHeight(slot: .rest, width: containerWidth)
-
-        let tolerance: CGFloat = 1
-        #expect(noneHeight < undoHeight)
-        #expect(noneHeight < restHeight)
-        #expect(abs(undoHeight - restHeight) <= tolerance)
+        let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+            snackbarSlot: .none,
+            isKeyboardVisible: true,
+            undoContent: { undoPlaceholder },
+            restContent: { productionRestContent(completed: false) },
+            fab: { fabPlaceholder }
+        )
+        let host = UIHostingController(rootView: layout)
+        #expect(host.sizeThatFits(in: CGSize(width: containerWidth, height: .infinity)).height == 0)
     }
 
     // MARK: - Test 4: production rest timer buttons each >= 44pt
@@ -204,57 +202,20 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         }
     }
 
-    // MARK: - Test 6: P1-3 — compact mode production topComposition
+    // MARK: - Test 6: keyboard-visible active bottom geometry
 
-    /// Exercises the production `topComposition` with a compact info band
-    /// matching the same structure as `ActiveWorkoutView.compactInfoBand`:
-    /// single-line HStack with timer + stats, horizontal padding, 48pt minHeight.
     @MainActor
-    @Test("Top composition with compact info band: non-overlap guaranteed (production path)")
-    func topCompositionCompactMode() {
+    @Test("Keyboard-visible bottom snackbar remains mounted above the keyboard")
+    func keyboardVisibleBottomSnackbarRemainsMounted() {
         let containerWidth: CGFloat = 393
-
-        let infoBandHeight = measureViewHeight(compactInfoBandContent, width: containerWidth)
-        let topSnackbarHeight = measureTopLayoutHeight(slot: .rest, width: containerWidth)
-
-        let composed = ActiveWorkoutSnackbarLayout.topComposition(
+        let layout = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
             snackbarSlot: .rest,
-            infoBand: { compactInfoBandContent },
             undoContent: { ActiveWorkoutSnackbarLayout.undoEnvelope(message: nil) },
-            restContent: { productionRestContent(completed: false) }
+            restContent: { productionRestContent(completed: false) },
+            fab: { fabPlaceholder }
         )
-        let composedHeight = measureViewHeight(composed, width: containerWidth)
-
-        #expect(composedHeight >= infoBandHeight + topSnackbarHeight - 1)
-        #expect(composedHeight > infoBandHeight)
-        #expect(composedHeight > topSnackbarHeight)
-    }
-
-    // MARK: - Test 7: P1-3 — Large Mode production topComposition
-
-    /// Exercises the production `topComposition` with the Large Mode dual-card
-    /// header (workoutTimer + sessionStatsCard equivalent). Production places
-    /// these two views as the infoBand content when `largeMode == true`.
-    @MainActor
-    @Test("Top composition with Large Mode header: non-overlap guaranteed (production path)")
-    func topCompositionLargeMode() {
-        let containerWidth: CGFloat = 393
-
-        let largeModeHeader = largeModeHeaderContent
-        let headerHeight = measureViewHeight(largeModeHeader, width: containerWidth)
-        let topSnackbarHeight = measureTopLayoutHeight(slot: .rest, width: containerWidth)
-
-        let composed = ActiveWorkoutSnackbarLayout.topComposition(
-            snackbarSlot: .rest,
-            infoBand: { largeModeHeaderContent },
-            undoContent: { ActiveWorkoutSnackbarLayout.undoEnvelope(message: nil) },
-            restContent: { productionRestContent(completed: false) }
-        )
-        let composedHeight = measureViewHeight(composed, width: containerWidth)
-
-        #expect(composedHeight >= headerHeight + topSnackbarHeight - 1)
-        #expect(composedHeight > headerHeight)
-        #expect(composedHeight > topSnackbarHeight)
+        let host = UIHostingController(rootView: layout)
+        #expect(host.sizeThatFits(in: CGSize(width: containerWidth, height: .infinity)).height > 0)
     }
 
     // MARK: - Test 8: P1-5 — Inactive VoiceOver semantics (accessibilityHidden)
@@ -284,20 +245,20 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         #expect(undoNoKeyboard.bottomFocused == true)
         #expect(undoNoKeyboard.topFocused == false)
 
-        // Active slot with keyboard → top
+        // Active slot with keyboard → bottom
         let restWithKeyboard = SnackbarFocusRouter.resolveSlotChange(
             newSlot: .rest, isKeyboardVisible: true
         )
-        #expect(restWithKeyboard.bottomFocused == false)
-        #expect(restWithKeyboard.topFocused == true)
+        #expect(restWithKeyboard.bottomFocused == true)
+        #expect(restWithKeyboard.topFocused == false)
 
-        // Keyboard appears with active slot → migrate to top
+        // Keyboard appears with active slot → remain bottom-focused
         let keyboardAppears = SnackbarFocusRouter.resolveKeyboardChange(
             keyboardNowVisible: true, currentSlot: .undo
         )
         #expect(keyboardAppears != nil)
-        #expect(keyboardAppears?.bottomFocused == false)
-        #expect(keyboardAppears?.topFocused == true)
+        #expect(keyboardAppears?.bottomFocused == true)
+        #expect(keyboardAppears?.topFocused == false)
 
         // Keyboard disappears with active slot → migrate to bottom
         let keyboardDisappears = SnackbarFocusRouter.resolveKeyboardChange(
@@ -358,25 +319,6 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     }
 
     // MARK: - Measurement helpers
-
-    @MainActor
-    private func measureTopLayoutHeight(slot: BottomSnackbarSlot, width: CGFloat) -> CGFloat {
-        let layout = ActiveWorkoutSnackbarLayout.topLayout(
-            snackbarSlot: slot,
-            undoContent: {
-                ActiveWorkoutSnackbarLayout.undoEnvelope(
-                    message: slot == .undo
-                        ? "Deleted Warmup sub-set of set 10 in superset group A"
-                        : nil
-                )
-            },
-            restContent: {
-                productionRestContent(completed: slot == .rest)
-            }
-        )
-        let host = UIHostingController(rootView: layout)
-        return host.sizeThatFits(in: CGSize(width: width, height: CGFloat.infinity)).height
-    }
 
     @MainActor
     private func measureViewHeight<V: View>(_ view: V, width: CGFloat) -> CGFloat {
@@ -476,63 +418,6 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
     @MainActor
     private var undoPlaceholder: some View {
         productionUndoContent(message: "Deleted set 1 of superset group B (tricep extensions warmup)")
-    }
-
-    /// Production-representative compact info band matching `ActiveWorkoutView.compactInfoBand`:
-    /// single-line HStack with timer + stats, horizontal padding, 48pt minHeight, card background.
-    @MainActor
-    private var compactInfoBandContent: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 4) {
-                Image(systemName: "timer")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Text("00:05:32")
-                    .font(.subheadline.monospacedDigit())
-            }
-            Spacer(minLength: 0)
-            Text("3 动作 · 5 组 · 120 kg")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .frame(minHeight: 48)
-    }
-
-    /// Production-representative Large Mode header matching the dual-card layout:
-    /// workoutTimer (HStack with timer label + elapsed + summary) + sessionStatsCard.
-    /// This exercises the same code path as `largeMode == true` in production.
-    @MainActor
-    private var largeModeHeaderContent: some View {
-        VStack(spacing: 0) {
-            // workoutTimer equivalent
-            HStack {
-                Image(systemName: "timer")
-                    .font(.title3)
-                Text("00:12:45")
-                    .font(.title3.monospacedDigit())
-                Spacer()
-                Text("5 动作 · 12 组 · 450 kg")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 16)
-
-            // sessionStatsCard equivalent
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("当前组")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("卧推 4/5")
-                        .font(.headline)
-                }
-                Spacer()
-            }
-            .padding()
-        }
     }
 
     @MainActor
