@@ -32,6 +32,8 @@ packages:
     path: Packages/TelemetryKit
   DesignKit:
     path: Packages/DesignKit
+  FlightKit:
+    path: Packages/FlightKit
   # spec 015-glitchtip-crash-reporting (MY-1311/T002). Remote SPM dependency,
   # attached ONLY to the iOS `VitalStride` target — Mac / Watch / Widgets do
   # not link Sentry (Constitution §VII, ADR-0013). The DSN itself is injected
@@ -99,6 +101,7 @@ targets:
       - package: TelemetryKit
         product: AptabaseAdapter
       - package: DesignKit
+      - package: FlightKit
       - package: Sentry
       - sdk: HealthKit.framework
       - target: VitalStrideWidgets
@@ -230,6 +233,7 @@ targets:
       - package: AIService
       - package: TelemetryKit
       - package: DesignKit
+      - package: FlightKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride.tests

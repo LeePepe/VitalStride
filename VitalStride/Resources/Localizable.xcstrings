@@ -12407,6 +12407,27 @@
           }
         }
       }
+    },
+    "settings.flightDebug.title": {
+      "comment": "Settings entry for FlightKit debug flags",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "🛠 Flight Experiments" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "🛠 Flight 实验开关" } }
+      }
+    },
+    "flight.workout.sidebarSchemeC.title": {
+      "comment": "Flight flag title",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Workout sidebar Scheme C" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "训练侧栏方案 C" } }
+      }
+    },
+    "flight.workout.sidebarSchemeC.summary": {
+      "comment": "Flight flag summary",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Use the horizontal exercise pill bar in active workouts." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "在进行中的训练中使用横向动作胶囊栏。" } }
+      }
     }
   },
   "version": "1.0"

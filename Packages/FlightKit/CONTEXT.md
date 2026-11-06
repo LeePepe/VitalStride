@@ -6,7 +6,7 @@ test_paths: [Packages/FlightKit/Tests]
 gate_tier: local-fast
 build: swift build --package-path Packages/FlightKit
 depends_on: []
-depended_by: []
+depended_by: [AppUI]
 red_lines:
   - FlightKit is portable and must not depend on VitalStride app code or another local package
   - Local override precedence is override, remote when enabled and present, then descriptor default
@@ -31,9 +31,8 @@ and the reusable SwiftUI debug surface. It has no app-specific dependency.
 
 ## 依赖
 
-FlightKit is an independent local package (`depends_on: []`). TK2 may wire it into
-AppUI later; this task intentionally leaves `depended_by: []` until that consumer
-integration exists.
+FlightKit is an independent local package (`depends_on: []`) consumed by AppUI for
+the workout flight registry and settings debug surface.
 
 ## Contracts
 
