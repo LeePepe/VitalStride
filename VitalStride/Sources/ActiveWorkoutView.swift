@@ -1357,75 +1357,73 @@ struct ActiveWorkoutView: View {
                         #endif
                     }
                 }
-                VStack(spacing: 0) {
-                    if isSidebarSchemeC && !isSidebarReordering {
-                        exercisePillBar(
-                            exercises: exercises,
-                            onSelect: selectExercise
-                        )
-                    }
-                    HStack(spacing: 0) {
-                        Color.clear
-                            .frame(width: collapsedSidebarWidth)
-                        List {
-                            ForEach(exercises) { workoutExercise in
-                                ActiveExerciseSection(
-                                    workoutExercise: workoutExercise,
-                                    onSetCompleted: {
-                                        restTimer.startRest()
-                                        TelemetryService.shared.trackNonisolated(
-                                            .setCompleted(exerciseName: TelemetryHelpers
-                                                .exerciseIdentifier(workoutExercise.exercise))
-                                        )
-                                    },
-                                    onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
-                                    onReplace: { exerciseToReplace = workoutExercise },
-                                    onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
-                                    onDelete: { deleteExercise(workoutExercise) },
-                                    undoController: undoController
-                                )
-                                .id(workoutExercise.persistentModelID)
-                            }
+                if isSidebarSchemeC && !isSidebarReordering {
+                    exercisePillBar(
+                        exercises: exercises,
+                        onSelect: selectExercise
+                    )
+                }
+                HStack(spacing: 0) {
+                    Color.clear
+                        .frame(width: collapsedSidebarWidth)
+                    List {
+                        ForEach(exercises) { workoutExercise in
+                            ActiveExerciseSection(
+                                workoutExercise: workoutExercise,
+                                onSetCompleted: {
+                                    restTimer.startRest()
+                                    TelemetryService.shared.trackNonisolated(
+                                        .setCompleted(exerciseName: TelemetryHelpers
+                                            .exerciseIdentifier(workoutExercise.exercise))
+                                    )
+                                },
+                                onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
+                                onReplace: { exerciseToReplace = workoutExercise },
+                                onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
+                                onDelete: { deleteExercise(workoutExercise) },
+                                undoController: undoController
+                            )
+                            .id(workoutExercise.persistentModelID)
                         }
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
-                        .listSectionSpacing(largeMode ? 8 : 6)
-                        .scrollDismissesKeyboard(.immediately)
-                        .simultaneousGesture(
-                            DragGesture(minimumDistance: 8)
-                                .onChanged { value in
-                                    guard abs(value.translation.height) > abs(value.translation.width) else { return }
-                                    dismissKeyboardIfVisible()
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .listSectionSpacing(largeMode ? 8 : 6)
+                    .scrollDismissesKeyboard(.immediately)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 8)
+                            .onChanged { value in
+                                guard abs(value.translation.height) > abs(value.translation.width) else { return }
+                                dismissKeyboardIfVisible()
+                            }
+                    )
+                    .environment(\.defaultMinListRowHeight, 1)
+                    .accessibilityIdentifier("workout_exercise_list")
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear
+                                .onAppear {
+                                    let frame = geometry.frame(in: .global)
+                                    if frame.width > 0 && frame.height > 0 && frame != exerciseListFrame {
+                                        exerciseListFrame = frame
+                                    }
                                 }
-                        )
-                        .environment(\.defaultMinListRowHeight, 1)
-                        .accessibilityIdentifier("workout_exercise_list")
-                        .background {
-                            GeometryReader { geometry in
-                                Color.clear
-                                    .onAppear {
-                                        let frame = geometry.frame(in: .global)
-                                        if frame.width > 0 && frame.height > 0 && frame != exerciseListFrame {
-                                            exerciseListFrame = frame
-                                        }
+                                .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                    if frame.width > 0 && frame.height > 0 && frame != exerciseListFrame {
+                                        exerciseListFrame = frame
                                     }
-                                    .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                        if frame.width > 0 && frame.height > 0 && frame != exerciseListFrame {
-                                            exerciseListFrame = frame
-                                        }
-                                    }
-                            }
+                                }
                         }
-                        .activeWorkoutListScrollObservation(
-                            listFrame: exerciseListFrame,
-                            sink: listObservation
-                        )
-                        #if canImport(UIKit) && !os(macOS)
-                        .background(ActiveWorkoutScrollViewProbe { scrollView in
-                            scrollViewBox.value = scrollView
-                        })
-                        #endif
                     }
+                    .activeWorkoutListScrollObservation(
+                        listFrame: exerciseListFrame,
+                        sink: listObservation
+                    )
+                    #if canImport(UIKit) && !os(macOS)
+                    .background(ActiveWorkoutScrollViewProbe { scrollView in
+                        scrollViewBox.value = scrollView
+                    })
+                    #endif
                 }
                 .overlay(alignment: .leading) {
                     ZStack(alignment: .leading) {
