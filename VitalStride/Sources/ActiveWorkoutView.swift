@@ -134,6 +134,13 @@ private struct AddExerciseFrameProbe: UIViewRepresentable {
     }
 }
 #endif
+fileprivate struct ActiveWorkoutScrollSnapshot: Equatable, Sendable {
+    let visibleRect: CGRect
+    let contentOffset: CGPoint
+    let contentSize: CGSize
+    let containerSize: CGSize
+}
+
 struct ActiveWorkoutListGeometry: Equatable {
     let visibleRect: CGRect
     let contentOffset: CGPoint
@@ -273,23 +280,21 @@ private extension View {
 
     @ViewBuilder
     func activeWorkoutListScrollObservation(
-        listFrame: CGRect,
-        sink: ActiveWorkoutListObservationSink
+        onSnapshot: @escaping @MainActor @Sendable (ActiveWorkoutScrollSnapshot) -> Void
     ) -> some View {
         if #available(iOS 18.0, *) {
             onScrollGeometryChange(
-                for: ActiveWorkoutListGeometry.self,
+                for: ActiveWorkoutScrollSnapshot.self,
                 of: { geometry in
-                    ActiveWorkoutListGeometry(
+                    ActiveWorkoutScrollSnapshot(
                         visibleRect: geometry.visibleRect,
                         contentOffset: geometry.contentOffset,
                         contentSize: geometry.contentSize,
-                        containerSize: geometry.containerSize,
-                        listFrame: listFrame
+                        containerSize: geometry.containerSize
                     )
                 },
-                action: { _, value in
-                    sink.onGeometry(value)
+                action: { _, snapshot in
+                    onSnapshot(snapshot)
                 }
             )
         } else {
@@ -316,6 +321,7 @@ struct ActiveWorkoutView: View {
     @Environment(\.activeWorkoutToolbarObservation) private var toolbarObservation
     @Environment(\.flightStore) private var flightStore
     @State private var exerciseListFrame = CGRect.zero
+    @State private var lastScrollSnapshot: ActiveWorkoutScrollSnapshot?
     #if canImport(UIKit) && !os(macOS)
     @State private var scrollViewBox = ActiveWorkoutScrollViewBox()
     #endif
@@ -486,6 +492,7 @@ struct ActiveWorkoutView: View {
                     }
                 )
                 .activeWorkoutRootAnimation(policy: policy, reduceMotion: reduceMotion)
+                .allowsHitTesting(!policy.isKeyboardVisible || policy.bottomSlot != .none)
                 .accessibilityElement(children: .contain)
                 .accessibilityFocused($isBottomSnackbarFocused)
             }
@@ -1191,10 +1198,10 @@ struct ActiveWorkoutView: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(String(localized: "休息结束", comment: "Rest completed a11y label"))
             .accessibilityHint(String(localized: "点击关闭", comment: "Dismiss rest completed banner a11y hint"))
-        } else if snackbarSlotOverride == .rest || restTimer.phase == .resting, let restEnd = restTimer.restEndDate ?? (snackbarSlotOverride == .rest ? Date().addingTimeInterval(59) : nil) {
+        } else if snackbarSlotOverride == .rest || restTimer.phase == .resting, let restEnd = restTimer.restEndDate ?? (snackbarSlotOverride == .rest ? startTime.addingTimeInterval(59) : nil) {
             let totalDuration = restTimer.restTotalDuration ?? (snackbarSlotOverride == .rest ? 60 : 0)
             let totalSeconds = max(1, Int(totalDuration))
-            TimelineView(.periodic(from: .now, by: 1)) { context in
+            TimelineView(.periodic(from: startTime, by: 1)) { context in
                 let remaining = max(0, Int(restEnd.timeIntervalSince(context.date)))
                 HStack(spacing: 8) {
                     ActiveWorkoutRestStatus(
@@ -1220,6 +1227,21 @@ struct ActiveWorkoutView: View {
             onMinus10: { restTimer.adjustRest(by: -10) },
             onPlus10: { restTimer.adjustRest(by: 10) },
             onSkip: { restTimer.skipRest() }
+        )
+    }
+
+    private func updateExerciseListFrame(_ frame: CGRect) {
+        guard frame.width > 0 && frame.height > 0 && frame != exerciseListFrame else { return }
+        exerciseListFrame = frame
+        guard let snapshot = lastScrollSnapshot else { return }
+        listObservation.onGeometry(
+            ActiveWorkoutListGeometry(
+                visibleRect: snapshot.visibleRect,
+                contentOffset: snapshot.contentOffset,
+                contentSize: snapshot.contentSize,
+                containerSize: snapshot.containerSize,
+                listFrame: frame
+            )
         )
     }
 
@@ -1403,22 +1425,25 @@ struct ActiveWorkoutView: View {
                         GeometryReader { geometry in
                             Color.clear
                                 .onAppear {
-                                    let frame = geometry.frame(in: .global)
-                                    if frame.width > 0 && frame.height > 0 && frame != exerciseListFrame {
-                                        exerciseListFrame = frame
-                                    }
+                                    updateExerciseListFrame(geometry.frame(in: .global))
                                 }
                                 .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                    if frame.width > 0 && frame.height > 0 && frame != exerciseListFrame {
-                                        exerciseListFrame = frame
-                                    }
+                                    updateExerciseListFrame(frame)
                                 }
                         }
                     }
-                    .activeWorkoutListScrollObservation(
-                        listFrame: exerciseListFrame,
-                        sink: listObservation
-                    )
+                    .activeWorkoutListScrollObservation { snapshot in
+                        lastScrollSnapshot = snapshot
+                        listObservation.onGeometry(
+                            ActiveWorkoutListGeometry(
+                                visibleRect: snapshot.visibleRect,
+                                contentOffset: snapshot.contentOffset,
+                                contentSize: snapshot.contentSize,
+                                containerSize: snapshot.containerSize,
+                                listFrame: exerciseListFrame
+                            )
+                        )
+                    }
                     #if canImport(UIKit) && !os(macOS)
                     .background(ActiveWorkoutScrollViewProbe { scrollView in
                         scrollViewBox.value = scrollView
