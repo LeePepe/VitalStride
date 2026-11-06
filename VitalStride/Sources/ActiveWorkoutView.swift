@@ -1246,13 +1246,13 @@ struct ActiveWorkoutView: View {
                     selectedExerciseID = targetID
                     listObservation.onSidebarSelectionState(targetID)
                     let scrollToSelection = {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84)) {
+                            proxy.scrollTo(targetID, anchor: .top)
+                        }
                         #if canImport(UIKit) && !os(macOS)
                         guard let collectionView = scrollViewBox.value as? UICollectionView,
                               collectionView.window != nil else { return }
                         #endif
-                        withAnimation {
-                            proxy.scrollTo(targetID, anchor: .top)
-                        }
                         #if canImport(UIKit) && !os(macOS)
                         if let index = orderedSnapshot.firstIndex(where: { $0.id == targetID }) {
                             collectionView.layoutIfNeeded()
@@ -1276,48 +1276,21 @@ struct ActiveWorkoutView: View {
                                 return nil
                             }()
                             if let targetIndexPath {
-                                collectionView.scrollToItem(at: targetIndexPath, at: .top, animated: false)
                                 collectionView.layoutIfNeeded()
                                 if let attributes = collectionView.layoutAttributesForItem(at: targetIndexPath) {
-                                    let maxOffsetY = max(
-                                        0,
-                                        collectionView.contentSize.height
-                                            - collectionView.bounds.height
-                                            + collectionView.adjustedContentInset.bottom
+                                    let visibleSize = collectionView.bounds.size
+                                    listObservation.onGeometry(
+                                        ActiveWorkoutListGeometry(
+                                            visibleRect: CGRect(
+                                                origin: collectionView.contentOffset,
+                                                size: visibleSize
+                                            ),
+                                            contentOffset: collectionView.contentOffset,
+                                            contentSize: collectionView.contentSize,
+                                            containerSize: visibleSize,
+                                            listFrame: exerciseListFrame
+                                        )
                                     )
-                                    let targetY = min(
-                                        max(0, attributes.frame.minY - collectionView.adjustedContentInset.top),
-                                        maxOffsetY
-                                    )
-                                    collectionView.setContentOffset(
-                                        CGPoint(x: 0, y: targetY),
-                                        animated: false
-                                    )
-                                    collectionView.layoutIfNeeded()
-                                }
-                                let visibleSize: CGSize = {
-                                    if collectionView.bounds.width > 0 && collectionView.bounds.height > 0 {
-                                        return collectionView.bounds.size
-                                    }
-                                    if exerciseListFrame.width > 0 && exerciseListFrame.height > 0 {
-                                        return exerciseListFrame.size
-                                    }
-                                    return CGSize(width: 320, height: 600)
-                                }()
-                                let finalVisibleRect = CGRect(
-                                    origin: collectionView.contentOffset,
-                                    size: visibleSize
-                                )
-                                listObservation.onGeometry(
-                                    ActiveWorkoutListGeometry(
-                                        visibleRect: finalVisibleRect,
-                                        contentOffset: collectionView.contentOffset,
-                                        contentSize: collectionView.contentSize,
-                                        containerSize: visibleSize,
-                                        listFrame: exerciseListFrame
-                                    )
-                                )
-                                if let attributes = collectionView.layoutAttributesForItem(at: targetIndexPath) {
                                     let globalHeaderRect = collectionView.convert(attributes.frame, to: nil)
                                     listObservation.onHeaderFrame(targetID, globalHeaderRect)
                                 }
@@ -1328,14 +1301,6 @@ struct ActiveWorkoutView: View {
                     DispatchQueue.main.async {
                         guard selectedExerciseID == targetID else { return }
                         scrollToSelection()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                            guard selectedExerciseID == targetID else { return }
-                            scrollToSelection()
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.40) {
-                            guard selectedExerciseID == targetID else { return }
-                            scrollToSelection()
-                        }
                     }
                 }
                 HStack(spacing: 0) {
@@ -1430,9 +1395,6 @@ struct ActiveWorkoutView: View {
                                 )
                             }
                         )
-                        .transaction { transaction in
-                            transaction.animation = nil
-                        }
                     }
                 }
                 .onAppear {
@@ -1761,32 +1723,36 @@ struct ActiveWorkoutView: View {
         let exerciseID = String(describing: exercise.persistentModelID)
         let exerciseName = exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise")
 
-        Group {
-            if isSidebarReordering {
-                sidebarExpandedReorderRow(
-                    exercise: exercise,
-                    index: index,
-                    completed: completed,
-                    total: total,
-                    isSelected: isSelected,
-                    exerciseID: exerciseID,
-                    exerciseName: exerciseName,
-                    exerciseCount: exerciseCount,
-                    onSelect: onSelect,
-                    onMove: onMove
-                )
-            } else {
-                sidebarCollapsedRailRow(
-                    exercise: exercise,
-                    index: index,
-                    completed: completed,
-                    total: total,
-                    isSelected: isSelected,
-                    exerciseID: exerciseID,
-                    exerciseName: exerciseName,
-                    onSelect: onSelect
-                )
-            }
+        ZStack(alignment: .leading) {
+            sidebarCollapsedRailRow(
+                exercise: exercise,
+                index: index,
+                completed: completed,
+                total: total,
+                isSelected: isSelected,
+                exerciseID: exerciseID,
+                exerciseName: exerciseName,
+                onSelect: onSelect
+            )
+            .opacity(isSidebarReordering ? 0 : 1)
+            .allowsHitTesting(!isSidebarReordering)
+            .accessibilityHidden(isSidebarReordering)
+
+            sidebarExpandedReorderRow(
+                exercise: exercise,
+                index: index,
+                completed: completed,
+                total: total,
+                isSelected: isSelected,
+                exerciseID: exerciseID,
+                exerciseName: exerciseName,
+                exerciseCount: exerciseCount,
+                onSelect: onSelect,
+                onMove: onMove
+            )
+            .opacity(isSidebarReordering ? 1 : 0)
+            .allowsHitTesting(isSidebarReordering)
+            .accessibilityHidden(!isSidebarReordering)
         }
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
