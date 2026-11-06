@@ -4,6 +4,7 @@
 // that migrates them to Localizable.xcstrings (matches DataView.swift).
 import AIService
 import DesignKit
+import FlightKit
 import HealthKitService
 import os
 import SwiftData
@@ -313,6 +314,7 @@ struct ActiveWorkoutView: View {
     @Environment(\.routingSignalStore) private var signalStore
     @Environment(\.activeWorkoutListObservation) private var listObservation
     @Environment(\.activeWorkoutToolbarObservation) private var toolbarObservation
+    @Environment(\.flightStore) private var flightStore
     @State private var exerciseListFrame = CGRect.zero
     #if canImport(UIKit) && !os(macOS)
     @State private var scrollViewBox = ActiveWorkoutScrollViewBox()
@@ -1355,71 +1357,75 @@ struct ActiveWorkoutView: View {
                         #endif
                     }
                 }
-                HStack(spacing: 0) {
-                    let collapsedWidth = sidebarWidth(
-                        forListWidth: exerciseListFrame.width,
-                        isReordering: false
-                    )
-                    Color.clear
-                        .frame(width: collapsedWidth)
-                    List {
-                        ForEach(exercises) { workoutExercise in
-                            ActiveExerciseSection(
-                                workoutExercise: workoutExercise,
-                                onSetCompleted: {
-                                    restTimer.startRest()
-                                    TelemetryService.shared.trackNonisolated(
-                                        .setCompleted(exerciseName: TelemetryHelpers
-                                            .exerciseIdentifier(workoutExercise.exercise))
-                                    )
-                                },
-                                onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
-                                onReplace: { exerciseToReplace = workoutExercise },
-                                onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
-                                onDelete: { deleteExercise(workoutExercise) },
-                                undoController: undoController
-                            )
-                            .id(workoutExercise.persistentModelID)
-                        }
+                VStack(spacing: 0) {
+                    if isSidebarSchemeC && !isSidebarReordering {
+                        exercisePillBar(
+                            exercises: exercises,
+                            onSelect: selectExercise
+                        )
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .listSectionSpacing(largeMode ? 8 : 6)
-                    .scrollDismissesKeyboard(.immediately)
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 8)
-                            .onChanged { value in
-                                guard abs(value.translation.height) > abs(value.translation.width) else { return }
-                                dismissKeyboardIfVisible()
+                    HStack(spacing: 0) {
+                        Color.clear
+                            .frame(width: collapsedSidebarWidth)
+                        List {
+                            ForEach(exercises) { workoutExercise in
+                                ActiveExerciseSection(
+                                    workoutExercise: workoutExercise,
+                                    onSetCompleted: {
+                                        restTimer.startRest()
+                                        TelemetryService.shared.trackNonisolated(
+                                            .setCompleted(exerciseName: TelemetryHelpers
+                                                .exerciseIdentifier(workoutExercise.exercise))
+                                        )
+                                    },
+                                    onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
+                                    onReplace: { exerciseToReplace = workoutExercise },
+                                    onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
+                                    onDelete: { deleteExercise(workoutExercise) },
+                                    undoController: undoController
+                                )
+                                .id(workoutExercise.persistentModelID)
                             }
-                    )
-                    .environment(\.defaultMinListRowHeight, 1)
-                    .accessibilityIdentifier("workout_exercise_list")
-                    .background {
-                        GeometryReader { geometry in
-                            Color.clear
-                                .onAppear {
-                                    let frame = geometry.frame(in: .global)
-                                    if frame.width > 0 && frame.height > 0 && frame != exerciseListFrame {
-                                        exerciseListFrame = frame
-                                    }
-                                }
-                                .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                    if frame.width > 0 && frame.height > 0 && frame != exerciseListFrame {
-                                        exerciseListFrame = frame
-                                    }
-                                }
                         }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .listSectionSpacing(largeMode ? 8 : 6)
+                        .scrollDismissesKeyboard(.immediately)
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 8)
+                                .onChanged { value in
+                                    guard abs(value.translation.height) > abs(value.translation.width) else { return }
+                                    dismissKeyboardIfVisible()
+                                }
+                        )
+                        .environment(\.defaultMinListRowHeight, 1)
+                        .accessibilityIdentifier("workout_exercise_list")
+                        .background {
+                            GeometryReader { geometry in
+                                Color.clear
+                                    .onAppear {
+                                        let frame = geometry.frame(in: .global)
+                                        if frame.width > 0 && frame.height > 0 && frame != exerciseListFrame {
+                                            exerciseListFrame = frame
+                                        }
+                                    }
+                                    .onChange(of: geometry.frame(in: .global)) { _, frame in
+                                        if frame.width > 0 && frame.height > 0 && frame != exerciseListFrame {
+                                            exerciseListFrame = frame
+                                        }
+                                    }
+                            }
+                        }
+                        .activeWorkoutListScrollObservation(
+                            listFrame: exerciseListFrame,
+                            sink: listObservation
+                        )
+                        #if canImport(UIKit) && !os(macOS)
+                        .background(ActiveWorkoutScrollViewProbe { scrollView in
+                            scrollViewBox.value = scrollView
+                        })
+                        #endif
                     }
-                    .activeWorkoutListScrollObservation(
-                        listFrame: exerciseListFrame,
-                        sink: listObservation
-                    )
-                    #if canImport(UIKit) && !os(macOS)
-                    .background(ActiveWorkoutScrollViewProbe { scrollView in
-                        scrollViewBox.value = scrollView
-                    })
-                    #endif
                 }
                 .overlay(alignment: .leading) {
                     ZStack(alignment: .leading) {
@@ -1460,6 +1466,88 @@ struct ActiveWorkoutView: View {
             }
         }
 
+    }
+
+    @ViewBuilder
+    private func exercisePillBar(
+        exercises: [WorkoutExercise],
+        onSelect: @escaping (WorkoutExercise) -> Void
+    ) -> some View {
+        ScrollViewReader { pillProxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(exercises.enumerated()), id: \.element.persistentModelID) { index, exercise in
+                        let completed = (exercise.sets ?? []).filter(\.isCompleted).count
+                        let total = (exercise.sets ?? []).count
+                        let isSelected = selectedExerciseID == exercise.persistentModelID
+                        Button {
+                            onSelect(exercise)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text("\(index + 1)")
+                                    .font(.caption.monospacedDigit().bold())
+                                Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
+                                    .lineLimit(1)
+                                    .layoutPriority(1)
+                                Text(completed == total && total > 0 ? "✓" : "\(completed)/\(total)")
+                                    .font(.caption2.monospacedDigit())
+                            }
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(isSelected ? theme.onAccent : theme.foreground)
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 44)
+                            .background(
+                                isSelected ? theme.accent : theme.neutrals.card,
+                                in: Capsule()
+                            )
+                            .overlay(Capsule().stroke(theme.neutrals.border, lineWidth: 1))
+                            .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .id(exercise.persistentModelID)
+                        .accessibilityIdentifier("workout_exercise_pill_\(exercise.persistentModelID)")
+                        .accessibilityLabel(Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise")))
+                        .accessibilityValue("\(completed)/\(total)")
+                    }
+                    Button {
+                        setSidebarReordering(true, selectExercise: onSelect)
+                    } label: {
+                        Label(
+                            String(localized: "排序", comment: "Start exercise reordering"),
+                            systemImage: "arrow.up.arrow.down"
+                        )
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(theme.accent)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 44)
+                        .background(theme.accentSubtle, in: Capsule())
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("workout_pill_bar_reorder")
+                    .accessibilityLabel(
+                        String(
+                            localized: "workout.sidebar.reorder",
+                            defaultValue: "Reorder exercises",
+                            comment: "Pill bar reorder action"
+                        )
+                    )
+                }
+                .padding(.horizontal, 12)
+            }
+            .frame(minHeight: 56)
+            .background(theme.neutrals.card)
+            .accessibilityIdentifier("workout_exercise_pill_bar")
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(theme.neutrals.border).frame(height: 1)
+            }
+            .onChange(of: selectedExerciseID) { _, selectedID in
+                guard let selectedID else { return }
+                withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85)) {
+                    pillProxy.scrollTo(selectedID, anchor: .center)
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -1538,10 +1626,7 @@ struct ActiveWorkoutView: View {
                 )
             }
             .frame(
-                minWidth: max(
-                    236,
-                    sidebarWidth(forListWidth: exerciseListFrame.width, isReordering: true) - 4
-                ),
+                minWidth: 236,
                 maxWidth: .infinity,
                 minHeight: largeMode ? 60 : 52
             )
@@ -1923,6 +2008,14 @@ struct ActiveWorkoutView: View {
         (workout?.exercises ?? []).sorted { $0.order < $1.order }
     }
 
+    private var isSidebarSchemeC: Bool {
+        flightStore?.effectiveValue(for: WorkoutFlight.sidebarSchemeC) ?? false
+    }
+
+    private var collapsedSidebarWidth: CGFloat {
+        sidebarWidth(forListWidth: exerciseListFrame.width, isReordering: false)
+    }
+
     @ViewBuilder
     private func exerciseSidebar(
         exercises: [WorkoutExercise],
@@ -1955,9 +2048,11 @@ struct ActiveWorkoutView: View {
                             onMove: onMove
                         )
                     }
-                    sidebarAddExerciseButton
+                    if !isSidebarReordering {
+                        sidebarAddExerciseButton
+                    }
             }
-            .padding(.horizontal, 2)
+            .padding(.horizontal, isSidebarReordering ? 12 : 2)
         }
         .frame(width: width)
         .coordinateSpace(name: "sidebarReorderList")
@@ -2018,11 +2113,11 @@ struct ActiveWorkoutView: View {
     }
 
     private func sidebarWidth(forListWidth listWidth: CGFloat, isReordering: Bool) -> CGFloat {
-        let collapsed: CGFloat = listWidth > 0 ? min(max(listWidth * 0.18, 64), 88) : 64
+        let collapsed: CGFloat = isSidebarSchemeC
+            ? 0
+            : (listWidth > 0 ? min(max(listWidth * 0.18, 64), 88) : 64)
         guard isReordering else { return collapsed }
-        let expanded: CGFloat = largeMode ? 280 : 260
-        let containerWidth: CGFloat = listWidth > 0 ? (listWidth + collapsed) : expanded
-        return min(expanded, max(236, containerWidth > 0 ? containerWidth * 0.74 : expanded))
+        return max(largeMode ? 280 : 260, listWidth + collapsed)
     }
 
     private func setSidebarReordering(
