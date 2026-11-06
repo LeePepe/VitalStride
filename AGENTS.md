@@ -20,19 +20,19 @@
 
 ## 最外层索引（Root Routes）
 
-业务逻辑住 `Packages/`（6 个本地 SPM 包）。app target/tests 与 XcodeGen 真理源归 `AppUI`，
+业务逻辑住 `Packages/`（7 个本地 SPM 包）。app target/tests 与 XcodeGen 真理源归 `AppUI`，
 独立视觉原型归 `Prototype`，repository automation/config 归 `RepoInfra`。治理、spec、设计证据
 以及 generated/cache/log/local-secret 路径是显式 exclusions。layer ownership 与 gate 速度正交。
 
 | 最外层范围 | 首个 context | 节点类型 |
 |---|---|---|
-| `Packages/**` | `Packages/CONTEXT.md` | index：再展开六个 package layer |
+| `Packages/**` | `Packages/CONTEXT.md` | index：再展开七个 package layer |
 | app roots、app tests、`project.yml` | `VitalStride/CONTEXT.md` | AppUI leaf |
 | `Prototype/**` | `Prototype/CONTEXT.md` | Prototype leaf |
 | CI/workflow、scripts/hooks/tests、fastlane、repo policy/config、Spec Kit tooling | `RepoInfra/CONTEXT.md` | RepoInfra leaf |
 
 **渐进展开**：先读本表定位最外层 context；只有命中 `Packages/**` 时再读取
-`Packages/CONTEXT.md` 的下一层 route。不要从顶层预读六个 package contexts。
+`Packages/CONTEXT.md` 的下一层 route。不要从顶层预读七个 package contexts。
 
 **按 layer 收窄范围**：
 - 改动只落 1 个 layer → 一个任务直接做。
@@ -62,7 +62,7 @@ shell/Python syntax 与 tooling tests，不运行 app `xcodebuild`；分钟级 a
 
 ### SPM Packages（优先使用）
 
-`Packages/` 下的六个独立 SPM 包（VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit, DesignKit）支持 `swift build` 和 `swift test`，无需 Xcode 项目、无需模拟器，秒级完成。
+`Packages/` 下的七个独立 SPM 包（VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit, DesignKit, FlightKit）支持 `swift build` 和 `swift test`，无需 Xcode 项目、无需模拟器，秒级完成。
 
 **改动仅涉及 Packages/ 时，必须用 swift build/test 验证，禁止用 xcodebuild。**
 
@@ -126,7 +126,7 @@ xcodegen generate
 ## Architecture
 
 - **XcodeGen 项目**：`project.yml` 定义 targets，`xcodegen generate` 生成 `.xcodeproj`
-- **6 个 SPM local packages**：VitalModels、HealthKitService、AIService、VitalUI、TelemetryKit、DesignKit（均已注册到 `project.yml` 并接入 app target；TelemetryKit/DesignKit 为无本地依赖的独立包）
+- **7 个 SPM local packages**：VitalModels、HealthKitService、AIService、VitalUI、TelemetryKit、DesignKit、FlightKit（FlightKit 的 AppUI/XcodeGen 接入由 TK2 完成；TelemetryKit/DesignKit/FlightKit 为无本地依赖的独立包）
 - **Swift 6 strict concurrency**
 - **SwiftData** 存储训练数据 + HealthKit L2 缓存（`HealthCacheEntry`，本地隔离，`cloudKitDatabase: .none`）
 - **HealthDataCache** 是纯内存 actor L1 缓存层
@@ -147,7 +147,7 @@ xcodegen generate
 
 **This project uses a PR-required workflow.** All code reaches `main` only via a GitHub Pull
 Request that passes the required status checks. `main` is protected by a **ruleset** (`main
-protection`): required checks = `Lint & policy` + 6× `SPM …` + `App target` +
+protection`): required checks = `Lint & policy` + 6× `SPM …`（FlightKit 由 TK2 注册） + `App target` +
 `codex-review-target`. PR Manager merges with the GitHub App identity once required checks
 and approvals pass; GITHUB_TOKEN auto-merge is not used. `claude-review` is paused;
 `kimi-review` posts advisory findings but is intentionally non-required. Human approving-review

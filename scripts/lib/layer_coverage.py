@@ -25,6 +25,8 @@ TRUSTED_SWIFT_COMMANDS = {
     ("swift", "test", "--package-path", "Packages/AIService"),
     ("swift", "build", "--package-path", "Packages/DesignKit"),
     ("swift", "test", "--package-path", "Packages/DesignKit"),
+    ("swift", "build", "--package-path", "Packages/FlightKit"),
+    ("swift", "test", "--package-path", "Packages/FlightKit"),
     ("swift", "build", "--package-path", "Packages/HealthKitService"),
     ("swift", "test", "--package-path", "Packages/HealthKitService"),
     ("swift", "build", "--package-path", "Packages/TelemetryKit"),

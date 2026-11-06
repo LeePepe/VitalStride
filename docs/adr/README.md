@@ -49,6 +49,7 @@ Each ADR is its own file, numbered sequentially: `NNNN-kebab-case-title.md`.
 | [0019](0019-formal-repoinfra-change-owner-layer.md) | Formal RepoInfra Change-Owner Layer | Accepted | 2026-08-23 |
 | [0020](0020-codex-required-kimi-advisory.md) | Codex required, Kimi advisory, pause Claude review | Accepted | 2026-08-26 |
 | [0021](0021-current-dev-team-delivery-contract.md) | Current Dev Team Delivery Contract | Accepted | 2026-09-05 |
+| [0022](0022-flightkit-portable-feature-flag-package.md) | Portable FlightKit Feature-Flag Package | Accepted | 2026-11-06 |
 
 ## Writing a new ADR
 
