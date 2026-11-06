@@ -47,7 +47,7 @@ final class ActiveWorkoutSidebarFlightTests: XCTestCase {
             ),
             encoding: .utf8
         )
-        XCTAssertTrue(snackbar.contains("GlassEffectContainer"))
+        XCTAssertTrue(snackbar.contains(".liquidGlassBar(theme: theme, cornerRadius: 12)"))
         let setRow = try String(contentsOf: root.appendingPathComponent("VitalStride/Sources/ActiveWorkout/SetRow.swift"), encoding: .utf8)
         let subSetRow = try String(contentsOf: root.appendingPathComponent("VitalStride/Sources/ActiveWorkout/SubSetRow.swift"), encoding: .utf8)
         XCTAssertFalse(setRow.contains("background {\n            Button(action: toggleCompleted)"))

@@ -309,6 +309,7 @@ struct ActiveWorkoutView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #if !os(macOS)
     @Environment(\.healthKitService) private var healthKitService
@@ -2242,7 +2243,21 @@ struct ActiveWorkoutView: View {
                     maxWidth: horizontalSizeClass == .regular ? 400 : .infinity,
                     minHeight: ActiveWorkoutSnackbarLayout.addExerciseHeight(largeMode: largeMode)
                 )
-                .liquidGlassBar(theme: theme, cornerRadius: 12)
+                .background(
+                    reduceTransparency
+                        ? AnyShapeStyle(theme.neutrals.card)
+                        : AnyShapeStyle(.ultraThinMaterial),
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                )
+                .background(
+                    theme.neutrals.card.opacity(reduceTransparency ? 1.0 : 0.78),
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(theme.neutrals.border, lineWidth: 1)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .contentShape(Rectangle())
                 .background {
                     GeometryReader { proxy in

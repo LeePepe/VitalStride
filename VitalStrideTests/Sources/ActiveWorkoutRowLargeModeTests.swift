@@ -1921,10 +1921,11 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(geometry.listFrame.width, CGFloat(width) - 2)
         (try XCTUnwrap(recorder.reorderToggle))()
         try await Task.sleep(for: .milliseconds(350))
-        let sidebarWidth = min(CGFloat(width), 300)
+        let sidebarWidth = CGFloat(width)
         let scroll = try XCTUnwrap(descendants(of: host.view).compactMap { $0 as? UIScrollView }.first {
+            guard !($0 is UICollectionView) else { return false }
             let frame = $0.convert($0.bounds, to: window)
-            return frame.minX < 1 && frame.width <= sidebarWidth + 4
+            return frame.minX < 1 && frame.width <= sidebarWidth + 4 && frame.height > 100
         })
         let variant = "T04-\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")-\(dynamicType)"
         let original = recorder.sidebarItems

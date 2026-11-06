@@ -279,13 +279,7 @@ enum ActiveWorkoutSnackbarLayout {
                 }
             }
             .padding(.top, 8)
-            if #available(iOS 26.0, macOS 26.0, *) {
-                GlassEffectContainer(spacing: 8) {
-                    dock
-                }
-            } else {
-                dock
-            }
+            dock
         }
     }
 
