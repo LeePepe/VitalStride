@@ -2424,7 +2424,11 @@ final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
         let collapsedNameFrame = try XCTUnwrap(sidebarNameFrames[firstID])
         XCTAssertLessThan(collapsedNameFrame.width, 110)
         toggle?()
-        try await Task.sleep(for: .milliseconds(100))
+        for _ in 0..<12 where !reorderModeState
+            || (sidebarItemFrames[firstID]?.maxX ?? 0) < 236
+            || (sidebarNameFrames[firstID]?.width ?? 0) < 110 {
+            try await Task.sleep(for: .milliseconds(50))
+        }
         XCTAssertTrue(reorderModeState)
         let expandedNameFrame = try XCTUnwrap(sidebarNameFrames[firstID])
         XCTAssertGreaterThanOrEqual(expandedNameFrame.width, 110)
