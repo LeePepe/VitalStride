@@ -50,6 +50,7 @@ Each ADR is its own file, numbered sequentially: `NNNN-kebab-case-title.md`.
 | [0020](0020-codex-required-kimi-advisory.md) | Codex required, Kimi advisory, pause Claude review | Accepted | 2026-08-26 |
 | [0021](0021-current-dev-team-delivery-contract.md) | Current Dev Team Delivery Contract | Accepted | 2026-09-05 |
 | [0022](0022-flightkit-portable-feature-flag-package.md) | Portable FlightKit Feature-Flag Package | Accepted | 2026-11-06 |
+| [0023](0023-upgrade-deployment-target-os-26.md) | Upgrade Deployment Targets to OS 26 | Accepted | 2026-11-06 |
 
 ## Writing a new ADR
 

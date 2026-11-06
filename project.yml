@@ -2,9 +2,9 @@ name: VitalStride
 options:
   bundleIdPrefix: com.leepepe
   deploymentTarget:
-    iOS: "18.0"
-    macOS: "15.0"
-    watchOS: "11.0"
+    iOS: "26.0"
+    macOS: "26.0"
+    watchOS: "26.0"
   xcodeVersion: "26.5"
   generateEmptyDirectories: true
 
@@ -299,7 +299,7 @@ targets:
         GENERATE_INFOPLIST_FILE: true
         SWIFT_EMIT_LOC_STRINGS: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        WATCHOS_DEPLOYMENT_TARGET: "11.0"
+        WATCHOS_DEPLOYMENT_TARGET: "26.0"
         SKIP_INSTALL: false
         INFOPLIST_KEY_NSHealthShareUsageDescription: "VitalStride reads your health and activity data (heart rate, steps, sleep, workout history) to display training history, calculate activity summaries, and provide AI-powered training analysis and recommendations."
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: "VitalStride writes workout summaries to Apple Health to save Recorded Workouts you complete within the app, keeping your health data complete and consistent across apps."
@@ -368,4 +368,4 @@ targets:
         # the pattern used by `VitalStrideTests`.
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/VitalStrideWatch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VitalStrideWatch Watch App"
         BUNDLE_LOADER: "$(TEST_HOST)"
-        WATCHOS_DEPLOYMENT_TARGET: "11.0"
+        WATCHOS_DEPLOYMENT_TARGET: "26.0"

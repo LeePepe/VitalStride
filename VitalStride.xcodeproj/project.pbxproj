@@ -68,6 +68,7 @@
 		33F32CC3B767F8D4AB763238 /* MacContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0033F83E9F4931C560DBD87C /* MacContentView.swift */; };
 		36549AF279412FDE4043F44A /* ExerciseSubstituteParseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D433934EDCED39DA4E97B1A /* ExerciseSubstituteParseTests.swift */; };
 		3656F589A784E33C97C44C17 /* WorkoutCalendarViewModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E12ACC17627744A782085CC /* WorkoutCalendarViewModeTests.swift */; };
+		3717ED0AE0F0F6B999376D55 /* OS26DeploymentTargetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 085DF6E57D69A99769EF2CC3 /* OS26DeploymentTargetTests.swift */; };
 		380C9F487820F8FB0C294EF7 /* VitalStrideWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2F9C6A27CB551B32C0DDFEA0 /* VitalStrideWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		39BD39A86AF1322900C55331 /* ActiveExerciseSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 951759CA7A2CB18B447F2E1D /* ActiveExerciseSection.swift */; };
 		3A968377ED9C959EFBCEBBDA /* WorkoutTemplateBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2093CD48BCD1BDEEC94BEDC5 /* WorkoutTemplateBuilderTests.swift */; };
@@ -375,6 +376,7 @@
 		065B1D91455E03984C496818 /* WorkoutCalendarDurationFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCalendarDurationFormatterTests.swift; sourceTree = "<group>"; };
 		070FAE30219D9F124AC3E893 /* SubstituteRecommendationFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubstituteRecommendationFilterTests.swift; sourceTree = "<group>"; };
 		07789CFCADD52D03D14BE03E /* PreviousSetLookupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviousSetLookupTests.swift; sourceTree = "<group>"; };
+		085DF6E57D69A99769EF2CC3 /* OS26DeploymentTargetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OS26DeploymentTargetTests.swift; sourceTree = "<group>"; };
 		0870A28F91338A971FA627A8 /* SummaryCardVariantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryCardVariantView.swift; sourceTree = "<group>"; };
 		08EE55FD303EBE2743C33701 /* BlobTelemetryAppIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobTelemetryAppIntegrationTests.swift; sourceTree = "<group>"; };
 		091AC62B58FCCA35C59E659B /* CardContentParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardContentParser.swift; sourceTree = "<group>"; };
@@ -746,6 +748,7 @@
 				524E9CAE68FFB5B851E45752 /* ModelTests.swift */,
 				3D129D6EEECF077DE19A4B48 /* NumericKeypadTests.swift */,
 				1E2C97DDA63128107019DFBF /* OnboardingTests.swift */,
+				085DF6E57D69A99769EF2CC3 /* OS26DeploymentTargetTests.swift */,
 				499650DFADFA4A2F78A3D043 /* OverviewDynamicLayoutTests.swift */,
 				706D58B32CA1CBAF41E8BA85 /* OverviewHealthSnapshotTests.swift */,
 				37A2DA5D0FBEDC56FC2670D9 /* OverviewTests.swift */,
@@ -1377,9 +1380,6 @@
 			knownRegions = (
 				Base,
 				en,
-				flight.workout.sidebarSchemeC.summary,
-				flight.workout.sidebarSchemeC.title,
-				settings.flightDebug.title,
 				"zh-Hans",
 			);
 			mainGroup = DA9BBD3DA585F24745B41651;
@@ -1704,6 +1704,7 @@
 				E68DBA49DC9C0A4E75F339FD /* ModelContainerTests.swift in Sources */,
 				614503EFA888692CA1F1088D /* ModelTests.swift in Sources */,
 				3BA22FFF6617F7786D6760B1 /* NumericKeypadTests.swift in Sources */,
+				3717ED0AE0F0F6B999376D55 /* OS26DeploymentTargetTests.swift in Sources */,
 				15A7B54D150CEF3D862712CA /* OnboardingTests.swift in Sources */,
 				3F9193D64020D97FF3614D03 /* OverviewDynamicLayoutTests.swift in Sources */,
 				768F122C11B9EE4833DED479 /* OverviewHealthSnapshotTests.swift in Sources */,
@@ -1887,7 +1888,7 @@
 				SKIP_INSTALL = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Debug;
 		};
@@ -1906,7 +1907,7 @@
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = 4;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VitalStrideWatch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VitalStrideWatch Watch App";
-				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Release;
 		};
@@ -1959,15 +1960,15 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
-				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Release;
 		};
@@ -1986,7 +1987,7 @@
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = 4;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VitalStrideWatch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VitalStrideWatch Watch App";
-				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Debug;
 		};
@@ -2067,7 +2068,7 @@
 				SKIP_INSTALL = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Release;
 		};
@@ -2143,8 +2144,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -2152,7 +2153,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
-				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Debug;
 		};

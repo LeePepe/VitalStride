@@ -14,7 +14,7 @@ import PackageDescription
 
 let package = Package(
     name: "DesignKit",
-    platforms: [.iOS(.v18), .macOS(.v15), .watchOS(.v11)],
+    platforms: [.iOS("26.0"), .macOS("26.0"), .watchOS("26.0")],
     products: [
         .library(name: "DesignKit", targets: ["DesignKit"]),
     ],
