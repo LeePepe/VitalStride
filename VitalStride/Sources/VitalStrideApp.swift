@@ -1,4 +1,5 @@
 import DesignKit
+import FlightKit
 import HealthKitService
 import SwiftData
 import SwiftUI
@@ -16,6 +17,7 @@ struct VitalStrideApp: App {
     private let containerError: String?
     private let healthKitService: HealthKitService
     private let healthDataCache: HealthDataCache
+    private let flightStore: FlightStore
     private let blobTelemetryProvider: BlobTelemetryProvider?
     // Spec 019 Stage 3c (T017/T018): shared sink for `RoutingSignal` emitted
     // by every `AIRouter.execute`. `nil` when the SwiftData container failed
@@ -36,6 +38,7 @@ struct VitalStrideApp: App {
 
         let service = HealthKitService(deviceIdentifier: "ios-display")
         healthKitService = service
+        flightStore = FlightStore()
 
         let blobProvider = AppTelemetryBootstrap.makeProvider(
             infoDictionary: Bundle.main.infoDictionary ?? [:],
@@ -147,6 +150,7 @@ struct VitalStrideApp: App {
                 }
             }
             .designTheme(seed: .teal, neutral: .slate)
+            .environment(\.flightStore, flightStore)
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .background, let blobTelemetryProvider else { return }
                 Task {

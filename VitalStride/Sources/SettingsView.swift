@@ -2,12 +2,14 @@
 // MY-1269: Chinese string values are xcstrings source keys resolved via
 // String(localized:). Rule silenced at file scope pending ASCII-key migration.
 import DesignKit
+import FlightKit
 import HealthKitService
 import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.theme) private var theme
     @Environment(\.healthKitService) private var healthKitService
+    @Environment(\.flightStore) private var flightStore
 
     var body: some View {
         NavigationStack {
@@ -18,6 +20,7 @@ struct SettingsView: View {
                 DataImportExportSection()
                 AISettingsSection()
                 aboutSection
+                flightSection
             }
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(String(localized: "设置", comment: "Nav title"))
@@ -71,6 +74,20 @@ struct SettingsView: View {
             } label: {
                 Label(String(localized: "开源协议与致谢", comment: ""), systemImage: "doc.text")
                     .tint(theme.primary.primary)
+            }
+        }
+    }
+
+    private var flightSection: some View {
+        Section {
+            NavigationLink {
+                FlightDebugView(store: flightStore ?? FlightStore(), descriptors: WorkoutFlight.all)
+            } label: {
+                Label(
+                    String(localized: "settings.flightDebug.title", comment: "Settings entry for FlightKit debug flags"),
+                    systemImage: "hammer"
+                )
+                .tint(theme.primary.primary)
             }
         }
     }

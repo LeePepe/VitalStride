@@ -5,7 +5,7 @@ paths: [VitalStride, VitalStrideMac, VitalStrideWatch Watch App, VitalStrideWidg
 test_paths: [VitalStrideTests, VitalStrideUITests, VitalStrideWatchTests]
 gate_tier: ci-only
 build: xcodebuild build -project VitalStride.xcodeproj -scheme VitalStride -destination 'generic/platform=iOS Simulator' -skipPackagePluginValidation
-depends_on: [VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit, DesignKit]
+depends_on: [VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit, DesignKit, FlightKit]
 depended_by: []
 red_lines:
   - App target 只承载平台入口、UI 与 app-specific 编排；可复用业务规则下沉到对应 Packages layer（宪法 III）
