@@ -1505,14 +1505,25 @@ struct ActiveWorkoutView: View {
             GeometryReader { proxy in
                 Color.clear
                     .onAppear {
-                        listObservation.onSidebarNameFrame(
-                            exerciseID,
-                            proxy.frame(in: .global)
-                        )
+                        DispatchQueue.main.async {
+                            listObservation.onSidebarNameFrame(
+                                exerciseID,
+                                proxy.frame(in: .global)
+                            )
+                        }
                     }
                     .onChange(of: proxy.frame(in: .global)) {
                         _, frame in
                         listObservation.onSidebarNameFrame(exerciseID, frame)
+                    }
+                    .onChange(of: isSidebarReordering) {
+                        _, _ in
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            listObservation.onSidebarNameFrame(
+                                exerciseID,
+                                proxy.frame(in: .global)
+                            )
+                        }
                     }
             }
         }
@@ -1537,7 +1548,17 @@ struct ActiveWorkoutView: View {
                     onMove: onMove
                 )
             }
-            .frame(maxWidth: .infinity, minHeight: largeMode ? 60 : 52)
+            .frame(
+                minWidth: max(
+                    236,
+                    sidebarWidth(forListWidth: exerciseListFrame.width, isReordering: true)
+                ),
+                maxWidth: max(
+                    236,
+                    sidebarWidth(forListWidth: exerciseListFrame.width, isReordering: true)
+                ),
+                minHeight: largeMode ? 60 : 52
+            )
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .background(cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -1650,13 +1671,21 @@ struct ActiveWorkoutView: View {
                             GeometryReader { proxy in
         Color.clear
             .onAppear {
-                listObservation.onSidebarNameFrame(
-                    exerciseID,
-                    proxy.frame(in: .global)
-                )
+                DispatchQueue.main.async {
+                    listObservation.onSidebarNameFrame(
+                        exerciseID,
+                        proxy.frame(in: .global)
+                    )
+                }
             }
             .onChange(of: proxy.frame(in: .global)) { _, frame in
                 listObservation.onSidebarNameFrame(exerciseID, frame)
+            }
+            .onChange(of: isSidebarReordering) {
+                _, _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    listObservation.onSidebarNameFrame(exerciseID, proxy.frame(in: .global))
+                }
             }
                             }
                         }
@@ -1673,7 +1702,11 @@ struct ActiveWorkoutView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .frame(maxWidth: .infinity, minHeight: 44)
+            .frame(
+                minWidth: sidebarWidth(forListWidth: exerciseListFrame.width, isReordering: false),
+                maxWidth: sidebarWidth(forListWidth: exerciseListFrame.width, isReordering: false),
+                minHeight: 44
+            )
             .background {
                 GeometryReader { proxy in
                     Color.clear
@@ -1828,6 +1861,31 @@ struct ActiveWorkoutView: View {
         }
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        DispatchQueue.main.async {
+                            listObservation.onSidebarItemFrame(exerciseID, proxy.frame(in: .global))
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            listObservation.onSidebarItemFrame(exerciseID, proxy.frame(in: .global))
+                        }
+                    }
+                    .onChange(of: proxy.frame(in: .global)) { _, frame in
+                        listObservation.onSidebarItemFrame(exerciseID, frame)
+                    }
+                    .onChange(of: isSidebarReordering) {
+                        _, _ in
+                        DispatchQueue.main.async {
+                            listObservation.onSidebarItemFrame(exerciseID, proxy.frame(in: .global))
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            listObservation.onSidebarItemFrame(exerciseID, proxy.frame(in: .global))
+                        }
+                    }
+            }
+        }
     }
 
     @ViewBuilder
