@@ -421,6 +421,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         var sidebarMove: (@MainActor @Sendable (Int, Int) -> Void)?
         var sidebarMoveUp: (@MainActor @Sendable (Int) -> Void)?
         var sidebarMoveDown: (@MainActor @Sendable (Int) -> Void)?
+        var reorderToggle: (@MainActor @Sendable () -> Void)?
     }
 
     @MainActor
@@ -892,8 +893,8 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     let rowID = AnyHashable(set.persistentModelID)
                     let rowFrame = try XCTUnwrap(list.rowFrames[rowID], variant)
                     let geometry = try XCTUnwrap(list.geometry, variant)
-                    XCTAssertGreaterThanOrEqual(geometry.listFrame.minX, 64 - 1e-10, variant)
-                    XCTAssertLessThan(rowFrame.width, width - 64, variant)
+                    XCTAssertEqual(geometry.listFrame.minX, 0, accuracy: 1.0, variant)
+                    XCTAssertGreaterThanOrEqual(rowFrame.width, width - 32, variant)
                     XCTAssertLessThanOrEqual(rowFrame.height, largeMode ? 82 : 68, variant)
                     XCTAssertTrue(window.bounds.contains(rowFrame), variant)
 
@@ -1902,7 +1903,8 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                     recorder.sidebarAddUpdates += 1
                     recorder.sidebarAddUpdatedAt = ProcessInfo.processInfo.systemUptime
                 },
-                onSidebarMoveReady: { recorder.sidebarMove = $0 }
+                onSidebarMoveReady: { recorder.sidebarMove = $0 },
+                onSidebarReorderToggle: { recorder.reorderToggle = $0 }
             ))
         let host = UIHostingController(rootView: content)
         window.rootViewController = host
@@ -1915,14 +1917,28 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(350))
         host.view.layoutIfNeeded()
         let geometry = try XCTUnwrap(recorder.geometry)
-        let sidebarWidth = geometry.listFrame.minX
-        XCTAssertGreaterThanOrEqual(sidebarWidth, 64 - 0.01)
-        XCTAssertLessThanOrEqual(sidebarWidth, 88 + 0.01)
-        XCTAssertGreaterThan(geometry.listFrame.width, 250)
-        let scroll = try XCTUnwrap(descendants(of: host.view).compactMap { $0 as? UIScrollView }.first {
-            let frame = $0.convert($0.bounds, to: window)
-            return frame.minX < 1 && frame.width <= sidebarWidth + 4
-        })
+        XCTAssertEqual(geometry.listFrame.minX, 0, accuracy: 1.0)
+        XCTAssertGreaterThanOrEqual(geometry.listFrame.width, CGFloat(width) - 2)
+        (try XCTUnwrap(recorder.reorderToggle))()
+        let sidebarWidth = CGFloat(width)
+        var resolvedScroll: UIScrollView?
+        for _ in 0..<20 {
+            try await Task.sleep(for: .milliseconds(50))
+            host.view.setNeedsLayout()
+            host.view.layoutIfNeeded()
+            if let candidate = descendants(of: host.view).compactMap({ $0 as? UIScrollView }).first(where: {
+                guard !($0 is UICollectionView) else { return false }
+                let frame = $0.convert($0.bounds, to: window)
+                return frame.minX < 1
+                    && frame.width >= sidebarWidth - 4
+                    && frame.width <= sidebarWidth + 4
+                    && frame.height > 100
+            }), recorder.sidebarAddFrame != nil {
+                resolvedScroll = candidate
+                break
+            }
+        }
+        let scroll = try XCTUnwrap(resolvedScroll)
         let variant = "T04-\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")-\(dynamicType)"
         let original = recorder.sidebarItems
         XCTAssertEqual(original.map(\.name), names)
@@ -2418,11 +2434,10 @@ final class ActiveWorkoutSidebarProductionPathTests: XCTestCase {
         let listGeometry = try XCTUnwrap(geometry)
         let bottomHeader = try XCTUnwrap(headers[exercises[5].persistentModelID])
         XCTAssertGreaterThan(listGeometry.contentOffset.y, 0)
-        XCTAssertTrue(listGeometry.listFrame.insetBy(dx: -2, dy: -2).intersects(bottomHeader))
+        XCTAssertEqual(listGeometry.listFrame.minX, 0, accuracy: 1.0)
+        XCTAssertTrue(window.bounds.insetBy(dx: -2, dy: -2).intersects(bottomHeader))
 
         let firstID = String(describing: exercises[0].persistentModelID)
-        let collapsedNameFrame = try XCTUnwrap(sidebarNameFrames[firstID])
-        XCTAssertLessThan(collapsedNameFrame.width, 110)
         toggle?()
         try await Task.sleep(for: .milliseconds(100))
         XCTAssertTrue(reorderModeState)

@@ -342,14 +342,8 @@ struct SetRow: View {
         .padding(.vertical, 2)
         .padding(.horizontal, 0)
         .frame(maxWidth: .infinity, minHeight: largeMode ? 56 : 48)
-        // Only this background handles completion. Inputs and buttons above it
-        // own their touches, so editing or opening More never completes a set.
-        .background {
-            Button(action: toggleCompleted) { Color.clear.contentShape(Rectangle()) }
-                .buttonStyle(.plain)
-                .accessibilityHidden(true)
-        }
         .designSurface(style: .solid, cornerRadius: 16)
+        .sensoryFeedback(.success, trigger: exerciseSet.isCompleted)
         .onAppear {
             refreshInputText()
             rowObservation.modeAction(exerciseSet.persistentModelID) {

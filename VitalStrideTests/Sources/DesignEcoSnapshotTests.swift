@@ -406,6 +406,7 @@ final class DesignEcoSnapshotTests: XCTestCase {
                     let railItemID = String(describing: owner.persistentModelID)
                     var railItemFrame: CGRect?
                     var sidebarAddFrame: CGRect?
+                    var reorderToggle: (@MainActor @Sendable () -> Void)?
 
                     let theme = Theme(seed: .teal, neutral: .slate, isDark: isDark)
                     let content = ActiveWorkoutView(source: .resume(fixture.workout))
@@ -422,6 +423,9 @@ final class DesignEcoSnapshotTests: XCTestCase {
                             },
                             onSidebarAddFrame: { frame in
                                 sidebarAddFrame = frame
+                            },
+                            onSidebarReorderToggle: { toggle in
+                                reorderToggle = toggle
                             }
                         ))
                         .defaultAppStorage(defaults)
@@ -441,8 +445,18 @@ final class DesignEcoSnapshotTests: XCTestCase {
                     host.view.setNeedsLayout()
                     host.view.layoutIfNeeded()
                     try await Task.sleep(for: .milliseconds(350))
-                    host.view.setNeedsLayout()
-                    host.view.layoutIfNeeded()
+                    (try XCTUnwrap(reorderToggle))()
+                    var settled = false
+                    for _ in 0..<10 {
+                        try await Task.sleep(for: .milliseconds(50))
+                        host.view.setNeedsLayout()
+                        host.view.layoutIfNeeded()
+                        if sidebarAddFrame != nil && railItemFrame != nil {
+                            settled = true
+                            break
+                        }
+                    }
+                    XCTAssertTrue(settled)
 
                     let addFrame = try XCTUnwrap(sidebarAddFrame)
                     let itemFrame = try XCTUnwrap(railItemFrame)
