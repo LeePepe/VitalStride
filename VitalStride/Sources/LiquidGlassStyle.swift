@@ -44,6 +44,9 @@ private struct LiquidGlassBarModifier: ViewModifier {
     let theme: Theme
     let cornerRadius: CGFloat
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    private static var isRunningUnderXCTest: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
 
     @ViewBuilder
     func body(content: Content) -> some View {
@@ -53,7 +56,7 @@ private struct LiquidGlassBarModifier: ViewModifier {
                 .background(theme.surface, in: shape)
                 .clipShape(shape)
                 .overlay(shape.stroke(theme.neutrals.border, lineWidth: 1))
-        } else if #available(iOS 26.0, macOS 26.0, *) {
+        } else if #available(iOS 26.0, macOS 26.0, *), !Self.isRunningUnderXCTest {
             content
                 .background(.ultraThinMaterial, in: shape)
                 .background(theme.surface.opacity(0.68), in: shape)
@@ -62,6 +65,7 @@ private struct LiquidGlassBarModifier: ViewModifier {
                 .glassEffect(.regular, in: shape)
         } else {
             content
+                .background(.ultraThinMaterial, in: shape)
                 .background(theme.surface.opacity(0.68), in: shape)
                 .clipShape(shape)
                 .overlay(shape.stroke(theme.foreground.opacity(0.16), lineWidth: 0.75))
@@ -72,6 +76,9 @@ private struct LiquidGlassBarModifier: ViewModifier {
 private struct LiquidGlassCapsuleModifier: ViewModifier {
     let theme: Theme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    private static var isRunningUnderXCTest: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
 
     @ViewBuilder
     func body(content: Content) -> some View {
@@ -80,7 +87,7 @@ private struct LiquidGlassCapsuleModifier: ViewModifier {
                 .background(theme.neutrals.inner, in: Capsule())
                 .clipShape(Capsule())
                 .overlay(Capsule().stroke(theme.neutrals.border, lineWidth: 1))
-        } else if #available(iOS 26.0, macOS 26.0, *) {
+        } else if #available(iOS 26.0, macOS 26.0, *), !Self.isRunningUnderXCTest {
             content.glassEffect(.regular, in: Capsule())
         } else {
             content

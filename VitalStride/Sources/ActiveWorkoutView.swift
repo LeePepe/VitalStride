@@ -1475,31 +1475,35 @@ struct ActiveWorkoutView: View {
                     #endif
                 }
                 .overlay(alignment: .leading) {
-                    if isSidebarReordering {
-                        ZStack(alignment: .leading) {
+                    ZStack(alignment: .leading) {
+                        if isSidebarReordering {
                             Rectangle()
                                 .fill(theme.neutrals.bg.opacity(0.22))
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     setSidebarReordering(false, selectExercise: selectExercise)
                                 }
-                            exerciseSidebar(
-                                exercises: exercises,
-                                width: sidebarWidth(
-                                    forListWidth: exerciseListFrame.width,
-                                    isReordering: true
-                                ),
-                                onSelect: selectExercise,
-                                onMove: { source, destination in
-                                    moveSidebarExercise(
-                                        source: source,
-                                        destination: destination,
-                                        exercises: exercises,
-                                        selectExercise: selectExercise
-                                    )
-                                }
-                            )
                         }
+                        exerciseSidebar(
+                            exercises: exercises,
+                            width: sidebarWidth(
+                                forListWidth: exerciseListFrame.width,
+                                isReordering: isSidebarReordering
+                            ),
+                            onSelect: selectExercise,
+                            onMove: { source, destination in
+                                moveSidebarExercise(
+                                    source: source,
+                                    destination: destination,
+                                    exercises: exercises,
+                                    selectExercise: selectExercise
+                                )
+                            }
+                        )
+                        .opacity(isSidebarReordering ? 1 : 0)
+                        .allowsHitTesting(isSidebarReordering)
+                        .accessibilityHidden(!isSidebarReordering)
+                        .clipped()
                     }
                 }
                 .onAppear {
@@ -1994,11 +1998,11 @@ struct ActiveWorkoutView: View {
             GeometryReader { proxy in
                 Color.clear
                     .onAppear {
-                        guard !isSidebarReordering else { return }
+                        guard isSidebarReordering else { return }
                         listObservation.onSidebarItemFrame(exerciseID, proxy.frame(in: .global))
                     }
                     .onChange(of: proxy.frame(in: .global)) { _, frame in
-                        guard !isSidebarReordering else { return }
+                        guard isSidebarReordering else { return }
                         listObservation.onSidebarItemFrame(exerciseID, frame)
                     }
             }

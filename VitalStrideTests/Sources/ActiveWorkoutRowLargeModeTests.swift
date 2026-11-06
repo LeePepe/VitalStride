@@ -1920,13 +1920,25 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
         XCTAssertEqual(geometry.listFrame.minX, 0, accuracy: 1.0)
         XCTAssertGreaterThanOrEqual(geometry.listFrame.width, CGFloat(width) - 2)
         (try XCTUnwrap(recorder.reorderToggle))()
-        try await Task.sleep(for: .milliseconds(350))
         let sidebarWidth = CGFloat(width)
-        let scroll = try XCTUnwrap(descendants(of: host.view).compactMap { $0 as? UIScrollView }.first {
-            guard !($0 is UICollectionView) else { return false }
-            let frame = $0.convert($0.bounds, to: window)
-            return frame.minX < 1 && frame.width <= sidebarWidth + 4 && frame.height > 100
-        })
+        var resolvedScroll: UIScrollView?
+        for _ in 0..<20 {
+            try await Task.sleep(for: .milliseconds(50))
+            host.view.setNeedsLayout()
+            host.view.layoutIfNeeded()
+            if let candidate = descendants(of: host.view).compactMap({ $0 as? UIScrollView }).first(where: {
+                guard !($0 is UICollectionView) else { return false }
+                let frame = $0.convert($0.bounds, to: window)
+                return frame.minX < 1
+                    && frame.width >= sidebarWidth - 4
+                    && frame.width <= sidebarWidth + 4
+                    && frame.height > 100
+            }), recorder.sidebarAddFrame != nil {
+                resolvedScroll = candidate
+                break
+            }
+        }
+        let scroll = try XCTUnwrap(resolvedScroll)
         let variant = "T04-\(width)-\(largeMode ? "large" : "normal")-\(dark ? "dark" : "light")-\(dynamicType)"
         let original = recorder.sidebarItems
         XCTAssertEqual(original.map(\.name), names)
