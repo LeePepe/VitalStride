@@ -116,7 +116,7 @@ SwiftData models:
 
 ### macOS uses HealthKit for reading
 
-macOS 13+ supports HealthKit (read-only, via iCloud Health sync). VitalStride's minimum is macOS 15.0, so the Data Tab uses the same HealthKit queries on both iOS and macOS. No platform-specific guards needed for data access.
+macOS 13+ supports HealthKit (read-only, via iCloud Health sync). VitalStride's minimum is macOS 26.0, so the Data Tab uses the same HealthKit queries on both iOS and macOS. No platform-specific guards needed for data access.
 
 ### Single HealthKitService for all data types
 

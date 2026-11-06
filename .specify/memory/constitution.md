@@ -178,7 +178,7 @@ main；`pre-push` 只跑 agent-run-safe 的轻量门禁，分钟级 AppUI `xcode
 
 ### 平台 Deployment Target
 
-- iOS 18.0 / macOS 15.0 / watchOS 11.0（`project.yml options.deploymentTarget`）
+- iOS 26.0 / macOS 26.0 / watchOS 26.0（`project.yml options.deploymentTarget`，见 ADR-0023）
 - 降级需新 ADR + 全 package compatibility 审查
 
 ### Issue Tracker / Spec Execution
