@@ -225,7 +225,7 @@ VitalStride uses a **PR-required Git workflow**. Full rationale: [`docs/adr/0009
 
 **Hard rule**: `main` is protected by a ruleset (`main protection`) and requires the required status checks, including the AI review gate. Direct pushes to `main` are rejected; the only legal path is a merged PR whose required checks are green. `pre-commit` also blocks local commits to `main`.
 
-**Required check list**: the current contract names the required checks explicitly: `Lint & policy`, `SPM VitalModels`, `SPM HealthKitService`, `SPM AIService`, `SPM VitalUI`, `SPM TelemetryKit`, `SPM DesignKit`, `App target`, and `codex-review-target`. `codex-review-target` is the required AI review gate; `claude-review` remains paused and `kimi-review` is advisory-only.
+**Required check list**: the current contract names the required checks explicitly: `Lint & policy`, `SPM VitalModels`, `SPM HealthKitService`, `SPM AIService`, `SPM VitalUI`, `SPM TelemetryKit`, `SPM DesignKit`, `App target`, and `codex-review-target`. `SPM FlightKit` will be registered by the AppUI/CI integration task; `codex-review-target` is the required AI review gate; `claude-review` remains paused and `kimi-review` is advisory-only.
 
 **Exact-revision rule**: the issue must carry the four `delivery_*` fields, the local `HEAD` must match the pushed branch OID and the PR `headRefOid`, and missing or mismatched workdir / SHA proof routes back to Team Lead instead of continuing silently. The planning folder remains immutable at `delivery_base_sha`.
 

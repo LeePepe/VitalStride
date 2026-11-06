@@ -7,6 +7,9 @@ routes:
   - paths: [Packages/DesignKit]
     context: Packages/DesignKit/CONTEXT.md
     kind: layer
+  - paths: [Packages/FlightKit]
+    context: Packages/FlightKit/CONTEXT.md
+    kind: layer
   - paths: [Packages/HealthKitService]
     context: Packages/HealthKitService/CONTEXT.md
     kind: layer
@@ -30,6 +33,7 @@ routes:
 |---|---|
 | AIService | `Packages/AIService/CONTEXT.md` |
 | DesignKit | `Packages/DesignKit/CONTEXT.md` |
+| FlightKit | `Packages/FlightKit/CONTEXT.md` |
 | HealthKitService | `Packages/HealthKitService/CONTEXT.md` |
 | TelemetryKit | `Packages/TelemetryKit/CONTEXT.md` |
 | VitalModels | `Packages/VitalModels/CONTEXT.md` |

@@ -4,7 +4,7 @@
 
 ### SPM Packages（优先使用）
 
-`Packages/` 下的六个独立 SPM 包（VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit, DesignKit）支持 `swift build` 和 `swift test`，无需 Xcode 项目、无需模拟器，秒级完成。
+`Packages/` 下的七个独立 SPM 包（VitalModels, HealthKitService, AIService, VitalUI, TelemetryKit, DesignKit, FlightKit）支持 `swift build` 和 `swift test`，无需 Xcode 项目、无需模拟器，秒级完成。
 
 **改动仅涉及 Packages/ 时，必须用 swift build/test 验证，禁止用 xcodebuild。**
 
@@ -45,7 +45,7 @@ xcodegen generate
 ## Architecture
 
 - **XcodeGen 项目**：`project.yml` 定义 targets，`xcodegen generate` 生成 `.xcodeproj`
-- **6 个 SPM local packages**：VitalModels、HealthKitService、AIService、VitalUI、TelemetryKit、DesignKit（均已注册到 `project.yml` 并接入 app target；TelemetryKit/DesignKit 为无本地依赖的独立包）
+- **7 个 SPM local packages**：VitalModels、HealthKitService、AIService、VitalUI、TelemetryKit、DesignKit、FlightKit（FlightKit 的 AppUI/XcodeGen 接入由 TK2 完成；TelemetryKit/DesignKit/FlightKit 为无本地依赖的独立包）
 - **Swift 6 strict concurrency**
 - **SwiftData** 存储训练数据 + HealthKit L2 缓存（`HealthCacheEntry`，本地隔离，`cloudKitDatabase: .none`）
 - **HealthDataCache** 是纯内存 actor L1 缓存层

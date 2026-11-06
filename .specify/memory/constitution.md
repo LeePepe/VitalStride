@@ -34,11 +34,12 @@ HealthKit 数值不离设备、不入日志、权限撤销即清除。
 | VitalUI | 共享 UI 组件 | VitalModels |
 | TelemetryKit | TelemetryEvent、TelemetryProvider、Console/Service | — |
 | DesignKit | 设计语言：seed 配色 token（Seed/PrimaryPalette/Theme）+ SwiftUI 组件 | — |
+| FlightKit | 可移植 feature flag 描述、覆盖、远端 fallback、持久化与 debug UI | — |
 
 **规则**：
 - App target 不互相依赖，只依赖 packages。
 - App production/test/XcodeGen 真理源归 `AppUI`；repository automation/config 归 `RepoInfra`。
-  `Prototype` 与 6 个 package layer 补齐其余 schedulable paths；治理/support 与 generated/cache/log/local-secret
+  `Prototype` 与 7 个 package layer 补齐其余 schedulable paths；治理/support 与 generated/cache/log/local-secret
   路径显式排除。ownership 与 gate speed 正交（ADR-0018、ADR-0019）。
 - 新 AI provider = 在 `AIService` 实现 `AIProvider` 协议，不新建包。
 - 改动仅涉及 `Packages/<X>/` 时，**必须**用 `swift build && swift test` 验证；禁止用 xcodebuild（慢且无意义）。
@@ -104,6 +105,7 @@ HealthKitService ┘
     AIService    (独立, 无依赖)
     TelemetryKit (独立, 无依赖)
     DesignKit    (独立, 无依赖 — 设计系统 token + 组件)
+    FlightKit    (独立, 无依赖 — 可移植 feature flag 合同 + debug UI)
 
 RepoInfra (独立：CI/workflow/hooks/tooling/release/repo policy；无 product dependency)
 ```
