@@ -1928,7 +1928,8 @@ struct ActiveWorkoutView: View {
         }
         .buttonStyle(.plain)
         .liquidGlassBar(theme: theme, cornerRadius: 12)
-        .frame(maxWidth: .infinity, minHeight: 45)
+        .frame(minWidth: 236, maxWidth: .infinity, minHeight: 45)
+        .padding(.horizontal, 8)
         .accessibilityIdentifier("workout_sidebar_add_exercise")
         .accessibilityLabel(
             String(
@@ -1939,12 +1940,15 @@ struct ActiveWorkoutView: View {
         )
         .background {
             GeometryReader { proxy in
+                let frame = proxy.frame(in: .global)
                 Color.clear
                     .onAppear {
-                        listObservation.onSidebarAddFrame(proxy.frame(in: .global))
-                    }
-                    .onChange(of: proxy.frame(in: .global)) { _, frame in
+                        guard isSidebarReordering, frame.width >= 44 else { return }
                         listObservation.onSidebarAddFrame(frame)
+                    }
+                    .onChange(of: frame) { _, newFrame in
+                        guard isSidebarReordering, newFrame.width >= 44 else { return }
+                        listObservation.onSidebarAddFrame(newFrame)
                     }
             }
         }
@@ -1994,19 +1998,6 @@ struct ActiveWorkoutView: View {
         }
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
-        .background {
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear {
-                        guard isSidebarReordering else { return }
-                        listObservation.onSidebarItemFrame(exerciseID, proxy.frame(in: .global))
-                    }
-                    .onChange(of: proxy.frame(in: .global)) { _, frame in
-                        guard isSidebarReordering else { return }
-                        listObservation.onSidebarItemFrame(exerciseID, frame)
-                    }
-            }
-        }
     }
 
     @ViewBuilder
@@ -2134,7 +2125,9 @@ struct ActiveWorkoutView: View {
                             onMove: onMove
                         )
                     }
-                    sidebarAddExerciseButton
+                    if isSidebarReordering {
+                        sidebarAddExerciseButton
+                    }
             }
             .padding(.horizontal, isSidebarReordering ? 12 : 2)
         }
