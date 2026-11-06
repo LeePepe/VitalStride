@@ -1,5 +1,6 @@
 import SwiftUI
 import Testing
+import Foundation
 
 #if canImport(UIKit) && !os(macOS)
 import UIKit
@@ -55,5 +56,83 @@ struct ActiveWorkoutMotionTrajectoryTests {
             spring.velocity(fromValue: 0.0, toValue: 1.0, initialVelocity: 0.0, time: $0)
         }
         #expect(velocities.allSatisfy { $0 > 0 })
+    }
+
+    @Test("Sidebar reorder callbacks preserve selection and non-overlapping item frames")
+    @MainActor
+    func sidebarReorderCallbacksPreserveSelectionAndFrames() {
+        var items = (0..<4).map {
+            ActiveWorkoutSidebarItem(
+                id: "exercise-\($0)",
+                name: "Exercise \($0)",
+                index: $0,
+                completed: 0,
+                total: 1
+            )
+        }
+        let selectedID = "exercise-2"
+        var reorderMode = false
+        var observedItems: [ActiveWorkoutSidebarItem] = []
+        var observedFrames: [String: CGRect] = [:]
+        var toggle: (@MainActor @Sendable () -> Void)?
+        var moveUp: (@MainActor @Sendable (Int) -> Void)?
+        var moveDown: (@MainActor @Sendable (Int) -> Void)?
+
+        let sink = ActiveWorkoutListObservationSink(
+            onSidebarItems: { observedItems = $0 },
+            onSidebarItemFrame: { observedFrames[$0] = $1 },
+            onSidebarReorderModeState: { reorderMode = $0 },
+            onSidebarReorderToggleAction: { _ in toggle = { reorderMode.toggle() } },
+            onSidebarMoveUpAction: { moveUp = $0 },
+            onSidebarMoveDownAction: { moveDown = $0 }
+        )
+
+        toggle = { reorderMode.toggle() }
+        toggle?()
+        sink.onSidebarReorderModeState(reorderMode)
+        sink.onSidebarItems(items)
+        for (index, item) in items.enumerated() {
+            sink.onSidebarItemFrame(item.id, CGRect(x: 0, y: CGFloat(index * 60), width: 260, height: 52))
+        }
+        let moveDownAction: @MainActor @Sendable (Int) -> Void = { index in
+            guard items.indices.contains(index), index < items.count - 1 else { return }
+            items.swapAt(index, index + 1)
+            observedItems = items
+        }
+        let moveUpAction: @MainActor @Sendable (Int) -> Void = { index in
+            guard items.indices.contains(index), index > 0 else { return }
+            items.swapAt(index, index - 1)
+            observedItems = items
+        }
+        sink.onSidebarMoveDownAction(moveDownAction)
+        sink.onSidebarMoveUpAction(moveUpAction)
+
+        moveDown?(1)
+        moveUp?(2)
+
+        #expect(reorderMode)
+        #expect(observedItems.map(\.id) == items.map(\.id))
+        #expect(items.contains { $0.id == selectedID })
+        #expect(observedFrames.count == items.count)
+        let frames = items.compactMap { observedFrames[$0.id] }
+        #expect(frames.count == items.count)
+        #expect(zip(frames, frames.dropFirst()).allSatisfy { !$0.intersects($1) })
+    }
+
+    @Test("Sidebar reorder and move springs provide monotonic in-flight frames")
+    func sidebarSpringTrajectoriesAreContinuous() {
+        for spring in [
+            Spring(response: 0.32, dampingRatio: 0.84),
+            Spring(response: 0.28, dampingRatio: 0.82)
+        ] {
+            let values = stride(from: 0.016, through: 0.4, by: 0.016).map {
+                spring.value(fromValue: 0.0, toValue: 1.0, initialVelocity: 0.0, time: $0)
+            }
+            let inFlight = values.prefix(while: { $0 < 0.98 })
+            let intermediate = inFlight.filter { $0 > 0.02 && $0 < 0.98 }
+
+            #expect(intermediate.count >= 4)
+            #expect(zip(inFlight, inFlight.dropFirst()).allSatisfy { $0 < $1 })
+        }
     }
 }

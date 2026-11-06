@@ -1245,97 +1245,114 @@ struct ActiveWorkoutView: View {
                     dismissKeyboardIfVisible()
                     selectedExerciseID = targetID
                     listObservation.onSidebarSelectionState(targetID)
-                    let scrollToSelection = {
-                        #if canImport(UIKit) && !os(macOS)
-                        guard let collectionView = scrollViewBox.value as? UICollectionView,
-                              collectionView.window != nil else { return }
-                        #endif
-                        withAnimation {
+                    DispatchQueue.main.async {
+                        guard selectedExerciseID == targetID else { return }
+                        withAnimation(
+                            reduceMotion
+                                ? nil
+                                : .spring(response: 0.32, dampingFraction: 0.84)
+                        ) {
                             proxy.scrollTo(targetID, anchor: .top)
                         }
                         #if canImport(UIKit) && !os(macOS)
-                        if let index = orderedSnapshot.firstIndex(where: { $0.id == targetID }) {
-                            collectionView.layoutIfNeeded()
-                            let targetIndexPath: IndexPath? = {
-                                if collectionView.numberOfSections > index,
-                                   collectionView.numberOfSections > 1 {
-                                    return collectionView.numberOfItems(inSection: index) > 0
-                                        ? IndexPath(item: 0, section: index)
-                                        : nil
-                                } else if collectionView.numberOfSections == 1 {
-                                    let precedingItems = orderedSnapshot.prefix(index).reduce(0) { count, item in
-                                        count + 1 + item.setCount
-                                    }
-                                    let totalItems = collectionView.numberOfItems(inSection: 0)
-                                    guard totalItems > 0 else { return nil }
-                                    return IndexPath(
-                                        item: min(precedingItems, totalItems - 1),
-                                        section: 0
-                                    )
+                        guard let collectionView = scrollViewBox.value as? UICollectionView,
+                              collectionView.window != nil,
+                              let index = orderedSnapshot.firstIndex(where: { $0.id == targetID })
+                        else { return }
+
+                        collectionView.layoutIfNeeded()
+                        let targetIndexPath: IndexPath? = {
+                            if collectionView.numberOfSections > index,
+                               collectionView.numberOfSections > 1 {
+                                return collectionView.numberOfItems(inSection: index) > 0
+                                    ? IndexPath(item: 0, section: index)
+                                    : nil
+                            } else if collectionView.numberOfSections == 1 {
+                                let precedingItems = orderedSnapshot.prefix(index).reduce(0) { count, item in
+                                    count + 1 + item.setCount
                                 }
-                                return nil
-                            }()
-                            if let targetIndexPath {
-                                collectionView.scrollToItem(at: targetIndexPath, at: .top, animated: false)
-                                collectionView.layoutIfNeeded()
-                                if let attributes = collectionView.layoutAttributesForItem(at: targetIndexPath) {
-                                    let maxOffsetY = max(
-                                        0,
-                                        collectionView.contentSize.height
-                                            - collectionView.bounds.height
-                                            + collectionView.adjustedContentInset.bottom
-                                    )
-                                    let targetY = min(
-                                        max(0, attributes.frame.minY - collectionView.adjustedContentInset.top),
-                                        maxOffsetY
-                                    )
-                                    collectionView.setContentOffset(
-                                        CGPoint(x: 0, y: targetY),
+                                let totalItems = collectionView.numberOfItems(inSection: 0)
+                                guard totalItems > 0 else { return nil }
+                                return IndexPath(
+                                    item: min(precedingItems, totalItems - 1),
+                                    section: 0
+                                )
+                            }
+                            return nil
+                        }()
+                        guard let targetIndexPath else { return }
+
+                        let reportSelection = { (forceHeader: Bool) in
+                            collectionView.layoutIfNeeded()
+                            guard let attributes = collectionView.layoutAttributesForItem(at: targetIndexPath) else {
+                                return
+                            }
+                            let visibleSize = collectionView.bounds.size
+                            listObservation.onGeometry(
+                                ActiveWorkoutListGeometry(
+                                    visibleRect: CGRect(
+                                        origin: collectionView.contentOffset,
+                                        size: visibleSize
+                                    ),
+                                    contentOffset: collectionView.contentOffset,
+                                    contentSize: collectionView.contentSize,
+                                    containerSize: visibleSize,
+                                    listFrame: exerciseListFrame
+                                )
+                            )
+                            let globalHeaderRect = collectionView.convert(attributes.frame, to: nil)
+                            if forceHeader
+                                || exerciseListFrame.isEmpty
+                                || exerciseListFrame.insetBy(dx: -2, dy: -2).intersects(globalHeaderRect)
+                            {
+                                listObservation.onHeaderFrame(targetID, globalHeaderRect)
+                            }
+                        }
+
+                        collectionView.scrollToItem(
+                            at: targetIndexPath,
+                            at: .top,
+                            animated: !reduceMotion
+                        )
+                        reportSelection(false)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                            guard selectedExerciseID == targetID else { return }
+                            reportSelection(false)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
+                            guard selectedExerciseID == targetID else { return }
+                            collectionView.layoutIfNeeded()
+                            if let attributes = collectionView.layoutAttributesForItem(at: targetIndexPath) {
+                                let globalHeaderRect = collectionView.convert(attributes.frame, to: nil)
+                                let targetTop = collectionView.contentOffset.y
+                                    + collectionView.adjustedContentInset.top
+                                let isAtTop = abs(attributes.frame.minY - targetTop) <= 1
+                                let isInList = exerciseListFrame.isEmpty
+                                    || exerciseListFrame.insetBy(dx: -2, dy: -2).intersects(globalHeaderRect)
+                                if !isAtTop || !isInList {
+                                    collectionView.scrollToItem(
+                                        at: targetIndexPath,
+                                        at: .top,
                                         animated: false
                                     )
                                     collectionView.layoutIfNeeded()
-                                }
-                                let visibleSize: CGSize = {
-                                    if collectionView.bounds.width > 0 && collectionView.bounds.height > 0 {
-                                        return collectionView.bounds.size
+                                    let clampedOffset = attributes.frame.minY
+                                        - collectionView.adjustedContentInset.top
+                                    if collectionView.contentOffset.y < clampedOffset {
+                                        collectionView.setContentOffset(
+                                            CGPoint(
+                                                x: collectionView.contentOffset.x,
+                                                y: clampedOffset
+                                            ),
+                                            animated: false
+                                        )
                                     }
-                                    if exerciseListFrame.width > 0 && exerciseListFrame.height > 0 {
-                                        return exerciseListFrame.size
-                                    }
-                                    return CGSize(width: 320, height: 600)
-                                }()
-                                let finalVisibleRect = CGRect(
-                                    origin: collectionView.contentOffset,
-                                    size: visibleSize
-                                )
-                                listObservation.onGeometry(
-                                    ActiveWorkoutListGeometry(
-                                        visibleRect: finalVisibleRect,
-                                        contentOffset: collectionView.contentOffset,
-                                        contentSize: collectionView.contentSize,
-                                        containerSize: visibleSize,
-                                        listFrame: exerciseListFrame
-                                    )
-                                )
-                                if let attributes = collectionView.layoutAttributesForItem(at: targetIndexPath) {
-                                    let globalHeaderRect = collectionView.convert(attributes.frame, to: nil)
-                                    listObservation.onHeaderFrame(targetID, globalHeaderRect)
+                                    collectionView.layoutIfNeeded()
                                 }
                             }
+                            reportSelection(true)
                         }
                         #endif
-                    }
-                    DispatchQueue.main.async {
-                        guard selectedExerciseID == targetID else { return }
-                        scrollToSelection()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                            guard selectedExerciseID == targetID else { return }
-                            scrollToSelection()
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.40) {
-                            guard selectedExerciseID == targetID else { return }
-                            scrollToSelection()
-                        }
                     }
                 }
                 HStack(spacing: 0) {
@@ -1430,9 +1447,6 @@ struct ActiveWorkoutView: View {
                                 )
                             }
                         )
-                        .transaction { transaction in
-                            transaction.animation = nil
-                        }
                     }
                 }
                 .onAppear {
@@ -1523,7 +1537,14 @@ struct ActiveWorkoutView: View {
                     onMove: onMove
                 )
             }
-            .frame(maxWidth: .infinity, minHeight: largeMode ? 60 : 52)
+            .frame(
+                minWidth: max(
+                    236,
+                    sidebarWidth(forListWidth: exerciseListFrame.width, isReordering: true) - 4
+                ),
+                maxWidth: .infinity,
+                minHeight: largeMode ? 60 : 52
+            )
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .background(cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -1531,6 +1552,17 @@ struct ActiveWorkoutView: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(borderColor, lineWidth: 1.5)
             )
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear {
+                            listObservation.onSidebarItemFrame(exerciseID, proxy.frame(in: .global))
+                        }
+                        .onChange(of: proxy.frame(in: .global)) { _, frame in
+                            listObservation.onSidebarItemFrame(exerciseID, frame)
+                        }
+                }
+            }
     }
 
     @ViewBuilder
@@ -1623,16 +1655,16 @@ struct ActiveWorkoutView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background {
                             GeometryReader { proxy in
-        Color.clear
-            .onAppear {
-                listObservation.onSidebarNameFrame(
-                    exerciseID,
-                    proxy.frame(in: .global)
-                )
-            }
-            .onChange(of: proxy.frame(in: .global)) { _, frame in
-                listObservation.onSidebarNameFrame(exerciseID, frame)
-            }
+                                Color.clear
+                                    .onAppear {
+                                        listObservation.onSidebarNameFrame(
+                                            exerciseID,
+                                            proxy.frame(in: .global)
+                                        )
+                                    }
+                                    .onChange(of: proxy.frame(in: .global)) { _, frame in
+                                        listObservation.onSidebarNameFrame(exerciseID, frame)
+                                    }
                             }
                         }
                 }
@@ -1775,6 +1807,7 @@ struct ActiveWorkoutView: View {
                     onSelect: onSelect,
                     onMove: onMove
                 )
+                .transition(.opacity)
             } else {
                 sidebarCollapsedRailRow(
                     exercise: exercise,
@@ -1794,9 +1827,11 @@ struct ActiveWorkoutView: View {
             GeometryReader { proxy in
                 Color.clear
                     .onAppear {
+                        guard !isSidebarReordering else { return }
                         listObservation.onSidebarItemFrame(exerciseID, proxy.frame(in: .global))
                     }
                     .onChange(of: proxy.frame(in: .global)) { _, frame in
+                        guard !isSidebarReordering else { return }
                         listObservation.onSidebarItemFrame(exerciseID, frame)
                     }
             }
