@@ -63,11 +63,7 @@ struct SubSetRow: View {
         .frame(maxWidth: .infinity, minHeight: largeMode ? 56 : 48)
         .designSurface(style: .solid, cornerRadius: 14)
         .contentShape(Rectangle())
-        .background {
-            Button(action: toggleCompleted) { Color.clear.contentShape(Rectangle()) }
-                .buttonStyle(.plain)
-                .accessibilityHidden(true)
-        }
+        .sensoryFeedback(.success, trigger: exerciseSet.isCompleted)
         .onAppear {
             refreshInputText()
             rowObservation.modeAction(exerciseSet.persistentModelID) {

@@ -66,6 +66,24 @@ struct ActiveWorkoutHitTargetTests {
         #expect(ActiveWorkoutHitTarget.side >= 44)
     }
 
+    @Test("Completion is explicit-only for SetRow and SubSetRow")
+    func explicitCompletionOnlyContract() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let setRow = try String(contentsOf: root.appendingPathComponent("VitalStride/Sources/ActiveWorkout/SetRow.swift"), encoding: .utf8)
+        let subSetRow = try String(contentsOf: root.appendingPathComponent("VitalStride/Sources/ActiveWorkout/SubSetRow.swift"), encoding: .utf8)
+        #expect(!setRow.contains("background {\n            Button(action: toggleCompleted)"))
+        #expect(!subSetRow.contains("background {\n            Button(action: toggleCompleted)"))
+        #expect(setRow.contains("completionButton"))
+        #expect(subSetRow.contains("leadingControls"))
+        #expect(setRow.contains("ActiveWorkoutHitTarget.side"))
+        #expect(subSetRow.contains("ActiveWorkoutHitTarget.side"))
+        #expect(setRow.contains(".sensoryFeedback(.success, trigger: exerciseSet.isCompleted)"))
+        #expect(subSetRow.contains(".sensoryFeedback(.success, trigger: exerciseSet.isCompleted)"))
+    }
+
     @Test("Numeric input keeps a compact visual pill inside its hit target")
     func numericInputPillUsesIndependentHitTargetContainer() throws {
         let sourceURL = URL(fileURLWithPath: #filePath)

@@ -496,6 +496,7 @@ struct ActiveWorkoutView: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityFocused($isBottomSnackbarFocused)
             }
+            .sensoryFeedback(.selection, trigger: isSidebarReordering)
             .onChange(of: isSidebarReordering) { _, value in
                 listObservation.onSidebarReorderModeState(value)
             }
@@ -776,6 +777,7 @@ struct ActiveWorkoutView: View {
             compactHeartRateItem
             #endif
             Spacer(minLength: 0)
+            exerciseSheetTrigger
             compactSetsItem
             compactVolumeItem(volumeText: volumeText, unit: weightUnit.rawValue)
         }
@@ -899,10 +901,31 @@ struct ActiveWorkoutView: View {
                 .font(.caption)
                 .foregroundStyle(theme.neutrals.text3)
         }
+
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "总容量", comment: "Session total volume a11y label"))
         .accessibilityValue(Text("\(volumeText) \(unit)"))
         .frame(minHeight: 24, alignment: .center)
+    }
+
+    private var exerciseSheetTrigger: some View {
+        Button {
+            setSidebarReordering(true, selectExercise: { _ in })
+        } label: {
+            Image(systemName: "list.bullet")
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(theme.foreground)
+        .accessibilityIdentifier("workout_exercise_sheet_trigger")
+        .accessibilityLabel(
+            String(
+                localized: "workout.sidebar.title",
+                defaultValue: "Exercises",
+                comment: "Open exercise navigation and reorder sheet"
+            )
+        )
     }
 
     // MARK: - Subviews
@@ -922,6 +945,7 @@ struct ActiveWorkoutView: View {
                 heartRateLabel
                 #endif
                 Spacer()
+                exerciseSheetTrigger
                 Text(summaryText)
                     .font(summaryFont)
                     .foregroundStyle(theme.neutrals.text2)
@@ -934,6 +958,7 @@ struct ActiveWorkoutView: View {
                     heartRateLabel
                     #endif
                     Spacer()
+                    exerciseSheetTrigger
                 }
                 Text(summaryText)
                     .font(summaryFont)
@@ -1386,8 +1411,6 @@ struct ActiveWorkoutView: View {
                     )
                 }
                 HStack(spacing: 0) {
-                    Color.clear
-                        .frame(width: collapsedSidebarWidth)
                     List {
                         ForEach(exercises) { workoutExercise in
                             ActiveExerciseSection(
@@ -1451,39 +1474,67 @@ struct ActiveWorkoutView: View {
                     #endif
                 }
                 .overlay(alignment: .leading) {
-                    ZStack(alignment: .leading) {
-                        if isSidebarReordering {
+                    if isSidebarReordering {
+                        ZStack(alignment: .leading) {
                             Rectangle()
                                 .fill(theme.neutrals.bg.opacity(0.22))
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     setSidebarReordering(false, selectExercise: selectExercise)
                                 }
+                            exerciseSidebar(
+                                exercises: exercises,
+                                width: sidebarWidth(
+                                    forListWidth: exerciseListFrame.width,
+                                    isReordering: true
+                                ),
+                                onSelect: selectExercise,
+                                onMove: { source, destination in
+                                    moveSidebarExercise(
+                                        source: source,
+                                        destination: destination,
+                                        exercises: exercises,
+                                        selectExercise: selectExercise
+                                    )
+                                }
+                            )
                         }
-                        exerciseSidebar(
-                            exercises: exercises,
-                            width: sidebarWidth(
-                                forListWidth: exerciseListFrame.width,
-                                isReordering: isSidebarReordering
-                            ),
-                            onSelect: selectExercise,
-                            onMove: { source, destination in
-                                moveSidebarExercise(
-                                    source: source,
-                                    destination: destination,
-                                    exercises: exercises,
-                                    selectExercise: selectExercise
-                                )
-                            }
-                        )
                     }
                 }
                 .onAppear {
+                    registerSidebarObservationCallbacks(onSelect: selectExercise) { source, destination in
+                        moveSidebarExercise(
+                            source: source,
+                            destination: destination,
+                            exercises: exercises,
+                            selectExercise: selectExercise
+                        )
+                    }
                     listObservation.onReady(ActiveWorkoutListDriver { id, anchor in
                         DispatchQueue.main.async {
                             proxy.scrollTo(id, anchor: anchor)
                         }
                     })
+                }
+                .onChange(of: sortedExercises.map(\.persistentModelID)) { _, _ in
+                    registerSidebarObservationCallbacks(onSelect: selectExercise) { source, destination in
+                        moveSidebarExercise(
+                            source: source,
+                            destination: destination,
+                            exercises: sortedExercises,
+                            selectExercise: selectExercise
+                        )
+                    }
+                }
+                .onChange(of: completedSetCount) { _, _ in
+                    registerSidebarObservationCallbacks(onSelect: selectExercise) { source, destination in
+                        moveSidebarExercise(
+                            source: source,
+                            destination: destination,
+                            exercises: sortedExercises,
+                            selectExercise: selectExercise
+                        )
+                    }
                 }
                 .background(theme.neutrals.bg)
             }
@@ -1804,6 +1855,12 @@ struct ActiveWorkoutView: View {
         let bgColor: Color = isSidebarReordering ? theme.accent : theme.accentSubtle
 
         VStack(spacing: 2) {
+            if isSidebarReordering {
+                Capsule()
+                    .fill(Color.secondary.opacity(0.35))
+                    .frame(width: 36, height: 5)
+                    .padding(.top, 6)
+            }
             Text(titleText)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(theme.secondaryForeground)
@@ -1865,6 +1922,7 @@ struct ActiveWorkoutView: View {
                 .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
+        .liquidGlassBar(theme: theme, cornerRadius: 12)
         .frame(maxWidth: .infinity, minHeight: 45)
         .accessibilityIdentifier("workout_sidebar_add_exercise")
         .accessibilityLabel(
@@ -2036,7 +2094,7 @@ struct ActiveWorkoutView: View {
     }
 
     private var collapsedSidebarWidth: CGFloat {
-        sidebarWidth(forListWidth: exerciseListFrame.width, isReordering: false)
+        0
     }
 
     @ViewBuilder
@@ -2071,9 +2129,7 @@ struct ActiveWorkoutView: View {
                             onMove: onMove
                         )
                     }
-                    if !isSidebarReordering {
-                        sidebarAddExerciseButton
-                    }
+                    sidebarAddExerciseButton
             }
             .padding(.horizontal, isSidebarReordering ? 12 : 2)
         }
@@ -2081,66 +2137,52 @@ struct ActiveWorkoutView: View {
         .coordinateSpace(name: "sidebarReorderList")
         .background(theme.neutrals.card)
         .accessibilityIdentifier("workout_exercise_sidebar")
-        .onAppear {
-            listObservation.onSidebarItems(sidebarItems)
-            listObservation.onKeyboardVisibility(isKeyboardVisible)
-            listObservation.onSidebarReorderModeState(isSidebarReordering)
-            listObservation.onSidebarDismissKeyboardReady { dismissKeyboardIfVisible() }
-            listObservation.onSidebarSelect { id in
-                guard let exercise = sortedExercises.first(where: { $0.persistentModelID == id }) else { return }
-                onSelect(exercise)
-            }
-            listObservation.onSidebarReorderToggle {
-                setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
-            }
-            listObservation.onSidebarMoveReady { source, destination in
-                onMove(source, destination)
-            }
-            listObservation.onSidebarReorderToggleAction {
-                setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
-            }
-            listObservation.onSidebarMoveUpAction { index in
-                guard index > 0 else { return }
-                onMove(index, index - 1)
-            }
-            listObservation.onSidebarMoveDownAction { index in
-                guard index < exercises.count - 1 else { return }
-                onMove(index, index + 2)
-            }
-        }
-        .onChange(of: sidebarItems) { _, items in
-            listObservation.onSidebarItems(items)
-            listObservation.onSidebarReorderModeState(isSidebarReordering)
-            listObservation.onSidebarSelect { id in
-                guard let exercise = sortedExercises.first(where: { $0.persistentModelID == id }) else { return }
-                onSelect(exercise)
-            }
-            listObservation.onSidebarReorderToggle {
-                setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
-            }
-            listObservation.onSidebarMoveReady { source, destination in
-                onMove(source, destination)
-            }
-            listObservation.onSidebarReorderToggleAction {
-                setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
-            }
-            listObservation.onSidebarMoveUpAction { index in
-                guard index > 0 else { return }
-                onMove(index, index - 1)
-            }
-            listObservation.onSidebarMoveDownAction { index in
-                guard index < exercises.count - 1 else { return }
-                onMove(index, index + 2)
-            }
-        }
     }
 
     private func sidebarWidth(forListWidth listWidth: CGFloat, isReordering: Bool) -> CGFloat {
-        let collapsed: CGFloat = isSidebarSchemeC
-            ? 0
-            : (listWidth > 0 ? min(max(listWidth * 0.18, 64), 88) : 64)
-        guard isReordering else { return collapsed }
-        return max(largeMode ? 280 : 260, listWidth + collapsed)
+        guard isReordering else { return 0 }
+        return max(largeMode ? 280 : 260, listWidth)
+    }
+
+    private func registerSidebarObservationCallbacks(
+        onSelect: @escaping (WorkoutExercise) -> Void,
+        onMove: @escaping (Int, Int) -> Void
+    ) {
+        let items = sortedExercises.enumerated().map { index, exercise in
+            let completed = (exercise.sets ?? []).filter(\.isCompleted).count
+            return ActiveWorkoutSidebarItem(
+                id: String(describing: exercise.persistentModelID),
+                name: exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"),
+                index: index,
+                completed: completed,
+                total: (exercise.sets ?? []).count
+            )
+        }
+        listObservation.onSidebarItems(items)
+        listObservation.onKeyboardVisibility(isKeyboardVisible)
+        listObservation.onSidebarReorderModeState(isSidebarReordering)
+        listObservation.onSidebarDismissKeyboardReady { dismissKeyboardIfVisible() }
+        listObservation.onSidebarSelect { id in
+            guard let exercise = sortedExercises.first(where: { $0.persistentModelID == id }) else { return }
+            onSelect(exercise)
+        }
+        listObservation.onSidebarReorderToggle {
+            setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
+        }
+        listObservation.onSidebarMoveReady { source, destination in
+            onMove(source, destination)
+        }
+        listObservation.onSidebarReorderToggleAction {
+            setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
+        }
+        listObservation.onSidebarMoveUpAction { index in
+            guard index > 0 else { return }
+            onMove(index, index - 1)
+        }
+        listObservation.onSidebarMoveDownAction { index in
+            guard index < sortedExercises.count - 1 else { return }
+            onMove(index, index + 2)
+        }
     }
 
     private func setSidebarReordering(
@@ -2200,12 +2242,7 @@ struct ActiveWorkoutView: View {
                     maxWidth: horizontalSizeClass == .regular ? 400 : .infinity,
                     minHeight: ActiveWorkoutSnackbarLayout.addExerciseHeight(largeMode: largeMode)
                 )
-                .background(theme.neutrals.card)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(theme.neutrals.border, lineWidth: 1)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .liquidGlassBar(theme: theme, cornerRadius: 12)
                 .contentShape(Rectangle())
                 .background {
                     GeometryReader { proxy in

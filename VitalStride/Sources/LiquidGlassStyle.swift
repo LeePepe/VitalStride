@@ -29,44 +29,64 @@ extension View {
     /// layout-stable.
     @ViewBuilder
     func liquidGlassBar(theme: Theme, cornerRadius: CGFloat = 0) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        return self
-            .background(.ultraThinMaterial, in: shape)
-            .background(theme.surface.opacity(0.68), in: shape)
-            .clipShape(shape)
-            .overlay {
-                shape.stroke(theme.foreground.opacity(0.16), lineWidth: 0.75)
-            }
-            .modifier(LiquidGlassEffectModifier(cornerRadius: cornerRadius))
+        modifier(LiquidGlassBarModifier(theme: theme, cornerRadius: cornerRadius))
     }
 
     /// Gated Liquid Glass capsule for floating capsule chrome (index bar).
     /// Falls back to a translucent DesignKit inner fill + hairline below 26.
     @ViewBuilder
     func liquidGlassCapsule(theme: Theme) -> some View {
-        if #available(iOS 26.0, macOS 26.0, *) {
-            self.glassEffect(.regular, in: Capsule())
+        modifier(LiquidGlassCapsuleModifier(theme: theme))
+    }
+}
+
+private struct LiquidGlassBarModifier: ViewModifier {
+    let theme: Theme
+    let cornerRadius: CGFloat
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        if reduceTransparency {
+            content
+                .background(theme.surface, in: shape)
+                .clipShape(shape)
+                .overlay(shape.stroke(theme.neutrals.border, lineWidth: 1))
+        } else if #available(iOS 26.0, macOS 26.0, *) {
+            content
+                .background(.ultraThinMaterial, in: shape)
+                .background(theme.surface.opacity(0.68), in: shape)
+                .clipShape(shape)
+                .overlay(shape.stroke(theme.foreground.opacity(0.16), lineWidth: 0.75))
+                .glassEffect(.regular, in: shape)
         } else {
-            self
-                .background(theme.neutrals.inner.opacity(0.85))
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(theme.neutrals.border, lineWidth: 1))
+            content
+                .background(theme.surface.opacity(0.68), in: shape)
+                .clipShape(shape)
+                .overlay(shape.stroke(theme.foreground.opacity(0.16), lineWidth: 0.75))
         }
     }
 }
 
-private struct LiquidGlassEffectModifier: ViewModifier {
-    let cornerRadius: CGFloat
+private struct LiquidGlassCapsuleModifier: ViewModifier {
+    let theme: Theme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(iOS 26.0, macOS 26.0, *) {
-            content.glassEffect(
-                .regular,
-                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            )
+        if reduceTransparency {
+            content
+                .background(theme.neutrals.inner, in: Capsule())
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(theme.neutrals.border, lineWidth: 1))
+        } else if #available(iOS 26.0, macOS 26.0, *) {
+            content.glassEffect(.regular, in: Capsule())
         } else {
             content
+                .background(theme.neutrals.inner.opacity(0.85))
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(theme.neutrals.border, lineWidth: 1))
         }
     }
 }

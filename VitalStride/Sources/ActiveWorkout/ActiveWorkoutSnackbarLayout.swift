@@ -266,7 +266,7 @@ enum ActiveWorkoutSnackbarLayout {
         if isKeyboardVisible && snackbarSlot == .none {
             EmptyView()
         } else {
-            VStack(spacing: 8) {
+            let dock = VStack(spacing: 8) {
                 if !isKeyboardVisible {
                     fab()
                         .frame(maxWidth: .infinity)
@@ -279,11 +279,12 @@ enum ActiveWorkoutSnackbarLayout {
                 }
             }
             .padding(.top, 8)
-            .background(theme.neutrals.bg)
-            .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(theme.neutrals.border)
-                    .frame(height: 1)
+            if #available(iOS 26.0, macOS 26.0, *) {
+                GlassEffectContainer(spacing: 8) {
+                    dock
+                }
+            } else {
+                dock
             }
         }
     }
@@ -361,12 +362,7 @@ enum ActiveWorkoutSnackbarLayout {
                 .padding(.horizontal, Space.cardPadding)
                 .padding(.vertical, Space.gap)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(AnyShapeStyle(theme.surface))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(
-                    color: theme.foreground.opacity(0.15),
-                    radius: 8, y: -4
-                )
+                .liquidGlassBar(theme: theme, cornerRadius: 12)
                 .padding(.horizontal, Space.cardPadding)
                 .padding(.top, Space.inline)
         }
@@ -533,11 +529,7 @@ enum ActiveWorkoutSnackbarLayout {
             minHeight: largeMode ? undoEnvelopeLargeHeight : undoEnvelopeNormalHeight,
             maxHeight: largeMode ? undoEnvelopeLargeHeight : undoEnvelopeNormalHeight
         )
-        .background(theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(theme.neutrals.border, lineWidth: 1)
-        }
+        .liquidGlassBar(theme: theme, cornerRadius: 12)
     }
 
     // MARK: - Rest envelope (MY-1446, testable)
@@ -582,11 +574,7 @@ enum ActiveWorkoutSnackbarLayout {
         .padding(.horizontal, 14)
         .frame(maxWidth: .infinity)
         .frame(height: largeMode ? restEnvelopeLargeHeight : restEnvelopeNormalHeight)
-        .background(theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(theme.neutrals.border, lineWidth: 1)
-        }
+        .liquidGlassBar(theme: theme, cornerRadius: 12)
     }
 
     // MARK: - Rest timer button layout (MY-1446, testable)
