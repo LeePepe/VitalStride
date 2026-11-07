@@ -73,6 +73,29 @@ struct WorkoutNumericKeyboardContentView: View {
     let onLeftAction: @MainActor (LeftKeyAction) -> Void
     let onPresetReps: @MainActor (_ weightKg: Double?, _ reps: Int) -> Void
     let onDone: @MainActor () -> Void
+    @State private var selectionFeedbackTrigger = 0
+
+    static let doneButtonBackgroundUIColor = UIColor.tintColor
+    static let doneButtonForegroundUIColor = UIColor { traits in
+        let background = UIColor.tintColor.resolvedColor(with: traits)
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard background.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return .black }
+
+        func linearized(_ value: CGFloat) -> Double {
+            let component = Double(value)
+            return component <= 0.04045
+                ? component / 12.92
+                : pow((component + 0.055) / 1.055, 2.4)
+        }
+
+        let luminance = 0.2126 * linearized(red) + 0.7152 * linearized(green) + 0.0722 * linearized(blue)
+        let whiteContrast = 1.05 / (luminance + 0.05)
+        let blackContrast = (luminance + 0.05) / 0.05
+        return whiteContrast >= blackContrast ? .white : .black
+    }
 
     static func weightUnitToggleTitle() -> String {
         String(
@@ -89,7 +112,7 @@ struct WorkoutNumericKeyboardContentView: View {
         recentWeightKg: Double?,
         suggestedWeightKg: Double? = nil,
         suggestedReps: Int? = nil,
-        theme: Theme,
+        theme: Theme = Theme(seed: .teal, neutral: .slate),
         onKeyPress: @escaping @MainActor (NumericKeypadKey) -> Void,
         onLeftAction: @escaping @MainActor (LeftKeyAction) -> Void,
         onPresetReps: @escaping @MainActor (_ weightKg: Double?, _ reps: Int) -> Void,
@@ -174,28 +197,27 @@ struct WorkoutNumericKeyboardContentView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(
-            theme.neutrals.bg
-                .ignoresSafeArea(.all, edges: .bottom)
-        )
+        .background(Color(uiColor: .secondarySystemBackground).ignoresSafeArea(.all, edges: .bottom))
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(theme.neutrals.border)
-                .frame(height: 1)
+                .fill(Color(uiColor: .separator))
+                .frame(height: 0.5)
         }
-        .environment(\.theme, theme)
-        .environment(\.colorScheme, theme.isDark ? .dark : .light)
         .accessibilityElement(children: .contain)
+        .sensoryFeedback(.selection, trigger: selectionFeedbackTrigger)
     }
 
     private func doneKey(height: CGFloat) -> some View {
-        Button(action: onDone) {
+        Button {
+            selectionFeedbackTrigger += 1
+            onDone()
+        } label: {
             Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Dismiss workout keyboard"))
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
-                .foregroundStyle(theme.onInteractiveAccent)
+                .foregroundStyle(Color(uiColor: Self.doneButtonForegroundUIColor))
                 .background(
-                    theme.interactiveAccent,
+                    Color.accentColor,
                     in: RoundedRectangle(cornerRadius: NumericKeypad.keyRadius, style: .continuous)
                 )
         }
@@ -208,6 +230,7 @@ struct WorkoutNumericKeyboardContentView: View {
         let isDisabled = (action == .addDropSet && setType.isSubSet) ||
             (action == .applyAISuggestion && !hasAISuggestion)
         return Button {
+            selectionFeedbackTrigger += 1
             onLeftAction(action)
         } label: {
             Text(title)
@@ -217,17 +240,13 @@ struct WorkoutNumericKeyboardContentView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 4)
                 .frame(maxWidth: .infinity, minHeight: Self.keyHeight, maxHeight: Self.keyHeight)
-                .foregroundStyle((isActive ? theme.accent : theme.neutrals.text1).opacity(isDisabled ? 0.45 : 1.0))
-                .background(
-                    isActive ? theme.accent.opacity(0.15) : theme.inner,
-                    in: RoundedRectangle(cornerRadius: NumericKeypad.keyRadius, style: .continuous)
+                .foregroundStyle(
+                    isActive ? Color.accentColor : Color(uiColor: .label)
                 )
-                .overlay(
-                    RoundedRectangle(cornerRadius: NumericKeypad.keyRadius, style: .continuous)
-                        .strokeBorder(
-                            isActive ? theme.accent.opacity(0.55) : theme.neutrals.border.opacity(0.75),
-                            lineWidth: 1
-                        )
+                .opacity(isDisabled ? 0.45 : 1.0)
+                .background(
+                    isActive ? Color.accentColor.opacity(0.16) : Color(uiColor: .secondarySystemFill),
+                    in: RoundedRectangle(cornerRadius: NumericKeypad.keyRadius, style: .continuous)
                 )
         }
         .buttonStyle(KeyboardKeyButtonStyle())
@@ -278,24 +297,10 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
 
     var enableInputClicksWhenVisible: Bool { true }
 
-    // MARK: Theme resolution
-
-    /// Seed used for the keyboard's theme. Matches the app-root
-    /// `.designTheme(seed: .teal, ...)` in `VitalStrideApp` so the inputView
-    /// renders in the same palette as the rest of the app.
-    private static let seed: Seed = .teal
-    private static let neutral: Neutral = .slate
-
-    /// Resolve the theme for the current trait collection. `inputView` is a
-    /// detached UIKit hierarchy that does not inherit the SwiftUI environment,
-    /// so we compute `isDark` from the view's own trait collection and hand
-    /// the resulting `Theme` down as an explicit value.
+    // Retained for source compatibility with existing snapshot helpers. The
+    // keyboard's production styling uses semantic system colors instead.
     static func resolveTheme(isDark: Bool) -> Theme {
-        Theme(seed: seed, neutral: neutral, isDark: isDark)
-    }
-
-    private func currentIsDark() -> Bool {
-        traitCollection.userInterfaceStyle == .dark
+        Theme(seed: .teal, neutral: .slate, isDark: isDark)
     }
 
     // MARK: Init
@@ -350,14 +355,12 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
             recentWeightKg: recentWeightKg,
             suggestedWeightKg: suggestedWeightKg,
             suggestedReps: suggestedReps,
-            theme: Self.resolveTheme(isDark: UITraitCollection.current.userInterfaceStyle == .dark),
             onKeyPress: clickingKeyPress,
             onLeftAction: clickingLeft,
             onPresetReps: clickingPreset,
             onDone: clickingDone
         )
         self.host = UIHostingController(rootView: content)
-        self.host.overrideUserInterfaceStyle = content.theme.isDark ? .dark : .light
         super.init(frame: .zero)
 
         setUp()
@@ -387,13 +390,12 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         clipsToBounds = false
         isOpaque = true
         translatesAutoresizingMaskIntoConstraints = false
-        let initialTheme = Self.resolveTheme(isDark: currentIsDark())
-        backgroundColor = UIColor(initialTheme.neutrals.bg)
+        backgroundColor = .secondarySystemBackground
 
         // A detached inputView owns its full bounds; do not import screen safe-area
         // insets into its fixed keyboard height a second time.
         host.safeAreaRegions = []
-        host.view.backgroundColor = UIColor(initialTheme.neutrals.bg)
+        host.view.backgroundColor = .secondarySystemBackground
         host.view.isOpaque = true
         host.view.translatesAutoresizingMaskIntoConstraints = false
         addSubview(host.view)
@@ -407,7 +409,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
         bottomOverhangView.translatesAutoresizingMaskIntoConstraints = false
         bottomOverhangView.isUserInteractionEnabled = false
         bottomOverhangView.isOpaque = true
-        bottomOverhangView.backgroundColor = UIColor(initialTheme.neutrals.bg)
+        bottomOverhangView.backgroundColor = .secondarySystemBackground
         addSubview(bottomOverhangView)
         NSLayoutConstraint.activate([
             bottomOverhangView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -442,27 +444,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
     /// collection. The content view is a value type; replacing `rootView` is
     /// the SwiftUI way to push a fresh environment value into the hosted tree.
     private func refreshTheme() {
-        let existing = host.rootView
-        let theme = Self.resolveTheme(isDark: currentIsDark())
-        if theme.isDark != existing.theme.isDark ||
-           theme.seed != existing.theme.seed ||
-           theme.neutral != existing.theme.neutral {
-            host.rootView = WorkoutNumericKeyboardContentView(
-                field: existing.field,
-                setType: existing.setType,
-                exercise: existing.exercise,
-                recentWeightKg: existing.recentWeightKg,
-                suggestedWeightKg: existing.suggestedWeightKg,
-                suggestedReps: existing.suggestedReps,
-                theme: theme,
-                onKeyPress: existing.onKeyPress,
-                onLeftAction: existing.onLeftAction,
-                onPresetReps: existing.onPresetReps,
-                onDone: existing.onDone
-            )
-            host.overrideUserInterfaceStyle = theme.isDark ? .dark : .light
-        }
-        let background = UIColor(theme.neutrals.bg)
+        let background = UIColor.secondarySystemBackground
         backgroundColor = background
         host.view.backgroundColor = background
         bottomOverhangView.backgroundColor = background
@@ -476,7 +458,7 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let background = UIColor(Self.resolveTheme(isDark: currentIsDark()).neutrals.bg)
+        let background = UIColor.secondarySystemBackground
         backgroundColor = background
         host.view.backgroundColor = background
         bottomOverhangView.backgroundColor = background
@@ -504,8 +486,8 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
 
         // Re-hydrate the hosting root view with the new context. The closures
         // are stable — reuse the audio-click wrappers by copying the existing
-        // root's callbacks. Theme is also re-resolved from the current trait
-        // collection so any pending light/dark change is picked up here.
+        // root's callbacks. Semantic system colors adapt automatically to the
+        // hosting view's current trait collection.
         let existing = host.rootView
         host.rootView = WorkoutNumericKeyboardContentView(
             field: field,
@@ -514,15 +496,13 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
             recentWeightKg: recentWeightKg,
             suggestedWeightKg: suggestedWeightKg,
             suggestedReps: suggestedReps,
-            theme: Self.resolveTheme(isDark: currentIsDark()),
+            theme: existing.theme,
             onKeyPress: existing.onKeyPress,
             onLeftAction: existing.onLeftAction,
             onPresetReps: existing.onPresetReps,
             onDone: existing.onDone
         )
-        host.overrideUserInterfaceStyle = currentIsDark() ? .dark : .light
-
-        let background = UIColor(Self.resolveTheme(isDark: currentIsDark()).neutrals.bg)
+        let background = UIColor.secondarySystemBackground
         backgroundColor = background
         host.view.backgroundColor = background
         bottomOverhangView.backgroundColor = background
