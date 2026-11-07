@@ -1786,6 +1786,7 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                                 XCTAssertTrue(geometry.listFrame.insetBy(dx: -1, dy: -1).contains(title))
                                 XCTAssertTrue(header.insetBy(dx: -1, dy: -1).contains(progress))
                                 XCTAssertTrue(geometry.listFrame.insetBy(dx: -1, dy: -1).contains(progress))
+                                XCTAssertGreaterThanOrEqual(addSet.minY, header.maxY - 1, "Add Set must be below the header")
                                 XCTAssertFalse(title.intersects(progress))
                                 XCTAssertFalse(title.intersects(addSet))
                                 XCTAssertFalse(title.intersects(menu))
@@ -2189,7 +2190,11 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
             }
             XCTAssertGreaterThanOrEqual(frame.width, 44, name)
             XCTAssertGreaterThanOrEqual(frame.height, 44, name)
-            XCTAssertTrue(header.insetBy(dx: -1, dy: -1).contains(frame), name)
+            if name == "add-set" {
+                XCTAssertGreaterThanOrEqual(frame.minY, header.maxY - 1, "Add Set belongs to the card footer")
+            } else {
+                XCTAssertTrue(header.insetBy(dx: -1, dy: -1).contains(frame), name)
+            }
             XCTAssertTrue(viewport.insetBy(dx: -1, dy: -1).contains(frame), name)
         }
         if let add = controls["add-set"], let menu = controls["menu"] {
@@ -2213,8 +2218,8 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
     private func assertHeaderSeparation(
         addSet: CGRect, firstRow: CGRect, header: CGRect, inputFrames: [CGRect]
     ) {
-        XCTAssertTrue(header.contains(addSet), "Add-set control must remain inside header")
-        XCTAssertGreaterThanOrEqual(firstRow.minY - addSet.maxY, 0, "Unified header surface needs no vertical card gap")
+        XCTAssertGreaterThanOrEqual(addSet.minY, header.maxY - 1, "Add-set control must belong to the card footer")
+        XCTAssertGreaterThanOrEqual(firstRow.minY - addSet.maxY, 0, "Footer must not overlap the first row")
         XCTAssertFalse(addSet.intersects(firstRow), "Add-set control must not intersect first row")
         XCTAssertEqual(inputFrames.count, 2)
         for frame in inputFrames {

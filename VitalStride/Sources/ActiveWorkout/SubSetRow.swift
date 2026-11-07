@@ -83,6 +83,11 @@ struct SubSetRow: View {
 
     private var mainAxis: some View {
         HStack(alignment: .center, spacing: 4) {
+            Image(systemName: "arrow.turn.down.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(workoutSeparator)
+                .frame(width: 20, height: 44)
+                .accessibilityHidden(true)
             leadingControls
             if exerciseSet.isUnilateral {
                 inputsAndCaption
@@ -92,19 +97,19 @@ struct SubSetRow: View {
             Spacer(minLength: 0)
             trailingControls
         }
-        .padding(.horizontal, 0)
+        .padding(.leading, 8)
+        .padding(.trailing, 0)
         .frame(maxWidth: .infinity, minHeight: 44)
     }
 
     private var leadingControls: some View {
         Button(action: toggleCompleted) {
             HStack(alignment: .center, spacing: 2) {
-                Text("\(parentSetNumber).\(exerciseSet.order)")
-                    .font(.caption2.monospacedDigit().weight(.semibold))
+                Text(exerciseSet.setType == .dropSet ? "D" : "P")
+                    .font(.caption2.monospacedDigit().weight(.bold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 19, height: 24, alignment: .trailing)
+                    .foregroundStyle(exerciseSet.setType.semanticColor)
+                    .frame(width: 24, height: 24, alignment: .center)
                     .background(
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .fill((exerciseSet.isCompleted ? Color.green : Color.accentColor).opacity(0.10))

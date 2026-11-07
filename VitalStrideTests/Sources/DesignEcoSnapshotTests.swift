@@ -520,14 +520,12 @@ final class DesignEcoSnapshotTests: XCTestCase {
             let addSet = try XCTUnwrap(controls["add-set"])
             let menu = try XCTUnwrap(controls["menu"])
             XCTAssertFalse(title.intersects(progress), name)
-            XCTAssertFalse(title.intersects(addSet), name)
             XCTAssertFalse(addSet.intersects(menu), name)
             XCTAssertGreaterThanOrEqual(addSet.width, 44, name)
             XCTAssertGreaterThanOrEqual(addSet.height, 44, name)
-            XCTAssertLessThan(title.minY, addSet.maxY, name)
-            XCTAssertGreaterThan(title.maxY, addSet.minY, name)
             let header = try XCTUnwrap(frames.headers[owner.persistentModelID])
-            XCTAssertLessThanOrEqual(header.height, 56, name)
+            XCTAssertGreaterThanOrEqual(addSet.minY, header.maxY - 1, "Add Set belongs to the card footer: \(name)")
+            XCTAssertGreaterThanOrEqual(header.height, 44, name)
         }
     }
 
@@ -576,8 +574,13 @@ final class DesignEcoSnapshotTests: XCTestCase {
                     }
                     XCTAssertTrue(window.bounds.insetBy(dx: -1, dy: -1).contains(frame),
                                   "\(largeMode ? "large" : "normal") \(rightToLeft ? "RTL" : "LTR") \(name) frame=\(frame) window=\(window.bounds)")
-                    XCTAssertTrue(header.insetBy(dx: -1, dy: -1).contains(frame),
-                                  "\(name) must stay in header bounds")
+                    if name == "add-set" {
+                        XCTAssertGreaterThanOrEqual(frame.minY, header.maxY - 1,
+                                                    "Add Set must be in the card footer")
+                    } else {
+                        XCTAssertTrue(header.insetBy(dx: -1, dy: -1).contains(frame),
+                                      "\(name) must stay in header bounds")
+                    }
                 }
             }
         }

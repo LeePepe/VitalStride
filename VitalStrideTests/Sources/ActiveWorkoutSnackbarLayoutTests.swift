@@ -164,40 +164,32 @@ struct ActiveWorkoutSnackbarLayoutTests {
     /// uses a constant layout size and an `.offset` for visual clearance only.
     #if canImport(UIKit) && !os(macOS)
     @MainActor
-    @Test("FAB safeAreaInset height is constant regardless of snackbar state")
-    func fabHeightConstantAcrossSnackbarStates() {
-        // Measure FAB container height when snackbar is NOT visible (.none)
-        let fabNoSnackbar = ActiveWorkoutFABContainer.body(snackbarSlot: .none) {
-            representativeFAB
+    @Test("Single-row dock keeps rest/undo and Add Exercise children horizontally separate")
+    func singleRowDockChildFramesDoNotOverlap() {
+        for slot in [BottomSnackbarSlot.rest, .undo] {
+            let snackbarBox = DockFrameBox()
+            let fabBox = DockFrameBox()
+            let content = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
+                snackbarSlot: slot,
+                undoContent: { AnyView(Color.clear.frame(width: 180, height: 56).background(DockFrameProbe(box: snackbarBox))) },
+                restContent: { AnyView(Color.clear.frame(width: 180, height: 56).background(DockFrameProbe(box: snackbarBox))) },
+                fab: { AnyView(Color.clear.frame(width: 48, height: 48).background(DockFrameProbe(box: fabBox))) }
+            )
+            let host = UIHostingController(rootView: content)
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 160))
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            host.view.setNeedsLayout()
+            host.view.layoutIfNeeded()
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+            host.view.layoutIfNeeded()
+            #expect(snackbarBox.frame.height >= 44)
+            #expect(fabBox.frame.height >= 44)
+            #expect(!snackbarBox.frame.intersects(fabBox.frame))
+            #expect(snackbarBox.frame.maxX <= fabBox.frame.minX + 1 || fabBox.frame.maxX <= snackbarBox.frame.minX + 1)
+            window.isHidden = true
+            window.rootViewController = nil
         }
-        let hostNoSnackbar = UIHostingController(rootView: fabNoSnackbar)
-        let sizeNoSnackbar = hostNoSnackbar.sizeThatFits(in: CGSize(width: 400, height: 0))
-
-        // Measure FAB container height when snackbar IS visible (.rest)
-        let fabWithSnackbar = ActiveWorkoutFABContainer.body(snackbarSlot: .rest) {
-            representativeFAB
-        }
-        let hostWithSnackbar = UIHostingController(rootView: fabWithSnackbar)
-        let sizeWithSnackbar = hostWithSnackbar.sizeThatFits(in: CGSize(width: 400, height: 0))
-
-        // Also measure with undo snackbar
-        let fabWithUndo = ActiveWorkoutFABContainer.body(snackbarSlot: .undo) {
-            representativeFAB
-        }
-        let hostWithUndo = UIHostingController(rootView: fabWithUndo)
-        let sizeWithUndo = hostWithUndo.sizeThatFits(in: CGSize(width: 400, height: 0))
-
-        // All heights must match within 1pt — safeAreaInset reserved height
-        // must be independent of snackbar visibility.
-        let tolerance: CGFloat = 1
-        #expect(
-            abs(sizeNoSnackbar.height - sizeWithSnackbar.height) <= tolerance,
-            "FAB height shifted by \(abs(sizeNoSnackbar.height - sizeWithSnackbar.height))pt when rest snackbar appeared; must be within \(tolerance)pt. Heights: noSnackbar=\(sizeNoSnackbar.height), withSnackbar=\(sizeWithSnackbar.height)"
-        )
-        #expect(
-            abs(sizeNoSnackbar.height - sizeWithUndo.height) <= tolerance,
-            "FAB height shifted by \(abs(sizeNoSnackbar.height - sizeWithUndo.height))pt when undo snackbar appeared; must be within \(tolerance)pt. Heights: noSnackbar=\(sizeNoSnackbar.height), withUndo=\(sizeWithUndo.height)"
-        )
     }
 
     @MainActor
@@ -473,3 +465,44 @@ struct ActiveWorkoutSnackbarLayoutTests {
         _ = baseline
     }
 }
+
+#if canImport(UIKit) && !os(macOS)
+@MainActor
+private final class DockFrameBox {
+    var frame: CGRect = .zero
+}
+
+private struct DockFrameProbe: UIViewRepresentable {
+    let box: DockFrameBox
+
+    func makeUIView(context: Context) -> DockFrameProbeView {
+        let view = DockFrameProbeView()
+        view.box = box
+        return view
+    }
+
+    func updateUIView(_ uiView: DockFrameProbeView, context: Context) {
+        uiView.box = box
+        uiView.reportFrame()
+    }
+}
+
+private final class DockFrameProbeView: UIView {
+    var box: DockFrameBox?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        reportFrame()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        reportFrame()
+    }
+
+    func reportFrame() {
+        guard let window else { return }
+        box?.frame = convert(bounds, to: window)
+    }
+}
+#endif

@@ -453,18 +453,7 @@ struct ActiveWorkoutView: View {
                     policy: policy,
                     theme: theme,
                     infoBand: {
-                        // MY-1262: default mode uses compact info band;
-                        // Large Mode keeps its dual-card layout when the keyboard
-                        // is hidden and collapses sessionStatsCard during active
-                        // keyboard entry to preserve list viewport height.
-                        if largeMode {
-                            workoutTimer
-                            if !isKeyboardVisible {
-                                sessionStatsCard
-                            }
-                        } else {
-                            compactInfoBand
-                        }
+                        compactInfoBand
                     },
                     undoContent: { undoSnackbarEnvelope },
                     restContent: { restSnackbarEnvelope }
@@ -514,6 +503,10 @@ struct ActiveWorkoutView: View {
                     ) {
                         showingDiscardAlert = true
                     }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    exerciseSheetTrigger
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 // MY-1088: Large Mode toggle. Persisted via @AppStorage above.
                 ToolbarItem(placement: .topBarTrailing) {
@@ -781,13 +774,12 @@ struct ActiveWorkoutView: View {
             compactHeartRateItem
             #endif
             Spacer(minLength: 0)
-            exerciseSheetTrigger
             compactSetsItem
             compactVolumeItem(volumeText: volumeText, unit: weightUnit.rawValue)
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .frame(minHeight: 48)
+        .frame(minHeight: largeMode ? 56 : 48)
         .background(workoutSecondaryGroupedBackground)
         .overlay(alignment: .bottom) {
             Rectangle().fill(workoutSeparator).frame(height: 1)
@@ -804,11 +796,11 @@ struct ActiveWorkoutView: View {
             let timeString = String(format: "%d:%02d:%02d", hours, minutes, seconds)
             HStack(alignment: .center, spacing: 4) {
                 Image(systemName: "timer")
-                    .font(.subheadline)
+                    .font(largeMode ? .body : .subheadline)
                     .foregroundStyle(Color.secondary)
                     .accessibilityHidden(true)
                 Text(timeString)
-                    .font(.subheadline.monospacedDigit())
+                    .font(Font.system(largeMode ? .title3 : .subheadline, design: .default).monospacedDigit())
                     .foregroundStyle(Color.primary)
                     .contentTransition(reduceMotion ? .opacity : .numericText())
                     .animation(
@@ -830,11 +822,11 @@ struct ActiveWorkoutView: View {
         let bpmText = HeartRateFormatter.displayText(state)
         return HStack(alignment: .center, spacing: 4) {
             Image(systemName: "heart.fill")
-                .font(.subheadline)
+                .font(largeMode ? .body : .subheadline)
                 .foregroundStyle(theme.danger)
                 .accessibilityHidden(true)
             Text(bpmText)
-                .font(.subheadline.monospacedDigit())
+                .font(Font.system(largeMode ? .title3 : .subheadline, design: .default).monospacedDigit())
                 .foregroundStyle(Color.primary)
                 .contentTransition(reduceMotion ? .opacity : .numericText())
                 .animation(
@@ -870,7 +862,7 @@ struct ActiveWorkoutView: View {
             .frame(width: 14, height: 14)
             .accessibilityHidden(true)
             Text("\(completedSetCount)/\(totalSetCount)")
-                .font(.subheadline.monospacedDigit())
+                .font(Font.system(largeMode ? .title3 : .subheadline, design: .default).monospacedDigit())
                 .foregroundStyle(Color.primary)
                 .contentTransition(
                     reduceMotion ? .opacity : .numericText(countsDown: false)
@@ -893,7 +885,7 @@ struct ActiveWorkoutView: View {
     private func compactVolumeItem(volumeText: String, unit: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 2) {
             Text(volumeText)
-                .font(.subheadline.monospacedDigit())
+                .font(Font.system(largeMode ? .title3 : .subheadline, design: .default).monospacedDigit())
                 .foregroundStyle(Color.primary)
                 .contentTransition(reduceMotion ? .opacity : .numericText())
                 .animation(
@@ -902,7 +894,7 @@ struct ActiveWorkoutView: View {
                 )
                 .layoutPriority(1)
             Text(unit)
-                .font(.caption)
+                .font(largeMode ? .subheadline : .caption)
                 .foregroundStyle(Color.secondary)
         }
 
@@ -949,7 +941,6 @@ struct ActiveWorkoutView: View {
                 heartRateLabel
                 #endif
                 Spacer()
-                exerciseSheetTrigger
                 Text(summaryText)
                     .font(summaryFont)
                     .foregroundStyle(Color.secondary)
@@ -962,7 +953,6 @@ struct ActiveWorkoutView: View {
                     heartRateLabel
                     #endif
                     Spacer()
-                    exerciseSheetTrigger
                 }
                 Text(summaryText)
                     .font(summaryFont)
@@ -972,84 +962,6 @@ struct ActiveWorkoutView: View {
         .padding(.horizontal)
         .padding(.vertical, largeMode ? 10 : 8)
         .background(workoutSecondaryGroupedBackground)
-    }
-
-    // MARK: - Session stats (ActiveWorkoutPrototype top)
-
-    /// Live session summary: set-completion ring + total-volume big number +
-    /// per-exercise volume sparkline. Everything is derived from the observable
-    /// workout/set graph (no new @State, no per-tick work) so it re-renders only
-    /// when the training data itself changes — the same MY-1082 contract the
-    /// timer bar follows. Hidden until the workout has at least one set so the
-    /// empty-workout state stays clean.
-    @ViewBuilder
-    private var sessionStatsCard: some View {
-        if totalSetCount > 0 {
-            let displayVolume = weightUnit == .lb ? totalVolumeKg * 2.20462 : totalVolumeKg
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 14) {
-                    RingGauge(
-                        value: totalSetCount == 0 ? 0 : Double(completedSetCount) / Double(totalSetCount),
-                        size: 48,
-                        stroke: 5
-                    )
-                    .accessibilityLabel(String(localized: "组数进度", comment: "Session set progress a11y label"))
-                    .accessibilityValue(String(
-                        localized: "已完成 \(completedSetCount) / \(totalSetCount) 组",
-                        comment: "Session set progress a11y value"
-                    ))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(String(localized: "组数进度", comment: "Session set progress label"))
-                            .font(TypeScale.meta)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.secondary)
-                        Text("\(completedSetCount) / \(totalSetCount)")
-                            .font(TypeScale.title.monospacedDigit())
-                            .foregroundStyle(Color.primary)
-                            .contentTransition(reduceMotion ? .opacity : .numericText())
-                            .animation(
-                                reduceMotion ? nil : .snappy(duration: 0.22),
-                                value: completedSetCount
-                            )
-                    }
-
-                    Spacer(minLength: 0)
-
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(String(localized: "总容量", comment: "Session total volume label"))
-                            .font(TypeScale.meta)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.secondary)
-                        HStack(alignment: .firstTextBaseline, spacing: 2) {
-                            Text(Int(displayVolume).formatted())
-                                .font(TypeScale.display)
-                                .foregroundStyle(Color.primary)
-                                .contentTransition(reduceMotion ? .opacity : .numericText())
-                                .animation(
-                                    reduceMotion ? nil : .snappy(duration: 0.22),
-                                    value: displayVolume
-                                )
-                            Text(weightUnit.rawValue)
-                                .font(TypeScale.meta)
-                                .foregroundStyle(Color.secondary)
-                        }
-                    }
-                }
-
-                if volumeSeries.count > 1 {
-                    Sparkline(data: volumeSeries, color: Color.accentColor)
-                        .accessibilityHidden(true)
-                }
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(workoutSecondaryGroupedBackground)
-            .overlay(alignment: .top) {
-                Rectangle().fill(workoutSeparator).frame(height: 1)
-            }
-            .accessibilityElement(children: .contain)
-        }
     }
 
     private var totalSetCount: Int {
@@ -2266,10 +2178,31 @@ struct ActiveWorkoutView: View {
                 .frame(width: 48, height: 48)
                 .contentShape(Circle())
         }
-        .buttonStyle(.borderless)
+        #if canImport(UIKit) && !os(macOS)
+        .buttonStyle(ActiveWorkoutAddButtonStyle())
+        #else
+        .buttonStyle(FABButtonStyle())
+        #endif
         .foregroundStyle(Color.accentColor)
         .background(.ultraThinMaterial, in: Circle())
         .overlay(Circle().stroke(workoutSeparator, lineWidth: 1))
+        .liquidGlassCapsule(theme: theme)
+        .frame(width: 48, height: 48)
+        .contentShape(Rectangle())
+        .background {
+            GeometryReader { proxy in
+                let frame = proxy.frame(in: .global)
+                Color.clear
+                    .onAppear {
+                        listObservation.onAddExerciseVisibleFrame(frame)
+                        listObservation.onAddExerciseHitFrame(frame)
+                    }
+                    .onChange(of: frame) { _, newFrame in
+                        listObservation.onAddExerciseVisibleFrame(newFrame)
+                        listObservation.onAddExerciseHitFrame(newFrame)
+                    }
+            }
+        }
         .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
         .accessibilityIdentifier("workout_add_exercise_hit_surface")
     }
@@ -2322,6 +2255,7 @@ struct ActiveWorkoutView: View {
         .buttonStyle(FABButtonStyle())
         #endif
         .frame(maxWidth: horizontalSizeClass == .regular ? 400 : .infinity)
+        .liquidGlassCapsule(theme: theme)
         .background {
             GeometryReader { proxy in
                 let frame = proxy.frame(in: .global)
@@ -2336,7 +2270,7 @@ struct ActiveWorkoutView: View {
                     }
             }
         }
-        .accessibilityIdentifier("workout_add_exercise")
+        .accessibilityIdentifier("workout_add_exercise_hit_surface")
     }
 
     private var totalVolumeKg: Double {

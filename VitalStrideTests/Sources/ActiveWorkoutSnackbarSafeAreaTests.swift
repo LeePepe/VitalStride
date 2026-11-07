@@ -44,20 +44,31 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         let snackbarHost = UIHostingController(rootView: productionRestContent(completed: false))
         let snackbarSize = snackbarHost.sizeThatFits(in: CGSize(width: containerWidth, height: CGFloat.infinity))
 
-        // Measure combined bottomSafeAreaContent
+        let fabFrame = FrameBox()
+        let snackbarFrame = FrameBox()
         let combined = ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
             snackbarSlot: .rest,
             undoContent: { undoPlaceholder },
-            restContent: { productionRestContent(completed: false) },
-            fab: { fabPlaceholder }
+            restContent: { productionRestContent(completed: false).background(FrameProbe(box: snackbarFrame)) },
+            fab: { Color.clear.frame(width: 48, height: 48).background(FrameProbe(box: fabFrame)) }
         )
         let combinedHost = UIHostingController(rootView: combined)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: containerWidth, height: 200))
+        window.rootViewController = combinedHost
+        window.makeKeyAndVisible()
+        combinedHost.view.setNeedsLayout()
+        combinedHost.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         let combinedSize = combinedHost.sizeThatFits(in: CGSize(width: containerWidth, height: CGFloat.infinity))
 
-        // The v2 dock is one horizontal row: height follows the tallest child,
-        // while the row remains wide enough for both controls.
+        // The v2 dock is one horizontal row. Probe both rendered children so
+        // the assertion proves real non-overlap rather than aggregate sizing.
         #expect(combinedSize.height >= max(fabSize.height, snackbarSize.height) - 1)
-        #expect(combinedSize.width >= max(fabSize.width, snackbarSize.width) - 1)
+        #expect(fabFrame.frame.width >= 44)
+        #expect(snackbarFrame.frame.height >= 44)
+        #expect(!fabFrame.frame.intersects(snackbarFrame.frame))
+        #expect(fabFrame.frame.minX >= snackbarFrame.frame.maxX - 1 || snackbarFrame.frame.minX >= fabFrame.frame.maxX - 1)
+        window.isHidden = true
     }
 
     // MARK: - Test 2: P1-2 — real safe-area containment via safeAreaInset host

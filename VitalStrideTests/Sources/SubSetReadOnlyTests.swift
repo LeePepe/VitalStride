@@ -24,7 +24,7 @@ struct SubSetReadOnlyTests {
         container = try ModelContainerConfiguration.makeTestContainer()
     }
 
-    @Test("Drop-set row keeps editable inputs, close affordance, and parent grouping")
+    @Test("Sub-set row keeps editable inputs, delete affordance, and parent grouping")
     func dropSetRowEditingContract() throws {
         let sourceURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -41,29 +41,20 @@ struct SubSetReadOnlyTests {
         #expect(!source.contains(".overlay(alignment: .leading)"))
     }
 
-    @Test("Drop-set row uses the shared centered grid without a footer")
-    func dropSetSharedGridContract() throws {
+    @Test("Sub-set row renders the visual tree anatomy")
+    func dropSetTreeAnatomyContract() throws {
         let sourceURL = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("VitalStride/Sources/ActiveWorkout/SubSetRow.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        #expect(source.contains("HStack(alignment: .center, spacing: 4)"))
-        #expect(source.contains("minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side"))
-        #expect(source.contains("ActiveWorkoutHitTarget.numericInputWidth"))
-        #expect(source.contains("Text(\"\\(parentSetNumber).\\(exerciseSet.order)\")"))
-        #expect(source.contains(".frame(width: 19, height: 24, alignment: .trailing)"))
-        #expect(source.contains(".font(.system(size: 18, weight: .medium))"))
-        #expect(source.contains(".padding(.leading, 4)"))
-        #expect(source.contains(".padding(.trailing, 1)"))
-        #expect(!source.contains("Text(\"↳\")"))
-        #expect(!source.contains("\"metadata\""))
-        #expect(source.contains(".fixedSize(horizontal: true, vertical: false)"))
-        #expect(!source.contains("Menu {"))
-        #expect(!source.contains("ViewThatFits(in: .horizontal)"))
-        #expect(!source.contains("DropSetFooterButton"))
-        #expect(source.contains("frame(height: largeMode ? 42 : 36)"))
+        #expect(source.contains("arrow.turn.down.right"))
+        #expect(source.contains("workoutSeparator"))
+        #expect(source.contains("exerciseSet.setType == .dropSet ? \"D\" : \"P\""))
+        #expect(source.contains("exerciseSet.setType.semanticColor"))
+        #expect(source.contains("padding(.leading, 8)"))
+        #expect(source.contains("ActiveWorkoutHitTarget.side"))
+        #expect(source.contains("WorkoutSetInput(input, theme: theme"))
+        #expect(source.contains("Image(systemName: \"xmark\")"))
     }
 
     @Test("Drop-set outer input pills forward taps to their inner inputs")
