@@ -273,7 +273,9 @@ struct ActiveExerciseSection: View {
                 ))
             }
         } footer: {
-            cardFooter
+            if !isCollapsed {
+                cardFooter
+            }
         }
         .listRowBackground(workoutSecondaryGroupedBackground)
     }
@@ -511,11 +513,11 @@ struct ActiveExerciseSection: View {
         } label: {
             Image(systemName: "ellipsis.circle")
                 .foregroundStyle(Color.secondary)
-                .frame(width: 44, height: 44)
+                .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
-        .frame(width: 44, height: headerControlHeight)
+        .frame(minWidth: 44, minHeight: 44)
         .background {
             GeometryReader { geometry in
                 Color.clear

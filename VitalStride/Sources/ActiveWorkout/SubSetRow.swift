@@ -132,7 +132,7 @@ struct SubSetRow: View {
         .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
         .buttonStyle(.borderless)
         .contentShape(Rectangle())
-        .accessibilityLabel(String(localized: "\(exerciseSet.setType.displayName)完成状态", comment: "Sub-set completion"))
+        .accessibilityLabel(String(localized: "递减组完成状态", comment: "Drop-set completion"))
         .accessibilityHint(String(localized: "双击切换完成状态", comment: "Toggle completion"))
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
             rowObservation.control(exerciseSet.persistentModelID, "completion", frame)
@@ -146,8 +146,8 @@ struct SubSetRow: View {
         .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
         .buttonStyle(.borderless)
         .contentShape(Rectangle())
-        .accessibilityLabel(String(localized: "关闭\(exerciseSet.setType.displayName)", comment: "Delete sub-set row"))
-        .accessibilityHint(String(localized: "删除此\(exerciseSet.setType.displayName)", comment: "Delete sub-set hint"))
+        .accessibilityLabel(String(localized: "关闭递减组", comment: "Delete drop-set row"))
+        .accessibilityHint(String(localized: "删除此递减组", comment: "Delete drop-set hint"))
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
             rowObservation.control(exerciseSet.persistentModelID, "delete", frame)
         }

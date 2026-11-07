@@ -398,20 +398,6 @@ struct ActiveWorkoutView: View {
         showingFinishAlert = true
     }
 
-    // MY-1088: header timer font. Stacks with the user's system Dynamic Type
-    // via `.system(_ style:)` — Large Mode raises the base text style from
-    // .title3 to .largeTitle; the system size then scales on top of that.
-    private var timerFont: Font {
-        Font.system(largeMode ? .largeTitle : .title3, design: .default)
-            .monospacedDigit()
-    }
-
-    // MY-1088: header summary line ("N 动作 · M 组 · V kg") font. Same
-    // Dynamic-Type-stacking approach as `timerFont`.
-    private var summaryFont: Font {
-        Font.system(largeMode ? .title3 : .subheadline, design: .default)
-    }
-
     private var largeModeSymbolName: String {
         largeMode ? "textformat.size.smaller" : "textformat.size.larger"
     }
@@ -503,10 +489,6 @@ struct ActiveWorkoutView: View {
                     ) {
                         showingDiscardAlert = true
                     }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    exerciseSheetTrigger
-                        .frame(minWidth: 44, minHeight: 44)
                 }
                 // MY-1088: Large Mode toggle. Persisted via @AppStorage above.
                 ToolbarItem(placement: .topBarTrailing) {
@@ -774,6 +756,7 @@ struct ActiveWorkoutView: View {
             compactHeartRateItem
             #endif
             Spacer(minLength: 0)
+            exerciseSheetTrigger
             compactSetsItem
             compactVolumeItem(volumeText: volumeText, unit: weightUnit.rawValue)
         }
@@ -926,44 +909,6 @@ struct ActiveWorkoutView: View {
 
     // MARK: - Subviews
 
-    // MY-1082: only elapsed-time formatting stays inside the 1 Hz periodic
-    // closure. Exercise/set counts and total volume are derived from
-    // observable workout/set data and re-render only when that data changes,
-    // not on every timer tick.
-    @ViewBuilder
-    private var workoutTimer: some View {
-        let summaryText = summaryLine
-        ViewThatFits(in: .horizontal) {
-            HStack {
-                timerLabel
-                elapsedTimeText
-                #if !os(macOS)
-                heartRateLabel
-                #endif
-                Spacer()
-                Text(summaryText)
-                    .font(summaryFont)
-                    .foregroundStyle(Color.secondary)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    timerLabel
-                    elapsedTimeText
-                    #if !os(macOS)
-                    heartRateLabel
-                    #endif
-                    Spacer()
-                }
-                Text(summaryText)
-                    .font(summaryFont)
-                    .foregroundStyle(Color.secondary)
-            }
-        }
-        .padding(.horizontal)
-        .padding(.vertical, largeMode ? 10 : 8)
-        .background(workoutSecondaryGroupedBackground)
-    }
-
     private var totalSetCount: Int {
         (workout?.exercises ?? []).reduce(0) { $0 + ($1.sets?.count ?? 0) }
     }
@@ -973,84 +918,6 @@ struct ActiveWorkoutView: View {
             partial + (exercise.sets ?? []).filter(\.isCompleted).count
         }
     }
-
-    /// Per-exercise working-volume series driving the session sparkline. Ordered
-    /// by the exercise `order` so the trend reads left-to-right in the same
-    /// sequence the list shows. Purely derived from the observable graph.
-    private var volumeSeries: [Double] {
-        (workout?.exercises ?? [])
-            .sorted { $0.order < $1.order }
-            .map(\.workingVolume)
-    }
-
-    private var elapsedTimeText: some View {
-        TimelineView(.periodic(from: startTime, by: 1)) { context in
-            let elapsed = context.date.timeIntervalSince(startTime)
-            let totalSeconds = Int(elapsed)
-            let hours = totalSeconds / 3600
-            let minutes = (totalSeconds % 3600) / 60
-            let seconds = totalSeconds % 60
-            let timeString = String(format: "%d:%02d:%02d", hours, minutes, seconds)
-            Text(timeString)
-                .font(timerFont)
-                .contentTransition(reduceMotion ? .opacity : .numericText())
-                .animation(
-                    reduceMotion ? nil : .snappy(duration: 0.22),
-                    value: timeString
-                )
-        }
-    }
-
-    private var summaryLine: String {
-        let exerciseCount = workout?.exercises?.count ?? 0
-        let setCount = workout?.exercises?
-            .reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
-        let volumeKg = totalVolumeKg
-        let displayVolume = weightUnit == .lb ? volumeKg * 2.20462 : volumeKg
-        let volumeText = Int(displayVolume).formatted()
-        return String(
-            localized: "\(exerciseCount) 动作 · \(setCount) 组 · \(volumeText) \(weightUnit.rawValue)",
-            comment: "Workout summary: exercise count, set count, total volume"
-        )
-    }
-
-    private var timerLabel: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "timer")
-                .foregroundStyle(Color.secondary)
-            Text(String(localized: "训练时长", comment: "Workout duration label"))
-                .font(.subheadline)
-                .foregroundStyle(Color.secondary)
-        }
-    }
-
-    #if !os(macOS)
-    private var heartRateLabel: some View {
-        let state = heartRateDisplayState
-        let bpmText = HeartRateFormatter.displayText(state)
-        let unitText = String(localized: "次/分", comment: "Heart rate unit bpm")
-        return HStack(spacing: 2) {
-            Image(systemName: "heart.fill")
-            Text(bpmText)
-                .monospacedDigit()
-                .contentTransition(reduceMotion ? .opacity : .numericText())
-                .animation(
-                    reduceMotion ? nil : .snappy(duration: 0.22),
-                    value: bpmText
-                )
-            // Only render the "次/分" unit suffix alongside a real numeric
-            // value — showing "未连接 次/分" would be nonsensical.
-            if case .value = state {
-                Text(unitText)
-            }
-        }
-        .font(.subheadline)
-        .foregroundStyle(theme.danger)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(String(localized: "心率", comment: "Heart rate a11y label"))
-        .accessibilityValue(HeartRateFormatter.accessibilityText(state))
-    }
-    #endif
 
     // MARK: - Bottom snackbar arbitration (MY-1420)
 
