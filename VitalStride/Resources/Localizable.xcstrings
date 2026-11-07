@@ -12471,6 +12471,13 @@
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "动作概览" } }
       }
     },
+    "动作": {
+      "comment": "Fallback exercise name",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Exercise" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "动作" } }
+      }
+    },
     "上移": {
       "comment": "Move exercise up",
       "localizations": {
