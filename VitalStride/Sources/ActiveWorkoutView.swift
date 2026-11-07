@@ -144,7 +144,15 @@ struct ActiveWorkoutView: View {
             .sheet(isPresented: $isSidebarReordering) { outlineSheet }
             .sheet(item: $exerciseToReplace) { target in ExercisePickerView { target.exercise = $0 } }
             .sheet(item: $exerciseToSubstitute) { target in
-                ExerciseSubstituteSheet(state: substituteSheetState, onSelect: { applySubstitute($0, to: target) }, onManualSelect: { substituteManualFallback = target; exerciseToSubstitute = nil })
+                ExerciseSubstituteSheet(
+                    state: substituteSheetState,
+                    onSelect: { applySubstitute($0, to: target) },
+                    onManualSelect: {
+                        signalStore?.updateLatestAccepted(kind: AICallSite.substitute.kind, accepted: false)
+                        substituteManualFallback = target
+                        exerciseToSubstitute = nil
+                    }
+                )
             }
             .sheet(item: $substituteManualFallback) { target in ExercisePickerView(initialMuscleGroup: target.exercise?.muscleGroup) { target.exercise = $0 } }
             .alert(String(localized: "完成训练？", comment: "Finish workout alert title"), isPresented: $showingFinishAlert) {
@@ -158,7 +166,31 @@ struct ActiveWorkoutView: View {
             .onAppear { setupWorkout() }
             .task(id: restTimer.restEndDate) { await restTimer.handleTimerTask() }
             .onChange(of: restTimer.phase) { _, phase in
-                if phase == .completed { HapticManager.trigger(.restCompleted); restCompletedPresenter.captureCompleted() }
+                if phase == .completed {
+                    HapticManager.trigger(.restCompleted)
+                    restCompletedPresenter.captureCompleted()
+                } else if phase == .resting, restCompletedPresenter.isBuffered {
+                    restCompletedPresenter.dismiss()
+                }
+            }
+            .onChange(of: bottomSnackbarSlot) { _, newSlot in
+                if newSlot == .rest {
+                    restCompletedPresenter.markVisible()
+                } else {
+                    restCompletedPresenter.markOccluded()
+                }
+            }
+            .onAppear {
+                restCompletedPresenter.onDismiss = { [restTimer] in
+                    restTimer.dismissCompleted()
+                }
+                if bottomSnackbarSlot == .rest {
+                    restCompletedPresenter.markVisible()
+                }
+                restCompletedPresenter.resume()
+            }
+            .onDisappear {
+                restCompletedPresenter.cancel()
             }
             .onChange(of: scenePhase) { _, phase in
                 guard phase == .background else { return }
@@ -197,7 +229,18 @@ struct ActiveWorkoutView: View {
             ScrollViewReader { proxy in
                 List {
                     ForEach(exercises) { workoutExercise in
-                        ActiveExerciseSection(workoutExercise: workoutExercise, onSetCompleted: { restTimer.startRest() }, onSetDeleted: {}, onReplace: { exerciseToReplace = workoutExercise }, onSubstitute: { beginSubstituteFlow(for: workoutExercise) }, onDelete: { deleteExercise(workoutExercise) }, undoController: undoController)
+                        ActiveExerciseSection(
+                            workoutExercise: workoutExercise,
+                            onSetCompleted: {
+                                restTimer.startRest()
+                                TelemetryService.shared.trackNonisolated(.setCompleted(exerciseName: TelemetryHelpers.exerciseIdentifier(workoutExercise.exercise)))
+                            },
+                            onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
+                            onReplace: { exerciseToReplace = workoutExercise },
+                            onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
+                            onDelete: { deleteExercise(workoutExercise) },
+                            undoController: undoController
+                        )
                             .id(workoutExercise.persistentModelID)
                     }
                 }
@@ -588,7 +631,7 @@ struct ActiveWorkoutView: View {
 
 
     private var sortedExercises: [WorkoutExercise] {
-        ((workout?.exercises ?? []) ?? []).sorted { $0.order < $1.order }
+        (workout?.exercises ?? []).sorted { $0.order < $1.order }
     }
 
 
@@ -635,7 +678,7 @@ struct ActiveWorkoutView: View {
     }
 
     private var totalVolumeKg: Double {
-        (((workout?.exercises ?? []) ?? []).reduce(0.0) { $0 + $1.workingVolume })
+        (workout?.exercises ?? []).reduce(0.0) { $0 + $1.workingVolume }
     }
 
     // MARK: - Actions

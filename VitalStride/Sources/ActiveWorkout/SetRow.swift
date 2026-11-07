@@ -1027,12 +1027,26 @@ struct SetRow: View {
             onCopyToNext()
         case .applyAISuggestion:
             if let advice = smartProgressionAdvice() { fillFromSuggestion(advice) }
-        case .decreaseWeightFive: exerciseSet.weight = max(0, exerciseSet.weight - 5)
-        case .decreaseWeightTwoPointFive: exerciseSet.weight = max(0, exerciseSet.weight - 2.5)
-        case .increaseWeightTwoPointFive: exerciseSet.weight += 2.5
-        case .increaseWeightFive: exerciseSet.weight += 5
+        case .decreaseWeightFive: adjustWeight(by: -5, field: field)
+        case .decreaseWeightTwoPointFive: adjustWeight(by: -2.5, field: field)
+        case .increaseWeightTwoPointFive: adjustWeight(by: 2.5, field: field)
+        case .increaseWeightFive: adjustWeight(by: 5, field: field)
         case .addPyramidSet: onAddSubSet(.pyramid)
         }
+    }
+
+    private func adjustWeight(by delta: Double, field: SetField) {
+        let isRight = field == .weightRight && exerciseSet.isUnilateral
+        let currentKg = isRight ? (exerciseSet.weightRight ?? exerciseSet.weight) : exerciseSet.weight
+        let conversion = weightUnit == .lb ? 2.20462 : 1
+        let updatedDisplay = max(0, currentKg * conversion + delta)
+        let updatedKg = weightUnit == .lb ? updatedDisplay / conversion : updatedDisplay
+        if isRight {
+            exerciseSet.weightRight = updatedKg
+        } else {
+            exerciseSet.weight = updatedKg
+        }
+        refreshInputText(preservingFocusedField: nil)
     }
 
     /// A mode key always applies to every row of the owning exercise, including sub-sets.
