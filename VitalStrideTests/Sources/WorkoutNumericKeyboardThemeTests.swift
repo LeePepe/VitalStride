@@ -7,17 +7,33 @@ import XCTest
 
 @testable import VitalStride
 
-private func keyboardContrastRatio(_ foreground: UIColor, _ background: UIColor) -> Double? {
+private func keyboardContrastRatio(
+    _ foreground: UIColor,
+    _ background: UIColor,
+    over backdrop: UIColor = .white
+) -> Double? {
     func luminance(_ color: UIColor) -> Double? {
         var red: CGFloat = 0
         var green: CGFloat = 0
         var blue: CGFloat = 0
         var alpha: CGFloat = 0
         guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return nil }
+        if alpha < 1 {
+            var backdropRed: CGFloat = 0
+            var backdropGreen: CGFloat = 0
+            var backdropBlue: CGFloat = 0
+            var backdropAlpha: CGFloat = 0
+            guard backdrop.getRed(
+                &backdropRed, green: &backdropGreen, blue: &backdropBlue, alpha: &backdropAlpha
+            ) else { return nil }
+            red = red * alpha + backdropRed * (1 - alpha)
+            green = green * alpha + backdropGreen * (1 - alpha)
+            blue = blue * alpha + backdropBlue * (1 - alpha)
+        }
 
         func linear(_ value: CGFloat) -> Double {
             let component = Double(value)
-            return component <= 0.03928
+            return component <= 0.04045
                 ? component / 12.92
                 : pow((component + 0.055) / 1.055, 2.4)
         }
@@ -57,18 +73,44 @@ struct WorkoutNumericKeyboardThemeTests {
         }
     }
 
-    @Test("Native Done button colors meet WCAG AA in both color schemes")
+    @Test("Native Done button chooses the highest-contrast foreground and meets WCAG AA in both color schemes")
     @MainActor
     func doneButtonContrast() throws {
         for style in [UIUserInterfaceStyle.light, .dark] {
             let traits = UITraitCollection(userInterfaceStyle: style)
+            let foreground = WorkoutNumericKeyboardContentView.doneButtonForegroundUIColor.resolvedColor(with: traits)
+            let background = WorkoutNumericKeyboardContentView.doneButtonBackgroundUIColor.resolvedColor(with: traits)
             let ratio = try #require(
-                keyboardContrastRatio(
-                    WorkoutNumericKeyboardContentView.doneButtonForegroundUIColor,
-                    WorkoutNumericKeyboardContentView.doneButtonBackgroundUIColor.resolvedColor(with: traits)
-                )
+                keyboardContrastRatio(foreground, background)
             )
-            #expect(ratio >= 4.5)
+            #expect(
+                ratio >= 4.5,
+                "Done contrast in \(style == .dark ? "dark" : "light") appearance: foreground=\(foreground), background=\(background)"
+            )
+            #expect(background == UIColor.tintColor.resolvedColor(with: traits))
+            let whiteContrast = try #require(keyboardContrastRatio(.white, background))
+            let blackContrast = try #require(keyboardContrastRatio(.black, background))
+            let expectedForeground: UIColor = whiteContrast >= blackContrast ? .white : .black
+            #expect(foreground == expectedForeground)
+        }
+    }
+
+    @Test("Digit and function keycaps meet WCAG AA text contrast in both color schemes")
+    @MainActor
+    func digitAndFunctionKeycapContrast() throws {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let traits = UITraitCollection(userInterfaceStyle: style)
+            let digitBackground: UIColor = style == .dark ? .tertiarySystemBackground : .systemBackground
+            for background in [digitBackground, .secondarySystemFill] {
+                let ratio = try #require(
+                    keyboardContrastRatio(
+                        UIColor.label.resolvedColor(with: traits),
+                        background.resolvedColor(with: traits),
+                        over: UIColor.secondarySystemBackground.resolvedColor(with: traits)
+                    )
+                )
+                #expect(ratio >= 4.5)
+            }
         }
     }
 

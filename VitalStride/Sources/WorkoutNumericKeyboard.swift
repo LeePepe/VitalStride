@@ -75,12 +75,27 @@ struct WorkoutNumericKeyboardContentView: View {
     let onDone: @MainActor () -> Void
     @State private var selectionFeedbackTrigger = 0
 
-    static let doneButtonBackgroundUIColor = UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.20, green: 0.42, blue: 0.88, alpha: 1)
-            : UIColor(red: 0.00, green: 0.32, blue: 0.72, alpha: 1)
+    static let doneButtonBackgroundUIColor = UIColor.tintColor
+    static let doneButtonForegroundUIColor = UIColor { traits in
+        let background = UIColor.tintColor.resolvedColor(with: traits)
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard background.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return .black }
+
+        func linearized(_ value: CGFloat) -> Double {
+            let component = Double(value)
+            return component <= 0.04045
+                ? component / 12.92
+                : pow((component + 0.055) / 1.055, 2.4)
+        }
+
+        let luminance = 0.2126 * linearized(red) + 0.7152 * linearized(green) + 0.0722 * linearized(blue)
+        let whiteContrast = 1.05 / (luminance + 0.05)
+        let blackContrast = (luminance + 0.05) / 0.05
+        return whiteContrast >= blackContrast ? .white : .black
     }
-    static let doneButtonForegroundUIColor = UIColor.white
 
     static func weightUnitToggleTitle() -> String {
         String(
@@ -202,7 +217,7 @@ struct WorkoutNumericKeyboardContentView: View {
                 .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
                 .foregroundStyle(Color(uiColor: Self.doneButtonForegroundUIColor))
                 .background(
-                    Color(uiColor: Self.doneButtonBackgroundUIColor),
+                    Color.accentColor,
                     in: RoundedRectangle(cornerRadius: NumericKeypad.keyRadius, style: .continuous)
                 )
         }
