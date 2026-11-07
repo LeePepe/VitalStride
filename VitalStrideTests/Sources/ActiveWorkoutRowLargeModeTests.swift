@@ -1526,19 +1526,21 @@ final class ActiveWorkoutRedesignRenderingTests: XCTestCase {
                         let collection = try XCTUnwrap(scrollView as? UICollectionView)
                         let lastSection = collection.numberOfSections - 1
                         let lastItem = collection.numberOfItems(inSection: lastSection) - 1
-                        recorder.rowFrames.removeAll()
                         collection.scrollToItem(
                             at: IndexPath(item: lastItem, section: lastSection), at: .bottom, animated: false
                         )
+                        collection.layoutIfNeeded()
+                        host.view.layoutIfNeeded()
                         try await Task.sleep(for: .milliseconds(180))
                         let finalSet = try XCTUnwrap(owners[2].sets?.max { $0.order < $1.order })
                         var finalRow = try XCTUnwrap(recorder.rowFrames[finalSet.persistentModelID])
                         if finalRow.maxY > listFrame.maxY {
-                            recorder.rowFrames.removeAll()
                             collection.setContentOffset(
                                 CGPoint(x: 0, y: collection.contentOffset.y + finalRow.maxY - listFrame.maxY),
                                 animated: false
                             )
+                            collection.layoutIfNeeded()
+                            host.view.layoutIfNeeded()
                             try await Task.sleep(for: .milliseconds(180))
                             finalRow = try XCTUnwrap(recorder.rowFrames[finalSet.persistentModelID])
                         }

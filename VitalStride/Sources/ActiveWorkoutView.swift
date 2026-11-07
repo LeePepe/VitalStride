@@ -1424,6 +1424,26 @@ struct ActiveWorkoutView: View {
         selectExercise(movedExercise)
     }
 
+    private func moveExerciseUp(at index: Int) {
+        guard index > 0 else { return }
+        moveSidebarExercise(
+            source: index,
+            destination: index - 1,
+            exercises: sortedExercises,
+            selectExercise: { _ in }
+        )
+    }
+
+    private func moveExerciseDown(at index: Int) {
+        guard index < sortedExercises.count - 1 else { return }
+        moveSidebarExercise(
+            source: index,
+            destination: index + 2,
+            exercises: sortedExercises,
+            selectExercise: { _ in }
+        )
+    }
+
     @ViewBuilder
     private func outlineRow(
         _ workoutExercise: WorkoutExercise,
@@ -1432,6 +1452,13 @@ struct ActiveWorkoutView: View {
         let sets = workoutExercise.sets ?? []
         let completed = sets.filter(\.isCompleted).count
         let progress = "\(completed)/\(sets.count) \(String(localized: "组", comment: "Sets"))"
+        let item = ActiveWorkoutSidebarItem(
+            id: String(describing: workoutExercise.persistentModelID),
+            name: workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"),
+            index: workoutExercise.order,
+            completed: completed,
+            total: sets.count
+        )
         Button {
             onSelect(workoutExercise)
             listObservation.onSidebarSelectionState(workoutExercise.persistentModelID)
@@ -1488,6 +1515,12 @@ struct ActiveWorkoutView: View {
         }
         .onAppear {
             listObservation.onSidebarSelectionState(selectedExerciseID)
+        }
+        .accessibilityAction(named: String(localized: "上移", comment: "Move exercise up")) {
+            moveExerciseUp(at: item.index)
+        }
+        .accessibilityAction(named: String(localized: "下移", comment: "Move exercise down")) {
+            moveExerciseDown(at: item.index)
         }
         .accessibilityIdentifier("workout_outline_exercise_\(workoutExercise.order)")
     }

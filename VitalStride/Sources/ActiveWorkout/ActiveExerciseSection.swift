@@ -545,6 +545,7 @@ struct ActiveExerciseSection: View {
             .buttonStyle(AddSetButtonStyle())
             .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
             .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
+            .accessibilityIdentifier("workout_section_add_set_\(workoutExercise.order)")
             .background {
                 GeometryReader { geometry in
                     Color.clear

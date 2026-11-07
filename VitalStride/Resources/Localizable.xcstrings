@@ -12428,6 +12428,62 @@
         "en": { "stringUnit": { "state": "translated", "value": "Use the horizontal exercise pill bar in active workouts." } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "在进行中的训练中使用横向动作胶囊栏。" } }
       }
+    },
+    "展开": {
+      "comment": "Expand completed exercise",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Expand" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "展开" } }
+      }
+    },
+    "折叠": {
+      "comment": "Collapse completed exercise",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Collapse" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "折叠" } }
+      }
+    },
+    "追加递减组": {
+      "comment": "Add drop set",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Add drop set" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "追加递减组" } }
+      }
+    },
+    "追加金字塔组": {
+      "comment": "Add pyramid set",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Add pyramid set" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "追加金字塔组" } }
+      }
+    },
+    "追加子组": {
+      "comment": "Add follow-on set",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Add follow-on set" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "追加子组" } }
+      }
+    },
+    "动作概览": {
+      "comment": "Exercise outline",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Exercise outline" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "动作概览" } }
+      }
+    },
+    "上移": {
+      "comment": "Move exercise up",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Move up" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "上移" } }
+      }
+    },
+    "下移": {
+      "comment": "Move exercise down",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Move down" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "下移" } }
+      }
     }
   },
   "version": "1.0"
