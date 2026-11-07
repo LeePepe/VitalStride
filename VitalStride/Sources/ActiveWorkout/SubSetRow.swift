@@ -99,37 +99,29 @@ struct SubSetRow: View {
     }
 
     private var leadingControls: some View {
-        Button(action: toggleCompleted) {
-            HStack(alignment: .center, spacing: 2) {
-                Text(exerciseSet.setType == .dropSet ? "D" : "P")
-                    .font(.caption2.monospacedDigit().weight(.bold))
-                    .lineLimit(1)
-                    .foregroundStyle(exerciseSet.setType.semanticColor)
-                    .frame(width: 24, height: 24, alignment: .center)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill((exerciseSet.isCompleted ? Color.green : Color.accentColor).opacity(0.10))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .strokeBorder(
-                                (exerciseSet.isCompleted ? Color.green : Color.accentColor).opacity(0.24),
-                                lineWidth: 1
-                            )
-                    )
+        HStack(alignment: .center, spacing: 2) {
+            Text(exerciseSet.setType == .dropSet ? "D" : "P")
+                .font(.caption2.monospacedDigit().weight(.bold))
+                .lineLimit(1)
+                .foregroundStyle(exerciseSet.setType.semanticColor)
+                .frame(width: 24, height: 24, alignment: .center)
+                .background(exerciseSet.setType.semanticColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(exerciseSet.setType.semanticColor.opacity(0.24), lineWidth: 1)
+                }
+                .accessibilityLabel(exerciseSet.setType == .dropSet ? String(localized: "递减组", comment: "Drop set badge") : String(localized: "金字塔组", comment: "Pyramid set badge"))
+            Button(action: toggleCompleted) {
                 Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.system(size: 22, weight: .medium))
                     .foregroundStyle(exerciseSet.isCompleted ? Color.green : exerciseSet.setType.semanticColor)
+                    .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
             }
-            .padding(.leading, 4)
-            .padding(.trailing, 1)
+            .buttonStyle(.borderless)
+            .contentShape(Rectangle())
+            .accessibilityLabel(exerciseSet.setType == .dropSet ? String(localized: "递减组完成状态", comment: "Drop-set completion") : String(localized: "金字塔组完成状态", comment: "Pyramid-set completion"))
+            .accessibilityHint(String(localized: "双击切换完成状态", comment: "Toggle completion"))
         }
-        .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
-        .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
-        .buttonStyle(.borderless)
-        .contentShape(Rectangle())
-        .accessibilityLabel(String(localized: "递减组完成状态", comment: "Drop-set completion"))
-        .accessibilityHint(String(localized: "双击切换完成状态", comment: "Toggle completion"))
     }
 
     private var trailingControls: some View {

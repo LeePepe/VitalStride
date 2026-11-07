@@ -1,3 +1,4 @@
+// swiftlint:disable no_hardcoded_chinese
 import AIService
 import FlightKit
 import HealthKitService
@@ -161,12 +162,19 @@ struct ActiveWorkoutView: View {
             }
             .onChange(of: scenePhase) { _, phase in
                 guard phase == .background else { return }
+                // swiftlint:disable:next silent_model_save
                 try? modelContext.save()
             }
             #if !os(macOS)
             .task { await observeHeartRate() }
             .task { await observeHeartRateConnection() }
             .task { await monitorHeartRateStaleness() }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                isKeyboardVisible = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                isKeyboardVisible = false
+            }
             #endif
         }
     }
@@ -205,7 +213,23 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var workoutInputDock: some View {
-        HStack(spacing: 10) {
+        if isKeyboardVisible {
+            if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
+                HStack(spacing: 10) {
+                    if undoController.pending != nil {
+                        undoStatusButton
+                    } else if restTimer.phase == .resting {
+                        restSnackbarContent
+                    } else {
+                        restCompletedButton
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+                .background(.regularMaterial)
+            }
+        } else {
+            HStack(spacing: 10) {
             if undoController.pending != nil {
                 Button { undoController.undo(using: modelContext) } label: { Label(String(localized: "已删除组 · 撤销", comment: "Undo deletion"), systemImage: "arrow.uturn.backward") }
                     .buttonStyle(.borderedProminent)
@@ -231,6 +255,23 @@ struct ActiveWorkoutView: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
         .background(.regularMaterial)
+        }
+    }
+
+    private var undoStatusButton: some View {
+        Button { undoController.undo(using: modelContext) } label: {
+            Label(String(localized: "已删除组 · 撤销", comment: "Undo deletion"), systemImage: "arrow.uturn.backward")
+        }
+        .buttonStyle(.borderedProminent)
+        .frame(maxWidth: .infinity, minHeight: 44)
+    }
+
+    private var restCompletedButton: some View {
+        Button { restCompletedPresenter.dismiss(); restTimer.dismissCompleted() } label: {
+            Label(String(localized: "休息结束", comment: "Rest complete"), systemImage: "checkmark.circle.fill")
+        }
+        .buttonStyle(.borderedProminent)
+        .frame(maxWidth: .infinity, minHeight: 44)
     }
 
     private var outlineSheet: some View {
@@ -546,11 +587,8 @@ struct ActiveWorkoutView: View {
 
 
 
-    @ViewBuilder
-
-
     private var sortedExercises: [WorkoutExercise] {
-        (workout?.exercises ?? []).sorted { $0.order < $1.order }
+        ((workout?.exercises ?? []) ?? []).sorted { $0.order < $1.order }
     }
 
 
@@ -596,17 +634,8 @@ struct ActiveWorkoutView: View {
         )
     }
 
-    @ViewBuilder
-
-
-
-
-
-
-
-
     private var totalVolumeKg: Double {
-        (workout?.exercises ?? []).reduce(0.0) { $0 + $1.workingVolume }
+        (((workout?.exercises ?? []) ?? []).reduce(0.0) { $0 + $1.workingVolume })
     }
 
     // MARK: - Actions

@@ -1,3 +1,4 @@
+// swiftlint:disable no_hardcoded_chinese
 import DesignKit
 import SwiftUI
 import VitalModels
@@ -103,11 +104,17 @@ struct WorkoutNumericKeyboardContentView: View {
     }
 
     static func weightUnitToggleTitle() -> String {
-        String(
-            localized: "workout.keyboard.weight_unit",
-            defaultValue: "kg / lb",
-            comment: "Toggle between kilogram and pound display units"
-        )
+        String(localized: "workout.keyboard.weight_unit", defaultValue: "kg / lb", comment: "Toggle between kilogram and pound display units")
+    }
+
+    static func repsPresetTitle(_ reps: Int) -> String {
+        switch reps {
+        case 5: return String(localized: "workout.keyboard.reps_5", defaultValue: "5 reps", comment: "Repetition preset")
+        case 8: return String(localized: "workout.keyboard.reps_8", defaultValue: "8 reps", comment: "Repetition preset")
+        case 10: return String(localized: "workout.keyboard.reps_10", defaultValue: "10 reps", comment: "Repetition preset")
+        case 12: return String(localized: "workout.keyboard.reps_12", defaultValue: "12 reps", comment: "Repetition preset")
+        default: return String(localized: "workout.keyboard.reps_15", defaultValue: "15 reps", comment: "Repetition preset")
+        }
     }
 
     init(
@@ -143,9 +150,9 @@ struct WorkoutNumericKeyboardContentView: View {
     var body: some View {
         VStack(spacing: 8) {
             accessoryValueBar
-                .frame(minHeight: 38)
+                .frame(minHeight: 44)
             accessoryAttributeBar
-                .frame(minHeight: 34)
+                .frame(minHeight: 44)
             HStack(spacing: 8) {
                 NumericKeypad(mode: field.isDecimalEnabled ? .decimal : .integer, onKeyPress: onKeyPress)
                     .frame(maxWidth: .infinity)
@@ -172,9 +179,9 @@ struct WorkoutNumericKeyboardContentView: View {
                 accessoryPill(Self.weightUnitToggleTitle(), action: .toggleWeightUnit)
             } else {
                 ForEach([5, 8, 10, 12, 15], id: \.self) { reps in
-                    Button("\(reps) 次") { selectionFeedbackTrigger += 1; onPresetReps(recentWeightKg, reps) }
+                    Button(Self.repsPresetTitle(reps)) { selectionFeedbackTrigger += 1; onPresetReps(recentWeightKg, reps) }
                         .buttonStyle(.bordered)
-                        .frame(maxWidth: .infinity, minHeight: 38)
+                        .frame(maxWidth: .infinity, minHeight: 44)
                 }
             }
         }
@@ -182,11 +189,11 @@ struct WorkoutNumericKeyboardContentView: View {
 
     private var accessoryAttributeBar: some View {
         HStack(spacing: 6) {
-            accessoryPill(setType == .warmup ? "热身" : "正式", action: .setWarmup, active: setType == .warmup)
-            accessoryPill("单/双侧", action: .toggleUnilateral)
-            accessoryPill("+递减", action: .addDropSet)
-            accessoryPill("+金字塔", action: .addPyramidSet)
-            accessoryPill("复制", action: .copyToNext)
+            accessoryPill(setType == .warmup ? String(localized: "workout.keyboard.warmup", defaultValue: "Warm-up", comment: "Toggle warm-up set") : String(localized: "workout.keyboard.working", defaultValue: "Working", comment: "Toggle working set"), action: .setWarmup, active: setType == .warmup)
+            accessoryPill(String(localized: "workout.keyboard.laterality", defaultValue: "Single / Both", comment: "Toggle unilateral mode"), action: .toggleUnilateral)
+            accessoryPill(String(localized: "workout.keyboard.add_drop", defaultValue: "+ Drop", comment: "Add drop set"), action: .addDropSet)
+            accessoryPill(String(localized: "workout.keyboard.add_pyramid", defaultValue: "+ Pyramid", comment: "Add pyramid set"), action: .addPyramidSet)
+            accessoryPill(String(localized: "workout.keyboard.copy_short", defaultValue: "Copy", comment: "Copy to next set"), action: .copyToNext)
         }
     }
 
@@ -194,7 +201,7 @@ struct WorkoutNumericKeyboardContentView: View {
         Button(title) { selectionFeedbackTrigger += 1; onLeftAction(action) }
             .font(.caption.weight(active ? .semibold : .medium))
             .lineLimit(1)
-            .frame(maxWidth: .infinity, minHeight: 34)
+            .frame(maxWidth: .infinity, minHeight: 44)
             .foregroundStyle(active ? Color.accentColor : Color(uiColor: .label))
             .background((active ? Color.orange.opacity(0.18) : Color(uiColor: .secondarySystemFill)), in: Capsule())
             .buttonStyle(KeyboardKeyButtonStyle())
@@ -485,8 +492,8 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
     // MARK: Height policy
 
     /// Compact three-column layout with no separate header row.
-    private static let iPhonePreferredHeight: CGFloat = 290
-    private static let iPadPreferredHeight: CGFloat = 310
+    private static let iPhonePreferredHeight: CGFloat = NumericKeypad.totalGridHeight + 44 + 44 + 8 + 8 + 16
+    private static let iPadPreferredHeight: CGFloat = iPhonePreferredHeight + 20
 
     static func preferredHeight() -> CGFloat {
         let isPad = UIDevice.current.userInterfaceIdiom == .pad
