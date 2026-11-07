@@ -1,6 +1,5 @@
 #if canImport(UIKit) && !os(macOS)
 
-import DesignKit
 import SwiftUI
 import Testing
 import UIKit
@@ -40,35 +39,36 @@ struct WorkoutNumericKeyboardThemeTests {
     @Test("Dock background resolves from secondarySystemBackground in both appearances")
     @MainActor
     func nativeDockBackgroundAdaptsToTraits() {
-        let light = UIColor.secondarySystemBackground.resolvedColor(
-            with: UITraitCollection(userInterfaceStyle: .light)
-        )
-        let dark = UIColor.secondarySystemBackground.resolvedColor(
-            with: UITraitCollection(userInterfaceStyle: .dark)
-        )
-        #expect(light == UIColor.secondarySystemBackground.resolvedColor(
-            with: UITraitCollection(userInterfaceStyle: .light)
-        ))
-        #expect(dark == UIColor.secondarySystemBackground.resolvedColor(
-            with: UITraitCollection(userInterfaceStyle: .dark)
-        ))
-        #expect(light != dark)
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let keyboard = WorkoutNumericKeyboard(frame: CGRect(x: 0, y: 0, width: 393, height: 280))
+            keyboard.overrideUserInterfaceStyle = style
+            let window = UIWindow(frame: keyboard.bounds)
+            window.overrideUserInterfaceStyle = style
+            window.addSubview(keyboard)
+            window.makeKeyAndVisible()
+            keyboard.layoutIfNeeded()
+            window.layoutIfNeeded()
+
+            let traits = UITraitCollection(userInterfaceStyle: style)
+            let expected = UIColor.secondarySystemBackground.resolvedColor(with: traits)
+            #expect(keyboard.backgroundColor?.resolvedColor(with: traits) == expected)
+            #expect(keyboard.hostingController?.view.backgroundColor?.resolvedColor(with: traits) == expected)
+            window.isHidden = true
+        }
     }
 
-    @Test("Interactive Done button colors meet WCAG AA for every seed and color scheme")
+    @Test("Native Done button colors meet WCAG AA in both color schemes")
     @MainActor
-    func interactiveAccentContrast() throws {
-        for isDark in [false, true] {
-            for seed in Seed.allCases {
-                let theme = Theme(seed: seed, neutral: .slate, isDark: isDark)
-                let ratio = try #require(
-                    keyboardContrastRatio(
-                        UIColor(theme.onInteractiveAccent),
-                        UIColor(theme.interactiveAccent)
-                    )
+    func doneButtonContrast() throws {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let traits = UITraitCollection(userInterfaceStyle: style)
+            let ratio = try #require(
+                keyboardContrastRatio(
+                    WorkoutNumericKeyboardContentView.doneButtonForegroundUIColor,
+                    WorkoutNumericKeyboardContentView.doneButtonBackgroundUIColor.resolvedColor(with: traits)
                 )
-                #expect(ratio >= 4.5)
-            }
+            )
+            #expect(ratio >= 4.5)
         }
     }
 
@@ -193,6 +193,8 @@ final class WorkoutKeyboardUnitRenderingTests: XCTestCase {
     }
 
     func testLightAndDarkKeyboardRender() {
+        var renderedCornerPixels: [(UInt8, UInt8, UInt8)] = []
+
         for isDark in [false, true] {
             let content = WorkoutNumericKeyboardContentView(
                 field: .weight,
@@ -204,7 +206,9 @@ final class WorkoutKeyboardUnitRenderingTests: XCTestCase {
                 onPresetReps: { _, _ in },
                 onDone: {}
             )
+            .environment(\.colorScheme, isDark ? .dark : .light)
             let host = UIHostingController(rootView: content)
+            host.overrideUserInterfaceStyle = isDark ? .dark : .light
             host.safeAreaRegions = []
             let size = CGSize(width: 375, height: WorkoutNumericKeyboard.preferredHeight())
             host.view.frame = CGRect(origin: .zero, size: size)
@@ -218,6 +222,25 @@ final class WorkoutKeyboardUnitRenderingTests: XCTestCase {
             attachment.lifetime = .keepAlways
             add(attachment)
             XCTAssertGreaterThan(host.sizeThatFits(in: size).height, 0)
+
+            guard let cgImage = image.cgImage,
+                  let provider = cgImage.dataProvider,
+                  let data = provider.data as Data? else {
+                XCTFail("Unable to read rendered keyboard pixels")
+                continue
+            }
+            let bytes = [UInt8](data)
+            let offset = 1 * cgImage.bytesPerRow + 1 * 4
+            renderedCornerPixels.append((bytes[offset], bytes[offset + 1], bytes[offset + 2]))
+        }
+
+        XCTAssertEqual(renderedCornerPixels.count, 2)
+        if renderedCornerPixels.count == 2 {
+            XCTAssertTrue(
+                renderedCornerPixels[0].0 != renderedCornerPixels[1].0 ||
+                renderedCornerPixels[0].1 != renderedCornerPixels[1].1 ||
+                renderedCornerPixels[0].2 != renderedCornerPixels[1].2
+            )
         }
     }
 }

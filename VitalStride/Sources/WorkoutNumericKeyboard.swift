@@ -75,6 +75,13 @@ struct WorkoutNumericKeyboardContentView: View {
     let onDone: @MainActor () -> Void
     @State private var selectionFeedbackTrigger = 0
 
+    static let doneButtonBackgroundUIColor = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.20, green: 0.42, blue: 0.88, alpha: 1)
+            : UIColor(red: 0.00, green: 0.32, blue: 0.72, alpha: 1)
+    }
+    static let doneButtonForegroundUIColor = UIColor.white
+
     static func weightUnitToggleTitle() -> String {
         String(
             localized: "workout.keyboard.weight_unit",
@@ -193,9 +200,9 @@ struct WorkoutNumericKeyboardContentView: View {
             Text(String(localized: "workout_keyboard.done_label", defaultValue: "Done", comment: "Dismiss workout keyboard"))
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color(uiColor: Self.doneButtonForegroundUIColor))
                 .background(
-                    Color.accentColor,
+                    Color(uiColor: Self.doneButtonBackgroundUIColor),
                     in: RoundedRectangle(cornerRadius: NumericKeypad.keyRadius, style: .continuous)
                 )
         }
