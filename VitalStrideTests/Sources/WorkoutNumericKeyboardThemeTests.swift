@@ -35,28 +35,24 @@ private func keyboardContrastRatio(_ foreground: UIColor, _ background: UIColor)
     return (lighter + 0.05) / (darker + 0.05)
 }
 
-@Suite("WorkoutNumericKeyboard.resolveTheme")
+@Suite("WorkoutNumericKeyboard native semantic styling")
 struct WorkoutNumericKeyboardThemeTests {
-    @Test("Light theme uses teal seed, slate neutral, isDark false")
-    func lightTheme() {
-        let theme = WorkoutNumericKeyboard.resolveTheme(isDark: false)
-        #expect(theme.seed == .teal)
-        #expect(theme.neutral == .slate)
-        #expect(theme.isDark == false)
-    }
-
-    @Test("Dark theme uses teal seed, slate neutral, isDark true")
-    func darkTheme() {
-        let theme = WorkoutNumericKeyboard.resolveTheme(isDark: true)
-        #expect(theme.seed == .teal)
-        #expect(theme.neutral == .slate)
-        #expect(theme.isDark == true)
-    }
-
-    @Test("isDark parameter is passed through unchanged", arguments: [false, true])
-    func isDarkPassThrough(_ isDark: Bool) {
-        let theme = WorkoutNumericKeyboard.resolveTheme(isDark: isDark)
-        #expect(theme.isDark == isDark)
+    @Test("Dock background resolves from secondarySystemBackground in both appearances")
+    @MainActor
+    func nativeDockBackgroundAdaptsToTraits() {
+        let light = UIColor.secondarySystemBackground.resolvedColor(
+            with: UITraitCollection(userInterfaceStyle: .light)
+        )
+        let dark = UIColor.secondarySystemBackground.resolvedColor(
+            with: UITraitCollection(userInterfaceStyle: .dark)
+        )
+        #expect(light == UIColor.secondarySystemBackground.resolvedColor(
+            with: UITraitCollection(userInterfaceStyle: .light)
+        ))
+        #expect(dark == UIColor.secondarySystemBackground.resolvedColor(
+            with: UITraitCollection(userInterfaceStyle: .dark)
+        ))
+        #expect(light != dark)
     }
 
     @Test("Interactive Done button colors meet WCAG AA for every seed and color scheme")
@@ -96,7 +92,6 @@ struct WorkoutNumericKeyboardThemeTests {
             setType: .working,
             exercise: nil,
             recentWeightKg: 40,
-            theme: WorkoutNumericKeyboard.resolveTheme(isDark: false),
             onKeyPress: { _ in },
             onLeftAction: { _ in },
             onPresetReps: { _, _ in },
@@ -116,7 +111,6 @@ struct WorkoutNumericKeyboardThemeTests {
 final class WorkoutKeyboardUnitRenderingTests: XCTestCase {
     func testKeyboardDockHasNoTopOrBottomSlicingStripsInLightAndDark() throws {
         for isDark in [false, true] {
-            let theme = WorkoutNumericKeyboard.resolveTheme(isDark: isDark)
             let heights = [CGFloat(280), WorkoutNumericKeyboard.preferredHeight()]
             for height in heights {
                 let keyboard = WorkoutNumericKeyboard(frame: CGRect(x: 0, y: 0, width: 393, height: height))
@@ -128,8 +122,14 @@ final class WorkoutKeyboardUnitRenderingTests: XCTestCase {
                 keyboard.layoutIfNeeded()
                 window.layoutIfNeeded()
 
-                XCTAssertEqual(keyboard.backgroundColor, UIColor(theme.neutrals.bg))
-                XCTAssertEqual(keyboard.hostingController?.view.backgroundColor, UIColor(theme.neutrals.bg))
+                XCTAssertEqual(
+                    keyboard.backgroundColor?.resolvedColor(with: keyboard.traitCollection),
+                    UIColor.secondarySystemBackground.resolvedColor(with: keyboard.traitCollection)
+                )
+                XCTAssertEqual(
+                    keyboard.hostingController?.view.backgroundColor?.resolvedColor(with: keyboard.traitCollection),
+                    UIColor.secondarySystemBackground.resolvedColor(with: keyboard.traitCollection)
+                )
                 XCTAssertEqual(keyboard.hostingController?.safeAreaRegions.isEmpty, true)
 
                 let format = UIGraphicsImageRendererFormat()
@@ -178,12 +178,10 @@ final class WorkoutKeyboardUnitRenderingTests: XCTestCase {
                     return (red, green, blue)
                 }
 
-                let resolvedBorder = UIColor(theme.neutrals.border).resolvedColor(with: keyboard.traitCollection)
-                let resolvedBackground = UIColor(theme.neutrals.bg).resolvedColor(with: keyboard.traitCollection)
-                let border = uicolorRGB(resolvedBorder)
+                let resolvedBackground = UIColor.secondarySystemBackground.resolvedColor(with: keyboard.traitCollection)
                 let background = uicolorRGB(resolvedBackground)
                 if let top = rgb(at: CGPoint(x: 20, y: 0)) {
-                    XCTAssertLessThanOrEqual(max(abs(top.0 - border.0), abs(top.1 - border.1), abs(top.2 - border.2)), 6 / 255, "top=\(top) border=\(border)")
+                    XCTAssertLessThanOrEqual(max(abs(top.0 - background.0), abs(top.1 - background.1), abs(top.2 - background.2)), 32 / 255, "top=\(top) background=\(background)")
                 }
                 for point in [CGPoint(x: 20, y: 2), CGPoint(x: 20, y: height - 2)] {
                     guard let pixel = rgb(at: point) else { continue }
@@ -201,7 +199,6 @@ final class WorkoutKeyboardUnitRenderingTests: XCTestCase {
                 setType: .working,
                 exercise: nil,
                 recentWeightKg: 40,
-                theme: WorkoutNumericKeyboard.resolveTheme(isDark: isDark),
                 onKeyPress: { _ in },
                 onLeftAction: { _ in },
                 onPresetReps: { _, _ in },

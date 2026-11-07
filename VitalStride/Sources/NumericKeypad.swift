@@ -161,17 +161,27 @@ struct KeyboardKeyButtonStyle: ButtonStyle {
 }
 
 struct NumericKeypad: View {
-    @Environment(\.theme) private var theme
     let mode: NumericKeypadMode
     let onKeyPress: @MainActor (NumericKeypadKey) -> Void
+    @State private var selectionFeedbackTrigger = 0
 
-    // Visual constants — north-star §11 & Five-Layer Craft 4×52pt module.
+    // Native iOS keyboard proportions: four rows of 52pt keycaps.
     static let gridSpacing: CGFloat = 8
     static let digitMinHeight: CGFloat = 52
-    static let keyRadius: CGFloat = 8
+    static let keyRadius: CGFloat = 10
     static let totalGridHeight: CGFloat = 4 * digitMinHeight + 3 * gridSpacing
 
     private static let columns = Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: 3)
+
+    private static var digitKeyBackground: Color {
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? .tertiarySystemBackground : .systemBackground
+        })
+    }
+
+    private static let functionKeyBackground = Color(uiColor: .secondarySystemFill)
+    private static let keyForeground = Color(uiColor: .label)
+    private static let secondaryKeyForeground = Color(uiColor: .secondaryLabel)
 
     var body: some View {
         LazyVGrid(columns: Self.columns, spacing: Self.gridSpacing) {
@@ -182,9 +192,9 @@ struct NumericKeypad: View {
             keyButton(.digit(0))
             keyButton(.delete)
         }
-        .background(theme.neutrals.bg)
         .accessibilityElement(children: .contain)
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        .sensoryFeedback(.selection, trigger: selectionFeedbackTrigger)
     }
 
     @ViewBuilder
@@ -194,17 +204,10 @@ struct NumericKeypad: View {
             keyButton(.decimal)
         case .integer:
             Text(".")
-                .font(TypeScale.title.weight(.semibold))
-                .foregroundStyle(theme.neutrals.text3.opacity(0.4))
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(Self.secondaryKeyForeground.opacity(0.4))
                 .frame(maxWidth: .infinity, minHeight: Self.digitMinHeight, maxHeight: Self.digitMinHeight)
-                .background(
-                    theme.neutrals.inner.opacity(0.5),
-                    in: RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous)
-                        .strokeBorder(theme.neutrals.border.opacity(0.35), lineWidth: 1)
-                )
+                .background(Self.digitKeyBackground, in: RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous))
                 .disabled(true)
                 .accessibilityHidden(true)
         }
@@ -212,22 +215,23 @@ struct NumericKeypad: View {
 
     private func keyButton(_ key: NumericKeypadKey) -> some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            selectionFeedbackTrigger += 1
             onKeyPress(key)
         } label: {
             Text(key.label)
-                .font(TypeScale.title)
-                .fontWeight(.semibold)
+                .font(.title2.weight(.semibold))
                 .monospacedDigit()
-                .foregroundStyle(keyForeground(key))
+                .foregroundStyle(Self.keyForeground(for: key))
                 .frame(maxWidth: .infinity, minHeight: Self.digitMinHeight, maxHeight: Self.digitMinHeight)
                 .background(
-                    theme.neutrals.inner,
+                    key == .delete ? Self.functionKeyBackground : Self.digitKeyBackground,
                     in: RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous)
                 )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Self.keyRadius, style: .continuous)
-                        .strokeBorder(theme.neutrals.border.opacity(0.75), lineWidth: 1)
+                .shadow(
+                    color: key == .delete ? .clear : .black.opacity(0.12),
+                    radius: key == .delete ? 0 : 0.5,
+                    x: 0,
+                    y: key == .delete ? 0 : 1
                 )
         }
         .buttonStyle(KeyboardKeyButtonStyle())
@@ -235,13 +239,8 @@ struct NumericKeypad: View {
         .accessibilityAddTraits(.isKeyboardKey)
     }
 
-    private func keyForeground(_ key: NumericKeypadKey) -> Color {
-        switch key {
-        // Red line (north-star §11.5): digit keys must never fade to text2/text3.
-        // Delete key softens one step to text2.
-        case .delete: theme.neutrals.text2
-        default: theme.neutrals.text1
-        }
+    private static func keyForeground(for key: NumericKeypadKey) -> Color {
+        key == .delete ? secondaryKeyForeground : keyForeground
     }
 }
 #endif
