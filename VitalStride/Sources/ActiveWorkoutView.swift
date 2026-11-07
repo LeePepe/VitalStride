@@ -76,8 +76,10 @@ struct ActiveWorkoutView: View {
     @State private var sessionManager: (any WorkoutSessionManaging)?
     #endif
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
-    // MY-1088: workout-specific Large Mode toggle. Persisted across sessions.
-    @AppStorage("activeWorkoutLargeMode") private var largeMode = false
+    @State private var displayMode: WorkoutDisplayMode = .tiled
+    @State private var focusedSetID: PersistentIdentifier?
+
+    private var legacyLayoutLarge: Bool { displayMode == .focus }
     @State private var startTime = Date()
     let source: WorkoutStartSource
 
@@ -85,13 +87,6 @@ struct ActiveWorkoutView: View {
         source: WorkoutStartSource = .blank,
     ) {
         self.source = source
-    }
-
-    private func toggleLargeMode() {
-        withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85)) {
-            largeMode.toggle()
-        }
-        HapticManager.trigger(.setCompleted)
     }
 
     private func requestFinish() {
@@ -120,9 +115,17 @@ struct ActiveWorkoutView: View {
                     Button(String(localized: "放弃", comment: "Discard workout toolbar button"), role: .destructive) { showingDiscardAlert = true }
                         .frame(minWidth: 44, minHeight: 44)
                 }
+                ToolbarItem(placement: .principal) {
+                    Picker(String(localized: "训练模式", comment: "Workout display mode"), selection: $displayMode) {
+                        Label(String(localized: "平铺", comment: "Tiled workout mode"), systemImage: "square.grid.2x2").tag(WorkoutDisplayMode.tiled)
+                        Label(String(localized: "专注", comment: "Focus workout mode"), systemImage: "circle.dotted").tag(WorkoutDisplayMode.focus)
+                    }
+                    .pickerStyle(.segmented)
+                    .sensoryFeedback(.selection, trigger: displayMode)
+                    .frame(maxWidth: 180)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Toggle(String(localized: "大字模式", comment: "Large mode"), isOn: $largeMode)
                         Picker(String(localized: "重量单位", comment: "Weight unit"), selection: $weightUnit) {
                             Text("kg").tag(WeightUnit.kg)
                             Text("lb").tag(WeightUnit.lb)
@@ -163,12 +166,24 @@ struct ActiveWorkoutView: View {
                 Button(String(localized: "放弃", comment: "Confirm discard"), role: .destructive) { discardWorkout() }
                 Button(String(localized: "继续训练", comment: "Continue workout"), role: .cancel) {}
             } message: { Text(String(localized: "训练数据将不会保存。", comment: "Discard workout message")) }
-            .onAppear { setupWorkout() }
+            .onAppear {
+                displayMode = WorkoutDisplayMode.resolveInitialMode(
+                    storedRawValue: UserDefaults.standard.string(forKey: "activeWorkoutDisplayMode"),
+                    flightFocusDefault: flightStore?.effectiveValue(for: WorkoutFlight.focusModeDefault) ?? false
+                )
+                setupWorkout()
+            }
+            .onChange(of: displayMode) { _, mode in
+                UserDefaults.standard.set(mode.rawValue, forKey: "activeWorkoutDisplayMode")
+            }
             .task(id: restTimer.restEndDate) { await restTimer.handleTimerTask() }
             .onChange(of: restTimer.phase) { _, phase in
                 if phase == .completed {
                     HapticManager.trigger(.restCompleted)
                     restCompletedPresenter.captureCompleted()
+                    if displayMode == .focus, let workout {
+                        focusedSetID = WorkoutDualModeEngine.nextIncompleteStep(after: focusedSetID, in: workout)?.set.persistentModelID
+                    }
                 } else if phase == .resting, restCompletedPresenter.isBuffered {
                     restCompletedPresenter.dismiss()
                 }
@@ -225,14 +240,29 @@ struct ActiveWorkoutView: View {
                 .buttonStyle(.borderedProminent)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if displayMode == .focus, let workout {
+            ActiveWorkoutFocusStageView(
+                workout: workout,
+                focusedSetID: $focusedSetID,
+                selectedExerciseID: $selectedExerciseID,
+                restTimer: restTimer,
+                weightUnit: weightUnit,
+                heartRateText: focusHeartRateText,
+                onAddExercise: { showingExercisePicker = true },
+                onAddSet: addFocusedSet,
+                onSubstitute: { if let target = selectedWorkoutExercise { beginSubstituteFlow(for: target) } },
+                onReplace: { exerciseToReplace = selectedWorkoutExercise },
+                onOutline: { isSidebarReordering = true },
+                onFinish: requestFinish
+            )
         } else {
             ScrollViewReader { proxy in
                 List {
                     ForEach(exercises) { workoutExercise in
                         ActiveExerciseSection(
                             workoutExercise: workoutExercise,
-                            onSetCompleted: {
-                                restTimer.startRest()
+                            onSetCompleted: { completedSet in
+                                restTimer.startRest(duration: completedSet.restDuration ?? completedSet.setType.defaultRestDuration)
                                 TelemetryService.shared.trackNonisolated(.setCompleted(exerciseName: TelemetryHelpers.exerciseIdentifier(workoutExercise.exercise)))
                             },
                             onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
@@ -256,7 +286,9 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var workoutInputDock: some View {
-        if isKeyboardVisible {
+        if displayMode == .focus {
+            EmptyView()
+        } else if isKeyboardVisible {
             if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
                 HStack(spacing: 10) {
                     if undoController.pending != nil {
@@ -361,7 +393,7 @@ struct ActiveWorkoutView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .frame(minHeight: largeMode ? 56 : 48)
+        .frame(minHeight: legacyLayoutLarge ? 56 : 48)
         .background(workoutSecondaryGroupedBackground)
         .overlay(alignment: .bottom) {
             Rectangle().fill(workoutSeparator).frame(height: 1)
@@ -378,11 +410,11 @@ struct ActiveWorkoutView: View {
             let timeString = String(format: "%d:%02d:%02d", hours, minutes, seconds)
             HStack(alignment: .center, spacing: 4) {
                 Image(systemName: "timer")
-                    .font(largeMode ? .body : .subheadline)
+                    .font(legacyLayoutLarge ? .body : .subheadline)
                     .foregroundStyle(Color.secondary)
                     .accessibilityHidden(true)
                 Text(timeString)
-                    .font(Font.system(largeMode ? .title3 : .subheadline, design: .default).monospacedDigit())
+                    .font(Font.system(legacyLayoutLarge ? .title3 : .subheadline, design: .default).monospacedDigit())
                     .foregroundStyle(Color.primary)
                     .contentTransition(reduceMotion ? .opacity : .numericText())
                     .animation(
@@ -404,11 +436,11 @@ struct ActiveWorkoutView: View {
         let bpmText = HeartRateFormatter.displayText(state)
         return HStack(alignment: .center, spacing: 4) {
             Image(systemName: "heart.fill")
-                .font(largeMode ? .body : .subheadline)
+                .font(legacyLayoutLarge ? .body : .subheadline)
                 .foregroundStyle(theme.danger)
                 .accessibilityHidden(true)
             Text(bpmText)
-                .font(Font.system(largeMode ? .title3 : .subheadline, design: .default).monospacedDigit())
+                .font(Font.system(legacyLayoutLarge ? .title3 : .subheadline, design: .default).monospacedDigit())
                 .foregroundStyle(Color.primary)
                 .contentTransition(reduceMotion ? .opacity : .numericText())
                 .animation(
@@ -444,7 +476,7 @@ struct ActiveWorkoutView: View {
             .frame(width: 14, height: 14)
             .accessibilityHidden(true)
             Text("\(completedSetCount)/\(totalSetCount)")
-                .font(Font.system(largeMode ? .title3 : .subheadline, design: .default).monospacedDigit())
+                .font(Font.system(legacyLayoutLarge ? .title3 : .subheadline, design: .default).monospacedDigit())
                 .foregroundStyle(Color.primary)
                 .contentTransition(
                     reduceMotion ? .opacity : .numericText(countsDown: false)
@@ -467,7 +499,7 @@ struct ActiveWorkoutView: View {
     private func compactVolumeItem(volumeText: String, unit: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 2) {
             Text(volumeText)
-                .font(Font.system(largeMode ? .title3 : .subheadline, design: .default).monospacedDigit())
+                .font(Font.system(legacyLayoutLarge ? .title3 : .subheadline, design: .default).monospacedDigit())
                 .foregroundStyle(Color.primary)
                 .contentTransition(reduceMotion ? .opacity : .numericText())
                 .animation(
@@ -476,7 +508,7 @@ struct ActiveWorkoutView: View {
                 )
                 .layoutPriority(1)
             Text(unit)
-                .font(largeMode ? .subheadline : .caption)
+                .font(legacyLayoutLarge ? .subheadline : .caption)
                 .foregroundStyle(Color.secondary)
         }
 
@@ -554,7 +586,7 @@ struct ActiveWorkoutView: View {
                 comment: "Undo set deletion a11y label"
             ),
             restEndDate: restTimer.phase == .resting ? restTimer.restEndDate : nil,
-            largeMode: largeMode,
+            largeMode: legacyLayoutLarge,
             onUndo: {
                 undoController.undo(using: modelContext)
             }
@@ -572,7 +604,7 @@ struct ActiveWorkoutView: View {
             neutralBackground: workoutTertiaryFill,
             skipBackground: theme.interactiveAccent,
             theme: theme,
-            largeMode: largeMode
+            largeMode: legacyLayoutLarge
         ) {
             restSnackbarContent
         }
@@ -634,9 +666,22 @@ struct ActiveWorkoutView: View {
         (workout?.exercises ?? []).sorted { $0.order < $1.order }
     }
 
+    private var selectedWorkoutExercise: WorkoutExercise? {
+        sortedExercises.first { $0.persistentModelID == selectedExerciseID } ?? sortedExercises.first
+    }
 
+    private var focusHeartRateText: String {
+        #if !os(macOS)
+        return HeartRateFormatter.displayText(heartRateDisplayState)
+        #else
+        return String(localized: "等待采样", comment: "Heart rate unavailable on macOS")
+        #endif
+    }
 
-
+    private func addFocusedSet() {
+        guard let target = selectedWorkoutExercise else { return }
+        _ = ActiveExerciseSection.insertAppendedMainSet(in: target, using: modelContext)
+    }
 
     private func moveSidebarExercise(
         source: Int,
@@ -1354,7 +1399,7 @@ private struct FABButtonStyle: ButtonStyle {
 // toolbar/render path as production instead of a synthetic environment.
 private struct ActiveWorkoutPreview: View {
     init(largeMode: Bool) {
-        UserDefaults.standard.set(largeMode, forKey: "activeWorkoutLargeMode")
+        UserDefaults.standard.set(largeMode ? WorkoutDisplayMode.focus.rawValue : WorkoutDisplayMode.tiled.rawValue, forKey: "activeWorkoutDisplayMode")
     }
     var body: some View {
         ActiveWorkoutView()

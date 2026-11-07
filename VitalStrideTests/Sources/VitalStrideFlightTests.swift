@@ -15,9 +15,19 @@ struct VitalStrideFlightTests {
         #expect(WorkoutFlight.all.contains(WorkoutFlight.sidebarSchemeC))
     }
 
+    @Test("Focus mode default flight is registered with a disabled default")
+    func focusModeDefaultDescriptor() {
+        #expect(WorkoutFlight.focusModeDefault.key == "workout.active.focus_mode_default")
+        #expect(WorkoutFlight.focusModeDefault.defaultValue == false)
+        #expect(WorkoutFlight.all.contains(WorkoutFlight.focusModeDefault))
+    }
+
     @Test("Flight store environment carries the supplied shared store")
     func flightStoreEnvironment() {
-        let defaults = UserDefaults(suiteName: "VitalStrideFlightTests.\(UUID().uuidString)")!
+        guard let defaults = UserDefaults(suiteName: "VitalStrideFlightTests.\(UUID().uuidString)") else {
+            #expect(Bool(false))
+            return
+        }
         let store = FlightStore(defaults: defaults)
         var values = EnvironmentValues()
         values.flightStore = store
