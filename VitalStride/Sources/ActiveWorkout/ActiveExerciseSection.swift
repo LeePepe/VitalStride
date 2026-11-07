@@ -188,7 +188,7 @@ struct ActiveExerciseSection: View {
                     .listRowInsets(EdgeInsets(top: 2, leading: 6, bottom: 2, trailing: 6))
                     .listRowSeparator(.hidden)
                     .listSectionSeparator(.hidden)
-                    .listRowBackground(theme.neutrals.bg)
+                    .listRowBackground(workoutSecondaryGroupedBackground)
                 } else {
                     SetRow(
                         index: ctx.mainSetNumber,
@@ -229,7 +229,7 @@ struct ActiveExerciseSection: View {
                     .listRowInsets(EdgeInsets(top: 2, leading: 6, bottom: 2, trailing: 6))
                     .listRowSeparator(.hidden)
                     .listSectionSeparator(.hidden)
-                    .listRowBackground(theme.neutrals.bg)
+                    .listRowBackground(workoutSecondaryGroupedBackground)
                 }
             }
             }
@@ -272,8 +272,12 @@ struct ActiveExerciseSection: View {
                     kind: request.childKind
                 ))
             }
+        } footer: {
+            if !isCollapsed {
+                cardFooter
+            }
         }
-        .listRowBackground(theme.neutrals.bg)
+        .listRowBackground(workoutSecondaryGroupedBackground)
     }
 
     /// MY-1420: `confirmationDialog(_:isPresented:presenting:)` needs a Bool
@@ -288,13 +292,30 @@ struct ActiveExerciseSection: View {
         )
     }
 
+    private var exerciseSubtitle: String? {
+        guard let exercise = workoutExercise.exercise else { return nil }
+        let values = [exercise.muscleGroup.localizedName, exercise.equipment.localizedName]
+            .filter { !$0.isEmpty }
+        return values.isEmpty ? nil : values.joined(separator: " · ")
+    }
+
     private func exerciseHeader(
         toggleAction: @escaping ActiveExerciseSectionInteraction.ToggleAction
     ) -> some View {
         HStack(alignment: .center, spacing: 8) {
-            headerTitle(compact: false, toggleAction: toggleAction)
+            VStack(alignment: .leading, spacing: 2) {
+                headerTitle(toggleAction: toggleAction)
+                if let exerciseSubtitle {
+                    Text(exerciseSubtitle)
+                        .font(.caption)
+                        .foregroundStyle(Color.secondary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .layoutPriority(1)
             Spacer(minLength: 0)
-            addSetButtonAndMenu
+            exerciseActionMenu
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: completedSetCount) { _, count in
@@ -316,9 +337,9 @@ struct ActiveExerciseSection: View {
         .padding(.vertical, 4)
         .fixedSize(horizontal: false, vertical: true)
         // The header and rows use one solid card plane without redundant separators.
-        .background(theme.neutrals.bg)
+        .background(workoutSecondaryGroupedBackground)
         .listRowInsets(EdgeInsets())
-        .listRowBackground(theme.neutrals.bg)
+        .listRowBackground(workoutSecondaryGroupedBackground)
         .zIndex(1)
         .background {
             GeometryReader { geometry in
@@ -337,21 +358,16 @@ struct ActiveExerciseSection: View {
     }
 
     private func headerTitle(
-        compact: Bool,
         toggleAction: @escaping ActiveExerciseSectionInteraction.ToggleAction
     ) -> some View {
         HStack(alignment: .center, spacing: 8) {
             if completedSetCount == totalSetCount, totalSetCount > 0 {
-                // The completion fraction already conveys status in a compact
-                // row; keep the extra status icons in the roomy fallback.
-                if !compact {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(theme.success)
-                }
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(Color.green)
             } else {
                 Text("\(workoutExercise.order + 1)")
                     .font(.caption.monospacedDigit().weight(.bold))
-                    .foregroundStyle(completedSetCount == 0 ? theme.neutrals.text2 : theme.accent)
+                    .foregroundStyle(completedSetCount == 0 ? Color.secondary : Color.accentColor)
                     .frame(minWidth: 22, minHeight: 22)
                 .background {
                     GeometryReader { geometry in
@@ -375,8 +391,8 @@ struct ActiveExerciseSection: View {
                     .background(
                         Circle().fill(
                             completedSetCount == 0
-                                ? theme.neutrals.text2.opacity(0.12)
-                                : theme.accent.opacity(0.14)
+                                ? Color.secondary.opacity(0.12)
+                                : Color.accentColor.opacity(0.14)
                         )
                     )
                     .fixedSize(horizontal: true, vertical: false)
@@ -392,7 +408,7 @@ struct ActiveExerciseSection: View {
                 .font(largeMode
                     ? LargeWorkoutFonts.exerciseName(large: true)
                     : Font.system(.body, design: .default).weight(.semibold))
-                .foregroundStyle(theme.neutrals.text1)
+                .foregroundStyle(Color.primary)
                 .layoutPriority(1)
                 .lineLimit(1)
                 .fixedSize(horizontal: false, vertical: false)
@@ -441,7 +457,7 @@ struct ActiveExerciseSection: View {
                 .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
             Text("\(completedSetCount)/\(totalSetCount)")
                 .font(.caption.monospacedDigit())
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(Color.secondary)
                 .fixedSize(horizontal: true, vertical: false)
                 .background {
                     GeometryReader { geometry in
@@ -462,10 +478,10 @@ struct ActiveExerciseSection: View {
                             }
                     }
                 }
-            if !compact, completedSetCount == totalSetCount, totalSetCount > 0 {
+            if completedSetCount == totalSetCount, totalSetCount > 0 {
                 Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
                     .font(.caption2)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(Color.secondary)
             }
         }
         .contentShape(Rectangle())
@@ -475,77 +491,89 @@ struct ActiveExerciseSection: View {
         }
     }
 
-    @ViewBuilder
-    private var addSetButtonAndMenu: some View {
-        HStack(alignment: .center, spacing: 0) {
-            addSetButton
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear
-                            .onAppear {
-                                listObservation.onControlFrame(
-                                    workoutExercise.persistentModelID,
-                                    "add-set",
-                                    geometry.frame(in: .global)
-                                )
-                            }
-                            .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                listObservation.onControlFrame(
-                                    workoutExercise.persistentModelID,
-                                    "add-set",
-                                    frame
-                                )
-                            }
-                    }
-                }
-            Menu {
-            Button {
-                onSubstitute()
-            } label: {
-                // swiftlint:disable:next line_length
+    private var exerciseActionMenu: some View {
+        Menu {
+            Button(action: onSubstitute) {
                 Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute menu item"), systemImage: "sparkles")
             }
-            Button {
-                onReplace()
-            } label: {
-                // swiftlint:disable:next line_length
+            Button(action: onReplace) {
                 Label(String(localized: "替换动作", comment: "Replace exercise menu item"), systemImage: "arrow.triangle.2.circlepath")
             }
-            Button(role: .destructive) {
-                showingDeleteConfirmation = true
-            } label: {
+            if completedSetCount == totalSetCount, totalSetCount > 0 {
+                Button { isCollapsed.toggle() } label: {
+                    Label(
+                        isCollapsed ? String(localized: "展开", comment: "Expand exercise") : String(localized: "折叠", comment: "Collapse exercise"),
+                        systemImage: isCollapsed ? "chevron.down" : "chevron.up"
+                    )
+                }
+            }
+            Button(role: .destructive) { showingDeleteConfirmation = true } label: {
                 Label(String(localized: "删除动作", comment: "Delete exercise menu item"), systemImage: "trash")
             }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-                    .foregroundStyle(theme.neutrals.text2)
-                    .frame(width: 28, height: 28)
-                    .padding(.leading, 1)
-                    .contentShape(Rectangle())
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .foregroundStyle(Color.secondary)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
+        .frame(minWidth: 44, minHeight: 44)
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { listObservation.onControlFrame(workoutExercise.persistentModelID, "menu", geometry.frame(in: .global)) }
+                    .onChange(of: geometry.frame(in: .global)) { _, frame in
+                        listObservation.onControlFrame(workoutExercise.persistentModelID, "menu", frame)
+                    }
             }
-            .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
-            .frame(width: 44, height: headerControlHeight, alignment: .leading)
-            .contentShape(Rectangle())
+        }
+    }
+
+    private var cardFooter: some View {
+        HStack(spacing: 8) {
+            Button(action: addSet) {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus.circle.fill")
+                    Text(String(localized: "添加一组", comment: "Add set button a11y"))
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+                .padding(.horizontal, 10)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(AddSetButtonStyle())
+            .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
+            .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
+            .accessibilityIdentifier("workout_section_add_set_\(workoutExercise.order)")
             .background {
                 GeometryReader { geometry in
                     Color.clear
-                        .onAppear {
-                            listObservation.onControlFrame(
-                                workoutExercise.persistentModelID,
-                                "menu",
-                                geometry.frame(in: .global)
-                            )
-                        }
+                        .onAppear { listObservation.onControlFrame(workoutExercise.persistentModelID, "add-set", geometry.frame(in: .global)) }
                         .onChange(of: geometry.frame(in: .global)) { _, frame in
-                            listObservation.onControlFrame(
-                                workoutExercise.persistentModelID,
-                                "menu",
-                                frame
-                            )
+                            listObservation.onControlFrame(workoutExercise.persistentModelID, "add-set", frame)
                         }
                 }
             }
+            Spacer(minLength: 0)
+            if let lastSet = sortedSets.last {
+                Menu {
+                    Button { addSubSet(after: lastSet, type: .dropSet) } label: {
+                        Label(String(localized: "追加递减组", comment: "Add drop set"), systemImage: "arrow.turn.down.right")
+                    }
+                    Button { addSubSet(after: lastSet, type: .pyramid) } label: {
+                        Label(String(localized: "追加金字塔组", comment: "Add pyramid set"), systemImage: "chart.bar.xaxis")
+                    }
+                } label: {
+                    Label(String(localized: "追加子组", comment: "Add follow-on set"), systemImage: "plus")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .frame(minWidth: 44, minHeight: 44)
+            }
         }
+        .padding(.horizontal, 12)
+        .frame(minHeight: 52)
+        .background(workoutSecondaryGroupedBackground)
     }
 
     // MY-1348 (spec 017): visual redesign — subtle-fill inline button.
@@ -581,24 +609,6 @@ struct ActiveExerciseSection: View {
         newSet.workoutExercise = workoutExercise
         modelContext.insert(newSet)
         return newSet
-    }
-
-    private var addSetButton: some View {
-        Button {
-            addSet()
-        } label: {
-            Image(systemName: "plus.circle.fill")
-                .font(.body.weight(.semibold))
-                .foregroundStyle(theme.primary.primary)
-                .frame(width: 28, height: 28)
-                .padding(.trailing, 1)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(AddSetButtonStyle())
-        .frame(width: 44, height: headerControlHeight, alignment: .trailing)
-        .contentShape(Rectangle())
-        .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
-        .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
     }
 
     private func addSet() {
@@ -637,9 +647,10 @@ struct ActiveExerciseSection: View {
             weightRight: adjustedWeightRight
         )
         withAnimation(reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.30, dampingFraction: 0.85)) {
-            // swiftlint:disable:next identifier_name
-            for i in insertIndex..<sets.count {
-                sets[i].order += 1
+            var ordered = sets
+            ordered.insert(newSet, at: insertIndex)
+            for (idx, item) in ordered.enumerated() {
+                item.order = idx
             }
             newSet.workoutExercise = workoutExercise
             modelContext.insert(newSet)

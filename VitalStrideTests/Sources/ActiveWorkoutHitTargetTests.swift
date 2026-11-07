@@ -38,13 +38,20 @@ struct ActiveWorkoutHitTargetTests {
     @Test("Mounted add-exercise pill has full-width geometry and edge/center activation")
     func mountedAddExerciseProbeContract() async throws {
         for largeMode in [false, true] {
-            let result = try await MountedAddExerciseInteraction.check(largeMode: largeMode)
-            #expect(result.visible.width >= 320)
-            #expect(abs(result.hit.width - result.visible.width) <= 1)
-            #expect(abs(result.hit.height - result.visible.height) <= 1)
-            #expect(abs(result.hit.minX - result.visible.minX) <= 1)
-            #expect(abs(result.hit.minY - result.visible.minY) <= 1)
-            #expect(result.activations == 3)
+            for slot in [BottomSnackbarSlot.none, .rest, .undo] {
+                let result = try await MountedAddExerciseInteraction.check(largeMode: largeMode, slot: slot)
+                if slot == .none {
+                    #expect(result.visible.width >= 320)
+                    #expect(result.activations == 3)
+                } else {
+                    #expect(result.visible.width >= 44)
+                    #expect(result.activations == 1)
+                }
+                #expect(abs(result.hit.width - result.visible.width) <= 1)
+                #expect(abs(result.hit.height - result.visible.height) <= 1)
+                #expect(abs(result.hit.minX - result.visible.minX) <= 1)
+                #expect(abs(result.hit.minY - result.visible.minY) <= 1)
+            }
         }
     }
     #endif
@@ -139,6 +146,8 @@ struct ActiveWorkoutHitTargetTests {
 /// Shared mounted interaction harness; failures throw in both XCTest and Swift Testing.
 @MainActor
 enum MountedAddExerciseInteraction {
+    private static var retainedContainers: [ModelContainer] = []
+
     struct Result {
         let visible: CGRect
         let hit: CGRect
@@ -149,6 +158,7 @@ enum MountedAddExerciseInteraction {
         largeMode: Bool, isDark: Bool = false, slot: BottomSnackbarSlot = .none
     ) async throws -> Result {
         let container = try ModelContainerConfiguration.makeTestContainer()
+        retainedContainers.append(container)
         let workout = Workout(type: .strength, startDate: Date(), exercises: [])
         container.mainContext.insert(workout)
         try container.mainContext.save()
@@ -182,16 +192,18 @@ enum MountedAddExerciseInteraction {
         host.view.setNeedsLayout()
         host.view.layoutIfNeeded()
         guard let visible = visibleFrame, let hit = hitFrame,
-              visible.width >= 320,
+              visible.width >= (slot == .none ? 320 : 44),
               abs(hit.width - visible.width) <= 1,
               abs(hit.height - visible.height) <= 1,
               abs(hit.minX - visible.minX) <= 1,
               abs(hit.minY - visible.minY) <= 1
         else { throw failure("Visible/hit frame parity: \(String(describing: visibleFrame)) / \(String(describing: hitFrame))") }
 
-        let points = [CGPoint(x: visible.minX + 8, y: visible.midY),
-                      CGPoint(x: visible.midX, y: visible.midY),
-                      CGPoint(x: visible.maxX - 8, y: visible.midY)]
+        let points: [CGPoint] = slot == .none
+            ? [CGPoint(x: visible.minX + 8, y: visible.midY),
+               CGPoint(x: visible.midX, y: visible.midY),
+               CGPoint(x: visible.maxX - 8, y: visible.midY)]
+            : [CGPoint(x: visible.midX, y: visible.midY)]
         var mountedControl: UIControl?
         for (index, point) in points.enumerated() {
             guard let target = host.view.hitTest(point, with: nil) as? UIControl,

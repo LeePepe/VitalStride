@@ -55,7 +55,7 @@ private struct LiquidGlassBarModifier: ViewModifier {
             content
                 .background(theme.surface, in: shape)
                 .clipShape(shape)
-                .overlay(shape.stroke(theme.neutrals.border, lineWidth: 1))
+                .overlay(shape.stroke(Color.secondary.opacity(0.35), lineWidth: 1))
         } else if #available(iOS 26.0, macOS 26.0, *), !Self.isRunningUnderXCTest {
             content
                 .background(.ultraThinMaterial, in: shape)
@@ -84,16 +84,16 @@ private struct LiquidGlassCapsuleModifier: ViewModifier {
     func body(content: Content) -> some View {
         if reduceTransparency {
             content
-                .background(theme.neutrals.inner, in: Capsule())
+                .background(workoutTertiaryFill, in: Capsule())
                 .clipShape(Capsule())
-                .overlay(Capsule().stroke(theme.neutrals.border, lineWidth: 1))
+                .overlay(Capsule().stroke(Color.secondary.opacity(0.35), lineWidth: 1))
         } else if #available(iOS 26.0, macOS 26.0, *), !Self.isRunningUnderXCTest {
             content.glassEffect(.regular, in: Capsule())
         } else {
             content
-                .background(theme.neutrals.inner.opacity(0.85))
+                .background(workoutTertiaryFill.opacity(0.85))
                 .clipShape(Capsule())
-                .overlay(Capsule().stroke(theme.neutrals.border, lineWidth: 1))
+                .overlay(Capsule().stroke(Color.secondary.opacity(0.35), lineWidth: 1))
         }
     }
 }

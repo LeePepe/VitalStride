@@ -61,7 +61,7 @@ struct SubSetRow: View {
         .padding(.vertical, 2)
         .padding(.horizontal, 0)
         .frame(maxWidth: .infinity, minHeight: largeMode ? 56 : 48)
-        .designSurface(style: .solid, cornerRadius: 14)
+        .background(workoutSecondaryGroupedBackground)
         .contentShape(Rectangle())
         .sensoryFeedback(.success, trigger: exerciseSet.isCompleted)
         .onAppear {
@@ -83,6 +83,11 @@ struct SubSetRow: View {
 
     private var mainAxis: some View {
         HStack(alignment: .center, spacing: 4) {
+            Image(systemName: "arrow.turn.down.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(workoutSeparator)
+                .frame(width: 20, height: 44)
+                .accessibilityHidden(true)
             leadingControls
             if exerciseSet.isUnilateral {
                 inputsAndCaption
@@ -92,33 +97,33 @@ struct SubSetRow: View {
             Spacer(minLength: 0)
             trailingControls
         }
-        .padding(.horizontal, 0)
+        .padding(.leading, 8)
+        .padding(.trailing, 0)
         .frame(maxWidth: .infinity, minHeight: 44)
     }
 
     private var leadingControls: some View {
         Button(action: toggleCompleted) {
             HStack(alignment: .center, spacing: 2) {
-                Text("\(parentSetNumber).\(exerciseSet.order)")
-                    .font(.caption2.monospacedDigit().weight(.semibold))
+                Text(exerciseSet.setType == .dropSet ? "D" : "P")
+                    .font(.caption2.monospacedDigit().weight(.bold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                    .foregroundStyle(theme.accent)
-                    .frame(width: 19, height: 24, alignment: .trailing)
+                    .foregroundStyle(exerciseSet.setType.semanticColor)
+                    .frame(width: 24, height: 24, alignment: .center)
                     .background(
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill((exerciseSet.isCompleted ? theme.success : theme.accent).opacity(0.10))
+                            .fill((exerciseSet.isCompleted ? Color.green : Color.accentColor).opacity(0.10))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .strokeBorder(
-                                (exerciseSet.isCompleted ? theme.success : theme.accent).opacity(0.24),
+                                (exerciseSet.isCompleted ? Color.green : Color.accentColor).opacity(0.24),
                                 lineWidth: 1
                             )
                     )
                 Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.neutrals.text2)
+                    .foregroundStyle(exerciseSet.isCompleted ? Color.green : exerciseSet.setType.semanticColor)
             }
             .padding(.leading, 4)
             .padding(.trailing, 1)
@@ -207,7 +212,7 @@ struct SubSetRow: View {
             if isSide {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: label)
                     .font(largeMode ? .footnote.weight(isTotal ? .semibold : .bold) : .caption2.weight(isTotal ? .semibold : .bold))
-                    .foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)
+                    .foregroundStyle(isTotal ? Color.secondary : Color.accentColor)
                     .fixedSize()
                     .allowsHitTesting(false)
             }
@@ -223,13 +228,13 @@ struct SubSetRow: View {
             if field.isWeightField {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
                     .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
-                    .foregroundStyle(theme.neutrals.text3)
+                    .foregroundStyle(Color.secondary)
                     .allowsHitTesting(false)
             } else {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit",
                                      text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
                     .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
-                    .foregroundStyle(theme.neutrals.text3)
+                    .foregroundStyle(Color.secondary)
                     .allowsHitTesting(false)
             }
         }
@@ -237,12 +242,12 @@ struct SubSetRow: View {
         .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
         .background(alignment: .center) {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(theme.inner)
+                .fill(workoutTertiaryFill)
                 .frame(height: largeMode ? 42 : 36)
                 .overlay {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(
-                            focusedField == field ? theme.accent : theme.neutrals.border.opacity(0.65),
+                            focusedField == field ? Color.accentColor : workoutSeparator.opacity(0.65),
                             lineWidth: focusedField == field ? 1.5 : 1
                         )
                 }
