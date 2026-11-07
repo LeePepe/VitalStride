@@ -54,7 +54,7 @@ struct ActiveExerciseSection: View {
     @Environment(\.displayScale) private var displayScale
     @Environment(\.activeExerciseSectionInteraction) private var interaction
     let workoutExercise: WorkoutExercise
-    let onSetCompleted: () -> Void
+    let onSetCompleted: (ExerciseSet) -> Void
     let onSetDeleted: () -> Void
     let onReplace: () -> Void
     /// Smart-substitute entry point (spec 003 T013a). Wired by `ActiveWorkoutView`
@@ -144,6 +144,7 @@ struct ActiveExerciseSection: View {
         }
         return Section {
             if !isCollapsed {
+            tiledTableHeader
             ForEach(contexts, id: \.exerciseSet.persistentModelID) { ctx in
                 let exerciseSet = ctx.exerciseSet
                 if exerciseSet.setType.isSubSet {
@@ -155,7 +156,7 @@ struct ActiveExerciseSection: View {
                         exercise: workoutExercise.exercise,
                         recentWeightKg: ctx.recentWeightKg,
                         onToggleCompleted: { wasCompleted in
-                            if !wasCompleted { onSetCompleted() }
+                            if !wasCompleted { onSetCompleted(exerciseSet) }
                         },
                         onDelete: {
                             requestDelete(exerciseSet)
@@ -189,7 +190,7 @@ struct ActiveExerciseSection: View {
                         exercise: workoutExercise.exercise,
                         recentWeightKg: ctx.recentWeightKg,
                         onToggleCompleted: { wasCompleted in
-                            if !wasCompleted { onSetCompleted() }
+                            if !wasCompleted { onSetCompleted(exerciseSet) }
                         },
                         onDelete: {
                             requestDelete(exerciseSet)
@@ -273,6 +274,31 @@ struct ActiveExerciseSection: View {
         )
     }
 
+    private var progressionAdvice: ProgressionAdvice? {
+        guard let workout = workoutExercise.workout else { return nil }
+        return WorkoutDualModeEngine.computeExerciseProgressionAdvice(for: workoutExercise, in: workout, using: modelContext)
+    }
+
+    private var firstIncompleteMainSet: ExerciseSet? {
+        sortedSets.first(where: { !$0.setType.isSubSet && !$0.isCompleted })
+    }
+
+    private var tiledTableHeader: some View {
+        HStack(spacing: 4) {
+            Text(String(localized: "组序", comment: "Set column header")).frame(width: 44, alignment: .leading)
+            Text(String(localized: "上次", comment: "Previous column header")).frame(maxWidth: .infinity, alignment: .leading)
+            Text(weightUnit.rawValue.uppercased()).frame(width: 76, alignment: .center)
+            Text(String(localized: "次数", comment: "Reps column header")).frame(width: 64, alignment: .center)
+            Text("✓").frame(width: 44)
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .frame(minHeight: 32)
+        .padding(.horizontal, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "组序、上次、重量、次数、完成", comment: "Set table column headers"))
+    }
+
     private var exerciseSubtitle: String? {
         guard let exercise = workoutExercise.exercise else { return nil }
         let values = [exercise.muscleGroup.localizedName, exercise.equipment.localizedName]
@@ -295,6 +321,21 @@ struct ActiveExerciseSection: View {
                 }
             }
             .layoutPriority(1)
+            if let advice = progressionAdvice, let target = firstIncompleteMainSet {
+                let displayWeight = WorkoutDualModeEngine.displayWeight(advice.suggestedWeight, unit: weightUnit)
+                Button {
+                    WorkoutDualModeEngine.applyProgressionAdvice(advice, to: target)
+                } label: {
+                    Text(String(localized: "✨ 建议", comment: "Smart progression pill") + " \(displayWeight.formatted(.number.precision(.fractionLength(0...1))))×\(advice.suggestedReps)")
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                        .frame(minHeight: 44)
+                        .padding(.horizontal, 8)
+                        .background(Color.accentColor.opacity(0.14), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "应用智能渐进建议", comment: "Apply smart progression advice"))
+            }
             Spacer(minLength: 0)
             exerciseActionMenu
         }
@@ -505,43 +546,8 @@ struct ActiveExerciseSection: View {
     }
 
     private func addSubSet(after parentSet: ExerciseSet, type: SetType) {
-        let sets = sortedSets
-        let parentIndex = sets.firstIndex(where: { $0.persistentModelID == parentSet.persistentModelID }) ?? 0
-        let mainSet = parentSet.setType.isSubSet
-            ? (sets[..<parentIndex].last(where: { !$0.setType.isSubSet }) ?? parentSet)
-            : parentSet
-
-        var insertIndex = parentIndex + 1
-        while insertIndex < sets.count && sets[insertIndex].setType.isSubSet {
-            insertIndex += 1
-        }
-
-        let adjustedWeight: Double
-        let adjustedWeightRight: Double?
-        if type == .dropSet {
-            adjustedWeight = mainSet.weight * 0.85
-            adjustedWeightRight = mainSet.weightRight.map { $0 * 0.85 }
-        } else {
-            adjustedWeight = mainSet.weight * 1.15
-            adjustedWeightRight = mainSet.weightRight.map { $0 * 1.15 }
-        }
-
-        let newSet = ExerciseSet(
-            order: insertIndex,
-            weight: adjustedWeight,
-            reps: parentSet.reps,
-            setType: type,
-            isUnilateral: parentSet.isUnilateral,
-            weightRight: adjustedWeightRight
-        )
         withAnimation(reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.30, dampingFraction: 0.85)) {
-            var ordered = sets
-            ordered.insert(newSet, at: insertIndex)
-            for (idx, item) in ordered.enumerated() {
-                item.order = idx
-            }
-            newSet.workoutExercise = workoutExercise
-            modelContext.insert(newSet)
+            _ = WorkoutDualModeEngine.insertSubSet(after: parentSet, type: type, in: workoutExercise, using: modelContext)
         }
     }
 
@@ -743,7 +749,7 @@ private struct AddSetButtonPreviewWrapper: View {
         return List {
             ActiveExerciseSection(
                 workoutExercise: workoutExercise,
-                onSetCompleted: {},
+                onSetCompleted: { _ in },
                 onSetDeleted: {},
                 onReplace: {},
                 onSubstitute: {},

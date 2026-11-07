@@ -301,6 +301,7 @@ struct SetRow: View {
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
+            tiledRowContent(variant: largeMode ? .large : .normal)
             rowContent(variant: largeMode ? .large : .normal, compact: false)
             rowContent(variant: .largeCompact, compact: false)
             rowContent(variant: .normal, compact: false)
@@ -339,7 +340,7 @@ struct SetRow: View {
     }
 
     private var setBadge: some View {
-        let title = exerciseSet.setType == .warmup ? "热" : "W\(index + 1)"
+        let title = exerciseSet.setType == .warmup ? "W" : "\(index + 1)"
         let color = exerciseSet.setType == .warmup ? Color.orange : Color.accentColor
         return Text(title)
             .font(.caption.monospacedDigit().weight(.semibold))
@@ -348,6 +349,44 @@ struct SetRow: View {
             .frame(minHeight: 28)
             .background(color.opacity(0.14), in: Capsule())
             .accessibilityLabel(exerciseSet.setType == .warmup ? String(localized: "热身组", comment: "Warmup set") : String(localized: "正式组", comment: "Working set"))
+    }
+
+    private var previousCell: some View {
+        let previous = exerciseSet.workoutExercise?.workout.flatMap { workout in
+            PreviousSetLookup.previousMainSet(currentWorkout: workout, exercise: exercise, mainSetIndex: index, in: modelContext)
+        }
+        return Group {
+            if let previous {
+                let prevDisplay = WorkoutDualModeEngine.displayWeight(previous.weight, unit: weightUnit)
+                Button {
+                    WorkoutDualModeEngine.applyPreviousSet(previous, to: exerciseSet)
+                } label: {
+                    Text("\(prevDisplay.formatted(.number.precision(.fractionLength(0...1)))) × \(previous.reps) ⏎")
+                        .font(.caption.monospacedDigit())
+                        .lineLimit(1)
+                }
+                .frame(minWidth: 44, minHeight: 44, alignment: .leading)
+                .buttonStyle(.plain)
+            } else {
+                Text("—").foregroundStyle(.secondary).frame(minWidth: 44, minHeight: 44, alignment: .leading)
+            }
+        }
+    }
+
+    private func toggleSetType() {
+        exerciseSet.setType = exerciseSet.setType == .warmup ? .working : .warmup
+    }
+
+    private func tiledRowContent(variant: LargeWorkoutFieldWidth.Variant) -> some View {
+        HStack(alignment: .center, spacing: 4) {
+            Button(action: toggleSetType) { setBadge.frame(minWidth: 44, minHeight: 44) }
+                .buttonStyle(.plain)
+                .frame(width: 44)
+            previousCell.frame(maxWidth: .infinity, alignment: .leading)
+            inputFields(variant: variant)
+            completionButton.frame(width: 44)
+        }
+        .frame(maxWidth: .infinity, minHeight: 48)
     }
 
     private func rowContent(variant: LargeWorkoutFieldWidth.Variant, compact: Bool) -> some View {

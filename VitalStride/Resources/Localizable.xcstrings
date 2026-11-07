@@ -2895,14 +2895,14 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
-            "value": "上次更新于 %@"
+            "state": "translated",
+            "value": "Updated %@"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "最后更新"
+            "value": "上次更新于 %@"
           }
         }
       }
@@ -3225,7 +3225,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Saving failed. You can retry, or cancel and try a different option."
+            "value": "Saving failed — please retry, or cancel and choose another option."
           }
         },
         "zh-Hans": {
@@ -3259,7 +3259,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Started at %@. Empty workout (no exercises) — recommend discarding."
+            "value": "Started at %@ — empty workout (no exercises), recommend discarding."
           }
         },
         "zh-Hans": {
@@ -3277,7 +3277,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Started at %@. Recorded %lld exercises across %lld sets."
+            "value": "Started at %@ — recorded %lld exercises across %lld sets."
           }
         },
         "zh-Hans": {
@@ -4352,7 +4352,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "前往 [open.bigmodel.cn](https://open.bigmodel.cn) 获取 API Key"
+            "value": "前往 [open.bigmodel.cn](https://open.bigmodel.cn) 申请 API Key"
           }
         },
         "en": {
@@ -8924,7 +8924,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "输入你的问题..."
+            "value": "输入你的问题…"
           }
         },
         "en": {
@@ -13076,6 +13076,150 @@
           "stringUnit": {
             "state": "translated",
             "value": "复制"
+          }
+        }
+      }
+    },
+    "flight.workout.focusModeDefault.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Focus Mode Default"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "专注模式默认值"
+          }
+        }
+      }
+    },
+    "flight.workout.focusModeDefault.summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start active workouts in Focus Now mode by default"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "默认以专注模式开始训练"
+          }
+        }
+      }
+    },
+    "active_workout.focus.completed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All exercises completed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全部动作已完成"
+          }
+        }
+      }
+    },
+    "active_workout.finish": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish workout"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成训练"
+          }
+        }
+      }
+    },
+    "active_workout.add_set": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加一组"
+          }
+        }
+      }
+    },
+    "active_workout.add_exercise": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add exercise"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加动作"
+          }
+        }
+      }
+    },
+    "active_workout.ai_substitute": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI Substitute"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI 平替"
+          }
+        }
+      }
+    },
+    "active_workout.replace": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace exercise"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "换动作"
+          }
+        }
+      }
+    },
+    "active_workout.outline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exercise outline"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "动作大纲"
           }
         }
       }

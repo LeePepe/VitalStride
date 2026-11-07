@@ -79,18 +79,23 @@ struct SubSetRow: View {
 
     private var mainAxis: some View {
         HStack(alignment: .center, spacing: 4) {
-            Image(systemName: "arrow.turn.down.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(workoutSeparator)
-                .frame(width: 20, height: 44)
-                .accessibilityHidden(true)
-            leadingControls
+            leadingControls.frame(width: 44)
+            Text(exerciseSet.setType == .dropSet ? String(localized: "递减 80%", comment: "Drop set previous column") : String(localized: "金字塔", comment: "Pyramid previous column"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             if exerciseSet.isUnilateral {
                 inputsAndCaption
             } else {
                 bilateralInputs
             }
-            Spacer(minLength: 0)
+            Button(action: toggleCompleted) {
+                Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(exerciseSet.isCompleted ? Color.green : exerciseSet.setType.semanticColor)
+                    .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
+            }
+            .buttonStyle(.borderless)
             trailingControls
         }
         .padding(.leading, 8)
@@ -100,6 +105,11 @@ struct SubSetRow: View {
 
     private var leadingControls: some View {
         HStack(alignment: .center, spacing: 2) {
+            Image(systemName: "arrow.turn.down.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(workoutSeparator)
+                .frame(width: 18, height: 44)
+                .accessibilityHidden(true)
             Text(exerciseSet.setType == .dropSet ? "D" : "P")
                 .font(.caption2.monospacedDigit().weight(.bold))
                 .lineLimit(1)
@@ -111,16 +121,6 @@ struct SubSetRow: View {
                         .strokeBorder(exerciseSet.setType.semanticColor.opacity(0.24), lineWidth: 1)
                 }
                 .accessibilityLabel(exerciseSet.setType == .dropSet ? String(localized: "递减组", comment: "Drop set badge") : String(localized: "金字塔组", comment: "Pyramid set badge"))
-            Button(action: toggleCompleted) {
-                Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(exerciseSet.isCompleted ? Color.green : exerciseSet.setType.semanticColor)
-                    .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
-            }
-            .buttonStyle(.borderless)
-            .contentShape(Rectangle())
-            .accessibilityLabel(exerciseSet.setType == .dropSet ? String(localized: "递减组完成状态", comment: "Drop-set completion") : String(localized: "金字塔组完成状态", comment: "Pyramid-set completion"))
-            .accessibilityHint(String(localized: "双击切换完成状态", comment: "Toggle completion"))
         }
     }
 

@@ -74,7 +74,10 @@ struct WorkoutLoggingV2Tests {
         #expect(appended.weight == 65)
         #expect(appended.reps == 8)
         ActiveExerciseSection.copyToNext(from: source, in: exercise, using: context)
-        let copied = (exercise.sets ?? []).sorted { $0.order < $1.order }.last!
+        guard let copied = (exercise.sets ?? []).max(by: { $0.order < $1.order }) else {
+            #expect(Bool(false))
+            return
+        }
         #expect(copied.weight == 65)
         #expect(copied.weightRight == 60)
         #expect(copied.isCompleted == false)
@@ -122,6 +125,96 @@ struct WorkoutLoggingV2Tests {
         presenter.markVisible()
         presenter.dismiss()
         #expect(!presenter.isBuffered)
+    }
+
+    @Test("Dual mode resolution prefers a valid stored value and flight fallback")
+    func dualModeResolution() {
+        #expect(WorkoutDisplayMode.resolveInitialMode(storedRawValue: "focus", flightFocusDefault: false) == .focus)
+        #expect(WorkoutDisplayMode.resolveInitialMode(storedRawValue: "invalid", flightFocusDefault: true) == .focus)
+        #expect(WorkoutDisplayMode.resolveInitialMode(storedRawValue: nil, flightFocusDefault: false) == .tiled)
+    }
+
+    @Test("Focus steppers use unit-aware weight increments and clamp values")
+    func focusStepperRules() {
+        let set = ExerciseSet(weight: 0, reps: 0, isUnilateral: true, weightRight: 0)
+        FocusSetStepper.step(.weight, direction: 1, unit: .kg, set: set)
+        FocusSetStepper.step(.weightRight, direction: 1, unit: .lb, set: set)
+        FocusSetStepper.step(.reps, direction: 1, unit: .kg, set: set)
+        #expect(set.weight == 2.5)
+        #expect(set.weightRight == 5 / 2.20462)
+        #expect(set.reps == 1)
+        FocusSetStepper.step(.weight, direction: -1, unit: .kg, set: set)
+        #expect(set.weight == 0)
+    }
+
+    @Test("Focus atmosphere reserves mint and teal for recovery")
+    func focusAtmosphereThemes() {
+        #expect(FocusAtmosphereTheme.resolve(muscleGroup: .chest, stageMode: .activeSet).badgeIdentifier == "chest_push")
+        #expect(FocusAtmosphereTheme.resolve(muscleGroup: .chest, stageMode: .restRecovery).badgeIdentifier == "rest_recovery")
+        #expect(FocusAtmosphereTheme.resolve(muscleGroup: .legs, stageMode: .activeSet).badgeIdentifier == "legs_compound")
+    }
+
+    @Test("Focus sequence orders main and child sets")
+    func focusSequenceOrdersSubsets() {
+        let main = ExerciseSet(order: 0, weight: 60, reps: 8, setType: .working)
+        let drop = ExerciseSet(order: 1, weight: 48, reps: 8, setType: .dropSet)
+        let next = ExerciseSet(order: 2, weight: 65, reps: 8, setType: .working)
+        let exercise = WorkoutExercise(order: 0, sets: [main, drop, next])
+        let workout = Workout(type: .strength, startDate: Date(), exercises: [exercise])
+        exercise.workout = workout
+        let steps = WorkoutDualModeEngine.focusSteps(in: workout)
+        #expect(steps.map(\.set.persistentModelID) == [main, drop, next].map(\.persistentModelID))
+        #expect(steps[0].mainSetNumber == 0)
+        #expect(steps[1].subSetOrdinal == 1)
+        #expect(steps[2].mainSetNumber == 1)
+    }
+
+    @Test("Previous and progression actions fill incomplete sets without completing them")
+    func previousAndProgressionBackfill() {
+        let previous = ExerciseSet(weight: 60, reps: 10, isUnilateral: true, weightRight: 55)
+        let target = ExerciseSet(weight: 0, reps: 0, isUnilateral: true)
+        WorkoutDualModeEngine.applyPreviousSet(previous, to: target)
+        #expect(target.weight == 60)
+        #expect(target.weightRight == 55)
+        #expect(target.reps == 10)
+        #expect(!target.isCompleted)
+        WorkoutDualModeEngine.applyProgressionAdvice(.increaseWeight(weight: 65, reps: 8, reason: "test"), to: target)
+        #expect(target.weight == 65)
+        #expect(target.weightRight == 65)
+        #expect(target.reps == 8)
+        #expect(!target.isCompleted)
+    }
+
+    @Test("Inserted drop set is rounded and becomes the next incomplete step")
+    func insertDropSetAndNextIncomplete() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let main = ExerciseSet(order: 0, weight: 62.5, reps: 8, setType: .working, isCompleted: true)
+        let next = ExerciseSet(order: 1, weight: 70, reps: 8, setType: .working)
+        let exercise = WorkoutExercise(order: 0, sets: [main, next])
+        let workout = Workout(type: .strength, startDate: Date(), exercises: [exercise])
+        exercise.workout = workout
+        [main, next].forEach { $0.workoutExercise = exercise; context.insert($0) }
+        context.insert(exercise)
+        context.insert(workout)
+        let drop = WorkoutDualModeEngine.insertSubSet(after: main, type: .dropSet, in: exercise, using: context)
+        #expect(drop.weight == 50)
+        #expect(drop.order == 1)
+        let nextStep = WorkoutDualModeEngine.nextIncompleteStep(after: main.persistentModelID, in: workout)
+        #expect(nextStep?.set.persistentModelID == drop.persistentModelID)
+    }
+
+    @Test("Cursor synchronization preserves the selected step across mode switches")
+    func syncCursorAcrossModes() {
+        let first = ExerciseSet(order: 0, weight: 60, reps: 8, setType: .working, isCompleted: true)
+        let second = ExerciseSet(order: 1, weight: 65, reps: 8, setType: .working)
+        let exercise = WorkoutExercise(order: 0, sets: [first, second])
+        let workout = Workout(type: .strength, startDate: Date(), exercises: [exercise])
+        exercise.workout = workout
+        let cursor = WorkoutDualModeEngine.syncCursor(selectedExerciseID: exercise.persistentModelID, selectedSetID: second.persistentModelID, in: workout)
+        #expect(cursor?.set.persistentModelID == second.persistentModelID)
+        #expect(WorkoutDisplayMode.resolveInitialMode(storedRawValue: "focus", flightFocusDefault: false) == .focus)
+        #expect(WorkoutDisplayMode.resolveInitialMode(storedRawValue: "tiled", flightFocusDefault: true) == .tiled)
     }
 
     @Test("Heart-rate stream adapter uses payload timestamps and clears on disconnect")
