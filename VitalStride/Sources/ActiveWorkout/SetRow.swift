@@ -18,40 +18,11 @@ import VitalUI
 import UIKit
 #endif
 
-/// Internal, inert by default. Observes descriptor/control geometry and the
-/// mode action used by the row keyboard; it owns no training or selection state.
-struct WorkoutRowObservation: Sendable {
-    var descriptor: @MainActor @Sendable (AnyHashable, SetField, String, String, CGRect) -> Void = { _, _, _, _, _ in }
-    var modeAction: @MainActor @Sendable (AnyHashable, @escaping @MainActor @Sendable () -> Void) -> Void = { _, _ in }
-    var control: @MainActor @Sendable (AnyHashable, String, CGRect) -> Void = { _, _, _ in }
-}
-
-private struct WorkoutRowObservationKey: EnvironmentKey {
-    static let defaultValue = WorkoutRowObservation()
-}
-
-extension EnvironmentValues {
-    var workoutRowObservation: WorkoutRowObservation {
-        get { self[WorkoutRowObservationKey.self] }
-        set { self[WorkoutRowObservationKey.self] = newValue }
-    }
-}
 
 struct WorkoutRowDescriptor: View {
-    @Environment(\.workoutRowObservation) private var observation
-    let row: AnyHashable
-    let field: SetField
-    let kind: String
     let text: String
-
-    var body: some View {
-        Text(text)
-            .fixedSize()
-            .allowsHitTesting(false)
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-                observation.descriptor(row, field, kind, text, frame)
-            }
-    }
+    init(row: AnyHashable, field: SetField, kind: String, text: String) { self.text = text }
+    var body: some View { Text(text).fixedSize() }
 }
 
 /// MY-1013: shared 44pt hit-target size for compact SetRow / SubSetRow
@@ -220,7 +191,6 @@ struct WorkoutSetInput: UIViewRepresentable {
 #endif
 
 struct SetRow: View {
-    @Environment(\.workoutRowObservation) private var rowObservation
     let index: Int
     let exerciseSet: ExerciseSet
     let weightUnit: WeightUnit
@@ -342,13 +312,10 @@ struct SetRow: View {
         .padding(.vertical, 2)
         .padding(.horizontal, 0)
         .frame(maxWidth: .infinity, minHeight: largeMode ? 56 : 48)
-        .background(workoutSecondaryGroupedBackground)
+        .listRowBackground(exerciseSet.isCompleted ? Color.green.opacity(0.08) : Color(uiColor: .secondarySystemGroupedBackground))
         .sensoryFeedback(.success, trigger: exerciseSet.isCompleted)
         .onAppear {
             refreshInputText()
-            rowObservation.modeAction(exerciseSet.persistentModelID) {
-                handleLeftAction(.toggleUnilateral, field: .weight)
-            }
         }
         .onChange(of: weightUnit) { _, _ in refreshInputText() }
         .onChange(of: exerciseSet.weight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
@@ -371,11 +338,26 @@ struct SetRow: View {
         }
     }
 
+    private var setBadge: some View {
+        let title = exerciseSet.setType == .warmup ? "热" : "W\(index + 1)"
+        let color = exerciseSet.setType == .warmup ? Color.orange : Color.accentColor
+        return Text(title)
+            .font(.caption.monospacedDigit().weight(.semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .frame(minHeight: 28)
+            .background(color.opacity(0.14), in: Capsule())
+            .accessibilityLabel(exerciseSet.setType == .warmup ? String(localized: "热身组", comment: "Warmup set") : String(localized: "正式组", comment: "Working set"))
+    }
+
     private func rowContent(variant: LargeWorkoutFieldWidth.Variant, compact: Bool) -> some View {
-        HStack(alignment: .center, spacing: 4) {
+        HStack(alignment: .center, spacing: 6) {
             completionButton
+            setBadge
             inputFields(variant: variant, compact: compact)
-            inlineMetadata(compact: exerciseSet.isUnilateral ? compact : true)
+            Text("×")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
             Spacer(minLength: 0)
             moreMenu
         }
@@ -404,7 +386,7 @@ struct SetRow: View {
         return HStack(spacing: 4) {
             let advice = smartProgressionAdvice()
             weightBox(binding: $weightText, field: .weight, width: weightWidth,
-                      side: exerciseSet.isUnilateral ? "L" : String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"),
+                      side: exerciseSet.isUnilateral ? "L" : nil,
                       suggestion: advice, compact: compact, focusRequestID: $weightFocusRequestID)
             if exerciseSet.isUnilateral {
                 weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice, compact: compact, focusRequestID: $weightRightFocusRequestID)
@@ -503,9 +485,6 @@ struct SetRow: View {
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(String(localized: "第 \(index + 1) 组设置", comment: "Set configuration"))
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-            rowObservation.control(exerciseSet.persistentModelID, "menu", frame)
-        }
     }
 
     private func refreshInputText(preservingFocusedField: SetField? = nil) {
@@ -570,9 +549,6 @@ struct SetRow: View {
             .frame(minWidth: compact && (exerciseSet.setType != .working || exerciseSet.rpe != nil) ? 35 : nil)
             .layoutPriority(1)
             .allowsHitTesting(false)
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-                rowObservation.control(exerciseSet.persistentModelID, "metadata", frame)
-            }
         }
     }
 
@@ -873,9 +849,6 @@ struct SetRow: View {
         .contentShape(Rectangle())
         .accessibilityLabel(String(localized: "第 \(index + 1) 组，\(exerciseSet.isCompleted ? String(localized: "已完成", comment: "Set completion status: completed") : String(localized: "未完成", comment: "Set completion status: incomplete"))", comment: "A11y label composing set index and completion status"))
         .accessibilityHint(String(localized: "双击切换完成状态", comment: "A11y hint"))
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-            rowObservation.control(exerciseSet.persistentModelID, "completion", frame)
-        }
     }
 
     /// Caption-side weight formatter. Mirrors `formatWeight(_:)` for the
@@ -1062,9 +1035,12 @@ struct SetRow: View {
             #endif
             onCopyToNext()
         case .applyAISuggestion:
-            if let advice = smartProgressionAdvice() {
-                fillFromSuggestion(advice)
-            }
+            if let advice = smartProgressionAdvice() { fillFromSuggestion(advice) }
+        case .decreaseWeightFive: exerciseSet.weight = max(0, exerciseSet.weight - 5)
+        case .decreaseWeightTwoPointFive: exerciseSet.weight = max(0, exerciseSet.weight - 2.5)
+        case .increaseWeightTwoPointFive: exerciseSet.weight += 2.5
+        case .increaseWeightFive: exerciseSet.weight += 5
+        case .addPyramidSet: onAddSubSet(.pyramid)
         }
     }
 

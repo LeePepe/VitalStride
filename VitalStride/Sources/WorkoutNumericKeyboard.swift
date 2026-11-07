@@ -46,6 +46,11 @@ enum LeftKeyAction: String, Equatable, Sendable, CaseIterable {
     case addSet
     case toggleWeightUnit
     case applyAISuggestion
+    case decreaseWeightFive
+    case decreaseWeightTwoPointFive
+    case increaseWeightTwoPointFive
+    case increaseWeightFive
+    case addPyramidSet
 }
 
 // MARK: - SwiftUI content view
@@ -131,81 +136,72 @@ struct WorkoutNumericKeyboardContentView: View {
         self.onDone = onDone
     }
 
-    private static let sideColumnWidth: CGFloat = 74
-    private static let columnSpacing: CGFloat = 6
-    private static let rowSpacing: CGFloat = NumericKeypad.gridSpacing
-    private static let keyHeight: CGFloat = NumericKeypad.digitMinHeight
-    private static let doubleRowKeyHeight: CGFloat = NumericKeypad.digitMinHeight * 2 + NumericKeypad.gridSpacing
-
     private var hasAISuggestion: Bool {
         suggestedWeightKg != nil && suggestedReps != nil
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: Self.columnSpacing) {
-            VStack(spacing: Self.rowSpacing) {
-                functionKey(
-                    .toggleUnilateral,
-                    title: String(localized: "workout.keyboard.mode", defaultValue: "Total / L-R", comment: "Toggle the whole exercise weight mode")
-                )
-                functionKey(
-                    .setWarmup,
-                    title: String(localized: "workout.keyboard.warmup", defaultValue: "Warmup", comment: "Set warmup type"),
-                    isActive: setType == .warmup
-                )
-                functionKey(
-                    .copyToNext,
-                    title: String(localized: "workout_keyboard.copy_label", defaultValue: "Copy", comment: "Copy to next set")
-                )
-                functionKey(
-                    .toggleWeightUnit,
-                    title: Self.weightUnitToggleTitle()
-                )
+        VStack(spacing: 8) {
+            accessoryValueBar
+                .frame(minHeight: 38)
+            accessoryAttributeBar
+                .frame(minHeight: 34)
+            HStack(spacing: 8) {
+                NumericKeypad(mode: field.isDecimalEnabled ? .decimal : .integer, onKeyPress: onKeyPress)
+                    .frame(maxWidth: .infinity)
+                doneKey(height: NumericKeypad.totalGridHeight)
+                    .frame(width: 76)
             }
-            .frame(width: Self.sideColumnWidth, height: NumericKeypad.totalGridHeight)
-
-            NumericKeypad(mode: field.isDecimalEnabled ? .decimal : .integer, onKeyPress: onKeyPress)
-                .layoutPriority(1)
-
-            VStack(spacing: Self.rowSpacing) {
-                functionKey(
-                    .addDropSet,
-                    title: String(localized: "workout.keyboard.drop", defaultValue: "Drop set", comment: "Add a drop set"),
-                    isActive: setType == .dropSet
-                )
-                functionKey(
-                    .addSet,
-                    title: String(localized: "workout.keyboard.add_set", defaultValue: "Add set", comment: "Add a set")
-                )
-                if hasAISuggestion {
-                    functionKey(
-                        .applyAISuggestion,
-                        title: String(
-                            localized: "workout.keyboard.ai_suggest",
-                            defaultValue: "✨ AI",
-                            comment: "Apply AI smart progression suggestion"
-                        ),
-                        isActive: true
-                    )
-                    doneKey(height: Self.keyHeight)
-                } else {
-                    doneKey(height: Self.doubleRowKeyHeight)
-                }
-            }
-            .frame(width: Self.sideColumnWidth, height: NumericKeypad.totalGridHeight)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.vertical, 8)
         .background(Color(uiColor: .secondarySystemBackground).ignoresSafeArea(.all, edges: .bottom))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color(uiColor: .separator))
-                .frame(height: 0.5)
-        }
+        .overlay(alignment: .top) { Rectangle().fill(Color(uiColor: .separator)).frame(height: 0.5) }
         .accessibilityElement(children: .contain)
         .sensoryFeedback(.selection, trigger: selectionFeedbackTrigger)
     }
+
+    @ViewBuilder
+    private var accessoryValueBar: some View {
+        HStack(spacing: 6) {
+            if field.isWeightField {
+                accessoryPill("−5", action: .decreaseWeightFive)
+                accessoryPill("−2.5", action: .decreaseWeightTwoPointFive)
+                accessoryPill("+2.5", action: .increaseWeightTwoPointFive)
+                accessoryPill("+5", action: .increaseWeightFive)
+                accessoryPill(Self.weightUnitToggleTitle(), action: .toggleWeightUnit)
+            } else {
+                ForEach([5, 8, 10, 12, 15], id: \.self) { reps in
+                    Button("\(reps) 次") { selectionFeedbackTrigger += 1; onPresetReps(recentWeightKg, reps) }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity, minHeight: 38)
+                }
+            }
+        }
+    }
+
+    private var accessoryAttributeBar: some View {
+        HStack(spacing: 6) {
+            accessoryPill(setType == .warmup ? "热身" : "正式", action: .setWarmup, active: setType == .warmup)
+            accessoryPill("单/双侧", action: .toggleUnilateral)
+            accessoryPill("+递减", action: .addDropSet)
+            accessoryPill("+金字塔", action: .addPyramidSet)
+            accessoryPill("复制", action: .copyToNext)
+        }
+    }
+
+    private func accessoryPill(_ title: String, action: LeftKeyAction, active: Bool = false) -> some View {
+        Button(title) { selectionFeedbackTrigger += 1; onLeftAction(action) }
+            .font(.caption.weight(active ? .semibold : .medium))
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, minHeight: 34)
+            .foregroundStyle(active ? Color.accentColor : Color(uiColor: .label))
+            .background((active ? Color.orange.opacity(0.18) : Color(uiColor: .secondarySystemFill)), in: Capsule())
+            .buttonStyle(KeyboardKeyButtonStyle())
+            .accessibilityAddTraits(.isKeyboardKey)
+    }
+
+
 
     private func doneKey(height: CGFloat) -> some View {
         Button {
@@ -226,34 +222,7 @@ struct WorkoutNumericKeyboardContentView: View {
         .accessibilityAddTraits(.isKeyboardKey)
     }
 
-    private func functionKey(_ action: LeftKeyAction, title: String, isActive: Bool = false) -> some View {
-        let isDisabled = (action == .addDropSet && setType.isSubSet) ||
-            (action == .applyAISuggestion && !hasAISuggestion)
-        return Button {
-            selectionFeedbackTrigger += 1
-            onLeftAction(action)
-        } label: {
-            Text(title)
-                .font(.caption.weight(isActive ? .semibold : .medium))
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 4)
-                .frame(maxWidth: .infinity, minHeight: Self.keyHeight, maxHeight: Self.keyHeight)
-                .foregroundStyle(
-                    isActive ? Color.accentColor : Color(uiColor: .label)
-                )
-                .opacity(isDisabled ? 0.45 : 1.0)
-                .background(
-                    isActive ? Color.accentColor.opacity(0.16) : Color(uiColor: .secondarySystemFill),
-                    in: RoundedRectangle(cornerRadius: NumericKeypad.keyRadius, style: .continuous)
-                )
-        }
-        .buttonStyle(KeyboardKeyButtonStyle())
-        .disabled(isDisabled)
-        .accessibilityIdentifier("workout_keyboard_" + action.rawValue)
-        .accessibilityAddTraits(.isKeyboardKey)
-    }
+
 }
 
 // MARK: - UIView container
@@ -516,8 +485,8 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
     // MARK: Height policy
 
     /// Compact three-column layout with no separate header row.
-    private static let iPhonePreferredHeight: CGFloat = 280
-    private static let iPadPreferredHeight: CGFloat = 300
+    private static let iPhonePreferredHeight: CGFloat = 290
+    private static let iPadPreferredHeight: CGFloat = 310
 
     static func preferredHeight() -> CGFloat {
         let isPad = UIDevice.current.userInterfaceIdiom == .pad

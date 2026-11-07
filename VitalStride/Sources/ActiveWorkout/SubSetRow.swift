@@ -10,7 +10,6 @@ import UIKit
 #endif
 
 struct SubSetRow: View {
-    @Environment(\.workoutRowObservation) private var rowObservation
     @Environment(\.theme) private var theme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -61,14 +60,11 @@ struct SubSetRow: View {
         .padding(.vertical, 2)
         .padding(.horizontal, 0)
         .frame(maxWidth: .infinity, minHeight: largeMode ? 56 : 48)
-        .background(workoutSecondaryGroupedBackground)
+        .listRowBackground(exerciseSet.isCompleted ? Color.green.opacity(0.08) : Color(uiColor: .secondarySystemGroupedBackground))
         .contentShape(Rectangle())
         .sensoryFeedback(.success, trigger: exerciseSet.isCompleted)
         .onAppear {
             refreshInputText()
-            rowObservation.modeAction(exerciseSet.persistentModelID) {
-                handleLeftAction(.toggleUnilateral, field: .weight)
-            }
         }
         .onChange(of: exerciseSet.weight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
         .onChange(of: exerciseSet.weightRight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
@@ -94,6 +90,9 @@ struct SubSetRow: View {
             } else {
                 bilateralInputs
             }
+            Text("×")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
             Spacer(minLength: 0)
             trailingControls
         }
@@ -134,9 +133,6 @@ struct SubSetRow: View {
         .contentShape(Rectangle())
         .accessibilityLabel(String(localized: "递减组完成状态", comment: "Drop-set completion"))
         .accessibilityHint(String(localized: "双击切换完成状态", comment: "Toggle completion"))
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-            rowObservation.control(exerciseSet.persistentModelID, "completion", frame)
-        }
     }
 
     private var trailingControls: some View {
@@ -148,15 +144,12 @@ struct SubSetRow: View {
         .contentShape(Rectangle())
         .accessibilityLabel(String(localized: "关闭递减组", comment: "Delete drop-set row"))
         .accessibilityHint(String(localized: "删除此递减组", comment: "Delete drop-set hint"))
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-            rowObservation.control(exerciseSet.persistentModelID, "delete", frame)
-        }
     }
 
     private var bilateralInputs: some View {
         HStack(spacing: 4) {
             inputField(text: $weightText, field: .weight,
-                       label: String(localized: "workout.row.total_prefix", defaultValue: "Total", comment: "Bilateral total weight prefix"),
+                       label: "",
                        focusRequestID: $weightFocusRequestID)
             inputField(text: $repsText, field: .reps,
                        label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"),
