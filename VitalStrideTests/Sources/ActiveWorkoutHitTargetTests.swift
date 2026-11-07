@@ -146,6 +146,8 @@ struct ActiveWorkoutHitTargetTests {
 /// Shared mounted interaction harness; failures throw in both XCTest and Swift Testing.
 @MainActor
 enum MountedAddExerciseInteraction {
+    private static var retainedContainers: [ModelContainer] = []
+
     struct Result {
         let visible: CGRect
         let hit: CGRect
@@ -156,6 +158,7 @@ enum MountedAddExerciseInteraction {
         largeMode: Bool, isDark: Bool = false, slot: BottomSnackbarSlot = .none
     ) async throws -> Result {
         let container = try ModelContainerConfiguration.makeTestContainer()
+        retainedContainers.append(container)
         let workout = Workout(type: .strength, startDate: Date(), exercises: [])
         container.mainContext.insert(workout)
         try container.mainContext.save()

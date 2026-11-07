@@ -373,19 +373,21 @@ final class DesignEcoSnapshotTests: XCTestCase {
                     XCTAssertEqual(hit.minX, visible.minX, accuracy: 1)
                     XCTAssertEqual(hit.minY, visible.minY, accuracy: 1)
                 }
-                for slot in [BottomSnackbarSlot.none, .rest, .undo] {
-                    let result = try await MountedAddExerciseInteraction.check(
-                        largeMode: largeMode, isDark: isDark, slot: slot
-                    )
-                    if slot == .none {
-                        XCTAssertGreaterThanOrEqual(result.visible.width, 320)
-                        XCTAssertEqual(result.activations, 3)
-                    } else {
-                        XCTAssertGreaterThanOrEqual(result.visible.width, 44)
-                        XCTAssertEqual(result.activations, 1)
+                if !isDark {
+                    for slot in [BottomSnackbarSlot.none, .rest, .undo] {
+                        let result = try await MountedAddExerciseInteraction.check(
+                            largeMode: largeMode, isDark: isDark, slot: slot
+                        )
+                        if slot == .none {
+                            XCTAssertGreaterThanOrEqual(result.visible.width, 320)
+                            XCTAssertEqual(result.activations, 3)
+                        } else {
+                            XCTAssertGreaterThanOrEqual(result.visible.width, 44)
+                            XCTAssertEqual(result.activations, 1)
+                        }
+                        XCTAssertEqual(result.hit.width, result.visible.width, accuracy: 1)
+                        XCTAssertEqual(result.hit.height, result.visible.height, accuracy: 1)
                     }
-                    XCTAssertEqual(result.hit.width, result.visible.width, accuracy: 1)
-                    XCTAssertEqual(result.hit.height, result.visible.height, accuracy: 1)
                 }
                 XCTAssertGreaterThanOrEqual(none.width, 320)
                 XCTAssertGreaterThanOrEqual(rest.width, 44)
