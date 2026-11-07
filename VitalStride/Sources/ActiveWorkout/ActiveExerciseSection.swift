@@ -52,7 +52,6 @@ struct ActiveExerciseSection: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.theme) private var theme
     @Environment(\.displayScale) private var displayScale
-    @Environment(\.activeWorkoutListObservation) private var listObservation
     @Environment(\.activeExerciseSectionInteraction) private var interaction
     let workoutExercise: WorkoutExercise
     let onSetCompleted: () -> Void
@@ -121,7 +120,7 @@ struct ActiveExerciseSection: View {
             let isLastSub = isSub && (i + 1 >= sets.count || !sets[i + 1].setType.isSubSet)
             contexts.append(RowContext(
                 exerciseSet: set,
-                mainSetNumber: mainsBefore,
+                mainSetNumber: isSub ? max(0, mainsBefore - 1) : mainsBefore,
                 isLastSubSet: isLastSub,
                 recentWeightKg: lastMainWeight
             ))
@@ -166,11 +165,6 @@ struct ActiveExerciseSection: View {
                         }
                     )
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-                    .onGeometryChange(for: CGRect.self) { geometry in
-                        geometry.frame(in: .global)
-                    } action: { frame in
-                        listObservation.onRowFrame(exerciseSet.persistentModelID, frame)
-                    }
                     .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
                     // MY-1420: sub-sets get the same trailing full swipe as
                     // main sets. Sub-sets are always deletable — removing one
@@ -185,10 +179,7 @@ struct ActiveExerciseSection: View {
                             Label(String(localized: "删除", comment: ""), systemImage: "trash")
                         }
                     }
-                    .listRowInsets(EdgeInsets(top: 2, leading: 6, bottom: 2, trailing: 6))
-                    .listRowSeparator(.hidden)
-                    .listSectionSeparator(.hidden)
-                    .listRowBackground(workoutSecondaryGroupedBackground)
+                    .listRowBackground(exerciseSet.isCompleted ? Color.green.opacity(0.08) : Color(uiColor: .secondarySystemGroupedBackground))
                 } else {
                     SetRow(
                         index: ctx.mainSetNumber,
@@ -210,12 +201,6 @@ struct ActiveExerciseSection: View {
                             copyToNext(from: exerciseSet)
                         }
                     )
-                    // Each set is its own solid item; the exercise has no outer card.
-                    .onGeometryChange(for: CGRect.self) { geometry in
-                        geometry.frame(in: .global)
-                    } action: { frame in
-                        listObservation.onRowFrame(exerciseSet.persistentModelID, frame)
-                    }
                     .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if canDelete {
@@ -226,11 +211,11 @@ struct ActiveExerciseSection: View {
                             }
                         }
                     }
-                    .listRowInsets(EdgeInsets(top: 2, leading: 6, bottom: 2, trailing: 6))
-                    .listRowSeparator(.hidden)
-                    .listSectionSeparator(.hidden)
-                    .listRowBackground(workoutSecondaryGroupedBackground)
+                    .listRowBackground(exerciseSet.isCompleted ? Color.green.opacity(0.08) : Color(uiColor: .secondarySystemGroupedBackground))
                 }
+            }
+            if !isCollapsed {
+                cardFooter
             }
             }
         } header: {
@@ -271,10 +256,6 @@ struct ActiveExerciseSection: View {
                     childCount: request.childCount,
                     kind: request.childKind
                 ))
-            }
-        } footer: {
-            if !isCollapsed {
-                cardFooter
             }
         }
         .listRowBackground(workoutSecondaryGroupedBackground)
@@ -338,24 +319,8 @@ struct ActiveExerciseSection: View {
         .fixedSize(horizontal: false, vertical: true)
         // The header and rows use one solid card plane without redundant separators.
         .background(workoutSecondaryGroupedBackground)
-        .listRowInsets(EdgeInsets())
         .listRowBackground(workoutSecondaryGroupedBackground)
-        .zIndex(1)
-        .background {
-            GeometryReader { geometry in
-                Color.clear
-                    .onAppear {
-                        listObservation.onHeaderFrame(
-                            workoutExercise.persistentModelID,
-                            geometry.frame(in: .global)
-                        )
-                    }
-                    .onChange(of: geometry.frame(in: .global)) { _, frame in
-                        listObservation.onHeaderFrame(workoutExercise.persistentModelID, frame)
-                    }
-            }
-        }
-    }
+        .zIndex(1)    }
 
     private func headerTitle(
         toggleAction: @escaping ActiveExerciseSectionInteraction.ToggleAction
@@ -368,27 +333,7 @@ struct ActiveExerciseSection: View {
                 Text("\(workoutExercise.order + 1)")
                     .font(.caption.monospacedDigit().weight(.bold))
                     .foregroundStyle(completedSetCount == 0 ? Color.secondary : Color.accentColor)
-                    .frame(minWidth: 22, minHeight: 22)
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear
-                            .onAppear {
-                                listObservation.onControlFrame(
-                                    workoutExercise.persistentModelID,
-                                    "order",
-                                    geometry.frame(in: .global)
-                                )
-                            }
-                            .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                listObservation.onControlFrame(
-                                    workoutExercise.persistentModelID,
-                                    "order",
-                                    frame
-                                )
-                            }
-                    }
-                }
-                    .background(
+                    .frame(minWidth: 22, minHeight: 22)                    .background(
                         Circle().fill(
                             completedSetCount == 0
                                 ? Color.secondary.opacity(0.12)
@@ -413,27 +358,7 @@ struct ActiveExerciseSection: View {
                 .lineLimit(1)
                 .fixedSize(horizontal: false, vertical: false)
                 .minimumScaleFactor(0.85)
-                .truncationMode(.tail)
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear
-                            .onAppear {
-                                listObservation.onControlFrame(
-                                    workoutExercise.persistentModelID,
-                                    "title",
-                                    geometry.frame(in: .global)
-                                )
-                            }
-                            .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                listObservation.onControlFrame(
-                                    workoutExercise.persistentModelID,
-                                    "title",
-                                    frame
-                                )
-                            }
-                    }
-                }
-                .contextMenu {
+                .truncationMode(.tail)                .contextMenu {
                     Button {
                         onSubstitute()
                     } label: {
@@ -459,25 +384,6 @@ struct ActiveExerciseSection: View {
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(Color.secondary)
                 .fixedSize(horizontal: true, vertical: false)
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear
-                            .onAppear {
-                                listObservation.onControlFrame(
-                                    workoutExercise.persistentModelID,
-                                    "progress",
-                                    geometry.frame(in: .global)
-                                )
-                            }
-                            .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                listObservation.onControlFrame(
-                                    workoutExercise.persistentModelID,
-                                    "progress",
-                                    frame
-                                )
-                            }
-                    }
-                }
             if completedSetCount == totalSetCount, totalSetCount > 0 {
                 Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
                     .font(.caption2)
@@ -518,15 +424,6 @@ struct ActiveExerciseSection: View {
         }
         .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
         .frame(minWidth: 44, minHeight: 44)
-        .background {
-            GeometryReader { geometry in
-                Color.clear
-                    .onAppear { listObservation.onControlFrame(workoutExercise.persistentModelID, "menu", geometry.frame(in: .global)) }
-                    .onChange(of: geometry.frame(in: .global)) { _, frame in
-                        listObservation.onControlFrame(workoutExercise.persistentModelID, "menu", frame)
-                    }
-            }
-        }
     }
 
     private var cardFooter: some View {
@@ -546,15 +443,6 @@ struct ActiveExerciseSection: View {
             .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
             .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
             .accessibilityIdentifier("workout_section_add_set_\(workoutExercise.order)")
-            .background {
-                GeometryReader { geometry in
-                    Color.clear
-                        .onAppear { listObservation.onControlFrame(workoutExercise.persistentModelID, "add-set", geometry.frame(in: .global)) }
-                        .onChange(of: geometry.frame(in: .global)) { _, frame in
-                            listObservation.onControlFrame(workoutExercise.persistentModelID, "add-set", frame)
-                        }
-                }
-            }
             Spacer(minLength: 0)
             if let lastSet = sortedSets.last {
                 Menu {
@@ -863,7 +751,7 @@ private struct AddSetButtonPreviewWrapper: View {
                 undoController: SetDeletionUndoController()
             )
         }
-        .listStyle(.plain)
+        .listStyle(.insetGrouped)
         .modelContainer(container)
         .designThemePreview()
     }

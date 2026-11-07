@@ -1,9 +1,5 @@
 // swiftlint:disable no_hardcoded_chinese
-// Pre-existing `no_hardcoded_chinese` literals (alerts, a11y strings, summary
-// line) predate the shared i18n cleanup and stay silenced at file scope until
-// that migrates them to Localizable.xcstrings (matches DataView.swift).
 import AIService
-import DesignKit
 import FlightKit
 import HealthKitService
 import os
@@ -12,296 +8,12 @@ import SwiftUI
 import TelemetryKit
 import VitalModels
 import VitalUI
-#if canImport(UIKit)
-import UIKit
-#endif
 
 private let logger = Logger(subsystem: "com.vitalstride", category: "ActiveWorkout")
 
-#if canImport(UIKit) && !os(macOS)
-@MainActor
-private final class ActiveWorkoutScrollViewBox {
-    weak var value: UIScrollView?
-}
-
-private struct ActiveWorkoutScrollViewProbe: UIViewRepresentable {
-    let onResolve: @MainActor @Sendable (UIScrollView) -> Void
-
-    func makeUIView(context: Context) -> UIView {
-        ProbeView(onResolve: onResolve)
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        guard let probeView = uiView as? ProbeView else { return }
-        probeView.onResolve = onResolve
-        probeView.resolveIfNeeded()
-    }
-
-    private final class ProbeView: UIView {
-        var onResolve: @MainActor @Sendable (UIScrollView) -> Void
-        private var resolveRetryCount = 0
-
-        init(onResolve: @escaping @MainActor @Sendable (UIScrollView) -> Void) {
-            self.onResolve = onResolve
-            super.init(frame: .zero)
-            isUserInteractionEnabled = false
-        }
-
-        @available(*, unavailable)
-        required init?(coder: NSCoder) { nil }
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            resolveIfNeeded()
-        }
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            resolveIfNeeded()
-        }
-
-        func resolveIfNeeded() {
-            guard let ownWindow = window else { return }
-            var container = superview
-            while let searchRoot = container, searchRoot.window === ownWindow {
-                if let collectionView = Self.findCollectionView(in: searchRoot) {
-                    resolveRetryCount = 0
-                    onResolve(collectionView)
-                    return
-                }
-                if searchRoot === ownWindow { break }
-                container = searchRoot.superview
-            }
-            guard resolveRetryCount < 10 else { return }
-            resolveRetryCount += 1
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-                self?.resolveIfNeeded()
-            }
-        }
-
-        private static func findCollectionView(in view: UIView) -> UICollectionView? {
-            if let collectionView = view as? UICollectionView, collectionView.bounds.width > 120 {
-                if let flowLayout = collectionView.collectionViewLayout as? UICollectionViewFlowLayout,
-                   flowLayout.scrollDirection == .horizontal {
-                    return nil
-                }
-                return collectionView
-            }
-            for subview in view.subviews {
-                if let found = findCollectionView(in: subview) {
-                    return found
-                }
-            }
-            return nil
-        }
-    }
-}
-
-private struct AddExerciseFrameProbe: UIViewRepresentable {
-    let onFrame: @MainActor @Sendable (CGRect) -> Void
-
-    func makeUIView(context: Context) -> ProbeView {
-        let view = ProbeView()
-        view.isUserInteractionEnabled = false
-        view.onFrame = onFrame
-        return view
-    }
-
-    func updateUIView(_ uiView: ProbeView, context: Context) {
-        uiView.onFrame = onFrame
-        uiView.setNeedsLayout()
-    }
-
-    final class ProbeView: UIView {
-        var onFrame: (@MainActor @Sendable (CGRect) -> Void)?
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            reportFrame()
-        }
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            reportFrame()
-        }
-
-        private func reportFrame() {
-            guard let window, !bounds.isEmpty else { return }
-            // Report every UIKit layout pass; SwiftUI onChange can drop a
-            // second safe-area update in the same display frame.
-            onFrame?(convert(bounds, to: window))
-        }
-    }
-}
+#if canImport(UIKit)
+import UIKit
 #endif
-fileprivate struct ActiveWorkoutScrollSnapshot: Equatable, Sendable {
-    let visibleRect: CGRect
-    let contentOffset: CGPoint
-    let contentSize: CGSize
-    let containerSize: CGSize
-}
-
-struct ActiveWorkoutListGeometry: Equatable {
-    let visibleRect: CGRect
-    let contentOffset: CGPoint
-    let contentSize: CGSize
-    let containerSize: CGSize
-    let listFrame: CGRect
-}
-
-struct ActiveWorkoutListDriver: Sendable {
-    let scrollTo: @MainActor @Sendable (AnyHashable, UnitPoint) -> Void
-}
-
-struct ActiveWorkoutSidebarItem: Sendable, Equatable {
-    let id: String
-    let name: String
-    let index: Int
-    let completed: Int
-    let total: Int
-
-    var accessibilityLabel: String { "\(index + 1), \(name)" }
-    var accessibilityValue: String {
-        let progress = String(localized: "已完成 \(completed) / \(total) 组", comment: "Completed sets")
-        return completed == total && total > 0
-            ? String(localized: "完成", comment: "Done") + ", " + progress : progress
-    }
-}
-
-struct ActiveWorkoutListObservationSink: Sendable {
-    var onGeometry: @MainActor @Sendable (ActiveWorkoutListGeometry) -> Void = { _ in }
-    var onReady: @MainActor @Sendable (ActiveWorkoutListDriver) -> Void = { _ in }
-    var onRowFrame: @MainActor @Sendable (AnyHashable, CGRect) -> Void = { _, _ in }
-    var onHeaderFrame: @MainActor @Sendable (AnyHashable, CGRect) -> Void = { _, _ in }
-    var onControlFrame: @MainActor @Sendable (AnyHashable, String, CGRect) -> Void = { _, _, _ in }
-    var onSidebarItems: @MainActor @Sendable ([ActiveWorkoutSidebarItem]) -> Void = { _ in }
-    var onSidebarItemFrame: @MainActor @Sendable (String, CGRect) -> Void = { _, _ in }
-    var onSidebarNameFrame: @MainActor @Sendable (String, CGRect) -> Void = { _, _ in }
-    var onKeyboardVisibility: @MainActor @Sendable (Bool) -> Void = { _ in }
-    var onSidebarDismissKeyboardReady: @MainActor @Sendable (
-        @escaping @MainActor @Sendable () -> Void
-    ) -> Void = { _ in }
-    var onSidebarAddFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
-    var onSidebarMoveReady: @MainActor @Sendable (
-        @escaping @MainActor @Sendable (Int, Int) -> Void
-    ) -> Void = { _ in }
-    var onSidebarSelect: @MainActor @Sendable (
-        @escaping @MainActor @Sendable (PersistentIdentifier) -> Void
-    ) -> Void = { _ in }
-    var onSidebarSelectionState: @MainActor @Sendable (PersistentIdentifier?) -> Void = { _ in }
-    var onSidebarReorderToggle: @MainActor @Sendable (
-        @escaping @MainActor @Sendable () -> Void
-    ) -> Void = { _ in }
-    var onSidebarReorderModeState: @MainActor @Sendable (Bool) -> Void = { _ in }
-    var onSidebarReorderToggleAction: @MainActor @Sendable (
-        @escaping @MainActor @Sendable () -> Void
-    ) -> Void = { _ in }
-    var onSidebarMoveUpAction: @MainActor @Sendable (
-        @escaping @MainActor @Sendable (Int) -> Void
-    ) -> Void = { _ in }
-    var onSidebarMoveDownAction: @MainActor @Sendable (
-        @escaping @MainActor @Sendable (Int) -> Void
-    ) -> Void = { _ in }
-    var onAddExerciseFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
-    var onAddExerciseVisibleFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
-    var onAddExerciseHitFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
-    var onAddExerciseAction: @MainActor @Sendable () -> Void = {}
-}
-
-struct ActiveWorkoutToolbarObservation: Sendable {
-    var isEnabled = false
-    var onLargeModeFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
-    var onFinishFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
-    var onFinishLabelFrame: @MainActor @Sendable (CGRect) -> Void = { _ in }
-    var onLargeModeState: @MainActor @Sendable (ActiveWorkoutToolbarState) -> Void = { _ in }
-    var onLargeModeAction: @MainActor @Sendable (
-        @escaping @MainActor @Sendable () -> Void
-    ) -> Void = { _ in }
-    var onFinishAction: @MainActor @Sendable (
-        @escaping @MainActor @Sendable () -> Void
-    ) -> Void = { _ in }
-}
-
-struct ActiveWorkoutToolbarState: Sendable, Equatable {
-    let isLargeMode: Bool
-    let symbolName: String
-    let accessibilityLabel: String
-}
-
-private struct ActiveWorkoutToolbarObservationKey: EnvironmentKey {
-    static let defaultValue = ActiveWorkoutToolbarObservation()
-}
-
-extension EnvironmentValues {
-    var activeWorkoutToolbarObservation: ActiveWorkoutToolbarObservation {
-        get { self[ActiveWorkoutToolbarObservationKey.self] }
-        set { self[ActiveWorkoutToolbarObservationKey.self] = newValue }
-    }
-}
-
-private struct ActiveWorkoutListObservationKey: EnvironmentKey {
-    static let defaultValue = ActiveWorkoutListObservationSink()
-}
-
-extension EnvironmentValues {
-    var activeWorkoutListObservation: ActiveWorkoutListObservationSink {
-        get { self[ActiveWorkoutListObservationKey.self] }
-        set { self[ActiveWorkoutListObservationKey.self] = newValue }
-    }
-}
-
-private extension View {
-    @ViewBuilder
-    func activeWorkoutToolbarObservation(
-        _ observation: ActiveWorkoutToolbarObservation,
-        frame: @escaping @MainActor @Sendable (CGRect) -> Void,
-        state: @escaping @MainActor @Sendable () -> Void,
-        action: @escaping @MainActor @Sendable () -> Void
-    ) -> some View {
-        if observation.isEnabled {
-            background {
-                GeometryReader { proxy in
-                    let currentFrame = proxy.frame(in: .global)
-                    Color.clear
-                        .onAppear {
-                            frame(currentFrame)
-                            state()
-                            action()
-                        }
-                        .onChange(of: currentFrame) { _, newFrame in
-                            frame(newFrame)
-                        }
-                }
-            }
-        } else {
-            self
-        }
-    }
-
-    @ViewBuilder
-    func activeWorkoutListScrollObservation(
-        onSnapshot: @escaping @MainActor @Sendable (ActiveWorkoutScrollSnapshot) -> Void
-    ) -> some View {
-        if #available(iOS 18.0, *) {
-            onScrollGeometryChange(
-                for: ActiveWorkoutScrollSnapshot.self,
-                of: { geometry in
-                    ActiveWorkoutScrollSnapshot(
-                        visibleRect: geometry.visibleRect,
-                        contentOffset: geometry.contentOffset,
-                        contentSize: geometry.contentSize,
-                        containerSize: geometry.containerSize
-                    )
-                },
-                action: { _, snapshot in
-                    onSnapshot(snapshot)
-                }
-            )
-        } else {
-            self
-        }
-    }
-}
 
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
@@ -318,14 +30,7 @@ struct ActiveWorkoutView: View {
     // `RoutingSignal`, and the retro-write target for `accepted` after the
     // user applies or cancels a suggestion.
     @Environment(\.routingSignalStore) private var signalStore
-    @Environment(\.activeWorkoutListObservation) private var listObservation
-    @Environment(\.activeWorkoutToolbarObservation) private var toolbarObservation
     @Environment(\.flightStore) private var flightStore
-    @State private var exerciseListFrame = CGRect.zero
-    @State private var lastScrollSnapshot: ActiveWorkoutScrollSnapshot?
-    #if canImport(UIKit) && !os(macOS)
-    @State private var scrollViewBox = ActiveWorkoutScrollViewBox()
-    #endif
     @State private var workout: Workout?
     @State private var showingExercisePicker = false
     @State private var selectedExerciseID: PersistentIdentifier?
@@ -375,16 +80,11 @@ struct ActiveWorkoutView: View {
     @AppStorage("activeWorkoutLargeMode") private var largeMode = false
     @State private var startTime = Date()
     let source: WorkoutStartSource
-    private let snackbarSlotOverride: BottomSnackbarSlot?
 
     init(
         source: WorkoutStartSource = .blank,
-        snackbarSlotOverride: BottomSnackbarSlot? = nil,
-        initialKeyboardVisible: Bool = false
     ) {
         self.source = source
-        self.snackbarSlotOverride = snackbarSlotOverride
-        self._isKeyboardVisible = State(initialValue: initialKeyboardVisible)
     }
 
     private func toggleLargeMode() {
@@ -398,282 +98,86 @@ struct ActiveWorkoutView: View {
         showingFinishAlert = true
     }
 
-    private var largeModeSymbolName: String {
-        largeMode ? "textformat.size.smaller" : "textformat.size.larger"
-    }
 
-    private var largeModeAccessibilityLabel: String {
-        largeMode
-            ? String(
-                localized: "active_workout_toggle_normal_text_size",
-                defaultValue: "Switch to normal text size",
-                comment: "Active workout toggle: switch back to normal text size"
-            )
-            : String(
-                localized: "active_workout_toggle_large_text_size",
-                defaultValue: "Switch to large text size",
-                comment: "Active workout toggle: switch to large text size"
-            )
-    }
 
-    private var largeModeToolbarState: ActiveWorkoutToolbarState {
-        ActiveWorkoutToolbarState(
-            isLargeMode: largeMode,
-            symbolName: largeModeSymbolName,
-            accessibilityLabel: largeModeAccessibilityLabel
-        )
-    }
+
+
+
 
     var body: some View {
-        let policy = ActiveWorkoutSnackbarLayout.policy(
-            isKeyboardVisible: isKeyboardVisible,
-            snackbarSlot: bottomSnackbarSlot
-        )
-
         NavigationStack {
             VStack(spacing: 0) {
-                // MY-1706: top composition driven by the production policy.
-                // When keyboard is visible, top snackbar renders inline below
-                // the header. When keyboard is hidden, standalone header renders.
-                ActiveWorkoutSnackbarLayout.topComposition(
-                    policy: policy,
-                    theme: theme,
-                    infoBand: {
-                        compactInfoBand
-                    },
-                    undoContent: { undoSnackbarEnvelope },
-                    restContent: { restSnackbarEnvelope }
-                )
-                .accessibilityElement(children: .contain)
-                .accessibilityFocused($isTopSnackbarFocused)
-
-                exerciseList
+                compactInfoBand
+                workoutContent
             }
-            // MY-1706: stable root bottom safe area — always mounted across keyboard states.
-            // Uses unified VStack layout (FAB above, snackbar below) driven by policy.
-            // Child transitions and duplicate child animations are eliminated in favor
-            // of single root geometry-animation ownership.
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ActiveWorkoutSnackbarLayout.bottomSafeAreaContent(
-                    policy: policy,
-                    theme: theme,
-                    dockHorizontalInset: horizontalSizeClass == .regular ? 24 : ActiveWorkoutSnackbarLayout.dockInset,
-                    undoContent: { undoSnackbarEnvelope },
-                    restContent: { restSnackbarEnvelope },
-                    fab: {
-                        ActiveWorkoutFABContainer.body(snackbarSlot: policy.bottomSlot) {
-                            if policy.bottomSlot == .none {
-                                addExerciseButton
-                            } else {
-                                compactAddExerciseButton
-                            }
-                        }
-                    }
-                )
-                .activeWorkoutRootAnimation(policy: policy, reduceMotion: reduceMotion)
-                .allowsHitTesting(!policy.isKeyboardVisible || policy.bottomSlot != .none)
-                .accessibilityElement(children: .contain)
-                .accessibilityFocused($isBottomSnackbarFocused)
-            }
-            .sensoryFeedback(.selection, trigger: isSidebarReordering)
-            .onChange(of: isSidebarReordering) { _, value in
-                listObservation.onSidebarReorderModeState(value)
+                workoutInputDock
             }
             .navigationTitle(String(localized: "训练中", comment: "Active workout navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(
-                        String(localized: "放弃", comment: "Discard workout toolbar button"),
-                        role: .destructive
-                    ) {
-                        showingDiscardAlert = true
-                    }
-                }
-                // MY-1088: Large Mode toggle. Persisted via @AppStorage above.
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: toggleLargeMode) {
-                        Image(systemName: largeModeSymbolName)
-                            .fixedSize()
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel(largeModeAccessibilityLabel)
-                    .foregroundStyle(largeMode ? Color.accentColor : Color.primary)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(Rectangle())
-                    .accessibilityIdentifier("active_workout_large_mode")
-                    .padding(.horizontal, 6)
-                    .activeWorkoutToolbarObservation(
-                        toolbarObservation,
-                        frame: toolbarObservation.onLargeModeFrame,
-                        state: { toolbarObservation.onLargeModeState(largeModeToolbarState) },
-                        action: { toolbarObservation.onLargeModeAction(toggleLargeMode) }
-                    )
-                    .onChange(of: largeMode) { _, _ in
-                        guard toolbarObservation.isEnabled else { return }
-                        toolbarObservation.onLargeModeState(largeModeToolbarState)
-                        toolbarObservation.onLargeModeAction(toggleLargeMode)
-                    }
-                }
-                if #available(iOS 26.0, *) {
-                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                    Button(String(localized: "放弃", comment: "Discard workout toolbar button"), role: .destructive) { showingDiscardAlert = true }
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: requestFinish) {
-                        Text(String(localized: "active_workout_finish_short", comment: "Compact Finish toolbar action"))
-                            .fontWeight(.semibold)
-                            .fixedSize(horizontal: true, vertical: false)
-                            .activeWorkoutToolbarObservation(
-                                toolbarObservation,
-                                frame: toolbarObservation.onFinishLabelFrame,
-                                state: {},
-                                action: {}
-                            )
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
+                    Menu {
+                        Toggle(String(localized: "大字模式", comment: "Large mode"), isOn: $largeMode)
+                        Picker(String(localized: "重量单位", comment: "Weight unit"), selection: $weightUnit) {
+                            Text("kg").tag(WeightUnit.kg)
+                            Text("lb").tag(WeightUnit.lb)
+                        }
+                        Button(String(localized: "动作大纲", comment: "Exercise outline"), systemImage: "list.bullet") { isSidebarReordering = true }
+                    } label: {
+                        Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
                     }
-                    .accessibilityLabel(String(localized: "结束训练", comment: "Finish workout toolbar button"))
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(Rectangle())
-                    .accessibilityIdentifier("active_workout_finish")
-                    .foregroundStyle(Color.accentColor)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .padding(.horizontal, 8)
-                    .activeWorkoutToolbarObservation(
-                        toolbarObservation,
-                        frame: toolbarObservation.onFinishFrame,
-                        state: {},
-                        action: { toolbarObservation.onFinishAction(requestFinish) }
-                    )
+                    .accessibilityLabel(String(localized: "训练选项", comment: "Workout options"))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(String(localized: "完成", comment: "Finish workout"), action: requestFinish)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.accentColor)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
             }
-            .sheet(isPresented: $showingExercisePicker) {
-                ExercisePickerView { exercises in
-                    for exercise in exercises {
-                        addExercise(exercise)
-                    }
-                }
-            }
-            .sheet(item: $exerciseToReplace) { workoutExercise in
-                ExercisePickerView { newExercise in
-                    workoutExercise.exercise = newExercise
-                }
-            }
-            .sheet(item: $exerciseToSubstitute) { workoutExercise in
+            .sheet(isPresented: $showingExercisePicker) { ExercisePickerView { exercises in exercises.forEach(addExercise) } }
+            .sheet(isPresented: $isSidebarReordering) { outlineSheet }
+            .sheet(item: $exerciseToReplace) { target in ExercisePickerView { target.exercise = $0 } }
+            .sheet(item: $exerciseToSubstitute) { target in
                 ExerciseSubstituteSheet(
                     state: substituteSheetState,
-                    onSelect: { recommendation in
-                        applySubstitute(recommendation, to: workoutExercise)
-                    },
+                    onSelect: { applySubstitute($0, to: target) },
                     onManualSelect: {
-                        // T015: hand off from the AI substitute sheet to the
-                        // manual `ExercisePickerView` fallback with the current
-                        // exercise's muscle group preselected. Dismiss the
-                        // AI sheet first, then present the picker on the next
-                        // runloop tick so SwiftUI can finish the dismiss
-                        // transition before starting a new presentation.
-                        //
-                        // Spec 019 Stage 3c (T018): user rejected the AI
-                        // suggestions and switched to manual — mark the
-                        // latest substitute signal accepted=false.
-                        signalStore?.updateLatestAccepted(
-                            kind: AICallSite.substitute.kind,
-                            accepted: false
-                        )
-                        let target = workoutExercise
+                        signalStore?.updateLatestAccepted(kind: AICallSite.substitute.kind, accepted: false)
+                        substituteManualFallback = target
                         exerciseToSubstitute = nil
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(450))
-                            substituteManualFallback = target
-                        }
                     }
                 )
             }
-            .sheet(item: $substituteManualFallback) { workoutExercise in
-                ExercisePickerView(
-                    initialMuscleGroup: workoutExercise.exercise?.muscleGroup
-                ) { newExercise in
-                    workoutExercise.exercise = newExercise
-                    HapticManager.trigger(.exerciseAdded)
-                }
-            }
-            .alert(
-                String(localized: "完成训练？", comment: "Finish workout alert title"),
-                isPresented: $showingFinishAlert
-            ) {
-                Button(String(localized: "完成", comment: "Confirm finish workout button")) {
-                    finishWorkout()
-                }
-                Button(
-                    String(localized: "取消", comment: "Cancel finish workout button"),
-                    role: .cancel
-                ) {}
-            } message: {
-                Text(String(localized: "训练将被保存到历史记录", comment: "Finish workout alert message"))
-            }
-            .alert(
-                String(localized: "放弃训练？", comment: "Discard workout alert title"),
-                isPresented: $showingDiscardAlert
-            ) {
-                Button(
-                    String(localized: "放弃", comment: "Confirm discard workout button"),
-                    role: .destructive
-                ) {
-                    discardWorkout()
-                }
-                Button(
-                    String(localized: "继续训练", comment: "Cancel discard workout button"),
-                    role: .cancel
-                ) {}
-            } message: {
-                Text(String(localized: "训练数据将不会保存", comment: "Discard workout alert message"))
-            }
+            .sheet(item: $substituteManualFallback) { target in ExercisePickerView(initialMuscleGroup: target.exercise?.muscleGroup) { target.exercise = $0 } }
+            .alert(String(localized: "完成训练？", comment: "Finish workout alert title"), isPresented: $showingFinishAlert) {
+                Button(String(localized: "完成", comment: "Confirm finish")) { finishWorkout() }
+                Button(String(localized: "取消", comment: "Cancel"), role: .cancel) {}
+            } message: { Text(String(localized: "未完成的组将标记为完成并保存训练。", comment: "Finish workout message")) }
+            .alert(String(localized: "放弃训练？", comment: "Discard workout alert title"), isPresented: $showingDiscardAlert) {
+                Button(String(localized: "放弃", comment: "Confirm discard"), role: .destructive) { discardWorkout() }
+                Button(String(localized: "继续训练", comment: "Continue workout"), role: .cancel) {}
+            } message: { Text(String(localized: "训练数据将不会保存。", comment: "Discard workout message")) }
             .onAppear { setupWorkout() }
-            .task(id: restTimer.restEndDate) {
-                await restTimer.handleTimerTask()
-            }
-            .onChange(of: restTimer.phase) { _, newPhase in
-                if newPhase == .completed {
+            .task(id: restTimer.restEndDate) { await restTimer.handleTimerTask() }
+            .onChange(of: restTimer.phase) { _, phase in
+                if phase == .completed {
                     HapticManager.trigger(.restCompleted)
-                    // MY-1446 P0-1: buffer the completion in the presenter so
-                    // the view layer manages presentation independently of the
-                    // controller's own auto-clear sleep.
                     restCompletedPresenter.captureCompleted()
-                } else if newPhase == .resting {
-                    // MY-1446 P0-5: a new rest started — clear any stale buffered
-                    // completion from the previous timer so it cannot reappear.
-                    if restCompletedPresenter.isBuffered {
-                        restCompletedPresenter.dismiss()
-                    }
+                } else if phase == .resting, restCompletedPresenter.isBuffered {
+                    restCompletedPresenter.dismiss()
                 }
             }
-            // MY-1446: event-driven visibility tracking for the presenter.
             .onChange(of: bottomSnackbarSlot) { _, newSlot in
                 if newSlot == .rest {
                     restCompletedPresenter.markVisible()
                 } else {
                     restCompletedPresenter.markOccluded()
-                }
-                // MY-1446: VoiceOver focus routing via shared testable logic.
-                let focus = SnackbarFocusRouter.resolveSlotChange(
-                    newSlot: newSlot,
-                    isKeyboardVisible: isKeyboardVisible
-                )
-                isBottomSnackbarFocused = focus.bottomFocused
-                isTopSnackbarFocused = focus.topFocused
-            }
-            // MY-1446: migrate VoiceOver focus when keyboard visibility changes
-            // while a snackbar is active. The snackbar moves between bottom and
-            // top positions; without this, the focused container is removed and
-            // the new one never receives focus.
-            .onChange(of: isKeyboardVisible) { _, keyboardNowVisible in
-                if let focus = SnackbarFocusRouter.resolveKeyboardChange(
-                    keyboardNowVisible: keyboardNowVisible,
-                    currentSlot: bottomSnackbarSlot
-                ) {
-                    isBottomSnackbarFocused = focus.bottomFocused
-                    isTopSnackbarFocused = focus.topFocused
                 }
             }
             .onAppear {
@@ -683,59 +187,154 @@ struct ActiveWorkoutView: View {
                 if bottomSnackbarSlot == .rest {
                     restCompletedPresenter.markVisible()
                 }
-                // MY-1446: restart countdown for any buffered completion that
-                // survived a prior cancel() during disappear — prevents permanent
-                // rest-completed display after navigate away and back.
                 restCompletedPresenter.resume()
             }
             .onDisappear {
-                // MY-1446 P0-1: cancel the presenter's countdown task to prevent
-                // leaked polling loops when the view exits while slot is hidden.
-                // Preserves isBuffered so resume() on reappear restarts the countdown.
                 restCompletedPresenter.cancel()
             }
-            // MY-1420: the deleted row took VoiceOver focus with it, and the
-            // undo snackbar is deliberately non-modal (it must not block the
-            // list), so an announcement is the only way a screen-reader user
-            // learns the delete happened and is reversible. Keyed on the
-            // announcement's identity, not its text — two identical deletions
-            // in a row produce the same words and would otherwise announce once.
-            .onChange(of: undoController.lastAnnouncement) { _, announcement in
-                guard let announcement else { return }
-                AccessibilityNotification.Announcement(announcement.message).post()
-            }
-            .onChange(of: scenePhase) { _, newPhase in
-                guard newPhase == .background else { return }
-                do {
-                    try modelContext.save()
-                    logger.info("Background save triggered: result=success")
-                } catch {
-                    logger.info(
-                        "Background save failed: \(error.localizedDescription, privacy: .private)"
-                    )
-                }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .background else { return }
+                // swiftlint:disable:next silent_model_save
+                try? modelContext.save()
             }
             #if !os(macOS)
             .task { await observeHeartRate() }
             .task { await observeHeartRateConnection() }
             .task { await monitorHeartRateStaleness() }
-            .onReceive(
-                NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
-            ) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
                 isKeyboardVisible = true
-                listObservation.onKeyboardVisibility(true)
             }
-            .onReceive(
-                NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
-            ) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
                 isKeyboardVisible = false
-                listObservation.onKeyboardVisibility(false)
             }
             #endif
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .coordinateSpace(name: "ActiveWorkoutRoot")
         }
     }
+
+    @ViewBuilder
+    private var workoutContent: some View {
+        let exercises = sortedExercises
+        if exercises.isEmpty {
+            VStack(spacing: 16) {
+                ContentUnavailableView(String(localized: "添加第一个动作", comment: "Empty workout"), systemImage: "figure.strengthtraining.traditional", description: Text(String(localized: "选择动作开始训练", comment: "Empty workout description")))
+                Button { showingExercisePicker = true } label: {
+                    Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus")
+                        .font(.headline.weight(.semibold))
+                        .frame(minWidth: 180, minHeight: 50)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollViewReader { proxy in
+                List {
+                    ForEach(exercises) { workoutExercise in
+                        ActiveExerciseSection(
+                            workoutExercise: workoutExercise,
+                            onSetCompleted: {
+                                restTimer.startRest()
+                                TelemetryService.shared.trackNonisolated(.setCompleted(exerciseName: TelemetryHelpers.exerciseIdentifier(workoutExercise.exercise)))
+                            },
+                            onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
+                            onReplace: { exerciseToReplace = workoutExercise },
+                            onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
+                            onDelete: { deleteExercise(workoutExercise) },
+                            undoController: undoController
+                        )
+                            .id(workoutExercise.persistentModelID)
+                    }
+                }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .background(Color(uiColor: .systemGroupedBackground))
+                .environment(\.defaultMinListRowHeight, 1)
+                .accessibilityIdentifier("workout_exercise_list")
+                .onChange(of: selectedExerciseID) { _, id in if let id { withAnimation { proxy.scrollTo(id, anchor: .top) } } }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var workoutInputDock: some View {
+        if isKeyboardVisible {
+            if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
+                HStack(spacing: 10) {
+                    if undoController.pending != nil {
+                        undoStatusButton
+                    } else if restTimer.phase == .resting {
+                        restSnackbarContent
+                    } else {
+                        restCompletedButton
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+                .background(.regularMaterial)
+            }
+        } else {
+            HStack(spacing: 10) {
+            if undoController.pending != nil {
+                Button { undoController.undo(using: modelContext) } label: { Label(String(localized: "已删除组 · 撤销", comment: "Undo deletion"), systemImage: "arrow.uturn.backward") }
+                    .buttonStyle(.borderedProminent)
+                    .frame(minHeight: 50)
+            } else if restTimer.phase == .resting {
+                restSnackbarContent
+                    .frame(maxWidth: .infinity, minHeight: 50)
+            } else if restCompletedPresenter.isBuffered {
+                Button { restCompletedPresenter.dismiss(); restTimer.dismissCompleted() } label: { Label(String(localized: "休息结束", comment: "Rest complete"), systemImage: "checkmark.circle.fill") }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+            } else {
+                Button { showingExercisePicker = true } label: { Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus") }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+            }
+            if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
+                Button { showingExercisePicker = true } label: { Image(systemName: "plus") }
+                    .frame(width: 48, height: 48)
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+        .background(.regularMaterial)
+        }
+    }
+
+    private var undoStatusButton: some View {
+        Button { undoController.undo(using: modelContext) } label: {
+            Label(String(localized: "已删除组 · 撤销", comment: "Undo deletion"), systemImage: "arrow.uturn.backward")
+        }
+        .buttonStyle(.borderedProminent)
+        .frame(maxWidth: .infinity, minHeight: 44)
+    }
+
+    private var restCompletedButton: some View {
+        Button { restCompletedPresenter.dismiss(); restTimer.dismissCompleted() } label: {
+            Label(String(localized: "休息结束", comment: "Rest complete"), systemImage: "checkmark.circle.fill")
+        }
+        .buttonStyle(.borderedProminent)
+        .frame(maxWidth: .infinity, minHeight: 44)
+    }
+
+    private var outlineSheet: some View {
+        NavigationStack {
+            List {
+                ForEach(sortedExercises) { exercise in
+                    Button { selectedExerciseID = exercise.persistentModelID; isSidebarReordering = false } label: {
+                        HStack { Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise")); Spacer(); Text("\((exercise.sets ?? []).filter(\.isCompleted).count)/\((exercise.sets ?? []).count)").monospacedDigit().foregroundStyle(.secondary) }
+                    }
+                }
+                .onMove(perform: moveExercises)
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle(String(localized: "动作大纲", comment: "Exercise outline"))
+            .toolbar { EditButton() }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+
 
     // MARK: - Compact info band (MY-1262, default mode)
 
@@ -889,7 +488,7 @@ struct ActiveWorkoutView: View {
 
     private var exerciseSheetTrigger: some View {
         Button {
-            setSidebarReordering(true, selectExercise: { _ in })
+            isSidebarReordering = true
         } label: {
             Image(systemName: "list.bullet")
                 .frame(minWidth: 44, minHeight: 44)
@@ -926,9 +525,6 @@ struct ActiveWorkoutView: View {
     /// controller independently resets phase→.idle, the slot still resolves
     /// to `.rest` while the presentation is pending.
     private var bottomSnackbarSlot: BottomSnackbarSlot {
-        if let snackbarSlotOverride {
-            return snackbarSlotOverride
-        }
         let effectivePhase: RestPhase = restCompletedPresenter.isBuffered ? .completed : restTimer.phase
         return undoController.slot(restPhase: effectivePhase)
     }
@@ -941,13 +537,7 @@ struct ActiveWorkoutView: View {
     /// Type size.
     @ViewBuilder
     private var undoSnackbarEnvelope: some View {
-        let overrideMessage = snackbarSlotOverride == .undo
-            ? String(
-                localized: "active_workout.set_delete.undo_action_a11y",
-                defaultValue: "Undo deletion",
-                comment: "Undo set deletion a11y label"
-            )
-            : nil
+        let overrideMessage: String? = nil
         ActiveWorkoutSnackbarLayout.undoEnvelope(
             message: undoController.pending?.message ?? overrideMessage,
             undoTitle: String(
@@ -1006,8 +596,8 @@ struct ActiveWorkoutView: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(String(localized: "休息结束", comment: "Rest completed a11y label"))
             .accessibilityHint(String(localized: "点击关闭", comment: "Dismiss rest completed banner a11y hint"))
-        } else if snackbarSlotOverride == .rest || restTimer.phase == .resting, let restEnd = restTimer.restEndDate ?? (snackbarSlotOverride == .rest ? startTime.addingTimeInterval(59) : nil) {
-            let totalDuration = restTimer.restTotalDuration ?? (snackbarSlotOverride == .rest ? 60 : 0)
+        } else if restTimer.phase == .resting, let restEnd = restTimer.restEndDate {
+            let totalDuration = restTimer.restTotalDuration ?? (0)
             let totalSeconds = max(1, Int(totalDuration))
             TimelineView(.periodic(from: startTime, by: 1)) { context in
                 let remaining = max(0, Int(restEnd.timeIntervalSince(context.date)))
@@ -1038,372 +628,15 @@ struct ActiveWorkoutView: View {
         )
     }
 
-    private func updateExerciseListFrame(_ frame: CGRect) {
-        guard frame.width > 0 && frame.height > 0 && frame != exerciseListFrame else { return }
-        exerciseListFrame = frame
-        guard let snapshot = lastScrollSnapshot else { return }
-        listObservation.onGeometry(
-            ActiveWorkoutListGeometry(
-                visibleRect: snapshot.visibleRect,
-                contentOffset: snapshot.contentOffset,
-                contentSize: snapshot.contentSize,
-                containerSize: snapshot.containerSize,
-                listFrame: frame
-            )
-        )
-    }
 
-    @ViewBuilder
-    private var exerciseList: some View {
-        let exercises = sortedExercises
-        if exercises.isEmpty {
-            ContentUnavailableView(
-                String(localized: "添加第一个动作", comment: "Empty active workout title"),
-                systemImage: "figure.strengthtraining.traditional",
-                description: Text(
-                    String(
-                        localized: "点击下方按钮选择训练动作",
-                        comment: "Empty active workout description"
-                    )
-                )
-            )
-        } else {
-            ScrollViewReader { proxy in
-                let selectExercise: @MainActor @Sendable (WorkoutExercise) -> Void = { exercise in
-                    let targetID = exercise.persistentModelID
-                    let orderedSnapshot: [(id: PersistentIdentifier, setCount: Int)] = sortedExercises.map {
-                        (id: $0.persistentModelID, setCount: ($0.sets ?? []).count)
-                    }
-                    dismissKeyboardIfVisible()
-                    selectedExerciseID = targetID
-                    listObservation.onSidebarSelectionState(targetID)
-                    DispatchQueue.main.async {
-                        guard selectedExerciseID == targetID else { return }
-                        withAnimation(
-                            reduceMotion
-                                ? nil
-                                : .spring(response: 0.32, dampingFraction: 0.84)
-                        ) {
-                            proxy.scrollTo(targetID, anchor: .top)
-                        }
-                        #if canImport(UIKit) && !os(macOS)
-                        guard let collectionView = scrollViewBox.value as? UICollectionView,
-                              collectionView.window != nil,
-                              let index = orderedSnapshot.firstIndex(where: { $0.id == targetID })
-                        else { return }
-
-                        collectionView.layoutIfNeeded()
-                        let targetIndexPath: IndexPath? = {
-                            if collectionView.numberOfSections > index,
-                               collectionView.numberOfSections > 1 {
-                                return collectionView.numberOfItems(inSection: index) > 0
-                                    ? IndexPath(item: 0, section: index)
-                                    : nil
-                            } else if collectionView.numberOfSections == 1 {
-                                let precedingItems = orderedSnapshot.prefix(index).reduce(0) { count, item in
-                                    count + 1 + item.setCount
-                                }
-                                let totalItems = collectionView.numberOfItems(inSection: 0)
-                                guard totalItems > 0 else { return nil }
-                                return IndexPath(
-                                    item: min(precedingItems, totalItems - 1),
-                                    section: 0
-                                )
-                            }
-                            return nil
-                        }()
-                        guard let targetIndexPath else { return }
-
-                        let reportSelection = { (forceHeader: Bool) in
-                            collectionView.layoutIfNeeded()
-                            guard let attributes = collectionView.layoutAttributesForItem(at: targetIndexPath) else {
-                                return
-                            }
-                            let visibleSize = collectionView.bounds.size
-                            listObservation.onGeometry(
-                                ActiveWorkoutListGeometry(
-                                    visibleRect: CGRect(
-                                        origin: collectionView.contentOffset,
-                                        size: visibleSize
-                                    ),
-                                    contentOffset: collectionView.contentOffset,
-                                    contentSize: collectionView.contentSize,
-                                    containerSize: visibleSize,
-                                    listFrame: exerciseListFrame
-                                )
-                            )
-                            let globalHeaderRect = collectionView.convert(attributes.frame, to: nil)
-                            if forceHeader
-                                || exerciseListFrame.isEmpty
-                                || exerciseListFrame.insetBy(dx: -2, dy: -2).intersects(globalHeaderRect)
-                            {
-                                listObservation.onHeaderFrame(targetID, globalHeaderRect)
-                            }
-                        }
-
-                        collectionView.scrollToItem(
-                            at: targetIndexPath,
-                            at: .top,
-                            animated: !reduceMotion
-                        )
-                        reportSelection(false)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-                            guard selectedExerciseID == targetID else { return }
-                            reportSelection(false)
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
-                            guard selectedExerciseID == targetID else { return }
-                            collectionView.layoutIfNeeded()
-                            if let attributes = collectionView.layoutAttributesForItem(at: targetIndexPath) {
-                                let globalHeaderRect = collectionView.convert(attributes.frame, to: nil)
-                                let targetTop = collectionView.contentOffset.y
-                                    + collectionView.adjustedContentInset.top
-                                let isAtTop = abs(attributes.frame.minY - targetTop) <= 1
-                                let isInList = exerciseListFrame.isEmpty
-                                    || exerciseListFrame.insetBy(dx: -2, dy: -2).intersects(globalHeaderRect)
-                                if !isAtTop || !isInList {
-                                    collectionView.scrollToItem(
-                                        at: targetIndexPath,
-                                        at: .top,
-                                        animated: false
-                                    )
-                                    collectionView.layoutIfNeeded()
-                                    let clampedOffset = attributes.frame.minY
-                                        - collectionView.adjustedContentInset.top
-                                    if collectionView.contentOffset.y < clampedOffset {
-                                        collectionView.setContentOffset(
-                                            CGPoint(
-                                                x: collectionView.contentOffset.x,
-                                                y: clampedOffset
-                                            ),
-                                            animated: false
-                                        )
-                                    }
-                                    collectionView.layoutIfNeeded()
-                                }
-                            }
-                            reportSelection(true)
-                        }
-                        #endif
-                    }
-                }
-                HStack(spacing: 0) {
-                    List {
-                        ForEach(exercises) { workoutExercise in
-                            ActiveExerciseSection(
-                                workoutExercise: workoutExercise,
-                                onSetCompleted: {
-                                    restTimer.startRest()
-                                    TelemetryService.shared.trackNonisolated(
-                                        .setCompleted(exerciseName: TelemetryHelpers
-                                            .exerciseIdentifier(workoutExercise.exercise))
-                                    )
-                                },
-                                onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
-                                onReplace: { exerciseToReplace = workoutExercise },
-                                onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
-                                onDelete: { deleteExercise(workoutExercise) },
-                                undoController: undoController
-                            )
-                            .id(workoutExercise.persistentModelID)
-                        }
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .listSectionSpacing(largeMode ? 8 : 6)
-                    .scrollDismissesKeyboard(.immediately)
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 8)
-                            .onChanged { value in
-                                guard abs(value.translation.height) > abs(value.translation.width) else { return }
-                                dismissKeyboardIfVisible()
-                            }
-                    )
-                    .environment(\.defaultMinListRowHeight, 1)
-                    .accessibilityIdentifier("workout_exercise_list")
-                    .background {
-                        GeometryReader { geometry in
-                            Color.clear
-                                .onAppear {
-                                    updateExerciseListFrame(geometry.frame(in: .global))
-                                }
-                                .onChange(of: geometry.frame(in: .global)) { _, frame in
-                                    updateExerciseListFrame(frame)
-                                }
-                        }
-                    }
-                    .activeWorkoutListScrollObservation { snapshot in
-                        lastScrollSnapshot = snapshot
-                        listObservation.onGeometry(
-                            ActiveWorkoutListGeometry(
-                                visibleRect: snapshot.visibleRect,
-                                contentOffset: snapshot.contentOffset,
-                                contentSize: snapshot.contentSize,
-                                containerSize: snapshot.containerSize,
-                                listFrame: exerciseListFrame
-                            )
-                        )
-                    }
-                    #if canImport(UIKit) && !os(macOS)
-                    .background(ActiveWorkoutScrollViewProbe { scrollView in
-                        scrollViewBox.value = scrollView
-                    })
-                    #endif
-                }
-                .sheet(isPresented: $isSidebarReordering) {
-                    NavigationStack {
-                        List {
-                            ForEach(exercises) { workoutExercise in
-                                outlineRow(workoutExercise, onSelect: selectExercise)
-                            }
-                            .onMove { source, destination in
-                                guard let first = source.first else { return }
-                                moveSidebarExercise(source: first, destination: destination, exercises: exercises, selectExercise: selectExercise)
-                            }
-                            Button {
-                                listObservation.onSidebarDismissKeyboardReady { dismissKeyboardIfVisible() }
-                                showingExercisePicker = true
-                                isSidebarReordering = false
-                            } label: {
-                                Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus")
-                                    .frame(minHeight: 44)
-                            }
-                            .frame(minWidth: 48, minHeight: 48)
-                            .contentShape(Rectangle())
-                            .background {
-                                GeometryReader { proxy in
-                                    Color.clear
-                                        .onAppear {
-                                            listObservation.onSidebarAddFrame(proxy.frame(in: .global))
-                                        }
-                                        .onChange(of: proxy.frame(in: .global)) { _, frame in
-                                            listObservation.onSidebarAddFrame(frame)
-                                        }
-                                }
-                            }
-                            .accessibilityIdentifier("workout_sidebar_add_exercise")
-                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                        }
-                        .listStyle(.insetGrouped)
-                        .navigationTitle(String(localized: "动作概览", comment: "Exercise outline"))
-                        .toolbar { EditButton() }
-                        .onAppear {
-                            registerSidebarObservationCallbacks(onSelect: selectExercise) { source, destination in
-                                moveSidebarExercise(
-                                    source: source,
-                                    destination: destination,
-                                    exercises: exercises,
-                                    selectExercise: selectExercise
-                                )
-                            }
-                        }
-                    }
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
-                }
-                .onAppear {
-                    registerSidebarObservationCallbacks(onSelect: selectExercise) { source, destination in
-                        moveSidebarExercise(
-                            source: source,
-                            destination: destination,
-                            exercises: exercises,
-                            selectExercise: selectExercise
-                        )
-                    }
-                    listObservation.onReady(ActiveWorkoutListDriver { id, anchor in
-                        DispatchQueue.main.async {
-                            proxy.scrollTo(id, anchor: anchor)
-                        }
-                    })
-                }
-                .onChange(of: sortedExercises.map(\.persistentModelID)) { _, _ in
-                    registerSidebarObservationCallbacks(onSelect: selectExercise) { source, destination in
-                        moveSidebarExercise(
-                            source: source,
-                            destination: destination,
-                            exercises: sortedExercises,
-                            selectExercise: selectExercise
-                        )
-                    }
-                }
-                .onChange(of: completedSetCount) { _, _ in
-                    registerSidebarObservationCallbacks(onSelect: selectExercise) { source, destination in
-                        moveSidebarExercise(
-                            source: source,
-                            destination: destination,
-                            exercises: sortedExercises,
-                            selectExercise: selectExercise
-                        )
-                    }
-                }
-                .background(workoutSystemGroupedBackground)
-            }
-        }
-
-    }
 
     private var sortedExercises: [WorkoutExercise] {
         (workout?.exercises ?? []).sorted { $0.order < $1.order }
     }
 
-    private func registerSidebarObservationCallbacks(
-        onSelect: @escaping (WorkoutExercise) -> Void,
-        onMove: @escaping (Int, Int) -> Void
-    ) {
-        let items = sortedExercises.enumerated().map { index, exercise in
-            let completed = (exercise.sets ?? []).filter(\.isCompleted).count
-            return ActiveWorkoutSidebarItem(
-                id: String(describing: exercise.persistentModelID),
-                name: exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"),
-                index: index,
-                completed: completed,
-                total: (exercise.sets ?? []).count
-            )
-        }
-        listObservation.onSidebarItems(items)
-        listObservation.onKeyboardVisibility(isKeyboardVisible)
-        listObservation.onSidebarReorderModeState(isSidebarReordering)
-        listObservation.onSidebarDismissKeyboardReady { dismissKeyboardIfVisible() }
-        listObservation.onSidebarSelect { id in
-            guard let exercise = sortedExercises.first(where: { $0.persistentModelID == id }) else { return }
-            onSelect(exercise)
-        }
-        listObservation.onSidebarReorderToggle {
-            setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
-        }
-        listObservation.onSidebarMoveReady { source, destination in
-            onMove(source, destination)
-        }
-        listObservation.onSidebarReorderToggleAction {
-            setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
-        }
-        listObservation.onSidebarMoveUpAction { index in
-            guard index > 0 else { return }
-            onMove(index, index - 1)
-        }
-        listObservation.onSidebarMoveDownAction { index in
-            guard index < sortedExercises.count - 1 else { return }
-            onMove(index, index + 2)
-        }
-    }
 
-    private func setSidebarReordering(
-        _ value: Bool,
-        selectExercise: @escaping (WorkoutExercise) -> Void
-    ) {
-        let animation: Animation = reduceMotion
-            ? .easeInOut(duration: 0.15)
-            : .spring(response: 0.32, dampingFraction: 0.84)
-        withAnimation(animation) {
-            isSidebarReordering = value
-        }
-        listObservation.onSidebarReorderModeState(value)
-        HapticManager.trigger(.setCompleted)
-        if !value, let selectedExerciseID,
-           let selected = sortedExercises.first(where: { $0.persistentModelID == selectedExerciseID }) {
-            selectExercise(selected)
-        }
-    }
+
+
 
     private func moveSidebarExercise(
         source: Int,
@@ -1442,200 +675,6 @@ struct ActiveWorkoutView: View {
             exercises: sortedExercises,
             selectExercise: { _ in }
         )
-    }
-
-    @ViewBuilder
-    private func outlineRow(
-        _ workoutExercise: WorkoutExercise,
-        onSelect: @escaping (WorkoutExercise) -> Void
-    ) -> some View {
-        let sets = workoutExercise.sets ?? []
-        let completed = sets.filter(\.isCompleted).count
-        let progress = "\(completed)/\(sets.count) \(String(localized: "组", comment: "Sets"))"
-        let item = ActiveWorkoutSidebarItem(
-            id: String(describing: workoutExercise.persistentModelID),
-            name: workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"),
-            index: workoutExercise.order,
-            completed: completed,
-            total: sets.count
-        )
-        Button {
-            onSelect(workoutExercise)
-            listObservation.onSidebarSelectionState(workoutExercise.persistentModelID)
-            isSidebarReordering = false
-        } label: {
-            HStack(spacing: 12) {
-                Text(String(workoutExercise.order + 1))
-                    .font(.caption.monospacedDigit().weight(.semibold))
-                    .frame(width: 28, height: 28)
-                    .background(Color.accentColor.opacity(0.12), in: Circle())
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
-                        .font(.body.weight(.semibold))
-                        .background {
-                            GeometryReader { proxy in
-                                Color.clear
-                                    .onAppear {
-                                        listObservation.onSidebarNameFrame(
-                                            String(describing: workoutExercise.persistentModelID),
-                                            proxy.frame(in: .global)
-                                        )
-                                    }
-                                    .onChange(of: proxy.frame(in: .global)) { _, frame in
-                                        listObservation.onSidebarNameFrame(
-                                            String(describing: workoutExercise.persistentModelID), frame
-                                        )
-                                    }
-                            }
-                        }
-                    Text(progress)
-                        .font(.caption)
-                        .foregroundStyle(Color.secondary)
-                }
-                Spacer()
-            }
-            .frame(minHeight: 52)
-        }
-        .buttonStyle(.plain)
-        .background {
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear {
-                        listObservation.onSidebarItemFrame(
-                            String(describing: workoutExercise.persistentModelID),
-                            proxy.frame(in: .global)
-                        )
-                    }
-                    .onChange(of: proxy.frame(in: .global)) { _, frame in
-                        listObservation.onSidebarItemFrame(
-                            String(describing: workoutExercise.persistentModelID), frame
-                        )
-                    }
-            }
-        }
-        .onAppear {
-            listObservation.onSidebarSelectionState(selectedExerciseID)
-        }
-        .accessibilityAction(named: String(localized: "上移", comment: "Move exercise up")) {
-            moveExerciseUp(at: item.index)
-        }
-        .accessibilityAction(named: String(localized: "下移", comment: "Move exercise down")) {
-            moveExerciseDown(at: item.index)
-        }
-        .accessibilityIdentifier("workout_outline_exercise_\(workoutExercise.order)")
-    }
-
-    private func dismissKeyboardIfVisible() {
-        #if canImport(UIKit) && !os(macOS)
-        guard isKeyboardVisible else { return }
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        #endif
-    }
-
-    private var compactAddExerciseButton: some View {
-        Button {
-            HapticManager.trigger(.exerciseAdded)
-            listObservation.onAddExerciseAction()
-            showingExercisePicker = true
-        } label: {
-            Image(systemName: "plus")
-                .font(.headline.weight(.semibold))
-                .frame(width: 48, height: 48)
-                .contentShape(Circle())
-        }
-        #if canImport(UIKit) && !os(macOS)
-        .buttonStyle(ActiveWorkoutAddButtonStyle())
-        #else
-        .buttonStyle(FABButtonStyle())
-        #endif
-        .foregroundStyle(Color.accentColor)
-        .background(.ultraThinMaterial, in: Circle())
-        .overlay(Circle().stroke(workoutSeparator, lineWidth: 1))
-        .liquidGlassCapsule(theme: theme)
-        .frame(width: 48, height: 48)
-        .contentShape(Rectangle())
-        .background {
-            GeometryReader { proxy in
-                let frame = proxy.frame(in: .global)
-                Color.clear
-                    .onAppear {
-                        listObservation.onAddExerciseVisibleFrame(frame)
-                        listObservation.onAddExerciseHitFrame(frame)
-                    }
-                    .onChange(of: frame) { _, newFrame in
-                        listObservation.onAddExerciseVisibleFrame(newFrame)
-                        listObservation.onAddExerciseHitFrame(newFrame)
-                    }
-            }
-        }
-        .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
-        .accessibilityIdentifier("workout_add_exercise_hit_surface")
-    }
-
-    private var addExerciseButton: some View {
-        Button {
-            HapticManager.trigger(.exerciseAdded)
-            listObservation.onAddExerciseAction()
-            showingExercisePicker = true
-        } label: {
-            Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(theme.interactiveAccent)
-                .frame(
-                    maxWidth: horizontalSizeClass == .regular ? 400 : .infinity,
-                    minHeight: ActiveWorkoutSnackbarLayout.addExerciseHeight(largeMode: largeMode)
-                )
-                .background(
-                    reduceTransparency
-                        ? AnyShapeStyle(workoutSecondaryGroupedBackground)
-                        : AnyShapeStyle(.ultraThinMaterial),
-                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                )
-                .background(
-                    workoutSecondaryGroupedBackground.opacity(reduceTransparency ? 1.0 : 0.78),
-                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(workoutSeparator, lineWidth: 1)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .contentShape(Rectangle())
-                .background {
-                    GeometryReader { proxy in
-                        let frame = proxy.frame(in: .global)
-                        Color.clear
-                            .onAppear {
-                                listObservation.onAddExerciseHitFrame(frame)
-                            }
-                            .onChange(of: frame) { _, newFrame in
-                                listObservation.onAddExerciseHitFrame(newFrame)
-                            }
-                    }
-                }
-        }
-        #if canImport(UIKit) && !os(macOS)
-        .buttonStyle(ActiveWorkoutAddButtonStyle())
-        #else
-        .buttonStyle(FABButtonStyle())
-        #endif
-        .frame(maxWidth: horizontalSizeClass == .regular ? 400 : .infinity)
-        .liquidGlassCapsule(theme: theme)
-        .background {
-            GeometryReader { proxy in
-                let frame = proxy.frame(in: .global)
-                Color.clear
-                    .onAppear {
-                        listObservation.onAddExerciseFrame(frame)
-                        listObservation.onAddExerciseVisibleFrame(frame)
-                    }
-                    .onChange(of: frame) { _, newFrame in
-                        listObservation.onAddExerciseFrame(newFrame)
-                        listObservation.onAddExerciseVisibleFrame(newFrame)
-                    }
-            }
-        }
-        .accessibilityIdentifier("workout_add_exercise_hit_surface")
     }
 
     private var totalVolumeKg: Double {

@@ -12205,13 +12205,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Warmup"
+            "value": "Warm-up"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "热身组"
+            "value": "热身"
           }
         }
       }
@@ -12254,8 +12254,18 @@
     "active_workout.rest_countdown.a11y": {
       "comment": "Live rest countdown in undo snackbar",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Rest remaining %lld seconds" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "休息剩余 %lld 秒" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest remaining %lld seconds"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "休息剩余 %lld 秒"
+          }
+        }
       }
     },
     "workout.keyboard.ai_suggest": {
@@ -12312,50 +12322,120 @@
     "关闭递减组": {
       "comment": "Delete drop-set row",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Close drop set" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "关闭递减组" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close drop set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭递减组"
+          }
+        }
       }
     },
     "删除此递减组": {
       "comment": "Delete drop-set hint",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Delete this drop set" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "删除此递减组" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this drop set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除此递减组"
+          }
+        }
       }
     },
     "递减组完成状态": {
       "comment": "Drop-set completion",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Drop-set completion" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "递减组完成状态" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop-set completion"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "递减组完成状态"
+          }
+        }
       }
     },
     "递减组更多操作": {
       "comment": "Drop-set more actions",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "More drop-set actions" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "递减组更多操作" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More drop-set actions"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "递减组更多操作"
+          }
+        }
       }
     },
     "递减组次数": {
       "comment": "Drop-set reps",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Drop-set reps" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "递减组次数" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop-set reps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "递减组次数"
+          }
+        }
       }
     },
     "递减组重量": {
       "comment": "Drop-set weight",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Drop-set weight" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "递减组重量" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop-set weight"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "递减组重量"
+          }
+        }
       }
     },
     "输入数值": {
       "comment": "Enter drop-set value",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Enter a value" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "输入数值" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a value"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入数值"
+          }
+        }
       }
     },
     "workout.row.set_rpe": {
@@ -12379,15 +12459,35 @@
     "第 %lld 组总重量": {
       "comment": "Total weight accessibility label for a set",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Set %lld total weight" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "第 %lld 组总重量" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set %lld total weight"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第 %lld 组总重量"
+          }
+        }
       }
     },
     "%lld/%lld 组": {
       "comment": "Exercise completion count",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "%lld/%lld sets" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%lld/%lld 组" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld/%lld sets"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld/%lld 组"
+          }
+        }
       }
     },
     "workout.row.rpe_value": {
@@ -12411,85 +12511,573 @@
     "settings.flightDebug.title": {
       "comment": "Settings entry for FlightKit debug flags",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "🛠 Flight Experiments" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "🛠 Flight 实验开关" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🛠 Flight Experiments"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🛠 Flight 实验开关"
+          }
+        }
       }
     },
     "flight.workout.sidebarSchemeC.title": {
       "comment": "Flight flag title",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Workout sidebar Scheme C" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "训练侧栏方案 C" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workout sidebar Scheme C"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "训练侧栏方案 C"
+          }
+        }
       }
     },
     "flight.workout.sidebarSchemeC.summary": {
       "comment": "Flight flag summary",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Use the horizontal exercise pill bar in active workouts." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "在进行中的训练中使用横向动作胶囊栏。" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use the horizontal exercise pill bar in active workouts."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在进行中的训练中使用横向动作胶囊栏。"
+          }
+        }
       }
     },
     "展开": {
       "comment": "Expand completed exercise",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Expand" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "展开" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expand"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "展开"
+          }
+        }
       }
     },
     "折叠": {
       "comment": "Collapse completed exercise",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Collapse" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "折叠" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapse"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "折叠"
+          }
+        }
       }
     },
     "追加递减组": {
       "comment": "Add drop set",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Add drop set" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "追加递减组" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add drop set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "追加递减组"
+          }
+        }
       }
     },
     "追加金字塔组": {
       "comment": "Add pyramid set",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Add pyramid set" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "追加金字塔组" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add pyramid set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "追加金字塔组"
+          }
+        }
       }
     },
     "追加子组": {
       "comment": "Add follow-on set",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Add follow-on set" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "追加子组" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add follow-on set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "追加子组"
+          }
+        }
       }
     },
     "动作概览": {
       "comment": "Exercise outline",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Exercise outline" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "动作概览" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exercise outline"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "动作概览"
+          }
+        }
       }
     },
     "动作": {
       "comment": "Fallback exercise name",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Exercise" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "动作" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exercise"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "动作"
+          }
+        }
       }
     },
     "上移": {
       "comment": "Move exercise up",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Move up" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "上移" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move up"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上移"
+          }
+        }
       }
     },
     "下移": {
       "comment": "Move exercise down",
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Move down" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "下移" } }
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move down"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下移"
+          }
+        }
+      }
+    },
+    "大字模式": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Large Mode"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "大字模式"
+          }
+        }
+      }
+    },
+    "重量单位": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weight Unit"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重量单位"
+          }
+        }
+      }
+    },
+    "动作大纲": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exercise Outline"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "动作大纲"
+          }
+        }
+      }
+    },
+    "训练选项": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workout Options"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "训练选项"
+          }
+        }
+      }
+    },
+    "已删除组 · 撤销": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deleted set · Undo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已删除组 · 撤销"
+          }
+        }
+      }
+    },
+    "未完成的组将标记为完成并保存训练。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unfinished sets will be marked complete and saved."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未完成的组将标记为完成并保存训练。"
+          }
+        }
+      }
+    },
+    "训练数据将不会保存。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workout data will not be saved."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "训练数据将不会保存。"
+          }
+        }
+      }
+    },
+    "选择动作开始训练": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an exercise to start."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择动作开始训练"
+          }
+        }
+      }
+    },
+    "热身组": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warm-up set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "热身组"
+          }
+        }
+      }
+    },
+    "正式组": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Working set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正式组"
+          }
+        }
+      }
+    },
+    "递减组": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "递减组"
+          }
+        }
+      }
+    },
+    "金字塔组": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pyramid set"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "金字塔组"
+          }
+        }
+      }
+    },
+    "金字塔组完成状态": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pyramid set completion status"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "金字塔组完成状态"
+          }
+        }
+      }
+    },
+    "workout.keyboard.reps_5": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 reps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 次"
+          }
+        }
+      }
+    },
+    "workout.keyboard.reps_8": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "8 reps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "8 次"
+          }
+        }
+      }
+    },
+    "workout.keyboard.reps_10": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 reps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 次"
+          }
+        }
+      }
+    },
+    "workout.keyboard.reps_12": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 reps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 次"
+          }
+        }
+      }
+    },
+    "workout.keyboard.reps_15": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 reps"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 次"
+          }
+        }
+      }
+    },
+    "workout.keyboard.working": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Working"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正式"
+          }
+        }
+      }
+    },
+    "workout.keyboard.laterality": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Single / Both"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "单/双侧"
+          }
+        }
+      }
+    },
+    "workout.keyboard.add_drop": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ Drop"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+递减"
+          }
+        }
+      }
+    },
+    "workout.keyboard.add_pyramid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ Pyramid"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+金字塔"
+          }
+        }
+      }
+    },
+    "workout.keyboard.copy_short": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制"
+          }
+        }
       }
     }
   },
