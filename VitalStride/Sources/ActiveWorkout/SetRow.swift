@@ -355,9 +355,6 @@ struct SetRow: View {
             completionButton
             setBadge
             inputFields(variant: variant, compact: compact)
-            Text("×")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
             Spacer(minLength: 0)
             moreMenu
         }
@@ -391,6 +388,9 @@ struct SetRow: View {
             if exerciseSet.isUnilateral {
                 weightBox(binding: $weightRightText, field: .weightRight, width: weightWidth, side: "R", suggestion: advice, compact: compact, focusRequestID: $weightRightFocusRequestID)
             }
+            Text("×")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
             repsField(width: compact ? ActiveWorkoutHitTarget.numericInputWidth(large: false, isWeight: false) : LargeWorkoutFieldWidth.reps(variant), suggestion: advice, compact: compact, focusRequestID: $repsFocusRequestID)
         }
         .fixedSize(horizontal: dynamicTypeSize < .accessibility3, vertical: false)
@@ -823,19 +823,10 @@ struct SetRow: View {
 
     private var completionButton: some View {
         Button(action: toggleCompleted) {
-            HStack(alignment: .center, spacing: 2) {
-                Text("\(index + 1)")
-                    .font(.caption2.monospacedDigit().weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                    .foregroundStyle(Color.secondary)
-                    .frame(width: 19, alignment: .trailing)
-                Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(exerciseSet.isCompleted ? Color.green : Color.secondary)
-            }
-            .padding(.leading, 4)
-            .padding(.trailing, 1)
+            Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(exerciseSet.isCompleted ? Color.green : Color.secondary)
+                .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
         }
         .buttonStyle(.borderless)
         // MY-1013: unambiguous 44pt hit target (Constitution P1-H). The prior

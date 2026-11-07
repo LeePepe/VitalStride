@@ -90,9 +90,6 @@ struct SubSetRow: View {
             } else {
                 bilateralInputs
             }
-            Text("×")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
             Spacer(minLength: 0)
             trailingControls
         }
@@ -151,6 +148,9 @@ struct SubSetRow: View {
             inputField(text: $weightText, field: .weight,
                        label: "",
                        focusRequestID: $weightFocusRequestID)
+            Text("×")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
             inputField(text: $repsText, field: .reps,
                        label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"),
                        focusRequestID: $repsFocusRequestID)
@@ -162,6 +162,9 @@ struct SubSetRow: View {
         HStack(spacing: 4) {
             inputField(text: $weightText, field: .weight, label: "L", focusRequestID: $weightFocusRequestID)
             inputField(text: $weightRightText, field: .weightRight, label: "R", focusRequestID: $weightRightFocusRequestID)
+            Text("×")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
             inputField(text: $repsText, field: .reps, label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"), focusRequestID: $repsFocusRequestID)
         }
         .fixedSize(horizontal: true, vertical: false)
