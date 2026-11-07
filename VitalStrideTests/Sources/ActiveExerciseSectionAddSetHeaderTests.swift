@@ -13,71 +13,20 @@ struct ActiveExerciseSectionAddSetHeaderTests {
         container = try ModelContainerConfiguration.makeTestContainer()
     }
 
-    @Test("Header contains the add-set action while the section content contains only set rows")
-    func sectionContentOmitsAddSetButton() throws {
+    @Test("Exercise cards use a solid grouped surface and footer add-set controls")
+    func sectionUsesCardFooterAddSet() throws {
         let sourceURL = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        guard let sectionStart = source.range(of: "return Section {") else {
-            Issue.record("Expected ActiveExerciseSection.body to start with `return Section {`.")
-            return
-        }
-        guard let headerStart = source.range(of: "header: {") else {
-            Issue.record("Expected ActiveExerciseSection.body to declare a header.")
-            return
-        }
-        guard let firstConfirmation = source.range(
-            of: ".confirmationDialog(",
-            range: headerStart.upperBound..<source.endIndex
-        ) else {
-            Issue.record("Expected the section header to end before the confirmation dialog.")
-            return
-        }
-
-        let sectionBody = source[sectionStart.lowerBound..<headerStart.lowerBound]
-        let headerBody = source[headerStart.lowerBound..<firstConfirmation.lowerBound]
-
-        #expect(
-            !sectionBody.contains("addSetButton"),
-            "Section content still contains the add-set action. It must stay out of the `Section` content and live in the header beside the exercise title + menu."
-        )
-        #expect(
-            headerBody.contains("exerciseHeader") && source.contains("addSetButtonAndMenu"),
-            "The exercise header should delegate to a helper containing the add-set action next to the title and menu controls."
-        )
-        #expect(
-            source.contains("HStack(alignment: .center, spacing: 8)") &&
-            !headerBody.contains("VStack(alignment: .leading"),
-            "The exercise header must keep a single centered axis for long or Large Mode titles."
-        )
-        #expect(
-            source.contains("theme.neutrals.bg") && !source.contains("padding(.bottom, -15"),
-            "The pinned header should use the opaque base plane without negative bottom bleed."
-        )
-        #expect(
-            source.contains(".background(theme.neutrals.bg)") &&
-            source.contains(".listRowBackground(theme.neutrals.bg)") &&
-            source.contains("HStack(alignment: .center, spacing: 0)") &&
-            source.contains("frame(width: 28, height: 28)") &&
-            source.contains("padding(.trailing, 1)") &&
-            source.contains("padding(.leading, 1)") &&
-            source.contains("frame(width: 44, height: headerControlHeight, alignment: .trailing)") &&
-            source.contains("frame(width: 44, height: headerControlHeight, alignment: .leading)") &&
-            source.contains(".fixedSize(horizontal: true, vertical: false)") &&
-            source.contains(".minimumScaleFactor(0.85)") &&
-            source.contains(".truncationMode(.tail)") &&
-            source.contains("minHeight: headerControlHeight") &&
-            source.contains(".padding(.vertical, 4)"),
-            "The header must use the unified base plane, compact adjacent actions, and a single-line title."
-        )
-        #expect(
-            sectionBody.contains("ForEach"),
-            "Section content should still render the main-set and sub-set rows."
-        )
+        #expect(source.contains("} footer:"))
+        #expect(source.contains("private var cardFooter"))
+        #expect(source.contains("workoutSecondaryGroupedBackground"))
+        #expect(source.contains("accessibilityLabel(String(localized: \"添加一组\", comment: \"Add set button a11y\"))"))
+        #expect(source.contains("\"add-set\""))
+        #expect(source.contains("workoutSecondaryGroupedBackground"))
+        #expect(source.contains("ForEach"))
     }
 
     @Test("One append copies the last main-set defaults and keeps the next continuous order")

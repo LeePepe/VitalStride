@@ -61,7 +61,7 @@ struct SubSetRow: View {
         .padding(.vertical, 2)
         .padding(.horizontal, 0)
         .frame(maxWidth: .infinity, minHeight: largeMode ? 56 : 48)
-        .designSurface(style: .solid, cornerRadius: 14)
+        .background(workoutSecondaryGroupedBackground)
         .contentShape(Rectangle())
         .sensoryFeedback(.success, trigger: exerciseSet.isCompleted)
         .onAppear {
@@ -103,22 +103,22 @@ struct SubSetRow: View {
                     .font(.caption2.monospacedDigit().weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
-                    .foregroundStyle(theme.accent)
+                    .foregroundStyle(Color.accentColor)
                     .frame(width: 19, height: 24, alignment: .trailing)
                     .background(
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill((exerciseSet.isCompleted ? theme.success : theme.accent).opacity(0.10))
+                            .fill((exerciseSet.isCompleted ? Color.green : Color.accentColor).opacity(0.10))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .strokeBorder(
-                                (exerciseSet.isCompleted ? theme.success : theme.accent).opacity(0.24),
+                                (exerciseSet.isCompleted ? Color.green : Color.accentColor).opacity(0.24),
                                 lineWidth: 1
                             )
                     )
                 Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.neutrals.text2)
+                    .foregroundStyle(exerciseSet.isCompleted ? Color.green : exerciseSet.setType.semanticColor)
             }
             .padding(.leading, 4)
             .padding(.trailing, 1)
@@ -207,7 +207,7 @@ struct SubSetRow: View {
             if isSide {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: label)
                     .font(largeMode ? .footnote.weight(isTotal ? .semibold : .bold) : .caption2.weight(isTotal ? .semibold : .bold))
-                    .foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)
+                    .foregroundStyle(isTotal ? Color.secondary : Color.accentColor)
                     .fixedSize()
                     .allowsHitTesting(false)
             }
@@ -223,13 +223,13 @@ struct SubSetRow: View {
             if field.isWeightField {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
                     .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
-                    .foregroundStyle(theme.neutrals.text3)
+                    .foregroundStyle(Color.secondary)
                     .allowsHitTesting(false)
             } else {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit",
                                      text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
                     .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
-                    .foregroundStyle(theme.neutrals.text3)
+                    .foregroundStyle(Color.secondary)
                     .allowsHitTesting(false)
             }
         }
@@ -237,12 +237,12 @@ struct SubSetRow: View {
         .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
         .background(alignment: .center) {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(theme.inner)
+                .fill(workoutTertiaryFill)
                 .frame(height: largeMode ? 42 : 36)
                 .overlay {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(
-                            focusedField == field ? theme.accent : theme.neutrals.border.opacity(0.65),
+                            focusedField == field ? Color.accentColor : workoutSeparator.opacity(0.65),
                             lineWidth: focusedField == field ? 1.5 : 1
                         )
                 }

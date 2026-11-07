@@ -82,8 +82,9 @@ struct SubSetReadOnlyTests {
         #expect(source.contains("focusRequestID: $repsFocusRequestID"))
         #expect(source.contains("focusRequestID.wrappedValue &+= 1"))
         #expect(source.contains("WorkoutSetInput(input, theme: theme, focusRequestID: focusRequestID.wrappedValue)"))
-        #expect(source.contains(".foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)\n                    .fixedSize()\n                    .allowsHitTesting(false)"))
-        #expect(source.contains(".foregroundStyle(theme.neutrals.text3)\n                    .allowsHitTesting(false)"))
+        #expect(source.contains(".foregroundStyle(isTotal ? Color.secondary : Color.accentColor)"))
+        #expect(source.contains(".foregroundStyle(Color.secondary)"))
+        #expect(source.contains("workoutTertiaryFill"))
     }
 
     @Test("Drop-set insertion and removal use reduce-motion-aware transitions")

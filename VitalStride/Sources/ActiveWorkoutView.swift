@@ -487,9 +487,12 @@ struct ActiveWorkoutView: View {
                     restContent: { restSnackbarEnvelope },
                     fab: {
                         ActiveWorkoutFABContainer.body(snackbarSlot: policy.bottomSlot) {
-                            addExerciseButton
+                            if policy.bottomSlot == .none {
+                                addExerciseButton
+                            } else {
+                                compactAddExerciseButton
+                            }
                         }
-                        .padding(.horizontal, horizontalSizeClass == .regular ? 24 : ActiveWorkoutSnackbarLayout.dockInset)
                     }
                 )
                 .activeWorkoutRootAnimation(policy: policy, reduceMotion: reduceMotion)
@@ -521,7 +524,7 @@ struct ActiveWorkoutView: View {
                             .contentShape(Rectangle())
                     }
                     .accessibilityLabel(largeModeAccessibilityLabel)
-                    .foregroundStyle(largeMode ? theme.accent : theme.foreground)
+                    .foregroundStyle(largeMode ? Color.accentColor : Color.primary)
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
                     .accessibilityIdentifier("active_workout_large_mode")
@@ -559,7 +562,7 @@ struct ActiveWorkoutView: View {
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
                     .accessibilityIdentifier("active_workout_finish")
-                    .foregroundStyle(theme.accent)
+                    .foregroundStyle(Color.accentColor)
                     .fixedSize(horizontal: true, vertical: false)
                     .padding(.horizontal, 8)
                     .activeWorkoutToolbarObservation(
@@ -785,9 +788,9 @@ struct ActiveWorkoutView: View {
         .padding(.horizontal)
         .padding(.vertical, 8)
         .frame(minHeight: 48)
-        .background(theme.neutrals.card)
+        .background(workoutSecondaryGroupedBackground)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(theme.neutrals.border).frame(height: 1)
+            Rectangle().fill(workoutSeparator).frame(height: 1)
         }
     }
 
@@ -802,11 +805,11 @@ struct ActiveWorkoutView: View {
             HStack(alignment: .center, spacing: 4) {
                 Image(systemName: "timer")
                     .font(.subheadline)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(Color.secondary)
                     .accessibilityHidden(true)
                 Text(timeString)
                     .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(theme.neutrals.text1)
+                    .foregroundStyle(Color.primary)
                     .contentTransition(reduceMotion ? .opacity : .numericText())
                     .animation(
                         reduceMotion ? nil : .snappy(duration: 0.22),
@@ -832,7 +835,7 @@ struct ActiveWorkoutView: View {
                 .accessibilityHidden(true)
             Text(bpmText)
                 .font(.subheadline.monospacedDigit())
-                .foregroundStyle(theme.neutrals.text1)
+                .foregroundStyle(Color.primary)
                 .contentTransition(reduceMotion ? .opacity : .numericText())
                 .animation(
                     reduceMotion ? nil : .snappy(duration: 0.22),
@@ -855,11 +858,11 @@ struct ActiveWorkoutView: View {
         return HStack(alignment: .center, spacing: 6) {
             ZStack {
                 Circle()
-                    .stroke(theme.neutrals.border, lineWidth: 2)
+                    .stroke(workoutSeparator, lineWidth: 2)
                 Circle()
                     .trim(from: 0, to: clamped)
                     .stroke(
-                        theme.primary.primary,
+                        Color.accentColor,
                         style: StrokeStyle(lineWidth: 2, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
@@ -868,7 +871,7 @@ struct ActiveWorkoutView: View {
             .accessibilityHidden(true)
             Text("\(completedSetCount)/\(totalSetCount)")
                 .font(.subheadline.monospacedDigit())
-                .foregroundStyle(theme.neutrals.text1)
+                .foregroundStyle(Color.primary)
                 .contentTransition(
                     reduceMotion ? .opacity : .numericText(countsDown: false)
                 )
@@ -891,7 +894,7 @@ struct ActiveWorkoutView: View {
         HStack(alignment: .firstTextBaseline, spacing: 2) {
             Text(volumeText)
                 .font(.subheadline.monospacedDigit())
-                .foregroundStyle(theme.neutrals.text1)
+                .foregroundStyle(Color.primary)
                 .contentTransition(reduceMotion ? .opacity : .numericText())
                 .animation(
                     reduceMotion ? nil : .snappy(duration: 0.22),
@@ -900,7 +903,7 @@ struct ActiveWorkoutView: View {
                 .layoutPriority(1)
             Text(unit)
                 .font(.caption)
-                .foregroundStyle(theme.neutrals.text3)
+                .foregroundStyle(Color.secondary)
         }
 
         .accessibilityElement(children: .combine)
@@ -918,7 +921,7 @@ struct ActiveWorkoutView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(theme.foreground)
+        .foregroundStyle(Color.primary)
         .accessibilityIdentifier("workout_exercise_sheet_trigger")
         .accessibilityLabel(
             String(
@@ -949,7 +952,7 @@ struct ActiveWorkoutView: View {
                 exerciseSheetTrigger
                 Text(summaryText)
                     .font(summaryFont)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(Color.secondary)
             }
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
@@ -963,12 +966,12 @@ struct ActiveWorkoutView: View {
                 }
                 Text(summaryText)
                     .font(summaryFont)
-                    .foregroundStyle(theme.neutrals.text2)
+                    .foregroundStyle(Color.secondary)
             }
         }
         .padding(.horizontal)
         .padding(.vertical, largeMode ? 10 : 8)
-        .background(theme.neutrals.card)
+        .background(workoutSecondaryGroupedBackground)
     }
 
     // MARK: - Session stats (ActiveWorkoutPrototype top)
@@ -1000,10 +1003,10 @@ struct ActiveWorkoutView: View {
                         Text(String(localized: "组数进度", comment: "Session set progress label"))
                             .font(TypeScale.meta)
                             .fontWeight(.semibold)
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(Color.secondary)
                         Text("\(completedSetCount) / \(totalSetCount)")
                             .font(TypeScale.title.monospacedDigit())
-                            .foregroundStyle(theme.neutrals.text1)
+                            .foregroundStyle(Color.primary)
                             .contentTransition(reduceMotion ? .opacity : .numericText())
                             .animation(
                                 reduceMotion ? nil : .snappy(duration: 0.22),
@@ -1017,11 +1020,11 @@ struct ActiveWorkoutView: View {
                         Text(String(localized: "总容量", comment: "Session total volume label"))
                             .font(TypeScale.meta)
                             .fontWeight(.semibold)
-                            .foregroundStyle(theme.neutrals.text2)
+                            .foregroundStyle(Color.secondary)
                         HStack(alignment: .firstTextBaseline, spacing: 2) {
                             Text(Int(displayVolume).formatted())
                                 .font(TypeScale.display)
-                                .foregroundStyle(theme.neutrals.text1)
+                                .foregroundStyle(Color.primary)
                                 .contentTransition(reduceMotion ? .opacity : .numericText())
                                 .animation(
                                     reduceMotion ? nil : .snappy(duration: 0.22),
@@ -1029,21 +1032,21 @@ struct ActiveWorkoutView: View {
                                 )
                             Text(weightUnit.rawValue)
                                 .font(TypeScale.meta)
-                                .foregroundStyle(theme.neutrals.text3)
+                                .foregroundStyle(Color.secondary)
                         }
                     }
                 }
 
                 if volumeSeries.count > 1 {
-                    Sparkline(data: volumeSeries, color: theme.primary.primary)
+                    Sparkline(data: volumeSeries, color: Color.accentColor)
                         .accessibilityHidden(true)
                 }
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
-            .background(theme.neutrals.card)
+            .background(workoutSecondaryGroupedBackground)
             .overlay(alignment: .top) {
-                Rectangle().fill(theme.neutrals.border).frame(height: 1)
+                Rectangle().fill(workoutSeparator).frame(height: 1)
             }
             .accessibilityElement(children: .contain)
         }
@@ -1102,10 +1105,10 @@ struct ActiveWorkoutView: View {
     private var timerLabel: some View {
         HStack(spacing: 4) {
             Image(systemName: "timer")
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(Color.secondary)
             Text(String(localized: "训练时长", comment: "Workout duration label"))
                 .font(.subheadline)
-                .foregroundStyle(theme.neutrals.text2)
+                .foregroundStyle(Color.secondary)
         }
     }
 
@@ -1173,8 +1176,8 @@ struct ActiveWorkoutView: View {
                 defaultValue: "Undo",
                 comment: "Undo a set deletion snackbar action"
             ),
-            messageColor: theme.neutrals.text1,
-            undoColor: theme.primary.primary,
+            messageColor: Color.primary,
+            undoColor: Color.accentColor,
             theme: theme,
             undoAccessibilityLabel: String(
                 localized: "active_workout.set_delete.undo_action_a11y",
@@ -1197,7 +1200,7 @@ struct ActiveWorkoutView: View {
     private var restSnackbarEnvelope: some View {
         ActiveWorkoutSnackbarLayout.restEnvelope(
             skipTitle: String(localized: "跳过", comment: "Skip rest button visible title"),
-            neutralBackground: theme.neutrals.inner,
+            neutralBackground: workoutTertiaryFill,
             skipBackground: theme.interactiveAccent,
             theme: theme,
             largeMode: largeMode
@@ -1215,7 +1218,7 @@ struct ActiveWorkoutView: View {
             } label: {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(theme.success)
+                        .foregroundStyle(Color.green)
                     Text(String(localized: "休息结束", comment: "Rest completed banner text"))
                     Spacer()
                 }
@@ -1244,7 +1247,7 @@ struct ActiveWorkoutView: View {
     private var restAdjustButtons: some View {
         ActiveWorkoutSnackbarLayout.restTimerButtons(
             skipTitle: String(localized: "跳过", comment: "Skip rest button visible title"),
-            neutralBackground: theme.neutrals.inner,
+            neutralBackground: workoutTertiaryFill,
             skipBackground: theme.interactiveAccent,
             theme: theme,
             minus10AccessibilityLabel: String(localized: "缩短十秒", comment: "Subtract 10 seconds a11y label"),
@@ -1474,37 +1477,30 @@ struct ActiveWorkoutView: View {
                     })
                     #endif
                 }
-                .overlay(alignment: .leading) {
-                    ZStack(alignment: .leading) {
-                        if isSidebarReordering {
-                            Rectangle()
-                                .fill(theme.neutrals.bg.opacity(0.22))
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    setSidebarReordering(false, selectExercise: selectExercise)
-                                }
-                        }
-                        exerciseSidebar(
-                            exercises: exercises,
-                            width: sidebarWidth(
-                                forListWidth: exerciseListFrame.width,
-                                isReordering: isSidebarReordering
-                            ),
-                            onSelect: selectExercise,
-                            onMove: { source, destination in
-                                moveSidebarExercise(
-                                    source: source,
-                                    destination: destination,
-                                    exercises: exercises,
-                                    selectExercise: selectExercise
-                                )
+                .sheet(isPresented: $isSidebarReordering) {
+                    NavigationStack {
+                        List {
+                            ForEach(exercises) { workoutExercise in
+                                outlineRow(workoutExercise, onSelect: selectExercise)
                             }
-                        )
-                        .opacity(isSidebarReordering ? 1 : 0)
-                        .allowsHitTesting(isSidebarReordering)
-                        .accessibilityHidden(!isSidebarReordering)
-                        .clipped()
+                            .onMove { source, destination in
+                                guard let first = source.first else { return }
+                                moveSidebarExercise(source: first, destination: destination, exercises: exercises, selectExercise: selectExercise)
+                            }
+                            Button {
+                                showingExercisePicker = true
+                                isSidebarReordering = false
+                            } label: {
+                                Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus")
+                                    .frame(minHeight: 44)
+                            }
+                        }
+                        .listStyle(.insetGrouped)
+                        .navigationTitle(String(localized: "动作概览", comment: "Exercise outline"))
+                        .toolbar { EditButton() }
                     }
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
                 }
                 .onAppear {
                     registerSidebarObservationCallbacks(onSelect: selectExercise) { source, destination in
@@ -1541,7 +1537,7 @@ struct ActiveWorkoutView: View {
                         )
                     }
                 }
-                .background(theme.neutrals.bg)
+                .background(workoutSystemGroupedBackground)
             }
         }
 
@@ -1572,14 +1568,14 @@ struct ActiveWorkoutView: View {
                                     .font(.caption2.monospacedDigit())
                             }
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(isSelected ? theme.onAccent : theme.foreground)
+                            .foregroundStyle(isSelected ? theme.onAccent : Color.primary)
                             .padding(.horizontal, 12)
                             .frame(minHeight: 44)
                             .background(
-                                isSelected ? theme.accent : theme.neutrals.card,
+                                isSelected ? Color.accentColor : workoutSecondaryGroupedBackground,
                                 in: Capsule()
                             )
-                            .overlay(Capsule().stroke(theme.neutrals.border, lineWidth: 1))
+                            .overlay(Capsule().stroke(workoutSeparator, lineWidth: 1))
                             .contentShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -1596,10 +1592,10 @@ struct ActiveWorkoutView: View {
                             systemImage: "arrow.up.arrow.down"
                         )
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(theme.accent)
+                        .foregroundStyle(Color.accentColor)
                         .padding(.horizontal, 12)
                         .frame(minHeight: 44)
-                        .background(theme.accentSubtle, in: Capsule())
+                        .background(Color.accentColor.opacity(0.12), in: Capsule())
                         .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -1615,10 +1611,10 @@ struct ActiveWorkoutView: View {
                 .padding(.horizontal, 12)
             }
             .frame(minHeight: 56)
-            .background(theme.neutrals.card)
+            .background(workoutSecondaryGroupedBackground)
             .accessibilityIdentifier("workout_exercise_pill_bar")
             .overlay(alignment: .bottom) {
-                Rectangle().fill(theme.neutrals.border).frame(height: 1)
+                Rectangle().fill(workoutSeparator).frame(height: 1)
             }
             .onChange(of: selectedExerciseID) { _, selectedID in
                 guard let selectedID else { return }
@@ -1642,12 +1638,12 @@ struct ActiveWorkoutView: View {
             onSelect: @escaping (WorkoutExercise) -> Void,
             onMove: @escaping (Int, Int) -> Void
     ) -> some View {
-            let fgColor: Color = isSelected ? theme.interactiveAccent : theme.foreground
+            let fgColor: Color = isSelected ? theme.interactiveAccent : Color.primary
             let subFgColor: Color = isSelected
                 ? theme.interactiveAccent
-                : (completed == total && total > 0 ? theme.success : theme.secondaryForeground)
-            let cardBg: Color = isSelected ? theme.interactiveAccent.opacity(0.16) : theme.neutrals.card
-            let borderColor: Color = isSelected ? theme.interactiveAccent : theme.neutrals.border
+                : (completed == total && total > 0 ? Color.green : Color.secondary)
+            let cardBg: Color = isSelected ? theme.interactiveAccent.opacity(0.16) : workoutSecondaryGroupedBackground
+            let borderColor: Color = isSelected ? theme.interactiveAccent : workoutSeparator
             let indexText: String = completed == total && total > 0 ? "✓" : "\(index + 1)"
             let progressText: String = "\(completed)/\(total)"
 
@@ -1773,7 +1769,7 @@ struct ActiveWorkoutView: View {
                 )
                 Image(systemName: "line.3.horizontal")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(theme.secondaryForeground)
+                    .foregroundStyle(Color.secondary)
                     .frame(width: 20, height: 44)
                     .contentShape(Rectangle())
                     .accessibilityHidden(true)
@@ -1791,10 +1787,10 @@ struct ActiveWorkoutView: View {
             exerciseName: String,
             onSelect: @escaping (WorkoutExercise) -> Void
     ) -> some View {
-            let cardBg: Color = isSelected ? theme.accentSubtle : theme.neutrals.card
+            let cardBg: Color = isSelected ? Color.accentColor.opacity(0.12) : workoutSecondaryGroupedBackground
             let borderColor: Color = isSelected
-                ? theme.accent.opacity(0.35)
-                : theme.neutrals.border.opacity(0.45)
+                ? Color.accentColor.opacity(0.35)
+                : workoutSeparator.opacity(0.45)
             let indexText: String = completed == total && total > 0 ? "✓" : "\(index + 1)"
             let progressText: String = "\(completed)/\(total)"
 
@@ -1810,7 +1806,7 @@ struct ActiveWorkoutView: View {
                             .lineLimit(1)
                     }
                     .lineLimit(1)
-                    .foregroundStyle(theme.secondaryForeground)
+                    .foregroundStyle(Color.secondary)
                     Text(exerciseName)
                         .font(TypeScale.body)
                         .lineLimit(2)
@@ -1835,7 +1831,7 @@ struct ActiveWorkoutView: View {
                 .frame(maxWidth: .infinity, minHeight: largeMode ? 60 : 52, alignment: .leading)
                 .padding(.horizontal, 2)
                 .padding(.vertical, largeMode ? 8 : 6)
-                .foregroundStyle(theme.foreground)
+                .foregroundStyle(Color.primary)
                 .background(cardBg, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
@@ -1856,8 +1852,8 @@ struct ActiveWorkoutView: View {
             defaultValue: "Exercises",
             comment: "Selected exercise sidebar"
         )
-        let fgColor: Color = isSidebarReordering ? theme.onAccent : theme.accent
-        let bgColor: Color = isSidebarReordering ? theme.accent : theme.accentSubtle
+        let fgColor: Color = isSidebarReordering ? theme.onAccent : Color.accentColor
+        let bgColor: Color = isSidebarReordering ? Color.accentColor : Color.accentColor.opacity(0.12)
 
         VStack(spacing: 2) {
             if isSidebarReordering {
@@ -1868,7 +1864,7 @@ struct ActiveWorkoutView: View {
             }
             Text(titleText)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(theme.secondaryForeground)
+                .foregroundStyle(Color.secondary)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(1)
@@ -1914,15 +1910,15 @@ struct ActiveWorkoutView: View {
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(theme.primary.primary)
+                .foregroundStyle(Color.accentColor)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .background(
-                    theme.primary.primarySubtle,
+                    Color.accentColor.opacity(0.12),
                     in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(theme.primary.primary.opacity(0.28), lineWidth: 1)
+                        .strokeBorder(Color.accentColor.opacity(0.28), lineWidth: 1)
                 )
                 .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
@@ -2012,7 +2008,7 @@ struct ActiveWorkoutView: View {
         let isSelected: Bool = selectedExerciseID == exercise.persistentModelID
         let isDragged: Bool = draggedSidebarExerciseID == exercise.persistentModelID
         let dragScale: CGFloat = (isDragged && !reduceMotion) ? 1.02 : 1.0
-        let shadowColor: Color = theme.neutrals.border.opacity(isDragged ? 0.35 : 0.0)
+        let shadowColor: Color = workoutSeparator.opacity(isDragged ? 0.35 : 0.0)
         let shadowRadius: CGFloat = isDragged ? 8.0 : 0.0
         let zIdx: Double = isDragged ? 1.0 : 0.0
         let moveUpLabel = String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder")
@@ -2133,7 +2129,7 @@ struct ActiveWorkoutView: View {
         }
         .frame(width: width)
         .coordinateSpace(name: "sidebarReorderList")
-        .background(theme.neutrals.card)
+        .background(workoutSecondaryGroupedBackground)
         .accessibilityIdentifier("workout_exercise_sidebar")
     }
 
@@ -2220,11 +2216,62 @@ struct ActiveWorkoutView: View {
         selectExercise(movedExercise)
     }
 
+    @ViewBuilder
+    private func outlineRow(
+        _ workoutExercise: WorkoutExercise,
+        onSelect: @escaping (WorkoutExercise) -> Void
+    ) -> some View {
+        let sets = workoutExercise.sets ?? []
+        let completed = sets.filter(\.isCompleted).count
+        let progress = "\(completed)/\(sets.count) \(String(localized: "组", comment: "Sets"))"
+        Button {
+            onSelect(workoutExercise)
+            isSidebarReordering = false
+        } label: {
+            HStack(spacing: 12) {
+                Text(String(workoutExercise.order + 1))
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .frame(width: 28, height: 28)
+                    .background(Color.accentColor.opacity(0.12), in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
+                        .font(.body.weight(.semibold))
+                    Text(progress)
+                        .font(.caption)
+                        .foregroundStyle(Color.secondary)
+                }
+                Spacer()
+            }
+            .frame(minHeight: 52)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("workout_outline_exercise_\(workoutExercise.order)")
+    }
+
     private func dismissKeyboardIfVisible() {
         #if canImport(UIKit) && !os(macOS)
         guard isKeyboardVisible else { return }
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         #endif
+    }
+
+    private var compactAddExerciseButton: some View {
+        Button {
+            HapticManager.trigger(.exerciseAdded)
+            listObservation.onAddExerciseAction()
+            showingExercisePicker = true
+        } label: {
+            Image(systemName: "plus")
+                .font(.headline.weight(.semibold))
+                .frame(width: 48, height: 48)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(Color.accentColor)
+        .background(.ultraThinMaterial, in: Circle())
+        .overlay(Circle().stroke(workoutSeparator, lineWidth: 1))
+        .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
+        .accessibilityIdentifier("workout_add_exercise_hit_surface")
     }
 
     private var addExerciseButton: some View {
@@ -2242,17 +2289,17 @@ struct ActiveWorkoutView: View {
                 )
                 .background(
                     reduceTransparency
-                        ? AnyShapeStyle(theme.neutrals.card)
+                        ? AnyShapeStyle(workoutSecondaryGroupedBackground)
                         : AnyShapeStyle(.ultraThinMaterial),
                     in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                 )
                 .background(
-                    theme.neutrals.card.opacity(reduceTransparency ? 1.0 : 0.78),
+                    workoutSecondaryGroupedBackground.opacity(reduceTransparency ? 1.0 : 0.78),
                     in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                 )
                 .overlay {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(theme.neutrals.border, lineWidth: 1)
+                        .stroke(workoutSeparator, lineWidth: 1)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .contentShape(Rectangle())

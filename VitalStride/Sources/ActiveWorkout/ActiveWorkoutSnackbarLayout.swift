@@ -263,23 +263,27 @@ enum ActiveWorkoutSnackbarLayout {
         @ViewBuilder restContent: @escaping () -> RestContent,
         @ViewBuilder fab: @escaping () -> FAB
     ) -> some View {
-        if isKeyboardVisible && snackbarSlot == .none {
-            EmptyView()
+        if isKeyboardVisible {
+            if snackbarSlot == .none {
+                EmptyView()
+            } else {
+                slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, dockHorizontalInset)
+                    .padding(.top, 8)
+            }
         } else {
-            let dock = VStack(spacing: 8) {
-                if !isKeyboardVisible {
-                    fab()
-                        .frame(maxWidth: .infinity)
-                }
+            HStack(spacing: 10) {
                 if snackbarSlot != .none {
                     slotEnvelope(snackbarSlot: snackbarSlot, undoContent: undoContent, restContent: restContent)
-                        .frame(maxWidth: 400, alignment: .leading)
-                        .padding(.horizontal, dockHorizontalInset)
-                        .padding(.bottom, 4)
+                        .frame(maxWidth: .infinity)
                 }
+                fab()
+                    .frame(width: snackbarSlot == .none ? nil : 48)
             }
+            .padding(.horizontal, dockHorizontalInset)
             .padding(.top, 8)
-            dock
+            .padding(.bottom, 4)
         }
     }
 
@@ -487,7 +491,7 @@ enum ActiveWorkoutSnackbarLayout {
                                 .font(.caption.monospacedDigit().weight(.semibold))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 5)
-                                .background(theme.accentSubtle, in: Capsule())
+                                .background(Color.accentColor.opacity(0.12), in: Capsule())
                                 .accessibilityLabel(
                                     String(
                                         format: String(
@@ -502,12 +506,12 @@ enum ActiveWorkoutSnackbarLayout {
                         Text(message)
                             .font(undoFont)
                             .lineLimit(2)
-                            .foregroundStyle(messageColor ?? theme.foreground)
+                            .foregroundStyle(messageColor ?? Color.primary)
                         Spacer()
                         Button(action: onUndo) {
                             Text(undoTitle)
                                 .font(undoFont.weight(.semibold))
-                                .foregroundStyle(undoColor ?? theme.accent)
+                                .foregroundStyle(undoColor ?? Color.accentColor)
                                 .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
                                 .contentShape(Rectangle())
                         }
@@ -556,7 +560,7 @@ enum ActiveWorkoutSnackbarLayout {
                 restTimerButtons(
                     skipTitle: skipTitle,
                     neutralBackground: neutralBackground ?? theme.surfaceSubtle,
-                    skipBackground: skipBackground ?? theme.accentSubtle,
+                    skipBackground: skipBackground ?? Color.accentColor.opacity(0.12),
                     theme: theme
                 )
             }
@@ -591,7 +595,7 @@ enum ActiveWorkoutSnackbarLayout {
         Button(title, action: action)
             .font(.caption)
             .fontWeight(isBold ? .semibold : .regular)
-            .foregroundStyle(foreground ?? theme.foreground)
+            .foregroundStyle(foreground ?? Color.primary)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(background ?? theme.surfaceSubtle, in: Capsule())
@@ -647,7 +651,7 @@ enum ActiveWorkoutSnackbarLayout {
             restTimerButton(
                 title: skipTitle,
                 isBold: true,
-                background: skipBackground ?? theme.accentSubtle,
+                background: skipBackground ?? Color.accentColor.opacity(0.12),
                 foreground: theme.onInteractiveAccent,
                 theme: theme,
                 accessibilityIdentifier: "rest_button_skip",
@@ -761,7 +765,7 @@ struct ActiveWorkoutRestStatus: View {
     var body: some View {
         HStack(spacing: 8) {
             ZStack {
-                Circle().stroke(theme.neutrals.border, lineWidth: 2.5)
+                Circle().stroke(workoutSeparator, lineWidth: 2.5)
                 Circle()
                     .trim(from: 0, to: 1 - Double(remaining) / Double(max(1, totalSeconds)))
                     .stroke(theme.primary.primary, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))

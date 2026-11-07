@@ -192,13 +192,13 @@ struct WorkoutSetInput: UIViewRepresentable {
             view.attributedPlaceholder = NSAttributedString(
                 string: input.placeholder,
                 attributes: [
-                    .foregroundColor: UIColor(theme.primary.primary.opacity(0.72))
+                    .foregroundColor: UIColor(Color.accentColor.opacity(0.72))
                 ]
             )
         }
         view.font = input.font
-        view.textColor = UIColor(theme.foreground)
-        view.tintColor = UIColor(theme.accent)
+        view.textColor = UIColor(Color.primary)
+        view.tintColor = UIColor(Color.accentColor)
         view.keyboardType = input.keyboardType
         context.coordinator.update(
             field: input.field, setType: input.setType, exercise: input.exercise,
@@ -342,7 +342,7 @@ struct SetRow: View {
         .padding(.vertical, 2)
         .padding(.horizontal, 0)
         .frame(maxWidth: .infinity, minHeight: largeMode ? 56 : 48)
-        .designSurface(style: .solid, cornerRadius: 16)
+        .background(workoutSecondaryGroupedBackground)
         .sensoryFeedback(.success, trigger: exerciseSet.isCompleted)
         .onAppear {
             refreshInputText()
@@ -425,7 +425,7 @@ struct SetRow: View {
                 WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: side)
                     .font(largeMode ? .footnote.weight(isTotal ? .semibold : .bold) : .caption2.weight(isTotal ? .semibold : .bold))
                     .fixedSize()
-                    .foregroundStyle(isTotal ? theme.neutrals.text3 : theme.accent)
+                    .foregroundStyle(isTotal ? Color.secondary : Color.accentColor)
                     .allowsHitTesting(false)
             }
             weightField(
@@ -442,19 +442,19 @@ struct SetRow: View {
             )
             WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
                 .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
-                .foregroundStyle(theme.neutrals.text3)
+                .foregroundStyle(Color.secondary)
                 .allowsHitTesting(false)
         }
         .padding(.horizontal, 3)
         .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
         .background(alignment: .center) {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(theme.inner)
+                .fill(workoutTertiaryFill)
                 .frame(height: largeMode ? 42 : 36)
                 .overlay {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(
-                            focusedField == field ? theme.accent : theme.neutrals.border.opacity(0.65),
+                            focusedField == field ? Color.accentColor : workoutSeparator.opacity(0.65),
                             lineWidth: focusedField == field ? 1.5 : 1
                         )
                 }
@@ -497,7 +497,7 @@ struct SetRow: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .foregroundStyle(theme.secondaryForeground)
+                .foregroundStyle(Color.secondary)
                 .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
                 .contentShape(Rectangle())
         }
@@ -527,7 +527,7 @@ struct SetRow: View {
     /// doesn't collide with the orange rest-timer / success completion. Rendered
     /// only for non-working set types (warmup / drop-set / pyramid).
     private func setTypePill(_ type: SetType, compact: Bool = false) -> some View {
-        let color = categoryColor(setTypeCategoryIndex(type), theme: theme)
+        let color = type.semanticColor
         return Text(type.displayName)
             .font(compact ? .caption2.weight(.semibold) : TypeScale.meta.weight(.medium))
             .padding(.horizontal, compact ? 4 : 6)
@@ -552,8 +552,8 @@ struct SetRow: View {
                         .minimumScaleFactor(0.85)
                         .padding(.horizontal, 2)
                         .padding(.vertical, 2)
-                        .foregroundStyle(categoryColor(setTypeCategoryIndex(exerciseSet.setType), theme: theme))
-                        .background(categoryColor(setTypeCategoryIndex(exerciseSet.setType), theme: theme).opacity(0.16), in: Capsule())
+                        .foregroundStyle(exerciseSet.setType.semanticColor)
+                        .background(exerciseSet.setType.semanticColor.opacity(0.16), in: Capsule())
                         .fixedSize(horizontal: true, vertical: false)
                         .layoutPriority(1)
                 } else {
@@ -581,8 +581,8 @@ struct SetRow: View {
             .font(compact ? .caption2.weight(.semibold).monospacedDigit() : TypeScale.meta.weight(.medium).monospacedDigit())
             .padding(.horizontal, compact ? 4 : 6)
             .padding(.vertical, compact ? 2 : 3)
-            .background(theme.primary.primary.opacity(0.12), in: Capsule())
-            .foregroundStyle(theme.primary.primary)
+            .background(Color.accentColor.opacity(0.12), in: Capsule())
+            .foregroundStyle(Color.accentColor)
             .lineLimit(1)
             .minimumScaleFactor(0.85)
             .fixedSize(horizontal: true, vertical: false)
@@ -768,19 +768,19 @@ struct SetRow: View {
         WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: .reps, kind: "unit",
                              text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
             .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
-            .foregroundStyle(theme.neutrals.text3)
+            .foregroundStyle(Color.secondary)
             .allowsHitTesting(false)
         }
         .padding(.horizontal, 3)
         .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
         .background(alignment: .center) {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(theme.inner)
+                .fill(workoutTertiaryFill)
                 .frame(height: largeMode ? 42 : 36)
                 .overlay {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(
-                            focusedField == .reps ? theme.accent : theme.neutrals.border.opacity(0.65),
+                            focusedField == .reps ? Color.accentColor : workoutSeparator.opacity(0.65),
                             lineWidth: focusedField == .reps ? 1.5 : 1
                         )
                 }
@@ -803,7 +803,7 @@ struct SetRow: View {
             WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: .reps, kind: "unit",
                              text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
                 .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
-                .foregroundStyle(theme.neutrals.text3)
+                .foregroundStyle(Color.secondary)
                 .allowsHitTesting(false)
         }
         .accessibilityLabel(String(localized: "第 \(index + 1) 组次数", comment: "Set reps a11y label"))
@@ -852,11 +852,11 @@ struct SetRow: View {
                     .font(.caption2.monospacedDigit().weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
-                    .foregroundStyle(theme.secondaryForeground)
+                    .foregroundStyle(Color.secondary)
                     .frame(width: 19, alignment: .trailing)
                 Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(exerciseSet.isCompleted ? theme.success : theme.secondaryForeground)
+                    .foregroundStyle(exerciseSet.isCompleted ? Color.green : Color.secondary)
             }
             .padding(.leading, 4)
             .padding(.trailing, 1)

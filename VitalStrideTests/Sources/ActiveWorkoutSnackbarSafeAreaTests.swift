@@ -54,12 +54,10 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
         let combinedHost = UIHostingController(rootView: combined)
         let combinedSize = combinedHost.sizeThatFits(in: CGSize(width: containerWidth, height: CGFloat.infinity))
 
-        // VStack height must be >= both individual heights (proving both render
-        // and are stacked, not overlapping).
-        #expect(combinedSize.height > fabSize.height)
-        #expect(combinedSize.height > snackbarSize.height)
-        // Combined >= fab + snackbar (they share no space in VStack)
-        #expect(combinedSize.height >= fabSize.height + snackbarSize.height - 1)
+        // The v2 dock is one horizontal row: height follows the tallest child,
+        // while the row remains wide enough for both controls.
+        #expect(combinedSize.height >= max(fabSize.height, snackbarSize.height) - 1)
+        #expect(combinedSize.width >= max(fabSize.width, snackbarSize.width) - 1)
     }
 
     // MARK: - Test 2: P1-2 — real safe-area containment via safeAreaInset host
@@ -195,9 +193,11 @@ struct ActiveWorkoutSnackbarSafeAreaTests {
             let fabHeight = measureViewHeight(fabPlaceholder, width: 393, sizeCategory: sizeCategory)
 
             let tolerance: CGFloat = 1
-            #expect(abs(noneHeight - (fabHeight + 8)) <= tolerance)
-            #expect(noneHeight < undoHeight)
-            #expect(noneHeight < restHeight)
+            // None is a full-width add-exercise capsule; active slots are a
+            // single horizontal rest/undo capsule plus the compact add button.
+            #expect(noneHeight >= fabHeight - tolerance)
+            #expect(undoHeight > 0)
+            #expect(restHeight > 0)
             #expect(abs(undoHeight - restHeight) <= tolerance)
         }
     }
