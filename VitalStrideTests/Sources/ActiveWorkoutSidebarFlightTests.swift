@@ -14,28 +14,33 @@ final class ActiveWorkoutSidebarFlightTests: XCTestCase {
         XCTAssertEqual(0, 0)
     }
 
-    func testSchemeCPillBarContract() throws {
+    func testNativeOutlineSheetContract() throws {
         let source = try sourceText()
-        XCTAssertTrue(source.contains("private var collapsedSidebarWidth: CGFloat"))
-        XCTAssertTrue(source.contains("0"))
-        XCTAssertTrue(source.contains("workout_exercise_pill_"))
-        XCTAssertTrue(source.contains("workout_exercise_pill_bar"))
-        XCTAssertTrue(source.contains("workout_pill_bar_reorder"))
-        XCTAssertTrue(source.contains("if isSidebarSchemeC && !isSidebarReordering"))
+        XCTAssertTrue(source.contains(".sheet(isPresented: $isSidebarReordering)"))
+        XCTAssertTrue(source.contains("NavigationStack"))
+        XCTAssertTrue(source.contains(".listStyle(.insetGrouped)"))
+        XCTAssertTrue(source.contains(".presentationDetents([.medium, .large])"))
+        XCTAssertTrue(source.contains("workout_exercise_sheet_trigger"))
+        XCTAssertFalse(source.contains("exerciseSidebar"))
+        XCTAssertFalse(source.contains("workout_exercise_pill_bar"))
     }
 
-    func testReorderSurfaceContract() throws {
+    func testOutlineObservationContract() throws {
         let source = try sourceText()
-        XCTAssertTrue(source.contains(".padding(.horizontal, isSidebarReordering ? 12 : 2)"))
-        XCTAssertTrue(source.contains("sidebarAddExerciseButton"))
-        XCTAssertTrue(source.contains("minWidth: 236"))
-        XCTAssertFalse(source.contains("containerWidth * 0.74"))
+        XCTAssertTrue(source.contains("onSidebarItemFrame"))
+        XCTAssertTrue(source.contains("onSidebarNameFrame"))
+        XCTAssertTrue(source.contains("onSidebarAddFrame"))
+        XCTAssertTrue(source.contains("onSidebarSelectionState"))
+        XCTAssertTrue(source.contains("onSidebarMoveReady"))
+        XCTAssertTrue(source.contains("onSidebarReorderToggleAction"))
+        XCTAssertFalse(source.contains("sidebarAddExerciseButton"))
+        XCTAssertFalse(source.contains("minWidth: 236"))
     }
 
     func testFunctionalGlassAndExplicitCompletionContracts() throws {
         let source = try sourceText()
         XCTAssertTrue(source.contains("workout_exercise_sheet_trigger"))
-        XCTAssertTrue(source.contains("if isSidebarReordering"))
+        XCTAssertTrue(source.contains(".sheet(isPresented: $isSidebarReordering)"))
 
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

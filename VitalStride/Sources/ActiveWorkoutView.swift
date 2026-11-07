@@ -1320,12 +1320,6 @@ struct ActiveWorkoutView: View {
                         #endif
                     }
                 }
-                if isSidebarSchemeC && !isSidebarReordering {
-                    exercisePillBar(
-                        exercises: exercises,
-                        onSelect: selectExercise
-                    )
-                }
                 HStack(spacing: 0) {
                     List {
                         ForEach(exercises) { workoutExercise in
@@ -1400,16 +1394,42 @@ struct ActiveWorkoutView: View {
                                 moveSidebarExercise(source: first, destination: destination, exercises: exercises, selectExercise: selectExercise)
                             }
                             Button {
+                                listObservation.onSidebarDismissKeyboardReady { dismissKeyboardIfVisible() }
                                 showingExercisePicker = true
                                 isSidebarReordering = false
                             } label: {
                                 Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus")
                                     .frame(minHeight: 44)
                             }
+                            .frame(minWidth: 48, minHeight: 48)
+                            .contentShape(Rectangle())
+                            .background {
+                                GeometryReader { proxy in
+                                    Color.clear
+                                        .onAppear {
+                                            listObservation.onSidebarAddFrame(proxy.frame(in: .global))
+                                        }
+                                        .onChange(of: proxy.frame(in: .global)) { _, frame in
+                                            listObservation.onSidebarAddFrame(frame)
+                                        }
+                                }
+                            }
+                            .accessibilityIdentifier("workout_sidebar_add_exercise")
+                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                         }
                         .listStyle(.insetGrouped)
                         .navigationTitle(String(localized: "动作概览", comment: "Exercise outline"))
                         .toolbar { EditButton() }
+                        .onAppear {
+                            registerSidebarObservationCallbacks(onSelect: selectExercise) { source, destination in
+                                moveSidebarExercise(
+                                    source: source,
+                                    destination: destination,
+                                    exercises: exercises,
+                                    selectExercise: selectExercise
+                                )
+                            }
+                        }
                     }
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
@@ -1455,599 +1475,8 @@ struct ActiveWorkoutView: View {
 
     }
 
-    @ViewBuilder
-    private func exercisePillBar(
-        exercises: [WorkoutExercise],
-        onSelect: @escaping (WorkoutExercise) -> Void
-    ) -> some View {
-        ScrollViewReader { pillProxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(Array(exercises.enumerated()), id: \.element.persistentModelID) { index, exercise in
-                        let completed = (exercise.sets ?? []).filter(\.isCompleted).count
-                        let total = (exercise.sets ?? []).count
-                        let isSelected = selectedExerciseID == exercise.persistentModelID
-                        Button {
-                            onSelect(exercise)
-                        } label: {
-                            HStack(spacing: 6) {
-                                Text("\(index + 1)")
-                                    .font(.caption.monospacedDigit().bold())
-                                Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
-                                    .lineLimit(1)
-                                    .layoutPriority(1)
-                                Text(completed == total && total > 0 ? "✓" : "\(completed)/\(total)")
-                                    .font(.caption2.monospacedDigit())
-                            }
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(isSelected ? theme.onAccent : Color.primary)
-                            .padding(.horizontal, 12)
-                            .frame(minHeight: 44)
-                            .background(
-                                isSelected ? Color.accentColor : workoutSecondaryGroupedBackground,
-                                in: Capsule()
-                            )
-                            .overlay(Capsule().stroke(workoutSeparator, lineWidth: 1))
-                            .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .id(exercise.persistentModelID)
-                        .accessibilityIdentifier("workout_exercise_pill_\(exercise.persistentModelID)")
-                        .accessibilityLabel(Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise")))
-                        .accessibilityValue("\(completed)/\(total)")
-                    }
-                    Button {
-                        setSidebarReordering(true, selectExercise: onSelect)
-                    } label: {
-                        Label(
-                            String(localized: "排序", comment: "Start exercise reordering"),
-                            systemImage: "arrow.up.arrow.down"
-                        )
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.accentColor)
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: 44)
-                        .background(Color.accentColor.opacity(0.12), in: Capsule())
-                        .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("workout_pill_bar_reorder")
-                    .accessibilityLabel(
-                        String(
-                            localized: "workout.sidebar.reorder",
-                            defaultValue: "Reorder exercises",
-                            comment: "Pill bar reorder action"
-                        )
-                    )
-                }
-                .padding(.horizontal, 12)
-            }
-            .frame(minHeight: 56)
-            .background(workoutSecondaryGroupedBackground)
-            .accessibilityIdentifier("workout_exercise_pill_bar")
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(workoutSeparator).frame(height: 1)
-            }
-            .onChange(of: selectedExerciseID) { _, selectedID in
-                guard let selectedID else { return }
-                withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85)) {
-                    pillProxy.scrollTo(selectedID, anchor: .center)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func sidebarExpandedReorderRow(
-            exercise: WorkoutExercise,
-            index: Int,
-            completed: Int,
-            total: Int,
-            isSelected: Bool,
-            exerciseID: String,
-            exerciseName: String,
-            exerciseCount: Int,
-            onSelect: @escaping (WorkoutExercise) -> Void,
-            onMove: @escaping (Int, Int) -> Void
-    ) -> some View {
-            let fgColor: Color = isSelected ? theme.interactiveAccent : Color.primary
-            let subFgColor: Color = isSelected
-                ? theme.interactiveAccent
-                : (completed == total && total > 0 ? Color.green : Color.secondary)
-            let cardBg: Color = isSelected ? theme.interactiveAccent.opacity(0.16) : workoutSecondaryGroupedBackground
-            let borderColor: Color = isSelected ? theme.interactiveAccent : workoutSeparator
-            let indexText: String = completed == total && total > 0 ? "✓" : "\(index + 1)"
-            let progressText: String = "\(completed)/\(total)"
-
-            HStack(alignment: .center, spacing: 6) {
-                Button { onSelect(exercise) } label: {
-                    HStack(alignment: .center, spacing: 8) {
-                        Text(indexText)
-                            .font(.caption.monospacedDigit().bold())
-                            .contentTransition(.numericText())
-                            .foregroundStyle(subFgColor)
-                            .frame(width: 20, alignment: .center)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(exerciseName)
-        .font(TypeScale.body)
-        .foregroundStyle(fgColor)
-        .multilineTextAlignment(.leading)
-        .lineLimit(2)
-        .minimumScaleFactor(0.85)
-        .fixedSize(horizontal: false, vertical: true)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear {
-                        listObservation.onSidebarNameFrame(
-                            exerciseID,
-                            proxy.frame(in: .global)
-                        )
-                    }
-                    .onChange(of: proxy.frame(in: .global)) {
-                        _, frame in
-                        listObservation.onSidebarNameFrame(exerciseID, frame)
-                    }
-            }
-        }
-                            Text(progressText)
-        .font(.caption2.monospacedDigit())
-        .foregroundStyle(subFgColor)
-        .lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .layoutPriority(1)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                    .contentShape(Rectangle())
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .layoutPriority(1)
-                .buttonStyle(.plain)
-                sidebarInlineReorderControls(
-                    index: index,
-                    exerciseName: exerciseName,
-                    exerciseCount: exerciseCount,
-                    onMove: onMove
-                )
-            }
-            .frame(
-                minWidth: 236,
-                maxWidth: .infinity,
-                minHeight: largeMode ? 60 : 52
-            )
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(borderColor, lineWidth: 1.5)
-            )
-            .background {
-                GeometryReader { proxy in
-                    Color.clear
-                        .onAppear {
-                            listObservation.onSidebarItemFrame(exerciseID, proxy.frame(in: .global))
-                        }
-                        .onChange(of: proxy.frame(in: .global)) { _, frame in
-                            listObservation.onSidebarItemFrame(exerciseID, frame)
-                        }
-                }
-            }
-    }
-
-    @ViewBuilder
-    private func sidebarInlineReorderControls(
-            index: Int,
-            exerciseName: String,
-            exerciseCount: Int,
-            onMove: @escaping (Int, Int) -> Void
-    ) -> some View {
-            HStack(spacing: 0) {
-                Button {
-                    onMove(index, index - 1)
-                } label: {
-                    Image(systemName: "chevron.up")
-                        .font(.caption.weight(.semibold))
-                        .frame(width: 32, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(index == 0)
-                .opacity(index == 0 ? 0.32 : 1)
-                .accessibilityLabel(
-                    String(
-                        localized: "active_workout.sidebar.move_up",
-                        defaultValue: "上移 \(exerciseName)"
-                    )
-                )
-                Button {
-                    onMove(index, index + 2)
-                } label: {
-                    Image(systemName: "chevron.down")
-                        .font(.caption.weight(.semibold))
-                        .frame(width: 32, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(index == exerciseCount - 1)
-                .opacity(index == exerciseCount - 1 ? 0.32 : 1)
-                .accessibilityLabel(
-                    String(
-                        localized: "active_workout.sidebar.move_down",
-                        defaultValue: "下移 \(exerciseName)"
-                    )
-                )
-                Image(systemName: "line.3.horizontal")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.secondary)
-                    .frame(width: 20, height: 44)
-                    .contentShape(Rectangle())
-                    .accessibilityHidden(true)
-            }
-    }
-
-    @ViewBuilder
-    private func sidebarCollapsedRailRow(
-            exercise: WorkoutExercise,
-            index: Int,
-            completed: Int,
-            total: Int,
-            isSelected: Bool,
-            exerciseID: String,
-            exerciseName: String,
-            onSelect: @escaping (WorkoutExercise) -> Void
-    ) -> some View {
-            let cardBg: Color = isSelected ? Color.accentColor.opacity(0.12) : workoutSecondaryGroupedBackground
-            let borderColor: Color = isSelected
-                ? Color.accentColor.opacity(0.35)
-                : workoutSeparator.opacity(0.45)
-            let indexText: String = completed == total && total > 0 ? "✓" : "\(index + 1)"
-            let progressText: String = "\(completed)/\(total)"
-
-            Button { onSelect(exercise) } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 2) {
-                        Text(indexText)
-                            .font(.caption.monospacedDigit().bold())
-                            .contentTransition(.numericText())
-                        Text(progressText)
-                            .font(.caption2.monospacedDigit())
-                            .layoutPriority(1)
-                            .lineLimit(1)
-                    }
-                    .lineLimit(1)
-                    .foregroundStyle(Color.secondary)
-                    Text(exerciseName)
-                        .font(TypeScale.body)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.85)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background {
-                            GeometryReader { proxy in
-                                Color.clear
-                                    .onAppear {
-                                        listObservation.onSidebarNameFrame(
-                                            exerciseID,
-                                            proxy.frame(in: .global)
-                                        )
-                                    }
-                                    .onChange(of: proxy.frame(in: .global)) { _, frame in
-                                        listObservation.onSidebarNameFrame(exerciseID, frame)
-                                    }
-                            }
-                        }
-                }
-                .frame(maxWidth: .infinity, minHeight: largeMode ? 60 : 52, alignment: .leading)
-                .padding(.horizontal, 2)
-                .padding(.vertical, largeMode ? 8 : 6)
-                .foregroundStyle(Color.primary)
-                .background(cardBg, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(borderColor, lineWidth: 1)
-                )
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity, minHeight: 44)
-    }
-
-    @ViewBuilder
-    private func sidebarHeader(
-        onSelect: @escaping (WorkoutExercise) -> Void
-    ) -> some View {
-        let titleText: String = String(
-            localized: "workout.sidebar.title",
-            defaultValue: "Exercises",
-            comment: "Selected exercise sidebar"
-        )
-        let fgColor: Color = isSidebarReordering ? theme.onAccent : Color.accentColor
-        let bgColor: Color = isSidebarReordering ? Color.accentColor : Color.accentColor.opacity(0.12)
-
-        VStack(spacing: 2) {
-            if isSidebarReordering {
-                Capsule()
-                    .fill(Color.secondary.opacity(0.35))
-                    .frame(width: 36, height: 5)
-                    .padding(.top, 6)
-            }
-            Text(titleText)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.secondary)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .layoutPriority(1)
-            Button {
-                setSidebarReordering(!isSidebarReordering, selectExercise: onSelect)
-            } label: {
-                Label(
-                    isSidebarReordering
-                        ? String(localized: "完成", comment: "Finish exercise reordering")
-                        : String(localized: "排序", comment: "Start exercise reordering"),
-                    systemImage: isSidebarReordering ? "checkmark" : "arrow.up.arrow.down"
-                )
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(fgColor)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .background(bgColor, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(
-                String(
-                    localized: isSidebarReordering
-                        ? "workout.sidebar.reorder_done"
-                        : "workout.sidebar.reorder",
-                    defaultValue: isSidebarReordering ? "Done reordering" : "Reorder exercises",
-                    comment: "Sidebar reorder mode toggle"
-                )
-            )
-            .accessibilityValue(
-                isSidebarReordering
-                    ? String(localized: "workout.sidebar.reordering", defaultValue: "On", comment: "Reorder mode active")
-                    : String(localized: "workout.sidebar.reorder_off", defaultValue: "Off", comment: "Reorder mode inactive")
-            )
-            .accessibilityAddTraits(isSidebarReordering ? .isSelected : [])
-        }
-        .frame(minWidth: isSidebarReordering ? 110 : 0, maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private var sidebarAddExerciseButton: some View {
-        Button {
-            showingExercisePicker = true
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .background(
-                    Color.accentColor.opacity(0.12),
-                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Color.accentColor.opacity(0.28), lineWidth: 1)
-                )
-                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .liquidGlassBar(theme: theme, cornerRadius: 12)
-        .frame(minWidth: 236, maxWidth: .infinity, minHeight: 45)
-        .padding(.horizontal, 8)
-        .accessibilityIdentifier("workout_sidebar_add_exercise")
-        .accessibilityLabel(
-            String(
-                localized: "workout.sidebar.add_exercise",
-                defaultValue: "Add exercise from sidebar",
-                comment: "Sidebar add exercise button"
-            )
-        )
-        .background {
-            GeometryReader { proxy in
-                let frame = proxy.frame(in: .global)
-                Color.clear
-                    .onAppear {
-                        guard isSidebarReordering, frame.width >= 44 else { return }
-                        listObservation.onSidebarAddFrame(frame)
-                    }
-                    .onChange(of: frame) { _, newFrame in
-                        guard isSidebarReordering, newFrame.width >= 44 else { return }
-                        listObservation.onSidebarAddFrame(newFrame)
-                    }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func sidebarExerciseItemBase(
-        index: Int,
-        exercise: WorkoutExercise,
-        exerciseCount: Int,
-        onSelect: @escaping (WorkoutExercise) -> Void,
-        onMove: @escaping (Int, Int) -> Void
-    ) -> some View {
-        let completed = (exercise.sets ?? []).filter(\.isCompleted).count
-        let total = (exercise.sets ?? []).count
-        let isSelected = selectedExerciseID == exercise.persistentModelID
-        let exerciseID = String(describing: exercise.persistentModelID)
-        let exerciseName = exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise")
-
-        Group {
-            if isSidebarReordering {
-                sidebarExpandedReorderRow(
-                    exercise: exercise,
-                    index: index,
-                    completed: completed,
-                    total: total,
-                    isSelected: isSelected,
-                    exerciseID: exerciseID,
-                    exerciseName: exerciseName,
-                    exerciseCount: exerciseCount,
-                    onSelect: onSelect,
-                    onMove: onMove
-                )
-                .transition(.opacity)
-            } else {
-                sidebarCollapsedRailRow(
-                    exercise: exercise,
-                    index: index,
-                    completed: completed,
-                    total: total,
-                    isSelected: isSelected,
-                    exerciseID: exerciseID,
-                    exerciseName: exerciseName,
-                    onSelect: onSelect
-                )
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .contentShape(Rectangle())
-    }
-
-    @ViewBuilder
-    private func sidebarExerciseItem(
-        index: Int,
-        exercise: WorkoutExercise,
-        item: ActiveWorkoutSidebarItem,
-        exerciseCount: Int,
-        onSelect: @escaping (WorkoutExercise) -> Void,
-        onMove: @escaping (Int, Int) -> Void
-    ) -> some View {
-        let isSelected: Bool = selectedExerciseID == exercise.persistentModelID
-        let isDragged: Bool = draggedSidebarExerciseID == exercise.persistentModelID
-        let dragScale: CGFloat = (isDragged && !reduceMotion) ? 1.02 : 1.0
-        let shadowColor: Color = workoutSeparator.opacity(isDragged ? 0.35 : 0.0)
-        let shadowRadius: CGFloat = isDragged ? 8.0 : 0.0
-        let zIdx: Double = isDragged ? 1.0 : 0.0
-        let moveUpLabel = String(localized: "workout.sidebar.move_up", defaultValue: "Move exercise up", comment: "Sidebar reorder")
-        let moveDownLabel = String(localized: "workout.sidebar.move_down", defaultValue: "Move exercise down", comment: "Sidebar reorder")
-
-        sidebarExerciseItemBase(
-            index: index,
-            exercise: exercise,
-            exerciseCount: exerciseCount,
-            onSelect: onSelect,
-            onMove: onMove
-        )
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.35)
-                .onEnded { _ in
-                    guard !isSidebarReordering else { return }
-                    onSelect(exercise)
-                    setSidebarReordering(true, selectExercise: onSelect)
-                }
-        )
-        .gesture(
-            DragGesture(minimumDistance: 6, coordinateSpace: .named("sidebarReorderList"))
-                .onChanged { _ in
-                    guard isSidebarReordering else { return }
-                    draggedSidebarExerciseID = exercise.persistentModelID
-                }
-                .onEnded { value in
-                    defer { draggedSidebarExerciseID = nil }
-                    guard isSidebarReordering else { return }
-                    let step = largeMode ? 60 : 52
-                    let offset = Int((value.translation.height / CGFloat(step)).rounded())
-                    guard offset != 0 else { return }
-                    let target = min(max(index + offset, 0), exerciseCount - 1)
-                    guard target != index else { return }
-                    onMove(index, target > index ? target + 1 : target)
-                }
-        )
-        .scaleEffect(dragScale)
-        .shadow(color: shadowColor, radius: shadowRadius)
-        .zIndex(zIdx)
-        .accessibilityIdentifier("workout_sidebar_exercise_\(index)")
-        .accessibilityLabel(Text(verbatim: item.accessibilityLabel))
-        .accessibilityValue(Text(verbatim: item.accessibilityValue))
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityAction(named: moveUpLabel) {
-            guard index > 0 else { return }
-            onMove(index, index - 1)
-        }
-        .accessibilityAction(named: moveDownLabel) {
-            guard index < exerciseCount - 1 else { return }
-            onMove(index, index + 2)
-        }
-        .contextMenu {
-            Button {
-                onMove(index, index - 1)
-            } label: {
-                Label(moveUpLabel, systemImage: "chevron.up")
-            }
-            .disabled(index == 0)
-            Button {
-                onMove(index, index + 2)
-            } label: {
-                Label(moveDownLabel, systemImage: "chevron.down")
-            }
-            .disabled(index == exerciseCount - 1)
-        }
-    }
-
     private var sortedExercises: [WorkoutExercise] {
         (workout?.exercises ?? []).sorted { $0.order < $1.order }
-    }
-
-    private var isSidebarSchemeC: Bool {
-        flightStore?.effectiveValue(for: WorkoutFlight.sidebarSchemeC) ?? false
-    }
-
-    private var collapsedSidebarWidth: CGFloat {
-        0
-    }
-
-    @ViewBuilder
-    private func exerciseSidebar(
-        exercises: [WorkoutExercise],
-        width: CGFloat,
-        onSelect: @escaping (WorkoutExercise) -> Void,
-        onMove: @escaping (Int, Int) -> Void
-    ) -> some View {
-        let sidebarItems = exercises.enumerated().map { index, exercise in
-            let completed = (exercise.sets ?? []).filter(\.isCompleted).count
-            return ActiveWorkoutSidebarItem(
-                id: String(describing: exercise.persistentModelID),
-                name: exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"),
-                index: index,
-                completed: completed,
-                total: (exercise.sets ?? []).count
-            )
-        }
-        ScrollView {
-            VStack(spacing: largeMode ? 8 : 6) {
-                    sidebarHeader(onSelect: onSelect)
-                    ForEach(sidebarItems, id: \.id) { item in
-                        let index = item.index
-                        let exercise = exercises[index]
-                        sidebarExerciseItem(
-                            index: index,
-                            exercise: exercise,
-                            item: item,
-                            exerciseCount: exercises.count,
-                            onSelect: onSelect,
-                            onMove: onMove
-                        )
-                    }
-                    if isSidebarReordering {
-                        sidebarAddExerciseButton
-                    }
-            }
-            .padding(.horizontal, isSidebarReordering ? 12 : 2)
-        }
-        .frame(width: width)
-        .coordinateSpace(name: "sidebarReorderList")
-        .background(workoutSecondaryGroupedBackground)
-        .accessibilityIdentifier("workout_exercise_sidebar")
-    }
-
-    private func sidebarWidth(forListWidth listWidth: CGFloat, isReordering: Bool) -> CGFloat {
-        guard isReordering else { return 0 }
-        return max(largeMode ? 280 : 260, listWidth)
     }
 
     private func registerSidebarObservationCallbacks(
@@ -2138,6 +1567,7 @@ struct ActiveWorkoutView: View {
         let progress = "\(completed)/\(sets.count) \(String(localized: "组", comment: "Sets"))"
         Button {
             onSelect(workoutExercise)
+            listObservation.onSidebarSelectionState(workoutExercise.persistentModelID)
             isSidebarReordering = false
         } label: {
             HStack(spacing: 12) {
@@ -2148,6 +1578,22 @@ struct ActiveWorkoutView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
                         .font(.body.weight(.semibold))
+                        .background {
+                            GeometryReader { proxy in
+                                Color.clear
+                                    .onAppear {
+                                        listObservation.onSidebarNameFrame(
+                                            String(describing: workoutExercise.persistentModelID),
+                                            proxy.frame(in: .global)
+                                        )
+                                    }
+                                    .onChange(of: proxy.frame(in: .global)) { _, frame in
+                                        listObservation.onSidebarNameFrame(
+                                            String(describing: workoutExercise.persistentModelID), frame
+                                        )
+                                    }
+                            }
+                        }
                     Text(progress)
                         .font(.caption)
                         .foregroundStyle(Color.secondary)
@@ -2157,6 +1603,25 @@ struct ActiveWorkoutView: View {
             .frame(minHeight: 52)
         }
         .buttonStyle(.plain)
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        listObservation.onSidebarItemFrame(
+                            String(describing: workoutExercise.persistentModelID),
+                            proxy.frame(in: .global)
+                        )
+                    }
+                    .onChange(of: proxy.frame(in: .global)) { _, frame in
+                        listObservation.onSidebarItemFrame(
+                            String(describing: workoutExercise.persistentModelID), frame
+                        )
+                    }
+            }
+        }
+        .onAppear {
+            listObservation.onSidebarSelectionState(selectedExerciseID)
+        }
         .accessibilityIdentifier("workout_outline_exercise_\(workoutExercise.order)")
     }
 

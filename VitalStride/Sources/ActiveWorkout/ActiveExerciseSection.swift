@@ -302,7 +302,7 @@ struct ActiveExerciseSection: View {
     ) -> some View {
         HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                headerTitle(compact: false, toggleAction: toggleAction)
+                headerTitle(toggleAction: toggleAction)
                 if let exerciseSubtitle {
                     Text(exerciseSubtitle)
                         .font(.caption)
@@ -356,17 +356,12 @@ struct ActiveExerciseSection: View {
     }
 
     private func headerTitle(
-        compact: Bool,
         toggleAction: @escaping ActiveExerciseSectionInteraction.ToggleAction
     ) -> some View {
         HStack(alignment: .center, spacing: 8) {
             if completedSetCount == totalSetCount, totalSetCount > 0 {
-                // The completion fraction already conveys status in a compact
-                // row; keep the extra status icons in the roomy fallback.
-                if !compact {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.green)
-                }
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(Color.green)
             } else {
                 Text("\(workoutExercise.order + 1)")
                     .font(.caption.monospacedDigit().weight(.bold))
@@ -481,7 +476,7 @@ struct ActiveExerciseSection: View {
                             }
                     }
                 }
-            if !compact, completedSetCount == totalSetCount, totalSetCount > 0 {
+            if completedSetCount == totalSetCount, totalSetCount > 0 {
                 Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
                     .font(.caption2)
                     .foregroundStyle(Color.secondary)
@@ -613,24 +608,6 @@ struct ActiveExerciseSection: View {
         return newSet
     }
 
-    private var addSetButton: some View {
-        Button {
-            addSet()
-        } label: {
-            Image(systemName: "plus.circle.fill")
-                .font(.body.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 28, height: 28)
-                .padding(.trailing, 1)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(AddSetButtonStyle())
-        .frame(width: 44, height: headerControlHeight, alignment: .trailing)
-        .contentShape(Rectangle())
-        .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
-        .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
-    }
-
     private func addSet() {
         isCollapsed = false
         _ = Self.insertAppendedMainSet(in: workoutExercise, using: modelContext)
@@ -667,9 +644,10 @@ struct ActiveExerciseSection: View {
             weightRight: adjustedWeightRight
         )
         withAnimation(reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.30, dampingFraction: 0.85)) {
-            // swiftlint:disable:next identifier_name
-            for i in insertIndex..<sets.count {
-                sets[i].order += 1
+            var ordered = sets
+            ordered.insert(newSet, at: insertIndex)
+            for (idx, item) in ordered.enumerated() {
+                item.order = idx
             }
             newSet.workoutExercise = workoutExercise
             modelContext.insert(newSet)
