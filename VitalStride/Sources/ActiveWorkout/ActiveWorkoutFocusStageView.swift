@@ -35,9 +35,7 @@ struct ActiveWorkoutFocusStageView: View {
 
     var body: some View {
         let current = step
-        let mode: FocusStageMode = restTimer.phase == .resting
-            ? .restRecovery
-            : (current == nil ? .allCompleted : .activeSet)
+        let mode: FocusStageMode = current == nil ? .allCompleted : .activeSet
         let palette = FocusAtmosphereTheme.resolve(
             muscleGroup: current?.exercise.exercise?.muscleGroup,
             stageMode: mode
@@ -163,6 +161,16 @@ private struct FocusStageHeader: View {
                     }
                     Text("·")
                     Text("♥ \(heartRateText)")
+                    Menu {
+                        Button(String(localized: "设为热身组", comment: "Set warmup menu item")) { step.set.setType = .warmup }
+                        Button(String(localized: "设为正式组", comment: "Set working menu item")) { step.set.setType = .working }
+                        Button(String(localized: "+ 追加递减组", comment: "Add drop set menu item")) { }
+                        Button(String(localized: "+ 追加金字塔组", comment: "Add pyramid set menu item")) { }
+                        Button(String(localized: "删除当前组", comment: "Delete current set menu item"), role: .destructive) { }
+                    } label: {
+                        Image(systemName: "ellipsis").frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel(String(localized: "当前组操作菜单", comment: "Focus set actions menu"))
                 }
                 .font(.caption.monospacedDigit().weight(.medium))
                 .foregroundStyle(.secondary)
@@ -239,13 +247,7 @@ private struct FocusHeroCard: View {
     }
 
     var body: some View {
-        Group {
-            if restTimer.phase == .resting {
-                restStage
-            } else {
-                activeStage
-            }
-        }
+        activeStage
         .padding(18)
         .background(
             Color(uiColor: .secondarySystemGroupedBackground),
@@ -259,6 +261,10 @@ private struct FocusHeroCard: View {
 
     private var activeStage: some View {
         VStack(spacing: 16) {
+            if restTimer.phase == .resting {
+                restCompanionBar
+            }
+            progressRail
             referenceLine
 
             HStack(spacing: 12) {
@@ -305,6 +311,7 @@ private struct FocusHeroCard: View {
 
             Button {
                 let targetNext = next?.set.persistentModelID
+                applyHintIfNeeded()
                 step.set.isCompleted = true
                 HapticManager.trigger(.setCompleted)
                 restTimer.startRest(duration: step.set.restDuration ?? step.set.setType.defaultRestDuration)
@@ -339,6 +346,66 @@ private struct FocusHeroCard: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
+        }
+    }
+
+    private var progressRail: some View {
+        HStack(spacing: 6) {
+            ForEach(WorkoutDualModeEngine.focusSteps(in: workout ?? step.exercise.workout ?? Workout(type: .strength, startDate: Date(), exercises: [])), id: \.set.persistentModelID) { item in
+                Button {
+                    onFocus(item.set.persistentModelID)
+                } label: {
+                    Text(item.set.isCompleted ? "✓" : (item.set.persistentModelID == step.set.persistentModelID ? "●" : "○"))
+                        .font(.caption.monospacedDigit().weight(.bold))
+                        .foregroundStyle(item.set.isCompleted ? .green : (item.set.persistentModelID == step.set.persistentModelID ? palette.primaryTint : .secondary))
+                        .frame(minWidth: 30, minHeight: 30)
+                        .background(Color.primary.opacity(0.06), in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            Button(action: onAddSet) {
+                Image(systemName: "plus").frame(width: 30, height: 30)
+            }
+            .accessibilityLabel(String(localized: "添加一组", comment: "Add set"))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var restCompanionBar: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let remaining = max(0, Int((restTimer.restEndDate ?? context.date).timeIntervalSince(context.date)))
+            let total = max(1, Int(restTimer.restTotalDuration ?? 1))
+            VStack(spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(String(localized: "⏱ 组间休息", comment: "Companion rest bar"))
+                    Text(String(format: "%02d:%02d", remaining / 60, remaining % 60)).monospacedDigit()
+                    Text("· ♥ \(heartRateText)").monospacedDigit()
+                    Spacer()
+                    Button("−15s") { restTimer.adjustRest(by: -15) }
+                    Button("+15s") { restTimer.adjustRest(by: 15) }
+                    Button { restTimer.skipRest() } label: { Image(systemName: "xmark") }
+                }
+                ProgressView(value: Double(remaining), total: Double(total))
+                    .tint(palette.primaryTint)
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+        }
+        .padding(10)
+        .background(palette.primaryTint.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func applyHintIfNeeded() {
+        guard step.set.weight == 0 || step.set.reps == 0 else { return }
+        if let workout, let previous = PreviousSetLookup.previousMainSet(currentWorkout: workout, exercise: step.exercise.exercise, mainSetIndex: step.mainSetNumber, in: modelContext) {
+            if step.set.weight == 0 { step.set.weight = previous.weight }
+            if step.set.isUnilateral, step.set.weightRight == nil || step.set.weightRight == 0 { step.set.weightRight = previous.weightRight ?? previous.weight }
+            if step.set.reps == 0 { step.set.reps = previous.reps }
+        }
+        if let workout, let advice = WorkoutDualModeEngine.computeExerciseProgressionAdvice(for: step.exercise, in: workout, using: modelContext) {
+            if step.set.weight == 0 { step.set.weight = advice.suggestedWeight }
+            if step.set.isUnilateral, step.set.weightRight == nil || step.set.weightRight == 0 { step.set.weightRight = step.set.weight }
+            if step.set.reps == 0 { step.set.reps = advice.suggestedReps }
         }
     }
 

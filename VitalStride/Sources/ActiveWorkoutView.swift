@@ -123,6 +123,15 @@ struct ActiveWorkoutView: View {
                     .frame(maxWidth: 180)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingExercisePicker = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Picker(String(localized: "重量单位", comment: "Weight unit"), selection: $weightUnit) {
                             Text("kg").tag(WeightUnit.kg)
@@ -265,8 +274,17 @@ struct ActiveWorkoutView: View {
                         ForEach(exercises) { workoutExercise in
                             ActiveExerciseSection(
                                 workoutExercise: workoutExercise,
+                                isActive: selectedExerciseID == workoutExercise.persistentModelID || selectedExerciseID == nil,
+                                onActivate: {
+                                    selectedExerciseID = workoutExercise.persistentModelID
+                                },
                                 onSetCompleted: { completedSet in
                                     restTimer.startRest(duration: completedSet.restDuration ?? completedSet.setType.defaultRestDuration)
+                                    if let next = sortedExercises.drop(while: { $0.persistentModelID != workoutExercise.persistentModelID })
+                                        .dropFirst()
+                                        .first(where: { ($0.sets ?? []).contains(where: { !$0.isCompleted }) }) {
+                                        selectedExerciseID = next.persistentModelID
+                                    }
                                     TelemetryService.shared.trackNonisolated(.setCompleted(exerciseName: TelemetryHelpers.exerciseIdentifier(workoutExercise.exercise)))
                                 },
                                 onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
@@ -854,7 +872,9 @@ struct ActiveWorkoutView: View {
             using: modelContext
         )
         workout = result.workout
-        selectedExerciseID = result.workout.exercises?.min(by: { $0.order < $1.order })?.persistentModelID
+        let ordered = (result.workout.exercises ?? []).sorted { $0.order < $1.order }
+        selectedExerciseID = ordered.first(where: { ($0.sets ?? []).contains(where: { !$0.isCompleted }) })?.persistentModelID
+            ?? ordered.last?.persistentModelID
         startTime = result.startTime
 
         if case .resume = source {

@@ -59,16 +59,6 @@ struct SubSetRow: View {
             subSetBadge
                 .frame(width: 44, height: 44, alignment: .leading)
 
-            Text(
-                exerciseSet.setType == .dropSet
-                    ? String(localized: "递减 -20%", comment: "Drop set previous column label")
-                    : String(localized: "金字塔", comment: "Pyramid set previous column label")
-            )
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-
             weightColumn
                 .frame(width: 88, alignment: .center)
 
@@ -77,6 +67,8 @@ struct SubSetRow: View {
 
             completionButton
                 .frame(width: 44, height: 44, alignment: .trailing)
+            rowActionMenu
+                .frame(width: 44, height: 44)
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, minHeight: 48)
@@ -137,6 +129,18 @@ struct SubSetRow: View {
         )
     }
 
+    private var hintWeightText: String {
+        guard let owner = exerciseSet.workoutExercise, let workout = owner.workout else { return "" }
+        let previous = PreviousSetLookup.previousMainSet(currentWorkout: workout, exercise: exercise, mainSetIndex: parentSetNumber, in: modelContext)
+        return previous.map { format(WorkoutDualModeEngine.displayWeight($0.weight, unit: weightUnit)) } ?? ""
+    }
+
+    private var hintRepsText: String {
+        guard let owner = exerciseSet.workoutExercise, let workout = owner.workout else { return "" }
+        let previous = PreviousSetLookup.previousMainSet(currentWorkout: workout, exercise: exercise, mainSetIndex: parentSetNumber, in: modelContext)
+        return previous.map { "\($0.reps)" } ?? ""
+    }
+
     @ViewBuilder
     private var weightColumn: some View {
         if exerciseSet.isUnilateral {
@@ -145,7 +149,7 @@ struct SubSetRow: View {
                     binding: $weightText,
                     field: .weight,
                     width: 42,
-                    placeholder: "L",
+                    placeholder: hintWeightText.isEmpty ? "L" : hintWeightText,
                     focusRequestID: $weightFocusRequestID,
                     a11yLabel: String(localized: "子组左侧重量", comment: "Sub-set left weight")
                 )
@@ -153,7 +157,7 @@ struct SubSetRow: View {
                     binding: $weightRightText,
                     field: .weightRight,
                     width: 42,
-                    placeholder: "R",
+                    placeholder: hintWeightText.isEmpty ? "R" : hintWeightText,
                     focusRequestID: $weightRightFocusRequestID,
                     a11yLabel: String(localized: "子组右侧重量", comment: "Sub-set right weight")
                 )
@@ -163,7 +167,7 @@ struct SubSetRow: View {
                 binding: $weightText,
                 field: .weight,
                 width: 88,
-                placeholder: "0",
+                placeholder: hintWeightText,
                 focusRequestID: $weightFocusRequestID,
                 a11yLabel: String(localized: "子组重量", comment: "Sub-set weight")
             )
@@ -175,7 +179,7 @@ struct SubSetRow: View {
             binding: $repsText,
             field: .reps,
             width: 68,
-            placeholder: "0",
+            placeholder: hintRepsText,
             focusRequestID: $repsFocusRequestID,
             a11yLabel: String(localized: "子组次数", comment: "Sub-set reps")
         )
@@ -273,6 +277,29 @@ struct SubSetRow: View {
         #endif
     }
 
+    private var rowActionMenu: some View {
+        Menu {
+            Button(String(localized: "设为热身组", comment: "Set warmup menu item")) { exerciseSet.setType = .warmup }
+            Button(String(localized: "设为正式组", comment: "Set working menu item")) { exerciseSet.setType = .working }
+            Button(String(localized: "+ 追加递减组", comment: "Add drop set menu item")) { onAddSubSet(.dropSet) }
+            Button(String(localized: "+ 追加金字塔组", comment: "Add pyramid set menu item")) { onAddSubSet(.pyramid) }
+            Button(String(localized: "切换单侧 / 双侧", comment: "Toggle unilateral menu item")) {
+                SetRow.toggleExerciseWeightMode(from: exerciseSet)
+                refreshInputText()
+            }
+            Button(String(localized: "复制到下一组", comment: "Copy set menu item")) {
+                if let owner = exerciseSet.workoutExercise {
+                    ActiveExerciseSection.copyToNext(from: exerciseSet, in: owner, using: modelContext)
+                }
+            }
+            Divider()
+            Button(String(localized: "删除本组", comment: "Delete set menu item"), role: .destructive, action: onDelete)
+        } label: {
+            Image(systemName: "ellipsis").frame(width: 44, height: 44)
+        }
+        .accessibilityLabel(String(localized: "行操作菜单", comment: "Set row actions menu"))
+    }
+
     private var completionButton: some View {
         Button(action: toggleCompleted) {
             ZStack {
@@ -355,8 +382,18 @@ struct SubSetRow: View {
         refreshInputText()
     }
 
+    private func applyHintIfNeeded() {
+        if exerciseSet.weight == 0, let owner = exerciseSet.workoutExercise, let workout = owner.workout,
+           let previous = PreviousSetLookup.previousMainSet(currentWorkout: workout, exercise: exercise, mainSetIndex: parentSetNumber, in: modelContext) {
+            exerciseSet.weight = previous.weight
+            if exerciseSet.isUnilateral { exerciseSet.weightRight = previous.weightRight ?? previous.weight }
+            if exerciseSet.reps == 0 { exerciseSet.reps = previous.reps }
+        }
+    }
+
     private func toggleCompleted() {
         let wasCompleted = exerciseSet.isCompleted
+        if !wasCompleted { applyHintIfNeeded(); refreshInputText() }
         exerciseSet.isCompleted.toggle()
         if !wasCompleted {
             HapticManager.trigger(.setCompleted)

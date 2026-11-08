@@ -48,6 +48,8 @@ struct ActiveExerciseSection: View {
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
 
     let workoutExercise: WorkoutExercise
+    let isActive: Bool
+    let onActivate: () -> Void
     let onSetCompleted: (ExerciseSet) -> Void
     let onSetDeleted: () -> Void
     let onReplace: () -> Void
@@ -111,7 +113,7 @@ struct ActiveExerciseSection: View {
         }
         VStack(spacing: 0) {
             exerciseHeader(toggleAction: toggleAction)
-            if !isCollapsed {
+            if isActive && !isCollapsed {
                 Divider()
                     .opacity(0.45)
                 tiledTableHeader
@@ -229,14 +231,14 @@ struct ActiveExerciseSection: View {
         HStack(alignment: .center, spacing: 8) {
             Text(String(localized: "组序", comment: "Set column header"))
                 .frame(width: 44, alignment: .leading)
-            Text(String(localized: "上次", comment: "Previous column header"))
+            Text(String(localized: "重量 \(weightUnit.rawValue.uppercased())", comment: "Weight column header"))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(weightUnit.rawValue.uppercased())
-                .frame(width: 88, alignment: .center)
             Text(String(localized: "次数", comment: "Reps column header"))
                 .frame(width: 68, alignment: .center)
             Text("✓")
-                .frame(width: 44, alignment: .trailing)
+                .frame(width: 44, alignment: .center)
+            Text(String(localized: "更多", comment: "More column header"))
+                .frame(width: 44, alignment: .center)
         }
         .font(.caption2.weight(.semibold))
         .foregroundStyle(.secondary)
@@ -277,11 +279,6 @@ struct ActiveExerciseSection: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-            .onTapGesture {
-                if isCollapsed || allDone {
-                    toggleAction()
-                }
-            }
 
             HStack(spacing: 4) {
                 if allDone {
@@ -289,9 +286,12 @@ struct ActiveExerciseSection: View {
                         .font(.caption)
                         .foregroundStyle(Color.green)
                 }
-                Text("\(completedSetCount)/\(totalSetCount)")
+                Text(String(localized: "\(completedSetCount)/\(totalSetCount) 组", comment: "Exercise completion count"))
                     .font(.caption.monospacedDigit().weight(.semibold))
                     .foregroundStyle(allDone ? Color.green : Color.secondary)
+                Image(systemName: isActive && !isCollapsed ? "chevron.up" : "chevron.down")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
             }
 
             exerciseActionMenu
@@ -300,8 +300,17 @@ struct ActiveExerciseSection: View {
         .padding(.trailing, 8)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, minHeight: 52)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onActivate()
+            if isActive { toggleAction() }
+        }
         .onAppear {
+            isCollapsed = !isActive
             interaction.registerToggle(workoutExercise.persistentModelID, toggleAction)
+        }
+        .onChange(of: isActive) { _, active in
+            isCollapsed = !active
         }
         .onChange(of: completedSetCount) { _, count in
             if count < totalSetCount { isCollapsed = false }

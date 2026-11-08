@@ -215,9 +215,7 @@ struct SetRow: View {
                     ? String(localized: "热身组", comment: "Warmup set")
                     : String(localized: "第 \(index + 1) 组", comment: "Working set number")
             )
-
-            previousColumn
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .accessibilityHint(String(localized: "轻点切换正式组或热身组", comment: "Toggle warmup or working set hint"))
 
             weightColumn
                 .frame(width: 88, alignment: .center)
@@ -227,6 +225,9 @@ struct SetRow: View {
 
             completionButton
                 .frame(width: 44, height: 44, alignment: .trailing)
+
+            rowActionMenu
+                .frame(width: 44, height: 44)
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, minHeight: 48)
@@ -344,6 +345,22 @@ struct SetRow: View {
         }
     }
 
+    private var hintWeightText: String {
+        if let advice = resolvedAdvice {
+            return formatDisplay(WorkoutDualModeEngine.displayWeight(advice.suggestedWeight, unit: weightUnit))
+        }
+        if let previous = resolvedPreviousSet {
+            return formatDisplay(WorkoutDualModeEngine.displayWeight(previous.weight, unit: weightUnit))
+        }
+        return ""
+    }
+
+    private var hintRepsText: String {
+        if let advice = resolvedAdvice { return "\(advice.suggestedReps)" }
+        if let previous = resolvedPreviousSet, previous.reps > 0 { return "\(previous.reps)" }
+        return ""
+    }
+
     @ViewBuilder
     private var weightColumn: some View {
         let advice = resolvedAdvice
@@ -353,7 +370,7 @@ struct SetRow: View {
                     binding: $weightText,
                     field: .weight,
                     width: 42,
-                    placeholder: "L",
+                    placeholder: hintWeightText.isEmpty ? "L" : hintWeightText,
                     suggestion: advice,
                     focusRequestID: $weightFocusRequestID,
                     a11yLabel: String(localized: "第 \(index + 1) 组左侧重量", comment: "Left weight")
@@ -362,14 +379,14 @@ struct SetRow: View {
                     binding: $weightRightText,
                     field: .weightRight,
                     width: 42,
-                    placeholder: "R",
+                    placeholder: hintWeightText.isEmpty ? "R" : hintWeightText,
                     suggestion: advice,
                     focusRequestID: $weightRightFocusRequestID,
                     a11yLabel: String(localized: "第 \(index + 1) 组右侧重量", comment: "Right weight")
                 )
             }
         } else {
-            let placeholder = advice.map { formatDisplay(WorkoutDualModeEngine.displayWeight($0.suggestedWeight, unit: weightUnit)) } ?? "0"
+            let placeholder = hintWeightText
             numericInputSlot(
                 binding: $weightText,
                 field: .weight,
@@ -384,7 +401,7 @@ struct SetRow: View {
 
     private var repsColumn: some View {
         let advice = resolvedAdvice
-        let placeholder = advice.map { "\($0.suggestedReps)" } ?? "0"
+        let placeholder = hintRepsText
         return numericInputSlot(
             binding: $repsText,
             field: .reps,
@@ -491,6 +508,38 @@ struct SetRow: View {
         #endif
     }
 
+    private var rowActionMenu: some View {
+        Menu {
+            Button(String(localized: "设为热身组", comment: "Set warmup menu item")) {
+                exerciseSet.setType = .warmup
+            }
+            Button(String(localized: "设为正式组", comment: "Set working menu item")) {
+                exerciseSet.setType = .working
+            }
+            Button(String(localized: "+ 追加递减组", comment: "Add drop set menu item")) { onAddSubSet(.dropSet) }
+            Button(String(localized: "+ 追加金字塔组", comment: "Add pyramid set menu item")) { onAddSubSet(.pyramid) }
+            Button(String(localized: "切换单侧 / 双侧", comment: "Toggle unilateral menu item")) {
+                Self.toggleExerciseWeightMode(from: exerciseSet)
+                refreshInputText()
+            }
+            Button(String(localized: "复制到下一组", comment: "Copy set menu item"), action: onCopyToNext)
+            if let advice = resolvedAdvice {
+                Button(String(localized: "应用建议", comment: "Apply progression advice menu item")) {
+                    WorkoutDualModeEngine.applyProgressionAdvice(advice, to: exerciseSet)
+                    refreshInputText()
+                }
+            }
+            if canDelete {
+                Divider()
+                Button(String(localized: "删除本组", comment: "Delete set menu item"), role: .destructive, action: onDelete)
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .frame(width: 44, height: 44)
+        }
+        .accessibilityLabel(String(localized: "行操作菜单", comment: "Set row actions menu"))
+    }
+
     private var completionButton: some View {
         Button(action: toggleCompleted) {
             ZStack {
@@ -517,8 +566,24 @@ struct SetRow: View {
         exerciseSet.setType = exerciseSet.setType == .warmup ? .working : .warmup
     }
 
+    private func applyHintIfNeeded() {
+        if exerciseSet.weight == 0 {
+            if let advice = resolvedAdvice { exerciseSet.weight = advice.suggestedWeight }
+            else if let previous = resolvedPreviousSet { exerciseSet.weight = previous.weight }
+        }
+        if exerciseSet.isUnilateral, exerciseSet.weightRight == nil || exerciseSet.weightRight == 0 {
+            exerciseSet.weightRight = exerciseSet.weight
+        }
+        if exerciseSet.reps == 0 {
+            if let advice = resolvedAdvice { exerciseSet.reps = advice.suggestedReps }
+            else if let previous = resolvedPreviousSet { exerciseSet.reps = previous.reps }
+        }
+        refreshInputText()
+    }
+
     private func toggleCompleted() {
         let wasCompleted = exerciseSet.isCompleted
+        if !wasCompleted { applyHintIfNeeded() }
         exerciseSet.isCompleted.toggle()
         if !wasCompleted {
             HapticManager.trigger(.setCompleted)

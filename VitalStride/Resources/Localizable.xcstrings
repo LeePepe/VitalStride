@@ -13255,5 +13255,12 @@
       }
     }
   },
+    "+ 追加递减组": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "+ Add drop set"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "+ 追加递减组"}}}},
+    "+ 追加金字塔组": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "+ Add pyramid set"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "+ 追加金字塔组"}}}},
+    "设为热身组": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Set as warm-up"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "设为热身组"}}}},
+    "设为正式组": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Set as working set"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "设为正式组"}}}},
+    "切换单侧 / 双侧": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Toggle unilateral / bilateral"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "切换单侧 / 双侧"}}}},
+    "行操作菜单": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Row actions menu"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "行操作菜单"}}}},
+    "当前组操作菜单": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Current set actions menu"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前组操作菜单"}}}},
   "version": "1.0"
 }
