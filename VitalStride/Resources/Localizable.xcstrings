@@ -13223,6 +13223,36 @@
           }
         }
       }
+    },
+    "active_workout.outline_and_order": {
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Exercise outline and order"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "动作大纲与排序"}}
+      }
+    },
+    "active_workout.complete_set": {
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Complete set"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "完成本组"}}
+      }
+    },
+    "active_workout.up_next": {
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Up next"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "下一组预告"}}
+      }
+    },
+    "active_workout.rest_stage": {
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Rest"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "组间休息"}}
+      }
+    },
+    "active_workout.undo_set": {
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Undo previous set"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "撤回上一组"}}
+      }
     }
   },
   "version": "1.0"

@@ -321,21 +321,6 @@ struct ActiveExerciseSection: View {
                 }
             }
             .layoutPriority(1)
-            if let advice = progressionAdvice, let target = firstIncompleteMainSet {
-                let displayWeight = WorkoutDualModeEngine.displayWeight(advice.suggestedWeight, unit: weightUnit)
-                Button {
-                    WorkoutDualModeEngine.applyProgressionAdvice(advice, to: target)
-                } label: {
-                    Text(String(localized: "✨ 建议", comment: "Smart progression pill") + " \(displayWeight.formatted(.number.precision(.fractionLength(0...1))))×\(advice.suggestedReps)")
-                        .font(.caption.weight(.semibold))
-                        .lineLimit(1)
-                        .frame(minHeight: 44)
-                        .padding(.horizontal, 8)
-                        .background(Color.accentColor.opacity(0.14), in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "应用智能渐进建议", comment: "Apply smart progression advice"))
-            }
             Spacer(minLength: 0)
             exerciseActionMenu
         }
@@ -485,20 +470,6 @@ struct ActiveExerciseSection: View {
             .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
             .accessibilityIdentifier("workout_section_add_set_\(workoutExercise.order)")
             Spacer(minLength: 0)
-            if let lastSet = sortedSets.last {
-                Menu {
-                    Button { addSubSet(after: lastSet, type: .dropSet) } label: {
-                        Label(String(localized: "追加递减组", comment: "Add drop set"), systemImage: "arrow.turn.down.right")
-                    }
-                    Button { addSubSet(after: lastSet, type: .pyramid) } label: {
-                        Label(String(localized: "追加金字塔组", comment: "Add pyramid set"), systemImage: "chart.bar.xaxis")
-                    }
-                } label: {
-                    Label(String(localized: "追加子组", comment: "Add follow-on set"), systemImage: "plus")
-                        .font(.subheadline.weight(.semibold))
-                }
-                .frame(minWidth: 44, minHeight: 44)
-            }
         }
         .padding(.horizontal, 12)
         .frame(minHeight: 52)

@@ -217,6 +217,16 @@ struct WorkoutLoggingV2Tests {
         #expect(WorkoutDisplayMode.resolveInitialMode(storedRawValue: "tiled", flightFocusDefault: true) == .tiled)
     }
 
+    @Test("Completing a focus set advances to the next incomplete set")
+    func focusCompletionAdvancesToNextSet() {
+        let first = ExerciseSet(order: 0, weight: 60, reps: 8, setType: .working, isCompleted: true)
+        let second = ExerciseSet(order: 1, weight: 62.5, reps: 8, setType: .working)
+        let exercise = WorkoutExercise(order: 0, sets: [first, second])
+        let workout = Workout(type: .strength, startDate: Date(), exercises: [exercise])
+        exercise.workout = workout
+        #expect(WorkoutDualModeEngine.nextIncompleteStep(after: first.persistentModelID, in: workout)?.set.persistentModelID == second.persistentModelID)
+    }
+
     @Test("Heart-rate stream adapter uses payload timestamps and clears on disconnect")
     @MainActor
     func heartRateStreamAdapter() {

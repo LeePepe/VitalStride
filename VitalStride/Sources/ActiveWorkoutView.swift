@@ -102,7 +102,9 @@ struct ActiveWorkoutView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                compactInfoBand
+                if displayMode != .focus {
+                    compactInfoBand
+                }
                 workoutContent
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -111,10 +113,6 @@ struct ActiveWorkoutView: View {
             .navigationTitle(String(localized: "训练中", comment: "Active workout navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "放弃", comment: "Discard workout toolbar button"), role: .destructive) { showingDiscardAlert = true }
-                        .frame(minWidth: 44, minHeight: 44)
-                }
                 ToolbarItem(placement: .principal) {
                     Picker(String(localized: "训练模式", comment: "Workout display mode"), selection: $displayMode) {
                         Label(String(localized: "平铺", comment: "Tiled workout mode"), systemImage: "square.grid.2x2").tag(WorkoutDisplayMode.tiled)
@@ -130,7 +128,12 @@ struct ActiveWorkoutView: View {
                             Text("kg").tag(WeightUnit.kg)
                             Text("lb").tag(WeightUnit.lb)
                         }
-                        Button(String(localized: "动作大纲", comment: "Exercise outline"), systemImage: "list.bullet") { isSidebarReordering = true }
+                        Button(String(localized: "active_workout.outline_and_order", defaultValue: "Exercise outline and order", comment: "Exercise outline and ordering"), systemImage: "list.bullet") { isSidebarReordering = true }
+                        if displayMode == .focus {
+                            Button(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus") { showingExercisePicker = true }
+                        }
+                        Divider()
+                        Button(String(localized: "放弃训练", comment: "Discard workout"), role: .destructive) { showingDiscardAlert = true }
                     } label: {
                         Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
                     }
@@ -287,7 +290,14 @@ struct ActiveWorkoutView: View {
     @ViewBuilder
     private var workoutInputDock: some View {
         if displayMode == .focus {
-            EmptyView()
+            if undoController.pending != nil {
+                HStack(spacing: 10) {
+                    undoStatusButton
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.regularMaterial)
+            }
         } else if isKeyboardVisible {
             if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
                 HStack(spacing: 10) {
@@ -352,6 +362,18 @@ struct ActiveWorkoutView: View {
     private var outlineSheet: some View {
         NavigationStack {
             List {
+                let allSets = sortedExercises.flatMap { $0.sets ?? [] }
+                let completedSets = allSets.filter(\.isCompleted).count
+                let displayVol = Int(WorkoutDualModeEngine.displayWeight(totalVolumeKg, unit: weightUnit)).formatted()
+                Section {
+                    HStack {
+                        Text("✓ \(completedSets)/\(allSets.count)")
+                        Spacer()
+                        Text("\(displayVol) \(weightUnit.rawValue)")
+                    }
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                }
                 ForEach(sortedExercises) { exercise in
                     Button { selectedExerciseID = exercise.persistentModelID; isSidebarReordering = false } label: {
                         HStack { Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise")); Spacer(); Text("\((exercise.sets ?? []).filter(\.isCompleted).count)/\((exercise.sets ?? []).count)").monospacedDigit().foregroundStyle(.secondary) }
