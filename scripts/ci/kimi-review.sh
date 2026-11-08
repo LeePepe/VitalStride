@@ -8,10 +8,33 @@ cd "$REPO_ROOT"
 KIMI_BIN="${KIMI_BIN:-$HOME/.kimi-code/bin/kimi}"
 KIMI_MODEL="${KIMI_REVIEW_MODEL:-kimi-code/k3}"
 STICKY="<!-- kimi-advisory-review -->"
+MAX_BYTES="${REVIEW_MAX_BYTES:-40000}"
+KIMI_MAX_ATTEMPTS="${KIMI_MAX_ATTEMPTS:-1}"
+case "$KIMI_MAX_ATTEMPTS" in
+    ''|*[!0-9]*|0) KIMI_MAX_ATTEMPTS=1 ;;
+esac
+
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+    echo "completed=false" >> "$GITHUB_OUTPUT"
+fi
 
 if [ -z "${PR_NUMBER:-}" ] || [ -z "${BASE_SHA:-}" ] || [ -z "${HEAD_SHA:-}" ] || [ -z "${BASE_REPO:-}" ]; then
     echo "[kimi-review] advisory unavailable: missing workflow context"
     exit 0
+fi
+
+if [ "${KIMI_FORCE_RERUN:-}" != "1" ]; then
+    EXISTING_STICKY="$(gh api "repos/$BASE_REPO/issues/$PR_NUMBER/comments" --paginate \
+        --jq "[.[] | select(.body | contains(\"$STICKY\") or contains(\"<!-- shared-ci-kimi-review -->\"))] | last | .body // empty" 2>/dev/null || true)"
+    if [ -n "$EXISTING_STICKY" ] \
+        && printf '%s\n' "$EXISTING_STICKY" | grep -Fqe "kimi advisory review: pass" -e "kimi advisory review: findings" -e "## ✅ Kimi advisory review" -e "## ⚠️ Kimi advisory review" -e "## 🔴 Kimi advisory review" \
+        && ! printf '%s\n' "$EXISTING_STICKY" | grep -Fqi "unavailable"; then
+        echo "[kimi-review] PR #$PR_NUMBER already has a completed Kimi review; skipping per once-per-PR quota policy."
+        if [ -n "${GITHUB_OUTPUT:-}" ]; then
+            echo "completed=true" >> "$GITHUB_OUTPUT"
+        fi
+        exit 0
+    fi
 fi
 
 post_sticky() {
@@ -54,7 +77,7 @@ OUT_FILE="$(mktemp -t kimi-review-out.XXXXXX.jsonl)"
 ERR_FILE="$(mktemp -t kimi-review-err.XXXXXX.log)"
 trap 'rm -f "$DIFF_FILE" "$OUT_FILE" "$ERR_FILE"' EXIT
 
-git diff --no-ext-diff --find-renames --unified=80 "$BASE_SHA...$HEAD_SHA" >"$DIFF_FILE"
+git diff --no-ext-diff --find-renames --unified=15 "$BASE_SHA...$HEAD_SHA" >"$DIFF_FILE"
 CHANGED="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
 if [ -z "$CHANGED" ]; then
     post_sticky "$STICKY
@@ -67,20 +90,34 @@ This review is informational and is not a required merge gate."
     exit 0
 fi
 
+if ! printf '%s\n' "$CHANGED" | grep -vqE '\.md$'; then
+    post_sticky "$STICKY
+## ✅ Kimi advisory review: pass
+
+No non-documentation code changes; skipped Kimi LLM invocation to conserve quota.
+
+This review is informational and is not a required merge gate."
+    if [ -n "${GITHUB_OUTPUT:-}" ]; then
+        echo "completed=true" >> "$GITHUB_OUTPUT"
+    fi
+    echo "[kimi-review] docs-only diff; skipped Kimi LLM invocation to conserve quota"
+    exit 0
+fi
+
 DIFF="$(python3 -c 'import pathlib,sys
 p=pathlib.Path(sys.argv[1]).read_bytes()
-limit=80000
+limit=int(sys.argv[2])
 text=p[:limit].decode("utf-8","ignore")
 if len(p)>limit:
     text+="\n[DIFF OMITTED: advisory byte budget reached]\n"
-print(text)' "$DIFF_FILE")"
+print(text)' "$DIFF_FILE" "$MAX_BYTES")"
 
 CONTEXT=""
 for context_file in AGENTS.md CONTEXT.md tech-context.md RepoInfra/CONTEXT.md docs/architecture/tech-context.md scripts/ci/review-prompt.md; do
     [ -f "$context_file" ] || continue
     excerpt="$(python3 -c 'import pathlib,sys
 p=pathlib.Path(sys.argv[1]).read_bytes()
-print(p[:24000].decode("utf-8","ignore"))' "$context_file")"
+print(p[:8000].decode("utf-8","ignore"))' "$context_file")"
     CONTEXT="$CONTEXT
 
 ===== TRUSTED BASE CONTEXT: $context_file =====
@@ -174,5 +211,8 @@ $SAFE_RENDERED
 
 <sub>Model: $KIMI_MODEL. Advisory only: this check and its findings are not required for merge.</sub>"
 
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+    echo "completed=true" >> "$GITHUB_OUTPUT"
+fi
 echo "[kimi-review] advisory verdict=$VERDICT; check remains non-blocking"
 exit 0
