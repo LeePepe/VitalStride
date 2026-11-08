@@ -355,15 +355,29 @@ struct SetRow: View {
         let previous = exerciseSet.workoutExercise?.workout.flatMap { workout in
             PreviousSetLookup.previousMainSet(currentWorkout: workout, exercise: exercise, mainSetIndex: index, in: modelContext)
         }
+        let advice = (!exerciseSet.isCompleted && !exerciseSet.setType.isSubSet) ? smartProgressionAdvice() : nil
         return Group {
             if let previous {
                 let prevDisplay = WorkoutDualModeEngine.displayWeight(previous.weight, unit: weightUnit)
                 Button {
-                    WorkoutDualModeEngine.applyPreviousSet(previous, to: exerciseSet)
+                    if let advice {
+                        fillFromSuggestion(advice)
+                    } else {
+                        WorkoutDualModeEngine.applyPreviousSet(previous, to: exerciseSet)
+                    }
                 } label: {
-                    Text("\(prevDisplay.formatted(.number.precision(.fractionLength(0...1)))) × \(previous.reps) ⏎")
-                        .font(.caption.monospacedDigit())
-                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("\(prevDisplay.formatted(.number.precision(.fractionLength(0...1)))) × \(previous.reps)")
+                            .font(.caption.monospacedDigit())
+                            .lineLimit(1)
+                        if let advice {
+                            let advDisplay = WorkoutDualModeEngine.displayWeight(advice.suggestedWeight, unit: weightUnit)
+                            Text("↑\(advDisplay.formatted(.number.precision(.fractionLength(0...1))))×\(advice.suggestedReps)")
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(Color.accentColor)
+                                .lineLimit(1)
+                        }
+                    }
                 }
                 .frame(minWidth: 44, minHeight: 44, alignment: .leading)
                 .buttonStyle(.plain)
