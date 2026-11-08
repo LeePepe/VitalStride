@@ -260,29 +260,56 @@ struct ActiveWorkoutView: View {
             )
         } else {
             ScrollViewReader { proxy in
-                List {
-                    ForEach(exercises) { workoutExercise in
-                        ActiveExerciseSection(
-                            workoutExercise: workoutExercise,
-                            onSetCompleted: { completedSet in
-                                restTimer.startRest(duration: completedSet.restDuration ?? completedSet.setType.defaultRestDuration)
-                                TelemetryService.shared.trackNonisolated(.setCompleted(exerciseName: TelemetryHelpers.exerciseIdentifier(workoutExercise.exercise)))
-                            },
-                            onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
-                            onReplace: { exerciseToReplace = workoutExercise },
-                            onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
-                            onDelete: { deleteExercise(workoutExercise) },
-                            undoController: undoController
-                        )
+                ScrollView {
+                    LazyVStack(spacing: 14) {
+                        ForEach(exercises) { workoutExercise in
+                            ActiveExerciseSection(
+                                workoutExercise: workoutExercise,
+                                onSetCompleted: { completedSet in
+                                    restTimer.startRest(duration: completedSet.restDuration ?? completedSet.setType.defaultRestDuration)
+                                    TelemetryService.shared.trackNonisolated(.setCompleted(exerciseName: TelemetryHelpers.exerciseIdentifier(workoutExercise.exercise)))
+                                },
+                                onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
+                                onReplace: { exerciseToReplace = workoutExercise },
+                                onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
+                                onDelete: { deleteExercise(workoutExercise) },
+                                undoController: undoController
+                            )
                             .id(workoutExercise.persistentModelID)
+                        }
+
+                        Button {
+                            showingExercisePicker = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.headline)
+                                Text(String(localized: "添加动作", comment: "Add exercise"))
+                                    .font(.headline.weight(.semibold))
+                            }
+                            .foregroundStyle(Color.accentColor)
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                            .background(
+                                Color(uiColor: .secondarySystemGroupedBackground),
+                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            )
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .strokeBorder(Color.accentColor.opacity(0.28), lineWidth: 1)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 14)
+                    }
+                    .padding(.vertical, 14)
+                }
+                .background(Color(uiColor: .systemGroupedBackground))
+                .accessibilityIdentifier("workout_exercise_list")
+                .onChange(of: selectedExerciseID) { _, id in
+                    if let id {
+                        withAnimation { proxy.scrollTo(id, anchor: .top) }
                     }
                 }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
-                .background(Color(uiColor: .systemGroupedBackground))
-                .environment(\.defaultMinListRowHeight, 1)
-                .accessibilityIdentifier("workout_exercise_list")
-                .onChange(of: selectedExerciseID) { _, id in if let id { withAnimation { proxy.scrollTo(id, anchor: .top) } } }
             }
         }
     }
@@ -296,50 +323,25 @@ struct ActiveWorkoutView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(.regularMaterial)
+                .liquidGlassBar(theme: theme, cornerRadius: 20)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
             }
-        } else if isKeyboardVisible {
-            if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
-                HStack(spacing: 10) {
-                    if undoController.pending != nil {
-                        undoStatusButton
-                    } else if restTimer.phase == .resting {
-                        restSnackbarContent
-                    } else {
-                        restCompletedButton
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
-                .background(.regularMaterial)
-            }
-        } else {
+        } else if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
             HStack(spacing: 10) {
-            if undoController.pending != nil {
-                Button { undoController.undo(using: modelContext) } label: { Label(String(localized: "已删除组 · 撤销", comment: "Undo deletion"), systemImage: "arrow.uturn.backward") }
-                    .buttonStyle(.borderedProminent)
-                    .frame(minHeight: 50)
-            } else if restTimer.phase == .resting {
-                restSnackbarContent
-                    .frame(maxWidth: .infinity, minHeight: 50)
-            } else if restCompletedPresenter.isBuffered {
-                Button { restCompletedPresenter.dismiss(); restTimer.dismissCompleted() } label: { Label(String(localized: "休息结束", comment: "Rest complete"), systemImage: "checkmark.circle.fill") }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity, minHeight: 50)
-            } else {
-                Button { showingExercisePicker = true } label: { Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus") }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity, minHeight: 50)
+                if undoController.pending != nil {
+                    undoStatusButton
+                } else if restTimer.phase == .resting {
+                    restSnackbarContent
+                } else {
+                    restCompletedButton
+                }
             }
-            if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
-                Button { showingExercisePicker = true } label: { Image(systemName: "plus") }
-                    .frame(width: 48, height: 48)
-                    .buttonStyle(.bordered)
-                    .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
-            }
-        }
-        .padding(.horizontal, 16).padding(.vertical, 8)
-        .background(.regularMaterial)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .liquidGlassBar(theme: theme, cornerRadius: 20)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 8)
         }
     }
 

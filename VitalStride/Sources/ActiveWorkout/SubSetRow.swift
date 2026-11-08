@@ -13,7 +13,7 @@ struct SubSetRow: View {
     @Environment(\.theme) private var theme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @AppStorage("activeWorkoutLargeMode") private var largeMode = false
+
     let exerciseSet: ExerciseSet
     let weightUnit: WeightUnit
     let isLast: Bool
@@ -31,7 +31,6 @@ struct SubSetRow: View {
     @State private var weightRightFocusRequestID = 0
     @State private var repsFocusRequestID = 0
     @State private var focusedField: SetField?
-    @State private var inputWeightUnit: WeightUnit = .kg
 
     init(
         exerciseSet: ExerciseSet,
@@ -56,20 +55,60 @@ struct SubSetRow: View {
     }
 
     var body: some View {
-        mainAxis
-        .padding(.vertical, 2)
-        .padding(.horizontal, 0)
-        .frame(maxWidth: .infinity, minHeight: largeMode ? 56 : 48)
-        .listRowBackground(exerciseSet.isCompleted ? Color.green.opacity(0.08) : Color(uiColor: .secondarySystemGroupedBackground))
+        HStack(alignment: .center, spacing: 8) {
+            subSetBadge
+                .frame(width: 44, height: 44, alignment: .leading)
+
+            Text(
+                exerciseSet.setType == .dropSet
+                    ? String(localized: "递减 -20%", comment: "Drop set previous column label")
+                    : String(localized: "金字塔", comment: "Pyramid set previous column label")
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+
+            weightColumn
+                .frame(width: 88, alignment: .center)
+
+            repsColumn
+                .frame(width: 68, alignment: .center)
+
+            completionButton
+                .frame(width: 44, height: 44, alignment: .trailing)
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, minHeight: 48)
+        .background(exerciseSet.isCompleted ? Color.green.opacity(0.10) : Color.clear)
         .contentShape(Rectangle())
         .sensoryFeedback(.success, trigger: exerciseSet.isCompleted)
+        .contextMenu {
+            Button(String(localized: "切换单侧/双侧", comment: "Toggle unilateral or bilateral weight")) {
+                SetRow.toggleExerciseWeightMode(from: exerciseSet)
+                refreshInputText()
+            }
+            Button(String(localized: "+ 递减组", comment: "Add drop set")) {
+                onAddSubSet(.dropSet)
+            }
+            Button(String(localized: "+ 金字塔组", comment: "Add pyramid set")) {
+                onAddSubSet(.pyramid)
+            }
+            if let owner = exerciseSet.workoutExercise {
+                Button(String(localized: "复制到下一组", comment: "Copy set to next")) {
+                    ActiveExerciseSection.copyToNext(from: exerciseSet, in: owner, using: modelContext)
+                }
+            }
+            Divider()
+            Button(String(localized: "删除本组", comment: "Delete this sub-set"), role: .destructive, action: onDelete)
+        }
         .onAppear {
             refreshInputText()
         }
+        .onChange(of: weightUnit) { _, _ in refreshInputText() }
         .onChange(of: exerciseSet.weight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
         .onChange(of: exerciseSet.weightRight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
         .onChange(of: exerciseSet.reps) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
-        .onChange(of: weightUnit) { _, _ in refreshInputText() }
         .onChange(of: exerciseSet.isUnilateral) { _, _ in refreshInputText() }
         .animation(
             reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.28, dampingFraction: 0.85),
@@ -77,109 +116,91 @@ struct SubSetRow: View {
         )
     }
 
-    private var mainAxis: some View {
-        HStack(alignment: .center, spacing: 4) {
-            leadingControls.frame(width: 44)
-            Text(exerciseSet.setType == .dropSet ? String(localized: "递减 80%", comment: "Drop set previous column") : String(localized: "金字塔", comment: "Pyramid previous column"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            if exerciseSet.isUnilateral {
-                inputsAndCaption
-            } else {
-                bilateralInputs
-            }
-            Button(action: toggleCompleted) {
-                Image(systemName: exerciseSet.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(exerciseSet.isCompleted ? Color.green : exerciseSet.setType.semanticColor)
-                    .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
-            }
-            .buttonStyle(.borderless)
-            trailingControls
-        }
-        .padding(.leading, 8)
-        .padding(.trailing, 0)
-        .frame(maxWidth: .infinity, minHeight: 44)
-    }
-
-    private var leadingControls: some View {
-        HStack(alignment: .center, spacing: 2) {
+    private var subSetBadge: some View {
+        let isDrop = exerciseSet.setType == .dropSet
+        let badgeColor: Color = isDrop ? .purple : .teal
+        return HStack(alignment: .center, spacing: 3) {
             Image(systemName: "arrow.turn.down.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(workoutSeparator)
-                .frame(width: 18, height: 44)
-                .accessibilityHidden(true)
-            Text(exerciseSet.setType == .dropSet ? "D" : "P")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(isDrop ? "D" : "P")
                 .font(.caption2.monospacedDigit().weight(.bold))
-                .lineLimit(1)
-                .foregroundStyle(exerciseSet.setType.semanticColor)
-                .frame(width: 24, height: 24, alignment: .center)
-                .background(exerciseSet.setType.semanticColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .strokeBorder(exerciseSet.setType.semanticColor.opacity(0.24), lineWidth: 1)
-                }
-                .accessibilityLabel(exerciseSet.setType == .dropSet ? String(localized: "递减组", comment: "Drop set badge") : String(localized: "金字塔组", comment: "Pyramid set badge"))
+                .foregroundStyle(badgeColor)
+                .frame(width: 24, height: 24)
+                .background(badgeColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
-    }
-
-    private var trailingControls: some View {
-        Button(role: .destructive, action: onDelete) {
-            Image(systemName: "xmark")
-        }
-        .frame(width: ActiveWorkoutHitTarget.side, height: ActiveWorkoutHitTarget.side)
-        .buttonStyle(.borderless)
-        .contentShape(Rectangle())
-        .accessibilityLabel(String(localized: "关闭递减组", comment: "Delete drop-set row"))
-        .accessibilityHint(String(localized: "删除此递减组", comment: "Delete drop-set hint"))
-    }
-
-    private var bilateralInputs: some View {
-        HStack(spacing: 4) {
-            inputField(text: $weightText, field: .weight,
-                       label: "",
-                       focusRequestID: $weightFocusRequestID)
-            Text("×")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-            inputField(text: $repsText, field: .reps,
-                       label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"),
-                       focusRequestID: $repsFocusRequestID)
-        }
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private var inputsAndCaption: some View {
-        HStack(spacing: 4) {
-            inputField(text: $weightText, field: .weight, label: "L", focusRequestID: $weightFocusRequestID)
-            inputField(text: $weightRightText, field: .weightRight, label: "R", focusRequestID: $weightRightFocusRequestID)
-            Text("×")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-            inputField(text: $repsText, field: .reps, label: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"), focusRequestID: $repsFocusRequestID)
-        }
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private func inputField(text: Binding<String>, field: SetField, label: String, focusRequestID: Binding<Int>) -> some View {
-        // Only edits from the input write back. Model/unit refreshes update the
-        // display directly, preserving stored precision after display rounding.
-        let editingText = Binding<String>(
-            get: { text.wrappedValue },
-            set: { value in
-                text.wrappedValue = value
-                sync(field: field)
-            }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            isDrop
+                ? String(localized: "递减组", comment: "Drop set badge")
+                : String(localized: "金字塔组", comment: "Pyramid set badge")
         )
+    }
+
+    @ViewBuilder
+    private var weightColumn: some View {
+        if exerciseSet.isUnilateral {
+            HStack(spacing: 4) {
+                numericInputSlot(
+                    binding: $weightText,
+                    field: .weight,
+                    width: 42,
+                    placeholder: "L",
+                    focusRequestID: $weightFocusRequestID,
+                    a11yLabel: String(localized: "子组左侧重量", comment: "Sub-set left weight")
+                )
+                numericInputSlot(
+                    binding: $weightRightText,
+                    field: .weightRight,
+                    width: 42,
+                    placeholder: "R",
+                    focusRequestID: $weightRightFocusRequestID,
+                    a11yLabel: String(localized: "子组右侧重量", comment: "Sub-set right weight")
+                )
+            }
+        } else {
+            numericInputSlot(
+                binding: $weightText,
+                field: .weight,
+                width: 88,
+                placeholder: "0",
+                focusRequestID: $weightFocusRequestID,
+                a11yLabel: String(localized: "子组重量", comment: "Sub-set weight")
+            )
+        }
+    }
+
+    private var repsColumn: some View {
+        numericInputSlot(
+            binding: $repsText,
+            field: .reps,
+            width: 68,
+            placeholder: "0",
+            focusRequestID: $repsFocusRequestID,
+            a11yLabel: String(localized: "子组次数", comment: "Sub-set reps")
+        )
+    }
+
+    @ViewBuilder
+    private func numericInputSlot(
+        binding: Binding<String>,
+        field: SetField,
+        width: CGFloat,
+        placeholder: String,
+        focusRequestID: Binding<Int>,
+        a11yLabel: String
+    ) -> some View {
+        let isFocused = focusedField == field
+        let slotShape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         #if canImport(UIKit) && !os(macOS)
-        let isTotal = !exerciseSet.isUnilateral && field == .weight
-        let isSide = field != .reps
+        let uiFont = UIFontMetrics(forTextStyle: .body).scaledFont(
+            for: UIFont.monospacedDigitSystemFont(ofSize: 17, weight: .semibold)
+        )
         let input = SelectAllTextField(
-            placeholder: "",
-            text: editingText,
+            placeholder: placeholder,
+            text: binding,
             keyboardType: field.isDecimalEnabled ? .decimalPad : .numberPad,
-            font: LargeWorkoutInputFont.weightReps(large: largeMode),
+            font: uiFont,
             useCustomKeyboard: true,
             field: field,
             exercise: exercise,
@@ -196,78 +217,81 @@ struct SubSetRow: View {
                 }
             }
         )
-        return HStack(alignment: .center, spacing: 2) {
-            if isSide {
-                WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: label)
-                    .font(largeMode ? .footnote.weight(isTotal ? .semibold : .bold) : .caption2.weight(isTotal ? .semibold : .bold))
-                    .foregroundStyle(isTotal ? Color.secondary : Color.accentColor)
-                    .fixedSize()
-                    .allowsHitTesting(false)
-            }
-            WorkoutSetInput(input, theme: theme, focusRequestID: focusRequestID.wrappedValue)
-                .frame(
-                    width: ActiveWorkoutHitTarget.numericInputWidth(
-                        large: largeMode,
-                        isWeight: field.isWeightField
-                    ),
-                    height: largeMode ? 42 : 36
+        WorkoutSetInput(input, theme: theme, focusRequestID: focusRequestID.wrappedValue)
+            .frame(width: width, height: 38)
+            .background(Color(uiColor: .tertiarySystemFill), in: slotShape)
+            .overlay {
+                slotShape.strokeBorder(
+                    isFocused ? Color.accentColor : Color.clear,
+                    lineWidth: 1.5
                 )
-                .fixedSize(horizontal: true, vertical: false)
-            if field.isWeightField {
-                WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: weightUnit.rawValue)
-                    .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
-                    .foregroundStyle(Color.secondary)
-                    .allowsHitTesting(false)
-            } else {
-                WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit",
-                                     text: String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
-                    .font(largeMode ? .footnote.weight(.medium) : .caption2.weight(.medium))
-                    .foregroundStyle(Color.secondary)
-                    .allowsHitTesting(false)
             }
-        }
-        .padding(.horizontal, 3)
-        .frame(minWidth: ActiveWorkoutHitTarget.side, minHeight: ActiveWorkoutHitTarget.side)
-        .background(alignment: .center) {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(workoutTertiaryFill)
-                .frame(height: largeMode ? 42 : 36)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(
-                            focusedField == field ? Color.accentColor : workoutSeparator.opacity(0.65),
-                            lineWidth: focusedField == field ? 1.5 : 1
-                        )
+            .frame(width: width, height: 44)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                focusRequestID.wrappedValue &+= 1
+            }
+            .accessibilityLabel(a11yLabel)
+            .onChange(of: binding.wrappedValue) { _, newValue in
+                if field == .reps {
+                    let filtered = newValue.filter(\.isNumber)
+                    if filtered != newValue { binding.wrappedValue = filtered }
+                    syncRepsToModel()
+                } else {
+                    let filtered = filterDecimalInput(newValue)
+                    if filtered != newValue { binding.wrappedValue = filtered }
+                    if field == .weight {
+                        syncWeightToModel()
+                    } else {
+                        syncWeightRightToModel()
+                    }
                 }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            focusRequestID.wrappedValue &+= 1
-        }
-        .accessibilityLabel(field == .reps ? String(localized: "递减组次数", comment: "Drop-set reps") : String(localized: "递减组重量", comment: "Drop-set weight"))
-        .accessibilityHint(String(localized: "输入数值", comment: "Enter drop-set value"))
-        #else
-        return HStack(spacing: 2) {
-            if field != .reps {
-                WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "prefix", text: label)
-                    .font(.caption2.weight(.semibold))
-                    .fixedSize()
             }
-            TextField("", text: editingText)
-                .frame(
-                    width: ActiveWorkoutHitTarget.numericInputWidth(
-                        large: largeMode,
-                        isWeight: field.isWeightField
-                    ),
-                    height: largeMode ? 42 : 36
-                )
-            WorkoutRowDescriptor(row: exerciseSet.persistentModelID, field: field, kind: "unit", text: field.isWeightField
-                 ? weightUnit.rawValue
-                 : String(localized: "workout.row.reps_unit", defaultValue: "reps", comment: "Repetitions unit"))
-                .font(.caption2.weight(.medium))
-                .allowsHitTesting(false)
-        }
+        #else
+        TextField(placeholder, text: binding)
+            .multilineTextAlignment(.center)
+            .font(.body.monospacedDigit().weight(.semibold))
+            .frame(width: width, height: 38)
+            .background(workoutTertiaryFill, in: slotShape)
+            .frame(width: width, height: 44)
+            .accessibilityLabel(a11yLabel)
+            .onChange(of: binding.wrappedValue) { _, newValue in
+                if field == .reps {
+                    let filtered = newValue.filter(\.isNumber)
+                    if filtered != newValue { binding.wrappedValue = filtered }
+                    syncRepsToModel()
+                } else {
+                    let filtered = filterDecimalInput(newValue)
+                    if filtered != newValue { binding.wrappedValue = filtered }
+                    if field == .weight {
+                        syncWeightToModel()
+                    } else {
+                        syncWeightRightToModel()
+                    }
+                }
+            }
         #endif
+    }
+
+    private var completionButton: some View {
+        Button(action: toggleCompleted) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(exerciseSet.isCompleted ? Color.green : Color(uiColor: .tertiarySystemFill))
+                    .frame(width: 30, height: 30)
+                Image(systemName: "checkmark")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(exerciseSet.isCompleted ? Color.white : Color.secondary)
+            }
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            exerciseSet.isCompleted
+                ? String(localized: "子组已完成", comment: "Sub-set completed")
+                : String(localized: "完成子组", comment: "Complete sub-set")
+        )
     }
 
     private func handleLeftAction(_ action: LeftKeyAction, field: SetField) {
@@ -289,15 +313,20 @@ struct SubSetRow: View {
                 #endif
                 ActiveExerciseSection.copyToNext(from: exerciseSet, in: owner, using: modelContext)
             }
-        case .applyAISuggestion:
+        case .addDropSet:
+            onAddSubSet(.dropSet)
+        case .addPyramidSet:
+            onAddSubSet(.pyramid)
+        case .decreaseWeightFive:
+            adjustWeight(by: -5, field: field)
+        case .decreaseWeightTwoPointFive:
+            adjustWeight(by: -2.5, field: field)
+        case .increaseWeightTwoPointFive:
+            adjustWeight(by: 2.5, field: field)
+        case .increaseWeightFive:
+            adjustWeight(by: 5, field: field)
+        default:
             break
-        case .decreaseWeightFive: adjustWeight(by: -5, field: field)
-        case .decreaseWeightTwoPointFive: adjustWeight(by: -2.5, field: field)
-        case .increaseWeightTwoPointFive: adjustWeight(by: 2.5, field: field)
-        case .increaseWeightFive: adjustWeight(by: 5, field: field)
-        case .addDropSet: onAddSubSet(.dropSet)
-        case .addPyramidSet: onAddSubSet(.pyramid)
-        default: break
         }
     }
 
@@ -320,7 +349,6 @@ struct SubSetRow: View {
             exerciseSet.weight = weightKg
             if exerciseSet.isUnilateral {
                 exerciseSet.weightRight = weightKg
-                weightRightText = format(weightUnit == .lb ? weightKg * 2.20462 : weightKg)
             }
         }
         exerciseSet.reps = reps
@@ -330,20 +358,20 @@ struct SubSetRow: View {
     private func toggleCompleted() {
         let wasCompleted = exerciseSet.isCompleted
         exerciseSet.isCompleted.toggle()
-        if !wasCompleted { HapticManager.trigger(.setCompleted) }
+        if !wasCompleted {
+            HapticManager.trigger(.setCompleted)
+        }
         onToggleCompleted(wasCompleted)
     }
 
     private func refreshInputText(preservingFocusedField: SetField? = nil) {
-        // The native field retains its edit binding across SwiftUI updates.
-        // Keep the unit beside the text so that binding uses the displayed unit.
-        inputWeightUnit = weightUnit
         if preservingFocusedField != .weight {
-            weightText = format(weightUnit == .lb ? exerciseSet.weight * 2.20462 : exerciseSet.weight)
+            weightText = format(WorkoutDualModeEngine.displayWeight(exerciseSet.weight, unit: weightUnit))
         }
         if preservingFocusedField != .weightRight {
+            let right = exerciseSet.weightRight ?? exerciseSet.weight
             weightRightText = exerciseSet.isUnilateral
-                ? format(weightUnit == .lb ? (exerciseSet.weightRight ?? exerciseSet.weight) * 2.20462 : (exerciseSet.weightRight ?? exerciseSet.weight))
+                ? format(WorkoutDualModeEngine.displayWeight(right, unit: weightUnit))
                 : ""
         }
         if preservingFocusedField != .reps {
@@ -351,30 +379,52 @@ struct SubSetRow: View {
         }
     }
 
-    private func sync(field: SetField) {
-        switch field {
-        case .weight:
-            if weightText.isEmpty {
-                exerciseSet.weight = 0
-            } else if let value = Double(weightText), value.isFinite, value >= 0 {
-                exerciseSet.weight = inputWeightUnit == .lb ? value / 2.20462 : value
-            }
-        case .weightRight:
-            if weightRightText.isEmpty {
-                exerciseSet.weightRight = 0
-            } else if let value = Double(weightRightText), value.isFinite, value >= 0 {
-                exerciseSet.weightRight = inputWeightUnit == .lb ? value / 2.20462 : value
-            }
-        case .reps:
-            if repsText.isEmpty {
-                exerciseSet.reps = 0
-            } else if let value = Int(repsText), value >= 0 {
-                exerciseSet.reps = value
+    private func syncWeightToModel() {
+        let current = WorkoutDualModeEngine.displayWeight(exerciseSet.weight, unit: weightUnit)
+        guard weightText != format(current) else { return }
+        if weightText.isEmpty {
+            exerciseSet.weight = 0
+            return
+        }
+        guard let value = Double(weightText), value.isFinite, value >= 0 else { return }
+        exerciseSet.weight = weightUnit == .lb ? value / 2.20462 : value
+    }
+
+    private func syncWeightRightToModel() {
+        let current = exerciseSet.weightRight ?? exerciseSet.weight
+        guard weightRightText != format(WorkoutDualModeEngine.displayWeight(current, unit: weightUnit)) else { return }
+        if weightRightText.isEmpty {
+            exerciseSet.weightRight = nil
+            return
+        }
+        guard let value = Double(weightRightText), value.isFinite, value >= 0 else { return }
+        exerciseSet.weightRight = weightUnit == .lb ? value / 2.20462 : value
+    }
+
+    private func syncRepsToModel() {
+        if repsText.isEmpty {
+            exerciseSet.reps = 0
+            return
+        }
+        guard let value = Int(repsText), value >= 0 else { return }
+        exerciseSet.reps = value
+    }
+
+    private func filterDecimalInput(_ text: String) -> String {
+        var result = ""
+        var hasDecimalPoint = false
+        for char in text {
+            if char.isNumber {
+                result.append(char)
+            } else if char == "." && !hasDecimalPoint {
+                hasDecimalPoint = true
+                result.append(char)
             }
         }
+        return result
     }
 
     private func format(_ value: Double) -> String {
-        value == 0 ? "" : value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(format: "%.1f", value)
+        value == 0 ? "" : (value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(format: "%.1f", value))
     }
 }
