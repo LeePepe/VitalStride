@@ -1,18 +1,10 @@
 // swiftlint:disable no_hardcoded_chinese
-// Active Exercise Section.
-// Extracted verbatim from ActiveWorkoutView.swift (MY-874). Pre-existing
-// `no_hardcoded_chinese` literals move with the code and stay silenced at file
-// scope until the dedicated i18n cleanup (MY-1065). No semantic change.
-
 import DesignKit
 import SwiftData
 import SwiftUI
 import VitalModels
 import VitalUI
 
-/// MY-1420: a main-set delete parked behind the cascade confirmation, carrying
-/// the resolved child count / kind so the dialog message can name exactly what
-/// disappears alongside the row the user acted on.
 struct CascadeDeletionRequest: Identifiable {
     let exerciseSet: ExerciseSet
     let setNumber: Int
@@ -51,47 +43,27 @@ extension EnvironmentValues {
 struct ActiveExerciseSection: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.theme) private var theme
-    @Environment(\.displayScale) private var displayScale
     @Environment(\.activeExerciseSectionInteraction) private var interaction
+    @Environment(\.modelContext) private var modelContext
+    @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
+
     let workoutExercise: WorkoutExercise
     let onSetCompleted: (ExerciseSet) -> Void
     let onSetDeleted: () -> Void
     let onReplace: () -> Void
-    /// Smart-substitute entry point (spec 003 T013a). Wired by `ActiveWorkoutView`
-    /// to open `ExerciseSubstituteSheet` for the selected workout exercise.
     let onSubstitute: () -> Void
     let onDelete: () -> Void
-    /// MY-1420: shared undo state. Owned by `ActiveWorkoutView` so a single
-    /// snackbar arbitrates across every exercise section — a delete in one
-    /// section must replace (not stack on) a pending undo from another.
     let undoController: SetDeletionUndoController
-    @Environment(\.modelContext) private var modelContext
-    @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
-    // MY-1091: header font ramps up in Large Mode (`.title2` vs `.headline`)
-    // so the currently-worked exercise name is legible from a rack step away.
-    @AppStorage("activeWorkoutLargeMode") private var largeMode = false
+
     @State private var showingDeleteConfirmation = false
-    /// MY-1420: the main set awaiting cascade confirmation, plus the resolved
-    /// child count / kind so the message names the real consequence.
     @State private var pendingCascadeDeletion: CascadeDeletionRequest?
     @State private var isCollapsed = false
-    /// MY-1420: VoiceOver focus target. Deleting the focused row drops focus
-    /// silently, so it is moved explicitly to the parent main set (for a
-    /// sub-set) or the nearest surviving row.
     @AccessibilityFocusState private var focusedRowID: PersistentIdentifier?
-
-    private var headerControlHeight: CGFloat {
-        ActiveWorkoutHitTarget.side
-    }
 
     private var sortedSets: [ExerciseSet] {
         (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
     }
 
-    /// MY-1080 — Per-row context precomputed in a single O(n) pass over the
-    /// sorted sets. Replaces the previous O(n² log n) rendering path where each
-    /// row re-sorted the array and re-walked it to compute numbering. Fields
-    /// mirror what `SetRow` / `SubSetRow` need per row.
     struct RowContext {
         let exerciseSet: ExerciseSet
         let mainSetNumber: Int
@@ -106,9 +78,6 @@ struct ActiveExerciseSection: View {
     private var totalSetCount: Int { sortedSets.count }
     private var completedSetCount: Int { sortedSets.filter(\.isCompleted).count }
 
-    /// Nonisolated so tests can invoke it directly with a pre-sorted array of
-    /// `ExerciseSet` without instantiating the SwiftUI view. `sets` MUST already
-    /// be sorted by `order` (mirrors `sortedSets`).
     nonisolated static func rowContexts(from sets: [ExerciseSet]) -> [RowContext] {
         var contexts: [RowContext] = []
         contexts.reserveCapacity(sets.count)
@@ -135,33 +104,111 @@ struct ActiveExerciseSection: View {
     var body: some View {
         let contexts = rowContexts
         let canDelete = contexts.count > 1
+        let toggleAction: ActiveExerciseSectionInteraction.ToggleAction = {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84)) {
+                isCollapsed.toggle()
+            }
+        }
         VStack(spacing: 0) {
-            exerciseHeader(toggleAction: { withAnimation { isCollapsed.toggle() } })
+            exerciseHeader(toggleAction: toggleAction)
             if !isCollapsed {
+                Divider()
+                    .opacity(0.45)
                 tiledTableHeader
-                ForEach(contexts, id: \.exerciseSet.persistentModelID) { ctx in
+                Divider()
+                    .opacity(0.35)
+                ForEach(Array(contexts.enumerated()), id: \.element.exerciseSet.persistentModelID) { offset, ctx in
+                    let exerciseSet = ctx.exerciseSet
                     Group {
-                        if ctx.exerciseSet.setType.isSubSet {
-                            SubSetRow(exerciseSet: ctx.exerciseSet, weightUnit: weightUnit, isLast: ctx.isLastSubSet, parentSetNumber: ctx.mainSetNumber, exercise: workoutExercise.exercise, recentWeightKg: ctx.recentWeightKg, onToggleCompleted: { wasCompleted in if !wasCompleted { onSetCompleted(ctx.exerciseSet) } }, onDelete: { requestDelete(ctx.exerciseSet) }, onAddSubSet: { addSubSet(after: ctx.exerciseSet, type: $0) })
+                        if exerciseSet.setType.isSubSet {
+                            SubSetRow(
+                                exerciseSet: exerciseSet,
+                                weightUnit: weightUnit,
+                                isLast: ctx.isLastSubSet,
+                                parentSetNumber: ctx.mainSetNumber,
+                                exercise: workoutExercise.exercise,
+                                recentWeightKg: ctx.recentWeightKg,
+                                onToggleCompleted: { wasCompleted in
+                                    if !wasCompleted { onSetCompleted(exerciseSet) }
+                                },
+                                onDelete: {
+                                    requestDelete(exerciseSet)
+                                },
+                                onAddSubSet: { type in
+                                    addSubSet(after: exerciseSet, type: type)
+                                }
+                            )
                         } else {
-                            SetRow(index: ctx.mainSetNumber, exerciseSet: ctx.exerciseSet, weightUnit: weightUnit, canDelete: canDelete, exercise: workoutExercise.exercise, recentWeightKg: ctx.recentWeightKg, onToggleCompleted: { wasCompleted in if !wasCompleted { onSetCompleted(ctx.exerciseSet) } }, onDelete: { requestDelete(ctx.exerciseSet) }, onAddSubSet: { addSubSet(after: ctx.exerciseSet, type: $0) }, onCopyToNext: { copyToNext(from: ctx.exerciseSet) })
+                            SetRow(
+                                index: ctx.mainSetNumber,
+                                exerciseSet: exerciseSet,
+                                weightUnit: weightUnit,
+                                canDelete: canDelete,
+                                exercise: workoutExercise.exercise,
+                                recentWeightKg: ctx.recentWeightKg,
+                                onToggleCompleted: { wasCompleted in
+                                    if !wasCompleted { onSetCompleted(exerciseSet) }
+                                },
+                                onDelete: {
+                                    requestDelete(exerciseSet)
+                                },
+                                onAddSubSet: { type in
+                                    addSubSet(after: exerciseSet, type: type)
+                                },
+                                onCopyToNext: {
+                                    copyToNext(from: exerciseSet)
+                                }
+                            )
                         }
                     }
-                    if ctx.exerciseSet.persistentModelID != contexts.last?.exerciseSet.persistentModelID { Divider().padding(.leading, 56) }
+                    .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
+
+                    if offset + 1 < contexts.count {
+                        Divider()
+                            .padding(.leading, 56)
+                    }
                 }
                 cardFooter
             }
         }
-        .padding(.horizontal, 14)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .confirmationDialog(String(localized: "删除动作？", comment: "Delete exercise confirmation title"), isPresented: $showingDeleteConfirmation, titleVisibility: .visible) { Button(String(localized: "删除", comment: "Delete confirmation button"), role: .destructive) { onDelete() }; Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {} }
-        .confirmationDialog(pendingCascadeDeletion.map { SetDeletionPolicy.confirmTitle(setNumber: $0.setNumber) } ?? "", isPresented: cascadeConfirmationPresented, titleVisibility: .visible, presenting: pendingCascadeDeletion) { request in Button(String(localized: "删除", comment: "Delete confirmation button"), role: .destructive) { performDelete(request.exerciseSet) }; Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {} } message: { request in Text(SetDeletionPolicy.confirmMessage(childCount: request.childCount, kind: request.childKind)) }
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+        }
+        .padding(.horizontal, 14)
+        .confirmationDialog(
+            String(localized: "删除动作？", comment: "Delete exercise confirmation title"),
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "删除", comment: "Delete confirmation button"), role: .destructive) { onDelete() }
+            Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "该动作及所有已录入的组数据将被删除", comment: "Delete exercise confirmation message"))
+        }
+        .confirmationDialog(
+            pendingCascadeDeletion.map { SetDeletionPolicy.confirmTitle(setNumber: $0.setNumber) } ?? "",
+            isPresented: cascadeConfirmationPresented,
+            titleVisibility: .visible,
+            presenting: pendingCascadeDeletion
+        ) { request in
+            Button(
+                String(localized: "删除", comment: "Delete confirmation button"),
+                role: .destructive
+            ) {
+                performDelete(request.exerciseSet)
+            }
+            Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {}
+        } message: { request in
+            Text(SetDeletionPolicy.confirmMessage(
+                childCount: request.childCount,
+                kind: request.childKind
+            ))
+        }
     }
 
-    /// MY-1420: `confirmationDialog(_:isPresented:presenting:)` needs a Bool
-    /// binding; the request itself is the source of truth so dismissing the
-    /// dialog (cancel, swipe-away) clears it.
     private var cascadeConfirmationPresented: Binding<Bool> {
         Binding(
             get: { pendingCascadeDeletion != nil },
@@ -171,27 +218,30 @@ struct ActiveExerciseSection: View {
         )
     }
 
-    private var progressionAdvice: ProgressionAdvice? {
-        guard let workout = workoutExercise.workout else { return nil }
-        return WorkoutDualModeEngine.computeExerciseProgressionAdvice(for: workoutExercise, in: workout, using: modelContext)
-    }
-
-    private var firstIncompleteMainSet: ExerciseSet? {
-        sortedSets.first(where: { !$0.setType.isSubSet && !$0.isCompleted })
+    private var muscleAccentColor: Color {
+        FocusAtmosphereTheme.resolve(
+            muscleGroup: workoutExercise.exercise?.muscleGroup,
+            stageMode: .activeSet
+        ).primaryTint
     }
 
     private var tiledTableHeader: some View {
-        HStack(spacing: 4) {
-            Text(String(localized: "组序", comment: "Set column header")).frame(width: 44, alignment: .leading)
-            Text(String(localized: "上次", comment: "Previous column header")).frame(maxWidth: .infinity, alignment: .leading)
-            Text(weightUnit.rawValue.uppercased()).frame(width: 76, alignment: .center)
-            Text(String(localized: "次数", comment: "Reps column header")).frame(width: 64, alignment: .center)
-            Text("✓").frame(width: 44)
+        HStack(alignment: .center, spacing: 8) {
+            Text(String(localized: "组序", comment: "Set column header"))
+                .frame(width: 44, alignment: .leading)
+            Text(String(localized: "上次", comment: "Previous column header"))
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(weightUnit.rawValue.uppercased())
+                .frame(width: 88, alignment: .center)
+            Text(String(localized: "次数", comment: "Reps column header"))
+                .frame(width: 68, alignment: .center)
+            Text("✓")
+                .frame(width: 44, alignment: .trailing)
         }
         .font(.caption2.weight(.semibold))
         .foregroundStyle(.secondary)
-        .frame(minHeight: 32)
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, minHeight: 32)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "组序、上次、重量、次数、完成", comment: "Set table column headers"))
     }
@@ -206,22 +256,53 @@ struct ActiveExerciseSection: View {
     private func exerciseHeader(
         toggleAction: @escaping ActiveExerciseSectionInteraction.ToggleAction
     ) -> some View {
-        HStack(alignment: .center, spacing: 8) {
+        let allDone = completedSetCount == totalSetCount && totalSetCount > 0
+        return HStack(alignment: .center, spacing: 10) {
+            Capsule()
+                .fill(allDone ? Color.green : muscleAccentColor)
+                .frame(width: 4, height: 22)
+                .accessibilityHidden(true)
+
             VStack(alignment: .leading, spacing: 2) {
-                headerTitle(toggleAction: toggleAction)
+                Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(Color.primary)
+                    .lineLimit(1)
                 if let exerciseSubtitle {
                     Text(exerciseSubtitle)
                         .font(.caption)
                         .foregroundStyle(Color.secondary)
                         .lineLimit(1)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .layoutPriority(1)
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if isCollapsed || allDone {
+                    toggleAction()
+                }
+            }
+
+            HStack(spacing: 4) {
+                if allDone {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(Color.green)
+                }
+                Text("\(completedSetCount)/\(totalSetCount)")
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(allDone ? Color.green : Color.secondary)
+            }
+
             exerciseActionMenu
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 14)
+        .padding(.trailing, 8)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 52)
+        .onAppear {
+            interaction.registerToggle(workoutExercise.persistentModelID, toggleAction)
+        }
         .onChange(of: completedSetCount) { _, count in
             if count < totalSetCount { isCollapsed = false }
         }
@@ -232,92 +313,6 @@ struct ActiveExerciseSection: View {
             localized: "\(completedSetCount)/\(totalSetCount) 组",
             comment: "Exercise completion count"
         ))
-        .padding(.horizontal, 8)
-        .frame(
-            maxWidth: .infinity,
-            minHeight: headerControlHeight,
-            alignment: .center
-        )
-        .padding(.vertical, 4)
-        .fixedSize(horizontal: false, vertical: true)
-        // The header and rows use one solid card plane without redundant separators.
-        .background(workoutSecondaryGroupedBackground)
-        .listRowBackground(workoutSecondaryGroupedBackground)
-        .zIndex(1)    }
-
-    private func headerTitle(
-        toggleAction: @escaping ActiveExerciseSectionInteraction.ToggleAction
-    ) -> some View {
-        HStack(alignment: .center, spacing: 8) {
-            if completedSetCount == totalSetCount, totalSetCount > 0 {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(Color.green)
-            } else {
-                Text("\(workoutExercise.order + 1)")
-                    .font(.caption.monospacedDigit().weight(.bold))
-                    .foregroundStyle(completedSetCount == 0 ? Color.secondary : Color.accentColor)
-                    .frame(minWidth: 22, minHeight: 22)                    .background(
-                        Circle().fill(
-                            completedSetCount == 0
-                                ? Color.secondary.opacity(0.12)
-                                : Color.accentColor.opacity(0.14)
-                        )
-                    )
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-            Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: ""))
-                // MY-1263 (D2): compact semibold body header in normal mode
-                // (SwiftUI's default `List` section header uses a larger
-                // title font that dominated the visual band). Large Mode
-                // continues to use the `.title2` semibold ramp from
-                // `LargeWorkoutFonts.exerciseName(large:)` for rack-step
-                // legibility (MY-1091). Text-style-driven so Dynamic Type
-                // still scales.
-                .font(largeMode
-                    ? LargeWorkoutFonts.exerciseName(large: true)
-                    : Font.system(.body, design: .default).weight(.semibold))
-                .foregroundStyle(Color.primary)
-                .layoutPriority(1)
-                .lineLimit(1)
-                .fixedSize(horizontal: false, vertical: false)
-                .minimumScaleFactor(0.85)
-                .truncationMode(.tail)                .contextMenu {
-                    Button {
-                        onSubstitute()
-                    } label: {
-                        // swiftlint:disable:next line_length
-                        Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute context menu item"), systemImage: "sparkles")
-                    }
-                    Button {
-                        onReplace()
-                    } label: {
-                        // swiftlint:disable:next line_length
-                        Label(String(localized: "替换动作", comment: "Replace exercise context menu item"), systemImage: "arrow.triangle.2.circlepath")
-                    }
-                    Button(role: .destructive) {
-                        showingDeleteConfirmation = true
-                    } label: {
-                        // swiftlint:disable:next line_length
-                        Label(String(localized: "删除动作", comment: "Delete exercise context menu item"), systemImage: "trash")
-                    }
-                }
-                // swiftlint:disable:next line_length
-                .accessibilityHint(String(localized: "长按可替换或删除动作", comment: "Exercise section header context menu a11y hint"))
-            Text("\(completedSetCount)/\(totalSetCount)")
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(Color.secondary)
-                .fixedSize(horizontal: true, vertical: false)
-            if completedSetCount == totalSetCount, totalSetCount > 0 {
-                Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
-                    .font(.caption2)
-                    .foregroundStyle(Color.secondary)
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { toggleAction() }
-        .onAppear {
-            interaction.registerToggle(workoutExercise.persistentModelID, toggleAction)
-        }
     }
 
     private var exerciseActionMenu: some View {
@@ -328,59 +323,55 @@ struct ActiveExerciseSection: View {
             Button(action: onReplace) {
                 Label(String(localized: "替换动作", comment: "Replace exercise menu item"), systemImage: "arrow.triangle.2.circlepath")
             }
-            if completedSetCount == totalSetCount, totalSetCount > 0 {
-                Button { isCollapsed.toggle() } label: {
-                    Label(
-                        isCollapsed ? String(localized: "展开", comment: "Expand exercise") : String(localized: "折叠", comment: "Collapse exercise"),
-                        systemImage: isCollapsed ? "chevron.down" : "chevron.up"
-                    )
+            Button {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84)) {
+                    isCollapsed.toggle()
                 }
+            } label: {
+                Label(
+                    isCollapsed ? String(localized: "展开", comment: "Expand exercise") : String(localized: "折叠", comment: "Collapse exercise"),
+                    systemImage: isCollapsed ? "chevron.down" : "chevron.up"
+                )
             }
+            Divider()
             Button(role: .destructive) { showingDeleteConfirmation = true } label: {
                 Label(String(localized: "删除动作", comment: "Delete exercise menu item"), systemImage: "trash")
             }
         } label: {
             Image(systemName: "ellipsis.circle")
+                .font(.title3)
                 .foregroundStyle(Color.secondary)
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
-        .frame(minWidth: 44, minHeight: 44)
     }
 
     private var cardFooter: some View {
-        HStack(spacing: 8) {
-            Button(action: addSet) {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus.circle.fill")
-                    Text(String(localized: "添加一组", comment: "Add set button a11y"))
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
-                .padding(.horizontal, 10)
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
+        Button(action: addSet) {
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                    .font(.subheadline.weight(.bold))
+                Text(String(localized: "添加一组", comment: "Add set button"))
+                    .font(.subheadline.weight(.semibold))
             }
-            .buttonStyle(AddSetButtonStyle())
-            .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
-            .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
-            .accessibilityIdentifier("workout_section_add_set_\(workoutExercise.order)")
-            Spacer(minLength: 0)
+            .foregroundStyle(Color.accentColor)
+            .frame(maxWidth: .infinity, minHeight: 40)
+            .background(
+                Color(uiColor: .tertiarySystemFill),
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(AddSetButtonStyle())
         .padding(.horizontal, 12)
-        .frame(minHeight: 52)
-        .background(workoutSecondaryGroupedBackground)
+        .padding(.vertical, 10)
+        .accessibilityLabel(String(localized: "添加一组", comment: "Add set button a11y"))
+        .accessibilityHint(String(localized: "在列表末尾插入新的一组", comment: "Add set hint"))
+        .accessibilityIdentifier("workout_section_add_set_\(workoutExercise.order)")
     }
 
-    // MY-1348 (spec 017): visual redesign — subtle-fill inline button.
-    // Kept in the section header alongside the exercise title + menu, not as a
-    // list row. The row-only spacing/background/separator modifiers are removed so
-    // the control cannot receive list edit/move behavior while preserving the
-    // frozen a11y label/hint and ≥44pt hit target contract.
-    // The append source stays on the last main set even when a trailing sub-set
-    // exists, so the add-set default remains tied to the final visible main-set
-    // contract rather than the temporary sub-set tail.
     nonisolated static func appendedMainSet(in workoutExercise: WorkoutExercise) -> ExerciseSet {
         let sortedSets = (workoutExercise.sets ?? []).sorted { $0.order < $1.order }
         let lastMainSet = sortedSets.last(where: { !$0.setType.isSubSet })
@@ -395,9 +386,6 @@ struct ActiveExerciseSection: View {
         )
     }
 
-    /// Exercises the complete append contract used by `addSet()`: construct the
-    /// default main set, attach it to the owning workout exercise, and insert it
-    /// into the relationship so tests can lock the real mutation path.
     nonisolated static func insertAppendedMainSet(
         in workoutExercise: WorkoutExercise,
         using modelContext: ModelContext
@@ -419,9 +407,6 @@ struct ActiveExerciseSection: View {
         }
     }
 
-    /// MY-1420: entry point for every delete affordance (swipe + menu, main
-    /// row + sub-set row). Routes through `SetDeletionPolicy` so the confirm
-    /// vs delete-now decision lives in one testable place.
     private func requestDelete(_ exerciseSet: ExerciseSet) {
         switch SetDeletionPolicy.intent(for: exerciseSet, in: workoutExercise) {
         case .confirm(let childCount, let kind):
@@ -436,14 +421,6 @@ struct ActiveExerciseSection: View {
         }
     }
 
-    /// Deletes for real and arms the undo window.
-    ///
-    /// The snapshot is captured *before* `WorkoutSetManager.deleteSet` runs,
-    /// because the manager both deletes the rows and renumbers the survivors —
-    /// after it returns there is nothing left to read. The delete itself stays
-    /// entirely the manager's: the min-one-set guard and the parent→sub-set
-    /// cascade are never re-derived here, so the UI cannot drift from the data
-    /// layer's rules (it may legitimately refuse, hence the `didDelete` gate).
     private func performDelete(_ exerciseSet: ExerciseSet) {
         let contexts = rowContexts
         let targets = WorkoutSetTree.deletionTargets(for: exerciseSet, in: workoutExercise)
@@ -482,21 +459,10 @@ struct ActiveExerciseSection: View {
                 isSubSet: isSubSet
             )
         )
-        // VoiceOver focus is moved explicitly: the focused row just vanished,
-        // and left alone the system either drops focus or lands it somewhere
-        // unrelated.
         focusedRowID = focusTarget
         onSetDeleted()
     }
 
-    /// 1-based display number of the main set this row belongs to — the row's
-    /// own number for a main set, its parent's for a sub-set — so confirmation
-    /// and undo copy match what the user sees on screen.
-    ///
-    /// `RowContext.mainSetNumber` counts the main sets *before* a row, so a
-    /// main set needs +1 to become its displayed number (matching `SetRow`'s
-    /// `index + 1`), while a sub-set's value is already its parent's displayed
-    /// number (matching `SubSetRow`'s `parentSetNumber`).
     private func displaySetNumber(of exerciseSet: ExerciseSet) -> Int {
         guard let ctx = rowContexts.first(where: {
             $0.exerciseSet.persistentModelID == exerciseSet.persistentModelID
@@ -504,18 +470,10 @@ struct ActiveExerciseSection: View {
         return exerciseSet.setType.isSubSet ? ctx.mainSetNumber : ctx.mainSetNumber + 1
     }
 
-    /// MY-1073 — Copy current set to next. If a next set exists (main or sub),
-    /// its weight/weightRight/reps/setType/isUnilateral are overwritten. If
-    /// none exists, a new main set is appended using the same ordering rules
-    /// as `addSet()`. Extracted to a static helper on this type so it can be
-    /// exercised from tests without instantiating the SwiftUI view.
     private func copyToNext(from source: ExerciseSet) {
         Self.copyToNext(from: source, in: workoutExercise, using: modelContext)
     }
 
-    /// Nonisolated so tests (and any callers off the main actor) can invoke it
-    /// without hopping through `@MainActor` — SwiftData `ModelContext` /
-    /// `PersistentModel` writes are safe from any actor that owns the context.
     nonisolated static func copyToNext(
         from source: ExerciseSet,
         in workoutExercise: WorkoutExercise,
@@ -550,15 +508,6 @@ struct ActiveExerciseSection: View {
     }
 }
 
-// MARK: - Add-Set button style (MY-1348)
-
-/// MY-1348 (spec 017) — pressed-state feedback for `addSetButton`.
-///
-/// `.borderless` gives no visual acknowledgement on tap, which made the row
-/// read as another data cell. This style dims and slightly shrinks on press
-/// so the button feels like a real tappable control. `Sendable` is satisfied
-/// implicitly by the immutable `struct`. `private` scope keeps this style
-/// bound to `ActiveExerciseSection` — no exported API.
 private struct AddSetButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -568,85 +517,4 @@ private struct AddSetButtonStyle: ButtonStyle {
             .scaleEffect(reduceMotion ? 1.0 : (configuration.isPressed ? 0.98 : 1.0))
             .animation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
-}
-
-// MARK: - Previews (MY-1348 spec 017 — 4-state coverage)
-//
-// Preview matrix required by `tasks.md` §Preview Coverage: `{normal, large}
-// × {light, dark}`, each with ≥ 2 sets so the shared exercise header is shown
-// alongside the title/menu and two set rows as the visual context.
-// Uses the same in-memory `ModelContainerConfiguration.makeTestContainer()`
-// harness as `SetRow` previews.
-
-private struct AddSetButtonPreviewWrapper: View {
-    let largeMode: Bool
-
-    init(largeMode: Bool) {
-        self.largeMode = largeMode
-        UserDefaults.standard.set(largeMode, forKey: "activeWorkoutLargeMode")
-    }
-
-    var body: some View {
-        // swiftlint:disable:next force_try
-        let container = try! ModelContainerConfiguration.makeTestContainer()
-        let context = container.mainContext
-
-        let exercise = Exercise(
-            nameEn: "Bench Press",
-            nameZh: String(localized: "卧推", comment: ""),
-            muscleGroup: .chest,
-            equipment: .barbell
-        )
-        context.insert(exercise)
-
-        let workout = Workout(type: .strength, startDate: Date())
-        context.insert(workout)
-
-        let workoutExercise = WorkoutExercise(order: 0, exercise: exercise)
-        workoutExercise.workout = workout
-        context.insert(workoutExercise)
-
-        let set1 = ExerciseSet(order: 0, weight: 60, reps: 10, setType: .working)
-        set1.workoutExercise = workoutExercise
-        context.insert(set1)
-
-        let set2 = ExerciseSet(order: 1, weight: 62.5, reps: 8, setType: .working)
-        set2.workoutExercise = workoutExercise
-        context.insert(set2)
-
-        return List {
-            ActiveExerciseSection(
-                workoutExercise: workoutExercise,
-                onSetCompleted: { _ in },
-                onSetDeleted: {},
-                onReplace: {},
-                onSubstitute: {},
-                onDelete: {},
-                undoController: SetDeletionUndoController()
-            )
-        }
-        .listStyle(.insetGrouped)
-        .modelContainer(container)
-        .designThemePreview()
-    }
-}
-
-#Preview("Header add-set - Normal Light") {
-    AddSetButtonPreviewWrapper(largeMode: false)
-        .preferredColorScheme(.light)
-}
-
-#Preview("Header add-set - Normal Dark") {
-    AddSetButtonPreviewWrapper(largeMode: false)
-        .preferredColorScheme(.dark)
-}
-
-#Preview("Header add-set - Large Light") {
-    AddSetButtonPreviewWrapper(largeMode: true)
-        .preferredColorScheme(.light)
-}
-
-#Preview("Header add-set - Large Dark") {
-    AddSetButtonPreviewWrapper(largeMode: true)
-        .preferredColorScheme(.dark)
 }

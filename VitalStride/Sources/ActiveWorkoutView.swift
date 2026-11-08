@@ -263,29 +263,85 @@ struct ActiveWorkoutView: View {
                 ScrollView {
                     LazyVStack(spacing: 14) {
                         ForEach(exercises) { workoutExercise in
-                            ActiveExerciseSection(workoutExercise: workoutExercise, onSetCompleted: { completedSet in
-                                restTimer.startRest(duration: completedSet.restDuration ?? completedSet.setType.defaultRestDuration)
-                                TelemetryService.shared.trackNonisolated(.setCompleted(exerciseName: TelemetryHelpers.exerciseIdentifier(workoutExercise.exercise)))
-                            }, onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) }, onReplace: { exerciseToReplace = workoutExercise }, onSubstitute: { beginSubstituteFlow(for: workoutExercise) }, onDelete: { deleteExercise(workoutExercise) }, undoController: undoController).id(workoutExercise.persistentModelID)
+                            ActiveExerciseSection(
+                                workoutExercise: workoutExercise,
+                                onSetCompleted: { completedSet in
+                                    restTimer.startRest(duration: completedSet.restDuration ?? completedSet.setType.defaultRestDuration)
+                                    TelemetryService.shared.trackNonisolated(.setCompleted(exerciseName: TelemetryHelpers.exerciseIdentifier(workoutExercise.exercise)))
+                                },
+                                onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
+                                onReplace: { exerciseToReplace = workoutExercise },
+                                onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
+                                onDelete: { deleteExercise(workoutExercise) },
+                                undoController: undoController
+                            )
+                            .id(workoutExercise.persistentModelID)
                         }
-                        Button { showingExercisePicker = true } label: { Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus").font(.headline.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.bordered).padding(.horizontal, 14)
-                    }.padding(.vertical, 14)
-                }.background(Color(uiColor: .systemGroupedBackground)).accessibilityIdentifier("workout_exercise_list").onChange(of: selectedExerciseID) { _, id in if let id { withAnimation { proxy.scrollTo(id, anchor: .top) } } }
+
+                        Button {
+                            showingExercisePicker = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.headline)
+                                Text(String(localized: "添加动作", comment: "Add exercise"))
+                                    .font(.headline.weight(.semibold))
+                            }
+                            .foregroundStyle(Color.accentColor)
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                            .background(
+                                Color(uiColor: .secondarySystemGroupedBackground),
+                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            )
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .strokeBorder(Color.accentColor.opacity(0.28), lineWidth: 1)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 14)
+                    }
+                    .padding(.vertical, 14)
+                }
+                .background(Color(uiColor: .systemGroupedBackground))
+                .accessibilityIdentifier("workout_exercise_list")
+                .onChange(of: selectedExerciseID) { _, id in
+                    if let id {
+                        withAnimation { proxy.scrollTo(id, anchor: .top) }
+                    }
+                }
             }
         }
     }
 
     @ViewBuilder
     private var workoutInputDock: some View {
-        if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
-            HStack(spacing: 10) {
-                if undoController.pending != nil { undoStatusButton }
-                else if restTimer.phase == .resting { restSnackbarContent }
-                else { restCompletedButton }
+        if displayMode == .focus {
+            if undoController.pending != nil {
+                HStack(spacing: 10) {
+                    undoStatusButton
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .liquidGlassBar(theme: theme, cornerRadius: 20)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
             }
-            .padding(.horizontal, 16).padding(.vertical, 8)
-            .background(.regularMaterial, in: Capsule())
-            .padding(.horizontal, 12).padding(.bottom, 8)
+        } else if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
+            HStack(spacing: 10) {
+                if undoController.pending != nil {
+                    undoStatusButton
+                } else if restTimer.phase == .resting {
+                    restSnackbarContent
+                } else {
+                    restCompletedButton
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .liquidGlassBar(theme: theme, cornerRadius: 20)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 8)
         }
     }
 
