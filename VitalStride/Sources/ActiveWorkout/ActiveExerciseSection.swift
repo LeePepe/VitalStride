@@ -135,131 +135,28 @@ struct ActiveExerciseSection: View {
     var body: some View {
         let contexts = rowContexts
         let canDelete = contexts.count > 1
-        let toggleAction: ActiveExerciseSectionInteraction.ToggleAction = {
-            if isCollapsed || (completedSetCount == totalSetCount && totalSetCount > 0) {
-                withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84)) {
-                    isCollapsed.toggle()
-                }
-            }
-        }
-        return Section {
+        VStack(spacing: 0) {
+            exerciseHeader(toggleAction: { withAnimation { isCollapsed.toggle() } })
             if !isCollapsed {
-            tiledTableHeader
-            ForEach(contexts, id: \.exerciseSet.persistentModelID) { ctx in
-                let exerciseSet = ctx.exerciseSet
-                if exerciseSet.setType.isSubSet {
-                    SubSetRow(
-                        exerciseSet: exerciseSet,
-                        weightUnit: weightUnit,
-                        isLast: ctx.isLastSubSet,
-                        parentSetNumber: ctx.mainSetNumber,
-                        exercise: workoutExercise.exercise,
-                        recentWeightKg: ctx.recentWeightKg,
-                        onToggleCompleted: { wasCompleted in
-                            if !wasCompleted { onSetCompleted(exerciseSet) }
-                        },
-                        onDelete: {
-                            requestDelete(exerciseSet)
-                        },
-                        onAddSubSet: { type in
-                            addSubSet(after: exerciseSet, type: type)
-                        }
-                    )
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-                    .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
-                    // MY-1420: sub-sets get the same trailing full swipe as
-                    // main sets. Sub-sets are always deletable — removing one
-                    // can never empty the exercise (a sub-set only exists
-                    // after a main set), and `WorkoutSetManager.deleteSet`'s
-                    // guard stays the single source of that rule, so no count
-                    // logic is duplicated here.
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            requestDelete(exerciseSet)
-                        } label: {
-                            Label(String(localized: "删除", comment: ""), systemImage: "trash")
+                tiledTableHeader
+                ForEach(contexts, id: \.exerciseSet.persistentModelID) { ctx in
+                    Group {
+                        if ctx.exerciseSet.setType.isSubSet {
+                            SubSetRow(exerciseSet: ctx.exerciseSet, weightUnit: weightUnit, isLast: ctx.isLastSubSet, parentSetNumber: ctx.mainSetNumber, exercise: workoutExercise.exercise, recentWeightKg: ctx.recentWeightKg, onToggleCompleted: { wasCompleted in if !wasCompleted { onSetCompleted(ctx.exerciseSet) } }, onDelete: { requestDelete(ctx.exerciseSet) }, onAddSubSet: { addSubSet(after: ctx.exerciseSet, type: $0) })
+                        } else {
+                            SetRow(index: ctx.mainSetNumber, exerciseSet: ctx.exerciseSet, weightUnit: weightUnit, canDelete: canDelete, exercise: workoutExercise.exercise, recentWeightKg: ctx.recentWeightKg, onToggleCompleted: { wasCompleted in if !wasCompleted { onSetCompleted(ctx.exerciseSet) } }, onDelete: { requestDelete(ctx.exerciseSet) }, onAddSubSet: { addSubSet(after: ctx.exerciseSet, type: $0) }, onCopyToNext: { copyToNext(from: ctx.exerciseSet) })
                         }
                     }
-                    .listRowBackground(exerciseSet.isCompleted ? Color.green.opacity(0.08) : Color(uiColor: .secondarySystemGroupedBackground))
-                } else {
-                    SetRow(
-                        index: ctx.mainSetNumber,
-                        exerciseSet: exerciseSet,
-                        weightUnit: weightUnit,
-                        canDelete: canDelete,
-                        exercise: workoutExercise.exercise,
-                        recentWeightKg: ctx.recentWeightKg,
-                        onToggleCompleted: { wasCompleted in
-                            if !wasCompleted { onSetCompleted(exerciseSet) }
-                        },
-                        onDelete: {
-                            requestDelete(exerciseSet)
-                        },
-                        onAddSubSet: { type in
-                            addSubSet(after: exerciseSet, type: type)
-                        },
-                        onCopyToNext: {
-                            copyToNext(from: exerciseSet)
-                        }
-                    )
-                    .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if canDelete {
-                            Button(role: .destructive) {
-                                requestDelete(exerciseSet)
-                            } label: {
-                                Label(String(localized: "删除", comment: ""), systemImage: "trash")
-                            }
-                        }
-                    }
-                    .listRowBackground(exerciseSet.isCompleted ? Color.green.opacity(0.08) : Color(uiColor: .secondarySystemGroupedBackground))
+                    if ctx.exerciseSet.persistentModelID != contexts.last?.exerciseSet.persistentModelID { Divider().padding(.leading, 56) }
                 }
-            }
-            if !isCollapsed {
                 cardFooter
             }
-            }
-        } header: {
-            exerciseHeader(toggleAction: toggleAction)
-            .confirmationDialog(
-                String(localized: "删除动作？", comment: "Delete exercise confirmation title"),
-                isPresented: $showingDeleteConfirmation,
-                titleVisibility: .visible
-            ) {
-                // swiftlint:disable:next line_length
-                Button(String(localized: "删除", comment: "Delete confirmation button"), role: .destructive) { onDelete() }
-                Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {}
-            } message: {
-                Text(String(localized: "该动作及所有已录入的组数据将被删除", comment: "Delete exercise confirmation message"))
-            }
-
-            // MY-1420: cascade confirmation for a main set that owns sub-sets.
-            // The swiped row says "第 3 组" but the delete also consumes the
-            // sub-set run beneath it — a consequence the row cannot show, so
-            // it is the one single-set deletion that earns a dialog. Main sets
-            // without children keep deleting straight through (no regression
-            // on the fast path).
-            .confirmationDialog(
-                pendingCascadeDeletion.map { SetDeletionPolicy.confirmTitle(setNumber: $0.setNumber) } ?? "",
-                isPresented: cascadeConfirmationPresented,
-                titleVisibility: .visible,
-                presenting: pendingCascadeDeletion
-            ) { request in
-                Button(
-                    String(localized: "删除", comment: "Delete confirmation button"),
-                    role: .destructive
-                ) {
-                    performDelete(request.exerciseSet)
-                }
-                Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {}
-            } message: { request in
-                Text(SetDeletionPolicy.confirmMessage(
-                    childCount: request.childCount,
-                    kind: request.childKind
-                ))
-            }
         }
-        .listRowBackground(workoutSecondaryGroupedBackground)
+        .padding(.horizontal, 14)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .confirmationDialog(String(localized: "删除动作？", comment: "Delete exercise confirmation title"), isPresented: $showingDeleteConfirmation, titleVisibility: .visible) { Button(String(localized: "删除", comment: "Delete confirmation button"), role: .destructive) { onDelete() }; Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {} }
+        .confirmationDialog(pendingCascadeDeletion.map { SetDeletionPolicy.confirmTitle(setNumber: $0.setNumber) } ?? "", isPresented: cascadeConfirmationPresented, titleVisibility: .visible, presenting: pendingCascadeDeletion) { request in Button(String(localized: "删除", comment: "Delete confirmation button"), role: .destructive) { performDelete(request.exerciseSet) }; Button(String(localized: "取消", comment: "Cancel confirmation button"), role: .cancel) {} } message: { request in Text(SetDeletionPolicy.confirmMessage(childCount: request.childCount, kind: request.childKind)) }
     }
 
     /// MY-1420: `confirmationDialog(_:isPresented:presenting:)` needs a Bool

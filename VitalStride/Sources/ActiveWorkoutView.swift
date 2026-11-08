@@ -260,86 +260,32 @@ struct ActiveWorkoutView: View {
             )
         } else {
             ScrollViewReader { proxy in
-                List {
-                    ForEach(exercises) { workoutExercise in
-                        ActiveExerciseSection(
-                            workoutExercise: workoutExercise,
-                            onSetCompleted: { completedSet in
+                ScrollView {
+                    LazyVStack(spacing: 14) {
+                        ForEach(exercises) { workoutExercise in
+                            ActiveExerciseSection(workoutExercise: workoutExercise, onSetCompleted: { completedSet in
                                 restTimer.startRest(duration: completedSet.restDuration ?? completedSet.setType.defaultRestDuration)
                                 TelemetryService.shared.trackNonisolated(.setCompleted(exerciseName: TelemetryHelpers.exerciseIdentifier(workoutExercise.exercise)))
-                            },
-                            onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
-                            onReplace: { exerciseToReplace = workoutExercise },
-                            onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
-                            onDelete: { deleteExercise(workoutExercise) },
-                            undoController: undoController
-                        )
-                            .id(workoutExercise.persistentModelID)
-                    }
-                }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
-                .background(Color(uiColor: .systemGroupedBackground))
-                .environment(\.defaultMinListRowHeight, 1)
-                .accessibilityIdentifier("workout_exercise_list")
-                .onChange(of: selectedExerciseID) { _, id in if let id { withAnimation { proxy.scrollTo(id, anchor: .top) } } }
+                            }, onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) }, onReplace: { exerciseToReplace = workoutExercise }, onSubstitute: { beginSubstituteFlow(for: workoutExercise) }, onDelete: { deleteExercise(workoutExercise) }, undoController: undoController).id(workoutExercise.persistentModelID)
+                        }
+                        Button { showingExercisePicker = true } label: { Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus").font(.headline.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.bordered).padding(.horizontal, 14)
+                    }.padding(.vertical, 14)
+                }.background(Color(uiColor: .systemGroupedBackground)).accessibilityIdentifier("workout_exercise_list").onChange(of: selectedExerciseID) { _, id in if let id { withAnimation { proxy.scrollTo(id, anchor: .top) } } }
             }
         }
     }
 
     @ViewBuilder
     private var workoutInputDock: some View {
-        if displayMode == .focus {
-            if undoController.pending != nil {
-                HStack(spacing: 10) {
-                    undoStatusButton
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.regularMaterial)
-            }
-        } else if isKeyboardVisible {
-            if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
-                HStack(spacing: 10) {
-                    if undoController.pending != nil {
-                        undoStatusButton
-                    } else if restTimer.phase == .resting {
-                        restSnackbarContent
-                    } else {
-                        restCompletedButton
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
-                .background(.regularMaterial)
-            }
-        } else {
+        if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
             HStack(spacing: 10) {
-            if undoController.pending != nil {
-                Button { undoController.undo(using: modelContext) } label: { Label(String(localized: "已删除组 · 撤销", comment: "Undo deletion"), systemImage: "arrow.uturn.backward") }
-                    .buttonStyle(.borderedProminent)
-                    .frame(minHeight: 50)
-            } else if restTimer.phase == .resting {
-                restSnackbarContent
-                    .frame(maxWidth: .infinity, minHeight: 50)
-            } else if restCompletedPresenter.isBuffered {
-                Button { restCompletedPresenter.dismiss(); restTimer.dismissCompleted() } label: { Label(String(localized: "休息结束", comment: "Rest complete"), systemImage: "checkmark.circle.fill") }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity, minHeight: 50)
-            } else {
-                Button { showingExercisePicker = true } label: { Label(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus") }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity, minHeight: 50)
+                if undoController.pending != nil { undoStatusButton }
+                else if restTimer.phase == .resting { restSnackbarContent }
+                else { restCompletedButton }
             }
-            if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
-                Button { showingExercisePicker = true } label: { Image(systemName: "plus") }
-                    .frame(width: 48, height: 48)
-                    .buttonStyle(.bordered)
-                    .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
-            }
-        }
-        .padding(.horizontal, 16).padding(.vertical, 8)
-        .background(.regularMaterial)
+            .padding(.horizontal, 16).padding(.vertical, 8)
+            .background(.regularMaterial, in: Capsule())
+            .padding(.horizontal, 12).padding(.bottom, 8)
         }
     }
 
