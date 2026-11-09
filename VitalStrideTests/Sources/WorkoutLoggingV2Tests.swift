@@ -305,4 +305,69 @@ struct WorkoutLoggingV2Tests {
                 == secondExercise.persistentModelID
         )
     }
+
+    @Test("Outline exercise summary tracks completion, active state, subtitle, and muscle badge")
+    func outlineExerciseSummaryReflectsState() {
+        let bench = Exercise(nameEn: "Bench Press", nameZh: "杠铃卧推", muscleGroup: .chest, equipment: .barbell)
+        let row = Exercise(nameEn: "Barbell Row", nameZh: "杠铃划船", muscleGroup: .back, equipment: .barbell)
+
+        let benchSet1 = ExerciseSet(order: 0, weight: 80, reps: 8, setType: .working, isCompleted: true)
+        let benchSet2 = ExerciseSet(order: 1, weight: 80, reps: 8, setType: .working, isCompleted: true)
+        let firstExercise = WorkoutExercise(order: 0, exercise: bench, sets: [benchSet1, benchSet2])
+
+        let rowSet1 = ExerciseSet(order: 0, weight: 70, reps: 10, setType: .working, isCompleted: true)
+        let rowSet2 = ExerciseSet(order: 1, weight: 70, reps: 10, setType: .working, isCompleted: false)
+        let secondExercise = WorkoutExercise(order: 1, exercise: row, sets: [rowSet1, rowSet2])
+
+        let firstSummary = ActiveWorkoutView.outlineExerciseSummary(
+            for: firstExercise,
+            selectedExerciseID: secondExercise.persistentModelID
+        )
+        #expect(firstSummary.badgeNumber == 1)
+        #expect(firstSummary.completedSets == 2)
+        #expect(firstSummary.totalSets == 2)
+        #expect(firstSummary.isAllCompleted)
+        #expect(!firstSummary.isActive)
+        #expect(firstSummary.badgeIdentifier == "chest_push")
+        #expect(firstSummary.subtitle?.contains(bench.muscleGroup.localizedName) == true)
+        #expect(firstSummary.subtitle?.contains(bench.equipment.localizedName) == true)
+
+        let secondSummary = ActiveWorkoutView.outlineExerciseSummary(
+            for: secondExercise,
+            selectedExerciseID: secondExercise.persistentModelID
+        )
+        #expect(secondSummary.badgeNumber == 2)
+        #expect(secondSummary.completedSets == 1)
+        #expect(secondSummary.totalSets == 2)
+        #expect(!secondSummary.isAllCompleted)
+        #expect(secondSummary.isActive)
+        #expect(secondSummary.badgeIdentifier == "back_pull")
+    }
+
+    @Test("Set type menu availability enforces mutual exclusion and sub-set drop-set guard")
+    func setTypeMenuMutualExclusion() {
+        let working = SetRow.setTypeMenuAvailability(for: .working)
+        #expect(working.canSetWarmup)
+        #expect(!working.canSetWorking)
+        #expect(working.canAddDropSet)
+        #expect(working.canAddPyramidSet)
+
+        let warmup = SetRow.setTypeMenuAvailability(for: .warmup)
+        #expect(!warmup.canSetWarmup)
+        #expect(warmup.canSetWorking)
+        #expect(warmup.canAddDropSet)
+        #expect(warmup.canAddPyramidSet)
+
+        let dropSet = SetRow.setTypeMenuAvailability(for: .dropSet)
+        #expect(dropSet.canSetWarmup)
+        #expect(dropSet.canSetWorking)
+        #expect(!dropSet.canAddDropSet)
+        #expect(dropSet.canAddPyramidSet)
+
+        let pyramid = SetRow.setTypeMenuAvailability(for: .pyramid)
+        #expect(pyramid.canSetWarmup)
+        #expect(pyramid.canSetWorking)
+        #expect(!pyramid.canAddDropSet)
+        #expect(!pyramid.canAddPyramidSet)
+    }
 }

@@ -290,6 +290,7 @@ struct ActiveWorkoutView: View {
                     .padding(.vertical, 14)
                     .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84), value: selectedExerciseID)
                 }
+                .safeAreaPadding(.bottom, 56)
                 .background(Color(uiColor: .systemGroupedBackground))
                 .accessibilityIdentifier("workout_exercise_list")
                 .onChange(of: selectedExerciseID) { _, id in
@@ -309,54 +310,254 @@ struct ActiveWorkoutView: View {
             let hasUndo = undoController.pending != nil
             let hasTiledRest = displayMode != .focus && (restTimer.phase == .resting || restCompletedPresenter.isBuffered)
             let hasCompanionStatus = hasUndo || hasTiledRest
+            let showAddExerciseButton = !isKeyboardVisible
 
-            HStack(spacing: 10) {
-                if hasCompanionStatus {
-                    Group {
-                        if hasUndo {
-                            undoStatusButton
-                        } else if restTimer.phase == .resting {
-                            restSnackbarContent
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .frame(maxWidth: .infinity, minHeight: 38)
+            if hasCompanionStatus || showAddExerciseButton {
+                HStack(spacing: 10) {
+                    if hasCompanionStatus {
+                        Group {
+                            if hasUndo {
+                                undoStatusButton
+                            } else if restTimer.phase == .resting {
+                                restSnackbarContent
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .frame(maxWidth: .infinity, minHeight: 38)
+                                    .background(
+                                        Color(uiColor: .secondarySystemGroupedBackground),
+                                        in: Capsule()
+                                    )
+                                    .overlay {
+                                        Capsule()
+                                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                                    }
+                            } else {
+                                restCompletedButton
+                            }
+                        }
+                    } else {
+                        Spacer(minLength: 0)
+                    }
+
+                    if showAddExerciseButton {
+                        Button {
+                            showingExercisePicker = true
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(Color.accentColor)
+                                .frame(width: 40, height: 40)
                                 .background(
                                     Color(uiColor: .secondarySystemGroupedBackground),
-                                    in: Capsule()
+                                    in: Circle()
                                 )
                                 .overlay {
-                                    Capsule()
+                                    Circle()
                                         .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
                                 }
-                        } else {
-                            restCompletedButton
+                                .shadow(color: Color.black.opacity(0.08), radius: 6, y: 2)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 4)
+                .padding(.bottom, 6)
+            }
+        }
+    }
+
+    private var undoStatusButton: some View {
+        Button { undoController.undo(using: modelContext) } label: {
+            Label(String(localized: "已删除组 · 撤销", comment: "Undo deletion"), systemImage: "arrow.uturn.backward")
+        }
+        .buttonStyle(.borderedProminent)
+        .frame(maxWidth: .infinity, minHeight: 44)
+    }
+
+    private var restCompletedButton: some View {
+        Button { restCompletedPresenter.dismiss(); restTimer.dismissCompleted() } label: {
+            Label(String(localized: "休息结束", comment: "Rest complete"), systemImage: "checkmark.circle.fill")
+        }
+        .buttonStyle(.borderedProminent)
+        .frame(maxWidth: .infinity, minHeight: 44)
+    }
+
+    struct OutlineExerciseSummary: Equatable {
+        let badgeNumber: Int
+        let title: String
+        let subtitle: String?
+        let completedSets: Int
+        let totalSets: Int
+        let isAllCompleted: Bool
+        let isActive: Bool
+        let badgeIdentifier: String
+    }
+
+    static func outlineExerciseSummary(
+        for workoutExercise: WorkoutExercise,
+        selectedExerciseID: PersistentIdentifier?
+    ) -> OutlineExerciseSummary {
+        let sets = workoutExercise.sets ?? []
+        let completed = sets.filter(\.isCompleted).count
+        let total = sets.count
+        let subtitleValues = [
+            workoutExercise.exercise?.muscleGroup.localizedName,
+            workoutExercise.exercise?.equipment.localizedName
+        ]
+        .compactMap { $0 }
+        .filter { !$0.isEmpty }
+        let theme = FocusAtmosphereTheme.resolve(
+            muscleGroup: workoutExercise.exercise?.muscleGroup,
+            stageMode: .activeSet
+        )
+        return OutlineExerciseSummary(
+            badgeNumber: workoutExercise.order + 1,
+            title: workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"),
+            subtitle: subtitleValues.isEmpty ? nil : subtitleValues.joined(separator: " · "),
+            completedSets: completed,
+            totalSets: total,
+            isAllCompleted: total > 0 && completed == total,
+            isActive: workoutExercise.persistentModelID == selectedExerciseID,
+            badgeIdentifier: theme.badgeIdentifier
+        )
+    }
+
+    private var outlineSheet: some View {
+        NavigationStack {
+            List {
+                let allSets = sortedExercises.flatMap { $0.sets ?? [] }
+                let completedSets = allSets.filter(\.isCompleted).count
+                let totalSets = allSets.count
+                let progress = totalSets == 0 ? 0.0 : min(1, max(0, Double(completedSets) / Double(totalSets)))
+                let displayVol = Int(WorkoutDualModeEngine.displayWeight(totalVolumeKg, unit: weightUnit)).formatted()
+                Section {
+                    HStack(alignment: .center, spacing: 12) {
+                        HStack(alignment: .center, spacing: 8) {
+                            ZStack {
+                                Circle()
+                                    .stroke(workoutSeparator, lineWidth: 2.5)
+                                Circle()
+                                    .trim(from: 0, to: progress)
+                                    .stroke(
+                                        Color.accentColor,
+                                        style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                                    )
+                                    .rotationEffect(.degrees(-90))
+                            }
+                            .frame(width: 18, height: 18)
+                            .accessibilityHidden(true)
+
+                            Text(String(localized: "已完成 \(completedSets) / \(totalSets) 组", comment: "Session set progress a11y value"))
+                                .font(.subheadline.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(Color.primary)
+                        }
+                        Spacer(minLength: 8)
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text(String(localized: "总容量", comment: "Session total volume a11y label"))
+                                .font(.caption)
+                                .foregroundStyle(Color.secondary)
+                            Text("\(displayVol) \(weightUnit.rawValue)")
+                                .font(.subheadline.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(Color.primary)
                         }
                     }
+                    .padding(.vertical, 4)
+                    .listRowBackground(Color(uiColor: .secondarySystemGroupedBackground))
+                }
+                Section {
+                    ForEach(sortedExercises) { exercise in
+                        let summary = Self.outlineExerciseSummary(
+                            for: exercise,
+                            selectedExerciseID: selectedExerciseID
+                        )
+                        let accentColor = FocusAtmosphereTheme.resolve(
+                            muscleGroup: exercise.exercise?.muscleGroup,
+                            stageMode: .activeSet
+                        ).primaryTint
+                        Button {
+                            selectedExerciseID = exercise.persistentModelID
+                            isSidebarReordering = false
+                        } label: {
+                            HStack(alignment: .center, spacing: 10) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(summary.isAllCompleted ? Color.green.opacity(0.16) : accentColor.opacity(0.16))
+                                        .frame(width: 34, height: 34)
+                                    if summary.isAllCompleted {
+                                        Image(systemName: "checkmark")
+                                            .font(.subheadline.weight(.bold))
+                                            .foregroundStyle(Color.green)
+                                    } else {
+                                        Text("\(summary.badgeNumber)")
+                                            .font(.subheadline.monospacedDigit().weight(.bold))
+                                            .foregroundStyle(accentColor)
+                                    }
+                                }
+                                .accessibilityHidden(true)
 
-                    Button {
-                        showingExercisePicker = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(Color.accentColor)
-                            .frame(width: 38, height: 38)
-                            .background(
-                                Color(uiColor: .secondarySystemGroupedBackground),
-                                in: Circle()
-                            )
-                            .overlay {
-                                Circle()
-                                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(alignment: .center, spacing: 6) {
+                                        Text(summary.title)
+                                            .font(.body.weight(.semibold))
+                                            .foregroundStyle(Color.primary)
+                                            .lineLimit(1)
+                                        if summary.isActive {
+                                            Circle()
+                                                .fill(accentColor)
+                                                .frame(width: 7, height: 7)
+                                                .accessibilityHidden(true)
+                                        }
+                                    }
+                                    if let subtitle = summary.subtitle {
+                                        Text(subtitle)
+                                            .font(.caption)
+                                            .foregroundStyle(Color.secondary)
+                                            .lineLimit(1)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                                Text(String(localized: "\(summary.completedSets)/\(summary.totalSets) 组", comment: "Exercise set completion badge"))
+                                    .font(.caption.monospacedDigit().weight(.semibold))
+                                    .foregroundStyle(summary.isAllCompleted ? Color.green : Color.secondary)
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 5)
+                                    .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
                             }
-                            .shadow(color: Color.black.opacity(0.08), radius: 6, y: 2)
-                            .frame(width: 44, height: 44)
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                             .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(Color(uiColor: .secondarySystemGroupedBackground))
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
-                } else {
+                    .onMove(perform: moveExercises)
+                }
+            }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle(String(localized: "动作大纲", comment: "Exercise outline"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    EditButton()
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "完成", comment: "Dismiss outline sheet")) {
+                        isSidebarReordering = false
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                HStack {
                     Spacer(minLength: 0)
                     Button {
+                        isSidebarReordering = false
                         showingExercisePicker = true
                     } label: {
                         HStack(spacing: 5) {
@@ -384,54 +585,10 @@ struct ActiveWorkoutView: View {
                     .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
                     Spacer(minLength: 0)
                 }
+                .padding(.horizontal, 14)
+                .padding(.top, 4)
+                .padding(.bottom, 8)
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 4)
-            .padding(.bottom, 6)
-        }
-    }
-
-    private var undoStatusButton: some View {
-        Button { undoController.undo(using: modelContext) } label: {
-            Label(String(localized: "已删除组 · 撤销", comment: "Undo deletion"), systemImage: "arrow.uturn.backward")
-        }
-        .buttonStyle(.borderedProminent)
-        .frame(maxWidth: .infinity, minHeight: 44)
-    }
-
-    private var restCompletedButton: some View {
-        Button { restCompletedPresenter.dismiss(); restTimer.dismissCompleted() } label: {
-            Label(String(localized: "休息结束", comment: "Rest complete"), systemImage: "checkmark.circle.fill")
-        }
-        .buttonStyle(.borderedProminent)
-        .frame(maxWidth: .infinity, minHeight: 44)
-    }
-
-    private var outlineSheet: some View {
-        NavigationStack {
-            List {
-                let allSets = sortedExercises.flatMap { $0.sets ?? [] }
-                let completedSets = allSets.filter(\.isCompleted).count
-                let displayVol = Int(WorkoutDualModeEngine.displayWeight(totalVolumeKg, unit: weightUnit)).formatted()
-                Section {
-                    HStack {
-                        Text("✓ \(completedSets)/\(allSets.count)")
-                        Spacer()
-                        Text("\(displayVol) \(weightUnit.rawValue)")
-                    }
-                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(.secondary)
-                }
-                ForEach(sortedExercises) { exercise in
-                    Button { selectedExerciseID = exercise.persistentModelID; isSidebarReordering = false } label: {
-                        HStack { Text(exercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise")); Spacer(); Text("\((exercise.sets ?? []).filter(\.isCompleted).count)/\((exercise.sets ?? []).count)").monospacedDigit().foregroundStyle(.secondary) }
-                    }
-                }
-                .onMove(perform: moveExercises)
-            }
-            .listStyle(.insetGrouped)
-            .navigationTitle(String(localized: "动作大纲", comment: "Exercise outline"))
-            .toolbar { EditButton() }
         }
         .presentationDetents([.medium, .large])
     }
@@ -451,7 +608,7 @@ struct ActiveWorkoutView: View {
         let volumeKg = totalVolumeKg
         let displayVolume = weightUnit == .lb ? volumeKg * 2.20462 : volumeKg
         let volumeText = Int(displayVolume).formatted()
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: 8) {
             compactDurationItem
             #if !os(macOS)
             compactHeartRateItem
@@ -462,9 +619,13 @@ struct ActiveWorkoutView: View {
                 Text("·")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(Color.secondary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                     .accessibilityHidden(true)
                 compactVolumeItem(volumeText: volumeText, unit: weightUnit.rawValue)
             }
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             exerciseSheetTrigger
         }
         .padding(.horizontal, 12)
@@ -500,6 +661,8 @@ struct ActiveWorkoutView: View {
                 Text(timeString)
                     .font(Font.system(legacyLayoutLarge ? .title3 : .subheadline, design: .default).monospacedDigit())
                     .foregroundStyle(Color.primary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                     .contentTransition(reduceMotion ? .opacity : .numericText())
                     .animation(
                         reduceMotion ? nil : .snappy(duration: 0.22),
@@ -507,6 +670,8 @@ struct ActiveWorkoutView: View {
                     )
                     .layoutPriority(1)
             }
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(String(localized: "训练时长", comment: "Workout duration a11y label"))
             .accessibilityValue(Text(timeString))
@@ -527,6 +692,8 @@ struct ActiveWorkoutView: View {
             Text(bpmText)
                 .font(Font.system(.caption, design: .default).weight(.medium).monospacedDigit())
                 .foregroundStyle(isDisconnected ? Color.secondary : Color.primary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .contentTransition(reduceMotion ? .opacity : .numericText())
                 .animation(
                     reduceMotion ? nil : .snappy(duration: 0.22),
@@ -534,6 +701,8 @@ struct ActiveWorkoutView: View {
                 )
                 .layoutPriority(1)
         }
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
@@ -566,6 +735,8 @@ struct ActiveWorkoutView: View {
             Text("\(completedSetCount)/\(totalSetCount)")
                 .font(Font.system(legacyLayoutLarge ? .title3 : .subheadline, design: .default).monospacedDigit())
                 .foregroundStyle(Color.primary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .contentTransition(
                     reduceMotion ? .opacity : .numericText(countsDown: false)
                 )
@@ -575,6 +746,8 @@ struct ActiveWorkoutView: View {
                 )
                 .layoutPriority(1)
         }
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "组数进度", comment: "Session set progress a11y label"))
         .accessibilityValue(String(
@@ -589,6 +762,8 @@ struct ActiveWorkoutView: View {
             Text(volumeText)
                 .font(Font.system(legacyLayoutLarge ? .title3 : .subheadline, design: .default).monospacedDigit())
                 .foregroundStyle(Color.primary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .contentTransition(reduceMotion ? .opacity : .numericText())
                 .animation(
                     reduceMotion ? nil : .snappy(duration: 0.22),
@@ -598,8 +773,11 @@ struct ActiveWorkoutView: View {
             Text(unit)
                 .font(legacyLayoutLarge ? .subheadline : .caption)
                 .foregroundStyle(Color.secondary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
-
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "总容量", comment: "Session total volume a11y label"))
         .accessibilityValue(Text("\(volumeText) \(unit)"))
