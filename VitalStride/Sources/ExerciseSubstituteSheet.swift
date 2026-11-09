@@ -1,5 +1,4 @@
 // swiftlint:disable no_hardcoded_chinese
-import DesignKit
 import SwiftUI
 
 /// UI shell for the AI substitute-exercise flow.
@@ -31,7 +30,6 @@ struct ExerciseSubstituteSheet: View {
     let onManualSelect: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedMuscleFilter: String?
@@ -40,7 +38,7 @@ struct ExerciseSubstituteSheet: View {
         NavigationStack {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.canvas)
+                .background(Color(uiColor: .systemGroupedBackground))
                 .navigationTitle(String(
                     localized: "智能替代",
                     comment: "Substitute exercise sheet navigation title"
@@ -54,9 +52,9 @@ struct ExerciseSubstituteSheet: View {
                         )) {
                             dismiss()
                         }
-                    .foregroundStyle(theme.foreground)
+                        .foregroundStyle(.primary)
+                    }
                 }
-            }
         }
     }
 
@@ -75,7 +73,7 @@ struct ExerciseSubstituteSheet: View {
     // MARK: - Loading
 
     private var loadingView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             ProgressView()
                 .controlSize(.large)
             Text(String(
@@ -83,7 +81,17 @@ struct ExerciseSubstituteSheet: View {
                 comment: "Substitute sheet loading label"
             ))
             .font(.subheadline)
-            .foregroundStyle(theme.secondaryForeground)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 24)
+        .background(
+            Color(uiColor: .secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
@@ -106,7 +114,7 @@ struct ExerciseSubstituteSheet: View {
                         comment: "Substitute sheet results header"
                     ))
                     .font(.subheadline)
-                    .foregroundStyle(theme.secondaryForeground)
+                    .foregroundStyle(.secondary)
                     .padding(.horizontal, 4)
 
                     muscleFilterRail(for: recommendations)
@@ -117,9 +125,44 @@ struct ExerciseSubstituteSheet: View {
                         }
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 14)
+                .containerRelativeFrame(.horizontal)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                bottomManualSelectBar
             }
         }
+    }
+
+    private var bottomManualSelectBar: some View {
+        HStack {
+            Spacer(minLength: 0)
+            Button(action: onManualSelect) {
+                Text(String(localized: "手动选择", comment: "Manual substitute selection"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 9)
+                    .frame(minHeight: 38)
+                    .background(
+                        Color(uiColor: .secondarySystemGroupedBackground),
+                        in: Capsule()
+                    )
+                    .overlay {
+                        Capsule()
+                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                    }
+                    .shadow(color: Color.black.opacity(0.08), radius: 6, y: 2)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
     }
 
     private func filteredRecommendations(
@@ -171,15 +214,21 @@ struct ExerciseSubstituteSheet: View {
             Text(label)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
-                .padding(.horizontal, Space.sm)
+                .padding(.horizontal, 12)
                 .frame(height: 36)
-                .foregroundStyle(
-                    isSelected ? theme.onInteractiveAccent : theme.foreground
-                )
+                .foregroundStyle(isSelected ? Color.white : .primary)
                 .background(
-                    isSelected ? theme.interactiveAccent : theme.inner,
+                    isSelected
+                        ? Color.accentColor
+                        : Color(uiColor: .secondarySystemGroupedBackground),
                     in: Capsule()
                 )
+                .overlay {
+                    if !isSelected {
+                        Capsule()
+                            .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                    }
+                }
         }
         .buttonStyle(.plain)
         .frame(minHeight: 44)
@@ -192,49 +241,75 @@ struct ExerciseSubstituteSheet: View {
     private func errorView(message: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(TypeScale.metricXL)
-                .foregroundStyle(theme.secondaryForeground)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .background(
+                    Color(uiColor: .tertiarySystemFill),
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                )
                 .accessibilityHidden(true)
 
             Text(String(
                 localized: "无法生成智能替代",
                 comment: "Substitute sheet error title"
             ))
-            .font(.headline)
+            .font(.headline.weight(.bold))
+            .foregroundStyle(.primary)
 
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(theme.secondaryForeground)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 8)
 
             Button(action: onManualSelect) {
                 Text(String(localized: "手动选择", comment: "Manual substitute selection"))
                     .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: Space.minTapTarget)
-                    .foregroundStyle(theme.onInteractiveAccent)
-                    .background(theme.interactiveAccent, in: RoundedRectangle(cornerRadius: Radius.control))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .foregroundStyle(Color.white)
+                    .background(
+                        Color.accentColor,
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    )
             }
-                .buttonStyle(.plain)
-                .frame(maxWidth: horizontalSizeClass == .regular ? 400 : .infinity)
-                .padding(.horizontal, 32)
-                .padding(.top, 4)
+            .buttonStyle(.plain)
+            .padding(.top, 4)
         }
+        .padding(24)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 400 : .infinity)
+        .background(
+            Color(uiColor: .secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+        }
+        .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.vertical, 32)
     }
 }
 
 // MARK: - Card
 
 private struct RecommendationCard: View {
-    @Environment(\.theme) private var theme
     let recommendation: ExerciseSubstituteSheet.Recommendation
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
             HStack(alignment: .center, spacing: 12) {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.14))
+                    .frame(width: 36, height: 36)
+                    .overlay {
+                        Image(systemName: "sparkles")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    .accessibilityHidden(true)
+
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         ViewThatFits(in: .horizontal) {
@@ -244,38 +319,50 @@ private struct RecommendationCard: View {
                                 .lineLimit(2)
                                 .minimumScaleFactor(0.85)
                         }
-                        .font(.headline)
-                        .foregroundStyle(theme.foreground)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: false)
                         .multilineTextAlignment(.leading)
                         .layoutPriority(1)
+
                         Text(recommendation.muscleGroup)
-                            .font(.caption.weight(.medium))
+                            .font(.caption.weight(.semibold))
                             .lineLimit(1)
                             .padding(.horizontal, 8)
                             .frame(height: 24)
-                            .background(theme.interactiveAccent, in: Capsule())
-                            .foregroundStyle(theme.onInteractiveAccent)
+                            .background(Color.accentColor.opacity(0.14), in: Capsule())
+                            .foregroundStyle(Color.accentColor)
                     }
 
                     Text(recommendation.reason)
                         .font(.subheadline)
-                        .foregroundStyle(theme.secondaryForeground)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(1)
 
-                Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
-                    .font(TypeScale.title)
-                    .foregroundStyle(theme.interactiveAccent)
-                    .frame(width: 44, height: 44)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color(uiColor: .tertiarySystemFill))
+                    .frame(width: 36, height: 36)
+                    .overlay {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.accentColor)
+                    }
                     .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
-            .designSurface(style: .solid, cornerRadius: 16)
+            .background(
+                Color(uiColor: .secondarySystemGroupedBackground),
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+            }
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -317,7 +404,6 @@ private struct RecommendationCard: View {
         onSelect: { _ in },
         onManualSelect: {}
     )
-    .designThemePreview()
 }
 
 #Preview("Loading") {
@@ -326,7 +412,6 @@ private struct RecommendationCard: View {
         onSelect: { _ in },
         onManualSelect: {}
     )
-    .designThemePreview()
 }
 
 #Preview("Error") {
@@ -338,7 +423,6 @@ private struct RecommendationCard: View {
         onSelect: { _ in },
         onManualSelect: {}
     )
-    .designThemePreview()
 }
 
 #Preview("Empty Results") {
@@ -347,7 +431,6 @@ private struct RecommendationCard: View {
         onSelect: { _ in },
         onManualSelect: {}
     )
-    .designThemePreview()
 }
 
 #Preview("Results — Dark") {
@@ -376,5 +459,4 @@ private struct RecommendationCard: View {
         onManualSelect: {}
     )
     .preferredColorScheme(.dark)
-    .designThemePreview()
 }
