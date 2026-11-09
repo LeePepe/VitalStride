@@ -89,6 +89,8 @@ struct ActiveWorkoutFocusStageView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
                 .padding(.bottom, 28)
+                .frame(maxWidth: .infinity)
+                .containerRelativeFrame(.horizontal)
             }
         }
         .animation(
@@ -267,27 +269,40 @@ private struct FocusHeroCard: View {
             progressRail
             referenceLine
 
-            HStack(spacing: 12) {
-                if step.set.isUnilateral {
+            if step.set.isUnilateral {
+                VStack(spacing: 12) {
+                    HStack(spacing: 12) {
+                        FocusTactileModule(
+                            title: "L · \(weightUnit.rawValue.uppercased())",
+                            value: WorkoutDualModeEngine.displayWeight(step.set.weight, unit: weightUnit),
+                            field: .weight,
+                            step: step,
+                            unit: weightUnit,
+                            palette: palette,
+                            onAddSet: onAddSet
+                        )
+                        FocusTactileModule(
+                            title: "R · \(weightUnit.rawValue.uppercased())",
+                            value: WorkoutDualModeEngine.displayWeight(step.set.weightRight ?? step.set.weight, unit: weightUnit),
+                            field: .weightRight,
+                            step: step,
+                            unit: weightUnit,
+                            palette: palette,
+                            onAddSet: onAddSet
+                        )
+                    }
                     FocusTactileModule(
-                        title: "L · \(weightUnit.rawValue.uppercased())",
-                        value: WorkoutDualModeEngine.displayWeight(step.set.weight, unit: weightUnit),
-                        field: .weight,
+                        title: String(localized: "次数 · REPS", comment: "Reps module header"),
+                        value: Double(step.set.reps),
+                        field: .reps,
                         step: step,
                         unit: weightUnit,
                         palette: palette,
                         onAddSet: onAddSet
                     )
-                    FocusTactileModule(
-                        title: "R · \(weightUnit.rawValue.uppercased())",
-                        value: WorkoutDualModeEngine.displayWeight(step.set.weightRight ?? step.set.weight, unit: weightUnit),
-                        field: .weightRight,
-                        step: step,
-                        unit: weightUnit,
-                        palette: palette,
-                        onAddSet: onAddSet
-                    )
-                } else {
+                }
+            } else {
+                HStack(spacing: 12) {
                     FocusTactileModule(
                         title: String(localized: "重量 · \(weightUnit.rawValue.uppercased())", comment: "Weight module header"),
                         value: WorkoutDualModeEngine.displayWeight(step.set.weight, unit: weightUnit),
@@ -297,16 +312,16 @@ private struct FocusHeroCard: View {
                         palette: palette,
                         onAddSet: onAddSet
                     )
+                    FocusTactileModule(
+                        title: String(localized: "次数 · REPS", comment: "Reps module header"),
+                        value: Double(step.set.reps),
+                        field: .reps,
+                        step: step,
+                        unit: weightUnit,
+                        palette: palette,
+                        onAddSet: onAddSet
+                    )
                 }
-                FocusTactileModule(
-                    title: String(localized: "次数 · REPS", comment: "Reps module header"),
-                    value: Double(step.set.reps),
-                    field: .reps,
-                    step: step,
-                    unit: weightUnit,
-                    palette: palette,
-                    onAddSet: onAddSet
-                )
             }
 
             Button {
@@ -350,23 +365,31 @@ private struct FocusHeroCard: View {
     }
 
     private var progressRail: some View {
-        HStack(spacing: 6) {
-            ForEach(WorkoutDualModeEngine.focusSteps(in: workout ?? step.exercise.workout ?? Workout(type: .strength, startDate: Date(), exercises: [])), id: \.set.persistentModelID) { item in
-                Button {
-                    onFocus(item.set.persistentModelID)
-                } label: {
-                    Text(item.set.isCompleted ? "✓" : (item.set.persistentModelID == step.set.persistentModelID ? "●" : "○"))
-                        .font(.caption.monospacedDigit().weight(.bold))
-                        .foregroundStyle(item.set.isCompleted ? .green : (item.set.persistentModelID == step.set.persistentModelID ? palette.primaryTint : .secondary))
-                        .frame(minWidth: 30, minHeight: 30)
+        let currentWorkout = workout ?? step.exercise.workout ?? Workout(type: .strength, startDate: Date(), exercises: [])
+        let exerciseSteps = WorkoutDualModeEngine.focusSteps(for: step.exercise, in: currentWorkout)
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(exerciseSteps, id: \.set.persistentModelID) { item in
+                    Button {
+                        onFocus(item.set.persistentModelID)
+                    } label: {
+                        Text(item.set.isCompleted ? "✓" : (item.set.persistentModelID == step.set.persistentModelID ? "●" : "○"))
+                            .font(.caption.monospacedDigit().weight(.bold))
+                            .foregroundStyle(item.set.isCompleted ? .green : (item.set.persistentModelID == step.set.persistentModelID ? palette.primaryTint : .secondary))
+                            .frame(minWidth: 36, minHeight: 36)
+                            .background(Color.primary.opacity(0.06), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                Button(action: onAddSet) {
+                    Image(systemName: "plus")
+                        .frame(width: 36, height: 36)
                         .background(Color.primary.opacity(0.06), in: Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "添加一组", comment: "Add set"))
             }
-            Button(action: onAddSet) {
-                Image(systemName: "plus").frame(width: 30, height: 30)
-            }
-            .accessibilityLabel(String(localized: "添加一组", comment: "Add set"))
+            .padding(.vertical, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
