@@ -206,8 +206,9 @@ struct WorkoutNumericKeyboardContentView: View {
             }
             .frame(width: Self.sideColumnWidth, height: NumericKeypad.totalGridHeight)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(uiColor: .secondarySystemBackground).ignoresSafeArea(.all, edges: .bottom))
         .overlay(alignment: .top) {
@@ -527,9 +528,9 @@ final class WorkoutNumericKeyboard: UIView, UIInputViewAudioFeedback {
 
     // MARK: Height policy
 
-    /// The restored 5×4 grid keeps four equal rows plus compact safe-area padding.
-    private static let iPhonePreferredHeight: CGFloat = 244
-    private static let iPadPreferredHeight: CGFloat = 268
+    /// The restored 5×4 grid keeps four equal rows plus bottom corner/Home Indicator safe-area clearance.
+    private static let iPhonePreferredHeight: CGFloat = 276
+    private static let iPadPreferredHeight: CGFloat = 292
 
     static func preferredHeight() -> CGFloat {
         let isPad = UIDevice.current.userInterfaceIdiom == .pad

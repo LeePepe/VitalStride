@@ -272,4 +272,37 @@ struct WorkoutLoggingV2Tests {
         #expect(WorkoutDualModeEngine.tactileModuleRowCounts(isUnilateral: true) == [2, 1])
         #expect(WorkoutDualModeEngine.tactileModuleRowCounts(isUnilateral: false) == [2])
     }
+
+    @Test("Completing a partial set keeps current exercise expanded until all sets finish")
+    func completingPartialSetKeepsCurrentExerciseExpanded() {
+        let firstSet1 = ExerciseSet(order: 0, weight: 60, reps: 10, setType: .working)
+        let firstSet2 = ExerciseSet(order: 1, weight: 60, reps: 10, setType: .working)
+        let firstSet3 = ExerciseSet(order: 2, weight: 60, reps: 10, setType: .working)
+        let firstExercise = WorkoutExercise(order: 0, sets: [firstSet1, firstSet2, firstSet3])
+
+        let secondSet1 = ExerciseSet(order: 0, weight: 40, reps: 12, setType: .working)
+        let secondExercise = WorkoutExercise(order: 1, sets: [secondSet1])
+
+        let workout = Workout(type: .strength, startDate: Date(), exercises: [firstExercise, secondExercise])
+        firstExercise.workout = workout
+        secondExercise.workout = workout
+
+        firstSet1.isCompleted = true
+        #expect(
+            WorkoutDualModeEngine.activeExerciseIDAfterSetCompletion(in: firstExercise, workout: workout)
+                == firstExercise.persistentModelID
+        )
+
+        firstSet2.isCompleted = true
+        #expect(
+            WorkoutDualModeEngine.activeExerciseIDAfterSetCompletion(in: firstExercise, workout: workout)
+                == firstExercise.persistentModelID
+        )
+
+        firstSet3.isCompleted = true
+        #expect(
+            WorkoutDualModeEngine.activeExerciseIDAfterSetCompletion(in: firstExercise, workout: workout)
+                == secondExercise.persistentModelID
+        )
+    }
 }

@@ -208,7 +208,7 @@ struct SetRow: View {
                 setBadge
             }
             .buttonStyle(.plain)
-            .frame(width: 44, height: 44, alignment: .leading)
+            .frame(width: 44, height: 44, alignment: .center)
             .contentShape(Rectangle())
             .accessibilityLabel(
                 exerciseSet.setType == .warmup
@@ -218,16 +218,16 @@ struct SetRow: View {
             .accessibilityHint(String(localized: "轻点切换正式组或热身组", comment: "Toggle warmup or working set hint"))
 
             weightColumn
-                .frame(width: 88, alignment: .center)
+                .frame(maxWidth: .infinity, alignment: .center)
 
             repsColumn
-                .frame(width: 68, alignment: .center)
+                .frame(width: 84, alignment: .center)
 
             completionButton
-                .frame(width: 44, height: 44, alignment: .trailing)
+                .frame(width: 44, height: 44, alignment: .center)
 
             rowActionMenu
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 44, alignment: .center)
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, minHeight: 48)
@@ -365,11 +365,11 @@ struct SetRow: View {
     private var weightColumn: some View {
         let advice = resolvedAdvice
         if exerciseSet.isUnilateral {
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 numericInputSlot(
                     binding: $weightText,
                     field: .weight,
-                    width: 42,
+                    width: nil,
                     placeholder: hintWeightText.isEmpty ? "L" : hintWeightText,
                     suggestion: advice,
                     focusRequestID: $weightFocusRequestID,
@@ -378,7 +378,7 @@ struct SetRow: View {
                 numericInputSlot(
                     binding: $weightRightText,
                     field: .weightRight,
-                    width: 42,
+                    width: nil,
                     placeholder: hintWeightText.isEmpty ? "R" : hintWeightText,
                     suggestion: advice,
                     focusRequestID: $weightRightFocusRequestID,
@@ -390,7 +390,7 @@ struct SetRow: View {
             numericInputSlot(
                 binding: $weightText,
                 field: .weight,
-                width: 88,
+                width: nil,
                 placeholder: placeholder,
                 suggestion: advice,
                 focusRequestID: $weightFocusRequestID,
@@ -405,7 +405,7 @@ struct SetRow: View {
         return numericInputSlot(
             binding: $repsText,
             field: .reps,
-            width: 68,
+            width: 84,
             placeholder: placeholder,
             suggestion: advice,
             focusRequestID: $repsFocusRequestID,
@@ -417,7 +417,7 @@ struct SetRow: View {
     private func numericInputSlot(
         binding: Binding<String>,
         field: SetField,
-        width: CGFloat,
+        width: CGFloat?,
         placeholder: String,
         suggestion: ProgressionAdvice?,
         focusRequestID: Binding<Int>,
@@ -453,7 +453,7 @@ struct SetRow: View {
             }
         )
         WorkoutSetInput(input, theme: theme, focusRequestID: focusRequestID.wrappedValue)
-            .frame(width: width, height: 38)
+            .frame(maxWidth: width ?? .infinity, minHeight: 38, maxHeight: 38)
             .background(Color(uiColor: .tertiarySystemFill), in: slotShape)
             .overlay {
                 slotShape.strokeBorder(
@@ -461,7 +461,7 @@ struct SetRow: View {
                     lineWidth: 1.5
                 )
             }
-            .frame(width: width, height: 44)
+            .frame(maxWidth: width ?? .infinity, minHeight: 44, maxHeight: 44)
             .contentShape(Rectangle())
             .onTapGesture {
                 focusRequestID.wrappedValue &+= 1
@@ -486,9 +486,9 @@ struct SetRow: View {
         TextField(placeholder, text: binding)
             .multilineTextAlignment(.center)
             .font(.body.monospacedDigit().weight(.semibold))
-            .frame(width: width, height: 38)
+            .frame(maxWidth: width ?? .infinity, minHeight: 38, maxHeight: 38)
             .background(workoutTertiaryFill, in: slotShape)
-            .frame(width: width, height: 44)
+            .frame(maxWidth: width ?? .infinity, minHeight: 44, maxHeight: 44)
             .accessibilityLabel(a11yLabel)
             .onChange(of: binding.wrappedValue) { _, newValue in
                 if field == .reps {
@@ -535,7 +535,9 @@ struct SetRow: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .frame(width: 44, height: 44)
+                .foregroundStyle(Color.secondary)
+                .frame(width: 40, height: 44, alignment: .center)
+                .contentShape(Rectangle())
         }
         .accessibilityLabel(String(localized: "行操作菜单", comment: "Set row actions menu"))
     }

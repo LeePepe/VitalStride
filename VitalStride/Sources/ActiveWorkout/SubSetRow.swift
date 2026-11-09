@@ -57,18 +57,18 @@ struct SubSetRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             subSetBadge
-                .frame(width: 44, height: 44, alignment: .leading)
+                .frame(width: 44, height: 44, alignment: .center)
 
             weightColumn
-                .frame(width: 88, alignment: .center)
+                .frame(maxWidth: .infinity, alignment: .center)
 
             repsColumn
-                .frame(width: 68, alignment: .center)
+                .frame(width: 84, alignment: .center)
 
             completionButton
-                .frame(width: 44, height: 44, alignment: .trailing)
+                .frame(width: 44, height: 44, alignment: .center)
             rowActionMenu
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 44, alignment: .center)
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, minHeight: 48)
@@ -144,11 +144,11 @@ struct SubSetRow: View {
     @ViewBuilder
     private var weightColumn: some View {
         if exerciseSet.isUnilateral {
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 numericInputSlot(
                     binding: $weightText,
                     field: .weight,
-                    width: 42,
+                    width: nil,
                     placeholder: hintWeightText.isEmpty ? "L" : hintWeightText,
                     focusRequestID: $weightFocusRequestID,
                     a11yLabel: String(localized: "子组左侧重量", comment: "Sub-set left weight")
@@ -156,7 +156,7 @@ struct SubSetRow: View {
                 numericInputSlot(
                     binding: $weightRightText,
                     field: .weightRight,
-                    width: 42,
+                    width: nil,
                     placeholder: hintWeightText.isEmpty ? "R" : hintWeightText,
                     focusRequestID: $weightRightFocusRequestID,
                     a11yLabel: String(localized: "子组右侧重量", comment: "Sub-set right weight")
@@ -166,7 +166,7 @@ struct SubSetRow: View {
             numericInputSlot(
                 binding: $weightText,
                 field: .weight,
-                width: 88,
+                width: nil,
                 placeholder: hintWeightText,
                 focusRequestID: $weightFocusRequestID,
                 a11yLabel: String(localized: "子组重量", comment: "Sub-set weight")
@@ -178,7 +178,7 @@ struct SubSetRow: View {
         numericInputSlot(
             binding: $repsText,
             field: .reps,
-            width: 68,
+            width: 84,
             placeholder: hintRepsText,
             focusRequestID: $repsFocusRequestID,
             a11yLabel: String(localized: "子组次数", comment: "Sub-set reps")
@@ -189,7 +189,7 @@ struct SubSetRow: View {
     private func numericInputSlot(
         binding: Binding<String>,
         field: SetField,
-        width: CGFloat,
+        width: CGFloat?,
         placeholder: String,
         focusRequestID: Binding<Int>,
         a11yLabel: String
@@ -222,7 +222,7 @@ struct SubSetRow: View {
             }
         )
         WorkoutSetInput(input, theme: theme, focusRequestID: focusRequestID.wrappedValue)
-            .frame(width: width, height: 38)
+            .frame(maxWidth: width ?? .infinity, minHeight: 38, maxHeight: 38)
             .background(Color(uiColor: .tertiarySystemFill), in: slotShape)
             .overlay {
                 slotShape.strokeBorder(
@@ -230,7 +230,7 @@ struct SubSetRow: View {
                     lineWidth: 1.5
                 )
             }
-            .frame(width: width, height: 44)
+            .frame(maxWidth: width ?? .infinity, minHeight: 44, maxHeight: 44)
             .contentShape(Rectangle())
             .onTapGesture {
                 focusRequestID.wrappedValue &+= 1
@@ -255,9 +255,9 @@ struct SubSetRow: View {
         TextField(placeholder, text: binding)
             .multilineTextAlignment(.center)
             .font(.body.monospacedDigit().weight(.semibold))
-            .frame(width: width, height: 38)
+            .frame(maxWidth: width ?? .infinity, minHeight: 38, maxHeight: 38)
             .background(workoutTertiaryFill, in: slotShape)
-            .frame(width: width, height: 44)
+            .frame(maxWidth: width ?? .infinity, minHeight: 44, maxHeight: 44)
             .accessibilityLabel(a11yLabel)
             .onChange(of: binding.wrappedValue) { _, newValue in
                 if field == .reps {
@@ -295,7 +295,10 @@ struct SubSetRow: View {
             Divider()
             Button(String(localized: "删除本组", comment: "Delete set menu item"), role: .destructive, action: onDelete)
         } label: {
-            Image(systemName: "ellipsis").frame(width: 44, height: 44)
+            Image(systemName: "ellipsis")
+                .foregroundStyle(Color.secondary)
+                .frame(width: 40, height: 44, alignment: .center)
+                .contentShape(Rectangle())
         }
         .accessibilityLabel(String(localized: "行操作菜单", comment: "Set row actions menu"))
     }
