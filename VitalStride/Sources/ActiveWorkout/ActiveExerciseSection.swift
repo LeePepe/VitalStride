@@ -79,6 +79,7 @@ struct ActiveExerciseSection: View {
 
     private var totalSetCount: Int { sortedSets.count }
     private var completedSetCount: Int { sortedSets.filter(\.isCompleted).count }
+    private var isExpanded: Bool { isActive && !isCollapsed }
 
     nonisolated static func rowContexts(from sets: [ExerciseSet]) -> [RowContext] {
         var contexts: [RowContext] = []
@@ -113,64 +114,68 @@ struct ActiveExerciseSection: View {
         }
         VStack(spacing: 0) {
             exerciseHeader(toggleAction: toggleAction)
-            if isActive && !isCollapsed {
-                Divider()
-                    .opacity(0.45)
-                tiledTableHeader
-                Divider()
-                    .opacity(0.35)
-                ForEach(Array(contexts.enumerated()), id: \.element.exerciseSet.persistentModelID) { offset, ctx in
-                    let exerciseSet = ctx.exerciseSet
-                    Group {
-                        if exerciseSet.setType.isSubSet {
-                            SubSetRow(
-                                exerciseSet: exerciseSet,
-                                weightUnit: weightUnit,
-                                isLast: ctx.isLastSubSet,
-                                parentSetNumber: ctx.mainSetNumber,
-                                exercise: workoutExercise.exercise,
-                                recentWeightKg: ctx.recentWeightKg,
-                                onToggleCompleted: { wasCompleted in
-                                    if !wasCompleted { onSetCompleted(exerciseSet) }
-                                },
-                                onDelete: {
-                                    requestDelete(exerciseSet)
-                                },
-                                onAddSubSet: { type in
-                                    addSubSet(after: exerciseSet, type: type)
+            if isExpanded {
+                VStack(spacing: 0) {
+                    tiledTableHeader
+                    ForEach(Array(contexts.enumerated()), id: \.element.exerciseSet.persistentModelID) { offset, ctx in
+                        let exerciseSet = ctx.exerciseSet
+                        SwipeToDeleteSetRow(canDelete: canDelete) {
+                            requestDelete(exerciseSet)
+                        } content: {
+                            Group {
+                                if exerciseSet.setType.isSubSet {
+                                    SubSetRow(
+                                        exerciseSet: exerciseSet,
+                                        weightUnit: weightUnit,
+                                        isLast: ctx.isLastSubSet,
+                                        parentSetNumber: ctx.mainSetNumber,
+                                        exercise: workoutExercise.exercise,
+                                        recentWeightKg: ctx.recentWeightKg,
+                                        onToggleCompleted: { wasCompleted in
+                                            if !wasCompleted { onSetCompleted(exerciseSet) }
+                                        },
+                                        onDelete: {
+                                            requestDelete(exerciseSet)
+                                        },
+                                        onAddSubSet: { type in
+                                            addSubSet(after: exerciseSet, type: type)
+                                        }
+                                    )
+                                } else {
+                                    SetRow(
+                                        index: ctx.mainSetNumber,
+                                        exerciseSet: exerciseSet,
+                                        weightUnit: weightUnit,
+                                        canDelete: canDelete,
+                                        exercise: workoutExercise.exercise,
+                                        recentWeightKg: ctx.recentWeightKg,
+                                        onToggleCompleted: { wasCompleted in
+                                            if !wasCompleted { onSetCompleted(exerciseSet) }
+                                        },
+                                        onDelete: {
+                                            requestDelete(exerciseSet)
+                                        },
+                                        onAddSubSet: { type in
+                                            addSubSet(after: exerciseSet, type: type)
+                                        },
+                                        onCopyToNext: {
+                                            copyToNext(from: exerciseSet)
+                                        }
+                                    )
                                 }
-                            )
-                        } else {
-                            SetRow(
-                                index: ctx.mainSetNumber,
-                                exerciseSet: exerciseSet,
-                                weightUnit: weightUnit,
-                                canDelete: canDelete,
-                                exercise: workoutExercise.exercise,
-                                recentWeightKg: ctx.recentWeightKg,
-                                onToggleCompleted: { wasCompleted in
-                                    if !wasCompleted { onSetCompleted(exerciseSet) }
-                                },
-                                onDelete: {
-                                    requestDelete(exerciseSet)
-                                },
-                                onAddSubSet: { type in
-                                    addSubSet(after: exerciseSet, type: type)
-                                },
-                                onCopyToNext: {
-                                    copyToNext(from: exerciseSet)
-                                }
-                            )
+                            }
+                            .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
+                        }
+
+                        if offset + 1 < contexts.count {
+                            Divider()
+                                .opacity(0.22)
+                                .padding(.horizontal, 12)
                         }
                     }
-                    .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
-
-                    if offset + 1 < contexts.count {
-                        Divider()
-                            .padding(.leading, 56)
-                    }
+                    cardFooter
                 }
-                cardFooter
+                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
             }
         }
         .background(Color(uiColor: .secondarySystemGroupedBackground))
@@ -230,20 +235,22 @@ struct ActiveExerciseSection: View {
     private var tiledTableHeader: some View {
         HStack(alignment: .center, spacing: 8) {
             Text(String(localized: "组序", comment: "Set column header"))
-                .frame(width: 44, alignment: .leading)
+                .frame(width: 44, alignment: .center)
             Text(String(localized: "重量 \(weightUnit.rawValue.uppercased())", comment: "Weight column header"))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .center)
             Text(String(localized: "次数", comment: "Reps column header"))
-                .frame(width: 68, alignment: .center)
+                .frame(width: 84, alignment: .center)
             Text("✓")
                 .frame(width: 44, alignment: .center)
             Text(String(localized: "更多", comment: "More column header"))
-                .frame(width: 44, alignment: .center)
+                .frame(width: 40, alignment: .center)
         }
         .font(.caption2.weight(.semibold))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.tertiary)
         .padding(.horizontal, 12)
-        .frame(maxWidth: .infinity, minHeight: 32)
+        .padding(.top, 2)
+        .padding(.bottom, 4)
+        .frame(maxWidth: .infinity, minHeight: 28)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "组序、上次、重量、次数、完成", comment: "Set table column headers"))
     }
@@ -259,58 +266,90 @@ struct ActiveExerciseSection: View {
         toggleAction: @escaping ActiveExerciseSectionInteraction.ToggleAction
     ) -> some View {
         let allDone = completedSetCount == totalSetCount && totalSetCount > 0
-        return HStack(alignment: .center, spacing: 10) {
-            Capsule()
-                .fill(allDone ? Color.green : muscleAccentColor)
-                .frame(width: 4, height: 22)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(Color.primary)
-                    .lineLimit(1)
-                if let exerciseSubtitle {
-                    Text(exerciseSubtitle)
-                        .font(.caption)
-                        .foregroundStyle(Color.secondary)
-                        .lineLimit(1)
+        let stateDescription = isExpanded
+            ? String(localized: "已展开", comment: "Expanded exercise section state")
+            : String(localized: "已折叠", comment: "Collapsed exercise section state")
+        return HStack(alignment: .center, spacing: 8) {
+            Button {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84)) {
+                    if isExpanded {
+                        isCollapsed.toggle()
+                    } else {
+                        isCollapsed = false
+                        onActivate()
+                    }
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+            } label: {
+                HStack(alignment: .center, spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(allDone ? Color.green.opacity(0.16) : muscleAccentColor.opacity(0.16))
+                            .frame(width: 34, height: 34)
+                        if allDone {
+                            Image(systemName: "checkmark")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(Color.green)
+                        } else {
+                            Text("\(workoutExercise.order + 1)")
+                                .font(.subheadline.monospacedDigit().weight(.bold))
+                                .foregroundStyle(muscleAccentColor)
+                        }
+                    }
+                    .accessibilityHidden(true)
 
-            HStack(spacing: 4) {
-                if allDone {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(Color.green)
-                }
-                Text(String(localized: "\(completedSetCount)/\(totalSetCount) 组", comment: "Exercise completion count"))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(workoutExercise.exercise?.localizedName ?? String(localized: "动作", comment: "Exercise"))
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(Color.primary)
+                            .lineLimit(1)
+                        if let exerciseSubtitle {
+                            Text(exerciseSubtitle)
+                                .font(.caption)
+                                .foregroundStyle(Color.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    HStack(spacing: 4) {
+                        Text("\(completedSetCount)/\(totalSetCount)")
+                        Image(systemName: "chevron.down")
+                            .font(.caption2.weight(.bold))
+                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                    }
                     .font(.caption.monospacedDigit().weight(.semibold))
                     .foregroundStyle(allDone ? Color.green : Color.secondary)
-                Image(systemName: isActive && !isCollapsed ? "chevron.up" : "chevron.down")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityValue(
+                String(
+                    localized: "\(completedSetCount)/\(totalSetCount) 组，\(stateDescription)",
+                    comment: "Exercise completion and expansion state"
+                )
+            )
+            .accessibilityHint(String(localized: "轻点展开或折叠该动作", comment: "Toggle exercise section collapse"))
 
             exerciseActionMenu
         }
-        .padding(.leading, 14)
-        .padding(.trailing, 8)
+        .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, minHeight: 52)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            onActivate()
-            if isActive { toggleAction() }
-        }
+        .frame(maxWidth: .infinity, minHeight: 54)
         .onAppear {
             isCollapsed = !isActive
             interaction.registerToggle(workoutExercise.persistentModelID, toggleAction)
         }
         .onChange(of: isActive) { _, active in
-            isCollapsed = !active
+            withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84)) {
+                isCollapsed = !active
+            }
         }
         .onChange(of: completedSetCount) { _, count in
             if count < totalSetCount { isCollapsed = false }
@@ -318,10 +357,6 @@ struct ActiveExerciseSection: View {
         .onChange(of: isCollapsed) { _, collapsed in
             interaction.onCollapseChange(workoutExercise.persistentModelID, collapsed)
         }
-        .accessibilityValue(String(
-            localized: "\(completedSetCount)/\(totalSetCount) 组",
-            comment: "Exercise completion count"
-        ))
     }
 
     private var exerciseActionMenu: some View {
@@ -332,25 +367,15 @@ struct ActiveExerciseSection: View {
             Button(action: onReplace) {
                 Label(String(localized: "替换动作", comment: "Replace exercise menu item"), systemImage: "arrow.triangle.2.circlepath")
             }
-            Button {
-                withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84)) {
-                    isCollapsed.toggle()
-                }
-            } label: {
-                Label(
-                    isCollapsed ? String(localized: "展开", comment: "Expand exercise") : String(localized: "折叠", comment: "Collapse exercise"),
-                    systemImage: isCollapsed ? "chevron.down" : "chevron.up"
-                )
-            }
             Divider()
             Button(role: .destructive) { showingDeleteConfirmation = true } label: {
                 Label(String(localized: "删除动作", comment: "Delete exercise menu item"), systemImage: "trash")
             }
         } label: {
-            Image(systemName: "ellipsis.circle")
-                .font(.title3)
+            Image(systemName: "ellipsis")
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.secondary)
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 44, alignment: .center)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel(String(localized: "动作操作菜单", comment: "Exercise action menu a11y label"))
@@ -514,6 +539,81 @@ struct ActiveExerciseSection: View {
             newSet.workoutExercise = workoutExercise
             modelContext.insert(newSet)
         }
+    }
+}
+
+struct SwipeToDeleteSetRow<Content: View>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let canDelete: Bool
+    let onDelete: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    @State private var offsetX: CGFloat = 0
+    @State private var isRevealed = false
+
+    private let revealWidth: CGFloat = 72
+    private let revealThreshold: CGFloat = 40
+    private let fullSwipeThreshold: CGFloat = 140
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            if canDelete && (offsetX < 0 || isRevealed) {
+                Button {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.84)) {
+                        offsetX = 0
+                        isRevealed = false
+                    }
+                    onDelete()
+                } label: {
+                    VStack(spacing: 2) {
+                        Image(systemName: "trash.fill")
+                            .font(.caption.weight(.bold))
+                        Text(String(localized: "删除", comment: "Delete swipe action"))
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .foregroundStyle(Color.white)
+                    .frame(width: max(revealWidth, -offsetX))
+                    .frame(maxHeight: .infinity)
+                    .background(Color.red)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "删除本组", comment: "Delete set menu item"))
+            }
+
+            content()
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .offset(x: canDelete ? offsetX : 0)
+        }
+        .clipped()
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 18, coordinateSpace: .local)
+                .onChanged { value in
+                    guard canDelete else { return }
+                    guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                    let base = isRevealed ? -revealWidth : 0
+                    let proposed = base + value.translation.width
+                    offsetX = min(0, max(-180, proposed))
+                }
+                .onEnded { value in
+                    guard canDelete else { return }
+                    guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                    let base = isRevealed ? -revealWidth : 0
+                    let finalOffset = base + value.translation.width
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.84)) {
+                        if finalOffset < -fullSwipeThreshold {
+                            offsetX = 0
+                            isRevealed = false
+                            onDelete()
+                        } else if finalOffset < -revealThreshold {
+                            offsetX = -revealWidth
+                            isRevealed = true
+                        } else {
+                            offsetX = 0
+                            isRevealed = false
+                        }
+                    }
+                }
+        )
     }
 }
 

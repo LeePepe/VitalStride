@@ -150,6 +150,23 @@ enum WorkoutDualModeEngine {
         return steps[(index + 1)...].first(where: { !$0.set.isCompleted }) ?? steps.first(where: { !$0.set.isCompleted })
     }
 
+    static func activeExerciseIDAfterSetCompletion(
+        in currentExercise: WorkoutExercise,
+        workout: Workout
+    ) -> PersistentIdentifier {
+        let sets = currentExercise.sets ?? []
+        guard !sets.isEmpty && sets.allSatisfy(\.isCompleted) else {
+            return currentExercise.persistentModelID
+        }
+        if let next = orderedExercises(in: workout)
+            .drop(while: { $0.persistentModelID != currentExercise.persistentModelID })
+            .dropFirst()
+            .first(where: { ($0.sets ?? []).contains(where: { !$0.isCompleted }) }) {
+            return next.persistentModelID
+        }
+        return currentExercise.persistentModelID
+    }
+
     static func applyPreviousSet(_ previous: ExerciseSet, to target: ExerciseSet) {
         target.weight = previous.weight
         target.reps = previous.reps

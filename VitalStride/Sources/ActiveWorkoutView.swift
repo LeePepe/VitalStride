@@ -258,20 +258,23 @@ struct ActiveWorkoutView: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 14) {
+                    VStack(spacing: 14) {
                         ForEach(exercises) { workoutExercise in
                             ActiveExerciseSection(
                                 workoutExercise: workoutExercise,
                                 isActive: selectedExerciseID == workoutExercise.persistentModelID || selectedExerciseID == nil,
                                 onActivate: {
-                                    selectedExerciseID = workoutExercise.persistentModelID
+                                    withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84)) {
+                                        selectedExerciseID = workoutExercise.persistentModelID
+                                    }
                                 },
                                 onSetCompleted: { completedSet in
                                     restTimer.startRest(duration: completedSet.restDuration ?? completedSet.setType.defaultRestDuration)
-                                    if let next = sortedExercises.drop(while: { $0.persistentModelID != workoutExercise.persistentModelID })
-                                        .dropFirst()
-                                        .first(where: { ($0.sets ?? []).contains(where: { !$0.isCompleted }) }) {
-                                        selectedExerciseID = next.persistentModelID
+                                    if let workout {
+                                        selectedExerciseID = WorkoutDualModeEngine.activeExerciseIDAfterSetCompletion(
+                                            in: workoutExercise,
+                                            workout: workout
+                                        )
                                     }
                                     TelemetryService.shared.trackNonisolated(.setCompleted(exerciseName: TelemetryHelpers.exerciseIdentifier(workoutExercise.exercise)))
                                 },
@@ -285,12 +288,15 @@ struct ActiveWorkoutView: View {
                         }
                     }
                     .padding(.vertical, 14)
+                    .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84), value: selectedExerciseID)
                 }
                 .background(Color(uiColor: .systemGroupedBackground))
                 .accessibilityIdentifier("workout_exercise_list")
                 .onChange(of: selectedExerciseID) { _, id in
                     if let id {
-                        withAnimation { proxy.scrollTo(id, anchor: .top) }
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84)) {
+                            proxy.scrollTo(id, anchor: .top)
+                        }
                     }
                 }
             }
@@ -299,53 +305,89 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var workoutInputDock: some View {
-        if !isKeyboardVisible && !sortedExercises.isEmpty {
+        if !sortedExercises.isEmpty {
             let hasUndo = undoController.pending != nil
             let hasTiledRest = displayMode != .focus && (restTimer.phase == .resting || restCompletedPresenter.isBuffered)
             let hasCompanionStatus = hasUndo || hasTiledRest
 
             HStack(spacing: 10) {
-                if hasUndo {
-                    undoStatusButton
-                } else if hasTiledRest {
-                    if restTimer.phase == .resting {
-                        restSnackbarContent
-                    } else {
-                        restCompletedButton
-                    }
-                }
-
-                Button {
-                    showingExercisePicker = true
-                } label: {
-                    if hasCompanionStatus {
-                        Image(systemName: "plus")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(Color.accentColor)
-                            .frame(width: 44, height: 44)
-                            .background(
-                                Color(uiColor: .tertiarySystemFill),
-                                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            )
-                    } else {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus")
-                                .font(.headline.weight(.bold))
-                            Text(String(localized: "添加动作", comment: "Add exercise"))
-                                .font(.headline.weight(.semibold))
+                if hasCompanionStatus {
+                    Group {
+                        if hasUndo {
+                            undoStatusButton
+                        } else if restTimer.phase == .resting {
+                            restSnackbarContent
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .frame(maxWidth: .infinity, minHeight: 38)
+                                .background(
+                                    Color(uiColor: .secondarySystemGroupedBackground),
+                                    in: Capsule()
+                                )
+                                .overlay {
+                                    Capsule()
+                                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                                }
+                        } else {
+                            restCompletedButton
                         }
-                        .foregroundStyle(Color.accentColor)
-                        .frame(maxWidth: .infinity, minHeight: 46)
                     }
+
+                    Button {
+                        showingExercisePicker = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 38, height: 38)
+                            .background(
+                                Color(uiColor: .secondarySystemGroupedBackground),
+                                in: Circle()
+                            )
+                            .overlay {
+                                Circle()
+                                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                            }
+                            .shadow(color: Color.black.opacity(0.08), radius: 6, y: 2)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
+                } else {
+                    Spacer(minLength: 0)
+                    Button {
+                        showingExercisePicker = true
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "plus")
+                            Text(String(localized: "添加动作", comment: "Add exercise"))
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .frame(minHeight: 38)
+                        .background(
+                            Color(uiColor: .secondarySystemGroupedBackground),
+                            in: Capsule()
+                        )
+                        .overlay {
+                            Capsule()
+                                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                        }
+                        .shadow(color: Color.black.opacity(0.08), radius: 6, y: 2)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .liquidGlassBar(theme: theme, cornerRadius: 20)
             .padding(.horizontal, 14)
-            .padding(.bottom, 8)
+            .padding(.top, 4)
+            .padding(.bottom, 6)
         }
     }
 
@@ -409,23 +451,37 @@ struct ActiveWorkoutView: View {
         let volumeKg = totalVolumeKg
         let displayVolume = weightUnit == .lb ? volumeKg * 2.20462 : volumeKg
         let volumeText = Int(displayVolume).formatted()
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 10) {
             compactDurationItem
             #if !os(macOS)
             compactHeartRateItem
             #endif
             Spacer(minLength: 0)
+            HStack(alignment: .center, spacing: 6) {
+                compactSetsItem
+                Text("·")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Color.secondary)
+                    .accessibilityHidden(true)
+                compactVolumeItem(volumeText: volumeText, unit: weightUnit.rawValue)
+            }
             exerciseSheetTrigger
-            compactSetsItem
-            compactVolumeItem(volumeText: volumeText, unit: weightUnit.rawValue)
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .frame(minHeight: legacyLayoutLarge ? 56 : 48)
-        .background(workoutSecondaryGroupedBackground)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(workoutSeparator).frame(height: 1)
+        .frame(minHeight: 44)
+        .background(
+            Color(uiColor: .secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
         }
+        .padding(.horizontal, 14)
+        .padding(.top, 6)
+        .padding(.bottom, 2)
+        .background(Color(uiColor: .systemGroupedBackground))
     }
 
     private var compactDurationItem: some View {
@@ -462,14 +518,15 @@ struct ActiveWorkoutView: View {
     private var compactHeartRateItem: some View {
         let state = heartRateDisplayState
         let bpmText = HeartRateFormatter.displayText(state)
+        let isDisconnected = state == .disconnected
         return HStack(alignment: .center, spacing: 4) {
             Image(systemName: "heart.fill")
-                .font(legacyLayoutLarge ? .body : .subheadline)
-                .foregroundStyle(theme.danger)
+                .font(.caption)
+                .foregroundStyle(isDisconnected ? Color.secondary : theme.danger)
                 .accessibilityHidden(true)
             Text(bpmText)
-                .font(Font.system(legacyLayoutLarge ? .title3 : .subheadline, design: .default).monospacedDigit())
-                .foregroundStyle(Color.primary)
+                .font(Font.system(.caption, design: .default).weight(.medium).monospacedDigit())
+                .foregroundStyle(isDisconnected ? Color.secondary : Color.primary)
                 .contentTransition(reduceMotion ? .opacity : .numericText())
                 .animation(
                     reduceMotion ? nil : .snappy(duration: 0.22),
@@ -477,6 +534,9 @@ struct ActiveWorkoutView: View {
                 )
                 .layoutPriority(1)
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "心率", comment: "Heart rate a11y label"))
         .accessibilityValue(HeartRateFormatter.accessibilityText(state))
