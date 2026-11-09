@@ -163,11 +163,16 @@ private struct FocusStageHeader: View {
                     }
                     Text("·")
                     Text("♥ \(heartRateText)")
+                    let menuAvailability = SetRow.setTypeMenuAvailability(for: step.set.setType)
                     Menu {
                         Button(String(localized: "设为热身组", comment: "Set warmup menu item")) { step.set.setType = .warmup }
+                            .disabled(!menuAvailability.canSetWarmup)
                         Button(String(localized: "设为正式组", comment: "Set working menu item")) { step.set.setType = .working }
+                            .disabled(!menuAvailability.canSetWorking)
                         Button(String(localized: "+ 追加递减组", comment: "Add drop set menu item")) { }
+                            .disabled(!menuAvailability.canAddDropSet)
                         Button(String(localized: "+ 追加金字塔组", comment: "Add pyramid set menu item")) { }
+                            .disabled(!menuAvailability.canAddPyramidSet)
                         Button(String(localized: "删除当前组", comment: "Delete current set menu item"), role: .destructive) { }
                     } label: {
                         Image(systemName: "ellipsis").frame(width: 44, height: 44)

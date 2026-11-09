@@ -114,6 +114,8 @@ struct ActiveExerciseSection: View {
         }
         VStack(spacing: 0) {
             exerciseHeader(toggleAction: toggleAction)
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .zIndex(2)
             if isExpanded {
                 VStack(spacing: 0) {
                     tiledTableHeader
@@ -166,6 +168,7 @@ struct ActiveExerciseSection: View {
                             }
                             .accessibilityFocused($focusedRowID, equals: exerciseSet.persistentModelID)
                         }
+                        .clipped()
 
                         if offset + 1 < contexts.count {
                             Divider()
@@ -174,8 +177,12 @@ struct ActiveExerciseSection: View {
                         }
                     }
                     cardFooter
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .zIndex(1)
                 }
-                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+                .clipped()
+                .zIndex(0)
+                .transition(.opacity)
             }
         }
         .background(Color(uiColor: .secondarySystemGroupedBackground))
@@ -432,7 +439,9 @@ struct ActiveExerciseSection: View {
 
     private func addSet() {
         isCollapsed = false
-        _ = Self.insertAppendedMainSet(in: workoutExercise, using: modelContext)
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+            _ = Self.insertAppendedMainSet(in: workoutExercise, using: modelContext)
+        }
     }
 
     private func addSubSet(after parentSet: ExerciseSet, type: SetType) {

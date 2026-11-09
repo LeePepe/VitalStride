@@ -508,16 +508,37 @@ struct SetRow: View {
         #endif
     }
 
+    struct SetTypeMenuAvailability: Equatable {
+        let canSetWarmup: Bool
+        let canSetWorking: Bool
+        let canAddDropSet: Bool
+        let canAddPyramidSet: Bool
+    }
+
+    nonisolated static func setTypeMenuAvailability(for setType: SetType) -> SetTypeMenuAvailability {
+        SetTypeMenuAvailability(
+            canSetWarmup: setType != .warmup,
+            canSetWorking: setType != .working,
+            canAddDropSet: !setType.isSubSet,
+            canAddPyramidSet: setType != .pyramid
+        )
+    }
+
     private var rowActionMenu: some View {
-        Menu {
+        let menuAvailability = Self.setTypeMenuAvailability(for: exerciseSet.setType)
+        return Menu {
             Button(String(localized: "设为热身组", comment: "Set warmup menu item")) {
                 exerciseSet.setType = .warmup
             }
+            .disabled(!menuAvailability.canSetWarmup)
             Button(String(localized: "设为正式组", comment: "Set working menu item")) {
                 exerciseSet.setType = .working
             }
+            .disabled(!menuAvailability.canSetWorking)
             Button(String(localized: "+ 追加递减组", comment: "Add drop set menu item")) { onAddSubSet(.dropSet) }
+                .disabled(!menuAvailability.canAddDropSet)
             Button(String(localized: "+ 追加金字塔组", comment: "Add pyramid set menu item")) { onAddSubSet(.pyramid) }
+                .disabled(!menuAvailability.canAddPyramidSet)
             Button(String(localized: "切换单侧 / 双侧", comment: "Toggle unilateral menu item")) {
                 Self.toggleExerciseWeightMode(from: exerciseSet)
                 refreshInputText()

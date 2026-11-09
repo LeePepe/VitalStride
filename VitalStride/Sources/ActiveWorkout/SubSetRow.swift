@@ -76,6 +76,7 @@ struct SubSetRow: View {
         .contentShape(Rectangle())
         .sensoryFeedback(.success, trigger: exerciseSet.isCompleted)
         .contextMenu {
+            let menuAvailability = SetRow.setTypeMenuAvailability(for: exerciseSet.setType)
             Button(String(localized: "切换单侧/双侧", comment: "Toggle unilateral or bilateral weight")) {
                 SetRow.toggleExerciseWeightMode(from: exerciseSet)
                 refreshInputText()
@@ -83,9 +84,11 @@ struct SubSetRow: View {
             Button(String(localized: "+ 递减组", comment: "Add drop set")) {
                 onAddSubSet(.dropSet)
             }
+            .disabled(!menuAvailability.canAddDropSet)
             Button(String(localized: "+ 金字塔组", comment: "Add pyramid set")) {
                 onAddSubSet(.pyramid)
             }
+            .disabled(!menuAvailability.canAddPyramidSet)
             if let owner = exerciseSet.workoutExercise {
                 Button(String(localized: "复制到下一组", comment: "Copy set to next")) {
                     ActiveExerciseSection.copyToNext(from: exerciseSet, in: owner, using: modelContext)
@@ -278,11 +281,16 @@ struct SubSetRow: View {
     }
 
     private var rowActionMenu: some View {
-        Menu {
+        let menuAvailability = SetRow.setTypeMenuAvailability(for: exerciseSet.setType)
+        return Menu {
             Button(String(localized: "设为热身组", comment: "Set warmup menu item")) { exerciseSet.setType = .warmup }
+                .disabled(!menuAvailability.canSetWarmup)
             Button(String(localized: "设为正式组", comment: "Set working menu item")) { exerciseSet.setType = .working }
+                .disabled(!menuAvailability.canSetWorking)
             Button(String(localized: "+ 追加递减组", comment: "Add drop set menu item")) { onAddSubSet(.dropSet) }
+                .disabled(!menuAvailability.canAddDropSet)
             Button(String(localized: "+ 追加金字塔组", comment: "Add pyramid set menu item")) { onAddSubSet(.pyramid) }
+                .disabled(!menuAvailability.canAddPyramidSet)
             Button(String(localized: "切换单侧 / 双侧", comment: "Toggle unilateral menu item")) {
                 SetRow.toggleExerciseWeightMode(from: exerciseSet)
                 refreshInputText()
