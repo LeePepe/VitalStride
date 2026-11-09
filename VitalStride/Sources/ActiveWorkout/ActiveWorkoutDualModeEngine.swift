@@ -69,33 +69,48 @@ enum WorkoutDualModeEngine {
 
     static func focusSteps(in workout: Workout) -> [FocusStep] {
         orderedExercises(in: workout).enumerated().flatMap { exerciseIndex, exercise in
-            let sets = orderedSets(in: exercise)
-            var mainNumber = -1
-            var subOrdinals: [SetType: Int] = [:]
-            return sets.enumerated().map { setIndex, set in
-                if !set.setType.isSubSet {
-                    mainNumber += 1
-                    subOrdinals.removeAll()
-                }
-                let subOrdinal: Int?
-                if set.setType.isSubSet {
-                    let next = (subOrdinals[set.setType] ?? 0) + 1
-                    subOrdinals[set.setType] = next
-                    subOrdinal = next
-                } else {
-                    subOrdinal = nil
-                }
-                return FocusStep(
-                    exercise: exercise,
-                    set: set,
-                    exerciseIndex: exerciseIndex,
-                    setIndexInExercise: setIndex,
-                    totalSetsInExercise: sets.count,
-                    mainSetNumber: max(0, mainNumber),
-                    subSetOrdinal: subOrdinal
-                )
-            }
+            focusSteps(for: exercise, exerciseIndex: exerciseIndex)
         }
+    }
+
+    static func focusSteps(for exercise: WorkoutExercise, in workout: Workout) -> [FocusStep] {
+        let exerciseIndex = orderedExercises(in: workout).firstIndex(where: {
+            $0.persistentModelID == exercise.persistentModelID
+        }) ?? 0
+        return focusSteps(for: exercise, exerciseIndex: exerciseIndex)
+    }
+
+    private static func focusSteps(for exercise: WorkoutExercise, exerciseIndex: Int) -> [FocusStep] {
+        let sets = orderedSets(in: exercise)
+        var mainNumber = -1
+        var subOrdinals: [SetType: Int] = [:]
+        return sets.enumerated().map { setIndex, set in
+            if !set.setType.isSubSet {
+                mainNumber += 1
+                subOrdinals.removeAll()
+            }
+            let subOrdinal: Int?
+            if set.setType.isSubSet {
+                let next = (subOrdinals[set.setType] ?? 0) + 1
+                subOrdinals[set.setType] = next
+                subOrdinal = next
+            } else {
+                subOrdinal = nil
+            }
+            return FocusStep(
+                exercise: exercise,
+                set: set,
+                exerciseIndex: exerciseIndex,
+                setIndexInExercise: setIndex,
+                totalSetsInExercise: sets.count,
+                mainSetNumber: max(0, mainNumber),
+                subSetOrdinal: subOrdinal
+            )
+        }
+    }
+
+    static func tactileModuleRowCounts(isUnilateral: Bool) -> [Int] {
+        isUnilateral ? [2, 1] : [2]
     }
 
     static func syncCursor(

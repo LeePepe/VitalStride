@@ -123,24 +123,12 @@ struct ActiveWorkoutView: View {
                     .frame(maxWidth: 180)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingExercisePicker = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
-                }
-                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Picker(String(localized: "重量单位", comment: "Weight unit"), selection: $weightUnit) {
                             Text("kg").tag(WeightUnit.kg)
                             Text("lb").tag(WeightUnit.lb)
                         }
                         Button(String(localized: "active_workout.outline_and_order", defaultValue: "Exercise outline and order", comment: "Exercise outline and ordering"), systemImage: "list.bullet") { isSidebarReordering = true }
-                        if displayMode == .focus {
-                            Button(String(localized: "添加动作", comment: "Add exercise"), systemImage: "plus") { showingExercisePicker = true }
-                        }
                         Divider()
                         Button(String(localized: "放弃训练", comment: "Discard workout"), role: .destructive) { showingDiscardAlert = true }
                     } label: {
@@ -295,29 +283,6 @@ struct ActiveWorkoutView: View {
                             )
                             .id(workoutExercise.persistentModelID)
                         }
-
-                        Button {
-                            showingExercisePicker = true
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.headline)
-                                Text(String(localized: "添加动作", comment: "Add exercise"))
-                                    .font(.headline.weight(.semibold))
-                            }
-                            .foregroundStyle(Color.accentColor)
-                            .frame(maxWidth: .infinity, minHeight: 50)
-                            .background(
-                                Color(uiColor: .secondarySystemGroupedBackground),
-                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            )
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .strokeBorder(Color.accentColor.opacity(0.28), lineWidth: 1)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 14)
                     }
                     .padding(.vertical, 14)
                 }
@@ -334,26 +299,47 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var workoutInputDock: some View {
-        if displayMode == .focus {
-            if undoController.pending != nil {
-                HStack(spacing: 10) {
-                    undoStatusButton
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .liquidGlassBar(theme: theme, cornerRadius: 20)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 8)
-            }
-        } else if undoController.pending != nil || restTimer.phase == .resting || restCompletedPresenter.isBuffered {
+        if !isKeyboardVisible && !sortedExercises.isEmpty {
+            let hasUndo = undoController.pending != nil
+            let hasTiledRest = displayMode != .focus && (restTimer.phase == .resting || restCompletedPresenter.isBuffered)
+            let hasCompanionStatus = hasUndo || hasTiledRest
+
             HStack(spacing: 10) {
-                if undoController.pending != nil {
+                if hasUndo {
                     undoStatusButton
-                } else if restTimer.phase == .resting {
-                    restSnackbarContent
-                } else {
-                    restCompletedButton
+                } else if hasTiledRest {
+                    if restTimer.phase == .resting {
+                        restSnackbarContent
+                    } else {
+                        restCompletedButton
+                    }
                 }
+
+                Button {
+                    showingExercisePicker = true
+                } label: {
+                    if hasCompanionStatus {
+                        Image(systemName: "plus")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 44, height: 44)
+                            .background(
+                                Color(uiColor: .tertiarySystemFill),
+                                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            )
+                    } else {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.headline.weight(.bold))
+                            Text(String(localized: "添加动作", comment: "Add exercise"))
+                                .font(.headline.weight(.semibold))
+                        }
+                        .foregroundStyle(Color.accentColor)
+                        .frame(maxWidth: .infinity, minHeight: 46)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "添加动作", comment: "Add exercise"))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)

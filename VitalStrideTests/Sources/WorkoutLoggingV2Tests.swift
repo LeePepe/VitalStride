@@ -243,4 +243,33 @@ struct WorkoutLoggingV2Tests {
         #expect(value == nil)
         #expect(receivedAt == nil)
     }
+
+    @Test("Focus progress rail scopes steps strictly to the current exercise")
+    func focusProgressRailScopesToCurrentExercise() {
+        let exercises = (0..<4).map { exerciseIndex in
+            let sets = (0..<4).map { setIndex in
+                ExerciseSet(order: setIndex, weight: Double(40 + exerciseIndex * 10), reps: 10, setType: .working)
+            }
+            return WorkoutExercise(order: exerciseIndex, sets: sets)
+        }
+        let workout = Workout(type: .strength, startDate: Date(), exercises: exercises)
+        for exercise in exercises {
+            exercise.workout = workout
+        }
+
+        #expect(WorkoutDualModeEngine.focusSteps(in: workout).count == 16)
+
+        let secondExercise = exercises[1]
+        let railSteps = WorkoutDualModeEngine.focusSteps(for: secondExercise, in: workout)
+        #expect(railSteps.count == 4)
+        #expect(railSteps.allSatisfy { $0.exercise.persistentModelID == secondExercise.persistentModelID })
+        #expect(railSteps.map(\.exerciseIndex) == [1, 1, 1, 1])
+        #expect(railSteps.map(\.mainSetNumber) == [0, 1, 2, 3])
+    }
+
+    @Test("Focus tactile module rows follow 2+1 for unilateral and 2 for bilateral")
+    func focusTactileModuleRowLayout() {
+        #expect(WorkoutDualModeEngine.tactileModuleRowCounts(isUnilateral: true) == [2, 1])
+        #expect(WorkoutDualModeEngine.tactileModuleRowCounts(isUnilateral: false) == [2])
+    }
 }
