@@ -284,14 +284,14 @@ struct ExercisePickerView: View {
                 exerciseCardGrid
                     .frame(maxWidth: .infinity)
             }
-            .background(theme.canvas)
+            .background(Color(uiColor: .systemGroupedBackground))
             .modifier(FloatingPanelAttachment(panelHeight: $panelHeight, panel: floatingSearchAndFilterPanel))
             .navigationTitle(String(localized: "选择动作", comment: "Exercise picker navigation title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "取消", comment: "Cancel button")) { dismiss() }
-                        .foregroundStyle(theme.foreground)
+                        .foregroundStyle(Color.primary)
                 }
             }
             .sheet(item: $presentedSheet) { sheet in
@@ -514,12 +514,19 @@ struct ExercisePickerView: View {
                 .fixedSize(horizontal: true, vertical: false)
                 .frame(height: 36)
                 .foregroundStyle(
-                    isSelected ? theme.onInteractiveAccent : theme.foreground
+                    isSelected ? Color.white : Color.primary
                 )
                 .background(
-                    isSelected ? theme.interactiveAccent.opacity(0.82) : theme.surfaceSubtle.opacity(0.72),
+                    isSelected ? Color.accentColor : Color(uiColor: .secondarySystemGroupedBackground),
                     in: Capsule()
                 )
+                .overlay {
+                    Capsule()
+                        .strokeBorder(
+                            isSelected ? Color.clear : Color.primary.opacity(0.06),
+                            lineWidth: 1
+                        )
+                }
         }
         .buttonStyle(.plain)
         .frame(minHeight: 44)
@@ -536,7 +543,12 @@ struct ExercisePickerView: View {
         }
         .frame(width: Self.muscleSidebarWidth)
         .contentMargins(.bottom, panelHeight + Space.md, for: .scrollContent)
-        .background(theme.canvas)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Color(uiColor: .separator))
+                .frame(width: 0.5)
+        }
         .accessibilityIdentifier("exercise_picker_muscle_sidebar")
     }
 
@@ -557,18 +569,18 @@ struct ExercisePickerView: View {
                     .fixedSize(horizontal: false, vertical: false)
                 if count > 0 {
                     Text("\(count)").font(.caption2.bold()).monospacedDigit()
-                        .padding(.horizontal, 6).background(theme.accentSubtle, in: Capsule())
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Color.accentColor, in: Capsule())
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 48)
-            .foregroundStyle(selected ? theme.accent : theme.foreground)
-            .background(selected ? theme.accentSubtle : .clear, in: Capsule())
-            .overlay(alignment: .trailing) {
-                Rectangle()
-                    .fill(theme.border.opacity(0.5))
-                    .frame(width: 0.5)
-                    .padding(.vertical, 8)
-            }
+            .foregroundStyle(selected ? Color.accentColor : Color.primary)
+            .background(
+                selected ? Color.accentColor.opacity(0.15) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -599,18 +611,39 @@ struct ExercisePickerView: View {
 
     private func exerciseDetail(_ exercise: Exercise) -> some View {
         NavigationStack {
-            Form {
-                LabeledContent(String(localized: "picker.name.en", comment: "English exercise name"), value: exercise.nameEn)
-                LabeledContent(String(localized: "picker.name.zh", comment: "Chinese exercise name"), value: exercise.nameZh)
-                Text(exercise.muscleGroup.localizedName)
-                Text(exercise.equipment.localizedName)
-                ForEach(exercise.primaryMuscles, id: \.self) { Text(MuscleTranslation.chineseName(for: $0)) }
-                DesignButton(String(localized: "picker.select", comment: "Select exercise"), fullWidth: true) {
+            VStack(spacing: 0) {
+                Form {
+                    Section {
+                        LabeledContent(String(localized: "picker.name.en", comment: "English exercise name"), value: exercise.nameEn)
+                        LabeledContent(String(localized: "picker.name.zh", comment: "Chinese exercise name"), value: exercise.nameZh)
+                        LabeledContent(String(localized: "picker.muscle", comment: "Exercise muscle group"), value: exercise.muscleGroup.localizedName)
+                        LabeledContent(String(localized: "picker.equipment", comment: "Exercise equipment"), value: exercise.equipment.localizedName)
+                    }
+                    if !exercise.primaryMuscles.isEmpty {
+                        Section {
+                            ForEach(exercise.primaryMuscles, id: \.self) {
+                                Text(MuscleTranslation.chineseName(for: $0))
+                            }
+                        }
+                    }
+                }
+                Button {
                     presentedSheet = nil
                     handleCardTap(exercise)
+                } label: {
+                    Text(String(localized: "picker.select", comment: "Select exercise"))
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(Color.white)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color(uiColor: .systemGroupedBackground))
             }
             .navigationTitle(exercise.localizedName)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "picker.done", comment: "Close exercise details")) { presentedSheet = nil }
@@ -1092,10 +1125,18 @@ struct ExercisePickerView: View {
         Label(equipment.localizedName, systemImage: equipment.sfSymbol)
             .lineLimit(2)
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(theme.foreground)
+            .foregroundStyle(Color.primary)
             .padding(16)
             .frame(width: Self.sectionPreviewPopupWidth, height: Self.sectionPreviewPopupHeight)
-            .designSurface(style: .solid, cornerRadius: 16)
+            .background(
+                Color(uiColor: .secondarySystemGroupedBackground),
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
             .accessibilityHidden(true)
     }
 
@@ -1143,10 +1184,10 @@ struct ExercisePickerView: View {
                 Text(equipment.localizedName.uppercased())
                     .font(TypeScale.meta)
                     .fontWeight(.bold)
-                    .foregroundStyle(theme.secondaryForeground)
+                    .foregroundStyle(Color.secondary)
                 Text("\(exercises.count)")
                     .font(TypeScale.meta.monospacedDigit())
-                    .foregroundStyle(theme.tertiaryForeground)
+                    .foregroundStyle(Color.secondary)
             }
 
             LazyVGrid(columns: gridColumns, spacing: 10) {
@@ -1248,14 +1289,16 @@ private struct ExerciseCard: View {
                     Image(systemName: exercise.equipment.sfSymbol)
                         .font(TypeScale.body.weight(.semibold))
                         .foregroundStyle(equipmentColor)
-                        .frame(width: 32, height: 32)
-                        .background(equipmentColor.opacity(0.14))
-                        .clipShape(RoundedRectangle(cornerRadius: 9))
+                        .frame(width: 34, height: 34)
+                        .background(
+                            equipmentColor.opacity(0.15),
+                            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        )
                     Spacer(minLength: 0)
                     if showsSelectionIndicator {
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle.fill")
                             .font(TypeScale.title)
-                            .foregroundStyle(isSelected ? theme.accent : theme.tertiaryForeground)
+                            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.38))
                             .frame(width: 44, height: 44)
                             .accessibilityHidden(true)
                     }
@@ -1265,7 +1308,7 @@ private struct ExerciseCard: View {
 
                 Text(exercise.localizedName)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(Color.primary)
                     .lineLimit(2, reservesSpace: true)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
@@ -1281,7 +1324,7 @@ private struct ExerciseCard: View {
                         .lineLimit(1)
                 }
                 .font(.caption)
-                .foregroundStyle(theme.secondaryForeground)
+                .foregroundStyle(Color.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(
@@ -1290,11 +1333,14 @@ private struct ExerciseCard: View {
                 alignment: .topLeading
             )
             .padding(10)
-            .designSurface(style: .solid, cornerRadius: 16)
+            .background(
+                isSelected ? Color.accentColor.opacity(0.08) : Color(uiColor: .secondarySystemGroupedBackground),
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
             .overlay {
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(
-                        isSelected ? theme.primary.primary : theme.border,
+                        isSelected ? Color.accentColor : Color.primary.opacity(0.06),
                         lineWidth: isSelected ? 2 : 1
                     )
             }
@@ -1317,7 +1363,6 @@ private struct ExerciseCard: View {
 // MARK: - Equipment Index Bar
 
 private struct EquipmentIndexBar: View {
-    @Environment(\.theme) private var theme
     let equipments: [ExerciseSection]
     let activeEquipment: ExerciseSection?
     /// `animated == false` during a finger drag: the drag scrubs across many
@@ -1339,13 +1384,20 @@ private struct EquipmentIndexBar: View {
                     ForEach(equipments, id: \.self) { equipment in
                         Text(ExercisePickerSectionGrouping.indexCharacter(for: equipment))
                             .font(.caption2.weight(activeEquipment == equipment ? .heavy : .medium))
-                            .foregroundStyle(activeEquipment == equipment ? theme.accent : theme.secondaryForeground)
+                            .foregroundStyle(activeEquipment == equipment ? Color.accentColor : Color.secondary)
                             .frame(width: 16, height: height / CGFloat(max(equipments.count, 1)))
                     }
                 }
                 .padding(.vertical, 6)
                 .frame(width: 24)
-                .liquidGlassCapsule(theme: theme)
+                .background(
+                    Color(uiColor: .secondarySystemGroupedBackground).opacity(0.92),
+                    in: Capsule()
+                )
+                .overlay {
+                    Capsule()
+                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                }
             }
             .frame(width: Self.hitWidth, height: height)
             .contentShape(Rectangle())
@@ -1422,7 +1474,6 @@ private enum PickerSheet: Identifiable {
 /// The actual production dock is also hosted by the layout regression tests.
 /// All three controls stay mounted in one horizontal row while typing or filtering.
 struct PickerBottomBar: View {
-    @Environment(\.theme) private var theme
     @Binding var searchText: String
     @FocusState private var isSearchFocused: Bool
     let selectedCount: Int
@@ -1446,7 +1497,7 @@ struct PickerBottomBar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .foregroundStyle(theme.accent)
+            .foregroundStyle(Color.accentColor)
             .accessibilityLabel(String(localized: "picker.create", comment: "Create custom exercise"))
             .accessibilityIdentifier("exercise_picker_create")
             Button(action: onConfirm) {
@@ -1461,22 +1512,29 @@ struct PickerBottomBar: View {
                 .padding(.horizontal, Space.sm)
                 .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
                 .background(
-                    isConfirmDisabled ? theme.inner : theme.interactiveAccent,
+                    isConfirmDisabled ? Color(uiColor: .tertiarySystemFill) : Color.accentColor,
                     in: Capsule()
                 )
             }
             .buttonStyle(.plain)
             .fixedSize(horizontal: true, vertical: false)
             .layoutPriority(2)
-            .foregroundStyle(isConfirmDisabled ? theme.secondaryForeground : theme.onInteractiveAccent)
+            .foregroundStyle(isConfirmDisabled ? Color.secondary : Color.white)
             .disabled(isConfirmDisabled)
             .accessibilityLabel(String(localized: "picker.done", comment: "Confirm exercise selection"))
             .accessibilityValue(String(localized: "picker.selected.count \(selectedCount)", comment: "Selected exercise count"))
             .accessibilityIdentifier("exercise_picker_confirm")
         }
         .padding(Space.xs)
-        .liquidGlassBar(theme: theme, cornerRadius: 20)
-        .shadow(color: .black.opacity(0.14), radius: 12, y: 4)
+        .background(
+            Color(uiColor: .secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.10), radius: 12, y: 4)
     }
 
     // Own the native field here so its identifier belongs only to the input,
@@ -1484,7 +1542,7 @@ struct PickerBottomBar: View {
     private var searchField: some View {
         HStack(spacing: Space.xs) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(theme.secondaryForeground)
+                .foregroundStyle(Color.secondary)
                 .accessibilityHidden(true)
             TextField(String(localized: "搜索动作", comment: "Exercise search prompt"), text: $searchText)
                 .textFieldStyle(.plain)
@@ -1507,6 +1565,7 @@ struct PickerBottomBar: View {
                     searchText = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Color.secondary)
                         .frame(width: 20, height: 20)
                         .frame(width: Space.minTapTarget, height: Space.minTapTarget)
                         .contentShape(Rectangle())
@@ -1519,10 +1578,10 @@ struct PickerBottomBar: View {
         .padding(.leading, Space.sm)
         .padding(.trailing, searchText.isEmpty ? Space.sm : 0)
         .frame(minHeight: Space.minTapTarget)
-        .background(theme.inner.opacity(0.65), in: Capsule())
+        .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
         .overlay {
             Capsule()
-                .stroke(isSearchFocused ? theme.accent.opacity(0.65) : theme.foreground.opacity(0.10), lineWidth: 0.5)
+                .stroke(isSearchFocused ? Color.accentColor.opacity(0.65) : Color.primary.opacity(0.08), lineWidth: 0.5)
         }
     }
 }
