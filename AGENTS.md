@@ -35,8 +35,8 @@
 `Packages/CONTEXT.md` 的下一层 route。不要从顶层预读七个 package contexts。
 
 **按 layer 收窄范围**：
-- 改动只落 1 个 layer → 一个任务直接做。
-- 跨 2+ layer → 太大，按 layer 拆成 N 个独立可 `swift build/test` 的子任务（一层一 commit）。
+- 改动只落 1 个 layer → 归属 1 个 Task 切片（不跨层拆碎）。
+- 跨 2+ layer → 按 layer 拆成 N 个独立可 `swift build/test` 的 Task 切片（同一 Goal 共用同一分支连续 commit，收口最多提 1 个 PR）。
 - 单层内仍很大 → 按技术切面再拆：纯逻辑 → 输入/校验 → 处理/编排 → 输出转换 → fixture → 文档 → 迁移。
 - **收尾遗留记为新任务，不回头扩大当前任务。**
 
