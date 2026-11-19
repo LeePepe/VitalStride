@@ -16,7 +16,7 @@ red_lines:
 roles:
   Types:   [HealthDataPoint, HealthSampleType, HealthWorkoutRecord]
   Repo:    [HealthKitAnchorStore, SwiftDataCachePersistence, HealthCachePersisting]
-  Service: [HealthDataCache, HealthKitService, WorkoutSessionManager]
+  Service: [HealthDataCache, HealthKitService, WorkoutSessionManager, HealthMetricsCalculator, TrainingLoadCalculator, SleepArchitectureAnalyzer, AerobicEfficiencyCalculator]
 test: swift test --package-path Packages/HealthKitService
 owns: [HealthKitService, HealthDataCache, HealthKitAnchorStore, HealthSampleType]
 ---

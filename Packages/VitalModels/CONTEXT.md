@@ -15,7 +15,7 @@ red_lines:
   - RoutingSignalEntry 永久字段清单 = {kind, provider, deviceTier, latencyMs, schemaValid, accepted, timestamp}；raw 调试字段已由 FR-017 / Stage 6e 永久移除，不得重新引入（宪法 I 永久态）
   - BanditArmStateEntry 永久字段清单 = {kind, deviceTier, provider, count, rewardSum, updatedAt}；不得追加任何健康/训练数值字段（宪法 I 永久态）
 roles:
-  Types:  [Enums, Models]
+  Types:  [Enums, Models, DTOs]
   Config: [Persistence]
   Repo:   [Repo]
 test: swift test --package-path Packages/VitalModels
