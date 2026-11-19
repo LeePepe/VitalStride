@@ -31,4 +31,3 @@ public struct JevGatewayProvider: AIProvider, Sendable {
         provider.chatStream(messages: messages, model: model)
     }
 }
-
