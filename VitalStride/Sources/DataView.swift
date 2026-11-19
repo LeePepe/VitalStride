@@ -81,6 +81,7 @@ struct DataView: View {
                 } else {
                     summarySection
                     aiSummarySection
+                    heartSleepCouplingSection
                     activitySection
                     heartSection
                     bodySection
@@ -126,6 +127,26 @@ struct DataView: View {
     private var aiSummarySection: some View {
         if aiPrivacyConsented, let types = availableTypes, !types.isEmpty {
             DataAISummaryCard(state: aiSummaryState)
+        }
+    }
+
+    @ViewBuilder
+    private var heartSleepCouplingSection: some View {
+        if hasVisibleTypes(in: Self.heartTypes) || hasVisibleTypes(in: Self.sleepTypes) {
+            Section {
+                NavigationLink {
+                    HeartSleepCouplingDetailView()
+                } label: {
+                    Label(
+                        String(localized: "heart_sleep_coupling_entry", defaultValue: "Heart & Sleep coupling", comment: "Heart and sleep detail entry"),
+                        systemImage: "heart.text.square.fill"
+                    )
+                    .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+            } header: {
+                Text(String(localized: "heart_sleep_coupling_section", defaultValue: "Heart & Sleep", comment: "Heart and sleep coupling section"))
+            }
         }
     }
 

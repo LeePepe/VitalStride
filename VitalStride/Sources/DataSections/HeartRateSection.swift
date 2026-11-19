@@ -214,12 +214,12 @@ struct HeartRateSection: View {
             chartPoints = HeartRateStats.downsample(filteredPoints, for: range)
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
-            logger.info("chart render type=heartRate points=\(filteredPoints.count) ms=\(ms) range=\(range.rawValue)")
+            logger.info("chart render type=cardiac_metric points=\(filteredPoints.count) ms=\(ms) range=\(range.rawValue)")
         } catch {
             fetchError = error
             filteredPoints = []
             chartPoints = []
-            logger.error("fetch failed type=heartRate error=\(error.localizedDescription)")
+            logger.error("fetch failed type=cardiac_metric error=\(error.localizedDescription)")
         }
         isLoading = false
     }
@@ -391,6 +391,7 @@ struct HeartRateDetailView: View {
     @State private var chartPoints: [HealthDataPoint] = []
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
+    @State private var couplingState = HeartSleepCouplingState()
     @Environment(\.healthDataCache) private var cache
     @Environment(\.theme) private var theme
 
@@ -442,6 +443,17 @@ struct HeartRateDetailView: View {
 
                 statsSection
 
+                if couplingState.loadState == .populated {
+                    Section {
+                        HeartAutonomicCorridorCard(snapshot: couplingState.heart)
+                        NavigationLink { HeartSleepCouplingDetailView(state: couplingState) } label: {
+                            Label(String(localized: "heart_sleep_coupling_entry", defaultValue: "Heart & Sleep coupling", comment: "Heart and sleep detail entry"), systemImage: "heart.text.square.fill")
+                                .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                    }
+                }
+
                 AIDataAnalysisSection(sampleType: .heartRate)
 
                 Section {
@@ -488,9 +500,10 @@ struct HeartRateDetailView: View {
         .navigationTitle(String(localized: "心率", comment: "Heart rate detail title"))
         .task(id: selectedRange) {
             await loadData()
+            await couplingState.load(cache: cache)
         }
         .onAppear {
-            logger.info("detail opened type=heartRate range=\(selectedRange.rawValue)")
+            logger.info("detail opened type=cardiac_metric range=\(selectedRange.rawValue)")
         }
     }
 
@@ -549,7 +562,7 @@ struct HeartRateDetailView: View {
             fetchError = error
             dataPoints = []
             chartPoints = []
-            logger.error("fetch failed type=heartRate error=\(error.localizedDescription)")
+            logger.error("fetch failed type=cardiac_metric error=\(error.localizedDescription)")
         }
 
         isLoading = false

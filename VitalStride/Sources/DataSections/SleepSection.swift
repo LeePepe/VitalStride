@@ -321,7 +321,8 @@ struct SleepSection: View {
 
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
-            logger.info("render dataPoints=\(dataPoints.count) nights=\(aggregated.count) ms=\(ms)")
+            let sampleCount = dataPoints.count
+            logger.info("render sample_count=\(sampleCount) nights=\(aggregated.count) ms=\(ms)")
         } catch {
             guard !Task.isCancelled else { return }
             logger.error("loadData failed: \(error.localizedDescription)")
@@ -501,6 +502,7 @@ struct SleepDetailView: View {
     @State private var statistics: SleepStatistics = .empty
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
+    @State private var couplingState = HeartSleepCouplingState()
     @Environment(\.healthDataCache) private var cache
     @Environment(\.theme) private var theme
 
@@ -553,6 +555,17 @@ struct SleepDetailView: View {
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
 
+                if couplingState.loadState == .populated {
+                    Section {
+                        SleepArchitectureAndDebtCard(snapshot: couplingState.sleep)
+                        NavigationLink { HeartSleepCouplingDetailView(state: couplingState) } label: {
+                            Label(String(localized: "heart_sleep_coupling_entry", defaultValue: "Heart & Sleep coupling", comment: "Heart and sleep detail entry"), systemImage: "heart.text.square.fill")
+                                .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                    }
+                }
+
                 Section {
                     statRow(
                         label: String(localized: "平均睡眠", comment: "Average sleep"),
@@ -603,6 +616,7 @@ struct SleepDetailView: View {
         .navigationTitle(String(localized: "睡眠", comment: "Sleep detail title"))
         .task(id: selectedRange) {
             await loadData()
+            await couplingState.load(cache: cache)
         }
         .onAppear {
             logger.info("detail_opened range=\(selectedRange.rawValue)")
