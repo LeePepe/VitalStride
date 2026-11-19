@@ -27,7 +27,7 @@ public struct OpenAICompatibleProvider: AIProvider, Sendable {
         self.requiresAPIKey = true
     }
 
-    fileprivate init(
+    init(
         baseURL: URL,
         model: String,
         token: String?,
@@ -99,14 +99,25 @@ public struct OpenAICompatibleProvider: AIProvider, Sendable {
                     let request = try makeRequest(messages: messages, model: selectedModel, stream: true)
                     let (bytes, response) = try await session.bytes(for: request)
                     try validate(response)
+                    var finished = false
+                    var chunksReceived = 0
                     for try await line in bytes.lines {
+                        try Task.checkCancellation()
                         guard let chunk = try parseSSELine(line) else { continue }
                         continuation.yield(chunk)
-                        if chunk.isFinished { break }
+                        chunksReceived += 1
+                        if chunk.isFinished { finished = true; break }
+                    }
+                    guard finished else {
+                        throw AIServiceError.streamingInterrupted(chunksReceived: chunksReceived, underlying: nil)
                     }
                     continuation.finish()
                 } catch {
-                    continuation.finish(throwing: error)
+                    if error is CancellationError || Task.isCancelled || (error as? URLError)?.code == .cancelled {
+                        continuation.finish(throwing: CancellationError())
+                    } else {
+                        continuation.finish(throwing: error)
+                    }
                 }
             }
             continuation.onTermination = { @Sendable _ in task.cancel() }
@@ -123,14 +134,19 @@ public struct OpenAICompatibleProvider: AIProvider, Sendable {
             if payload.isEmpty { return nil }
             throw AIServiceError.responseParsingFailed
         }
-        let choice = chunk.choices.first
+        guard let choice = chunk.choices.first else { throw AIServiceError.responseParsingFailed }
         return ChatStreamChunk(
-            content: choice?.delta.content ?? "",
-            isFinished: choice?.finishReason != nil
+            content: choice.delta.content ?? "",
+            isFinished: choice.finishReason != nil
         )
     }
 
     private func makeRequest(messages: [ChatMessage], model: String, stream: Bool) throws -> URLRequest {
+        try Task.checkCancellation()
+        guard ["http", "https"].contains(baseURL.scheme?.lowercased() ?? ""), baseURL.host != nil,
+              !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AIServiceError.noProviderAvailable
+        }
         let key = try resolvedAPIKey()
         var request = URLRequest(url: endpointURL())
         request.httpMethod = "POST"
@@ -151,67 +167,45 @@ public struct OpenAICompatibleProvider: AIProvider, Sendable {
         if let apiKey {
             value = apiKey
         } else if let keychainService {
-            value = try? keychain.load(service: keychainService)
+            do {
+                value = try keychain.load(service: keychainService)
+            } catch KeychainError.itemNotFound {
+                throw AIServiceError.missingAPIKey
+            }
         } else {
             value = nil
         }
         guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            if requiresAPIKey { throw AIServiceError.missingAPIKey }
+            if requiresAPIKey || apiKey != nil || keychainService != nil { throw AIServiceError.missingAPIKey }
             return nil
         }
-        return value
+        return value.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func endpointURL() -> URL {
         let path = baseURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        if path.hasSuffix("chat/completions") { return baseURL }
-        return baseURL.appendingPathComponent("chat/completions")
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
+        let isEndpoint = path == "chat/completions" || path.hasSuffix("/chat/completions")
+        components?.path = "/" + (isEndpoint ? path : [path, "chat/completions"].filter { !$0.isEmpty }.joined(separator: "/"))
+        return components?.url ?? baseURL
     }
 
     private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
             return try await session.data(for: request)
         } catch {
+            if error is CancellationError || Task.isCancelled || (error as? URLError)?.code == .cancelled {
+                throw CancellationError()
+            }
             throw AIServiceError.networkError(underlying: error)
         }
     }
 
     private func validate(_ response: URLResponse) throws {
-        guard let httpResponse = response as? HTTPURLResponse else { return }
+        guard let httpResponse = response as? HTTPURLResponse else { throw AIServiceError.responseParsingFailed }
         guard (200...299).contains(httpResponse.statusCode) else {
             throw AIServiceError.httpError(statusCode: httpResponse.statusCode)
         }
-    }
-}
-
-public struct JevGatewayProvider: AIProvider, Sendable {
-    private let provider: OpenAICompatibleProvider
-
-    public init(
-        baseURL: URL,
-        model: String,
-        token: String? = nil,
-        keychainService: String? = nil,
-        keychain: KeychainHelper = KeychainHelper(),
-        session: URLSession = .shared
-    ) {
-        provider = OpenAICompatibleProvider(
-            baseURL: baseURL,
-            model: model,
-            token: token,
-            keychainService: keychainService,
-            keychain: keychain,
-            session: session,
-            requiresAPIKey: false
-        )
-    }
-
-    public func chat(messages: [ChatMessage], model: String?) async throws -> ChatResponse {
-        try await provider.chat(messages: messages, model: model)
-    }
-
-    public func chatStream(messages: [ChatMessage], model: String?) -> AsyncThrowingStream<ChatStreamChunk, Error> {
-        provider.chatStream(messages: messages, model: model)
     }
 }
 

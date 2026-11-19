@@ -38,9 +38,9 @@ struct FourLayerAdviceEngineTests {
         #expect(Set(PluggableAIProvider.allCases) == [.foundationModels, .customOpenAICompatible, .jevGateway, .deterministicFallback])
         let config = UserAIModelConfiguration(provider: .deterministicFallback)
         let provider = config.makeProvider()
-        let response = try await provider.chat(messages: [ChatMessage(role: "user", content: "hello")], model: nil)
-        #expect(response.model == "deterministic-fallback")
-        #expect(response.content.contains("available"))
+        await #expect(throws: AIServiceError.self) {
+            try await provider.chat(messages: [ChatMessage(role: "user", content: "hello")], model: nil)
+        }
     }
 
     private func snapshot() -> PhysiologicalSnapshot {

@@ -14,17 +14,35 @@ public struct UserAIModelConfiguration: Codable, Sendable, Equatable {
     public let baseURL: URL?
     public let modelID: String?
     public let keychainService: String?
+    public let allowsUnauthenticatedGateway: Bool
 
     public init(
         provider: PluggableAIProvider,
         baseURL: URL? = nil,
         modelID: String? = nil,
-        keychainService: String? = nil
+        keychainService: String? = nil,
+        allowsUnauthenticatedGateway: Bool = false
     ) {
         self.provider = provider
         self.baseURL = baseURL
         self.modelID = modelID
         self.keychainService = keychainService
+        self.allowsUnauthenticatedGateway = allowsUnauthenticatedGateway
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case provider, baseURL, modelID, keychainService, allowsUnauthenticatedGateway
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            provider: try values.decode(PluggableAIProvider.self, forKey: .provider),
+            baseURL: try values.decodeIfPresent(URL.self, forKey: .baseURL),
+            modelID: try values.decodeIfPresent(String.self, forKey: .modelID),
+            keychainService: try values.decodeIfPresent(String.self, forKey: .keychainService),
+            allowsUnauthenticatedGateway: try values.decodeIfPresent(Bool.self, forKey: .allowsUnauthenticatedGateway) ?? false
+        )
     }
 
     public func makeProvider(
@@ -46,6 +64,7 @@ public struct UserAIModelConfiguration: Codable, Sendable, Equatable {
             return JevGatewayProvider(
                 baseURL: baseURL ?? Self.defaultJevBaseURL,
                 model: modelID ?? "jev-default",
+                allowsUnauthenticated: allowsUnauthenticatedGateway,
                 keychainService: keychainService,
                 keychain: keychain,
                 session: session
@@ -55,15 +74,15 @@ public struct UserAIModelConfiguration: Codable, Sendable, Equatable {
         }
     }
 
-    /// Builds a chain that always ends in the local deterministic engine. Apple
-    /// Intelligence remains ahead of network providers when it is registered.
+    /// Explicit remote modes are primary; foundation mode keeps Apple before GLM.
+    /// The final deterministic provider accepts physiological snapshots only.
     public func makeProviderChain(
         zhipuAPIKey: String? = nil,
         keychain: KeychainHelper = KeychainHelper(),
         session: URLSession = .shared
     ) -> AIProviderChain {
         var entries: [AIProviderChain.ProviderEntry] = []
-        if provider != .deterministicFallback {
+        if provider == .foundationModels {
             entries.append(.init(
                 name: "apple_intelligence",
                 isAvailable: { AppleIntelligenceProvider.isAvailable },
@@ -76,10 +95,23 @@ public struct UserAIModelConfiguration: Codable, Sendable, Equatable {
             break
         case .customOpenAICompatible, .jevGateway:
             let configured = makeProvider(keychain: keychain, session: session)
-            entries.append(.init(name: provider.rawValue, isAvailable: { true }, provider: configured))
+            entries.append(.init(name: provider.rawValue, isAvailable: {
+                guard let baseURL, ["https", "http"].contains(baseURL.scheme?.lowercased() ?? ""),
+                      baseURL.host != nil, let modelID,
+                      !modelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+                if let keychainService {
+                    do {
+                        return !(try keychain.load(service: keychainService))
+                            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    } catch {
+                        return false
+                    }
+                }
+                return provider == .jevGateway && allowsUnauthenticatedGateway
+            }, provider: configured))
         }
 
-        if let zhipuAPIKey {
+        if provider != .deterministicFallback, let zhipuAPIKey {
             entries.append(.init(
                 name: "zhipu",
                 isAvailable: { !zhipuAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
@@ -98,7 +130,8 @@ public struct UserAIModelConfiguration: Codable, Sendable, Equatable {
     public func makeRouter(
         zhipuAPIKey: String? = nil,
         keychain: KeychainHelper = KeychainHelper(),
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        deviceTier: @escaping @Sendable () -> DeviceTier = { DeviceTier.detect() }
     ) -> AIRouter {
         let chain = makeProviderChain(zhipuAPIKey: zhipuAPIKey, keychain: keychain, session: session)
         let providers = chain.providerEntries.map {
@@ -106,11 +139,12 @@ public struct UserAIModelConfiguration: Codable, Sendable, Equatable {
                 name: $0.name,
                 isAvailable: $0.isAvailable,
                 isOnDevice: $0.name == "apple_intelligence",
-                maxQuality: .high,
+                maxQuality: $0.name == "apple_intelligence" ? .medium : .high,
+                supportedTasks: $0.name == "deterministic_fallback" ? [.fourLayerAdvice] : Set(AITaskKind.allCases),
                 provider: $0.provider
             )
         }
-        return AIRouter(providers: providers)
+        return AIRouter(providers: providers, deviceTier: deviceTier)
     }
 
     private static let defaultOpenAIBaseURL = URL(string: "https://api.openai.com/v1") ?? URL(fileURLWithPath: "/")

@@ -14,9 +14,9 @@ red_lines:
   - Apple Intelligence 本地优先 + 智谱 GLM fallback 的 chain 顺序不得反转（宪法 V）
   - Swift 6 strict concurrency，provider 须 Sendable（宪法 II）
 roles:
-  Types:   [Models, AIProvider, AIAnalysisResponse, DataAnalysis, TrainingRecommendation, OverviewInsight, AIServiceError, AITaskKind, RoutingSignal, ShadowSignal, FourLayerModels, UserAIModelConfiguration]
+  Types:   [Models, AIProvider, AIAnalysisResponse, DataAnalysis, TrainingRecommendation, OverviewInsight, AIServiceError, AITaskKind, RoutingSignal, ShadowSignal, FourLayerModels]
   Repo:    [KeychainHelper]
-  Service: [AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler, OpenAICompatibleProvider, DeterministicFourLayerEngine, FourLayerAdviceEngine]
+  Service: [AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler, OpenAICompatibleProvider, JevGatewayProvider, DeterministicFourLayerEngine, FourLayerAdviceEngine, UserAIModelConfiguration]
 test: swift test --package-path Packages/AIService
 owns: [AIProvider, AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, OpenAICompatibleProvider, JevGatewayProvider, DeterministicFourLayerEngine, FourLayerAdviceEngine, AIRouter, AIRoutingBandit, RatioShadowSampler]
 ---
@@ -56,14 +56,59 @@ public protocol AIProvider: Sendable {
 
 ### 可插拔模型与四层建议
 
-`UserAIModelConfiguration` 使用 `PluggableAIProvider` 选择 Foundation Models、任意
-OpenAI-compatible endpoint、Jev gateway 或 `DeterministicFourLayerEngine`。网络 provider
-仅通过 `URLSession` 发起 REST/SSE 请求；配置只保存 endpoint、model ID 与 Keychain service
-name，不保存 secret。配置装配的 chain 始终以本地 deterministic fallback 收尾。
+`UserAIModelConfiguration` 使用 `PluggableAIProvider` 选择四种模式：
 
-`FourLayerModels.swift` 保留与 VitalModels physiological DTO 相同的 JSON 字段；AIService
-不依赖 VitalModels。`FourLayerAdviceEngine` 解码模型输出失败时直接返回 deterministic
-L1→L4 report，避免离线或 malformed response 产生空建议。
+- `foundationModels`：Apple Intelligence → 可选 Zhipu → physiological deterministic fallback。
+- `customOpenAICompatible` / `jevGateway`：显式选择的 remote → 可选 Zhipu → physiological
+  fallback；不偷偷插入 Apple 覆盖显式选择。remote availability 要求明确 HTTP(S) endpoint、非空
+  model ID 以及可读取的非空 Keychain key。Jev 仅在显式 `allowsUnauthenticatedGateway: true`
+  且未声明 token/service 时允许匿名；配置了 service 却缺 key/访问失败不得降级匿名。
+- `deterministicFallback`：仅 deterministic，不访问网络，即便传入 Zhipu key。
+
+`AIProviderChain.makeDefault` / `AIRouter.makeDefault` 保持原来的 Apple → 可选 Zhipu，**不添加**
+专用于生理数据的 fallback。配置 router 保持 Apple `maxQuality: .medium` 与设备能力 gate；
+`RegisteredProvider.supportedTasks` 将 deterministic 限于 `.fourLayerAdvice`，其它 provider 默认
+支持所有 task。直接 chain 中 deterministic 也仅接受可解码的 `PhysiologicalSnapshot`，其它
+chat 输入抛 `noProviderAvailable`，不伪造成功。FourLayerAdviceEngine 才保证离线建议。
+
+网络 provider 只用 `URLSession` REST/SSE；配置 Codable 只存 endpoint、model ID、Keychain service
+和匿名 opt-in，不存 secret。public raw key/token 注入仅为瞬态内存使用，与现有 Zhipu 接口一致；
+持久化只走 Keychain。`itemNotFound` 映射 `missingAPIKey`，locked/unexpected-data 等真实 Keychain
+失败保留原错误，不记录 service/endpoint/model/secret/prompt/response。SSE 遇 `[DONE]` 或 finish_reason
+结束，malformed data / 无终止标记的 EOF 为错误；consumer 终止取消 producer。chain 不因取消启动 fallback。
+
+### 生理 wire 与 unknown 数据
+
+`FourLayerModels.swift` 与 VitalModels `DTOs/PhysiologicalMetrics.swift` 同步，无 package dependency。
+日期是默认 Codable 的 2001-01-01 起秒数；心率/HRR 为 bpm，HRV 为 ms；睡眠/站立/Zone 1–5
+为秒，energy 为 kcal，EF 为 (km/h)/bpm，Pa:Hr 为百分比，VO2max 为 mL/(kg·min)，cap/efficiency
+为 0...1。ATL/CTL 是归一化日训练 stress 的 7/42d EWMA，TSB=CTL−ATL，附 7/14d delta/trajectory。
+`availableDomains` 与各 metric 的 availability/睡眠观测夜数共同判断缺失；未知 L1 的 `value` 为 nil、
+severity 为 watch，不能用零负债/零负荷表示完美恢复。
+
+两包 Tests/Fixtures 的五份 synthetic canonical JSON 具有相同 SHA-256。通过 #filePath 定位 source
+fixtures（manifest exclude，不生成会遮蔽生产本地化 bundle 的 test Bundle.module）。各包独立 decode 并将实际
+encode 的结果规范化后逐字节比对 fixture：仅规范化 Set 顺序、enum-key dictionary alternating-array
+顺序与 JSON object key 顺序；不忽略字段/数值。覆盖 full/steps-only/all-missing、所有 enum case、
+完整 report、strength projection 与 legacy optional/default 缺省；不引入跨包依赖。
+
+### L1 → L4 规则及模型校验
+
+L1 包含 RHR-baseline、HRV current/7d/60d、Zones1–5、HRR1/2、睡眠阶段/效率/7d14d debt/coverage、
+NEAT/energy/stand、EF/Pa:Hr/VO2、ATL/CTL/TSB/ratio/trajectory delta。L3 的 autonomic/sleep/fatigue
+各自缺失时保守取 40，不等于医学判断；缺关键域时 cap 至多 0.6。L2 将 Deep/REM/效率/debt ×
+fatigue/Zone4–5，以及 movement/非运动支出 × heart/load recovery 的不匹配计入 readiness penalty。
+没有 intake 或 body-composition 字段，不声称从支出算出热量平衡或身体成分变化。
+mesocycle 优先过载 deload，其次 ATL 下降/TSB 回升的 realization、上升负荷的 intensification，
+其余 accumulation；按 as-of 剔除未来 trajectory。阈值为 coaching heuristics，不做临床诊断。
+L4 综合 recovery、movement、aerobic，输出非空叙事和 1–3 个行动。
+
+固定 snapshot/as-of 的 fallback 完全确定，默认 report 时间取 snapshot.generatedAt（可显式覆盖）。
+`FourLayerAdviceEngine` 使用包含完整字段、单位、范围与示例的 schema prompt；用独立 raw Decodable
+读取响应，**在**公共 DTO clamp/default 前检查全部 L1 metric/domain、两条 coupling、必填 sub-scores、
+raw 0...100 score、finite 0...1 cap、非空贡献/叙事与 1–3 非空 actions、匹配 as-of。缺字段/越界/空语义、
+availability/network/parse 错误均 fallback。`generateCancellable` 传播 cancellation；source-compatible
+非抛出 `generate` / `synthesize` 刻意在取消时立即返回本地建议，不重试模型。
 
 ### AIRouter（chain 的上层入口）
 
