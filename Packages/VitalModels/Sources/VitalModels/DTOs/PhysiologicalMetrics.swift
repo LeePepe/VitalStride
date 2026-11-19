@@ -372,15 +372,52 @@ public struct L2CoupledInsight: Codable, Sendable, Equatable {
 
 public struct L3ReadinessAndCycleInsight: Codable, Sendable, Equatable {
     public let readinessScore: Int
+    public let autonomicScore: Int
+    public let sleepRestorationScore: Int
+    public let fatigueBalanceScore: Int
     public let mesocyclePhase: MesocyclePhase
     public let recommendedIntensityCap: Double
     public let contributingInsights: [String]
 
-    public init(readinessScore: Int, mesocyclePhase: MesocyclePhase, recommendedIntensityCap: Double, contributingInsights: [String] = []) {
+    public init(
+        readinessScore: Int,
+        autonomicScore: Int = 0,
+        sleepRestorationScore: Int = 0,
+        fatigueBalanceScore: Int = 0,
+        mesocyclePhase: MesocyclePhase,
+        recommendedIntensityCap: Double,
+        contributingInsights: [String] = []
+    ) {
         self.readinessScore = min(max(readinessScore, 0), 100)
+        self.autonomicScore = min(max(autonomicScore, 0), 100)
+        self.sleepRestorationScore = min(max(sleepRestorationScore, 0), 100)
+        self.fatigueBalanceScore = min(max(fatigueBalanceScore, 0), 100)
         self.mesocyclePhase = mesocyclePhase
         self.recommendedIntensityCap = min(max(recommendedIntensityCap, 0), 1)
         self.contributingInsights = contributingInsights
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case readinessScore
+        case autonomicScore
+        case sleepRestorationScore
+        case fatigueBalanceScore
+        case mesocyclePhase
+        case recommendedIntensityCap
+        case contributingInsights
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            readinessScore: try container.decode(Int.self, forKey: .readinessScore),
+            autonomicScore: try container.decodeIfPresent(Int.self, forKey: .autonomicScore) ?? 0,
+            sleepRestorationScore: try container.decodeIfPresent(Int.self, forKey: .sleepRestorationScore) ?? 0,
+            fatigueBalanceScore: try container.decodeIfPresent(Int.self, forKey: .fatigueBalanceScore) ?? 0,
+            mesocyclePhase: try container.decode(MesocyclePhase.self, forKey: .mesocyclePhase),
+            recommendedIntensityCap: try container.decode(Double.self, forKey: .recommendedIntensityCap),
+            contributingInsights: try container.decodeIfPresent([String].self, forKey: .contributingInsights) ?? []
+        )
     }
 }
 

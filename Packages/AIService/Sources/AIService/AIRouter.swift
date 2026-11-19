@@ -155,6 +155,14 @@ public struct AIRouter: Sendable {
             ))
         }
 
+        providers.append(RegisteredProvider(
+            name: "deterministic_fallback",
+            isAvailable: { true },
+            isOnDevice: false,
+            maxQuality: .high,
+            provider: DeterministicFourLayerEngine()
+        ))
+
         return AIRouter(providers: providers)
     }
 
@@ -198,6 +206,12 @@ public struct AIRouter: Sendable {
             carriesHealthData: true
         ),
         .dataTrend: TaskRequirements(
+            latency: .interactive,
+            quality: .high,
+            structured: true,
+            carriesHealthData: true
+        ),
+        .fourLayerAdvice: TaskRequirements(
             latency: .interactive,
             quality: .high,
             structured: true,

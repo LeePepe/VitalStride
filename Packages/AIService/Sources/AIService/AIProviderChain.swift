@@ -44,6 +44,8 @@ public struct AIProviderChain: AIProvider, Sendable {
         self.entries = entries
     }
 
+    public var providerEntries: [ProviderEntry] { entries }
+
     public static func makeDefault(zhipuAPIKey: String?) -> AIProviderChain {
         var entries: [ProviderEntry] = []
 
@@ -60,6 +62,12 @@ public struct AIProviderChain: AIProvider, Sendable {
                 provider: ZhipuProvider(apiKey: key)
             ))
         }
+
+        entries.append(ProviderEntry(
+            name: "deterministic_fallback",
+            isAvailable: { true },
+            provider: DeterministicFourLayerEngine()
+        ))
 
         return AIProviderChain(entries: entries)
     }

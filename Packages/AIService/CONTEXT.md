@@ -14,11 +14,11 @@ red_lines:
   - Apple Intelligence 本地优先 + 智谱 GLM fallback 的 chain 顺序不得反转（宪法 V）
   - Swift 6 strict concurrency，provider 须 Sendable（宪法 II）
 roles:
-  Types:   [Models, AIProvider, AIAnalysisResponse, DataAnalysis, TrainingRecommendation, OverviewInsight, AIServiceError, AITaskKind, RoutingSignal, ShadowSignal]
+  Types:   [Models, AIProvider, AIAnalysisResponse, DataAnalysis, TrainingRecommendation, OverviewInsight, AIServiceError, AITaskKind, RoutingSignal, ShadowSignal, FourLayerModels, UserAIModelConfiguration]
   Repo:    [KeychainHelper]
-  Service: [AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler]
+  Service: [AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler, OpenAICompatibleProvider, DeterministicFourLayerEngine, FourLayerAdviceEngine]
 test: swift test --package-path Packages/AIService
-owns: [AIProvider, AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, AIRouter, AIRoutingBandit, RatioShadowSampler]
+owns: [AIProvider, AIProviderChain, ZhipuProvider, AppleIntelligenceProvider, OpenAICompatibleProvider, JevGatewayProvider, DeterministicFourLayerEngine, FourLayerAdviceEngine, AIRouter, AIRoutingBandit, RatioShadowSampler]
 ---
 
 # AIService Context
@@ -53,6 +53,17 @@ public protocol AIProvider: Sendable {
 | ZhipuProvider | GLM-4-Flash (free) / GLM-4-Plus (paid) | 云端，OpenAI 兼容 REST API |
 
 智谱 API：`https://open.bigmodel.cn/api/paas/v4/chat/completions`，API Key 存储在 Keychain。
+
+### 可插拔模型与四层建议
+
+`UserAIModelConfiguration` 使用 `PluggableAIProvider` 选择 Foundation Models、任意
+OpenAI-compatible endpoint、Jev gateway 或 `DeterministicFourLayerEngine`。网络 provider
+仅通过 `URLSession` 发起 REST/SSE 请求；配置只保存 endpoint、model ID 与 Keychain service
+name，不保存 secret。配置装配的 chain 始终以本地 deterministic fallback 收尾。
+
+`FourLayerModels.swift` 保留与 VitalModels physiological DTO 相同的 JSON 字段；AIService
+不依赖 VitalModels。`FourLayerAdviceEngine` 解码模型输出失败时直接返回 deterministic
+L1→L4 report，避免离线或 malformed response 产生空建议。
 
 ### AIRouter（chain 的上层入口）
 

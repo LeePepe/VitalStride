@@ -16,7 +16,6 @@ public struct ZhipuProvider: AIProvider, Sendable {
 
     public func chat(messages: [ChatMessage], model: String?) async throws -> ChatResponse {
         let selectedModel = model ?? defaultModel
-        logger.info("Starting chat request: model=\(selectedModel), mode=normal")
         let startTime = CFAbsoluteTimeGetCurrent()
 
         let request = try buildRequest(messages: messages, model: selectedModel, stream: false)
@@ -24,17 +23,13 @@ public struct ZhipuProvider: AIProvider, Sendable {
         try validateHTTPResponse(urlResponse)
 
         guard let body = try? JSONDecoder().decode(ChatCompletionResponse.self, from: data) else {
-            logger.error("Response parsing failed for model=\(selectedModel)")
+            logger.error("Response parsing failed")
             throw AIServiceError.responseParsingFailed
         }
 
         let elapsed = CFAbsoluteTimeGetCurrent() - startTime
         let usage = body.usage.map { ChatResponse.Usage(promptTokens: $0.promptTokens, completionTokens: $0.completionTokens) }
-        if let u = body.usage {
-            logger.info("Chat completed: elapsed=\(String(format: "%.2f", elapsed))s, promptTokens=\(u.promptTokens), completionTokens=\(u.completionTokens)")
-        } else {
-            logger.info("Chat completed: elapsed=\(String(format: "%.2f", elapsed))s")
-        }
+        logger.info("Chat completed: elapsed=\(String(format: "%.2f", elapsed))s")
 
         let content = body.choices.first?.message.content ?? ""
         return ChatResponse(content: content, model: body.model, usage: usage)
@@ -42,8 +37,6 @@ public struct ZhipuProvider: AIProvider, Sendable {
 
     public func chatStream(messages: [ChatMessage], model: String?) -> AsyncThrowingStream<ChatStreamChunk, Error> {
         let selectedModel = model ?? defaultModel
-        logger.info("Starting chat request: model=\(selectedModel), mode=streaming")
-
         return AsyncThrowingStream { continuation in
             let task = Task {
                 var chunksReceived = 0
