@@ -352,9 +352,12 @@ struct OverviewDisplayLogicTests {
             )
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: directory) }
-            let exportDirectory = URL(fileURLWithPath: ProcessInfo.processInfo.environment["VS_UI_L4_SNAPSHOT_DIR"] ?? "/Users/lee/Development/handoff/vs-ui-l4-holistic-dashboard/snapshots", isDirectory: true)
-            let canExport = FileManager.default.fileExists(atPath: exportDirectory.deletingLastPathComponent().path)
-            if canExport { try FileManager.default.createDirectory(at: exportDirectory, withIntermediateDirectories: true) }
+            let exportDirEnv = ProcessInfo.processInfo.environment["VS_UI_L4_SNAPSHOT_DIR"]?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let exportDirectory = exportDirEnv.flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true) }
+            if let exportDirectory {
+                try FileManager.default.createDirectory(at: exportDirectory, withIntermediateDirectories: true)
+            }
 
             let states = ["populated", "empty", "loading", "error"]
             let appearances: [(String, ColorScheme)] = [("light", .light), ("dark", .dark)]
@@ -403,7 +406,7 @@ struct OverviewDisplayLogicTests {
                             "tk2-overview-\(state)-\(appearanceName)-\(width)x\(height).png"
                         )
                         try data.write(to: url, options: .atomic)
-                        if canExport, width == 393, height == 852 {
+                        if let exportDirectory, width == 393, height == 852 {
                             let exportURL = exportDirectory.appendingPathComponent("state-\(state)-\(appearanceName).png")
                             try data.write(to: exportURL, options: .atomic)
                         }
