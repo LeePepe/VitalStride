@@ -436,18 +436,35 @@ public struct HolisticDashboardV06View: View {
             VStack(alignment: .leading, spacing: Space.lg) {
                 Card {
                     SectionHeader("Mesocycle horizon", icon: "calendar")
-                    HStack(spacing: 0) {
-                        ForEach(["Accumulation", "Intensification", "Realization", "Deload"], id: \.self) { phase in
-                            VStack(spacing: Space.xs) {
-                                Circle().fill(phase == report.phase ? theme.accent : theme.border.opacity(0.25)).frame(width: 14, height: 14)
-                                Text(phase)
+                    HStack(spacing: Space.xs) {
+                        ForEach(
+                            [
+                                ("Accumulation", "Build"),
+                                ("Intensification", "Intensify"),
+                                ("Realization", "Peak"),
+                                ("Deload", "Deload")
+                            ],
+                            id: \.0
+                        ) { fullPhase, shortLabel in
+                            VStack(spacing: Space.xxs) {
+                                Circle()
+                                    .fill(fullPhase == report.phase ? theme.accent : theme.border.opacity(0.25))
+                                    .frame(width: 14, height: 14)
+                                Text(shortLabel)
                                     .font(TypeScale.meta)
                                     .lineLimit(1)
-                                    .minimumScaleFactor(0.85)
+                                    .minimumScaleFactor(0.9)
+                                    .layoutPriority(1)
                                     .frame(maxWidth: .infinity)
                             }
-                            if phase != "Deload" { Rectangle().fill(theme.border.opacity(0.25)).frame(maxWidth: .infinity).frame(height: 1) }
                         }
+                    }
+                    .background(alignment: .top) {
+                        Rectangle()
+                            .fill(theme.border.opacity(0.25))
+                            .frame(height: 1)
+                            .padding(.horizontal, Space.lg)
+                            .padding(.top, 7)
                     }
                     HStack { PreviewScore(title: "North star", value: report.northStarScore, accent: theme.accent); Spacer(); PreviewScore(title: "Readiness", value: report.readinessScore, accent: theme.success) }
                 }
@@ -543,12 +560,15 @@ public struct HolisticDashboardV09View: View {
     public init(data: HolisticDashboardPreviewData = .init()) { self.data = data }
     public var body: some View {
         PreviewScaffold(data: data) { report in
-            VStack(alignment: .center, spacing: Space.lg) {
+            VStack(alignment: .center, spacing: Space.sm) {
                 Card {
                     VStack(spacing: Space.sm) {
                         PreviewScoreArc(score: report.northStarScore, color: theme.accent)
                         StatusPill(report.phase, tone: .primary)
-                        Text(report.directive).font(TypeScale.body).multilineTextAlignment(.center)
+                        Text(report.directive)
+                            .font(TypeScale.body)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                     }.frame(maxWidth: .infinity)
                 }
                 Card {
@@ -570,13 +590,27 @@ public struct HolisticDashboardV10View: View {
         PreviewScaffold(data: data) { report in
             VStack(alignment: .leading, spacing: Space.sm) {
                 Card {
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]) {
+                    HStack(alignment: .top) {
                         PreviewScore(title: "L4", value: report.northStarScore, accent: theme.accent)
+                        Spacer(minLength: Space.xs)
                         PreviewScore(title: "L3", value: report.readinessScore, accent: theme.success)
+                        Spacer(minLength: Space.xs)
                         PreviewScore(title: "Cap", value: Int((report.intensityCap * 100).rounded()), accent: theme.warning)
-                        VStack(alignment: .leading) { Text("Phase").font(TypeScale.meta); Text(report.phase).font(TypeScale.meta) }
+                        Spacer(minLength: Space.xs)
+                        VStack(alignment: .trailing, spacing: Space.xxs) {
+                            Text("Phase").font(TypeScale.meta).foregroundStyle(theme.secondaryForeground)
+                            StatusPill(report.phase, tone: .primary)
+                        }
                     }
-                    CardInner { HStack { Text(report.directive).font(TypeScale.body); Spacer(); StatusPill(report.provider.label, tone: .primary) } }
+                    CardInner {
+                        HStack(alignment: .top, spacing: Space.xs) {
+                            Text(report.directive)
+                                .font(TypeScale.body)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: Space.xs)
+                            StatusPill(report.provider.label, tone: .primary)
+                        }
+                    }
                 }
                 Card {
                     PreviewPillarRows(report: report)
