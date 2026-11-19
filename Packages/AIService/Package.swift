@@ -11,7 +11,8 @@ let package = Package(
         .target(name: "AIService"),
         .testTarget(
             name: "AIServiceTests",
-            dependencies: ["AIService"]
+            dependencies: ["AIService"],
+            exclude: ["Fixtures"]
         ),
     ]
 )

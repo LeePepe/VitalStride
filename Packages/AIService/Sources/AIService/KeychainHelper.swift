@@ -30,7 +30,11 @@ public enum KeychainError: Error, Sendable, LocalizedError {
 public struct KeychainHelper: Sendable {
     public static let defaultServicePrefix = "com.vitalstride.aiservice"
 
-    public init() {}
+    private let loadOverride: (@Sendable (String) throws -> String)?
+
+    public init() { loadOverride = nil }
+
+    init(load: @escaping @Sendable (String) throws -> String) { loadOverride = load }
 
     public func save(key: String, service: String) throws {
         let data = Data(key.utf8)
@@ -55,10 +59,11 @@ public struct KeychainHelper: Sendable {
             logger.error("Keychain save failed: status=\(status)")
             throw KeychainError.saveFailed(status: status)
         }
-        logger.info("Keychain item saved for service=\(service)")
+        logger.info("Keychain item saved")
     }
 
     public func load(service: String) throws -> String {
+        if let loadOverride { return try loadOverride(service) }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -78,7 +83,7 @@ public struct KeychainHelper: Sendable {
             throw KeychainError.loadFailed(status: status)
         }
         guard let data = result as? Data, let value = String(data: data, encoding: .utf8) else {
-            logger.error("Keychain data format unexpected for service=\(service)")
+            logger.error("Keychain data format unexpected")
             throw KeychainError.unexpectedData
         }
         return value
@@ -96,6 +101,6 @@ public struct KeychainHelper: Sendable {
             logger.error("Keychain delete failed: status=\(status)")
             throw KeychainError.deleteFailed(status: status)
         }
-        logger.info("Keychain item deleted for service=\(service)")
+        logger.info("Keychain item deleted")
     }
 }

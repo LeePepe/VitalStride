@@ -12,6 +12,7 @@ public enum AITaskKind: String, Sendable, CaseIterable, Codable {
     case overviewInsights
     case trainingAdvice
     case dataTrend
+    case fourLayerAdvice
     case substitute
 }
 

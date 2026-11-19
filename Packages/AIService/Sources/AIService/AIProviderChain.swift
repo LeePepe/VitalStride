@@ -44,6 +44,8 @@ public struct AIProviderChain: AIProvider, Sendable {
         self.entries = entries
     }
 
+    public var providerEntries: [ProviderEntry] { entries }
+
     public static func makeDefault(zhipuAPIKey: String?) -> AIProviderChain {
         var entries: [ProviderEntry] = []
 
@@ -81,14 +83,19 @@ public struct AIProviderChain: AIProvider, Sendable {
 
         var lastError: Error = AIServiceError.noProviderAvailable
         for entry in availableEntries {
+            try Task.checkCancellation()
             let signpostID = signposter.makeSignpostID()
             let state = signposter.beginInterval("ai_provider_chat", id: signpostID, "provider=\(entry.name)")
             do {
                 let response = try await entry.provider.chat(messages: messages, model: model)
+                try Task.checkCancellation()
                 signposter.endInterval("ai_provider_chat", state)
                 return ChatOutcome(response: response, providerName: entry.name)
             } catch {
                 signposter.endInterval("ai_provider_chat", state)
+                if error is CancellationError || Task.isCancelled || (error as? URLError)?.code == .cancelled {
+                    throw CancellationError()
+                }
                 let category = Self.errorCategory(error)
                 logger.log("Fallback: provider=\(entry.name) failed at runtime, reason=\(category)")
                 lastError = error

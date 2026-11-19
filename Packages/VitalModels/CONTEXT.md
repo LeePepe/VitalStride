@@ -15,7 +15,7 @@ red_lines:
   - RoutingSignalEntry 永久字段清单 = {kind, provider, deviceTier, latencyMs, schemaValid, accepted, timestamp}；raw 调试字段已由 FR-017 / Stage 6e 永久移除，不得重新引入（宪法 I 永久态）
   - BanditArmStateEntry 永久字段清单 = {kind, deviceTier, provider, count, rewardSum, updatedAt}；不得追加任何健康/训练数值字段（宪法 I 永久态）
 roles:
-  Types:  [Enums, Models]
+  Types:  [Enums, Models, DTOs]
   Config: [Persistence]
   Repo:   [Repo]
 test: swift test --package-path Packages/VitalModels
@@ -89,6 +89,40 @@ WorkoutTemplate → TemplateExercise（训练模板）
 - TimeRange: day / week / month / year（图表时间范围）
 - WorkoutSource: recorded / imported / healthkit
 - WorkoutType: strength（可扩展）
+- HeartRateZone, InsightSeverity, InsightDomain, MesocyclePhase（生理与四层建议枚举）
+
+## 生理指标与四层建议 DTOs (`Sources/VitalModels/DTOs/PhysiologicalMetrics.swift`)
+
+所有 DTO 为 `Codable + Sendable + Equatable` 纯值类型（归属 `roles.Types`），不包含 `@Model` 引用，严禁携带 `NaN` / `±Infinity`（初始化与解码统一做有限值/生理区间收敛）：
+
+- **Heart**:
+  - `RestingHeartRateSummary`: 单位 `bpm`；包含 `averageBPM`、最新观测 `currentBPM`、7 日均值 `sevenDayAverageBPM`、60 日每日均值基线 `baselineBPM` 及 `deltaFromBaselineBPM`。
+  - `HRVCorridorSnapshot`: 单位 `ms` (SDNN)；包含 60 日基线均值 `baselineMilliseconds` 与上下走廊 `[lowerBoundMilliseconds, upperBoundMilliseconds]`，以及实测最新值 `currentMilliseconds` 与 7 日滚动均值 `sevenDayAverageMilliseconds`。`isWithinCorridor` 以实测 `currentMilliseconds` / `sevenDayAverageMilliseconds` 与 60 日走廊比较，无有效样本时为 `false`。
+  - `HeartRateZoneDistribution`: 单位 `seconds` (`TimeInterval`)；记录 Zone 1–5 累计时长及有效最大心率 `resolvedMaximumHeartRateBPM`。
+  - `HeartRateRecoveryMetric`: 单位 `bpm`；锚定最近已完成训练 `workoutEndDate` 结束时刻的 `baselineBPM`，以及训后 +60s / +120s 观测值与下降量 (`oneMinuteDropBPM` / `twoMinuteDropBPM`)。
+- **Sleep**:
+  - `SleepArchitectureSnapshot`: 单位 `seconds`；记录单晚（或归并后最新睡眠夜）的 `deepDuration`、`remDuration`、`coreDuration`、`awakeDuration`、`inBedDuration`、`totalSleepDuration` 与效率 `sleepEfficiency` (`0...1`)。
+  - `SleepDebtSummary`: 单位 `seconds`；记录过去 7/14 个日历夜相对目标/个人基线的睡眠负债 `sevenDayDebt` / `fourteenDayDebt`，并显式携带观测夜数与缺失夜数 (`observedNightCount7d` / `missingNightCount7d` / `observedNightCount14d` / `missingNightCount14d` / `isAvailable`)，缺失夜不伪造健康零负债。
+- **Steps & NEAT**:
+  - `NEATActivitySnapshot`: 包含当日总步数 `dailySteps`、剔除训练窗口后的 `nonWorkoutSteps`、`nonExerciseActiveEnergy` (`kcal`)、被剔除的训练活动能量 `workoutActiveEnergyExcluded` (`kcal`)、`basalEnergy` (`kcal`)、站立时长 `standDuration` (`seconds`)、非训练活跃小时数 `activeNonWorkoutHourCount`、按小时非训练活动分布 `hourlyNonWorkoutDistribution` 与一致性得分 `hourlyMovementConsistency` (`0...1`)。
+- **Aerobic & VO2max**:
+  - `AerobicEfficiencySnapshot`: 有氧效率因子 `efficiencyFactor` (`(km/h) / bpm`)、前后半程解耦率 `aerobicDecouplingPercentage` (`%`)、最新 `vo2Max` (`mL/(kg·min)`) 及趋势 `vo2MaxTrend`。
+- **Training Load & Actor-Safe Workout Projection**:
+  - `StrengthWorkoutSummaryInput`: 力量训练纯值投影（`startDate`, `endDate`, `workingVolume` [kg], `setCount` [已完成正式组], `estimatedRPE` [0...10], `healthKitUUID`）。`Workout.makeStrengthWorkoutSummaryInput(defaultRPE:)` / `Workout.strengthSummaryInput` 在 `@Model` 所在上下文安全提取纯值，不跨 actor 泄露 `@Model` 实例，并保留 `healthKitUUID` 供 HealthKit 镜像去重。
+  - `TrainingLoadSnapshot`: 归一化日训练负荷的 7 日 `acuteTrainingLoad` (`ATL`)、42 日 `chronicTrainingLoad` (`CTL`)、`trainingStressBalance` (`TSB = CTL - ATL`)、`acuteChronicWorkloadRatio` (`ACWR`)，以及 7d/14d 负荷变化率 (`atlDelta7d`, `ctlDelta7d`, `ctlDelta14d`, `tsbDelta7d`) 与 `recentTrajectory` (`[TrainingLoadDailyPoint]`)。
+- **Aggregate & Four-Layer Report**:
+  - `PhysiologicalSnapshot`: 聚合五大生理域并显式记录 `availableDomains: Set<InsightDomain>`，支持部分权限（如仅步数或缺失睡眠/HRV）优雅降级。
+  - `L1SingleMetricInsight`, `L2CoupledInsight`, `L3ReadinessAndCycleInsight`, `L4HolisticNorthStarInsight`, `HolisticFourLayerReport`: 四层建议结构，保持向后兼容解码。
+
+## JSON wire 合同验证
+
+`Tests/VitalModelsTests/Fixtures` 与独立 AIService test target 持有相同五份 canonical synthetic
+JSON payload（full / steps-only / all-missing snapshot、四个 mesocycle 的完整 report、strength input）。
+测试以 #filePath 读取 source fixture，manifest exclude 避免新 test Bundle.module 遮蔽生产本地化 bundle。
+两个模块各自验证固定 SHA-256、decode 后的业务字段，并把真实 encode 的结果规范化后逐字节比对原
+fixture；仅排序 JSON keys、availableDomains Set 与 enum-key dictionary 的 alternating pairs，不忽略
+任何字段/数值。另验证旧 JSON 的缺省字段和 optional 字段。AIService 继续 `depends_on: []`，本包的
+`PhysiologicalMetrics.swift` 是 DTO 真理源；字段变更须同步其 `FourLayerModels.swift` 以及两包 fixture。
 
 ## 依赖
 

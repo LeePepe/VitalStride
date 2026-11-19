@@ -37,6 +37,7 @@ public struct AIRouter: Sendable {
         /// pick the cloud provider directly, without reversing chain order for
         /// tasks that don't need it.
         public let maxQuality: QualityClass
+        public let supportedTasks: Set<AITaskKind>
         public let provider: any AIProvider
 
         public init(
@@ -44,12 +45,14 @@ public struct AIRouter: Sendable {
             isAvailable: @escaping @Sendable () -> Bool,
             isOnDevice: Bool,
             maxQuality: QualityClass,
+            supportedTasks: Set<AITaskKind> = Set(AITaskKind.allCases),
             provider: any AIProvider
         ) {
             self.name = name
             self.isAvailable = isAvailable
             self.isOnDevice = isOnDevice
             self.maxQuality = maxQuality
+            self.supportedTasks = supportedTasks
             self.provider = provider
         }
     }
@@ -198,6 +201,12 @@ public struct AIRouter: Sendable {
             carriesHealthData: true
         ),
         .dataTrend: TaskRequirements(
+            latency: .interactive,
+            quality: .high,
+            structured: true,
+            carriesHealthData: true
+        ),
+        .fourLayerAdvice: TaskRequirements(
             latency: .interactive,
             quality: .high,
             structured: true,
@@ -448,7 +457,9 @@ public struct AIRouter: Sendable {
         // Step 3: capability match — drop providers that cannot meet the
         // requirement's quality bar. This is what makes `.chat` (`.high`) skip
         // the on-device arm and pick the cloud provider directly.
-        let capable = tierFiltered.filter { $0.maxQuality >= requirements.quality }
+        let capable = tierFiltered.filter {
+            $0.maxQuality >= requirements.quality && $0.supportedTasks.contains(kind)
+        }
 
         // Step 4: stable ordering — on-device first among the survivors.
         // Uses `enumerated()` to keep a deterministic tiebreaker so registration
