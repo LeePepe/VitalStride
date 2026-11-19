@@ -60,6 +60,7 @@ struct OverviewView: View {
                     reduceMotion ? nil : .easeInOut(duration: 0.3),
                     value: dynamicState.pendingHeadline != nil
                 )
+                .frame(maxWidth: Space.contentMaxWidth)
                 .padding()
             }
             .navigationTitle(String(localized: "overview_title", defaultValue: "概览"))
@@ -116,6 +117,12 @@ struct OverviewView: View {
 
     private var hasWorkoutData: Bool { !recentWorkouts.isEmpty }
 
+    private func retryHolisticDashboard() {
+        Task {
+            await holisticState.load(cache: healthDataCache, workouts: recentWorkouts, forceRefresh: true)
+        }
+    }
+
     /// Combined loading truth table: overview shows a single spinner while
     /// either the HealthKit snapshot or the dynamic insights phase is still
     /// loading. Normal content only reveals once both phases have finished.
@@ -159,7 +166,7 @@ struct OverviewView: View {
             EmptyView()
 
         case .dynamic(let insights, let lastUpdated):
-            HolisticDashboardSection(state: holisticState)
+            HolisticDashboardSection(state: holisticState, onRetry: retryHolisticDashboard)
             if let headline = dynamicState.pendingHeadline {
                 HeadlineBar(headline: headline) {
                     HeadlineBarTelemetry.recordTapped()
@@ -178,7 +185,10 @@ struct OverviewView: View {
             }
 
         case .fallback:
-            HolisticDashboardSection(state: holisticState)
+            HolisticDashboardSection(state: holisticState, onRetry: retryHolisticDashboard)
+            if let report = holisticState.report {
+                LastUpdatedLabel(date: report.generatedAt)
+            }
             OverviewFallbackContent(
                 snapshotState: snapshotState,
                 hasWorkoutData: hasWorkoutData,

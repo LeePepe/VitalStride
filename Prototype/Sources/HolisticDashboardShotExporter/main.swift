@@ -34,6 +34,7 @@ private func render(_ spec: ExportSpec, to outputDir: URL) throws {
     let content = view(for: spec)
         .environment(\.theme, theme)
         .environment(\.colorScheme, spec.isDark ? .dark : .light)
+        .padding(Space.md)
         .frame(width: 393, height: 852, alignment: .top)
         .background(theme.canvas)
     let renderer = ImageRenderer(content: content)
@@ -58,11 +59,6 @@ private func run() throws {
     for variant in 1...10 {
         for isDark in [false, true] {
             specs.append(ExportSpec(filename: String(format: "v%02d-%@.png", variant, isDark ? "dark" : "light"), variant: variant, state: .populated, isDark: isDark))
-        }
-    }
-    for state in HolisticPreviewState.allCases {
-        for isDark in [false, true] {
-            specs.append(ExportSpec(filename: "state-\(state.rawValue)-\(isDark ? "dark" : "light").png", variant: 1, state: state, isDark: isDark))
         }
     }
     for spec in specs { try render(spec, to: outputDir) }

@@ -17,12 +17,37 @@ final class HolisticDashboardState {
 
     private(set) var loadState: LoadState = .loading
     private(set) var report: AIService.HolisticFourLayerReport?
-    private(set) var provider: PluggableAIProvider = .deterministicFallback
+    private(set) var provider: PluggableAIProvider
     private let configuration: UserAIModelConfiguration
 
-    init(configuration: UserAIModelConfiguration = UserAIModelConfiguration(provider: .deterministicFallback)) {
-        self.configuration = configuration
-        self.provider = configuration.provider
+    init(configuration: UserAIModelConfiguration? = nil) {
+        let resolved = configuration ?? Self.resolveConfiguration()
+        self.configuration = resolved
+        self.provider = resolved.provider
+    }
+
+    static func resolveConfiguration(
+        defaults: UserDefaults = .standard,
+        keychain: KeychainHelper = KeychainHelper()
+    ) -> UserAIModelConfiguration {
+        if let data = defaults.data(forKey: "userAIModelConfiguration"),
+           let stored = try? JSONDecoder().decode(UserAIModelConfiguration.self, from: data) {
+            return stored
+        }
+        if AppleIntelligenceProvider.isAvailable {
+            return UserAIModelConfiguration(provider: .foundationModels)
+        }
+        let apiKeyService = "\(KeychainHelper.defaultServicePrefix).apikey"
+        if let apiKey = try? keychain.load(service: apiKeyService),
+           !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return UserAIModelConfiguration(
+                provider: .customOpenAICompatible,
+                baseURL: URL(string: "https://open.bigmodel.cn/api/paas/v4"),
+                modelID: "glm-4-flash",
+                keychainService: apiKeyService
+            )
+        }
+        return UserAIModelConfiguration(provider: .deterministicFallback)
     }
 
     func load(
@@ -62,10 +87,44 @@ final class HolisticDashboardState {
             return
         }
 
+        guard isProviderAvailable else {
+            report = await FourLayerAdviceEngine().generate(snapshot: snapshot, model: configuration.modelID)
+            provider = .deterministicFallback
+            loadState = .populated
+            return
+        }
         let provider = configuration.makeProvider()
         let engine = FourLayerAdviceEngine(provider: provider)
-        report = await engine.generate(snapshot: snapshot, model: configuration.modelID)
+        if configuration.provider == .deterministicFallback {
+            report = await engine.generate(snapshot: snapshot, model: configuration.modelID)
+            self.provider = .deterministicFallback
+        } else {
+            do {
+                report = try await engine.generateCancellable(snapshot: snapshot, model: configuration.modelID)
+                self.provider = configuration.provider
+            } catch {
+                report = await FourLayerAdviceEngine().generate(snapshot: snapshot, model: configuration.modelID)
+                self.provider = .deterministicFallback
+                loadState = .error
+                return
+            }
+        }
         loadState = .populated
+    }
+
+    func markError() {
+        report = nil
+        loadState = .error
+    }
+
+    func markEmpty() {
+        report = nil
+        loadState = .empty
+    }
+
+    func markLoading() {
+        report = nil
+        loadState = .loading
     }
 
     static func preview() -> HolisticDashboardState {
@@ -84,6 +143,25 @@ final class HolisticDashboardState {
         return state
     }
 
+    private var isProviderAvailable: Bool {
+        switch configuration.provider {
+        case .foundationModels:
+            return AppleIntelligenceProvider.isAvailable
+        case .deterministicFallback:
+            return true
+        case .customOpenAICompatible, .jevGateway:
+            guard let baseURL = configuration.baseURL,
+                  ["https", "http"].contains(baseURL.scheme?.lowercased() ?? ""),
+                  baseURL.host != nil,
+                  let modelID = configuration.modelID,
+                  !modelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+            if configuration.provider == .jevGateway, configuration.allowsUnauthenticatedGateway { return true }
+            guard let service = configuration.keychainService,
+                  let secret = try? KeychainHelper().load(service: service) else { return false }
+            return !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
     private func bridge(_ snapshot: VitalModels.PhysiologicalSnapshot) -> AIService.PhysiologicalSnapshot? {
         guard let data = try? JSONEncoder().encode(snapshot) else { return nil }
         return try? JSONDecoder().decode(AIService.PhysiologicalSnapshot.self, from: data)
@@ -91,28 +169,20 @@ final class HolisticDashboardState {
 }
 
 struct HolisticDashboardSection: View {
-    @Environment(\.theme) private var theme
     @Environment(AppNavigation.self) private var navigation
     let state: HolisticDashboardState
+    var onRetry: (() -> Void)? = nil
 
     var body: some View {
         switch state.loadState {
         case .loading:
-            EmptyView()
+            centeredState(.loading, title: L4Copy.loadingTitle, message: L4Copy.loadingMessage)
         case .empty:
-            DesignStateView(
-                .empty,
-                title: L4Copy.emptyTitle,
-                message: L4Copy.emptyMessage,
-                actionTitle: L4Copy.settingsAction
-            ) { navigation.selectedTab = .settings }
+            centeredState(.empty, title: L4Copy.emptyTitle, message: L4Copy.emptyMessage, actionTitle: L4Copy.settingsAction) {
+                navigation.selectedTab = .settings
+            }
         case .error:
-            DesignStateView(
-                .error,
-                title: L4Copy.errorTitle,
-                message: L4Copy.errorMessage,
-                actionTitle: L4Copy.retryAction
-            ) {}
+            centeredState(.error, title: L4Copy.errorTitle, message: L4Copy.errorMessage, actionTitle: L4Copy.retryAction, action: onRetry)
         case .populated:
             if let report = state.report {
                 VStack(alignment: .leading, spacing: Space.lg) {
@@ -123,6 +193,22 @@ struct HolisticDashboardSection: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func centeredState(
+        _ style: DesignStateView.State,
+        title: String,
+        message: String,
+        actionTitle: String? = nil,
+        action: (() -> Void)? = nil
+    ) -> some View {
+        VStack {
+            Spacer(minLength: Space.lg)
+            DesignStateView(style, title: title, message: message, actionTitle: actionTitle, action: action ?? {})
+            Spacer(minLength: Space.lg)
+        }
+        .frame(maxWidth: .infinity, minHeight: 780)
     }
 }
 
@@ -138,6 +224,7 @@ private struct L4NorthStarHeroCard: View {
                     Text(L4Copy.score(report.l4.northStarScore))
                         .font(TypeScale.metricXXL)
                         .monospacedDigit()
+                        .lineLimit(1)
                         .layoutPriority(1)
                     Text(report.l4.directive)
                         .font(TypeScale.body)
@@ -145,13 +232,33 @@ private struct L4NorthStarHeroCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: Space.xs)
-                RingGauge(value: Double(report.l4.northStarScore) / 100, size: 88, stroke: 8, color: theme.accent)
+                ScoreArcView(score: report.l4.northStarScore, color: theme.accent)
             }
-            HStack(spacing: Space.xs) {
-                StatusPill(L4Copy.phase(report.l3.mesocyclePhase), tone: .primary)
-                StatusPill(L4Copy.provider(.deterministicFallback), tone: .neutral)
-            }
+            StatusPill(L4Copy.phase(report.l3.mesocyclePhase), tone: .primary)
         }
+    }
+}
+
+private struct ScoreArcView: View {
+    @Environment(\.theme) private var theme
+    let score: Int
+    let color: Color
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(theme.border, lineWidth: 8)
+            Circle()
+                .trim(from: 0, to: CGFloat(min(max(score, 0), 100)) / 100)
+                .stroke(color, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Text("\(min(max(score, 0), 100))")
+                .font(TypeScale.display)
+                .monospacedDigit()
+                .lineLimit(1)
+                .layoutPriority(1)
+        }
+        .frame(width: 88, height: 88)
+        .accessibilityLabel(L4Copy.score(score))
     }
 }
 
@@ -161,31 +268,38 @@ private struct L3ReadinessGateCard: View {
 
     var body: some View {
         Card {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: Space.xs) {
-                    SectionHeader(L4Copy.readiness, icon: "heart.text.square")
-                    Text(L4Copy.score(report.l3.readinessScore))
-                        .font(TypeScale.metricXL)
-                        .monospacedDigit()
-                        .layoutPriority(1)
-                    StatusPill(L4Copy.gate(report.l3.readinessScore), tone: tone)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: Space.xs) {
-                    Text(L4Copy.intensityCap).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground)
-                    Text(L4Copy.percent(report.l3.recommendedIntensityCap))
-                        .font(TypeScale.num.weight(.semibold))
-                        .monospacedDigit()
-                        .layoutPriority(1)
-                    ProgressView(value: report.l3.recommendedIntensityCap)
-                        .tint(theme.warning)
-                        .frame(width: 104)
+            SectionHeader(L4Copy.readiness, icon: "heart.text.square")
+            CardInner {
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: Space.xs) {
+                        Text(L4Copy.readinessScore).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground)
+                        Text(L4Copy.score(report.l3.readinessScore))
+                            .font(TypeScale.metricXL)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .layoutPriority(1)
+                        StatusPill(L4Copy.gate(report.l3.readinessScore), tone: tone)
+                    }
+                    Spacer(minLength: Space.sm)
+                    VStack(alignment: .trailing, spacing: Space.xs) {
+                        Text(L4Copy.intensityCap).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground)
+                        Text(L4Copy.percent(report.l3.recommendedIntensityCap))
+                            .font(TypeScale.display)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .layoutPriority(1)
+                        ProgressView(value: min(max(report.l3.recommendedIntensityCap, 0), 1))
+                            .tint(theme.warning)
+                            .frame(width: 104)
+                    }
                 }
             }
-            HStack(spacing: Space.sm) {
-                ReadinessPillar(title: L4Copy.autonomic, value: report.l3.autonomicScore, color: theme.chart(0))
-                ReadinessPillar(title: L4Copy.sleep, value: report.l3.sleepRestorationScore, color: theme.chart(1))
-                ReadinessPillar(title: L4Copy.fatigue, value: report.l3.fatigueBalanceScore, color: theme.chart(2))
+            Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) {
+                GridRow {
+                    ReadinessPillar(title: L4Copy.autonomic, value: report.l3.autonomicScore, color: theme.chart(0))
+                    ReadinessPillar(title: L4Copy.sleep, value: report.l3.sleepRestorationScore, color: theme.chart(1))
+                    ReadinessPillar(title: L4Copy.fatigue, value: report.l3.fatigueBalanceScore, color: theme.chart(2))
+                }
             }
         }
     }
@@ -200,18 +314,23 @@ private struct L3ReadinessGateCard: View {
 }
 
 private struct ReadinessPillar: View {
+    @Environment(\.theme) private var theme
     let title: String
     let value: Int
     let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.xxs) {
-            Text(title).font(TypeScale.meta).lineLimit(1).layoutPriority(1)
-            Text("\(value)")
-                .font(TypeScale.num.weight(.semibold))
-                .monospacedDigit()
-                .layoutPriority(1)
-                .foregroundStyle(color)
+        CardInner {
+            VStack(alignment: .leading, spacing: Space.xxs) {
+                Text(title).font(TypeScale.meta).lineLimit(1).minimumScaleFactor(0.85).layoutPriority(1)
+                Text("\(value)")
+                    .font(TypeScale.display)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                    .foregroundStyle(color)
+                ProgressView(value: Double(value), total: 100).tint(color)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -238,10 +357,27 @@ private struct CoreActionDirectivesCard: View {
                             .frame(width: 24, height: 24)
                             .background(theme.accentSubtle, in: Circle())
                         VStack(alignment: .leading, spacing: Space.xs) {
-                            Text(action).font(TypeScale.body).fixedSize(horizontal: false, vertical: true)
+                            Text(action)
+                                .font(TypeScale.body)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .layoutPriority(1)
                             if let coupling = report.l2[safe: index] {
                                 StatusPill(L4Copy.coupling(coupling.relationship), tone: .neutral)
                             }
+                        }
+                    }
+                }
+            }
+            CardInner {
+                VStack(alignment: .leading, spacing: Space.xs) {
+                    Text(L4Copy.couplingSummary).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground)
+                    ForEach(report.l2.prefix(2), id: \.relationship) { coupling in
+                        HStack(alignment: .top, spacing: Space.xs) {
+                            StatusPill(L4Copy.coupling(coupling.relationship), tone: .neutral)
+                            Text(coupling.message)
+                                .font(TypeScale.body)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .layoutPriority(1)
                         }
                     }
                 }
@@ -260,11 +396,9 @@ private struct QuickDrillDownSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.sm) {
             SectionHeader(L4Copy.drillDown, icon: "arrow.forward")
-            HStack(spacing: Space.sm) {
-                DrillDownEntry(title: L4Copy.heartSleep, icon: "heart.text.square") { navigation.selectedTab = .data }
-                DrillDownEntry(title: L4Copy.workoutLoad, icon: "figure.strengthtraining.traditional") { navigation.selectedTab = .workout }
-                DrillDownEntry(title: L4Copy.stepsAI, icon: "brain") { navigation.selectedTab = .settings }
-            }
+            DrillDownEntry(title: L4Copy.heartSleep, subtitle: L4Copy.heartSleepSubtitle, icon: "heart.text.square") { navigation.selectedTab = .data }
+            DrillDownEntry(title: L4Copy.workoutLoad, subtitle: L4Copy.workoutLoadSubtitle, icon: "figure.strengthtraining.traditional") { navigation.selectedTab = .workout }
+            DrillDownEntry(title: L4Copy.stepsAI, subtitle: L4Copy.stepsAISubtitle, icon: "brain") { navigation.selectedTab = .settings }
         }
     }
 }
@@ -272,23 +406,33 @@ private struct QuickDrillDownSection: View {
 private struct DrillDownEntry: View {
     @Environment(\.theme) private var theme
     let title: String
+    let subtitle: String
     let icon: String
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: Space.xs) {
+            HStack(spacing: Space.sm) {
                 Image(systemName: icon).foregroundStyle(theme.accent).accessibilityHidden(true)
-                Text(title).font(TypeScale.meta).lineLimit(2).layoutPriority(1)
+                VStack(alignment: .leading, spacing: Space.xxs) {
+                    Text(title).font(TypeScale.title).fixedSize(horizontal: false, vertical: true)
+                    Text(subtitle)
+                        .font(TypeScale.meta)
+                        .foregroundStyle(theme.secondaryForeground)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: Space.xs)
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(theme.tertiaryForeground)
+                    .accessibilityHidden(true)
             }
-            .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
-            .padding(Space.sm)
+            .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+            .padding(.horizontal, Space.sm)
             .background(theme.inner, in: RoundedRectangle(cornerRadius: Radius.inner))
             .overlay(RoundedRectangle(cornerRadius: Radius.inner).stroke(theme.border, lineWidth: 1))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .frame(minHeight: Space.minTapTarget)
     }
 }
 
@@ -319,18 +463,25 @@ enum HolisticDashboardLogic {
     }
 }
 
-private enum L4Copy {
-    static let northStar = String(localized: "L4 Holistic North Star", defaultValue: "L4 Holistic North Star")
-    static let readiness = String(localized: "Today's Body Readiness", defaultValue: "Today's Body Readiness")
-    static let intensityCap = String(localized: "Recommended intensity cap", defaultValue: "Recommended intensity cap")
-    static let autonomic = String(localized: "Autonomic", defaultValue: "Autonomic")
-    static let sleep = String(localized: "Sleep restoration", defaultValue: "Sleep restoration")
-    static let fatigue = String(localized: "Fatigue balance", defaultValue: "Fatigue balance")
-    static let actions = String(localized: "Core action directives", defaultValue: "Core action directives")
-    static let drillDown = String(localized: "Quick drill-down", defaultValue: "Quick drill-down")
-    static let heartSleep = String(localized: "Heart & Sleep", defaultValue: "Heart & Sleep")
-    static let workoutLoad = String(localized: "Workout Load & Progression", defaultValue: "Workout Load & Progression")
-    static let stepsAI = String(localized: "Steps / NEAT & AI", defaultValue: "Steps / NEAT & AI")
+enum L4Copy {
+    static let northStar = String(localized: "holistic_north_star", defaultValue: "L4 Holistic North Star")
+    static let readiness = String(localized: "holistic_readiness", defaultValue: "Today's Body Readiness")
+    static let readinessScore = String(localized: "holistic_readiness_score", defaultValue: "Readiness score")
+    static let intensityCap = String(localized: "holistic_intensity_cap", defaultValue: "Recommended intensity cap")
+    static let autonomic = String(localized: "holistic_autonomic", defaultValue: "Autonomic")
+    static let sleep = String(localized: "holistic_sleep_restoration", defaultValue: "Sleep restoration")
+    static let fatigue = String(localized: "holistic_fatigue_balance", defaultValue: "Fatigue balance")
+    static let actions = String(localized: "holistic_core_actions", defaultValue: "Core action directives")
+    static let couplingSummary = String(localized: "holistic_coupling_summary", defaultValue: "L2 coupling summary")
+    static let drillDown = String(localized: "holistic_quick_drill_down", defaultValue: "Quick drill-down")
+    static let heartSleep = String(localized: "holistic_heart_sleep", defaultValue: "Heart & Sleep")
+    static let heartSleepSubtitle = String(localized: "holistic_heart_sleep_subtitle", defaultValue: "HRV corridor · resting heart rate · sleep debt")
+    static let workoutLoad = String(localized: "holistic_workout_load", defaultValue: "Workout Load & Progression")
+    static let workoutLoadSubtitle = String(localized: "holistic_workout_load_subtitle", defaultValue: "ATL / CTL / TSB · mesocycle progress")
+    static let stepsAI = String(localized: "holistic_steps_ai", defaultValue: "Steps / NEAT & AI")
+    static let stepsAISubtitle = String(localized: "holistic_steps_ai_subtitle", defaultValue: "NEAT steps · active AI provider")
+    static let loadingTitle = String(localized: "holistic_loading_title", defaultValue: "Preparing your dashboard")
+    static let loadingMessage = String(localized: "holistic_loading_message", defaultValue: "Gathering available domains.")
     static let emptyTitle = String(localized: "holistic_empty_title", defaultValue: "Build your baseline")
     static let emptyMessage = String(localized: "holistic_empty_message", defaultValue: "Authorize health data or complete a workout to unlock your first synthesis.")
     static let settingsAction = String(localized: "holistic_settings_action", defaultValue: "Open Health Settings")
@@ -342,31 +493,31 @@ private enum L4Copy {
     static func percent(_ value: Double) -> String { "\(HolisticDashboardLogic.intensityPercent(value))%" }
     static func phase(_ phase: AIService.MesocyclePhase) -> String {
         switch phase {
-        case .accumulation: String(localized: "Accumulation", defaultValue: "Accumulation")
-        case .intensification: String(localized: "Intensification", defaultValue: "Intensification")
-        case .realization: String(localized: "Realization", defaultValue: "Realization")
-        case .deload: String(localized: "Deload", defaultValue: "Deload")
+        case .accumulation: String(localized: "holistic_phase_accumulation", defaultValue: "Accumulation")
+        case .intensification: String(localized: "holistic_phase_intensification", defaultValue: "Intensification")
+        case .realization: String(localized: "holistic_phase_realization", defaultValue: "Realization")
+        case .deload: String(localized: "holistic_phase_deload", defaultValue: "Deload")
         }
     }
     static func gate(_ score: Int) -> String {
         switch score {
-        case 75...: String(localized: "Prime", defaultValue: "Prime")
-        case 50..<75: String(localized: "Moderate", defaultValue: "Moderate")
-        default: String(localized: "Recovery", defaultValue: "Recovery")
+        case 75...: String(localized: "holistic_gate_prime", defaultValue: "Prime")
+        case 50..<75: String(localized: "holistic_gate_moderate", defaultValue: "Moderate")
+        default: String(localized: "holistic_gate_recovery", defaultValue: "Recovery")
         }
     }
     static func provider(_ provider: PluggableAIProvider) -> String {
         switch provider {
-        case .foundationModels: String(localized: "On-device AI", defaultValue: "On-device AI")
-        case .customOpenAICompatible: String(localized: "Custom API", defaultValue: "Custom API")
-        case .jevGateway: String(localized: "Jev Gateway", defaultValue: "Jev Gateway")
-        case .deterministicFallback: String(localized: "Deterministic fallback", defaultValue: "Deterministic fallback")
+        case .foundationModels: String(localized: "holistic_provider_foundation", defaultValue: "On-device AI")
+        case .customOpenAICompatible: String(localized: "holistic_provider_custom", defaultValue: "Custom API")
+        case .jevGateway: String(localized: "holistic_provider_jev", defaultValue: "Jev Gateway")
+        case .deterministicFallback: String(localized: "holistic_provider_fallback", defaultValue: "Deterministic fallback")
         }
     }
     static func coupling(_ relationship: String) -> String {
         relationship == "sleepTrainingCoupling"
-            ? String(localized: "Sleep × Load", defaultValue: "Sleep × Load")
-            : String(localized: "NEAT × Heart", defaultValue: "NEAT × Heart")
+            ? String(localized: "holistic_coupling_sleep_load", defaultValue: "Sleep × Load")
+            : String(localized: "holistic_coupling_neat_heart", defaultValue: "NEAT × Heart")
     }
 }
 

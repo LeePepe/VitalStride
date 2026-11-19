@@ -98,6 +98,7 @@ private struct PreviewStateCard: View {
                     DesignButton(state == .error ? "Retry" : "Open Health Settings", variant: .secondary, icon: state == .error ? "arrow.clockwise" : "gearshape") {}
                 }
             }
+            .frame(maxWidth: .infinity, minHeight: 520, alignment: .center)
         }
     }
 
@@ -141,9 +142,32 @@ private struct PreviewScore: View {
             Text("\(value)")
                 .font(TypeScale.metricXL)
                 .monospacedDigit()
+                .lineLimit(1)
                 .layoutPriority(1)
                 .foregroundStyle(accent)
         }
+    }
+}
+
+private struct PreviewScoreArc: View {
+    @Environment(\.theme) private var theme
+    let score: Int
+    let color: Color
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(theme.border, lineWidth: 8)
+            Circle()
+                .trim(from: 0, to: CGFloat(min(max(score, 0), 100)) / 100)
+                .stroke(color, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Text("\(min(max(score, 0), 100))")
+                .font(TypeScale.display)
+                .monospacedDigit()
+                .lineLimit(1)
+                .layoutPriority(1)
+        }
+        .frame(width: 76, height: 76)
     }
 }
 
@@ -177,7 +201,10 @@ private struct PreviewActions: View {
                             .frame(width: 24, height: 24)
                             .background(theme.accentSubtle, in: Circle())
                         VStack(alignment: .leading, spacing: Space.xxs) {
-                            Text(action).font(compact ? TypeScale.meta : TypeScale.body)
+                            Text(action)
+                                .font(compact ? TypeScale.meta : TypeScale.body)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .layoutPriority(1)
                             if let coupling = report.couplings[safe: index] {
                                 StatusPill(coupling, tone: .neutral)
                             }
@@ -228,12 +255,18 @@ private struct PreviewScaffold<Content: View>: View {
         if data.state == .populated {
             content(data.report)
         } else {
-            PreviewStateCard(state: data.state)
+            VStack {
+                Spacer(minLength: 0)
+                PreviewStateCard(state: data.state)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, minHeight: 820)
         }
     }
 }
 
 public struct HolisticDashboardV01View: View {
+    @Environment(\.theme) private var theme
     public let data: HolisticDashboardPreviewData
     public init(data: HolisticDashboardPreviewData = .init()) { self.data = data }
     public var body: some View {
@@ -243,19 +276,22 @@ public struct HolisticDashboardV01View: View {
                     HStack(alignment: .center, spacing: Space.lg) {
                         VStack(alignment: .leading, spacing: Space.sm) {
                             SectionHeader("North star", icon: "scope")
-                            PreviewScore(title: "L4 trajectory", value: report.northStarScore, accent: .accentColor)
-                            Text(report.directive).font(TypeScale.body)
+                            PreviewScore(title: "L4 trajectory", value: report.northStarScore, accent: theme.accent)
+                            Text(report.directive).font(TypeScale.body).fixedSize(horizontal: false, vertical: true)
                         }
-                        RingGauge(value: Double(report.northStarScore) / 100, size: 96, stroke: 8)
+                        PreviewScoreArc(score: report.northStarScore, color: theme.accent)
                     }
                     PreviewPillRow(report: report)
                 }
                 Card {
-                    HStack {
-                        PreviewScore(title: "Readiness", value: report.readinessScore, accent: .green)
-                        Spacer()
-                        PreviewScore(title: "Cap", value: Int((report.intensityCap * 100).rounded()), accent: .orange)
+                    HStack(alignment: .center, spacing: Space.lg) {
+                        PreviewScoreArc(score: report.readinessScore, color: theme.success)
+                        VStack(alignment: .leading, spacing: Space.xs) {
+                            PreviewScore(title: "Readiness", value: report.readinessScore, accent: theme.success)
+                            PreviewScore(title: "Cap", value: Int((report.intensityCap * 100).rounded()), accent: theme.warning)
+                        }
                     }
+                    PreviewPillarRows(report: report)
                     PreviewActions(report: report, compact: true)
                 }
                 PreviewDrillDowns()
@@ -265,6 +301,7 @@ public struct HolisticDashboardV01View: View {
 }
 
 public struct HolisticDashboardV02View: View {
+    @Environment(\.theme) private var theme
     public let data: HolisticDashboardPreviewData
     public init(data: HolisticDashboardPreviewData = .init()) { self.data = data }
     public var body: some View {
@@ -274,7 +311,7 @@ public struct HolisticDashboardV02View: View {
                     SectionHeader("Executive briefing", icon: "text.alignleft")
                     Text(report.directive).font(TypeScale.title)
                     HStack {
-                        PreviewScore(title: "North star", value: report.northStarScore, accent: .accentColor)
+                        PreviewScore(title: "North star", value: report.northStarScore, accent: theme.accent)
                         Spacer()
                         PreviewPillRow(report: report)
                     }
@@ -310,6 +347,7 @@ private struct PreviewLedgerRow: View {
 }
 
 public struct HolisticDashboardV03View: View {
+    @Environment(\.theme) private var theme
     public let data: HolisticDashboardPreviewData
     public init(data: HolisticDashboardPreviewData = .init()) { self.data = data }
     public var body: some View {
@@ -318,14 +356,17 @@ public struct HolisticDashboardV03View: View {
                 HStack(alignment: .top, spacing: Space.sm) {
                     Card {
                         SectionHeader("North star")
-                        PreviewScore(title: "L4", value: report.northStarScore, accent: .accentColor)
-                        Sparkline(data: [62, 70, 68, 75, 79, 83, Double(report.northStarScore)], color: .accentColor)
+                        PreviewScore(title: "L4", value: report.northStarScore, accent: theme.accent)
+                        Sparkline(data: [62, 70, 68, 75, 79, 83, Double(report.northStarScore)], color: theme.accent)
                     }
                     Card {
                         SectionHeader("Readiness")
-                        RingGauge(value: Double(report.readinessScore) / 100)
+                        PreviewScoreArc(score: report.readinessScore, color: theme.success)
                         StatusPill("Prime window", tone: .success)
                     }
+                }
+                Card {
+                    PreviewPillarRows(report: report)
                 }
                 Card {
                     PreviewActions(report: report, compact: false)
@@ -337,16 +378,17 @@ public struct HolisticDashboardV03View: View {
 }
 
 public struct HolisticDashboardV04View: View {
+    @Environment(\.theme) private var theme
     public let data: HolisticDashboardPreviewData
     public init(data: HolisticDashboardPreviewData = .init()) { self.data = data }
     public var body: some View {
         PreviewScaffold(data: data) { report in
             VStack(alignment: .leading, spacing: Space.sm) {
                 PreviewStage(title: "L4 · Holistic North Star") {
-                    HStack { PreviewScore(title: "Trajectory", value: report.northStarScore, accent: .accentColor); Spacer(); Text(report.directive).font(TypeScale.body) }
+                    HStack { PreviewScore(title: "Trajectory", value: report.northStarScore, accent: theme.accent); Spacer(); Text(report.directive).font(TypeScale.body) }
                 }
                 PreviewStage(title: "L3 · Readiness gate") {
-                    HStack { PreviewScore(title: "Today", value: report.readinessScore, accent: .green); Spacer(); StatusPill("Prime", tone: .success) }
+                    HStack { PreviewScore(title: "Today", value: report.readinessScore, accent: theme.success); Spacer(); StatusPill("Prime", tone: .success) }
                     PreviewPillRow(report: report)
                 }
                 PreviewStage(title: "L2 · Coupled directives") { PreviewActions(report: report, compact: true) }
@@ -363,6 +405,7 @@ private struct PreviewStage<Content: View>: View {
 }
 
 public struct HolisticDashboardV05View: View {
+    @Environment(\.theme) private var theme
     public let data: HolisticDashboardPreviewData
     public init(data: HolisticDashboardPreviewData = .init()) { self.data = data }
     public var body: some View {
@@ -370,11 +413,12 @@ public struct HolisticDashboardV05View: View {
             VStack(alignment: .leading, spacing: Space.lg) {
                 Card {
                     HStack { StatusPill("PRIME", tone: .success); Spacer(); StatusPill(report.phase, tone: .primary) }
-                    HStack { PreviewScore(title: "Today's training readiness", value: report.readinessScore, accent: .green); Spacer(); PreviewScore(title: "North star", value: report.northStarScore, accent: .accentColor) }
+                    HStack { PreviewScore(title: "Today's training readiness", value: report.readinessScore, accent: theme.success); Spacer(); PreviewScore(title: "North star", value: report.northStarScore, accent: theme.accent) }
                     VStack(alignment: .leading, spacing: Space.xs) {
                         HStack { Text("Intensity ceiling").font(TypeScale.body); Spacer(); Text("\(Int((report.intensityCap * 100).rounded()))%").font(TypeScale.num).monospacedDigit() }
-                        ProgressView(value: report.intensityCap).tint(.orange)
+                        ProgressView(value: report.intensityCap).tint(theme.warning)
                     }
+                    CardInner { PreviewPillarRows(report: report) }
                 }
                 PreviewActions(report: report, compact: false)
                 PreviewDrillDowns()
@@ -384,6 +428,7 @@ public struct HolisticDashboardV05View: View {
 }
 
 public struct HolisticDashboardV06View: View {
+    @Environment(\.theme) private var theme
     public let data: HolisticDashboardPreviewData
     public init(data: HolisticDashboardPreviewData = .init()) { self.data = data }
     public var body: some View {
@@ -393,11 +438,18 @@ public struct HolisticDashboardV06View: View {
                     SectionHeader("Mesocycle horizon", icon: "calendar")
                     HStack(spacing: 0) {
                         ForEach(["Accumulation", "Intensification", "Realization", "Deload"], id: \.self) { phase in
-                            VStack(spacing: Space.xs) { Circle().fill(phase == report.phase ? Color.accentColor : Color.secondary.opacity(0.25)).frame(width: 14, height: 14); Text(phase).font(TypeScale.meta).multilineTextAlignment(.center) }
-                            if phase != "Deload" { Rectangle().fill(Color.secondary.opacity(0.25)).frame(height: 1) }
+                            VStack(spacing: Space.xs) {
+                                Circle().fill(phase == report.phase ? theme.accent : theme.border.opacity(0.25)).frame(width: 14, height: 14)
+                                Text(phase)
+                                    .font(TypeScale.meta)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.85)
+                                    .frame(maxWidth: .infinity)
+                            }
+                            if phase != "Deload" { Rectangle().fill(theme.border.opacity(0.25)).frame(maxWidth: .infinity).frame(height: 1) }
                         }
                     }
-                    HStack { PreviewScore(title: "North star", value: report.northStarScore, accent: .accentColor); Spacer(); PreviewScore(title: "Readiness", value: report.readinessScore, accent: .green) }
+                    HStack { PreviewScore(title: "North star", value: report.northStarScore, accent: theme.accent); Spacer(); PreviewScore(title: "Readiness", value: report.readinessScore, accent: theme.success) }
                 }
                 Card { PreviewPillarRows(report: report) }
                 PreviewActions(report: report, compact: true)
@@ -418,12 +470,21 @@ private struct PreviewPillarRows: View {
 }
 
 private struct PreviewPillar: View {
+    @Environment(\.theme) private var theme
     let title: String
     let value: Int
-    var body: some View { HStack { Text(title).font(TypeScale.body); Spacer(); Text("\(value)").font(TypeScale.num).monospacedDigit().layoutPriority(1); ProgressView(value: Double(value), total: 100).frame(width: 90) } }
+    var body: some View {
+        HStack {
+            Text(title).font(TypeScale.body).fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            Text("\(value)").font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).foregroundStyle(theme.accent)
+            ProgressView(value: Double(value), total: 100).tint(theme.accent).frame(width: 90)
+        }
+    }
 }
 
 public struct HolisticDashboardV07View: View {
+    @Environment(\.theme) private var theme
     public let data: HolisticDashboardPreviewData
     public init(data: HolisticDashboardPreviewData = .init()) { self.data = data }
     public var body: some View {
@@ -435,7 +496,7 @@ public struct HolisticDashboardV07View: View {
                     PreviewActions(report: report, compact: false)
                 }
                 Card {
-                    HStack { PreviewScore(title: "North star", value: report.northStarScore, accent: .accentColor); Spacer(); PreviewScore(title: "Readiness", value: report.readinessScore, accent: .green); Spacer(); PreviewScore(title: "Cap", value: Int((report.intensityCap * 100).rounded()), accent: .orange) }
+                    HStack { PreviewScore(title: "North star", value: report.northStarScore, accent: theme.accent); Spacer(); PreviewScore(title: "Readiness", value: report.readinessScore, accent: theme.success); Spacer(); PreviewScore(title: "Cap", value: Int((report.intensityCap * 100).rounded()), accent: theme.warning) }
                     PreviewPillarRows(report: report)
                 }
                 PreviewDrillDowns()
@@ -445,18 +506,29 @@ public struct HolisticDashboardV07View: View {
 }
 
 public struct HolisticDashboardV08View: View {
+    @Environment(\.theme) private var theme
     public let data: HolisticDashboardPreviewData
     public init(data: HolisticDashboardPreviewData = .init()) { self.data = data }
     public var body: some View {
         PreviewScaffold(data: data) { report in
             VStack(alignment: .leading, spacing: Space.lg) {
                 Card {
-                    HStack { PreviewScore(title: "North star", value: report.northStarScore, accent: .accentColor); Spacer(); PreviewScore(title: "Readiness", value: report.readinessScore, accent: .green); Spacer(); PreviewScore(title: "Cap", value: Int((report.intensityCap * 100).rounded()), accent: .orange) }
+                    HStack { PreviewScore(title: "North star", value: report.northStarScore, accent: theme.accent); Spacer(); PreviewScore(title: "Readiness", value: report.readinessScore, accent: theme.success); Spacer(); PreviewScore(title: "Cap", value: Int((report.intensityCap * 100).rounded()), accent: theme.warning) }
                     Text(report.directive).font(TypeScale.body)
                 }
+                Card {
+                    SectionHeader("Tri-pillar balance", icon: "triangle")
+                    PreviewPillarRows(report: report)
+                }
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Space.sm) {
-                    ForEach(Array(report.couplings.enumerated()), id: \.offset) { index, coupling in
-                        Card { SectionHeader(coupling); Text(report.actions[index]).font(TypeScale.body) }
+                    ForEach(Array(report.actions.enumerated()), id: \.offset) { index, action in
+                        Card {
+                            SectionHeader(report.couplings[safe: index] ?? "Core directive")
+                            Text(action)
+                                .font(TypeScale.body)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .layoutPriority(1)
+                        }
                     }
                 }
                 PreviewDrillDowns()
@@ -466,6 +538,7 @@ public struct HolisticDashboardV08View: View {
 }
 
 public struct HolisticDashboardV09View: View {
+    @Environment(\.theme) private var theme
     public let data: HolisticDashboardPreviewData
     public init(data: HolisticDashboardPreviewData = .init()) { self.data = data }
     public var body: some View {
@@ -473,15 +546,16 @@ public struct HolisticDashboardV09View: View {
             VStack(alignment: .center, spacing: Space.lg) {
                 Card {
                     VStack(spacing: Space.sm) {
-                        RingGauge(value: Double(report.northStarScore) / 100, size: 112, stroke: 8)
-                        Text("\(report.northStarScore)").font(TypeScale.metricXL).monospacedDigit().layoutPriority(1)
+                        PreviewScoreArc(score: report.northStarScore, color: theme.accent)
                         StatusPill(report.phase, tone: .primary)
                         Text(report.directive).font(TypeScale.body).multilineTextAlignment(.center)
                     }.frame(maxWidth: .infinity)
                 }
                 Card {
-                    HStack { PreviewScore(title: "Readiness", value: report.readinessScore, accent: .green); Spacer(); PreviewScore(title: "Cap", value: Int((report.intensityCap * 100).rounded()), accent: .orange); Spacer(); PreviewScore(title: "Sleep", value: report.sleepScore, accent: .accentColor) }
+                    HStack { PreviewScore(title: "Readiness", value: report.readinessScore, accent: theme.success); Spacer(); PreviewScore(title: "Cap", value: Int((report.intensityCap * 100).rounded()), accent: theme.warning); Spacer(); PreviewScore(title: "Sleep", value: report.sleepScore, accent: theme.accent) }
+                    PreviewPillarRows(report: report)
                 }
+                PreviewActions(report: report, compact: true)
                 PreviewDrillDowns()
             }
         }
@@ -489,6 +563,7 @@ public struct HolisticDashboardV09View: View {
 }
 
 public struct HolisticDashboardV10View: View {
+    @Environment(\.theme) private var theme
     public let data: HolisticDashboardPreviewData
     public init(data: HolisticDashboardPreviewData = .init()) { self.data = data }
     public var body: some View {
@@ -496,9 +571,9 @@ public struct HolisticDashboardV10View: View {
             VStack(alignment: .leading, spacing: Space.sm) {
                 Card {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]) {
-                        PreviewScore(title: "L4", value: report.northStarScore, accent: .accentColor)
-                        PreviewScore(title: "L3", value: report.readinessScore, accent: .green)
-                        PreviewScore(title: "Cap", value: Int((report.intensityCap * 100).rounded()), accent: .orange)
+                        PreviewScore(title: "L4", value: report.northStarScore, accent: theme.accent)
+                        PreviewScore(title: "L3", value: report.readinessScore, accent: theme.success)
+                        PreviewScore(title: "Cap", value: Int((report.intensityCap * 100).rounded()), accent: theme.warning)
                         VStack(alignment: .leading) { Text("Phase").font(TypeScale.meta); Text(report.phase).font(TypeScale.meta) }
                     }
                     CardInner { HStack { Text(report.directive).font(TypeScale.body); Spacer(); StatusPill(report.provider.label, tone: .primary) } }

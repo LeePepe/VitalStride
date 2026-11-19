@@ -1,3 +1,5 @@
+// swiftlint:disable force_unwrapping
+
 import Foundation
 import CryptoKit
 import HealthKit
@@ -318,6 +320,8 @@ struct HealthSnapshotStateTests {
     }
 }
 
+// swiftlint:disable force_unwrapping
+
 // MARK: - Overview Display Logic Tests
 
 @Suite("Overview Display Logic Tests")
@@ -348,6 +352,9 @@ struct OverviewDisplayLogicTests {
             )
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: directory) }
+            let exportDirectory = URL(fileURLWithPath: ProcessInfo.processInfo.environment["VS_UI_L4_SNAPSHOT_DIR"] ?? "/Users/lee/Development/handoff/vs-ui-l4-holistic-dashboard/snapshots", isDirectory: true)
+            let canExport = FileManager.default.fileExists(atPath: exportDirectory.deletingLastPathComponent().path)
+            if canExport { try FileManager.default.createDirectory(at: exportDirectory, withIntermediateDirectories: true) }
 
             let states = ["populated", "empty", "loading", "error"]
             let appearances: [(String, ColorScheme)] = [("light", .light), ("dark", .dark)]
@@ -396,6 +403,10 @@ struct OverviewDisplayLogicTests {
                             "tk2-overview-\(state)-\(appearanceName)-\(width)x\(height).png"
                         )
                         try data.write(to: url, options: .atomic)
+                        if canExport, width == 393, height == 852 {
+                            let exportURL = exportDirectory.appendingPathComponent("state-\(state)-\(appearanceName).png")
+                            try data.write(to: exportURL, options: .atomic)
+                        }
                         #expect(data.count > 15_000)
                         #expect(image.cgImage?.width == width * 3)
                         #expect(image.cgImage?.height == height * 3)
@@ -422,12 +433,25 @@ struct OverviewDisplayLogicTests {
             }
         }
 
+        @MainActor
+        private var holisticState: HolisticDashboardState {
+            let value = state == "populated" ? HolisticDashboardState.preview() : HolisticDashboardState()
+            switch state {
+            case "empty": value.markEmpty()
+            case "loading": value.markLoading()
+            case "error": value.markError()
+            default: break
+            }
+            return value
+        }
+
         var body: some View {
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         switch state {
                         case "populated":
+                            HolisticDashboardSection(state: holisticState)
                             Grid(horizontalSpacing: 12, verticalSpacing: 12) {
                                 GridRow {
                                     StepsSummaryCard(preloaded: 8543)
@@ -452,11 +476,11 @@ struct OverviewDisplayLogicTests {
                             ActivitySummaryCard(summary: TodayActivitySummary(workoutCount: 3, totalDurationMinutes: 145, totalCalories: 680))
                             WorkoutTrendChart(workouts: sampleWorkouts)
                         case "empty":
-                            DesignStateView(.empty, title: "No health data", message: "Connect HealthKit to see today's summary.", actionTitle: "Open Settings")
+                            HolisticDashboardSection(state: holisticState)
                         case "loading":
-                            DesignStateView(.loading, title: "Loading summary", message: "Preparing the latest health data.")
+                            HolisticDashboardSection(state: holisticState)
                         default:
-                            DesignStateView(.error, title: "Summary unavailable", message: "Try again to refresh the latest health data.", actionTitle: "Retry")
+                            HolisticDashboardSection(state: holisticState, onRetry: {})
                         }
                     }
                     .padding(16)
@@ -465,6 +489,7 @@ struct OverviewDisplayLogicTests {
                 .navigationTitle("Overview")
                 .navigationBarTitleDisplayMode(.inline)
             }
+            .environment(AppNavigation())
             .designTheme(seed: .ocean, neutral: .slate)
         }
     }
