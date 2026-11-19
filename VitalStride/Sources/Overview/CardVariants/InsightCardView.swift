@@ -112,8 +112,8 @@ struct InsightWideCardView: View {
         title: "Recovery", content: "You've trained legs 3 days in a row. Consider resting today."
     ))
     .designThemePreview()
-    .frame(width: 200)
     .padding()
+    .frame(width: 200)
 }
 
 #Preview("Insight Wide") {

@@ -118,8 +118,8 @@ struct ActionWideCardView: View {
         title: "Workout", content: "Start Workout", iconName: "figure.strengthtraining.traditional"
     ))
     .designThemePreview()
-    .frame(width: 160)
     .padding()
+    .frame(width: 160)
 }
 
 #Preview("Action Wide") {

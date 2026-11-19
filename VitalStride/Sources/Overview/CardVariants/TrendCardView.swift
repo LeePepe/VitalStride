@@ -259,8 +259,8 @@ struct TrendLargeCardView: View {
         content: "[{\"date\":\"Mon\",\"value\":6000},{\"date\":\"Tue\",\"value\":8000},{\"date\":\"Wed\",\"value\":7500},{\"date\":\"Thu\",\"value\":9000},{\"date\":\"Fri\",\"value\":8500}]"
     ))
     .designThemePreview()
-    .frame(width: 200)
     .padding()
+    .frame(width: 200)
 }
 
 #Preview("Trend Wide") {
