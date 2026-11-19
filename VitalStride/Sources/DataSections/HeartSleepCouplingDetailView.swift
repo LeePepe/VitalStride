@@ -178,7 +178,7 @@ enum HeartSleepCopy {
     static let autonomicHeader = String(localized: "heart_sleep_autonomic_header", defaultValue: "Autonomic corridor · L1", comment: "Autonomic card header")
     static let hrvSDNN = String(localized: "heart_sleep_hrv_sdnn", defaultValue: "HRV SDNN", comment: "HRV metric label")
     static let restingHeartRate = String(localized: "heart_sleep_resting_heart_rate", defaultValue: "Resting heart rate", comment: "Resting heart rate label")
-    static let recovery = String(localized: "heart_sleep_recovery", defaultValue: "Recovery", comment: "Heart rate recovery label")
+    static let recovery = String(localized: "heart_sleep_recovery", defaultValue: "HRR (1m)", comment: "One minute heart rate recovery label")
     static let heartRateZones = String(localized: "heart_sleep_heart_rate_zones", defaultValue: "Heart rate zones", comment: "Heart rate zones label")
     static let architectureHeader = String(localized: "heart_sleep_architecture_header", defaultValue: "Sleep architecture & debt · L1", comment: "Sleep architecture header")
     static let deep = String(localized: "heart_sleep_deep", defaultValue: "Deep", comment: "Deep sleep label")
@@ -233,7 +233,7 @@ enum HeartSleepCopy {
     static func average7d(_ value: String) -> String { String(localized: "heart_sleep_7d_average", defaultValue: "7d \(value)", comment: "Seven day average") }
     static func baseline60d(_ value: Int) -> String { String(localized: "heart_sleep_60d_baseline", defaultValue: "60d \(value)d", comment: "Sixty day baseline count") }
     static func restingDetail(average: String, delta: String) -> String { String(localized: "heart_sleep_resting_detail", defaultValue: "7d \(average) · Δ \(delta) bpm", comment: "Resting heart rate detail") }
-    static func recoveryValue(_ value: String) -> String { String(localized: "heart_sleep_recovery_1m", defaultValue: "1m -\(value) bpm", comment: "One minute heart rate recovery") }
+    static func recoveryValue(_ value: String) -> String { String(localized: "heart_sleep_recovery_1m", defaultValue: "-\(value) bpm", comment: "One minute heart rate recovery value") }
     static func recoveryDetail(twoMinute: String, peak: String) -> String { String(localized: "heart_sleep_recovery_detail", defaultValue: "2m -\(twoMinute) · peak \(peak)", comment: "Two minute heart rate recovery detail") }
     static func coverage(_ count: Int, total: Int) -> String { String(localized: "heart_sleep_coverage", defaultValue: "\(count)/\(total) nights", comment: "Observed sleep nights") }
     static func targetAndBed(target: String, inBed: String) -> String { String(localized: "heart_sleep_target_and_bed", defaultValue: "Target \(target) · In bed \(inBed)", comment: "Sleep target and time in bed") }
@@ -322,7 +322,7 @@ private struct L2SleepTrainingCouplingCard: View {
     }
 }
 
-private struct ScoreCell: View { let title: String; let value: Int; let color: Color; var body: some View { CardInner { VStack(alignment: .leading) { Text(title).font(TypeScale.meta); Text("\(value)").font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).foregroundStyle(color) } } } }
+private struct ScoreCell: View { let title: String; let value: Int; let color: Color; var body: some View { CardInner { VStack(alignment: .leading) { Text(title).font(TypeScale.meta).minimumScaleFactor(0.85); Text("\(value)").font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85).foregroundStyle(color) } } } }
 
 struct HeartAutonomicCorridorCard: View {
     @Environment(\.theme) private var theme
@@ -339,7 +339,7 @@ struct HeartAutonomicCorridorCard: View {
     private func corridorBar(_ corridor: VitalModels.HRVCorridorSnapshot, width: CGFloat) -> some View { let span = max(1, corridor.upperBoundMilliseconds - corridor.lowerBoundMilliseconds); let scale: (Double) -> CGFloat = { CGFloat(($0 - corridor.lowerBoundMilliseconds) / span) * width }; return ZStack(alignment: .leading) { Capsule().fill(theme.neutrals.border); Capsule().fill(theme.accentSubtle).frame(width: width); Rectangle().fill(theme.secondaryForeground).frame(width: 1).offset(x: min(max(0, scale(corridor.baselineMilliseconds)), width)); Circle().fill(theme.accent).frame(width: 10, height: 10).offset(x: min(max(0, scale(corridor.currentMilliseconds ?? corridor.baselineMilliseconds) - 5), width - 10)) } }
 }
 
-private struct HeartMetricCell: View { @Environment(\.theme) private var theme; let title: String; let value: String; let detail: String; var body: some View { CardInner { VStack(alignment: .leading, spacing: Space.xs) { Text(title).font(TypeScale.meta); Text(value).font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1); Text(detail).font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1).foregroundStyle(theme.secondaryForeground) } } } }
+private struct HeartMetricCell: View { @Environment(\.theme) private var theme; let title: String; let value: String; let detail: String; var body: some View { CardInner { VStack(alignment: .leading, spacing: Space.xs) { Text(title).font(TypeScale.meta); Text(value).font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85); Text(detail).font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85).foregroundStyle(theme.secondaryForeground) } } } }
 
 private struct ZoneDistributionBar: View {
     @Environment(\.theme) private var theme
@@ -355,7 +355,7 @@ struct SleepArchitectureAndDebtCard: View {
 }
 private struct SleepStageBar: View { @Environment(\.theme) private var theme; let architecture: VitalModels.SleepArchitectureSnapshot; var body: some View { GeometryReader { proxy in let total = max(1, architecture.totalSleepDuration + architecture.awakeDuration); HStack(spacing: 2) { Rectangle().fill(theme.chart(3)).frame(width: proxy.size.width * architecture.deepDuration / total); Rectangle().fill(theme.chart(2)).frame(width: proxy.size.width * architecture.remDuration / total); Rectangle().fill(theme.chart(0)).frame(width: proxy.size.width * architecture.coreDuration / total); Rectangle().fill(theme.secondaryForeground).frame(width: max(2, proxy.size.width * architecture.awakeDuration / total)) } }.frame(height: 12).clipShape(Capsule()) } }
 private struct StageCell: View { @Environment(\.theme) private var theme; let title: String; let duration: TimeInterval; let color: Color; var body: some View { CardInner { HStack { Circle().fill(color).frame(width: 8, height: 8); VStack(alignment: .leading) { Text(title).font(TypeScale.meta); Text(HeartSleepFormatting.duration(duration)).font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1) } } } } }
-private struct DebtCell: View { let title: String; let value: TimeInterval; let coverage: String; var body: some View { CardInner { VStack(alignment: .leading) { Text(title).font(TypeScale.meta); Text(HeartSleepFormatting.duration(value)).font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1); Text("\(coverage) nights").font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1) } } } }
+private struct DebtCell: View { let title: String; let value: TimeInterval; let coverage: String; var body: some View { CardInner { VStack(alignment: .leading) { Text(title).font(TypeScale.meta).minimumScaleFactor(0.85); Text(HeartSleepFormatting.duration(value)).font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85); Text(coverage).font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85) } } } }
 
 private struct DomainDrillDownLinksCard: View {
     var body: some View { Card { SectionHeader(HeartSleepCopy.exploreDomains, icon: "arrow.forward"); NavigationLink { HeartRateDetailView() } label: { Label(HeartSleepCopy.heartAutonomicDetail, systemImage: "heart.fill").frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading).contentShape(Rectangle()) }; NavigationLink { SleepDetailView() } label: { Label(HeartSleepCopy.sleepArchitectureDetail, systemImage: "bed.double.fill").frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading).contentShape(Rectangle()) } } }
