@@ -22,6 +22,6 @@ let package = Package(
                 .plugin(name: "CompileXCStrings"),
             ]
         ),
-        .testTarget(name: "VitalModelsTests", dependencies: ["VitalModels"]),
+        .testTarget(name: "VitalModelsTests", dependencies: ["VitalModels"], exclude: ["Fixtures"]),
     ]
 )

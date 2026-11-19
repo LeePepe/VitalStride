@@ -114,6 +114,16 @@ WorkoutTemplate → TemplateExercise（训练模板）
   - `PhysiologicalSnapshot`: 聚合五大生理域并显式记录 `availableDomains: Set<InsightDomain>`，支持部分权限（如仅步数或缺失睡眠/HRV）优雅降级。
   - `L1SingleMetricInsight`, `L2CoupledInsight`, `L3ReadinessAndCycleInsight`, `L4HolisticNorthStarInsight`, `HolisticFourLayerReport`: 四层建议结构，保持向后兼容解码。
 
+## JSON wire 合同验证
+
+`Tests/VitalModelsTests/Fixtures` 与独立 AIService test target 持有相同五份 canonical synthetic
+JSON payload（full / steps-only / all-missing snapshot、四个 mesocycle 的完整 report、strength input）。
+测试以 #filePath 读取 source fixture，manifest exclude 避免新 test Bundle.module 遮蔽生产本地化 bundle。
+两个模块各自验证固定 SHA-256、decode 后的业务字段，并把真实 encode 的结果规范化后逐字节比对原
+fixture；仅排序 JSON keys、availableDomains Set 与 enum-key dictionary 的 alternating pairs，不忽略
+任何字段/数值。另验证旧 JSON 的缺省字段和 optional 字段。AIService 继续 `depends_on: []`，本包的
+`PhysiologicalMetrics.swift` 是 DTO 真理源；字段变更须同步其 `FourLayerModels.swift` 以及两包 fixture。
+
 ## 依赖
 
 无外部依赖。
