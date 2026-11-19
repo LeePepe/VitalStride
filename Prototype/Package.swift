@@ -21,6 +21,7 @@ let package = Package(
         .executable(name: "PrototypeShotExporter", targets: ["PrototypeShotExporter"]),
         .executable(name: "WorkoutListShotExporter", targets: ["WorkoutListShotExporter"]),
         .executable(name: "HolisticDashboardShotExporter", targets: ["HolisticDashboardShotExporter"]),
+        .executable(name: "HeartSleepCouplingShotExporter", targets: ["HeartSleepCouplingShotExporter"]),
     ],
     dependencies: [
         .package(path: "../Packages/DesignKit"),
@@ -51,6 +52,14 @@ let package = Package(
         ),
         .executableTarget(
             name: "HolisticDashboardShotExporter",
+            dependencies: [
+                "Prototype",
+                .product(name: "DesignKit", package: "DesignKit"),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .executableTarget(
+            name: "HeartSleepCouplingShotExporter",
             dependencies: [
                 "Prototype",
                 .product(name: "DesignKit", package: "DesignKit"),

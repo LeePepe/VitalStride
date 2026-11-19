@@ -13301,7 +13301,13 @@
     "holistic_provider_jev": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Jev Gateway"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"Jev Gateway · 网关模型"}}}},
     "holistic_provider_fallback": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Deterministic fallback"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"生理规则引擎 · 本地确定性"}}}},
     "holistic_coupling_sleep_load": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Sleep × Load"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"睡眠 × 训练负荷"}}}},
-    "holistic_coupling_neat_heart": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"NEAT × Heart"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"NEAT × 心脏"}}}}
+    "holistic_coupling_neat_heart": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"NEAT × Heart"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"NEAT × 心脏"}}}},
+    "heart_sleep_detail_title": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Heart & Sleep"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"心率与睡眠"}}}},
+    "heart_sleep_coupling_entry": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Heart & Sleep coupling"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"心率与睡眠耦合"}}}},
+    "heart_sleep_coupling_section": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Heart & Sleep"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"心率与睡眠"}}}},
+    "heart_sleep_coupling_header": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Sleep × training coupling · L2"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"睡眠×训练耦合建议 · L2"}}}},
+    "heart_sleep_intensity_cap": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Recommended intensity ceiling"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"建议训练强度上限"}}}},
+    "heart_sleep_autonomic_header": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Autonomic corridor · L1"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"自主神经走廊 · L1"}}}}
   },
   "version": "1.0"
 }

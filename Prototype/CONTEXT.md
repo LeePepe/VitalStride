@@ -13,7 +13,7 @@ red_lines:
   - 原型冻结后以独立任务移植到生产 layer，不直接共享原型实现
   - Swift 6 strict concurrency（宪法 II）
 roles:
-  UI: [WorkoutKeyboardPrototype, WorkoutListPrototype, HolisticDashboardPrototype]
+  UI: [WorkoutKeyboardPrototype, WorkoutListPrototype, HolisticDashboardPrototype, HeartSleepCouplingPrototype]
 test: swift build --package-path Prototype
 owns: [visual prototypes, screenshot exporters]
 ---

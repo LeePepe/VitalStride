@@ -1,0 +1,284 @@
+// swiftlint:disable no_hardcoded_chinese
+import AIService
+import DesignKit
+import HealthKitService
+import Observation
+import SwiftData
+import SwiftUI
+import VitalModels
+
+@MainActor
+@Observable
+final class HeartSleepCouplingState {
+    enum LoadState: Equatable { case populated, empty, loading, error }
+
+    private(set) var loadState: LoadState
+    private(set) var snapshot: VitalModels.PhysiologicalSnapshot?
+    private(set) var report: AIService.HolisticFourLayerReport?
+    private(set) var provider: PluggableAIProvider
+    private(set) var heart: VitalModels.HeartDomainSnapshot
+    private(set) var sleep: VitalModels.SleepDomainSnapshot
+    var onRetry: (() -> Void)?
+    private(set) var hasLoaded: Bool
+
+    init(
+        preloadedSnapshot: VitalModels.PhysiologicalSnapshot? = nil,
+        report: AIService.HolisticFourLayerReport? = nil,
+        provider: PluggableAIProvider = .deterministicFallback,
+        loadState: LoadState = .loading
+    ) {
+        self.snapshot = preloadedSnapshot
+        self.report = report
+        self.provider = provider
+        self.loadState = loadState
+        self.heart = preloadedSnapshot?.heart ?? Self.emptyHeart
+        self.sleep = preloadedSnapshot?.sleep ?? Self.emptySleep
+        self.hasLoaded = preloadedSnapshot != nil || report != nil || loadState != .loading
+    }
+
+    func load(cache: HealthDataCache, workouts: [Workout] = [], generatedAt: Date = Date()) async {
+        loadState = .loading
+        hasLoaded = false
+        let interval = DateInterval(
+            start: Calendar.current.date(byAdding: .day, value: -59, to: generatedAt) ?? generatedAt,
+            end: generatedAt
+        )
+        let requested: Set<HealthSampleType> = [
+            .restingHeartRate, .heartRateVariabilitySDNN, .heartRate, .sleepAnalysis,
+            .stepCount, .activeEnergyBurned, .vo2Max
+        ]
+        var points: [HealthDataPoint] = []
+        for type in requested {
+            guard !Task.isCancelled else { return }
+            if let values = try? await cache.data(for: type, in: interval) { points.append(contentsOf: values) }
+        }
+        let healthWorkouts = (try? await cache.workoutData(in: interval)) ?? []
+        let strengthWorkouts = workouts.compactMap(\.strengthSummaryInput)
+        let calculator = HealthMetricsCalculator()
+        let hasHeartOrSleep = points.contains { point in
+            point.sampleType == .restingHeartRate || point.sampleType == .heartRateVariabilitySDNN || point.sampleType == .heartRate || point.sampleType == .sleepAnalysis
+        }
+        guard hasHeartOrSleep,
+              let vitalSnapshot = calculator.physiologicalSnapshot(
+                from: points,
+                workouts: healthWorkouts,
+                strengthWorkouts: strengthWorkouts,
+                generatedAt: generatedAt
+              ),
+              let aiSnapshot = bridge(vitalSnapshot) else {
+            self.snapshot = nil
+            self.report = nil
+            self.heart = Self.emptyHeart
+            self.sleep = Self.emptySleep
+            self.loadState = .empty
+            self.hasLoaded = true
+            return
+        }
+
+        snapshot = vitalSnapshot
+        heart = vitalSnapshot.heart
+        sleep = vitalSnapshot.sleep
+        let configuration = HolisticDashboardState.resolveConfiguration()
+        provider = configuration.provider
+        if configuration.provider == .deterministicFallback || !isConfigured(configuration) {
+            report = await FourLayerAdviceEngine().generate(snapshot: aiSnapshot, model: configuration.modelID)
+            provider = .deterministicFallback
+            loadState = .populated
+            hasLoaded = true
+            return
+        }
+
+        do {
+            report = try await FourLayerAdviceEngine(provider: configuration.makeProvider()).generateCancellable(snapshot: aiSnapshot, model: configuration.modelID)
+            loadState = .populated
+            hasLoaded = true
+        } catch {
+            report = await FourLayerAdviceEngine().generate(snapshot: aiSnapshot, model: configuration.modelID)
+            provider = .deterministicFallback
+            loadState = .error
+            hasLoaded = true
+            onRetry = { [weak self, cache] in
+                Task { @MainActor in await self?.load(cache: cache, workouts: workouts) }
+            }
+        }
+    }
+
+    func markEmpty() { report = nil; loadState = .empty; hasLoaded = true }
+    func markLoading() { report = nil; loadState = .loading; hasLoaded = true }
+    func markError(onRetry: (() -> Void)? = nil) { report = nil; loadState = .error; hasLoaded = true; self.onRetry = onRetry }
+
+    static func preview() -> HeartSleepCouplingState {
+        let state = HeartSleepCouplingState(provider: .deterministicFallback, loadState: .populated)
+        state.heart = previewHeart
+        state.sleep = previewSleep
+        state.report = previewReport
+        state.hasLoaded = true
+        return state
+    }
+
+    static var previewHeart: VitalModels.HeartDomainSnapshot {
+        .init(
+            restingHeartRate: .init(averageBPM: 53, minimumBPM: 50, maximumBPM: 58, sampleCount: 60, currentBPM: 52, sevenDayAverageBPM: 53, baselineBPM: 55, baselineDayCount: 52),
+            hrvCorridor: .init(baselineMilliseconds: 63, lowerBoundMilliseconds: 54, upperBoundMilliseconds: 72, sampleCount: 60, currentMilliseconds: 68, sevenDayAverageMilliseconds: 65, sevenDaySampleCount: 7, baselineDayCount: 52),
+            zoneDistribution: .init(zone1: 12 * 60, zone2: 28 * 60, zone3: 42 * 60, zone4: 18 * 60, zone5: 6 * 60, resolvedMaximumHeartRateBPM: 190),
+            recovery: .init(baselineBPM: 164, oneMinuteBPM: 132, twoMinuteBPM: 115)
+        )
+    }
+
+    static var previewSleep: VitalModels.SleepDomainSnapshot {
+        let architecture = VitalModels.SleepArchitectureSnapshot(deepDuration: 1.8 * 3600, remDuration: 1.9 * 3600, coreDuration: 3.7 * 3600, awakeDuration: 20 * 60, totalSleepDuration: 7.4 * 3600, sleepEfficiency: 0.92, inBedDuration: 8 * 3600)
+        let debt = VitalModels.SleepDebtSummary(sevenDayDebt: 1.4 * 3600, fourteenDayDebt: 2.6 * 3600, baselineSleepDuration: 7.8 * 3600, targetSleepDuration: 8 * 3600, observedNightCount7d: 7, observedNightCount14d: 14)
+        return .init(architecture: architecture, debt: debt, recentNights: Array(repeating: architecture, count: 7))
+    }
+
+    static var previewReport: AIService.HolisticFourLayerReport {
+        .init(l1: [], l2: [.init(primaryDomain: .sleep, secondaryDomain: .trainingLoad, relationship: "sleepTrainingCoupling", message: "Deep and REM restoration support a controlled strength session. Keep high-CNS work below today's ceiling and finish with easy aerobic recovery.")], l3: .init(readinessScore: 84, autonomicScore: 86, sleepRestorationScore: 81, mesocyclePhase: .intensification, recommendedIntensityCap: 0.85), l4: .init(northStarScore: 86, directive: "Controlled training with recovery support."))
+    }
+
+    private static let emptyHeart = VitalModels.HeartDomainSnapshot(
+        restingHeartRate: .init(averageBPM: 0),
+        hrvCorridor: .init(baselineMilliseconds: 0, lowerBoundMilliseconds: 0, upperBoundMilliseconds: 0),
+        zoneDistribution: .init(),
+        recovery: .init(baselineBPM: 0)
+    )
+    private static let emptySleep = VitalModels.SleepDomainSnapshot(architecture: .init(), debt: .init(sevenDayDebt: 0, fourteenDayDebt: 0, baselineSleepDuration: 0, targetSleepDuration: 8 * 3600, observedNightCount7d: 0, missingNightCount7d: 7, observedNightCount14d: 0, missingNightCount14d: 14, isAvailable: false))
+
+    private func bridge(_ value: VitalModels.PhysiologicalSnapshot) -> AIService.PhysiologicalSnapshot? {
+        guard let data = try? JSONEncoder().encode(value) else { return nil }
+        return try? JSONDecoder().decode(AIService.PhysiologicalSnapshot.self, from: data)
+    }
+
+    private func isConfigured(_ configuration: UserAIModelConfiguration) -> Bool {
+        switch configuration.provider {
+        case .foundationModels: return AppleIntelligenceProvider.isAvailable
+        case .jevGateway, .customOpenAICompatible:
+            guard let url = configuration.baseURL, url.host != nil, let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else { return false }
+            if configuration.provider == .jevGateway && configuration.allowsUnauthenticatedGateway { return true }
+            guard let service = configuration.keychainService, let key = try? KeychainHelper().load(service: service) else { return false }
+            return !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .deterministicFallback: return true
+        }
+    }
+}
+
+enum HeartSleepFormatting {
+    static func duration(_ value: TimeInterval) -> String {
+        let minutes = max(0, Int(value.rounded())) / 60
+        return "\(minutes / 60)h \(minutes % 60)m"
+    }
+    static func number(_ value: Double?) -> String { value.map { Int($0.rounded()).formatted() } ?? "—" }
+    static func signed(_ value: Double?) -> String { guard let value else { return "—" }; return "\(value >= 0 ? "+" : "")\(Int(value.rounded()))" }
+    static func percent(_ value: Double) -> String { "\(Int((value * 100).rounded()))%" }
+    static func phase(_ phase: AIService.MesocyclePhase) -> String { phase.rawValue.capitalized }
+    static func provider(_ provider: PluggableAIProvider) -> String { return switch provider { case .foundationModels: "On-device AI"; case .customOpenAICompatible: "Custom API"; case .jevGateway: "Jev Gateway"; case .deterministicFallback: "Local rules" } }
+    static func severity(_ severity: AIService.InsightSeverity) -> (String, PillTone) { return switch severity { case .normal: ("Within corridor", .success); case .watch: ("Watch load", .warning); case .warning: ("Moderate strain", .warning); case .critical: ("High strain", .danger) } }
+}
+
+struct HeartSleepCouplingDetailView: View {
+    @State private var state: HeartSleepCouplingState
+    @Query(sort: \Workout.startDate, order: .reverse) private var workouts: [Workout]
+    @Environment(\.healthDataCache) private var cache
+    @Environment(\.theme) private var theme
+
+    init(state: HeartSleepCouplingState? = nil) { _state = State(initialValue: state ?? HeartSleepCouplingState()) }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Space.md) {
+                switch state.loadState {
+                case .populated:
+                    if let report = state.report { populated(report: report) } else { stateView(.loading, title: "Loading detail", message: "Gathering heart and sleep evidence.") }
+                case .loading: stateView(.loading, title: "Loading detail", message: "Gathering heart and sleep evidence.")
+                case .empty: stateView(.empty, title: "Build your baseline", message: "Authorize Health data to unlock heart and sleep evidence.", actionTitle: "Open Health Settings") {}
+                case .error: stateView(.error, title: "Detail unavailable", message: "Your local data is safe. Retry when the source is available.", actionTitle: "Retry", action: state.onRetry)
+                }
+            }
+            .padding(Space.md)
+            .frame(maxWidth: Space.contentMaxWidth, alignment: .leading)
+        }
+        .background(theme.canvas)
+        .navigationTitle(String(localized: "heart_sleep_detail_title", defaultValue: "Heart & Sleep", comment: "Heart and sleep detail title"))
+        .task {
+            guard !state.hasLoaded else { return }
+            await state.load(cache: cache, workouts: workouts)
+        }
+    }
+
+    @ViewBuilder private func stateView(_ style: DesignStateView.State, title: String, message: String, actionTitle: String? = nil, action: (() -> Void)? = nil) -> some View {
+        VStack { Spacer(minLength: Space.lg); DesignStateView(style, title: title, message: message, actionTitle: actionTitle, action: action ?? {}); Spacer(minLength: Space.lg) }.frame(maxWidth: .infinity, minHeight: 760)
+    }
+
+    @ViewBuilder private func populated(report: AIService.HolisticFourLayerReport) -> some View {
+        let coupling = report.l2.first(where: { $0.relationship == "sleepTrainingCoupling" }) ?? report.l2.first
+        if let coupling { L2SleepTrainingCouplingCard(report: report, insight: coupling, provider: state.provider) }
+        HeartAutonomicCorridorCard(snapshot: state.heart)
+        SleepArchitectureAndDebtCard(snapshot: state.sleep)
+        DomainDrillDownLinksCard()
+    }
+}
+
+private struct L2SleepTrainingCouplingCard: View {
+    @Environment(\.theme) private var theme
+    let report: AIService.HolisticFourLayerReport
+    let insight: AIService.L2CoupledInsight
+    let provider: PluggableAIProvider
+    var body: some View {
+        Card {
+            HStack { SectionHeader(String(localized: "heart_sleep_coupling_header", defaultValue: "Sleep × training coupling · L2", comment: "Coupling card header"), icon: "bolt.heart.fill"); Spacer(minLength: Space.xs); StatusPill(HeartSleepFormatting.provider(provider), tone: .primary) }
+            CardInner {
+                VStack(alignment: .leading, spacing: Space.xs) {
+                    Text(String(localized: "heart_sleep_intensity_cap", defaultValue: "Recommended intensity ceiling", comment: "Intensity cap label")).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground)
+                    Text(HeartSleepFormatting.percent(report.l3.recommendedIntensityCap)).font(TypeScale.metricXL).monospacedDigit().lineLimit(1).layoutPriority(1)
+                    ProgressView(value: report.l3.recommendedIntensityCap).tint(theme.accent)
+                    HStack { StatusPill(HeartSleepFormatting.phase(report.l3.mesocyclePhase), tone: .primary); StatusPill(HeartSleepFormatting.severity(insight.severity).0, tone: HeartSleepFormatting.severity(insight.severity).1); Spacer(); Text("Readiness \(report.l3.readinessScore)").font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1) }
+                }
+            }
+            Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) {
+                GridRow { ScoreCell(title: "Autonomic", value: report.l3.autonomicScore, color: theme.chart(1)); ScoreCell(title: "Sleep restoration", value: report.l3.sleepRestorationScore, color: theme.chart(3)) }
+            }
+            Text(insight.message).font(TypeScale.body).foregroundStyle(theme.secondaryForeground).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct ScoreCell: View { let title: String; let value: Int; let color: Color; var body: some View { CardInner { VStack(alignment: .leading) { Text(title).font(TypeScale.meta); Text("\(value)").font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).foregroundStyle(color) } } } }
+
+struct HeartAutonomicCorridorCard: View {
+    @Environment(\.theme) private var theme
+    let snapshot: VitalModels.HeartDomainSnapshot
+    var body: some View {
+        Card {
+            SectionHeader(String(localized: "heart_sleep_autonomic_header", defaultValue: "Autonomic corridor · L1", comment: "Autonomic card header"), icon: "waveform.path.ecg")
+            let corridor = snapshot.hrvCorridor
+            CardInner { VStack(alignment: .leading, spacing: Space.xs) { HStack { Text("HRV SDNN").font(TypeScale.title); Spacer(); StatusPill(corridor.isWithinCorridor ? "Within corridor" : "Outside corridor", tone: corridor.isWithinCorridor ? .success : .warning) }; Text("\(HeartSleepFormatting.number(corridor.currentMilliseconds)) ms").font(TypeScale.metricXL).monospacedDigit().lineLimit(1).layoutPriority(1); GeometryReader { proxy in corridorBar(corridor, width: proxy.size.width) }.frame(height: 18); HStack { Text("\(HeartSleepFormatting.number(corridor.lowerBoundMilliseconds))–\(HeartSleepFormatting.number(corridor.upperBoundMilliseconds)) ms"); Spacer(); Text("7d \(HeartSleepFormatting.number(corridor.sevenDayAverageMilliseconds)) · 60d \(corridor.baselineDayCount)d") }.font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1).foregroundStyle(theme.secondaryForeground) } }
+            Grid(horizontalSpacing: Space.sm, verticalSpacing: Space.sm) { GridRow { HeartMetricCell(title: "Resting heart rate", value: "\(HeartSleepFormatting.number(snapshot.restingHeartRate.currentBPM)) bpm", detail: "7d \(HeartSleepFormatting.number(snapshot.restingHeartRate.sevenDayAverageBPM)) · Δ \(HeartSleepFormatting.signed(snapshot.restingHeartRate.deltaFromBaselineBPM)) bpm"); HeartMetricCell(title: "Recovery", value: "1m -\(HeartSleepFormatting.number(snapshot.recovery.oneMinuteDropBPM)) bpm", detail: "2m -\(HeartSleepFormatting.number(snapshot.recovery.twoMinuteDropBPM)) · peak \(HeartSleepFormatting.number(snapshot.recovery.baselineBPM))") } }
+            ZoneDistributionBar(distribution: snapshot.zoneDistribution)
+        }
+    }
+    private func corridorBar(_ corridor: VitalModels.HRVCorridorSnapshot, width: CGFloat) -> some View { let span = max(1, corridor.upperBoundMilliseconds - corridor.lowerBoundMilliseconds); let scale: (Double) -> CGFloat = { CGFloat(($0 - corridor.lowerBoundMilliseconds) / span) * width }; return ZStack(alignment: .leading) { Capsule().fill(theme.neutrals.border); Capsule().fill(theme.accentSubtle).frame(width: width); Rectangle().fill(theme.secondaryForeground).frame(width: 1).offset(x: min(max(0, scale(corridor.baselineMilliseconds)), width)); Circle().fill(theme.accent).frame(width: 10, height: 10).offset(x: min(max(0, scale(corridor.currentMilliseconds ?? corridor.baselineMilliseconds) - 5), width - 10)) } }
+}
+
+private struct HeartMetricCell: View { let title: String; let value: String; let detail: String; var body: some View { CardInner { VStack(alignment: .leading, spacing: Space.xs) { Text(title).font(TypeScale.meta); Text(value).font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1); Text(detail).font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1).foregroundStyle(.secondary) } } } }
+
+private struct ZoneDistributionBar: View {
+    @Environment(\.theme) private var theme
+    let distribution: VitalModels.HeartRateZoneDistribution
+    var body: some View { VStack(alignment: .leading, spacing: Space.xs) { SectionHeader("Heart rate zones", icon: "chart.bar.xaxis"); GeometryReader { proxy in HStack(spacing: 2) { ForEach(Array(VitalModels.HeartRateZone.allCases.enumerated()), id: \.offset) { index, zone in Rectangle().fill(theme.chart(index + 4)).frame(width: max(2, proxy.size.width * ratio(zone))) } }.clipShape(Capsule()) }.frame(height: 12); HStack { ForEach(1...5, id: \.self) { Text("Z\($0)").font(TypeScale.meta).frame(maxWidth: .infinity) } } } }
+    private func ratio(_ zone: VitalModels.HeartRateZone) -> CGFloat { let total = distribution.totalDuration; return total > 0 ? CGFloat(distribution.duration(in: zone) / total) : 0 }
+}
+
+struct SleepArchitectureAndDebtCard: View {
+    @Environment(\.theme) private var theme
+    let snapshot: VitalModels.SleepDomainSnapshot
+    var body: some View { Card { SectionHeader("Sleep architecture & debt · L1", icon: "bed.double.fill"); let architecture = snapshot.architecture; CardInner { VStack(alignment: .leading, spacing: Space.sm) { HStack { Text(HeartSleepFormatting.duration(architecture.totalSleepDuration)).font(TypeScale.metricXL).monospacedDigit().lineLimit(1).layoutPriority(1); Spacer(); Text(HeartSleepFormatting.percent(architecture.sleepEfficiency)).font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1) }; SleepStageBar(architecture: architecture); Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { StageCell(title: "Deep", duration: architecture.deepDuration, color: theme.chart(3)); StageCell(title: "REM", duration: architecture.remDuration, color: theme.chart(2)) }; GridRow { StageCell(title: "Core", duration: architecture.coreDuration, color: theme.chart(0)); StageCell(title: "Awake", duration: architecture.awakeDuration, color: theme.secondaryForeground) } } } }; HStack(spacing: Space.sm) { DebtCell(title: "7d debt", value: snapshot.debt.sevenDayDebt, coverage: "\(snapshot.debt.observedNightCount7d)/7"); DebtCell(title: "14d debt", value: snapshot.debt.fourteenDayDebt, coverage: "\(snapshot.debt.observedNightCount14d)/14") }; Text("Target \(HeartSleepFormatting.duration(snapshot.debt.targetSleepDuration)) · In bed \(HeartSleepFormatting.duration(architecture.totalInBedDuration))").font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1).foregroundStyle(theme.secondaryForeground) } }
+}
+private struct SleepStageBar: View { @Environment(\.theme) private var theme; let architecture: VitalModels.SleepArchitectureSnapshot; var body: some View { GeometryReader { proxy in let total = max(1, architecture.totalSleepDuration + architecture.awakeDuration); HStack(spacing: 2) { Rectangle().fill(theme.chart(3)).frame(width: proxy.size.width * architecture.deepDuration / total); Rectangle().fill(theme.chart(2)).frame(width: proxy.size.width * architecture.remDuration / total); Rectangle().fill(theme.chart(0)).frame(width: proxy.size.width * architecture.coreDuration / total); Rectangle().fill(theme.secondaryForeground).frame(width: max(2, proxy.size.width * architecture.awakeDuration / total)) } }.frame(height: 12).clipShape(Capsule()) } }
+private struct StageCell: View { @Environment(\.theme) private var theme; let title: String; let duration: TimeInterval; let color: Color; var body: some View { CardInner { HStack { Circle().fill(color).frame(width: 8, height: 8); VStack(alignment: .leading) { Text(title).font(TypeScale.meta); Text(HeartSleepFormatting.duration(duration)).font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1) } } } } }
+private struct DebtCell: View { let title: String; let value: TimeInterval; let coverage: String; var body: some View { CardInner { VStack(alignment: .leading) { Text(title).font(TypeScale.meta); Text(HeartSleepFormatting.duration(value)).font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1); Text("\(coverage) nights").font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1) } } } }
+
+private struct DomainDrillDownLinksCard: View {
+    var body: some View { Card { SectionHeader("Explore domains", icon: "arrow.forward"); NavigationLink { HeartRateDetailView() } label: { Label("Heart autonomic detail", systemImage: "heart.fill").frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading).contentShape(Rectangle()) }; NavigationLink { SleepDetailView() } label: { Label("Sleep architecture detail", systemImage: "bed.double.fill").frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading).contentShape(Rectangle()) } } }
+}
+
+#Preview("Heart sleep populated") { NavigationStack { HeartSleepCouplingDetailView(state: .preview()) }.designThemePreview(seed: .teal, neutral: .slate) }
+#Preview("Heart sleep dark") { NavigationStack { HeartSleepCouplingDetailView(state: .preview()) }.preferredColorScheme(.dark).designThemePreview(seed: .teal, neutral: .slate) }

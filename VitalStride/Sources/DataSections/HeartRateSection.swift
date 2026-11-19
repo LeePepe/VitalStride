@@ -391,6 +391,7 @@ struct HeartRateDetailView: View {
     @State private var chartPoints: [HealthDataPoint] = []
     @State private var isLoading = true
     @State private var fetchError: (any Error)?
+    @State private var couplingState = HeartSleepCouplingState()
     @Environment(\.healthDataCache) private var cache
     @Environment(\.theme) private var theme
 
@@ -442,6 +443,17 @@ struct HeartRateDetailView: View {
 
                 statsSection
 
+                if couplingState.loadState == .populated {
+                    Section {
+                        HeartAutonomicCorridorCard(snapshot: couplingState.heart)
+                        NavigationLink { HeartSleepCouplingDetailView(state: couplingState) } label: {
+                            Label(String(localized: "heart_sleep_coupling_entry", defaultValue: "Heart & Sleep coupling", comment: "Heart and sleep detail entry"), systemImage: "heart.text.square.fill")
+                                .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                    }
+                }
+
                 AIDataAnalysisSection(sampleType: .heartRate)
 
                 Section {
@@ -488,6 +500,7 @@ struct HeartRateDetailView: View {
         .navigationTitle(String(localized: "心率", comment: "Heart rate detail title"))
         .task(id: selectedRange) {
             await loadData()
+            await couplingState.load(cache: cache)
         }
         .onAppear {
             logger.info("detail opened type=heartRate range=\(selectedRange.rawValue)")
