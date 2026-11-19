@@ -111,8 +111,8 @@ struct MetricMediumCardView: View {
         title: "Steps", content: "8,543", iconName: "figure.walk"
     ))
     .designThemePreview()
-    .frame(width: 160)
     .padding()
+    .frame(width: 160)
 }
 
 #Preview("Metric Medium") {
@@ -122,6 +122,6 @@ struct MetricMediumCardView: View {
         suggestion: "+12% vs last week", iconName: "figure.walk"
     ))
     .designThemePreview()
-    .frame(width: 200)
     .padding()
+    .frame(width: 200)
 }

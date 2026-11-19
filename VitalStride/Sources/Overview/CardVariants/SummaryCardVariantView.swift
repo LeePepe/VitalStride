@@ -34,26 +34,28 @@ struct SummaryWideCardView: View {
     }
 
     private var horizontalMetrics: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(entries.prefix(4).enumerated()), id: \.element.id) { index, entry in
-                VStack(spacing: 4) {
-                    Text(entry.value)
-                        .font(TypeScale.display)
-                        .foregroundStyle(theme.foreground)
-                        .minimumScaleFactor(0.85)
-                        .lineLimit(1)
-                        .layoutPriority(1)
-                        .monospacedDigit()
-                    Text(entry.key)
-                        .font(TypeScale.meta)
-                        .foregroundStyle(theme.secondaryForeground)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: .infinity)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 0) {
+                ForEach(Array(entries.prefix(4).enumerated()), id: \.element.id) { index, entry in
+                    VStack(spacing: 4) {
+                        Text(entry.value)
+                            .font(TypeScale.display)
+                            .foregroundStyle(theme.foreground)
+                            .minimumScaleFactor(0.85)
+                            .lineLimit(1)
+                            .layoutPriority(1)
+                            .monospacedDigit()
+                        Text(entry.key)
+                            .font(TypeScale.meta)
+                            .foregroundStyle(theme.secondaryForeground)
+                            .lineLimit(1)
+                    }
+                    .frame(minWidth: 96)
 
-                if index < min(entries.count, 4) - 1 {
-                    Divider()
-                        .frame(height: 30)
+                    if index < min(entries.count, 4) - 1 {
+                        Divider()
+                            .frame(height: 30)
+                    }
                 }
             }
         }

@@ -13264,7 +13264,13 @@
     "已展开": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Expanded"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已展开"}}}},
     "已折叠": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Collapsed"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "已折叠"}}}},
     "%lld/%lld 组，%@": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "%1$lld/%2$lld sets, %3$@"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "%1$lld/%2$lld 组，%3$@"}}}},
-    "轻点展开或折叠该动作": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Double tap to expand or collapse this exercise"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "轻点展开或折叠该动作"}}}}
+    "轻点展开或折叠该动作": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Double tap to expand or collapse this exercise"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"轻点展开或折叠该动作"}}}},
+    "holistic_empty_title": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Build your baseline"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"建立你的基线"}}}},
+    "holistic_empty_message": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Authorize health data or complete a workout to unlock your first synthesis."}},"zh-Hans":{"stringUnit":{"state":"translated","value":"授权健康数据或完成一次训练，开启你的首次综合分析。"}}}},
+    "holistic_settings_action": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Open Health Settings"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"打开健康设置"}}}},
+    "holistic_error_title": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Dashboard unavailable"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"仪表盘暂不可用"}}}},
+    "holistic_error_message": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Your local data is safe. Retry when the data source is available."}},"zh-Hans":{"stringUnit":{"state":"translated","value":"本地数据安全保存。数据源可用后请重试。"}}}},
+    "holistic_retry_action": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Retry"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"重试"}}}}
   },
   "version": "1.0"
 }

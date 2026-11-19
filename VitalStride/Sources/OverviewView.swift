@@ -16,6 +16,7 @@ import VitalUI
 struct OverviewView: View {
     @State private var snapshotState = HealthSnapshotState()
     @State private var dynamicState = OverviewDynamicState()
+    @State private var holisticState = HolisticDashboardState()
     @State private var authCheckToken = UUID()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.healthDataCache) private var healthDataCache
@@ -64,6 +65,7 @@ struct OverviewView: View {
             .navigationTitle(String(localized: "overview_title", defaultValue: "概览"))
             .refreshable {
                 await snapshotState.load(cache: healthDataCache, service: healthKitService, forceRefresh: true)
+                await holisticState.load(cache: healthDataCache, workouts: recentWorkouts, forceRefresh: true)
                 await dynamicState.refresh(
                     container: modelContext.container,
                     snapshot: snapshotState.snapshot,
@@ -77,6 +79,7 @@ struct OverviewView: View {
             .task(id: snapshotState.isLoading) {
                 guard !snapshotState.isLoading else { return }
                 guard snapshotState.isAuthorized || hasWorkoutData else { return }
+                await holisticState.load(cache: healthDataCache, workouts: recentWorkouts)
                 await dynamicState.loadInitial(
                     container: modelContext.container,
                     snapshot: snapshotState.snapshot,
@@ -156,6 +159,7 @@ struct OverviewView: View {
             EmptyView()
 
         case .dynamic(let insights, let lastUpdated):
+            HolisticDashboardSection(state: holisticState)
             if let headline = dynamicState.pendingHeadline {
                 HeadlineBar(headline: headline) {
                     HeadlineBarTelemetry.recordTapped()
@@ -174,6 +178,7 @@ struct OverviewView: View {
             }
 
         case .fallback:
+            HolisticDashboardSection(state: holisticState)
             OverviewFallbackContent(
                 snapshotState: snapshotState,
                 hasWorkoutData: hasWorkoutData,
