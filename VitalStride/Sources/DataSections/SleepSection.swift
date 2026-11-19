@@ -321,7 +321,8 @@ struct SleepSection: View {
 
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
-            logger.info("render dataPoints=\(dataPoints.count) nights=\(aggregated.count) ms=\(ms)")
+            let sampleCount = dataPoints.count
+            logger.info("render sample_count=\(sampleCount) nights=\(aggregated.count) ms=\(ms)")
         } catch {
             guard !Task.isCancelled else { return }
             logger.error("loadData failed: \(error.localizedDescription)")

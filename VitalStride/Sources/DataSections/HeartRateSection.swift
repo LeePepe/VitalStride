@@ -214,12 +214,12 @@ struct HeartRateSection: View {
             chartPoints = HeartRateStats.downsample(filteredPoints, for: range)
             let elapsed = ContinuousClock.now - start
             let ms = elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000
-            logger.info("chart render type=heartRate points=\(filteredPoints.count) ms=\(ms) range=\(range.rawValue)")
+            logger.info("chart render type=cardiac_metric points=\(filteredPoints.count) ms=\(ms) range=\(range.rawValue)")
         } catch {
             fetchError = error
             filteredPoints = []
             chartPoints = []
-            logger.error("fetch failed type=heartRate error=\(error.localizedDescription)")
+            logger.error("fetch failed type=cardiac_metric error=\(error.localizedDescription)")
         }
         isLoading = false
     }
@@ -503,7 +503,7 @@ struct HeartRateDetailView: View {
             await couplingState.load(cache: cache)
         }
         .onAppear {
-            logger.info("detail opened type=heartRate range=\(selectedRange.rawValue)")
+            logger.info("detail opened type=cardiac_metric range=\(selectedRange.rawValue)")
         }
     }
 
@@ -562,7 +562,7 @@ struct HeartRateDetailView: View {
             fetchError = error
             dataPoints = []
             chartPoints = []
-            logger.error("fetch failed type=heartRate error=\(error.localizedDescription)")
+            logger.error("fetch failed type=cardiac_metric error=\(error.localizedDescription)")
         }
 
         isLoading = false

@@ -162,6 +162,28 @@ private func durationText(_ seconds: TimeInterval) -> String {
     return "\(totalMinutes / 60)h \(totalMinutes % 60)m"
 }
 
+private struct PreviewScoreArc: View {
+    @Environment(\.theme) private var theme
+    let score: Int
+    let color: Color
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(theme.neutrals.border, lineWidth: 8)
+            Circle()
+                .trim(from: 0, to: CGFloat(min(max(score, 0), 100)) / 100)
+                .stroke(color, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Text("\(min(max(score, 0), 100))")
+                .font(TypeScale.display)
+                .monospacedDigit()
+                .lineLimit(1)
+                .layoutPriority(1)
+        }
+        .frame(width: 76, height: 76)
+    }
+}
+
 private struct PreviewStateView: View {
     @Environment(\.theme) private var theme
     let state: HeartSleepCouplingPreviewState
@@ -244,15 +266,88 @@ private struct CandidateScaffold<Content: View>: View {
 public struct HeartSleepCouplingV01View: View { public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in Card { CouplingHeader(data: item) }; HeartEvidence(data: item); SleepEvidence(data: item); Card { ZoneBar(zones: item.zones) } } } }
 public struct HeartSleepCouplingV02View: View { public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in Card { HStack(alignment: .bottom) { VStack(alignment: .leading) { SectionHeader("Morning prescription", icon: "sunrise.fill"); Text("\(Int(item.coupling.recommendedIntensityCap * 100))%").font(TypeScale.metricXXL).monospacedDigit().lineLimit(1).layoutPriority(1); Text("load ceiling").font(TypeScale.meta) }; Spacer(); StatusPill(item.coupling.mesocyclePhase.label, tone: .primary) }; Text(item.coupling.message).font(TypeScale.body).fixedSize(horizontal: false, vertical: true) }; Card { LedgerRows(data: item, title: "Autonomic clinical ledger") }; Card { LedgerRows(data: item, title: "Sleep restoration ledger") } } } }
 private struct LedgerRows: View { let data: HeartSleepCouplingPreviewData; let title: String; var body: some View { VStack(alignment: .leading, spacing: Space.sm) { SectionHeader(title); HStack { Text("HRV / RHR"); Spacer(); Text("\(Int(data.hrv.current)) ms · \(Int(data.rhr.currentBPM)) bpm").font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1) }; Divider(); HStack { Text("Recovery"); Spacer(); Text("1m -\(Int(data.hrr.oneMinuteDrop)) · 2m -\(Int(data.hrr.twoMinuteDrop))").font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1) }; Divider(); HStack { Text("Sleep / debt"); Spacer(); Text("\(durationText(data.architecture.totalSleep)) · \(durationText(data.debt.sevenDay))").font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1) } }.font(TypeScale.body) } }
-public struct HeartSleepCouplingV03View: View { public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in Card { CouplingHeader(data: item) }; Grid(horizontalSpacing: Space.gap, verticalSpacing: Space.gap) { GridRow { Card { HeartEvidence(data: item) }; Card { SleepEvidence(data: item) } }; GridRow { Card { ZoneBar(zones: item.zones) }.gridCellColumns(2) } } } } }
+public struct HeartSleepCouplingV03View: View {
+    @Environment(\.theme) private var theme
+    public let data: HeartSleepCouplingPreviewData
+    public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }
+    public var body: some View {
+        CandidateScaffold(data: data) { item in
+            Card { CouplingHeader(data: item) }
+            Grid(horizontalSpacing: Space.gap, verticalSpacing: Space.gap) {
+                GridRow { V03HRVTile(data: item, color: theme.chart(1)); V03RecoveryTile(data: item, color: theme.chart(3)) }
+                GridRow { V03SleepTile(data: item, color: theme.chart(3)); V03DebtTile(data: item, color: theme.chart(2)) }
+                GridRow { Card { ZoneBar(zones: item.zones) }.gridCellColumns(2) }
+            }
+        }
+    }
+}
+
+private struct V03HRVTile: View {
+    let data: HeartSleepCouplingPreviewData
+    let color: Color
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: Space.xs) {
+                Text("HRV corridor").font(TypeScale.meta).lineLimit(1)
+                Text("\(Int(data.hrv.current.rounded())) ms").font(TypeScale.metricXL).monospacedDigit().lineLimit(1).layoutPriority(1)
+                Sparkline(data: [58, 61, 63, 60, 65, 66, data.hrv.current], color: color)
+                Text("\(Int(data.hrv.lowerBound.rounded()))–\(Int(data.hrv.upperBound.rounded())) ms").font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1)
+            }
+        }
+    }
+}
+
+private struct V03RecoveryTile: View {
+    let data: HeartSleepCouplingPreviewData
+    let color: Color
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: Space.sm) {
+                Text("RHR").font(TypeScale.meta).lineLimit(1)
+                Text("\(Int(data.rhr.currentBPM.rounded())) bpm").font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1)
+                Divider()
+                Text("HRR 1m").font(TypeScale.meta).lineLimit(1)
+                Text("-\(Int(data.hrr.oneMinuteDrop.rounded())) bpm").font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).foregroundStyle(color)
+            }
+        }
+    }
+}
+
+private struct V03SleepTile: View {
+    let data: HeartSleepCouplingPreviewData
+    let color: Color
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: Space.xs) {
+                Text("Sleep efficiency").font(TypeScale.meta).lineLimit(1)
+                RingGauge(value: data.architecture.sleepEfficiency, color: color)
+                Text(durationText(data.architecture.totalSleep)).font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1)
+            }
+        }
+    }
+}
+
+private struct V03DebtTile: View {
+    let data: HeartSleepCouplingPreviewData
+    let color: Color
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: Space.sm) {
+                Text("Sleep debt").font(TypeScale.meta).lineLimit(1)
+                Text("7d \(durationText(data.debt.sevenDay))").font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).foregroundStyle(color)
+                Text("14d \(durationText(data.debt.fourteenDay))").font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1)
+                Text("Target \(durationText(data.debt.targetSleep))").font(TypeScale.meta).monospacedDigit().lineLimit(1).layoutPriority(1)
+            }
+        }
+    }
+}
 public struct HeartSleepCouplingV04View: View { public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in TimelineStage(icon: "moon.fill", title: "Last night") { SleepEvidence(data: item) }; TimelineStage(icon: "waveform.path.ecg", title: "Morning autonomic readout") { HeartEvidence(data: item) }; TimelineStage(icon: "bolt.fill", title: "Today's training window") { Card { CouplingHeader(data: item) } } } } }
 private struct TimelineStage<Content: View>: View { @Environment(\.theme) private var theme; let icon: String; let title: String; @ViewBuilder let content: () -> Content; var body: some View { HStack(alignment: .top, spacing: Space.sm) { VStack { Image(systemName: icon).foregroundStyle(theme.accent); Rectangle().fill(theme.border).frame(width: 1) }.frame(width: 24); VStack(alignment: .leading, spacing: Space.xs) { Text(title).font(TypeScale.title); content() } } } }
-public struct HeartSleepCouplingV05View: View { public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in Card { HStack { CardInner { VStack { RingGauge(value: Double(item.coupling.autonomicScore) / 100, color: themeColor(1)); Text("Autonomic \(item.coupling.autonomicScore)").font(TypeScale.meta) } }; CardInner { VStack { RingGauge(value: Double(item.coupling.sleepRestorationScore) / 100, color: themeColor(3)); Text("Sleep \(item.coupling.sleepRestorationScore)").font(TypeScale.meta) } } }; CouplingHeader(data: item) }; Card { HeartEvidence(data: item); ZoneBar(zones: item.zones) }; Card { SleepEvidence(data: item) } } } }
-private func themeColor(_ index: Int) -> Color { Color.accentColor }
-public struct HeartSleepCouplingV06View: View { public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in Card { SectionHeader("Corridor chart studio", icon: "chart.xyaxis.line"); Sparkline(data: [58, 61, 63, 60, 65, 66, item.hrv.current], color: Color.accentColor); HeartEvidence(data: item) }; Card { SectionHeader("Seven-night architecture", icon: "chart.bar.fill"); HStack(alignment: .bottom, spacing: Space.xs) { ForEach(0..<7, id: \.self) { day in VStack { Capsule().fill(Color.accentColor.opacity(0.7)).frame(height: CGFloat(20 + day * 5)); Text("\(day + 1)").font(TypeScale.meta) } .frame(maxWidth: .infinity) } }; SleepEvidence(data: item) }; Card { CouplingHeader(data: item) } } } }
+public struct HeartSleepCouplingV05View: View { @Environment(\.theme) private var theme; public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in Card { HStack { CardInner { VStack { PreviewScoreArc(score: item.coupling.autonomicScore, color: theme.chart(1)); Text("Autonomic \(item.coupling.autonomicScore)").font(TypeScale.meta) } }; CardInner { VStack { PreviewScoreArc(score: item.coupling.sleepRestorationScore, color: theme.chart(3)); Text("Sleep \(item.coupling.sleepRestorationScore)").font(TypeScale.meta) } } }; CouplingHeader(data: item) }; Card { HeartEvidence(data: item); ZoneBar(zones: item.zones) }; Card { SleepEvidence(data: item) } } } }
+public struct HeartSleepCouplingV06View: View { @Environment(\.theme) private var theme; public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in Card { SectionHeader("Corridor chart studio", icon: "chart.xyaxis.line"); Sparkline(data: [58, 61, 63, 60, 65, 66, item.hrv.current], color: theme.chart(1)); HeartEvidence(data: item) }; Card { SectionHeader("Seven-night architecture", icon: "chart.bar.fill"); HStack(alignment: .bottom, spacing: Space.xs) { ForEach(0..<7, id: \.self) { day in VStack { Capsule().fill(theme.chart(3).opacity(0.7)).frame(height: CGFloat(20 + day * 5)); Text("\(day + 1)").font(TypeScale.meta) } .frame(maxWidth: .infinity) } }; SleepEvidence(data: item) }; Card { CouplingHeader(data: item) } } } }
 public struct HeartSleepCouplingV07View: View { public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in Card { CouplingHeader(data: item); Divider(); Text("Guardrails").font(TypeScale.title); HStack { StatusPill("CNS controlled", tone: .success); StatusPill("Zone 2 recovery", tone: .neutral) } }; Card { SectionHeader("Evidence pillar 1", icon: "heart.fill"); HeartEvidence(data: item) }; Card { SectionHeader("Evidence pillar 2", icon: "bed.double.fill"); SleepEvidence(data: item) } } } }
 public struct HeartSleepCouplingV08View: View { public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in Card { SectionHeader("Coupling matrix", icon: "square.grid.2x2"); Grid(horizontalSpacing: Space.gap, verticalSpacing: Space.gap) { GridRow { CardInner { Text("Autonomic\n\(Int(item.hrv.current)) ms · score \(item.coupling.autonomicScore)").font(TypeScale.body).fixedSize(horizontal: false, vertical: true) }; CardInner { Text("Sleep\n\(durationText(item.architecture.totalSleep)) · score \(item.coupling.sleepRestorationScore)").font(TypeScale.body).fixedSize(horizontal: false, vertical: true) } }; GridRow { CardInner { CouplingHeader(data: item) }.gridCellColumns(2) } } }; Card { HeartEvidence(data: item); ZoneBar(zones: item.zones) }; Card { SleepEvidence(data: item) } } } }
-public struct HeartSleepCouplingV09View: View { public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in Card { VStack(alignment: .center, spacing: Space.lg) { SectionHeader("Calm recovery check-in", icon: "leaf.fill"); RingGauge(value: item.coupling.recommendedIntensityCap, size: 96, stroke: 7, color: Color.accentColor); Text("Train below ceiling").font(TypeScale.title); Text(item.coupling.message).font(TypeScale.body).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true); StatusPill(item.coupling.provider.label, tone: .primary) }.frame(maxWidth: .infinity) }; Card { HStack { Metric(value: "\(Int(item.hrv.current)) ms", label: "HRV"); Spacer(); Metric(value: "\(Int(item.rhr.currentBPM)) bpm", label: "RHR"); Spacer(); Metric(value: "-\(Int(item.hrr.oneMinuteDrop)) bpm", label: "HRR") } }; Card { SleepEvidence(data: item) } } } }
+public struct HeartSleepCouplingV09View: View { @Environment(\.theme) private var theme; public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in Card { VStack(alignment: .center, spacing: Space.lg) { SectionHeader("Calm recovery check-in", icon: "leaf.fill"); RingGauge(value: item.coupling.recommendedIntensityCap, size: 96, stroke: 7, color: theme.accent); Text("Train below ceiling").font(TypeScale.title); Text(item.coupling.message).font(TypeScale.body).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true); StatusPill(item.coupling.provider.label, tone: .primary) }.frame(maxWidth: .infinity) }; Card { HStack { Metric(value: "\(Int(item.hrv.current)) ms", label: "HRV"); Spacer(); Metric(value: "\(Int(item.rhr.currentBPM)) bpm", label: "RHR"); Spacer(); Metric(value: "-\(Int(item.hrr.oneMinuteDrop)) bpm", label: "HRR") } }; Card { SleepEvidence(data: item) } } } }
 public struct HeartSleepCouplingV10View: View { public let data: HeartSleepCouplingPreviewData; public init(data: HeartSleepCouplingPreviewData = .init()) { self.data = data }; public var body: some View { CandidateScaffold(data: data) { item in Card { SectionHeader("Sports science console", icon: "waveform.path.ecg.rectangle"); Grid(horizontalSpacing: Space.sm, verticalSpacing: Space.sm) { GridRow { TelemetryCell(title: "HRV", value: "\(Int(item.hrv.current)) ms"); TelemetryCell(title: "RHR", value: "\(Int(item.rhr.currentBPM)) bpm") }; GridRow { TelemetryCell(title: "Sleep", value: durationText(item.architecture.totalSleep)); TelemetryCell(title: "Debt", value: durationText(item.debt.sevenDay)) } }; CouplingHeader(data: item) }; Card { HeartEvidence(data: item); ZoneBar(zones: item.zones) }; Card { SleepEvidence(data: item) } } } }
 private struct TelemetryCell: View { let title: String; let value: String; var body: some View { CardInner { VStack(alignment: .leading) { Text(title).font(TypeScale.meta); Text(value).font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1) } } } }
 
