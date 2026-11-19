@@ -465,6 +465,15 @@ struct DataView: View {
                 WorkoutHistoryView()
             } label: {
                 Label(String(localized: "运动记录", comment: "Workout history"), systemImage: "figure.run.circle")
+                    .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            NavigationLink {
+                WorkoutLoadProgressionView()
+            } label: {
+                Label(String(localized: "workout_load_entry", defaultValue: "Workout Load & Progression", comment: "Workout load detail entry"), systemImage: "chart.xyaxis.line")
+                    .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                    .contentShape(Rectangle())
             }
         } header: {
             Text("运动", comment: "Workout section header")
