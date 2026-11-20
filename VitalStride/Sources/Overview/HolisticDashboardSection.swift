@@ -398,7 +398,7 @@ private struct QuickDrillDownSection: View {
             SectionHeader(L4Copy.drillDown, icon: "arrow.forward")
             DrillDownEntry(title: L4Copy.heartSleep, subtitle: L4Copy.heartSleepSubtitle, icon: "heart.text.square") { navigation.selectedTab = .data }
             DrillDownEntry(title: L4Copy.workoutLoad, subtitle: L4Copy.workoutLoadSubtitle, icon: "figure.strengthtraining.traditional") { navigation.selectedTab = .workout; navigation.showWorkoutLoadProgression = true }
-            DrillDownEntry(title: L4Copy.stepsAI, subtitle: L4Copy.stepsAISubtitle, icon: "brain") { navigation.selectedTab = .settings }
+            DrillDownEntry(title: L4Copy.stepsAI, subtitle: L4Copy.stepsAISubtitle, icon: "brain") { navigation.selectedTab = .settings; navigation.showStepsBodySettings = true }
         }
     }
 }

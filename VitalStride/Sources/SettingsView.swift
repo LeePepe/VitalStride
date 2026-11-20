@@ -10,6 +10,9 @@ struct SettingsView: View {
     @Environment(\.theme) private var theme
     @Environment(\.healthKitService) private var healthKitService
     @Environment(\.flightStore) private var flightStore
+    #if os(iOS)
+    @Environment(AppNavigation.self) private var navigation: AppNavigation?
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -24,6 +27,11 @@ struct SettingsView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(String(localized: "设置", comment: "Nav title"))
+            #if os(iOS)
+            .navigationDestination(isPresented: Binding(get: { navigation?.showStepsBodySettings ?? false }, set: { navigation?.showStepsBodySettings = $0 })) {
+                StepsBodyRecoveryView()
+            }
+            #endif
         }
     }
 

@@ -82,6 +82,7 @@ struct DataView: View {
                     summarySection
                     aiSummarySection
                     heartSleepCouplingSection
+                    stepsBodyRecoverySection
                     activitySection
                     heartSection
                     bodySection
@@ -146,6 +147,21 @@ struct DataView: View {
                 }
             } header: {
                 Text(String(localized: "heart_sleep_coupling_section", defaultValue: "Heart & Sleep", comment: "Heart and sleep coupling section"))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var stepsBodyRecoverySection: some View {
+        if hasVisibleTypes(in: Self.activityTypes) || hasVisibleTypes(in: Self.bodyTypes) {
+            Section {
+                NavigationLink { StepsBodyRecoveryView() } label: {
+                    Label(String(localized: "steps_body_entry", defaultValue: "Steps / NEAT × Body Recovery", comment: "Steps body detail entry"), systemImage: "figure.walk.motion")
+                        .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+            } header: {
+                Text(String(localized: "steps_body_section", defaultValue: "Steps / NEAT & recovery", comment: "Steps body section"))
             }
         }
     }

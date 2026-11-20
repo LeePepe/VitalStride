@@ -20,6 +20,7 @@ final class AppNavigation {
     /// mode, and clears it back to `nil`.
     var crashRecoveryResume: Workout?
     var showWorkoutLoadProgression = false
+    var showStepsBodySettings = false
 }
 
 struct ContentView: View {
