@@ -379,6 +379,14 @@ struct StepsDetailView: View {
                     )
                 }
 
+                Section {
+                    NavigationLink { StepsBodyRecoveryView() } label: {
+                        Label(String(localized: "steps_body_entry", defaultValue: "Steps / NEAT × Body Recovery", comment: "Steps body entry"), systemImage: "figure.walk.motion")
+                            .frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                }
+
                 AIDataAnalysisSection(sampleType: .stepCount)
 
                 Section {
