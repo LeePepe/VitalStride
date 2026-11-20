@@ -368,37 +368,40 @@ private struct PeriodizationCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: Radius.badge))
                 }
             }
-            CompactInset {
-                HStack(spacing: Space.xxs) {
+            Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) {
+                GridRow {
                     metric(WorkoutLoadCopy.intensity, WorkoutLoadCopy.percent(report.l3.recommendedIntensityCap), theme.accent)
                     metric(WorkoutLoadCopy.readiness, "\(report.l3.readinessScore)", theme.success)
+                }
+                GridRow {
                     metric(WorkoutLoadCopy.fatigueBalance, "\(report.l3.fatigueBalanceScore)", theme.warning)
                     pairedMetric(load: load)
                 }
             }
             CompactInset {
-                VStack(alignment: .leading, spacing: Space.xxs) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(WorkoutLoadCopy.prescription).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground)
-                    Text(report.l2.first?.message ?? WorkoutLoadCopy.nextSession).font(TypeScale.num).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    Text(report.l2.first?.message ?? WorkoutLoadCopy.nextSession).font(TypeScale.meta).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
     }
     @ViewBuilder private func pairedMetric(load: VitalModels.TrainingLoadSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: Space.xxs) {
-            Text(WorkoutLoadCopy.trimpTssTitle).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1)
-            HStack(spacing: Space.xs) {
-                Text("\(Int(load.trimp.rounded()))").font(TypeScale.metricXL).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(theme.chart(1))
-                Text("/").font(TypeScale.meta).foregroundStyle(theme.secondaryForeground)
-                Text("\(Int(load.tss.rounded()))").font(TypeScale.metricXL).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(theme.chart(1))
+        CompactInset {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(WorkoutLoadCopy.trimpTssTitle).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1).minimumScaleFactor(0.85)
+                Text("\(Int(load.trimp.rounded())) / \(Int(load.tss.rounded()))")
+                    .font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85).foregroundStyle(theme.chart(1))
             }
-        }.frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
     @ViewBuilder private func metric(_ title: String, _ value: String, _ color: Color) -> some View {
-        VStack(alignment: .leading, spacing: Space.xxs) {
-            Text(title).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(2).minimumScaleFactor(0.85)
-            Text(value).font(TypeScale.metricXL).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(color)
-        }.frame(maxWidth: .infinity, alignment: .leading)
+        CompactInset {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1).minimumScaleFactor(0.85)
+                Text(value).font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85).foregroundStyle(color)
+            }
+        }
     }
 }
 
@@ -414,33 +417,30 @@ private struct PMCCard: View {
                 metric("TSB", load.trainingStressBalance, tsbTone.color)
             }
             CompactInset {
-                VStack(alignment: .leading, spacing: Space.xxs) {
+                VStack(alignment: .leading, spacing: 2) {
                     PMCTrajectory(load: load)
                     HStack(spacing: Space.xs) {
                         Text(WorkoutLoadCopy.ctlDeltas(d7: WorkoutLoadCopy.signed(load.ctlDelta7d), d14: WorkoutLoadCopy.signed(load.ctlDelta14d)))
-                            .font(TypeScale.num).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85)
+                            .font(TypeScale.meta).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85)
                         Spacer(minLength: Space.xs)
                         Text(WorkoutLoadCopy.dedupSessions(load.deduplicatedWorkoutCount)).font(TypeScale.meta).lineLimit(1)
                     }
                 }
             }
             CompactInset {
-                VStack(alignment: .leading, spacing: Space.xxs) {
-                    HStack(spacing: Space.xs) {
-                        Text("ACWR").font(TypeScale.meta)
-                        Text(load.acuteChronicWorkloadRatio.map { WorkoutLoadCopy.number($0, digits: 2) } ?? "—").font(TypeScale.metricXL).monospacedDigit().lineLimit(1).layoutPriority(1)
-                        Spacer(minLength: Space.xs)
-                        StatusPill(acwrTone.label, tone: acwrTone.tone)
-                    }
-                    Rectangle().fill(theme.success.opacity(0.24)).frame(height: 4).clipShape(Capsule())
+                HStack(spacing: Space.xs) {
+                    Text("ACWR").font(TypeScale.meta)
+                    Text(load.acuteChronicWorkloadRatio.map { WorkoutLoadCopy.number($0, digits: 2) } ?? "—").font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1)
+                    Capsule().fill(theme.success.opacity(0.28)).frame(maxWidth: .infinity, minHeight: 6, maxHeight: 6)
+                    StatusPill(acwrTone.label, tone: acwrTone.tone).fixedSize(horizontal: true, vertical: false)
                 }
             }
         }
     }
     @ViewBuilder private func metric(_ title: String, _ value: Double, _ color: Color) -> some View {
-        VStack(alignment: .leading, spacing: Space.xxs) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(title).font(TypeScale.meta)
-            Text(WorkoutLoadCopy.number(value)).font(TypeScale.metricXL).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(color)
+            Text(WorkoutLoadCopy.number(value)).font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85).foregroundStyle(color)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
     private var tsbTone: (label: String, tone: PillTone, color: Color) { if load.trainingStressBalance < -25 { return (WorkoutLoadCopy.overreaching, .danger, theme.danger) }; if load.trainingStressBalance < -10 { return (WorkoutLoadCopy.fatigue, .warning, theme.warning) }; return (WorkoutLoadCopy.optimal, .success, theme.success) }
@@ -484,7 +484,7 @@ private struct PMCTrajectory: View {
                     }
                 }.frame(maxHeight: .infinity, alignment: .bottom)
             }
-        }.frame(height: 52)
+        }.frame(height: 36)
     }
 }
 
@@ -528,7 +528,7 @@ private struct ZoneRow: View {
             }.frame(height: 6)
             Text(WorkoutLoadCopy.duration(duration)).font(.caption2.monospacedDigit()).lineLimit(1).minimumScaleFactor(0.85).frame(width: 45, alignment: .trailing)
             Text(WorkoutLoadCopy.share(share)).font(.caption2.monospacedDigit()).lineLimit(1).frame(width: 30, alignment: .trailing)
-        }.frame(minHeight: 14)
+        }.frame(minHeight: 12)
     }
 }
 
@@ -541,19 +541,17 @@ private struct AerobicCard: View {
             Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) {
                 GridRow {
                     CompactInset {
-                        VStack(alignment: .leading, spacing: Space.xxs) {
-                            Text("EF").font(TypeScale.meta)
-                            Text(aerobic.efficiencyFactor.map { WorkoutLoadCopy.number($0, digits: 3) } ?? "—").font(TypeScale.metricXL).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85)
-                            Text("(km/h)/bpm").font(TypeScale.meta).lineLimit(1)
-                            Text(WorkoutLoadCopy.paHrValue(WorkoutLoadCopy.number(aerobic.aerobicDecouplingPercentage ?? 0))).font(TypeScale.num).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(theme.success)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack { Text("EF").font(TypeScale.meta); Spacer(); Text("(km/h)/bpm").font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1) }
+                            Text(aerobic.efficiencyFactor.map { WorkoutLoadCopy.number($0, digits: 3) } ?? "—").font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85)
+                            Text(WorkoutLoadCopy.paHrValue(WorkoutLoadCopy.number(aerobic.aerobicDecouplingPercentage ?? 0))).font(TypeScale.meta).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(theme.success)
                         }
                     }
                     CompactInset {
-                        VStack(alignment: .leading, spacing: Space.xxs) {
-                            Text("VO2max").font(TypeScale.meta)
-                            Text(aerobic.vo2Max.map { WorkoutLoadCopy.number($0) } ?? "—").font(TypeScale.metricXL).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85)
-                            Text("mL/(kg·min)").font(TypeScale.meta).lineLimit(1)
-                            Text(WorkoutLoadCopy.vo2Detail(delta: WorkoutLoadCopy.signed(aerobic.vo2MaxTrend ?? 0), samples: aerobic.sampleCount)).font(TypeScale.num).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(theme.success)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack { Text("VO2max").font(TypeScale.meta); Spacer(); Text("mL/(kg·min)").font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1) }
+                            Text(aerobic.vo2Max.map { WorkoutLoadCopy.number($0) } ?? "—").font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85)
+                            Text(WorkoutLoadCopy.vo2Detail(delta: WorkoutLoadCopy.signed(aerobic.vo2MaxTrend ?? 0), samples: aerobic.sampleCount)).font(TypeScale.meta).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(theme.success)
                         }
                     }
                 }
