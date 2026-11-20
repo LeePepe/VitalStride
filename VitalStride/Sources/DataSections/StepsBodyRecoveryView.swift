@@ -27,7 +27,7 @@ final class StepsBodyRecoveryState {
 
     func load(cache: HealthDataCache, workouts: [Workout] = [], generatedAt: Date = Date()) async {
         loadState = .loading; hasLoaded = false
-        let interval = DateInterval(start: Calendar.current.date(byAdding: .day, value: -7, to: generatedAt) ?? generatedAt, end: generatedAt)
+        let interval = DateInterval(start: Calendar.current.date(byAdding: .day, value: -59, to: generatedAt) ?? generatedAt, end: generatedAt)
         let requested: Set<HealthSampleType> = [.stepCount, .activeEnergyBurned, .basalEnergyBurned, .appleStandTime, .flightsClimbed, .bodyMass, .bodyFatPercentage, .leanBodyMass, .bodyMassIndex, .restingHeartRate, .heartRateVariabilitySDNN, .heartRate, .sleepAnalysis, .distanceWalkingRunning, .vo2Max]
         var points: [HealthDataPoint] = []
         for type in requested {
@@ -36,16 +36,20 @@ final class StepsBodyRecoveryState {
         }
         let healthWorkouts = (try? await cache.workoutData(in: interval)) ?? []
         let vitalSnapshot = HealthMetricsCalculator().physiologicalSnapshot(from: points, workouts: healthWorkouts, strengthWorkouts: workouts.compactMap(\.strengthSummaryInput), generatedAt: generatedAt)
-        let pointsForWeight = points.filter { $0.sampleType == .bodyMass }.map { WeightDataPoint(date: $0.startDate, weight: $0.value) }.sorted { $0.date < $1.date }
+        let weightWindowStart = Calendar.current.date(byAdding: .day, value: -7, to: generatedAt) ?? generatedAt
+        let pointsForWeight = points.filter { $0.sampleType == .bodyMass && $0.startDate >= weightWindowStart }
+            .map { WeightDataPoint(date: $0.startDate, weight: $0.value) }
+            .sorted { $0.date < $1.date }
         let hasEvidence = vitalSnapshot?.neat.isAvailable == true || !pointsForWeight.isEmpty
         guard hasEvidence, let vitalSnapshot, let aiSnapshot = bridge(vitalSnapshot) else { markEmpty(); return }
         snapshot = vitalSnapshot; weightPoints = pointsForWeight
         bodyFatPercentage = latest(points, type: .bodyFatPercentage)
         leanBodyMassKg = latest(points, type: .leanBodyMass)
         bmi = latest(points, type: .bodyMassIndex)
-        let configuration = AIModelSettingsStore().configuration
+        let settings = AIModelSettingsStore(defaults: .standard)
+        let configuration = settings.configuration
         provider = configuration.provider
-        if configuration.provider == .deterministicFallback || configuration.provider == .foundationModels && !AppleIntelligenceProvider.isAvailable {
+        if configuration.provider == .deterministicFallback || !settings.isSelectedProviderReady {
             report = await FourLayerAdviceEngine().generate(snapshot: aiSnapshot, model: configuration.modelID)
             provider = .deterministicFallback; loadState = .populated; hasLoaded = true; return
         }
@@ -65,7 +69,7 @@ final class StepsBodyRecoveryState {
     static func preview() -> StepsBodyRecoveryState {
         let neat = VitalModels.NEATActivitySnapshot(dailySteps: 9_420, nonExerciseActiveEnergy: 340, basalEnergy: 1_680, hourlyMovementConsistency: 0.79, flightsClimbed: 8, nonWorkoutSteps: 7_680, workoutActiveEnergyExcluded: 410, standDuration: 9.4 * 3_600, activeNonWorkoutHourCount: 11, hourlyNonWorkoutDistribution: Dictionary(uniqueKeysWithValues: (0..<24).map { ($0, Double(($0 % 6) + 1)) }))
         let snapshot = VitalModels.PhysiologicalSnapshot(heart: HeartSleepCouplingState.previewHeart, sleep: HeartSleepCouplingState.previewSleep, neat: neat, aerobic: .init(efficiencyFactor: 0, aerobicDecouplingPercentage: 0, vo2Max: nil, vo2MaxTrend: nil, sampleCount: 0), trainingLoad: WorkoutLoadProgressionState.previewSnapshot.trainingLoad)
-        let report = AIService.HolisticFourLayerReport(l1: [], l2: [.init(primaryDomain: .neat, secondaryDomain: .heart, relationship: "stepsBodyCoupling", message: "Steady non-workout movement supports peripheral circulation and active recovery without adding central nervous system fatigue.")], l3: .init(readinessScore: 84, autonomicScore: 86, sleepRestorationScore: 81, fatigueBalanceScore: 83, mesocyclePhase: .intensification, recommendedIntensityCap: 0.85), l4: .init(northStarScore: 86, directive: "Recovery and movement support controlled training."))
+        let report = AIService.HolisticFourLayerReport(l1: [], l2: [.init(primaryDomain: .neat, secondaryDomain: .heart, relationship: "stepsBodyCoupling", message: StepsBodyCopy.previewCouplingMessage)], l3: .init(readinessScore: 84, autonomicScore: 86, sleepRestorationScore: 81, fatigueBalanceScore: 83, mesocyclePhase: .intensification, recommendedIntensityCap: 0.85), l4: .init(northStarScore: 86, directive: "Recovery and movement support controlled training."))
         let state = StepsBodyRecoveryState(snapshot: snapshot, report: report, provider: .deterministicFallback, loadState: .populated); state.bodyFatPercentage = 15.8; state.leanBodyMassKg = 61.8; state.bmi = 22.4; state.weightPoints = [74.0, 73.9, 73.8, 73.7, 73.6, 73.5, 73.4].enumerated().map { WeightDataPoint(date: Date(timeIntervalSinceReferenceDate: Double($0.offset) * 86_400), weight: $0.element) }; return state
     }
 
@@ -88,15 +92,19 @@ struct StepsBodyRecoveryView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Space.sm) {
+            VStack(alignment: .leading, spacing: Space.xs) {
                 switch state.loadState {
                 case .populated: if let snapshot = state.snapshot, let report = state.report { populated(snapshot: snapshot, report: report) } else { stateView(.loading, title: StepsBodyCopy.loadingTitle, message: StepsBodyCopy.loadingMessage) }
                 case .loading: stateView(.loading, title: StepsBodyCopy.loadingTitle, message: StepsBodyCopy.loadingMessage)
                 case .empty: stateView(.empty, title: StepsBodyCopy.emptyTitle, message: StepsBodyCopy.emptyMessage, actionTitle: StepsBodyCopy.settings, action: openHealthSettings)
-                case .error: stateView(.error, title: StepsBodyCopy.errorTitle, message: StepsBodyCopy.errorMessage, actionTitle: StepsBodyCopy.retry, action: state.onRetry)
+                case .error: stateView(.error, title: StepsBodyCopy.errorTitle, message: StepsBodyCopy.errorMessage, actionTitle: StepsBodyCopy.retry, action: state.onRetry ?? {})
                 }
-            }.padding(Space.md).frame(maxWidth: Space.contentMaxWidth, alignment: .leading)
-        }.background(theme.canvas).navigationTitle(StepsBodyCopy.title).task { guard !state.hasLoaded else { return }; await state.load(cache: cache, workouts: workouts) }
+            }.padding(.horizontal, Space.md).padding(.vertical, Space.xs).frame(maxWidth: Space.contentMaxWidth, alignment: .leading)
+        }.background(theme.canvas).navigationTitle(StepsBodyCopy.title)
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .task { guard !state.hasLoaded else { return }; await state.load(cache: cache, workouts: workouts) }
     }
 
     private func openHealthSettings() {
@@ -110,36 +118,70 @@ struct StepsBodyRecoveryView: View {
     @ViewBuilder private func populated(snapshot: VitalModels.PhysiologicalSnapshot, report: AIService.HolisticFourLayerReport) -> some View {
         let neat = snapshot.neat
         let coupling = report.l2.first(where: { $0.relationship == "stepsBodyCoupling" }) ?? report.l2.first
+        let settings = AIModelSettingsStore()
         Card {
             HStack { SectionHeader(StepsBodyCopy.couplingHeader, icon: "figure.walk.motion"); Spacer(); StatusPill(StepsBodyCopy.provider(state.provider), tone: .primary) }
-            CardInner { HStack { NumberMetric(title: StepsBodyCopy.neat, value: formattedSteps(neat.nonWorkoutSteps)); Spacer(); NumberMetric(title: StepsBodyCopy.readiness, value: "\(report.l3.readinessScore)") } }
-            HStack { StatusPill(StepsBodyCopy.autonomic(report.l3.autonomicScore), tone: .success); StatusPill(StepsBodyCopy.fatigue(report.l3.fatigueBalanceScore), tone: .warning); Spacer(); Text(StepsBodyCopy.burden(neat)).font(TypeScale.meta).monospacedDigit().lineLimit(1).layoutPriority(1) }
-            Text(coupling?.message ?? StepsBodyCopy.guardrail).font(TypeScale.body).foregroundStyle(theme.secondaryForeground).fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: Space.sm) { CompactMetric(title: StepsBodyCopy.neat, value: formattedSteps(neat.nonWorkoutSteps)); CompactMetric(title: StepsBodyCopy.readiness, value: "\(report.l3.readinessScore)"); Text(StepsBodyCopy.burden(neat)).font(TypeScale.meta).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85) }
+            Text("\(StepsBodyCopy.autonomic(report.l3.autonomicScore)) · \(StepsBodyCopy.fatigue(report.l3.fatigueBalanceScore))").font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1).minimumScaleFactor(0.85)
+            Text(coupling?.message ?? StepsBodyCopy.previewCouplingMessage).font(.caption2).foregroundStyle(theme.secondaryForeground).lineLimit(2).fixedSize(horizontal: false, vertical: true)
         }
         neatCard(neat)
         bodyCard
-        Card { HStack { SectionHeader(StepsBodyCopy.aiHeader, icon: "cpu.fill"); Spacer(); StatusPill(AIModelSettingsStore().status.0, tone: AIModelSettingsStore().status.1) }; NavigationLink { AIModelConfigurationView() } label: { CardInner { HStack { VStack(alignment: .leading, spacing: Space.hair) { Text(StepsBodyCopy.provider(state.provider)).font(TypeScale.title); Text(AIModelSettingsStore().chainSummary).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1).minimumScaleFactor(0.75) }; Spacer(); Image(systemName: "chevron.right").foregroundStyle(theme.tertiaryForeground) } }.frame(minHeight: Space.minTapTarget) }.buttonStyle(.plain) }
+        Card {
+            HStack { SectionHeader(StepsBodyCopy.aiHeader, icon: "cpu.fill"); Spacer(); StatusPill(settings.status.0, tone: settings.status.1) }
+            NavigationLink { AIModelConfigurationView() } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: Space.hair) {
+                        Text(StepsBodyCopy.provider(state.provider)).font(TypeScale.title)
+                        Text(settings.chainSummary).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1).minimumScaleFactor(0.85)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").foregroundStyle(theme.tertiaryForeground).accessibilityHidden(true)
+                }.frame(maxWidth: .infinity, minHeight: Space.minTapTarget, alignment: .leading).contentShape(Rectangle())
+            }.buttonStyle(.plain)
+        }
     }
 
-    private func neatCard(_ neat: VitalModels.NEATActivitySnapshot) -> some View { Card { HStack { SectionHeader(StepsBodyCopy.neatHeader, icon: "flame.fill"); Spacer(); StatusPill(StepsBodyCopy.activeHours(neat.activeNonWorkoutHourCount), tone: .success) }; Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { NumberMetric(title: StepsBodyCopy.total, value: formattedSteps(neat.dailySteps)); NumberMetric(title: StepsBodyCopy.activeHoursLabel, value: "\(neat.activeNonWorkoutHourCount)h"); NumberMetric(title: StepsBodyCopy.consistency, value: StepsBodyCopy.percent(neat.hourlyMovementConsistency)) } }; CardInner { VStack(alignment: .leading, spacing: Space.xs) { CadenceChart(distribution: neat.hourlyNonWorkoutDistribution); HStack { Text("00h"); Spacer(); Text("06h"); Spacer(); Text("12h"); Spacer(); Text("18h"); Spacer(); Text("23h") }.font(TypeScale.meta).foregroundStyle(theme.secondaryForeground) } }; Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { NumberMetric(title: StepsBodyCopy.neatEnergy, value: energy(neat.nonExerciseActiveEnergy)); NumberMetric(title: StepsBodyCopy.basal, value: energy(neat.basalEnergy)) } } } }
+    private func neatCard(_ neat: VitalModels.NEATActivitySnapshot) -> some View {
+        Card {
+            HStack { SectionHeader(StepsBodyCopy.neatHeader, icon: "flame.fill"); Spacer(); StatusPill(StepsBodyCopy.activeHours(neat.activeNonWorkoutHourCount), tone: .success) }
+            Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { CompactMetric(title: StepsBodyCopy.total, value: formattedSteps(neat.dailySteps)); CompactMetric(title: StepsBodyCopy.activeHoursLabel, value: "\(neat.activeNonWorkoutHourCount)h"); CompactMetric(title: StepsBodyCopy.consistency, value: StepsBodyCopy.percent(neat.hourlyMovementConsistency)) } }
+            CadenceChart(distribution: neat.hourlyNonWorkoutDistribution)
+            HStack(spacing: Space.md) { CompactMetric(title: StepsBodyCopy.neatEnergy, value: energy(neat.nonExerciseActiveEnergy)); CompactMetric(title: StepsBodyCopy.basal, value: energy(neat.basalEnergy)) }
+            Text(StepsBodyCopy.neatDetail(standing: "\((neat.standDuration / 3_600).formatted(.number.precision(.fractionLength(1))))h", excluded: energy(neat.workoutActiveEnergyExcluded)))
+                .font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1).minimumScaleFactor(0.85)
+        }
+    }
 
-    private var bodyCard: some View { Card { HStack { SectionHeader(StepsBodyCopy.bodyHeader, icon: "scalemass.fill"); Spacer(); StatusPill(StepsBodyCopy.weightDelta, tone: .neutral) }; HStack { NumberMetric(title: StepsBodyCopy.latestWeight, value: weightValue(state.weightPoints.last?.weight)); Spacer(); NumberMetric(title: StepsBodyCopy.average, value: weightValue(WeightAnalyzer.movingAverage(of: state.weightPoints).last?.weight)) }; Sparkline(data: state.weightPoints.map(\.weight), color: theme.chart(0)).frame(height: 48); Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { NumberMetric(title: StepsBodyCopy.bodyFat, value: state.bodyFatPercentage.map { "\($0.formatted(.number.precision(.fractionLength(1))))%" } ?? "—"); NumberMetric(title: StepsBodyCopy.leanMass, value: state.leanBodyMassKg.map(weightValue) ?? "—"); NumberMetric(title: "BMI", value: state.bmi.map { $0.formatted(.number.precision(.fractionLength(1))) } ?? "—") } }; Text(StepsBodyCopy.guardrail).font(TypeScale.meta).foregroundStyle(theme.tertiaryForeground).fixedSize(horizontal: false, vertical: true) } }
+    private var bodyCard: some View {
+        let statistics = WeightAnalyzer.computeStatistics(from: state.weightPoints)
+        return Card {
+            HStack { SectionHeader(StepsBodyCopy.bodyHeader, icon: "scalemass.fill"); Spacer(); StatusPill(StepsBodyCopy.weightDelta(statistics.change, unit: weightUnit), tone: .neutral) }
+            HStack(spacing: Space.sm) {
+                CompactMetric(title: StepsBodyCopy.latestWeight, value: weightValue(statistics.latest))
+                CompactMetric(title: StepsBodyCopy.average, value: weightValue(WeightAnalyzer.movingAverage(of: state.weightPoints).last?.weight))
+                Sparkline(data: state.weightPoints.map(\.weight), color: theme.chart(0)).frame(width: 72, height: 28)
+            }
+            Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { CompactMetric(title: StepsBodyCopy.bodyFat, value: state.bodyFatPercentage.map { "\($0.formatted(.number.precision(.fractionLength(1))))%" } ?? "—"); CompactMetric(title: StepsBodyCopy.leanMass, value: state.leanBodyMassKg.map(weightValue) ?? "—"); CompactMetric(title: "BMI", value: state.bmi.map { $0.formatted(.number.precision(.fractionLength(1))) } ?? "—") } }
+            Text(StepsBodyCopy.guardrail).font(.caption2).foregroundStyle(theme.tertiaryForeground).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+        }
+    }
 
     private func formattedSteps(_ value: Double) -> String { value.formatted(.number.precision(.fractionLength(0))) }
     private func weightValue(_ kg: Double?) -> String { guard let kg else { return "—" }; let value = weightUnit == .lb ? kg * 2.20462 : kg; return "\(value.formatted(.number.precision(.fractionLength(1)))) \(weightUnit.rawValue)" }
     private func energy(_ kcal: Double) -> String { "\(energyUnit.convert(fromKcal: kcal).formatted(.number.precision(.fractionLength(0)))) \(energyUnit.abbreviation)" }
 }
 
-private struct NumberMetric: View {
+private struct CompactMetric: View {
     @Environment(\.theme) private var theme
     let title: String; let value: String
-    var body: some View { VStack(alignment: .leading, spacing: Space.hair) { Text(title).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1).minimumScaleFactor(0.8); Text(value).font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85) }.frame(maxWidth: .infinity, alignment: .leading) }
+    var body: some View { VStack(alignment: .leading, spacing: Space.hair) { Text(title).font(.caption2).foregroundStyle(theme.secondaryForeground).lineLimit(1).minimumScaleFactor(0.85); Text(value).font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85) }.frame(maxWidth: .infinity, alignment: .leading) }
 }
 
 private struct CadenceChart: View {
     @Environment(\.theme) private var theme
     let distribution: [Int: Double]
-    var body: some View { GeometryReader { proxy in let maximum = distribution.values.max() ?? 1; HStack(alignment: .bottom, spacing: 2) { ForEach(0..<24, id: \.self) { hour in Capsule().fill(theme.chart(hour % 4)).frame(maxWidth: .infinity, maxHeight: proxy.size.height * CGFloat((distribution[hour] ?? 0) / maximum)) } } }.frame(height: 54) }
+    var body: some View { GeometryReader { proxy in let maximum = distribution.values.max() ?? 1; HStack(alignment: .bottom, spacing: 2) { ForEach(0..<24, id: \.self) { hour in Capsule().fill(theme.chart(hour % 4)).frame(maxWidth: .infinity, maxHeight: proxy.size.height * CGFloat((distribution[hour] ?? 0) / maximum)) } } }.frame(height: 40) }
 }
 
 enum StepsBodyCopy {
@@ -159,7 +201,7 @@ enum StepsBodyCopy {
     static let average = String(localized: "steps_body_average", defaultValue: "7d average", comment: "Seven day average")
     static let bodyFat = String(localized: "steps_body_body_fat", defaultValue: "Body fat", comment: "Body fat")
     static let leanMass = String(localized: "steps_body_lean_mass", defaultValue: "Lean mass", comment: "Lean mass")
-    static let weightDelta = String(localized: "steps_body_weight_delta", defaultValue: "7d −0.6 kg", comment: "Weight delta")
+    static let previewCouplingMessage = String(localized: "steps_body_preview_coupling", defaultValue: "Steady non-workout movement supports circulation and recovery without inferring calorie balance from activity alone.", comment: "Preview coupling message")
     static let guardrail = String(localized: "steps_body_guardrail", defaultValue: "Observed expenditure and body-mass trends do not infer caloric balance without intake data.", comment: "Scientific guardrail")
     static let loadingTitle = String(localized: "steps_body_loading_title", defaultValue: "Preparing recovery detail", comment: "Loading title")
     static let loadingMessage = String(localized: "steps_body_loading_message", defaultValue: "Gathering movement and body evidence.", comment: "Loading message")
@@ -169,12 +211,32 @@ enum StepsBodyCopy {
     static let errorMessage = String(localized: "steps_body_error_message", defaultValue: "Local data is safe. Retry when the source is available.", comment: "Error message")
     static let settings = String(localized: "steps_body_settings", defaultValue: "Open Health Settings", comment: "Health settings")
     static let retry = String(localized: "steps_body_retry", defaultValue: "Retry", comment: "Retry")
+    static func weightDelta(_ change: Double?, unit: WeightUnit) -> String {
+        guard let change else {
+            return String(format: String(localized: "steps_body_weight_delta", defaultValue: "7d %@ %@", comment: "Weight delta"), "—", unit.rawValue)
+        }
+        let converted = unit == .lb ? change * 2.20462 : change
+        let value = converted.formatted(.number.precision(.fractionLength(1)).sign(strategy: .always()))
+        return String(format: String(localized: "steps_body_weight_delta", defaultValue: "7d %@ %@", comment: "Weight delta"), value, unit.rawValue)
+    }
     static func provider(_ provider: PluggableAIProvider) -> String { switch provider { case .foundationModels: String(localized: "ai_config_foundation", defaultValue: "On-device AI", comment: "Provider"); case .customOpenAICompatible: String(localized: "ai_config_custom", defaultValue: "Custom API", comment: "Provider"); case .jevGateway: String(localized: "ai_config_jev", defaultValue: "Jev Gateway", comment: "Provider"); case .deterministicFallback: String(localized: "ai_config_offline", defaultValue: "Offline rules", comment: "Provider") } }
-    static func activeHours(_ value: Int) -> String { String(localized: "steps_body_active_hours", defaultValue: "\(value) active hours", comment: "Active hours") }
+    static func neatDetail(standing: String, excluded: String) -> String {
+        String(format: String(localized: "steps_body_neat_detail", defaultValue: "%@ standing · %@ workout energy excluded", comment: "NEAT details"), standing, excluded)
+    }
+    static func activeHours(_ value: Int) -> String {
+        String(format: String(localized: "steps_body_active_hours", defaultValue: "%lld active hours", comment: "Active hours"), value)
+    }
     static func percent(_ value: Double) -> String { "\(Int((value * 100).rounded()))%" }
-    static func burden(_ neat: VitalModels.NEATActivitySnapshot) -> String { let ratio = neat.basalEnergy > 0 ? neat.nonExerciseActiveEnergy / neat.basalEnergy : 0; return String(localized: "steps_body_burden", defaultValue: "Burden \(Int((ratio * 100).rounded()))%", comment: "Burden ratio") }
-    static func autonomic(_ value: Int) -> String { String(localized: "steps_body_autonomic", defaultValue: "Autonomic \(value)", comment: "Autonomic score") }
-    static func fatigue(_ value: Int) -> String { String(localized: "steps_body_fatigue", defaultValue: "Fatigue \(value)", comment: "Fatigue score") }
+    static func burden(_ neat: VitalModels.NEATActivitySnapshot) -> String {
+        let ratio = neat.basalEnergy > 0 ? neat.nonExerciseActiveEnergy / neat.basalEnergy : 0
+        return String(format: String(localized: "steps_body_burden", defaultValue: "Burden %lld%%", comment: "Burden ratio"), Int((ratio * 100).rounded()))
+    }
+    static func autonomic(_ value: Int) -> String {
+        String(format: String(localized: "steps_body_autonomic", defaultValue: "Autonomic %lld", comment: "Autonomic score"), value)
+    }
+    static func fatigue(_ value: Int) -> String {
+        String(format: String(localized: "steps_body_fatigue", defaultValue: "Fatigue %lld", comment: "Fatigue score"), value)
+    }
 }
 
 #Preview("Steps body · Light") { NavigationStack { StepsBodyRecoveryView(state: .preview()) }.designThemePreview() }

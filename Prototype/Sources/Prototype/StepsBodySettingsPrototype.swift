@@ -77,7 +77,7 @@ public struct StepsBodySettingsPreviewData: Sendable, Equatable {
         self.readinessScore = 84
         self.autonomicScore = 86
         self.fatigueBalanceScore = 83
-        self.couplingNarrative = "Steady non-workout movement supports peripheral circulation and active recovery without adding central nervous system fatigue. Expenditure is observed independently from intake."
+        self.couplingNarrative = "Steady NEAT supports circulation and active recovery without inferring calorie balance."
         self.allowsUnauthenticatedGateway = provider == .jevGateway
     }
 }
@@ -109,9 +109,9 @@ private struct PrototypeShell<Content: View>: View {
     @ViewBuilder let content: (StepsBodySettingsPreviewData) -> Content
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Space.md) {
+            VStack(alignment: .leading, spacing: Space.xs) {
                 if data.state == .populated { content(data) } else { PrototypeState(state: data.state) }
-            }.padding(Space.md).frame(maxWidth: Space.contentMaxWidth, alignment: .leading)
+            }.padding(.horizontal, Space.sm).padding(.vertical, Space.xs).frame(maxWidth: Space.contentMaxWidth, alignment: .leading)
         }.background(.clear)
     }
 }
@@ -123,7 +123,7 @@ private struct MiniMetric: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.hair) {
             Text(title).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1).minimumScaleFactor(0.85)
-            Text(value).font(TypeScale.display).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.8)
+            Text(value).font(TypeScale.num).monospacedDigit().lineLimit(1).layoutPriority(1).minimumScaleFactor(0.85)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -139,7 +139,7 @@ private struct CadenceBars: View {
                     Capsule().fill(theme.chart(hour % 4)).frame(maxWidth: .infinity, maxHeight: proxy.size.height * CGFloat((data.hourlyNonWorkoutDistribution[hour] ?? 0) / maxValue))
                 }
             }
-        }.frame(height: 52)
+        }.frame(height: 40)
     }
 }
 
@@ -147,10 +147,9 @@ private struct WeightTrend: View {
     @Environment(\.theme) private var theme
     let data: StepsBodySettingsPreviewData
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.xs) {
-            Sparkline(data: data.weightPoints.map(\.raw), color: theme.chart(0))
+        VStack(alignment: .leading, spacing: Space.xxs) {
             Sparkline(data: data.weightPoints.map(\.average), color: theme.success)
-            HStack { Text("raw").font(TypeScale.meta); Spacer(); Text("7d average").font(TypeScale.meta).foregroundStyle(theme.success) }
+            Text("7d average").font(.caption2).foregroundStyle(theme.success)
         }
     }
 }
@@ -165,23 +164,29 @@ private struct ProviderTiles: View {
         }
     }
     private func provider(_ title: String, _ provider: StepsBodyPreviewProvider) -> some View {
-        CardInner { VStack(alignment: .leading, spacing: Space.hair) { Image(systemName: icon(provider)).foregroundStyle(data.provider == provider ? theme.accent : theme.secondaryForeground); Text(title).font(TypeScale.meta).lineLimit(1).minimumScaleFactor(0.8); Text(data.provider == provider ? "Active" : "Ready").font(TypeScale.meta).foregroundStyle(data.provider == provider ? theme.accent : theme.secondaryForeground) } }
+        HStack(spacing: Space.xs) {
+            Image(systemName: icon(provider)).foregroundStyle(data.provider == provider ? theme.accent : theme.secondaryForeground).accessibilityHidden(true)
+            Text(title).font(TypeScale.meta).lineLimit(1).minimumScaleFactor(0.85)
+            Spacer(minLength: 0)
+            Text(data.provider == provider ? "Active" : "Ready").font(.caption2).foregroundStyle(data.provider == provider ? theme.accent : theme.secondaryForeground).lineLimit(1)
+        }.frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
     }
     private func icon(_ provider: StepsBodyPreviewProvider) -> String { switch provider { case .foundationModels: "apple.intelligence"; case .customOpenAICompatible: "network"; case .jevGateway: "arrow.triangle.branch"; case .deterministicFallback: "lock.shield" } }
 }
 
+@MainActor
 private func standardBody(_ item: StepsBodySettingsPreviewData) -> some View {
     Group {
         Card {
             HStack { SectionHeader("Steps × Body Recovery · L2", icon: "figure.walk.motion"); Spacer(); StatusPill(item.provider.label, tone: .primary) }
-            CardInner { HStack { MiniMetric(title: "Pure NEAT", value: compact(item.nonWorkoutSteps)); Spacer(); MiniMetric(title: "Readiness", value: "\(item.readinessScore)") } }
-            HStack { StatusPill("Autonomic \(item.autonomicScore)", tone: .success); StatusPill("Fatigue \(item.fatigueBalanceScore)", tone: .warning) }
-            Text(item.couplingNarrative).font(TypeScale.body).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            HStack { MiniMetric(title: "Pure NEAT", value: compact(item.nonWorkoutSteps)); MiniMetric(title: "Readiness", value: "\(item.readinessScore)") }
+            Text("Autonomic \(item.autonomicScore) · Fatigue \(item.fatigueBalanceScore)").font(TypeScale.meta).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.85)
+            Text(item.couplingNarrative).font(.caption2).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
         }
         Card {
             SectionHeader("Daily NEAT · L1", icon: "flame.fill")
             Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { MiniMetric(title: "Total steps", value: compact(item.dailySteps)); MiniMetric(title: "Active hours", value: "\(item.activeNonWorkoutHourCount)h"); MiniMetric(title: "Consistency", value: percent(item.hourlyMovementConsistency)) } }
-            CardInner { VStack(alignment: .leading, spacing: Space.xs) { CadenceBars(data: item); HStack { Text("00h"); Spacer(); Text("06h"); Spacer(); Text("12h"); Spacer(); Text("18h"); Spacer(); Text("23h") }.font(TypeScale.meta) } }
+            VStack(alignment: .leading, spacing: Space.xxs) { CadenceBars(data: item); HStack { Text("00h"); Spacer(); Text("06h"); Spacer(); Text("12h"); Spacer(); Text("18h"); Spacer(); Text("23h") }.font(.caption2).foregroundStyle(.secondary) }
             Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { MiniMetric(title: "NEAT energy", value: "\(compact(item.nonExerciseActiveEnergy)) kcal"); MiniMetric(title: "Basal energy", value: "\(compact(item.basalEnergy)) kcal") } }
         }
         Card {
@@ -189,22 +194,22 @@ private func standardBody(_ item: StepsBodySettingsPreviewData) -> some View {
             HStack { MiniMetric(title: "Latest", value: "\(compact(item.latestWeightKg, digits: 1)) kg"); Spacer(); MiniMetric(title: "7d average", value: "73.6 kg") }
             WeightTrend(data: item)
             Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { MiniMetric(title: "Body fat", value: "15.8%"); MiniMetric(title: "Lean mass", value: "61.8 kg"); MiniMetric(title: "BMI", value: "22.4") } }
-            Text("Observed expenditure and body-mass trends do not infer caloric balance without intake data.").font(TypeScale.meta).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text("Observed expenditure and body-mass trends do not infer caloric balance without intake data.").font(.caption2).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
         }
-        Card { HStack { SectionHeader("AI routing", icon: "cpu.fill"); Spacer(); StatusPill("Ready", tone: .success) }; ProviderTiles(data: item); CardInner { VStack(alignment: .leading, spacing: Space.hair) { Text("Fallback chain").font(TypeScale.meta); Text("On-device → Custom API → Offline rules").font(TypeScale.body).lineLimit(1).minimumScaleFactor(0.75) } } }
+        Card { HStack { SectionHeader("AI routing", icon: "cpu.fill"); Spacer(); StatusPill("Ready", tone: .success) }; ProviderTiles(data: item); Text("On-device → Custom API → Offline rules").font(TypeScale.meta).lineLimit(1).minimumScaleFactor(0.85) }
     }
 }
 
 public struct StepsBodySettingsV01View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in standardBody(item) } } }
-public struct StepsBodySettingsV02View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in Card { SectionHeader("Recovery ledger", icon: "list.bullet.clipboard"); HStack(alignment: .bottom) { Text(compact(item.nonWorkoutSteps)).font(TypeScale.metricXXL).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75); Spacer(); Text("\(item.readinessScore)").font(TypeScale.metricXL).monospacedDigit().lineLimit(1) }; Text(item.couplingNarrative).font(TypeScale.body).fixedSize(horizontal: false, vertical: true) }; Card { ForEach([("Steps / total", "\(compact(item.nonWorkoutSteps)) / \(compact(item.dailySteps))"), ("Energy / basal", "340 / 1,680 kcal"), ("Movement rhythm", "79% · 11h"), ("Weight / trend", "73.4 kg · −0.6 kg")], id: \.0) { row in HStack { Text(row.0).font(TypeScale.body); Spacer(); Text(row.1).font(TypeScale.num).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8) }; Divider() } }; Card { SectionHeader("Provider routing ledger", icon: "point.3.connected.trianglepath.dotted"); ProviderTiles(data: item) } } } }
+public struct StepsBodySettingsV02View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in Card { SectionHeader("Recovery ledger", icon: "list.bullet.clipboard"); HStack(alignment: .bottom) { Text(compact(item.nonWorkoutSteps)).font(TypeScale.metricXXL).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85); Spacer(); Text("\(item.readinessScore)").font(TypeScale.metricXL).monospacedDigit().lineLimit(1) }; Text(item.couplingNarrative).font(TypeScale.body).fixedSize(horizontal: false, vertical: true) }; Card { ForEach([("Steps / total", "\(compact(item.nonWorkoutSteps)) / \(compact(item.dailySteps))"), ("Energy / basal", "340 / 1,680 kcal"), ("Movement rhythm", "79% · 11h"), ("Weight / trend", "73.4 kg · −0.6 kg")], id: \.0) { row in HStack { Text(row.0).font(TypeScale.body); Spacer(); Text(row.1).font(TypeScale.num).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85) }; Divider() } }; Card { SectionHeader("Provider routing ledger", icon: "point.3.connected.trianglepath.dotted"); ProviderTiles(data: item) } } } }
 public struct StepsBodySettingsV03View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in Grid(horizontalSpacing: Space.gap, verticalSpacing: Space.gap) { GridRow { Card { SectionHeader("Coupling hero", icon: "sparkles"); MiniMetric(title: "NEAT / readiness", value: "7,680 / 84"); StatusPill("79% consistent", tone: .success); Text(item.couplingNarrative).font(TypeScale.meta).fixedSize(horizontal: false, vertical: true) }.gridCellColumns(2) }; GridRow { Card { MiniMetric(title: "Steps split", value: "7,680 / 1,740"); Text("340 kcal NEAT").font(TypeScale.meta) }; Card { SectionHeader("Cadence"); CadenceBars(data: item); Text("11 active hours").font(TypeScale.meta) } }; GridRow { Card { MiniMetric(title: "Weight", value: "73.4 kg"); WeightTrend(data: item) }; Card { MiniMetric(title: "Composition", value: "15.8% / 22.4"); Text("Observed only").font(TypeScale.meta) } }; GridRow { Card { ProviderTiles(data: item) }.gridCellColumns(2) } } } } }
 public struct StepsBodySettingsV04View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in ForEach(Array([("Input", "24h movement cadence"), ("Coupling", "NEAT 340 kcal / basal 1,680 kcal"), ("Trend", "7-day weight average 73.6 kg"), ("Routing", "Primary → optional fallback → offline")].enumerated()), id: \.offset) { index, stage in HStack(alignment: .top, spacing: Space.sm) { VStack { Image(systemName: ["chart.bar.xaxis", "arrow.triangle.merge", "chart.line.uptrend.xyaxis", "cpu"][index]).foregroundStyle(.secondary); Rectangle().fill(.secondary.opacity(0.25)).frame(width: 1) }.frame(width: 24); Card { SectionHeader("Stage \(index + 1)"); Text(stage.0).font(TypeScale.title); Text(stage.1).font(TypeScale.body).fixedSize(horizontal: false, vertical: true) } } }; Card { ProviderTiles(data: item) } } } }
 public struct StepsBodySettingsV05View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in Card { HStack { CardInner { RingGauge(value: item.hourlyMovementConsistency, size: 72); Text("Cadence").font(TypeScale.meta) }; CardInner { RingGauge(value: Double(item.readinessScore) / 100, size: 72); Text("Readiness").font(TypeScale.meta) } }; Text(item.couplingNarrative).font(TypeScale.body).fixedSize(horizontal: false, vertical: true) }; Card { HStack { MiniMetric(title: "NEAT", value: "340 kcal"); MiniMetric(title: "Basal", value: "1,680 kcal"); MiniMetric(title: "Weight", value: "73.4 kg") }; WeightTrend(data: item) }; Card { SectionHeader("Four-mode engine", icon: "switch.2"); ProviderTiles(data: item) } } } }
 public struct StepsBodySettingsV06View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in Card { SectionHeader("Telemetry canvas", icon: "waveform.path.ecg"); CadenceBars(data: item); HStack { MiniMetric(title: "NEAT", value: "7,680"); MiniMetric(title: "Consistency", value: "79%") } }; Card { SectionHeader("Energy burden", icon: "chart.bar.xaxis"); HStack { MiniMetric(title: "NEAT / basal", value: "20%"); MiniMetric(title: "Recovery", value: "84") }; Text(item.couplingNarrative).font(TypeScale.body).fixedSize(horizontal: false, vertical: true) }; Card { SectionHeader("Weight envelope", icon: "chart.xyaxis.line"); WeightTrend(data: item); HStack { MiniMetric(title: "Body fat", value: "15.8%"); MiniMetric(title: "Lean mass", value: "61.8 kg"); MiniMetric(title: "BMI", value: "22.4") } }; Card { SectionHeader("AI inspector dock", icon: "slider.horizontal.3"); ProviderTiles(data: item); Text("Keychain credential · masked").font(TypeScale.meta) } } } }
-public struct StepsBodySettingsV07View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in Card { SectionHeader("Active recovery prescription", icon: "clipboard.fill"); Text("84").font(TypeScale.metricXL).monospacedDigit().lineLimit(1); Text("7,680 NEAT steps · 20% burden ratio").font(TypeScale.title).lineLimit(1).minimumScaleFactor(0.75); Text(item.couplingNarrative).font(TypeScale.body).fixedSize(horizontal: false, vertical: true) }; Card { SectionHeader("Evidence pillar 1", icon: "flame.fill"); CadenceBars(data: item); HStack { MiniMetric(title: "Active hours", value: "11h"); MiniMetric(title: "Standing", value: "9.4h"); MiniMetric(title: "Flights", value: "8") } }; Card { SectionHeader("Evidence pillar 2", icon: "scalemass.fill"); HStack { MiniMetric(title: "Weight", value: "73.4 kg"); MiniMetric(title: "Trend", value: "−0.6 kg") }; WeightTrend(data: item) }; Card { SectionHeader("Evidence pillar 3", icon: "cpu.fill"); ProviderTiles(data: item) } } } }
+public struct StepsBodySettingsV07View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in Card { SectionHeader("Active recovery prescription", icon: "clipboard.fill"); Text("84").font(TypeScale.metricXL).monospacedDigit().lineLimit(1); Text("7,680 NEAT steps · 20% burden ratio").font(TypeScale.title).lineLimit(1).minimumScaleFactor(0.85); Text(item.couplingNarrative).font(TypeScale.body).fixedSize(horizontal: false, vertical: true) }; Card { SectionHeader("Evidence pillar 1", icon: "flame.fill"); CadenceBars(data: item); HStack { MiniMetric(title: "Active hours", value: "11h"); MiniMetric(title: "Standing", value: "9.4h"); MiniMetric(title: "Flights", value: "8") } }; Card { SectionHeader("Evidence pillar 2", icon: "scalemass.fill"); HStack { MiniMetric(title: "Weight", value: "73.4 kg"); MiniMetric(title: "Trend", value: "−0.6 kg") }; WeightTrend(data: item) }; Card { SectionHeader("Evidence pillar 3", icon: "cpu.fill"); ProviderTiles(data: item) } } } }
 public struct StepsBodySettingsV08View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in Card { SectionHeader("Physiological × AI matrix", icon: "square.grid.2x2"); Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { CardInner { MiniMetric(title: "NEAT vector", value: "7,680") }; CardInner { MiniMetric(title: "Energy vector", value: "20%") } }; GridRow { CardInner { MiniMetric(title: "Body vector", value: "73.4 kg") }; CardInner { MiniMetric(title: "AI vector", value: "84") } }; GridRow { CardInner { Text(item.couplingNarrative).font(TypeScale.meta).fixedSize(horizontal: false, vertical: true) }.gridCellColumns(2) } } }; Card { CadenceBars(data: item); WeightTrend(data: item) }; Card { ProviderTiles(data: item) } } } }
-public struct StepsBodySettingsV09View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in Card { VStack(alignment: .center, spacing: Space.sm) { SectionHeader("Active recovery sanctuary", icon: "leaf.fill"); RingGauge(value: item.hourlyMovementConsistency, size: 88, stroke: 7); Text("79%").font(TypeScale.metricXL).monospacedDigit().lineLimit(1); Text("7,680 NEAT steps · readiness 84").font(TypeScale.title).lineLimit(1).minimumScaleFactor(0.75); Text(item.couplingNarrative).font(TypeScale.body).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true); StatusPill(item.provider.label, tone: .primary) }.frame(maxWidth: .infinity) }; Card { HStack { MiniMetric(title: "NEAT", value: "340 kcal"); MiniMetric(title: "Standing", value: "9.4h"); MiniMetric(title: "Weight", value: "73.4 kg") }; WeightTrend(data: item) }; Card { ProviderTiles(data: item) } } } }
-public struct StepsBodySettingsV10View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in Card { SectionHeader("Biometric routing workbench", icon: "waveform.path.ecg.rectangle"); Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { MiniMetric(title: "Pure NEAT", value: "7,680"); MiniMetric(title: "Movement", value: "79%") }; GridRow { MiniMetric(title: "NEAT energy", value: "340"); MiniMetric(title: "Body mass", value: "73.4") }; GridRow { MiniMetric(title: "Readiness", value: "84"); MiniMetric(title: "Burden", value: "20%") } }; CardInner { Text(item.couplingNarrative).font(TypeScale.meta).fixedSize(horizontal: false, vertical: true) } }; Card { CadenceBars(data: item); WeightTrend(data: item); HStack { MiniMetric(title: "Body fat", value: "15.8%"); MiniMetric(title: "Lean mass", value: "61.8 kg"); MiniMetric(title: "BMI", value: "22.4") } }; Card { SectionHeader("Provider configuration", icon: "key.fill"); ProviderTiles(data: item); Text("baseURL · modelID · keychainService · local auth toggle").font(TypeScale.meta).lineLimit(1).minimumScaleFactor(0.75) } } } }
+public struct StepsBodySettingsV09View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in Card { VStack(alignment: .center, spacing: Space.sm) { SectionHeader("Active recovery sanctuary", icon: "leaf.fill"); RingGauge(value: item.hourlyMovementConsistency, size: 88, stroke: 7); Text("79%").font(TypeScale.metricXL).monospacedDigit().lineLimit(1); Text("7,680 NEAT steps · readiness 84").font(TypeScale.title).lineLimit(1).minimumScaleFactor(0.85); Text(item.couplingNarrative).font(TypeScale.body).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true); StatusPill(item.provider.label, tone: .primary) }.frame(maxWidth: .infinity) }; Card { HStack { MiniMetric(title: "NEAT", value: "340 kcal"); MiniMetric(title: "Standing", value: "9.4h"); MiniMetric(title: "Weight", value: "73.4 kg") }; WeightTrend(data: item) }; Card { ProviderTiles(data: item) } } } }
+public struct StepsBodySettingsV10View: View { public let data: StepsBodySettingsPreviewData; public init(data: StepsBodySettingsPreviewData = .init()) { self.data = data }; public var body: some View { PrototypeShell(data: data) { item in Card { SectionHeader("Biometric routing workbench", icon: "waveform.path.ecg.rectangle"); Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { MiniMetric(title: "Pure NEAT", value: "7,680"); MiniMetric(title: "Movement", value: "79%") }; GridRow { MiniMetric(title: "NEAT energy", value: "340"); MiniMetric(title: "Body mass", value: "73.4") }; GridRow { MiniMetric(title: "Readiness", value: "84"); MiniMetric(title: "Burden", value: "20%") } }; CardInner { Text(item.couplingNarrative).font(TypeScale.meta).fixedSize(horizontal: false, vertical: true) } }; Card { CadenceBars(data: item); WeightTrend(data: item); HStack { MiniMetric(title: "Body fat", value: "15.8%"); MiniMetric(title: "Lean mass", value: "61.8 kg"); MiniMetric(title: "BMI", value: "22.4") } }; Card { SectionHeader("Provider configuration", icon: "key.fill"); ProviderTiles(data: item); Text("baseURL · modelID · keychainService · local auth toggle").font(TypeScale.meta).lineLimit(1).minimumScaleFactor(0.85) } } } }
 
 public struct StepsBodySettingsPreviewHost: View {
     @State private var variant = 1
