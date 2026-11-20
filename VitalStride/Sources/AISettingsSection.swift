@@ -33,9 +33,10 @@ final class AIModelSettingsStore {
     static func defaultConfiguration() -> UserAIModelConfiguration { AppleIntelligenceProvider.isAvailable ? .init(provider: .foundationModels) : .init(provider: .deterministicFallback) }
 
     func select(_ provider: PluggableAIProvider) {
+        let legacyModel = defaults.string(forKey: "aiModel") ?? AIModel.glm4Flash.rawValue
         switch provider {
         case .foundationModels: save(.init(provider: provider))
-        case .customOpenAICompatible: save(.init(provider: provider, baseURL: configuration.baseURL ?? URL(string: "https://open.bigmodel.cn/api/paas/v4"), modelID: configuration.modelID ?? AIModel.glm4Flash.rawValue, keychainService: AISettingsSection.apiKeyKeychainService))
+        case .customOpenAICompatible: save(.init(provider: provider, baseURL: configuration.baseURL ?? URL(string: "https://open.bigmodel.cn/api/paas/v4"), modelID: configuration.modelID ?? legacyModel, keychainService: AISettingsSection.apiKeyKeychainService))
         case .jevGateway: save(.init(provider: provider, baseURL: configuration.baseURL ?? URL(string: "http://127.0.0.1:3425/v1"), modelID: configuration.modelID ?? "jev-default", keychainService: configuration.allowsUnauthenticatedGateway ? nil : Self.jevKeychainService, allowsUnauthenticatedGateway: configuration.allowsUnauthenticatedGateway))
         case .deterministicFallback: save(.init(provider: provider))
         }
@@ -87,7 +88,19 @@ final class AIModelSettingsStore {
         }
     }
     private var validRemote: Bool { guard let url = configuration.baseURL, let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme), url.host != nil else { return false }; return !(configuration.modelID ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    private func save(_ value: UserAIModelConfiguration) { configuration = value; guard let data = try? JSONEncoder().encode(value) else { return }; defaults.set(data, forKey: Self.defaultsKey); if let id = TelemetryIdentifier(validating: value.provider.rawValue) { TelemetryService.shared.trackNonisolated(.aiModelChanged(model: id)) } }
+    private func save(_ value: UserAIModelConfiguration) {
+        configuration = value
+        if value.provider == .customOpenAICompatible,
+           let modelID = value.modelID?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !modelID.isEmpty {
+            defaults.set(modelID, forKey: "aiModel")
+        }
+        guard let data = try? JSONEncoder().encode(value) else { return }
+        defaults.set(data, forKey: Self.defaultsKey)
+        if let id = TelemetryIdentifier(validating: value.provider.rawValue) {
+            TelemetryService.shared.trackNonisolated(.aiModelChanged(model: id))
+        }
+    }
 }
 
 struct AISettingsSection: View {

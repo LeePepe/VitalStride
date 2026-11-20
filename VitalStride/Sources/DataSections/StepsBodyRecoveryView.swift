@@ -143,24 +143,27 @@ struct StepsBodyRecoveryView: View {
     }
 
     private func neatCard(_ neat: VitalModels.NEATActivitySnapshot) -> some View {
-        Card {
+        let excludedSteps = formattedSteps(max(0, neat.dailySteps - neat.nonWorkoutSteps))
+        let flights = Int(neat.flightsClimbed.rounded())
+        return Card {
             HStack { SectionHeader(StepsBodyCopy.neatHeader, icon: "flame.fill"); Spacer(); StatusPill(StepsBodyCopy.activeHours(neat.activeNonWorkoutHourCount), tone: .success) }
-            Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { CompactMetric(title: StepsBodyCopy.total, value: formattedSteps(neat.dailySteps)); CompactMetric(title: StepsBodyCopy.activeHoursLabel, value: "\(neat.activeNonWorkoutHourCount)h"); CompactMetric(title: StepsBodyCopy.consistency, value: StepsBodyCopy.percent(neat.hourlyMovementConsistency)) } }
+            Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { CompactMetric(title: StepsBodyCopy.total, value: formattedSteps(neat.dailySteps)); CompactMetric(title: StepsBodyCopy.activeHoursLabel, value: "\(neat.activeNonWorkoutHourCount)h · \(flights)F"); CompactMetric(title: StepsBodyCopy.consistency, value: StepsBodyCopy.percent(neat.hourlyMovementConsistency)) } }
             CadenceChart(distribution: neat.hourlyNonWorkoutDistribution)
             HStack(spacing: Space.md) { CompactMetric(title: StepsBodyCopy.neatEnergy, value: energy(neat.nonExerciseActiveEnergy)); CompactMetric(title: StepsBodyCopy.basal, value: energy(neat.basalEnergy)) }
-            Text(StepsBodyCopy.neatDetail(standing: "\((neat.standDuration / 3_600).formatted(.number.precision(.fractionLength(1))))h", excluded: energy(neat.workoutActiveEnergyExcluded)))
+            Text(StepsBodyCopy.neatDetail(standing: "\((neat.standDuration / 3_600).formatted(.number.precision(.fractionLength(1))))h", excluded: "\(excludedSteps) · \(energy(neat.workoutActiveEnergyExcluded))"))
                 .font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1).minimumScaleFactor(0.85)
         }
     }
 
     private var bodyCard: some View {
         let statistics = WeightAnalyzer.computeStatistics(from: state.weightPoints)
+        let movingAverage = WeightAnalyzer.movingAverage(of: state.weightPoints)
         return Card {
             HStack { SectionHeader(StepsBodyCopy.bodyHeader, icon: "scalemass.fill"); Spacer(); StatusPill(StepsBodyCopy.weightDelta(statistics.change, unit: weightUnit), tone: .neutral) }
             HStack(spacing: Space.sm) {
                 CompactMetric(title: StepsBodyCopy.latestWeight, value: weightValue(statistics.latest))
-                CompactMetric(title: StepsBodyCopy.average, value: weightValue(WeightAnalyzer.movingAverage(of: state.weightPoints).last?.weight))
-                Sparkline(data: state.weightPoints.map(\.weight), color: theme.chart(0)).frame(width: 72, height: 28)
+                CompactMetric(title: StepsBodyCopy.average, value: weightValue(movingAverage.last?.weight))
+                Sparkline(data: movingAverage.map(\.weight), color: theme.chart(0)).frame(width: 72, height: 28)
             }
             Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) { GridRow { CompactMetric(title: StepsBodyCopy.bodyFat, value: state.bodyFatPercentage.map { "\($0.formatted(.number.precision(.fractionLength(1))))%" } ?? "—"); CompactMetric(title: StepsBodyCopy.leanMass, value: state.leanBodyMassKg.map(weightValue) ?? "—"); CompactMetric(title: "BMI", value: state.bmi.map { $0.formatted(.number.precision(.fractionLength(1))) } ?? "—") } }
             Text(StepsBodyCopy.guardrail).font(.caption2).foregroundStyle(theme.tertiaryForeground).lineLimit(2).fixedSize(horizontal: false, vertical: true)
