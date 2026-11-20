@@ -301,6 +301,9 @@ struct WorkoutListView: View {
                 // swiftlint:disable:next no_hardcoded_chinese
                 String(localized: "训练", comment: "Workout tab title")
             )
+            .navigationDestination(isPresented: Bindable(navigation).showWorkoutLoadProgression) {
+                WorkoutLoadProgressionView()
+            }
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Picker(
@@ -320,6 +323,15 @@ struct WorkoutListView: View {
                         // swiftlint:disable:next no_hardcoded_chinese
                         String(localized: "训练视图模式", comment: "Workout view mode picker a11y label")
                     )
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    NavigationLink {
+                        WorkoutLoadProgressionView()
+                    } label: {
+                        Label(String(localized: "workout_load_entry", defaultValue: "Workout Load & Progression", comment: "Workout load detail entry"), systemImage: "chart.xyaxis.line")
+                    }
+                    .frame(minHeight: Space.minTapTarget)
+                    .contentShape(Rectangle())
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(

@@ -397,7 +397,7 @@ private struct QuickDrillDownSection: View {
         VStack(alignment: .leading, spacing: Space.sm) {
             SectionHeader(L4Copy.drillDown, icon: "arrow.forward")
             DrillDownEntry(title: L4Copy.heartSleep, subtitle: L4Copy.heartSleepSubtitle, icon: "heart.text.square") { navigation.selectedTab = .data }
-            DrillDownEntry(title: L4Copy.workoutLoad, subtitle: L4Copy.workoutLoadSubtitle, icon: "figure.strengthtraining.traditional") { navigation.selectedTab = .workout }
+            DrillDownEntry(title: L4Copy.workoutLoad, subtitle: L4Copy.workoutLoadSubtitle, icon: "figure.strengthtraining.traditional") { navigation.selectedTab = .workout; navigation.showWorkoutLoadProgression = true }
             DrillDownEntry(title: L4Copy.stepsAI, subtitle: L4Copy.stepsAISubtitle, icon: "brain") { navigation.selectedTab = .settings }
         }
     }

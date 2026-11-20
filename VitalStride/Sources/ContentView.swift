@@ -19,6 +19,7 @@ final class AppNavigation {
     /// `WorkoutListView` observes this, opens `ActiveWorkoutView` in resume
     /// mode, and clears it back to `nil`.
     var crashRecoveryResume: Workout?
+    var showWorkoutLoadProgression = false
 }
 
 struct ContentView: View {
