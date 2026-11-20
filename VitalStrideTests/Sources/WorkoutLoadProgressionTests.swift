@@ -1,3 +1,4 @@
+import AIService
 import Foundation
 import Testing
 import VitalModels
@@ -43,6 +44,13 @@ struct WorkoutLoadProgressionTests {
         #expect(populated.loadState == .error)
         populated.onRetry?()
         #expect(retried)
+    }
+
+    @Test("All AI providers have distinct localized labels")
+    func providerLabels() {
+        let labels = PluggableAIProvider.allCases.map(WorkoutLoadCopy.provider)
+        #expect(Set(labels).count == PluggableAIProvider.allCases.count)
+        #expect(labels.count == 4)
     }
 
     @Test("Zone and aerobic classification math is stable")
@@ -93,7 +101,7 @@ struct WorkoutLoadProgressionTests {
             ("populated", .preview()),
             ("empty", { let value = WorkoutLoadProgressionState.preview(); value.markEmpty(); return value }()),
             ("loading", { let value = WorkoutLoadProgressionState.preview(); value.markLoading(); return value }()),
-            ("error", { let value = WorkoutLoadProgressionState.preview(); value.markError(); return value }()),
+            ("error", { let value = WorkoutLoadProgressionState.preview(); value.markError(onRetry: {}); return value }()),
         ]
         for (name, state) in cases {
             for appearance in [ColorScheme.light, .dark] {

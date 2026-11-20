@@ -13368,7 +13368,14 @@
     "workout_load_pmc": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Training load PMC · ATL / CTL / TSB"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"训练负荷 PMC · ATL / CTL / TSB"}}}},
     "workout_load_zones": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Heart-rate zones · Zone 1–5"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"心率区间 · Zone 1–5"}}}},
     "workout_load_aerobic": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Aerobic efficiency · EF / VO2max"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"有氧效率 · EF / VO2max"}}}},
-    "workout_load_intensity": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Recommended intensity ceiling"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"建议强度上限"}}}},
+    "workout_load_intensity": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Intensity ceiling"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"建议强度上限"}}}},
+    "workout_load_ctl_deltas": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"7d Δ %@ · 14d Δ %@"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"7日 Δ %@ · 14日 Δ %@"}}}},
+    "workout_load_dedup_sessions": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"%lld sessions"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"已去重 %lld 次"}}}},
+    "workout_load_pahr_value": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Pa:Hr %@%%"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"心率漂移 %@%%"}}}},
+    "workout_load_vo2_detail": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Δ %@ · %lld samples"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"变化 %@ · %lld 样本"}}}},
+    "workout_load_hybrid_stress": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"TRIMP / TSS"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"有氧 / 力量负荷"}}}},
+    "workout_load_max_hr_value": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Max HR %@ bpm"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"最大心率 %@ bpm"}}}},
+    "workout_load_preview_coupling": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Stable aerobic coupling supports a controlled progression session."}},"zh-Hans":{"stringUnit":{"state":"translated","value":"有氧耦合稳定，支持在负荷上限内稳步推进本期训练。"}}}},
     "workout_load_readiness": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Readiness"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"准备度"}}}},
     "workout_load_fatigue_balance": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Fatigue balance"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"疲劳平衡"}}}},
     "workout_load_prescription": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Next-session prescription"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"下一次训练处方"}}}},
@@ -13381,6 +13388,8 @@
     "workout_load_retry": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Retry"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"重试"}}}},
     "workout_load_settings": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Open Health Settings"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"打开健康设置"}}}},
     "workout_load_provider_on_device": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"On-device AI"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"设备端 AI"}}}},
+    "workout_load_provider_custom": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Custom API"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"自定义 API"}}}},
+    "workout_load_provider_jev": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Jev Gateway"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"Jev 网关"}}}},
     "workout_load_provider_local": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Local rules"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"本地规则"}}}},
     "workout_load_next_session": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Hold the 85% ceiling and progress with controlled volume."}},"zh-Hans":{"stringUnit":{"state":"translated","value":"保持 85% 强度上限，以可控训练量推进。"}}}},
     "workout_load_coupled": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Coupled"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"耦合良好"}}}},
@@ -13398,7 +13407,11 @@
     "workout_load_phase_accumulation": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Accumulation"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"积累期"}}}},
     "workout_load_phase_intensification": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Intensification"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"强化期"}}}},
     "workout_load_phase_realization": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Realization"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"实现期"}}}},
-    "workout_load_phase_deload": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Deload"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"减载期"}}}}
+    "workout_load_phase_deload": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Deload"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"减载期"}}}},
+    "workout_load_phase_accumulation_short": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Accum."}},"zh-Hans":{"stringUnit":{"state":"translated","value":"积累期"}}}},
+    "workout_load_phase_intensification_short": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Intens."}},"zh-Hans":{"stringUnit":{"state":"translated","value":"强化期"}}}},
+    "workout_load_phase_realization_short": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Realiz."}},"zh-Hans":{"stringUnit":{"state":"translated","value":"实现期"}}}},
+    "workout_load_phase_deload_short": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Deload"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"减载期"}}}}
   },
   "version": "1.0"
 }
