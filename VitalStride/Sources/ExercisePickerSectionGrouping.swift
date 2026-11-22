@@ -1,7 +1,74 @@
 import Foundation
+import SwiftData
 import VitalModels
 
+struct ExercisePickerCardSnapshot: Identifiable, Equatable, Sendable {
+    let id: PersistentIdentifier
+    let nameEn: String
+    let nameZh: String
+    let localizedName: String
+    let muscleGroup: MuscleGroup
+    let muscleLocalizedName: String
+    let equipment: Equipment
+    let equipmentLocalizedName: String
+    let section: ExerciseSection
+    let isCustom: Bool
+    let mediaKey: String?
+
+    init(exercise: Exercise) {
+        self.id = exercise.persistentModelID
+        self.nameEn = exercise.nameEn
+        self.nameZh = exercise.nameZh
+        self.localizedName = exercise.localizedName
+        self.muscleGroup = exercise.muscleGroup
+        self.muscleLocalizedName = exercise.muscleGroup.localizedName
+        self.equipment = exercise.equipment
+        self.equipmentLocalizedName = exercise.equipment.localizedName
+        self.section = exercise.section
+        self.isCustom = exercise.isCustom
+        self.mediaKey = exercise.mediaKey
+    }
+}
+
 enum ExercisePickerSectionGrouping {
+    static func makeSnapshots(from exercises: [Exercise]) -> [ExercisePickerCardSnapshot] {
+        exercises.map(ExercisePickerCardSnapshot.init(exercise:))
+    }
+
+    static func groupedSnapshotSections(
+        from snapshots: [ExercisePickerCardSnapshot],
+        muscleGroup: MuscleGroup? = nil,
+        searchText: String = ""
+    ) -> [(ExerciseSection, [ExercisePickerCardSnapshot])] {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasSearch = !trimmed.isEmpty
+
+        var buckets: [ExerciseSection: [ExercisePickerCardSnapshot]] = [:]
+        buckets.reserveCapacity(ExerciseSection.allCases.count)
+
+        for snapshot in snapshots {
+            if let selectedMuscleGroup = muscleGroup, snapshot.muscleGroup != selectedMuscleGroup {
+                continue
+            }
+
+            if hasSearch {
+                let matchesSearch =
+                    snapshot.nameEn.localizedCaseInsensitiveContains(trimmed) ||
+                    snapshot.nameZh.localizedCaseInsensitiveContains(trimmed)
+                if !matchesSearch {
+                    continue
+                }
+            }
+
+            buckets[snapshot.section, default: []].append(snapshot)
+        }
+
+        return ExerciseSection.allCases.compactMap { section in
+            guard let items = buckets[section], !items.isEmpty else { return nil }
+            return (section, items)
+        }
+    }
+
     static func groupedSections(
         from exercises: [Exercise],
         muscleGroup: MuscleGroup? = nil,

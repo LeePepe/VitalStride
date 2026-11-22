@@ -92,8 +92,8 @@ struct ExercisePickerSearchLayoutTests {
         let bottom = max(-grid.adjustedContentInset.top,
                          grid.contentSize.height - grid.bounds.height + grid.adjustedContentInset.bottom)
         grid.setContentOffset(CGPoint(x: grid.contentOffset.x, y: bottom), animated: false)
-        // Wait for the normal 700ms equipment-index HUD to dismiss before
-        // inspecting the underlying title and metadata.
+        // Pump run loop frames so the single-layer LazyVGrid lays out the
+        // newly revealed bottom rows before snapshotting.
         for _ in 0..<20 {
             try await Task.sleep(for: .milliseconds(50))
             TK1SnapshotRenderer.pumpRunLoop()

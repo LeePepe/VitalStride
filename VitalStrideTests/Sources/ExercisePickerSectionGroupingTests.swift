@@ -114,6 +114,36 @@ struct ExercisePickerSectionGroupingTests {
         #expect(weighted.section == .weighted)
         #expect(custom.section == .other)
     }
+
+    @Test("Snapshot grouping matches Exercise grouping across muscle and search filters")
+    func snapshotGroupingParityWithExerciseGrouping() {
+        let exercises = [
+            Exercise(nameEn: "Barbell Bench Press", nameZh: "杠铃卧推", muscleGroup: .chest, equipment: .barbell),
+            Exercise(nameEn: "Cable Press", nameZh: "绳索推胸", muscleGroup: .chest, equipment: .cable),
+            Exercise(nameEn: "Dumbbell Row", nameZh: "哑铃划船", muscleGroup: .back, equipment: .dumbbell),
+            Exercise(nameEn: "Machine Shoulder Press", nameZh: "机器肩推", muscleGroup: .shoulders, equipment: .machine),
+            Exercise(nameEn: "Bodyweight Squat", nameZh: "自重深蹲", muscleGroup: .legs, equipment: .bodyweight)
+        ]
+        let snapshots = ExercisePickerSectionGrouping.makeSnapshots(from: exercises)
+        #expect(snapshots.count == exercises.count)
+
+        for muscle in [nil] + MuscleGroup.allCases.map(Optional.some) {
+            for query in ["", "press", "哑铃", "nonexistent"] {
+                let modelGroups = ExercisePickerSectionGrouping.groupedSections(
+                    from: exercises,
+                    muscleGroup: muscle,
+                    searchText: query
+                )
+                let snapshotGroups = ExercisePickerSectionGrouping.groupedSnapshotSections(
+                    from: snapshots,
+                    muscleGroup: muscle,
+                    searchText: query
+                )
+                #expect(modelGroups.map(\.0) == snapshotGroups.map(\.0))
+                #expect(modelGroups.map { $0.1.map(\.nameEn) } == snapshotGroups.map { $0.1.map(\.nameEn) })
+            }
+        }
+    }
 }
 
 @Suite("ExercisePicker character index scrubbing")

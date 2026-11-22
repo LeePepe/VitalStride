@@ -57,29 +57,28 @@ struct ExercisePickerNestedLazyRegressionTests {
             }
     }
 
-    @Test("Equipment section list is NOT wrapped in a LazyVStack")
+    @Test("Equipment section list uses a single top-level LazyVGrid and is NOT wrapped in a LazyVStack")
     func outerSectionListIsEager() throws {
         let code = try exercisePickerCodeLines()
+        let lazyVGridOccurrences = code.filter { $0.contains("LazyVGrid(") }.count
 
-        // The inner per-section grid must stay lazy (it virtualizes the cards).
+        // The exercise card grid must use a single top-level LazyVGrid with
+        // Section(header:) so all sections share one lazy virtualization pass.
         #expect(
-            code.contains(where: { $0.contains("LazyVGrid(") }),
-            "Expected the per-section card grid to remain a LazyVGrid."
+            lazyVGridOccurrences == 1,
+            "Expected exactly one top-level LazyVGrid in ExercisePickerView, found \(lazyVGridOccurrences)."
         )
 
-        // The outer section list must NOT be lazy. A `LazyVStack(` construction
-        // anywhere in this file would re-nest the pathological lazy-in-lazy
-        // layout that caused the 100% CPU hang. We match the actual call form
-        // `LazyVStack(` on non-comment lines so prose in doc comments that
-        // merely names the type does not trip the guard.
+        // The outer section list must NOT be a LazyVStack. A `LazyVStack(`
+        // construction anywhere in this file would re-nest the pathological
+        // lazy-in-lazy layout that caused the 100% CPU hang.
         #expect(
             !code.contains(where: { $0.contains("LazyVStack(") }),
             """
-            ExercisePickerView reintroduced a `LazyVStack`. The equipment \
-            section list must be an eager `VStack` so the only lazy layer is \
-            the inner per-section `LazyVGrid`. Nesting LazyVGrid inside \
-            LazyVStack pins the main thread at 100% CPU (non-convergent \
-            LazyLayoutViewCache.updatePrefetchPhases relayout).
+            ExercisePickerView reintroduced a `LazyVStack`. All equipment \
+            sections must share the single top-level `LazyVGrid`. Nesting \
+            LazyVGrid inside LazyVStack pins the main thread at 100% CPU \
+            (non-convergent LazyLayoutViewCache.updatePrefetchPhases relayout).
             """
         )
     }
@@ -103,6 +102,20 @@ struct ExercisePickerNestedLazyRegressionTests {
             placement, forming a non-convergent SafeAreaInsets.resolve / \
             LazyVGrid loop.
             """
+        )
+    }
+
+    @Test("ExercisePickerView does not perform full-catalog exerciseRevisions mapping or finger-scroll indexHUD writes")
+    func noPerBodyRevisionMappingOrScrollHUDWrite() throws {
+        let code = try exercisePickerCodeLines()
+
+        #expect(
+            !code.contains(where: { $0.contains("exerciseRevisions") }),
+            "ExercisePickerView must not evaluate a per-body exerciseRevisions .map over all SwiftData @Model rows."
+        )
+        #expect(
+            !code.contains(where: { $0.contains("selectedExercises.filter") }),
+            "Sidebar muscle counts must use O(1) dictionary lookup rather than filtering selectedExercises per muscle button."
         )
     }
 }
