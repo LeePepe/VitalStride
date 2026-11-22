@@ -399,6 +399,8 @@ extension PhoneWorkoutSessionManager: WatchConnectivitySessionDelegateHandling {
 #if canImport(WatchConnectivity) && os(iOS)
 
 public final class DefaultWatchConnectivitySessionProvider: WatchConnectivitySessionProviding {
+    public static let shared = DefaultWatchConnectivitySessionProvider()
+
     // `DelegateShim` is a non-Sendable NSObject subclass (required by the
     // `@objc WCSessionDelegate` protocol). We store it via
     // `nonisolated(unsafe) let` — a per-property, Swift 6-blessed narrow
@@ -412,10 +414,11 @@ public final class DefaultWatchConnectivitySessionProvider: WatchConnectivitySes
     //     concurrent code paths (we always talk to it through the shim's
     //     own lock-guarded handler slot, from within Apple's serial queue).
     // These invariants make it safe to share across concurrency domains.
-    nonisolated(unsafe) private let shim: DelegateShim
+    private static let sharedShim = DelegateShim()
+    private let shim: DelegateShim
 
     public init() {
-        self.shim = DelegateShim()
+        self.shim = Self.sharedShim
     }
 
     // WCSession.default returns a non-Sendable singleton, but Apple
@@ -429,8 +432,12 @@ public final class DefaultWatchConnectivitySessionProvider: WatchConnectivitySes
 
     public func activate() {
         guard WCSession.isSupported() else { return }
-        WCSession.default.delegate = shim
-        WCSession.default.activate()
+        if WCSession.default.delegate !== shim {
+            WCSession.default.delegate = shim
+        }
+        if WCSession.default.activationState != .activated {
+            WCSession.default.activate()
+        }
     }
 
     public func setDelegate(_ delegate: any WatchConnectivitySessionDelegateHandling) {

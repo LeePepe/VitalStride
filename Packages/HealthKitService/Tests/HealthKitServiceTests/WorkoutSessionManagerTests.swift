@@ -212,6 +212,203 @@ struct AuthorizationWriteTypeTests {
     }
 }
 
+@Suite("HealthKitService.saveStrengthWorkout & startWatchApp")
+struct SaveStrengthWorkoutTests {
+
+    @Test("saveStrengthWorkout returns saved workout UUID when authorized")
+    func saveStrengthWorkoutSuccess() async {
+        let mock = SaveWorkoutMockStore(
+            authStatus: .sharingAuthorized,
+            stubbedUUID: "SAVED-HK-UUID-999"
+        )
+        let service = HealthKitService(
+            healthStore: mock,
+            deviceIdentifier: "test-device"
+        )
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let end = start.addingTimeInterval(1800)
+
+        let uuid = await service.saveStrengthWorkout(startDate: start, endDate: end)
+
+        #expect(uuid == "SAVED-HK-UUID-999")
+        #expect(mock.savedStartDate == start)
+        #expect(mock.savedEndDate == end)
+    }
+
+    @Test("saveStrengthWorkout requests authorization when status is notDetermined and succeeds after grant")
+    func saveStrengthWorkoutRequestsAuthWhenNotDetermined() async {
+        let mock = SaveWorkoutMockStore(
+            authStatus: .notDetermined,
+            authStatusAfterRequest: .sharingAuthorized,
+            stubbedUUID: "AFTER-AUTH-UUID"
+        )
+        let service = HealthKitService(
+            healthStore: mock,
+            deviceIdentifier: "test-device"
+        )
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let end = start.addingTimeInterval(600)
+
+        let uuid = await service.saveStrengthWorkout(startDate: start, endDate: end)
+
+        #expect(uuid == "AFTER-AUTH-UUID")
+        #expect(mock.requestAuthCalled == true)
+    }
+
+    @Test("saveStrengthWorkout returns nil when sharingDenied without calling builder")
+    func saveStrengthWorkoutDeniedReturnsNil() async {
+        let mock = SaveWorkoutMockStore(
+            authStatus: .sharingDenied,
+            stubbedUUID: "SHOULD-NOT-SAVE"
+        )
+        let service = HealthKitService(
+            healthStore: mock,
+            deviceIdentifier: "test-device"
+        )
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let end = start.addingTimeInterval(600)
+
+        let uuid = await service.saveStrengthWorkout(startDate: start, endDate: end)
+
+        #expect(uuid == nil)
+        #expect(mock.savedStartDate == nil)
+    }
+
+    @Test("saveStrengthWorkout clamps endDate when endDate < startDate")
+    func saveStrengthWorkoutClampsInvertedDates() async {
+        let mock = SaveWorkoutMockStore(
+            authStatus: .sharingAuthorized,
+            stubbedUUID: "CLAMPED-UUID"
+        )
+        let service = HealthKitService(
+            healthStore: mock,
+            deviceIdentifier: "test-device"
+        )
+        let start = Date(timeIntervalSince1970: 1_700_000_500)
+        let end = Date(timeIntervalSince1970: 1_700_000_100)
+
+        let uuid = await service.saveStrengthWorkout(startDate: start, endDate: end)
+
+        #expect(uuid == "CLAMPED-UUID")
+        #expect(mock.savedStartDate == start)
+        #expect(mock.savedEndDate == start)
+    }
+
+    @Test("startWatchAppForStrengthWorkout invokes store with traditionalStrengthTraining")
+    func startWatchAppInvokesStore() async {
+        let mock = SaveWorkoutMockStore(
+            authStatus: .sharingAuthorized,
+            stubbedUUID: nil
+        )
+        let service = HealthKitService(
+            healthStore: mock,
+            deviceIdentifier: "test-device"
+        )
+
+        await service.startWatchAppForStrengthWorkout()
+
+        #expect(mock.startedWatchActivityType == .traditionalStrengthTraining)
+    }
+
+    @Test("WorkoutSessionManaging default watchToPhoneSender is NoopWatchToPhoneSender")
+    func defaultWatchToPhoneSenderIsNoop() {
+        let noop = NoopWorkoutSessionManager()
+        #expect(noop.watchToPhoneSender is NoopWatchToPhoneSender)
+    }
+}
+
+private final class SaveWorkoutMockStore: HealthStoreProviding, @unchecked Sendable {
+    nonisolated(unsafe) static var isHealthDataAvailable: Bool = true
+    private let lock = NSLock()
+    private var _authStatus: HKAuthorizationStatus
+    private let _authStatusAfterRequest: HKAuthorizationStatus?
+    private let _stubbedUUID: String?
+    private var _requestAuthCalled = false
+    private var _savedStartDate: Date?
+    private var _savedEndDate: Date?
+    private var _startedWatchActivityType: HKWorkoutActivityType?
+
+    init(
+        authStatus: HKAuthorizationStatus,
+        authStatusAfterRequest: HKAuthorizationStatus? = nil,
+        stubbedUUID: String?
+    ) {
+        self._authStatus = authStatus
+        self._authStatusAfterRequest = authStatusAfterRequest
+        self._stubbedUUID = stubbedUUID
+    }
+
+    var requestAuthCalled: Bool { lock.withLock { _requestAuthCalled } }
+    var savedStartDate: Date? { lock.withLock { _savedStartDate } }
+    var savedEndDate: Date? { lock.withLock { _savedEndDate } }
+    var startedWatchActivityType: HKWorkoutActivityType? { lock.withLock { _startedWatchActivityType } }
+
+    func authorizationStatus(for type: HKObjectType) -> HKAuthorizationStatus {
+        lock.withLock { _authStatus }
+    }
+
+    func requestAuthorization(
+        toShare typesToShare: Set<HKSampleType>,
+        read typesToRead: Set<HKObjectType>
+    ) async throws {
+        lock.withLock {
+            _requestAuthCalled = true
+            if let next = _authStatusAfterRequest {
+                _authStatus = next
+            }
+        }
+    }
+
+    func statusForAuthorizationRequest(
+        toShare typesToShare: Set<HKSampleType>,
+        read typesToRead: Set<HKObjectType>
+    ) async throws -> HKAuthorizationRequestStatus {
+        .unnecessary
+    }
+
+    func saveStrengthWorkout(startDate: Date, endDate: Date) async throws -> String? {
+        lock.withLock {
+            _savedStartDate = startDate
+            _savedEndDate = endDate
+            return _stubbedUUID
+        }
+    }
+
+    func startWatchApp(with workoutConfiguration: HKWorkoutConfiguration) async throws {
+        lock.withLock {
+            _startedWatchActivityType = workoutConfiguration.activityType
+        }
+    }
+
+    func executeAnchoredQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        anchor: HKQueryAnchor?,
+        limit: Int
+    ) async throws -> AnchoredQueryResult {
+        AnchoredQueryResult(samples: [], deletedObjectUUIDs: [], newAnchor: nil)
+    }
+
+    func executeObserverAnchoredQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        anchor: HKQueryAnchor?,
+        limit: Int
+    ) -> AsyncStream<AnchoredQueryResult> {
+        AsyncStream { $0.finish() }
+    }
+
+    func stopQuery(_ query: HKQuery) {}
+
+    func executeSampleQuery(
+        type: HKSampleType,
+        predicate: NSPredicate?,
+        limit: Int
+    ) async throws -> [HKSample] { [] }
+
+    func delete(_ objects: [HKObject]) async throws {}
+}
+
 private final class AuthCaptureMockStore: HealthStoreProviding, @unchecked Sendable {
     nonisolated(unsafe) static var isHealthDataAvailable: Bool = true
     private let lock = NSLock()

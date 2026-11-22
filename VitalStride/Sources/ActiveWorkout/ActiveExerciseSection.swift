@@ -52,10 +52,35 @@ struct ActiveExerciseSection: View {
     let onActivate: () -> Void
     let onSetCompleted: (ExerciseSet) -> Void
     let onSetDeleted: () -> Void
+    let onStateChanged: () -> Void
     let onReplace: () -> Void
     let onSubstitute: () -> Void
     let onDelete: () -> Void
     let undoController: SetDeletionUndoController
+
+    init(
+        workoutExercise: WorkoutExercise,
+        isActive: Bool,
+        onActivate: @escaping () -> Void,
+        onSetCompleted: @escaping (ExerciseSet) -> Void,
+        onSetDeleted: @escaping () -> Void,
+        onStateChanged: @escaping () -> Void = {},
+        onReplace: @escaping () -> Void,
+        onSubstitute: @escaping () -> Void,
+        onDelete: @escaping () -> Void,
+        undoController: SetDeletionUndoController
+    ) {
+        self.workoutExercise = workoutExercise
+        self.isActive = isActive
+        self.onActivate = onActivate
+        self.onSetCompleted = onSetCompleted
+        self.onSetDeleted = onSetDeleted
+        self.onStateChanged = onStateChanged
+        self.onReplace = onReplace
+        self.onSubstitute = onSubstitute
+        self.onDelete = onDelete
+        self.undoController = undoController
+    }
 
     @State private var showingDeleteConfirmation = false
     @State private var pendingCascadeDeletion: CascadeDeletionRequest?
@@ -135,7 +160,9 @@ struct ActiveExerciseSection: View {
                                         recentWeightKg: ctx.recentWeightKg,
                                         onToggleCompleted: { wasCompleted in
                                             if !wasCompleted { onSetCompleted(exerciseSet) }
+                                            onStateChanged()
                                         },
+                                        onValueChanged: onStateChanged,
                                         onDelete: {
                                             requestDelete(exerciseSet)
                                         },
@@ -153,7 +180,9 @@ struct ActiveExerciseSection: View {
                                         recentWeightKg: ctx.recentWeightKg,
                                         onToggleCompleted: { wasCompleted in
                                             if !wasCompleted { onSetCompleted(exerciseSet) }
+                                            onStateChanged()
                                         },
+                                        onValueChanged: onStateChanged,
                                         onDelete: {
                                             requestDelete(exerciseSet)
                                         },
@@ -439,12 +468,14 @@ struct ActiveExerciseSection: View {
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
             _ = Self.insertAppendedMainSet(in: workoutExercise, using: modelContext)
         }
+        onStateChanged()
     }
 
     private func addSubSet(after parentSet: ExerciseSet, type: SetType) {
         withAnimation(reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.30, dampingFraction: 0.85)) {
             _ = WorkoutDualModeEngine.insertSubSet(after: parentSet, type: type, in: workoutExercise, using: modelContext)
         }
+        onStateChanged()
     }
 
     private func requestDelete(_ exerciseSet: ExerciseSet) {
@@ -501,6 +532,7 @@ struct ActiveExerciseSection: View {
         )
         focusedRowID = focusTarget
         onSetDeleted()
+        onStateChanged()
     }
 
     private func displaySetNumber(of exerciseSet: ExerciseSet) -> Int {
@@ -512,6 +544,7 @@ struct ActiveExerciseSection: View {
 
     private func copyToNext(from source: ExerciseSet) {
         Self.copyToNext(from: source, in: workoutExercise, using: modelContext)
+        onStateChanged()
     }
 
     nonisolated static func copyToNext(

@@ -7,36 +7,28 @@ import HealthKitService
 import SwiftUI
 import os
 
-// MARK: - Watch → Phone sender factory
+// MARK: -Watch → Phone sender factory
 //
 // Production wiring for the in-workout screen's primary-action side
 // effect (MY-1292 P0-1). The display view-model needs a
 // `WatchSetCompletedSending` seam so complete/log/finish taps deliver
-// a `SetCompletedEvent` to the paired iPhone. On watchOS we hand it a
-// real `DefaultWatchToPhoneSender` (thin wrapper over the shared
-// `WCSession.default`) via the `toPhoneSender:` convenience init on
-// `WatchWorkoutViewModel`. On preview/other platforms we fall back to
-// `NoopWatchToPhoneSender` so previews still compile.
+// a `SetCompletedEvent` to the paired iPhone. We reuse the
+// `watchToPhoneSender` owned by `WorkoutSessionManaging` so the watch UI
+// never instantiates a second `DefaultWatchToPhoneSender` that would
+// clobber `WCSession.default.delegate` or lose `inboundReceiver`.
 //
 // Privacy §I: neither branch logs the event body; `DefaultWatchToPhoneSender`
 // only logs the message `kind` + transport, and `NoopWatchToPhoneSender`
 // throws without logging.
-private enum WatchDisplaySenderFactory {
+enum WatchDisplaySenderFactory {
     @MainActor
     static func makeViewModel(
         manager: any WorkoutSessionManaging
     ) -> WatchWorkoutViewModel {
-        #if os(watchOS) && canImport(WatchConnectivity)
-        return WatchWorkoutViewModel(
+        WatchWorkoutViewModel(
             manager: manager,
-            toPhoneSender: DefaultWatchToPhoneSender()
+            toPhoneSender: manager.watchToPhoneSender
         )
-        #else
-        return WatchWorkoutViewModel(
-            manager: manager,
-            toPhoneSender: NoopWatchToPhoneSender()
-        )
-        #endif
     }
 }
 

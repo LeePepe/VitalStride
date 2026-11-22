@@ -56,9 +56,19 @@ public protocol WorkoutSessionManaging: Sendable {
     /// display-only, we prefer the newest bpm to a queued stale one.
     /// HR values MUST NOT be logged (§I).
     func observeLocalHeartRate() async -> AsyncStream<LiveHeartRatePayload>
+
+    /// Outbound watch → iPhone transport owned by the session manager.
+    /// Watch UI reuses this instance to send `SetCompletedEvent` without
+    /// instantiating a second `DefaultWatchToPhoneSender` that would clobber
+    /// `WCSession.default.delegate`.
+    var watchToPhoneSender: any WatchToPhoneSending { get }
 }
 
 extension WorkoutSessionManaging {
+    public var watchToPhoneSender: any WatchToPhoneSending {
+        NoopWatchToPhoneSender()
+    }
+
     public func observeInboundWorkoutState() async -> AsyncStream<WorkoutStateSnapshot> {
         AsyncStream { $0.finish() }
     }
@@ -374,6 +384,8 @@ public final class WorkoutSessionManager: NSObject, WorkoutSessionManaging, @unc
     /// `DefaultWatchToPhoneSender.setInboundReceiver(_:)` (or set it as the
     /// initial receiver at sender-construction time).
     public var inboundReceiver: any WatchInboundReceiving { inboundStore }
+
+    public var watchToPhoneSender: any WatchToPhoneSending { sender }
 
     public func observeInboundWorkoutState() async -> AsyncStream<WorkoutStateSnapshot> {
         await inboundStore.observeInboundWorkoutState()

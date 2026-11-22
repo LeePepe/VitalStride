@@ -74,6 +74,8 @@ struct ActiveWorkoutView: View {
     @State private var restCompletedPresenter = RestCompletedPresenter()
     #if !os(macOS)
     @State private var sessionManager: (any WorkoutSessionManaging)?
+    @State private var watchBridgeState = ActiveWorkoutWatchBridgeState()
+    @State private var receivedHRSampleCount = 0
     #endif
     @AppStorage("weightUnit") private var weightUnit: WeightUnit = .kg
     @State private var displayMode: WorkoutDisplayMode = .tiled
@@ -145,8 +147,18 @@ struct ActiveWorkoutView: View {
             }
             .sheet(isPresented: $showingExercisePicker) { ExercisePickerView { exercises in exercises.forEach(addExercise) } }
             .sheet(isPresented: $isSidebarReordering) { outlineSheet }
-            .sheet(item: $exerciseToReplace) { target in ExercisePickerView { target.exercise = $0 } }
-            .sheet(item: $substituteManualFallback) { target in ExercisePickerView(initialMuscleGroup: target.exercise?.muscleGroup) { target.exercise = $0 } }
+            .sheet(item: $exerciseToReplace) { target in
+                ExercisePickerView { replacement in
+                    target.exercise = replacement
+                    pushWatchWorkoutStateIfNeeded()
+                }
+            }
+            .sheet(item: $substituteManualFallback) { target in
+                ExercisePickerView(initialMuscleGroup: target.exercise?.muscleGroup) { replacement in
+                    target.exercise = replacement
+                    pushWatchWorkoutStateIfNeeded()
+                }
+            }
             .alert(String(localized: "完成训练？", comment: "Finish workout alert title"), isPresented: $showingFinishAlert) {
                 Button(String(localized: "完成", comment: "Confirm finish")) { finishWorkout() }
                 Button(String(localized: "取消", comment: "Cancel"), role: .cancel) {}
@@ -202,8 +214,9 @@ struct ActiveWorkoutView: View {
                 try? modelContext.save()
             }
             #if !os(macOS)
-            .task { await observeHeartRate() }
-            .task { await observeHeartRateConnection() }
+            .task(id: workout?.persistentModelID) {
+                await runWatchWorkoutObservers()
+            }
             .task { await monitorHeartRateStaleness() }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
                 isKeyboardVisible = true
@@ -266,8 +279,15 @@ struct ActiveWorkoutView: View {
                                         )
                                     }
                                     TelemetryService.shared.trackNonisolated(.setCompleted(exerciseName: TelemetryHelpers.exerciseIdentifier(workoutExercise.exercise)))
+                                    pushWatchWorkoutStateIfNeeded()
                                 },
-                                onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
+                                onSetDeleted: {
+                                    TelemetryService.shared.trackNonisolated(.setDeleted)
+                                    pushWatchWorkoutStateIfNeeded()
+                                },
+                                onStateChanged: {
+                                    pushWatchWorkoutStateIfNeeded()
+                                },
                                 onReplace: { exerciseToReplace = workoutExercise },
                                 onSubstitute: { exerciseToReplace = workoutExercise },
                                 onDelete: { deleteExercise(workoutExercise) },
@@ -288,6 +308,7 @@ struct ActiveWorkoutView: View {
                             proxy.scrollTo(id, anchor: .top)
                         }
                     }
+                    pushWatchWorkoutStateIfNeeded()
                 }
             }
         }
@@ -360,7 +381,10 @@ struct ActiveWorkoutView: View {
     }
 
     private var undoStatusButton: some View {
-        Button { undoController.undo(using: modelContext) } label: {
+        Button {
+            undoController.undo(using: modelContext)
+            pushWatchWorkoutStateIfNeeded()
+        } label: {
             Label(String(localized: "已删除组 · 撤销", comment: "Undo deletion"), systemImage: "arrow.uturn.backward")
         }
         .buttonStyle(.borderedProminent)
@@ -936,6 +960,7 @@ struct ActiveWorkoutView: View {
     private func addFocusedSet() {
         guard let target = selectedWorkoutExercise else { return }
         _ = ActiveExerciseSection.insertAppendedMainSet(in: target, using: modelContext)
+        pushWatchWorkoutStateIfNeeded()
     }
 
     private func moveSidebarExercise(
@@ -1010,17 +1035,58 @@ struct ActiveWorkoutView: View {
     /// was asleep must not render as "just now" the instant it arrives.
     /// The resolver's freshness window is compared against this sample-time
     /// stamp, so an old payload immediately resolves to `.awaiting`.
-    private func observeHeartRate() async {
+    /// Coordinate the session lifecycle and all three Watch streams
+    /// (`observeConnectionState`, `observeLiveWorkoutHeartRate`,
+    /// `observeSetCompleted`) in a single `.task(id: workout?.persistentModelID)`
+    /// scope so `sessionManager` is guaranteed to exist and be started before
+    /// any stream subscribes. Eliminates the race where `.task` fired before
+    /// `.onAppear { setupWorkout() }` and exited immediately with `sessionManager == nil`.
+    private func runWatchWorkoutObservers() async {
+        guard workout != nil else { return }
+        let manager: any WorkoutSessionManaging
+        if let existing = sessionManager {
+            manager = existing
+        } else {
+            let created = healthKitService.makeWorkoutSessionManager()
+            sessionManager = created
+            manager = created
+        }
+
+        try? await healthKitService.requestAuthorization()
+        try? await manager.startSession()
+        TelemetryService.shared.trackNonisolated(
+            .watchHeartRateStreamEvent(event: "session_started", sampleCount: 0)
+        )
+        Task { await healthKitService.startWatchAppForStrengthWorkout() }
+        pushWatchWorkoutStateIfNeeded()
+
+        async let connectionTask: Void = observeHeartRateConnection(using: manager)
+        async let heartRateTask: Void = observeHeartRate(using: manager)
+        async let setCompletedTask: Void = observeWatchSetCompleted(using: manager)
+        _ = await (connectionTask, heartRateTask, setCompletedTask)
+    }
+
+    private func observeHeartRate(using manager: (any WorkoutSessionManaging)? = nil) async {
         // Live Watch → iPhone stream (T001). Never logs the bpm value (§I).
         // Per-payload logic lives in HeartRateStreamAdapter.applyLivePayload
         // so unit tests can drive the exact same code path with a real
         // AsyncStream — any regression to receipt-time stamping breaks
         // HeartRateStreamAdapterTests.consumeLiveHeartRate_stampsFromPayloadTimestamp.
-        if let manager = sessionManager {
-            let stream = await manager.observeLiveWorkoutHeartRate()
+        if let activeManager = manager ?? sessionManager {
+            let stream = await activeManager.observeLiveWorkoutHeartRate()
             await HeartRateStreamAdapter.consumeLiveHeartRate(
                 stream,
-                setValue: { currentHeartRate = $0 },
+                setValue: { newValue in
+                    currentHeartRate = newValue
+                    if newValue != nil {
+                        receivedHRSampleCount += 1
+                        if receivedHRSampleCount == 1 {
+                            TelemetryService.shared.trackNonisolated(
+                                .watchHeartRateStreamEvent(event: "first_sample", sampleCount: 1)
+                            )
+                        }
+                    }
+                },
                 setTimestamp: { heartRateReceivedAt = $0 }
             )
         }
@@ -1044,15 +1110,75 @@ struct ActiveWorkoutView: View {
     /// mandatory clear of `currentHeartRate` + `heartRateReceivedAt` on
     /// any non-`.reachable` transition. Post-drop UX contract: reconnect
     /// always enters `.awaiting` until the first post-reconnect sample.
-    private func observeHeartRateConnection() async {
-        guard let manager = sessionManager else { return }
-        let stream = await manager.observeConnectionState()
+    private func observeHeartRateConnection(using manager: (any WorkoutSessionManaging)? = nil) async {
+        guard let activeManager = manager ?? sessionManager else { return }
+        let stream = await activeManager.observeConnectionState()
         await HeartRateStreamAdapter.consumeConnectionState(
             stream,
-            setConnection: { hrConnectionState = $0 },
+            setConnection: { newState in
+                let changed = hrConnectionState != newState
+                hrConnectionState = newState
+                if changed {
+                    TelemetryService.shared.trackNonisolated(
+                        .watchConnectionChanged(state: TelemetryHelpers.watchConnectionStateIdentifier(newState))
+                    )
+                }
+            },
             setValue: { currentHeartRate = $0 },
             setTimestamp: { heartRateReceivedAt = $0 }
         )
+    }
+
+    private func observeWatchSetCompleted(using manager: (any WorkoutSessionManaging)? = nil) async {
+        guard let activeManager = manager ?? sessionManager else { return }
+        let stream = await activeManager.observeSetCompleted()
+        for await event in stream {
+            handleWatchSetCompleted(event)
+        }
+    }
+
+    private func handleWatchSetCompleted(_ event: SetCompletedEvent) {
+        guard let workout else { return }
+        if let applied = watchBridgeState.applyWatchSetCompleted(
+            event,
+            in: workout,
+            selectedExerciseID: selectedExerciseID
+        ) {
+            HapticManager.trigger(.setCompleted)
+            restTimer.startRest(
+                duration: applied.completedSet.restDuration ?? applied.completedSet.setType.defaultRestDuration
+            )
+            selectedExerciseID = WorkoutDualModeEngine.activeExerciseIDAfterSetCompletion(
+                in: applied.exercise,
+                workout: workout
+            )
+            TelemetryService.shared.trackNonisolated(
+                .setCompleted(exerciseName: TelemetryHelpers.exerciseIdentifier(applied.exercise.exercise))
+            )
+            TelemetryService.shared.trackNonisolated(
+                .watchSetCompletedReceived(status: "applied")
+            )
+            pushWatchWorkoutStateIfNeeded()
+        } else {
+            TelemetryService.shared.trackNonisolated(
+                .watchSetCompletedReceived(status: "ignored_not_found")
+            )
+        }
+    }
+
+    private func pushWatchWorkoutStateIfNeeded() {
+        #if !os(macOS)
+        guard let workout, let manager = sessionManager else { return }
+        let snapshot = watchBridgeState.makeSnapshot(
+            for: workout,
+            selectedExerciseID: selectedExerciseID,
+            startTime: startTime,
+            now: Date()
+        )
+        Task {
+            await manager.updateWorkoutState(snapshot)
+        }
+        #endif
     }
 
     private func monitorHeartRateStaleness() async {
@@ -1071,6 +1197,12 @@ struct ActiveWorkoutView: View {
                Date().timeIntervalSince(receivedAt) > freshnessLimit {
                 currentHeartRate = nil
                 heartRateReceivedAt = nil
+                TelemetryService.shared.trackNonisolated(
+                    .watchHeartRateStreamEvent(
+                        event: "stale_timeout",
+                        sampleCount: receivedHRSampleCount
+                    )
+                )
             }
         }
     }
@@ -1104,7 +1236,7 @@ struct ActiveWorkoutView: View {
         #if !os(macOS)
         let manager = healthKitService.makeWorkoutSessionManager()
         sessionManager = manager
-        Task { try? await manager.startSession() }
+        pushWatchWorkoutStateIfNeeded()
         #endif
     }
 
@@ -1121,6 +1253,7 @@ struct ActiveWorkoutView: View {
         TelemetryService.shared.trackNonisolated(
             .exerciseAdded(name: TelemetryHelpers.exerciseIdentifier(exercise))
         )
+        pushWatchWorkoutStateIfNeeded()
     }
 
     /// Copy values into fresh, incomplete rows; historical model identities stay untouched.
@@ -1217,6 +1350,7 @@ struct ActiveWorkoutView: View {
         HapticManager.trigger(.exerciseAdded)
         signalStore?.updateLatestAccepted(kind: AICallSite.substitute.kind, accepted: true)
         exerciseToSubstitute = nil
+        pushWatchWorkoutStateIfNeeded()
     }
 
     private func loadSubstitutes(
@@ -1344,6 +1478,7 @@ struct ActiveWorkoutView: View {
         for (index, exercise) in exercises.enumerated() {
             exercise.order = index
         }
+        pushWatchWorkoutStateIfNeeded()
     }
 
     private func deleteExercise(_ workoutExercise: WorkoutExercise) {
@@ -1361,6 +1496,7 @@ struct ActiveWorkoutView: View {
         for (index, exercise) in remaining.enumerated() {
             exercise.order = index
         }
+        pushWatchWorkoutStateIfNeeded()
     }
 
     private func finishWorkout() {
@@ -1369,7 +1505,8 @@ struct ActiveWorkoutView: View {
         // MY-1420: an undo pending at finish would try to reinsert into a
         // workout that is already closed out — close the window instead.
         undoController.clear()
-        workout.finish()
+        let finishDate = Date()
+        workout.finish(at: finishDate)
         HapticManager.trigger(.workoutFinished)
         // MY-1088: pre-existing behavior, tracked separately from this issue.
         // swiftlint:disable:next silent_model_save
@@ -1377,7 +1514,7 @@ struct ActiveWorkoutView: View {
 
         let exerciseCount = workout.exercises?.count ?? 0
         let setCount = workout.exercises?.reduce(0) { $0 + ($1.sets?.count ?? 0) } ?? 0
-        let durationSeconds = Int(Date().timeIntervalSince(startTime))
+        let durationSeconds = Int(finishDate.timeIntervalSince(startTime))
         TelemetryService.shared.trackNonisolated(.workoutCompleted(
             durationSeconds: max(0, durationSeconds),
             exerciseCount: exerciseCount,
@@ -1385,21 +1522,52 @@ struct ActiveWorkoutView: View {
         ))
 
         #if !os(macOS)
-        if let manager = sessionManager {
-            Task {
-                let healthKitUUID = await manager.endSession(save: true)
-                if let healthKitUUID {
-                    workout.healthKitUUID = healthKitUUID
-                    // MY-1088: pre-existing behavior, tracked separately.
-                    // swiftlint:disable:next silent_model_save
-                    try? modelContext.save()
-                }
-                dismiss()
+        pushWatchWorkoutStateIfNeeded()
+        let manager = sessionManager
+        let service = healthKitService
+        let workoutStartDate = startTime
+        let workoutEndDate = workout.endDate ?? finishDate
+        let sampleCount = receivedHRSampleCount
+        Task { @MainActor in
+            TelemetryService.shared.trackNonisolated(
+                .watchHeartRateStreamEvent(event: "session_ended", sampleCount: sampleCount)
+            )
+            let sessionUUID = await manager?.endSession(save: true)
+            let resolvedUUID: String?
+            let saveSource: TelemetryIdentifier
+            if let sessionUUID {
+                resolvedUUID = sessionUUID
+                saveSource = "watch_session"
+            } else {
+                resolvedUUID = await service.saveStrengthWorkout(
+                    startDate: workoutStartDate,
+                    endDate: workoutEndDate
+                )
+                saveSource = "phone_builder"
             }
-            return
+            if let resolvedUUID {
+                workout.healthKitUUID = resolvedUUID
+                // MY-1088: pre-existing behavior, tracked separately.
+                // swiftlint:disable:next silent_model_save
+                try? modelContext.save()
+                TelemetryService.shared.trackNonisolated(
+                    .healthKitWorkoutSaved(source: saveSource, status: "success")
+                )
+            } else {
+                let authStatus = (try? await service.authorizationStatus())
+                let statusIdentifier: TelemetryIdentifier = authStatus == .shouldRequest
+                    ? "skipped_unauthorized"
+                    : "failed"
+                TelemetryService.shared.trackNonisolated(
+                    .healthKitWorkoutSaved(source: saveSource, status: statusIdentifier)
+                )
+            }
+            dismiss()
         }
-        #endif
+        return
+        #else
         dismiss()
+        #endif
     }
 
     private func discardWorkout() {
@@ -1420,6 +1588,144 @@ struct ActiveWorkoutView: View {
         }
         TelemetryService.shared.trackNonisolated(.workoutDiscarded)
         dismiss()
+    }
+}
+
+// MARK: - ActiveWorkoutWatchBridgeState
+
+/// Maintains stable UUID mappings for SwiftData `Workout` / `WorkoutExercise` /
+/// `ExerciseSet` instances across a live workout session so `WorkoutStateSnapshot`
+/// pushed to Apple Watch and `SetCompletedEvent` returned from Apple Watch
+/// reconcile deterministically.
+@MainActor
+final class ActiveWorkoutWatchBridgeState {
+    struct AppliedSetCompletion {
+        let exercise: WorkoutExercise
+        let completedSet: ExerciseSet
+    }
+
+    private var workoutUUIDs: [PersistentIdentifier: UUID] = [:]
+    private var exerciseUUIDs: [PersistentIdentifier: UUID] = [:]
+    private var setUUIDs: [PersistentIdentifier: UUID] = [:]
+    private var setIDToPersistentID: [UUID: PersistentIdentifier] = [:]
+
+    func workoutUUID(for workout: Workout) -> UUID {
+        let key = workout.persistentModelID
+        if let existing = workoutUUIDs[key] { return existing }
+        let created = UUID()
+        workoutUUIDs[key] = created
+        return created
+    }
+
+    func exerciseUUID(for exercise: WorkoutExercise) -> UUID {
+        let key = exercise.persistentModelID
+        if let existing = exerciseUUIDs[key] { return existing }
+        let created = UUID()
+        exerciseUUIDs[key] = created
+        return created
+    }
+
+    func setUUID(for set: ExerciseSet) -> UUID {
+        let key = set.persistentModelID
+        if let existing = setUUIDs[key] { return existing }
+        let created = UUID()
+        setUUIDs[key] = created
+        setIDToPersistentID[created] = key
+        return created
+    }
+
+    func makeSnapshot(
+        for workout: Workout,
+        selectedExerciseID: PersistentIdentifier?,
+        startTime: Date,
+        now: Date = Date()
+    ) -> WorkoutStateSnapshot {
+        let orderedExercises = (workout.exercises ?? []).sorted { $0.order < $1.order }
+        let currentExercise: WorkoutExercise? =
+            orderedExercises.first(where: { $0.persistentModelID == selectedExerciseID })
+            ?? orderedExercises.first(where: { ($0.sets ?? []).contains(where: { !$0.isCompleted }) })
+            ?? orderedExercises.first
+
+        let orderedSets = (currentExercise?.sets ?? []).sorted { $0.order < $1.order }
+        let plannedSets: [WorkoutStateSnapshot.PlannedSet] = orderedSets.enumerated().map { idx, set in
+            WorkoutStateSnapshot.PlannedSet(
+                id: setUUID(for: set),
+                index: idx,
+                targetReps: max(0, set.reps),
+                targetWeightKg: max(0, set.weight),
+                isCompleted: set.isCompleted
+            )
+        }
+
+        let allSets = orderedExercises.flatMap { $0.sets ?? [] }
+        let totalCount = allSets.count
+        let completedCount = min(totalCount, allSets.filter(\.isCompleted).count)
+        let elapsed = max(0, now.timeIntervalSince(startTime))
+
+        return WorkoutStateSnapshot(
+            workoutID: workoutUUID(for: workout),
+            currentExerciseID: currentExercise.map { exerciseUUID(for: $0) },
+            currentExerciseName: currentExercise?.exercise?.localizedName,
+            sets: plannedSets,
+            elapsedSeconds: elapsed,
+            progress: WorkoutStateSnapshot.Progress(
+                completedSetCount: completedCount,
+                totalSetCount: totalCount
+            ),
+            updatedAt: now
+        )
+    }
+
+    /// Reconcile a `SetCompletedEvent` from Apple Watch against the active
+    /// `Workout`. Matches the exact `setID` when present and incomplete;
+    /// otherwise falls back to the first incomplete set in the active/ordered
+    /// exercise list.
+    func applyWatchSetCompleted(
+        _ event: SetCompletedEvent,
+        in workout: Workout,
+        selectedExerciseID: PersistentIdentifier?
+    ) -> AppliedSetCompletion? {
+        let orderedExercises = (workout.exercises ?? []).sorted { $0.order < $1.order }
+        guard !orderedExercises.isEmpty else { return nil }
+
+        // 1. Exact UUID match
+        if let targetPersistentID = setIDToPersistentID[event.setID] {
+            for exercise in orderedExercises {
+                let sets = (exercise.sets ?? []).sorted { $0.order < $1.order }
+                if let match = sets.first(where: { $0.persistentModelID == targetPersistentID }) {
+                    guard !match.isCompleted else { return nil }
+                    if let actualReps = event.actualReps, actualReps >= 0 {
+                        match.reps = actualReps
+                    }
+                    match.isCompleted = true
+                    return AppliedSetCompletion(exercise: exercise, completedSet: match)
+                }
+            }
+        }
+
+        // 2. Fallback: first incomplete set in the currently selected exercise,
+        // or the first exercise with an incomplete set.
+        let prioritizedExercises: [WorkoutExercise] = {
+            if let selectedID = selectedExerciseID,
+               let selected = orderedExercises.first(where: { $0.persistentModelID == selectedID }) {
+                return [selected] + orderedExercises.filter { $0.persistentModelID != selectedID }
+            }
+            return orderedExercises
+        }()
+
+        for exercise in prioritizedExercises {
+            let sets = (exercise.sets ?? []).sorted { $0.order < $1.order }
+            if let nextIncomplete = sets.first(where: { !$0.isCompleted }) {
+                _ = setUUID(for: nextIncomplete)
+                if let actualReps = event.actualReps, actualReps >= 0 {
+                    nextIncomplete.reps = actualReps
+                }
+                nextIncomplete.isCompleted = true
+                return AppliedSetCompletion(exercise: exercise, completedSet: nextIncomplete)
+            }
+        }
+
+        return nil
     }
 }
 

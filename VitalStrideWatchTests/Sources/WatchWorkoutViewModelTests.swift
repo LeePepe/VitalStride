@@ -243,6 +243,25 @@ final class WatchWorkoutViewModelTests: XCTestCase {
         XCTAssertEqual(vm.display, .initial)
     }
 
+    func test_watchDisplaySenderFactory_reusesManagerSender() async throws {
+        let customSender = RecordingWatchToPhoneSenderOnWatch()
+        let customManager = FakeWorkoutSessionManager(sender: customSender)
+        let factoryVM = WatchDisplaySenderFactory.makeViewModel(manager: customManager)
+        factoryVM.start()
+        defer { factoryVM.stop() }
+        try await withTimeout(seconds: 2.0) {
+            try await customManager.awaitAllSubscribersReady()
+        }
+        let snapshot = makeSnapshot()
+        await customManager.yieldState(snapshot)
+        let deadline = Date().addingTimeInterval(2.0)
+        while factoryVM.display.nextSet == nil && Date() < deadline {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        factoryVM.sendCompleteSet(actualReps: 10)
+        XCTAssertEqual(customSender.sentMessages.count, 1)
+    }
+
     // MARK: Readiness-timeout regression (MY-1300)
 
     /// Regression: before MY-1300 `awaitAllSubscribersReady()` awaited a
@@ -446,6 +465,12 @@ final class WatchWorkoutViewModelTests: XCTestCase {
 /// live. This replaces the previous fixed-time setup sleep with a real
 /// happens-before signal.
 final actor FakeWorkoutSessionManager: WorkoutSessionManaging {
+    nonisolated let watchToPhoneSender: any WatchToPhoneSending
+
+    init(sender: any WatchToPhoneSending = NoopWatchToPhoneSender()) {
+        self.watchToPhoneSender = sender
+    }
+
     private var stateCont: AsyncStream<WorkoutStateSnapshot>.Continuation?
     private var configCont: AsyncStream<WatchScreenConfig>.Continuation?
     private var localHRCont: AsyncStream<LiveHeartRatePayload>.Continuation?
@@ -642,5 +667,19 @@ final class RecordingSender: WatchSetCompletedSending {
         if let error {
             throw error
         }
+    }
+}
+
+final class RecordingWatchToPhoneSenderOnWatch: WatchToPhoneSending {
+    private let storage = OSAllocatedUnfairLock<[WatchConnectivityMessage]>(initialState: [])
+
+    var isReachable: Bool { true }
+
+    var sentMessages: [WatchConnectivityMessage] {
+        storage.withLock { $0 }
+    }
+
+    func send(_ message: WatchConnectivityMessage) throws {
+        storage.withLock { $0.append(message) }
     }
 }

@@ -344,6 +344,86 @@ struct WorkoutLoggingV2Tests {
         #expect(secondSummary.badgeIdentifier == "back_pull")
     }
 
+    @Test("ActiveWorkoutWatchBridgeState builds valid WorkoutStateSnapshot and reconciles SetCompletedEvent")
+    @MainActor
+    func watchBridgeSnapshotAndSetCompletedReconciliation() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let bench = Exercise(nameEn: "Bench Press", nameZh: "杠铃卧推", muscleGroup: .chest, equipment: .barbell)
+        let set1 = ExerciseSet(order: 0, weight: 80, reps: 8, setType: .working, isCompleted: true)
+        let set2 = ExerciseSet(order: 1, weight: 85, reps: 6, setType: .working, isCompleted: false)
+        let exercise = WorkoutExercise(order: 0, exercise: bench, sets: [set1, set2])
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let workout = Workout(type: .strength, startDate: start, exercises: [exercise])
+        exercise.workout = workout
+        set1.workoutExercise = exercise
+        set2.workoutExercise = exercise
+        context.insert(bench)
+        context.insert(workout)
+        context.insert(exercise)
+        context.insert(set1)
+        context.insert(set2)
+
+        let bridge = ActiveWorkoutWatchBridgeState()
+        let now = start.addingTimeInterval(90)
+        let snapshot = bridge.makeSnapshot(
+            for: workout,
+            selectedExerciseID: exercise.persistentModelID,
+            startTime: start,
+            now: now
+        )
+
+        #expect(snapshot.sets.count == 2)
+        #expect(snapshot.sets[0].isCompleted == true)
+        #expect(snapshot.sets[1].isCompleted == false)
+        #expect(snapshot.sets[1].targetWeightKg == 85)
+        #expect(snapshot.sets[1].targetReps == 6)
+        #expect(snapshot.progress.completedSetCount == 1)
+        #expect(snapshot.progress.totalSetCount == 2)
+        #expect(snapshot.elapsedSeconds == 90)
+
+        let event = SetCompletedEvent(
+            workoutID: snapshot.workoutID,
+            setID: snapshot.sets[1].id,
+            actualReps: 7,
+            completedAt: now
+        )
+        let applied = bridge.applyWatchSetCompleted(
+            event,
+            in: workout,
+            selectedExerciseID: exercise.persistentModelID
+        )
+
+        #expect(applied != nil)
+        #expect(set2.isCompleted == true)
+        #expect(set2.reps == 7)
+
+        let postSnapshot = bridge.makeSnapshot(
+            for: workout,
+            selectedExerciseID: exercise.persistentModelID,
+            startTime: start,
+            now: now.addingTimeInterval(5)
+        )
+        #expect(postSnapshot.progress.completedSetCount == 2)
+
+        // All sets completed -> further SetCompletedEvent returns nil
+        let duplicate = bridge.applyWatchSetCompleted(
+            event,
+            in: workout,
+            selectedExerciseID: exercise.persistentModelID
+        )
+        #expect(duplicate == nil)
+    }
+
+    @Test("TelemetryHelpers maps WatchConnectionState to canonical ASCII identifiers")
+    func watchConnectionStateTelemetryIdentifiers() {
+        #expect(TelemetryHelpers.watchConnectionStateIdentifier(.reachable).rawValue == "reachable")
+        #expect(TelemetryHelpers.watchConnectionStateIdentifier(.unreachable).rawValue == "unreachable")
+        #expect(TelemetryHelpers.watchConnectionStateIdentifier(.notPaired).rawValue == "not_paired")
+        #expect(TelemetryHelpers.watchConnectionStateIdentifier(.notInstalled).rawValue == "not_installed")
+        #expect(TelemetryHelpers.watchConnectionStateIdentifier(.unsupported).rawValue == "unsupported")
+    }
+
     @Test("Set type menu availability enforces mutual exclusion and sub-set drop-set guard")
     func setTypeMenuMutualExclusion() {
         let working = SetRow.setTypeMenuAvailability(for: .working)

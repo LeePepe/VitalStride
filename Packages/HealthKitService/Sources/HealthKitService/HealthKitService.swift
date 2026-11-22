@@ -54,6 +54,17 @@ public protocol HealthStoreProviding: Sendable {
         quantityType: HKQuantityType,
         predicate: NSPredicate
     ) async -> HKQuantity?
+
+    /// Check the current write authorization status for a sample/object type.
+    func authorizationStatus(for type: HKObjectType) -> HKAuthorizationStatus
+
+    /// Save a completed strength-training workout over `[startDate, endDate]`
+    /// to Apple Health and return the persisted `HKWorkout.uuid.uuidString`.
+    func saveStrengthWorkout(startDate: Date, endDate: Date) async throws -> String?
+
+    /// Best-effort request to launch/wake the paired Apple Watch workout app
+    /// with a strength-training configuration.
+    func startWatchApp(with workoutConfiguration: HKWorkoutConfiguration) async throws
 }
 
 public struct AnchoredQueryResult: Sendable {
@@ -81,6 +92,16 @@ extension HealthStoreProviding {
     ) async -> HKQuantity? {
         nil
     }
+
+    public func authorizationStatus(for type: HKObjectType) -> HKAuthorizationStatus {
+        .sharingAuthorized
+    }
+
+    public func saveStrengthWorkout(startDate: Date, endDate: Date) async throws -> String? {
+        nil
+    }
+
+    public func startWatchApp(with workoutConfiguration: HKWorkoutConfiguration) async throws {}
 }
 
 // MARK: - HKHealthStore Conformance
@@ -219,6 +240,21 @@ extension HKHealthStore: HealthStoreProviding {
             }
             self.execute(query)
         }
+    }
+
+    public func saveStrengthWorkout(startDate: Date, endDate: Date) async throws -> String? {
+        let configuration = HKWorkoutConfiguration()
+        configuration.activityType = .traditionalStrengthTraining
+        let builder = HKWorkoutBuilder(
+            healthStore: self,
+            configuration: configuration,
+            device: .local()
+        )
+        let effectiveEndDate = max(startDate, endDate)
+        try await builder.beginCollection(at: startDate)
+        try await builder.endCollection(at: effectiveEndDate)
+        let workout = try await builder.finishWorkout()
+        return workout?.uuid.uuidString
     }
 }
 
@@ -894,7 +930,73 @@ public final class HealthKitService: Sendable {
         }
     }
 
+    // MARK: - Workout Saving & Watch App Launch
+
+    /// Persist a completed strength workout (`HKWorkoutActivityType.traditionalStrengthTraining`)
+    /// to Apple Health over `[startDate, endDate]` using `HKWorkoutBuilder`.
+    ///
+    /// Returns the saved `HKWorkout.uuid.uuidString` on success, or `nil` when
+    /// HealthKit is unavailable, write permission is not authorized, or the
+    /// builder fails (never throws to callers so local SwiftData workout saving
+    /// is never blocked).
+    ///
+    /// Privacy (Constitution §I): logs only duration status metadata — never
+    /// heart rate, energy, or weight values.
+    public func saveStrengthWorkout(startDate: Date, endDate: Date) async -> String? {
+        guard type(of: healthStore).isHealthDataAvailable else {
+            logger.info("hk_workout_save status=healthkit_unavailable")
+            return nil
+        }
+
+        let workoutType = HKWorkoutType.workoutType()
+        let writeStatus = healthStore.authorizationStatus(for: workoutType)
+        if writeStatus == .notDetermined {
+            try? await requestAuthorization()
+        }
+        guard healthStore.authorizationStatus(for: workoutType) == .sharingAuthorized else {
+            logger.info("hk_workout_save status=skipped_unauthorized")
+            return nil
+        }
+
+        let effectiveEndDate = max(startDate, endDate)
+        do {
+            guard let uuidString = try await healthStore.saveStrengthWorkout(
+                startDate: startDate,
+                endDate: effectiveEndDate
+            ) else {
+                logger.error("hk_workout_save status=nil_workout")
+                return nil
+            }
+            logger.info("hk_workout_save status=success")
+            return uuidString
+        } catch {
+            logger.error("hk_workout_save status=failed")
+            return nil
+        }
+    }
+
+    /// Best-effort attempt to wake/launch the paired Apple Watch workout app
+    /// with a strength-training configuration. Failures are logged privately
+    /// and never block phone-side workout execution.
+    public func startWatchAppForStrengthWorkout() async {
+        guard type(of: healthStore).isHealthDataAvailable else { return }
+        let configuration = HKWorkoutConfiguration()
+        configuration.activityType = .traditionalStrengthTraining
+        do {
+            try await healthStore.startWatchApp(with: configuration)
+            logger.info("hk_start_watch_app status=success")
+        } catch {
+            logger.info("hk_start_watch_app status=failed")
+        }
+    }
+
     // MARK: - Workout Session
+
+    #if canImport(WatchConnectivity) && os(iOS)
+    private static let sharedPhoneSessionManager = PhoneWorkoutSessionManager(
+        session: DefaultWatchConnectivitySessionProvider.shared
+    )
+    #endif
 
     public func makeWorkoutSessionManager() -> any WorkoutSessionManaging {
         #if os(watchOS)
@@ -903,9 +1005,13 @@ public final class HealthKitService: Sendable {
         }
         if #available(watchOS 5.0, *) {
             #if canImport(WatchConnectivity)
+            let inboundStore = WatchWorkoutInboundStore()
+            let sender = DefaultWatchToPhoneSender.shared
+            sender.setInboundReceiver(inboundStore)
             return WorkoutSessionManager(
                 healthStore: realStore,
-                sender: DefaultWatchToPhoneSender()
+                sender: sender,
+                inboundStore: inboundStore
             )
             #else
             return WorkoutSessionManager(healthStore: realStore)
@@ -913,7 +1019,7 @@ public final class HealthKitService: Sendable {
         }
         return NoopWorkoutSessionManager()
         #elseif canImport(WatchConnectivity) && os(iOS)
-        return PhoneWorkoutSessionManager(session: DefaultWatchConnectivitySessionProvider())
+        return Self.sharedPhoneSessionManager
         #else
         return NoopWorkoutSessionManager()
         #endif
