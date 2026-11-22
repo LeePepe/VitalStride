@@ -92,4 +92,9 @@ struct ExercisePickerCardGridLayoutTests {
     func verticalInsetIsConstant() {
         #expect(ExercisePickerView.cardGridVerticalInset == Space.md)
     }
+
+    @Test("Standard Dynamic Type layout strictly preserves 2-column exercise card grid")
+    func gridColumnCountIsTwo() {
+        #expect(ExercisePickerView.gridColumnCount == 2)
+    }
 }

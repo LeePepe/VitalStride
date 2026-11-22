@@ -540,7 +540,12 @@ struct ExercisePickerView: View {
             }
             .padding(.horizontal, 8)
         }
-        .frame(height: 52)
+        .frame(height: 50)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.primary.opacity(0.05))
+                .frame(height: 0.5)
+        }
         .contentShape(Rectangle())
         .accessibilityElement(children: .contain)
     }
@@ -558,7 +563,7 @@ struct ExercisePickerView: View {
                 .lineLimit(1)
                 .padding(.horizontal, Space.sm)
                 .fixedSize(horizontal: true, vertical: false)
-                .frame(height: 36)
+                .frame(height: 34)
                 .foregroundStyle(
                     isSelected ? Color.white : Color.primary
                 )
@@ -585,7 +590,7 @@ struct ExercisePickerView: View {
             VStack(spacing: 4) {
                 muscleButton(nil)
                 ForEach(MuscleGroup.allCases, id: \.self) { muscleButton($0) }
-            }.padding(.vertical, 12)
+            }.padding(.vertical, 10)
         }
         .frame(width: Self.muscleSidebarWidth)
         .contentMargins(.bottom, panelHeight + Space.md, for: .scrollContent)
@@ -605,33 +610,52 @@ struct ExercisePickerView: View {
         return Button {
             handleMuscleTap(group)
         } label: {
-            VStack(spacing: 3) {
-                Text(label).font(.caption.weight(selected ? .bold : .medium))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-                    .fixedSize(horizontal: false, vertical: false)
-                if count > 0 {
-                    Text("\(count)").font(.caption2.bold()).monospacedDigit()
-                        .foregroundStyle(Color.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 1)
-                        .background(Color.accentColor, in: Capsule())
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .foregroundStyle(selected ? Color.accentColor : Color.primary)
-            .background(
-                selected ? Color.accentColor.opacity(0.15) : Color.clear,
-                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-            )
-            .contentShape(Rectangle())
+            muscleButtonLabel(label: label, selected: selected, count: count)
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 4)
         .accessibilityLabel(label)
         .accessibilityValue(String(localized: "picker.selected.count \(count)", comment: "Selected exercise count in muscle group"))
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func muscleButtonLabel(label: String, selected: Bool, count: Int) -> some View {
+        VStack(spacing: 3) {
+            Text(label)
+                .font(.caption.weight(selected ? .bold : .medium))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .fixedSize(horizontal: false, vertical: false)
+            if count > 0 {
+                Text("\(count)")
+                    .font(.caption2.monospacedDigit().weight(.bold))
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Color.accentColor, in: Capsule())
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 48)
+        .foregroundStyle(selected ? Color.accentColor : Color.primary)
+        .background(
+            selected ? Color.accentColor.opacity(0.14) : Color.clear,
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
+        .overlay(alignment: .leading) {
+            Capsule()
+                .fill(selected ? Color.accentColor : Color.clear)
+                .frame(width: 3, height: 18)
+                .padding(.leading, 2)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(
+                    selected ? Color.accentColor.opacity(0.24) : Color.clear,
+                    lineWidth: 1
+                )
+        }
+        .contentShape(Rectangle())
     }
 
     @ViewBuilder
@@ -793,8 +817,8 @@ struct ExercisePickerView: View {
                                 let equipment = group.0
                                 let items = group.1
                                 Section {
-                                    ForEach(Array(items.enumerated()), id: \.element.id) { itemIndex, snapshot in
-                                        let card = ExerciseCard(
+                                    ForEach(items) { snapshot in
+                                        ExerciseCard(
                                             snapshot: snapshot,
                                             isSelected: selectedIDs.contains(snapshot.id),
                                             showsSelectionIndicator: true
@@ -806,11 +830,6 @@ struct ExercisePickerView: View {
                                             if let exercise = cachedExercisesByID[snapshot.id] {
                                                 exerciseContextMenu(exercise)
                                             }
-                                        }
-                                        if itemIndex < Self.gridColumnCount {
-                                            card.id(equipment)
-                                        } else {
-                                            card
                                         }
                                     }
                                 } header: {
@@ -1240,22 +1259,29 @@ struct ExercisePickerView: View {
         isFirst: Bool
     ) -> some View {
         let color = categoryColor(sectionPaletteIndex(for: equipment), theme: theme)
-        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+        return HStack(alignment: .center, spacing: 8) {
             Image(systemName: equipment.sfSymbol)
-                .font(TypeScale.meta.weight(.bold))
+                .font(.caption2.weight(.bold))
                 .foregroundStyle(color)
-                .frame(width: 16, alignment: .center)
-            Text(equipment.localizedName.uppercased())
-                .font(TypeScale.meta)
-                .fontWeight(.bold)
-                .foregroundStyle(Color.secondary)
+                .frame(width: 22, height: 22)
+                .background(
+                    color.opacity(0.15),
+                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                )
+            Text(equipment.localizedName)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(Color.primary)
+                .lineLimit(1)
             Text("\(count)")
-                .font(TypeScale.meta.monospacedDigit())
+                .font(.caption2.monospacedDigit().weight(.semibold))
                 .foregroundStyle(Color.secondary)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
             Spacer(minLength: 0)
         }
-        .padding(.top, isFirst ? 0 : 10)
-        .padding(.bottom, 2)
+        .padding(.top, isFirst ? 0 : 12)
+        .padding(.bottom, 4)
     }
 
     private func handleCardTap(_ snapshot: ExercisePickerCardSnapshot) {
@@ -1354,69 +1380,76 @@ private struct ExerciseCard: View, Equatable {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: snapshot.equipment.sfSymbol)
-                        .font(TypeScale.body.weight(.semibold))
-                        .foregroundStyle(equipmentColor)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            equipmentColor.opacity(0.15),
-                            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        )
-                    Spacer(minLength: 0)
-                    if showsSelectionIndicator {
-                        Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle.fill")
-                            .font(TypeScale.title)
-                            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.38))
-                            .frame(width: 44, height: 44)
-                            .accessibilityHidden(true)
-                    }
-                }
-
-                mediaPreview
-
-                Text(snapshot.localizedName)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.primary)
-                    .lineLimit(2, reservesSpace: true)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .layoutPriority(1)
-
-                HStack(spacing: 4) {
-                    Text(snapshot.muscleLocalizedName)
-                        .lineLimit(1)
-                    Text("·")
-                        .accessibilityHidden(true)
-                    Text(snapshot.equipmentLocalizedName)
-                        .lineLimit(1)
-                }
-                .font(.caption)
-                .foregroundStyle(Color.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(
-                maxWidth: .infinity,
-                minHeight: dynamicTypeSize.isAccessibilitySize ? 148 : 118,
-                alignment: .topLeading
-            )
-            .padding(10)
-            .background(
-                isSelected ? Color.accentColor.opacity(0.08) : Color(uiColor: .secondarySystemGroupedBackground),
-                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(
-                        isSelected ? Color.accentColor : Color.primary.opacity(0.06),
-                        lineWidth: isSelected ? 2 : 1
-                    )
-            }
+            cardContent
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var cardContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 6) {
+                Image(systemName: snapshot.equipment.sfSymbol)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(equipmentColor)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        equipmentColor.opacity(0.15),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
+                Text(snapshot.equipmentLocalizedName)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Color.secondary)
+                    .lineLimit(1)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
+                Spacer(minLength: 0)
+                if showsSelectionIndicator {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.45))
+                        .frame(width: 24, height: 24)
+                        .accessibilityHidden(true)
+                }
+            }
+
+            mediaPreview
+
+            Text(snapshot.localizedName)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.primary)
+                .lineLimit(2, reservesSpace: true)
+                .minimumScaleFactor(0.88)
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+
+            Text(snapshot.muscleLocalizedName)
+                .font(.caption2)
+                .foregroundStyle(Color.secondary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(
+            maxWidth: .infinity,
+            minHeight: dynamicTypeSize.isAccessibilitySize ? 140 : 104,
+            alignment: .topLeading
+        )
+        .padding(10)
+        .background(
+            isSelected ? Color.accentColor.opacity(0.12) : Color(uiColor: .secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(
+                    isSelected ? Color.accentColor : Color.primary.opacity(0.06),
+                    lineWidth: isSelected ? 1.5 : 1
+                )
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     // Media display point reserved for future authorized media assets. When
@@ -1545,38 +1578,19 @@ struct PickerBottomBar: View {
 
     var body: some View {
         let isConfirmDisabled = isMultiSelect && selectedCount == 0
-        HStack(spacing: Space.xxs) {
+        HStack(spacing: Space.xs) {
             searchField
                 .frame(maxWidth: .infinity)
                 .layoutPriority(1)
             Button(action: onCreate) {
-                ViewThatFits(in: .horizontal) {
-                    Text(String(localized: "picker.create", comment: "Create custom exercise"))
-                        .font(.caption.weight(.semibold)).fixedSize()
-                    Image(systemName: "plus").font(.body.weight(.semibold))
-                }
-                    .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
-                    .contentShape(Rectangle())
+                createButtonLabel
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.accentColor)
             .accessibilityLabel(String(localized: "picker.create", comment: "Create custom exercise"))
             .accessibilityIdentifier("exercise_picker_create")
             Button(action: onConfirm) {
-                HStack(spacing: Space.xxs) {
-                    Text(String(localized: "picker.done", comment: "Confirm exercise selection"))
-                    if isMultiSelect && selectedCount > 0 {
-                        Text("\(selectedCount)").monospacedDigit()
-                    }
-                }
-                .font(.subheadline.weight(.semibold))
-                .fixedSize()
-                .padding(.horizontal, Space.sm)
-                .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
-                .background(
-                    isConfirmDisabled ? Color(uiColor: .tertiarySystemFill) : Color.accentColor,
-                    in: Capsule()
-                )
+                confirmButtonLabel(isConfirmDisabled: isConfirmDisabled)
             }
             .buttonStyle(.plain)
             .fixedSize(horizontal: true, vertical: false)
@@ -1590,13 +1604,52 @@ struct PickerBottomBar: View {
         .padding(Space.xs)
         .background(
             Color(uiColor: .secondarySystemGroupedBackground),
-            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.10), radius: 12, y: 4)
+        .shadow(color: Color.black.opacity(0.08), radius: 8, y: 2)
+    }
+
+    private var createButtonLabel: some View {
+        ViewThatFits(in: .horizontal) {
+            Text(String(localized: "picker.create", comment: "Create custom exercise"))
+                .font(.caption.weight(.semibold))
+                .fixedSize()
+                .padding(.horizontal, Space.xs)
+            Image(systemName: "plus")
+                .font(.subheadline.weight(.bold))
+        }
+        .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
+        .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
+        .overlay {
+            Capsule()
+                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+        }
+        .contentShape(Rectangle())
+    }
+
+    private func confirmButtonLabel(isConfirmDisabled: Bool) -> some View {
+        HStack(spacing: Space.xxs) {
+            Text(String(localized: "picker.done", comment: "Confirm exercise selection"))
+            if isMultiSelect && selectedCount > 0 {
+                Text("\(selectedCount)")
+                    .font(.caption.monospacedDigit().weight(.bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.white.opacity(0.22), in: Capsule())
+            }
+        }
+        .font(.subheadline.weight(.semibold))
+        .fixedSize()
+        .padding(.horizontal, Space.sm)
+        .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
+        .background(
+            isConfirmDisabled ? Color(uiColor: .tertiarySystemFill) : Color.accentColor,
+            in: Capsule()
+        )
     }
 
     // Own the native field here so its identifier belongs only to the input,
