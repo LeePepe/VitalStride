@@ -21,6 +21,7 @@ enum AIModel: String, CaseIterable, Sendable {
 final class AIModelSettingsStore {
     static let defaultsKey = "userAIModelConfiguration"
     static let jevKeychainService = "com.vitalstride.aiservice.jev.apikey"
+    static let isFoundationModelsAvailable: Bool = AppleIntelligenceProvider.isAvailable
 
     private static var secretPresenceCache: [String: Bool] = [:]
     private static var secretValueCache: [String: String] = [:]
@@ -65,7 +66,7 @@ final class AIModelSettingsStore {
     }
 
     static func defaultConfiguration() -> UserAIModelConfiguration {
-        AppleIntelligenceProvider.isAvailable
+        Self.isFoundationModelsAvailable
             ? .init(provider: .foundationModels)
             : .init(provider: .deterministicFallback)
     }
@@ -219,7 +220,7 @@ final class AIModelSettingsStore {
 
     var isSelectedProviderReady: Bool {
         switch configuration.provider {
-        case .foundationModels: return AppleIntelligenceProvider.isAvailable
+        case .foundationModels: return Self.isFoundationModelsAvailable
         case .deterministicFallback: return true
         case .customOpenAICompatible: return validRemote && hasSecret()
         case .jevGateway: return validRemote && (configuration.allowsUnauthenticatedGateway || hasSecret())
@@ -228,7 +229,7 @@ final class AIModelSettingsStore {
     var status: (String, PillTone) {
         switch configuration.provider {
         case .foundationModels:
-            return AppleIntelligenceProvider.isAvailable
+            return Self.isFoundationModelsAvailable
                 ? (Self.statusReadyText, .success)
                 : (Self.statusFallbackText, .warning)
         case .deterministicFallback:

@@ -51,9 +51,13 @@ struct AISettingsSectionTests {
         defer { AIModelSettingsStore.resetSecretCache() }
 
         let store = AIModelSettingsStore(defaults: defaults)
-        // Warm up once
-        store.select(.customOpenAICompatible)
-        _ = store.status
+        // Warm up once across providers to exclude one-time static FoundationModels availability IPC lookup
+        for provider in PluggableAIProvider.allCases {
+            store.select(provider)
+            _ = store.status
+            _ = store.chainSummary
+            _ = store.isSelectedProviderReady
+        }
 
         let clock = ContinuousClock()
         let elapsed = clock.measure {

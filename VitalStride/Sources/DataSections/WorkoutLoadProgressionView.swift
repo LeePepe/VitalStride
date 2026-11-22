@@ -171,7 +171,7 @@ final class WorkoutLoadProgressionState {
 
     private static func resolveConfiguration(defaults: UserDefaults = .standard, keychain: KeychainHelper = KeychainHelper()) -> UserAIModelConfiguration {
         if let data = defaults.data(forKey: "userAIModelConfiguration"), let stored = try? JSONDecoder().decode(UserAIModelConfiguration.self, from: data) { return stored }
-        if AppleIntelligenceProvider.isAvailable { return UserAIModelConfiguration(provider: .foundationModels) }
+        if AIModelSettingsStore.isFoundationModelsAvailable { return UserAIModelConfiguration(provider: .foundationModels) }
         let service = "\(KeychainHelper.defaultServicePrefix).apikey"
         if AIModelSettingsStore.hasSecretCached(for: service, keychain: keychain) {
             return UserAIModelConfiguration(provider: .customOpenAICompatible, baseURL: URL(string: "https://open.bigmodel.cn/api/paas/v4"), modelID: "glm-4-flash", keychainService: service)
@@ -181,7 +181,7 @@ final class WorkoutLoadProgressionState {
 
     private func isConfigured(_ configuration: UserAIModelConfiguration) -> Bool {
         switch configuration.provider {
-        case .foundationModels: return AppleIntelligenceProvider.isAvailable
+        case .foundationModels: return AIModelSettingsStore.isFoundationModelsAvailable
         case .deterministicFallback: return true
         case .jevGateway, .customOpenAICompatible:
             guard let url = configuration.baseURL, let host = url.host, !host.isEmpty, ["http", "https"].contains(url.scheme?.lowercased()), let service = configuration.keychainService else { return false }

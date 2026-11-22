@@ -171,7 +171,7 @@ final class HeartSleepCouplingState {
 
     private func isConfigured(_ configuration: UserAIModelConfiguration) -> Bool {
         switch configuration.provider {
-        case .foundationModels: return AppleIntelligenceProvider.isAvailable
+        case .foundationModels: return AIModelSettingsStore.isFoundationModelsAvailable
         case .jevGateway, .customOpenAICompatible:
             guard let url = configuration.baseURL, url.host != nil, let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else { return false }
             if configuration.provider == .jevGateway && configuration.allowsUnauthenticatedGateway { return true }

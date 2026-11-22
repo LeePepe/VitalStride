@@ -36,7 +36,7 @@ final class HolisticDashboardState {
            let stored = try? JSONDecoder().decode(UserAIModelConfiguration.self, from: data) {
             return stored
         }
-        if AppleIntelligenceProvider.isAvailable {
+        if AIModelSettingsStore.isFoundationModelsAvailable {
             return UserAIModelConfiguration(provider: .foundationModels)
         }
         let apiKeyService = "\(KeychainHelper.defaultServicePrefix).apikey"
@@ -178,7 +178,7 @@ final class HolisticDashboardState {
     private var isProviderAvailable: Bool {
         switch configuration.provider {
         case .foundationModels:
-            return AppleIntelligenceProvider.isAvailable
+            return AIModelSettingsStore.isFoundationModelsAvailable
         case .deterministicFallback:
             return true
         case .customOpenAICompatible, .jevGateway:
