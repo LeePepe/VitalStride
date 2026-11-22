@@ -1,6 +1,7 @@
 #if canImport(AppKit)
 import AppKit
 #endif
+import CryptoKit
 import DesignKit
 import Foundation
 @testable import Prototype
@@ -9,6 +10,94 @@ import Testing
 
 @Suite("VitalStridePreviewHost button hot-path & zero-redraw contract", .serialized)
 struct VitalStridePreviewHostPerformanceTests {
+    @Test("All 40 variant descriptors across L1..L4 have unique titles and unique summaries")
+    func allFortyDescriptorsHaveUniqueTitlesAndSummaries() {
+        var allTitles: [String] = []
+        var allSummaries: [String] = []
+        var allBadges: [String] = []
+
+        for page in VitalStridePreviewPageTab.allCases {
+            let descriptors = page.descriptors
+            #expect(descriptors.count == 10)
+            let layerTitles = descriptors.map(\.title)
+            let layerSummaries = descriptors.map(\.summary)
+            #expect(Set(layerTitles).count == 10, "Expected 10 unique titles in \(page.goalSlug)")
+            #expect(Set(layerSummaries).count == 10, "Expected 10 unique summaries in \(page.goalSlug)")
+            allTitles.append(contentsOf: layerTitles)
+            allSummaries.append(contentsOf: layerSummaries)
+            allBadges.append(contentsOf: descriptors.map(\.badgeCode))
+        }
+
+        #expect(allTitles.count == 40)
+        #expect(Set(allTitles).count == 40, "Expected 40 globally unique titles across L1..L4")
+        #expect(Set(allSummaries).count == 40, "Expected 40 globally unique summaries across L1..L4")
+        #expect(Set(allBadges).count == 40, "Expected 40 globally unique badge codes across L1..L4")
+    }
+
+    @MainActor
+    @Test("All 10 rendered candidate variants per layer (L1..L4) produce pairwise-distinct pixel fingerprints")
+    func allTenRenderedVariantsPerLayerHaveDistinctPixelFingerprints() throws {
+        let viewportSize = CGSize(width: 393, height: 760)
+        for layer in LayeredComponentLayer.allCases {
+            let isDark = (layer == .l2 || layer == .l3)
+            let scheme: ColorScheme = isDark ? .dark : .light
+            let resolvedTheme = Theme(seed: .teal, neutral: .slate, isDark: isDark)
+            var layerFingerprints: Set<String> = []
+
+            for variant in 1...10 {
+                let candidate = LayeredComponentCandidateView(
+                    data: LayeredComponentGalleryPreviewData(
+                        layer: layer,
+                        variant: variant,
+                        state: .populated
+                    )
+                )
+                .environment(\.theme, resolvedTheme)
+                .environment(\.colorScheme, scheme)
+                .frame(width: viewportSize.width, height: viewportSize.height, alignment: .top)
+                .background(resolvedTheme.canvas)
+
+                let fingerprint = try Self.renderPixelFingerprint(of: candidate, size: viewportSize)
+                layerFingerprints.insert(fingerprint)
+            }
+
+            #expect(
+                layerFingerprints.count == 10,
+                "Expected 10 pairwise-distinct pixel fingerprints for \(layer.slug), got \(layerFingerprints.count)"
+            )
+        }
+    }
+
+    @MainActor
+    private static func renderPixelFingerprint<V: View>(of view: V, size: CGSize) throws -> String {
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 1.0
+        renderer.proposedSize = ProposedViewSize(size)
+        guard let cgImage = renderer.cgImage else {
+            throw NSError(domain: "PreviewFingerprint", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing cgImage"])
+        }
+        let width = cgImage.width
+        let height = cgImage.height
+        let bytesPerRow = width * 4
+        var rawPixels = Data(count: height * bytesPerRow)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        rawPixels.withUnsafeMutableBytes { ptr in
+            if let baseAddress = ptr.baseAddress,
+               let ctx = CGContext(
+                   data: baseAddress,
+                   width: width,
+                   height: height,
+                   bitsPerComponent: 8,
+                   bytesPerRow: bytesPerRow,
+                   space: colorSpace,
+                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+               ) {
+                ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+            }
+        }
+        let digest = SHA256.hash(data: rawPixels)
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
     @MainActor
     @Test("SELECT, STAR, and NOTES complete in < 5ms on @MainActor with 0 candidate viewport redraws")
     func selectStarAndNotesStaySub5msWithZeroViewportRedraws() throws {

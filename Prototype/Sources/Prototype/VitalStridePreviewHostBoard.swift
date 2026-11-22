@@ -334,18 +334,182 @@ public enum VitalStridePreviewPageTab: Int, CaseIterable, Identifiable, Sendable
     }
 
     public var descriptors: [PreviewVariantDescriptor] {
-        let titles: [(String, String)]
+        let rows: [(String, String)]
         switch self {
         case .page1HolisticDashboard:
-            titles = (1...10).map { (String(format: "L1-V%02d · Atomic domain candidate", $0), "Five domain cards with ten curated aggregate metrics and a qualitative verdict.") }
+            rows = [
+                (
+                    "L1-V01 · Corridor & Gauge Bento Stack (走廊与计量条标准卡组)",
+                    "5 domain Cards in a bento stack with recessed CardInner primary visuals (HRV 60d corridor capsule, Sleep Deep+REM stage bar, ACWR sweet-spot track, VO2max+EF split, 24h NEAT mini-bars), metric grid, and detail action."
+                ),
+                (
+                    "L1-V02 · Editorial Clinical Metric Ledger (社论临床双栏账本卡组)",
+                    "Zero progress bars or rings; oversized TypeScale.display hero metric on the left, 1pt vertical border rule, and 2-row key-value clinical tabular readout + qualitative verdict pill on the right."
+                ),
+                (
+                    "L1-V03 · Compact 2×2 + 1 Biometric Mosaic (紧凑双列马赛克基元网格)",
+                    "High-density 2-column Grid pairing Heart Autonomic + Sleep Recovery on Row 1, Training Load + Aerobic Capacity on Row 2, and full-span Daily NEAT horizontal strip on Row 3 with inline Sparklines."
+                ),
+                (
+                    "L1-V04 · Threshold Deviation Diverging Bars (基线偏离双向刻度卡组)",
+                    "Centers on personal baseline deviation (HRV +3ms vs 7d, RHR −3bpm, Debt 1.4h vs 0h, TSB +6.3, Decoupling 3.4% vs 5%, NEAT 79%) using horizontal center-anchored diverging capsule tracks."
+                ),
+                (
+                    "L1-V05 · Tri-Pillars Per Domain Capsule Deck (三联胶囊指标甲板)",
+                    "Uniform 3-cell horizontal CardInner capsule trio (Metric A | Metric B | Metric C/Verdict) per domain with top semantic status dot and bottom single-line qualitative verdict + detail action link."
+                ),
+                (
+                    "L1-V06 · 7-Day Micro-Sparkline Strip Cards (七日微折线内嵌基元卡)",
+                    "Embeds a compact 56×22pt Sparkline directly beside the primary numeral in each of the 5 domain cards with a 7d delta pill so 7-day direction is visible at a glance."
+                ),
+                (
+                    "L1-V07 · Verdict-First Coaching Evidence Cards (定性结论置顶基元卡)",
+                    "Inverts L1 card hierarchy: qualitative verdict (StatusPill + 1-line physiological interpretation) leads at the crown, backed by a compact 2-row quantitative evidence grid of all 10 metrics below."
+                ),
+                (
+                    "L1-V08 · Split Ring & Proportion Instrument (微环与占比复合仪表卡)",
+                    "Pairs 44pt RingGauges for bounded percentages (Sleep Efficiency 92%, Deep+REM 47%, Zone 4–5 17%, NEAT Uniformity 79%) with monospaced numeric wells for unbounded metrics (HRV 68ms, TSB +6.3, VO2max 51.4)."
+                ),
+                (
+                    "L1-V09 · Calm Sanctuary Minimalist Domain Stack (极简留白呼吸感基元栈)",
+                    "Generous Space.md breathing room with 1 hero numeral per domain card (68 ms, 47% Deep+REM, TSB +6.3, 51.4 mL/kg, 7,680 步) and a single secondary metadata strip housing paired metrics + detail link."
+                ),
+                (
+                    "L1-V10 · Pro Sports-Science 10-Metric Telemetry Matrix (专业运动科学十指标矩阵)",
+                    "Dense 5-row × 3-column unified Grid console where each row is one L1 domain and columns align Metric 1, Metric 2 (+ Metric 3 badge), and Verdict + 7d Trend trigger in pixel-locked vertical alignment."
+                )
+            ]
         case .page2HeartSleepCoupling:
-            titles = (1...10).map { (String(format: "L2-V%02d · Cross-domain coupling candidate", $0), "Sleep × training load and Daily NEAT × body recovery relationship cards.") }
+            rows = [
+                (
+                    "L2-V01 · Dual-Bridge Cause & Effect Coupling Deck (双域因果桥接耦合卡)",
+                    "Two stacked Cards (sleepTrainingCoupling & stepsBodyCoupling) with 2-well CardInner Domain A <-> Domain B bridge, central arrow connector, severity StatusPill, coupling message, and detail action."
+                ),
+                (
+                    "L2-V02 · Risk Alert & Guardrail Manifesto (风险门控与护栏宣言卡)",
+                    "Highlights coupling risk level (Normal 协同稳态 / Watch 轻度张力) with a high-contrast CardInner callout banner at top, followed by a 2-column ledger of interacting L1 drivers below."
+                ),
+                (
+                    "L2-V03 · 2×2 Cross-Domain Interaction Matrix (2×2 跨域交互耦合矩阵)",
+                    "2×2 Grid matrix crossing Recovery Inputs (Sleep Architecture/Debt, Autonomic/Body State) against Output Demands (Training Load Ceiling, Daily NEAT Activity Burden) with L2 synthesis intersection cells."
+                ),
+                (
+                    "L2-V04 · Synergy Balance Scale & Tension Meter (双域协同天平与张力计)",
+                    "Visualizes each coupling as a horizontal equilibrium fulcrum bar comparing Supply (Sleep 81 / Autonomic 86) vs. Demand (Acute Load ATL 58.4 / NEAT Burden 20%) to show Supply >= Demand."
+                ),
+                (
+                    "L2-V05 · Chronological Bio-Cascade Coupling (昼夜时序传导耦合流)",
+                    "Traces the 4-step 24-hour causal chain (Nocturnal Sleep Deep/REM/Debt -> Morning CNS HRV/RHR -> Session Load Cap 85% -> Daytime NEAT 7,680 steps) across connected L2 coupling stages."
+                ),
+                (
+                    "L2-V06 · Dual-Sparkline Co-Variance Studio (双轨趋势协变耦合卡)",
+                    "Pairs stacked/overlaid 7-day Sparklines (7d Sleep vs 7d Load and 7d NEAT vs 7d HRV) inside each coupling card so multi-day co-variance is visually self-evident."
+                ),
+                (
+                    "L2-V07 · Prescription-First Coupling Clipboard (教练耦合处方置顶卡)",
+                    "Leads with the actionable L2 coaching prescription in bold TypeScale.title at the top, supported below by compact pill chips citing exact L1 coupling evidence (Deep+REM 47%, ACWR 0.90, NEAT 7,680, Burden 20%)."
+                ),
+                (
+                    "L2-V08 · Split Gimbal Coupling Dials (双转子耦合仪表舱)",
+                    "Pairs two 48pt RingGauges per coupling card (Sleep 81 × Fatigue 83 on Card 1; NEAT 79% × Autonomic 86 on Card 2) flanking a central coupling status badge and risk explanation."
+                ),
+                (
+                    "L2-V09 · Minimalist Narrative Coupling Duo (极简叙事双域耦合卡)",
+                    "High-clarity editorial layout with domain icon pair, severity StatusPill, clean 2-line synthesis prose, and a single-line monospaced metric summary footer."
+                ),
+                (
+                    "L2-V10 · Pro Physiology Coupling Diagnostics Table (专业生理耦合诊断表)",
+                    "High-density multi-column diagnostic console displaying Relationship ID, Primary Vector, Secondary Vector, Coupling Penalty, Ceiling Impact, and Guardrail Verdict in a structured Grid."
+                )
+            ]
         case .page3WorkoutLoadProgression:
-            titles = (1...10).map { (String(format: "L3-V%02d · Readiness periodization candidate", $0), "Readiness, three pillar subscores, mesocycle phase, and intensity cap.") }
+            rows = [
+                (
+                    "L3-V01 · Readiness Gate & 4-Phase Mesocycle Command Card (准备度门控与四期周期主卡)",
+                    "4-stage horizontal Mesocycle Phase Ribbon (积累 -> 强化 -> 巅峰 -> 减载) + recessed CardInner co-hero pairing Readiness 84 and Intensity Cap 85% gauge + 3-column pillar cells (86 / 81 / 83)."
+                ),
+                (
+                    "L3-V02 · Dual-Rotor Readiness × Intensity Ceiling Cockpit (准备度×强度上限双环座舱)",
+                    "Pairs dual 72pt RingGauges for Readiness 84 and Intensity Cap 85% in a top dual-gimbal CardInner cockpit, with the 4-stage mesocycle stepper and 3 horizontal pillar rows stacked below."
+                ),
+                (
+                    "L3-V03 · Editorial Periodization & Readiness Ledger (周期与准备度社论账本卡)",
+                    "Zero circular gauges; uses a 64pt TypeScale.metricXXL Readiness numeral on the left and a 4-row aligned clinical Grid ledger on the right (当前周期: 强化期, 强度上限: 85%, 三支柱: 86/81/83, 门控: Prime)."
+                ),
+                (
+                    "L3-V04 · 4-Block Mesocycle Stepper & Pillar Waterfall (四阶中周期阶梯与三支柱流)",
+                    "Places the 4 mesocycle blocks as prominent top tiles with active block detail expansion, flowing down into the Readiness gate bar and 3 waterfall pillar comparison tracks."
+                ),
+                (
+                    "L3-V05 · Traffic-Light Pre-Workout Gate Deck (训练前红绿灯门控甲板)",
+                    "Dominated by the semantic Readiness Gate banner (Prime 最佳窗口) and a calibrated 0%..100% Intensity Ceiling track, backed by 3 vertical capsule pillar meters (56pt tall)."
+                ),
+                (
+                    "L3-V06 · Tri-Pillar Limiting-Factor Inspector (三支柱短板诊断准备度卡)",
+                    "Highlights the limiting pillar sub-score (Sleep Restoration 81 vs Autonomic 86 & Fatigue 83) against a 75pt Prime threshold line so the athlete immediately sees which pillar caps intensity."
+                ),
+                (
+                    "L3-V07 · Asymmetric Bento Readiness & Cycle Grid (不对称 Bento 准备度周期矩阵)",
+                    "2-column Bento layout: Left tall well houses Readiness 84 RingGauge + MesocyclePhase badge; Right stacked wells house Intensity Cap 85% and the 3 pillar sub-score rows."
+                ),
+                (
+                    "L3-V08 · Intensity Ceiling First Prescription Gate (强度上限置顶周期门控卡)",
+                    "Crown hero leads with 85% 今日推荐训练强度上限 and 强化期 · Intensification for mid-warmup glanceability, backed by a 4-cell supporting strip (Readiness 84 | 86 | 81 | 83)."
+                ),
+                (
+                    "L3-V09 · Calm Recovery Sanctuary Readiness Dial (静谧单环准备度圣殿卡)",
+                    "High-breathing-room centered 84pt Readiness RingGauge flanked by MesocyclePhase and Intensity Cap 85% pills, with a minimalist 1-line 3-pillar horizontal footer."
+                ),
+                (
+                    "L3-V10 · Pro Periodization Telemetry Console (专业周期化六维遥测台)",
+                    "High-density 6-cell telemetry Grid (Readiness, Intensity Cap %, Mesocycle Phase, Autonomic, Sleep Restoration, Fatigue Balance) plus inline contributingInsights traceability rows."
+                )
+            ]
         case .page4StepsBodySettings:
-            titles = (1...10).map { (String(format: "L4-V%02d · North Star directive candidate", $0), "North Star score, executive headline, provenance, and top three actions.") }
+            rows = [
+                (
+                    "L4-V01 · North Star Co-Hero & Numbered Action Deck (北极星总分与三项行动主卡)",
+                    "Top CardInner co-hero pairs 72pt RingGauge + North Star 86 on the left with the 1-sentence executive directive on the right, backed by 3 numbered circle action cards (1, 2, 3) with domain badges."
+                ),
+                (
+                    "L4-V02 · Editorial Executive Morning Briefing (64pt 社论晨间简报北极星卡)",
+                    "Zero circular rings; opens with a 64pt TypeScale.metricXXL 86 + /100 label separated by a 1pt vertical rule from the bold 1-sentence directive, followed by 3 horizontal divider-separated action imperatives."
+                ),
+                (
+                    "L4-V03 · Action-First Prescriptive Coach Hero (行动指令置顶教练卡)",
+                    "Places the 1-sentence executive directive and Top 3 prioritizedActions at the very top of the card, with a compact bottom CardInner telemetry bar (North Star 86 + 7d Sparkline + AI Provenance)."
+                ),
+                (
+                    "L4-V04 · Asymmetric Bento North Star & Checklist (不对称 Bento 北极星行动舱)",
+                    "2-column Bento layout: Left column houses North Star 86 (RingGauge + Sparkline + AI Provenance chip); Right column houses the 1-sentence headline and 3 checklist action tiles."
+                ),
+                (
+                    "L4-V05 · Causal Synthesis Banner & 3-Column Action Strip (因果综合横幅与三栏行动卡)",
+                    "Top full-width CardInner synthesis banner (North Star 86 + 1-sentence directive), paired with a 3-column GridRow of equal action cards (P1 训练执行, P2 睡眠保护, P3 节律微动)."
+                ),
+                (
+                    "L4-V06 · Horizon Arc & Trajectory North Star Studio (半圆天际弧与轨迹北极星卡)",
+                    "Features a top semi-circular horizon arc gauge (86 / 100) with a 14-day North Star Sparkline trajectory underlay, centering the 1-sentence executive headline and 3 capsule action rows below."
+                ),
+                (
+                    "L4-V07 · AI Provenance & Deterministic Audit Briefing (四模引擎溯源与指令简报卡)",
+                    "Highlights the active 4-mode PluggableAIProvider status strip (On-device AI / Custom API / Jev / Deterministic) at the crown, linking North Star 86 and headline directly to the 3 prioritized actions."
+                ),
+                (
+                    "L4-V08 · Priority-Weighted Action Pyramid (优先级加权金字塔北极星卡)",
+                    "Renders Action #1 as a prominent primary CardInner hero prescription paired with North Star 86, while Actions #2 and #3 sit side-by-side in a secondary 2-column row below."
+                ),
+                (
+                    "L4-V09 · Ultra-Clean Zen Sanctuary North Star (极简留白禅意北极星卡)",
+                    "Centered 84pt RingGauge (86), centered 1-sentence executive directive in TypeScale.title, and 3 minimalist bulleted action lines with generous Space.md breathing room."
+                ),
+                (
+                    "L4-V10 · High-Density Command Briefing Console (高密度指挥官北极星控制台)",
+                    "Compact top 4-metric telemetry bar (L4 86 | Readiness 84 | Cap 85% | AI) + dense 3-row tabular action matrix with priority code (ACT-01..03), imperative text, and target domain badge."
+                )
+            ]
         }
-        return titles.enumerated().map { index, row in
+        return rows.enumerated().map { index, row in
             let code = String(format: "v%02d", index + 1)
             let badge = String(format: "L%d-V%02d", rawValue, index + 1)
             return PreviewVariantDescriptor(id: code, badgeCode: badge, title: row.0, summary: row.1)
