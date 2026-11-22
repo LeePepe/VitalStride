@@ -26,6 +26,8 @@ struct CrashRecoveryNavigationTests {
         let workout = makeOrphan(in: context)
 
         #expect(navigation.crashRecoveryResume == nil)
+        #expect(navigation.selectedTab == .workout)
+        navigation.selectedTab = .settings
         #expect(navigation.selectedTab != .workout)
 
         // Same two-line action the modifier's handleResume() performs.

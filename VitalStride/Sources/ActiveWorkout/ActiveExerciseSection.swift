@@ -368,9 +368,6 @@ struct ActiveExerciseSection: View {
 
     private var exerciseActionMenu: some View {
         Menu {
-            Button(action: onSubstitute) {
-                Label(String(localized: "active_workout.substitute.menu_title", defaultValue: "Smart Substitute", comment: "Smart substitute menu item"), systemImage: "sparkles")
-            }
             Button(action: onReplace) {
                 Label(String(localized: "替换动作", comment: "Replace exercise menu item"), systemImage: "arrow.triangle.2.circlepath")
             }

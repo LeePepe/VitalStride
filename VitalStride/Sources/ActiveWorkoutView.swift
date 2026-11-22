@@ -146,17 +146,6 @@ struct ActiveWorkoutView: View {
             .sheet(isPresented: $showingExercisePicker) { ExercisePickerView { exercises in exercises.forEach(addExercise) } }
             .sheet(isPresented: $isSidebarReordering) { outlineSheet }
             .sheet(item: $exerciseToReplace) { target in ExercisePickerView { target.exercise = $0 } }
-            .sheet(item: $exerciseToSubstitute) { target in
-                ExerciseSubstituteSheet(
-                    state: substituteSheetState,
-                    onSelect: { applySubstitute($0, to: target) },
-                    onManualSelect: {
-                        signalStore?.updateLatestAccepted(kind: AICallSite.substitute.kind, accepted: false)
-                        substituteManualFallback = target
-                        exerciseToSubstitute = nil
-                    }
-                )
-            }
             .sheet(item: $substituteManualFallback) { target in ExercisePickerView(initialMuscleGroup: target.exercise?.muscleGroup) { target.exercise = $0 } }
             .alert(String(localized: "完成训练？", comment: "Finish workout alert title"), isPresented: $showingFinishAlert) {
                 Button(String(localized: "完成", comment: "Confirm finish")) { finishWorkout() }
@@ -250,7 +239,7 @@ struct ActiveWorkoutView: View {
                 heartRateText: focusHeartRateText,
                 onAddExercise: { showingExercisePicker = true },
                 onAddSet: addFocusedSet,
-                onSubstitute: { if let target = selectedWorkoutExercise { beginSubstituteFlow(for: target) } },
+                onSubstitute: { exerciseToReplace = selectedWorkoutExercise },
                 onReplace: { exerciseToReplace = selectedWorkoutExercise },
                 onOutline: { isSidebarReordering = true },
                 onFinish: requestFinish
@@ -280,7 +269,7 @@ struct ActiveWorkoutView: View {
                                 },
                                 onSetDeleted: { TelemetryService.shared.trackNonisolated(.setDeleted) },
                                 onReplace: { exerciseToReplace = workoutExercise },
-                                onSubstitute: { beginSubstituteFlow(for: workoutExercise) },
+                                onSubstitute: { exerciseToReplace = workoutExercise },
                                 onDelete: { deleteExercise(workoutExercise) },
                                 undoController: undoController
                             )
