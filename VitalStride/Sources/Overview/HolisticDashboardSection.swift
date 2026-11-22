@@ -19,6 +19,7 @@ final class HolisticDashboardState {
     private(set) var report: AIService.HolisticFourLayerReport?
     private(set) var snapshot: AIService.PhysiologicalSnapshot?
     private(set) var provider: PluggableAIProvider
+    private(set) var isRefreshing: Bool = false
     private let configuration: UserAIModelConfiguration
 
     init(configuration: UserAIModelConfiguration? = nil) {
@@ -39,8 +40,7 @@ final class HolisticDashboardState {
             return UserAIModelConfiguration(provider: .foundationModels)
         }
         let apiKeyService = "\(KeychainHelper.defaultServicePrefix).apikey"
-        if let apiKey = try? keychain.load(service: apiKeyService),
-           !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if AIModelSettingsStore.hasSecretCached(for: apiKeyService, keychain: keychain) {
             return UserAIModelConfiguration(
                 provider: .customOpenAICompatible,
                 baseURL: URL(string: "https://open.bigmodel.cn/api/paas/v4"),
@@ -57,9 +57,13 @@ final class HolisticDashboardState {
         forceRefresh: Bool = false,
         generatedAt: Date = Date()
     ) async {
-        loadState = .loading
-        report = nil
-        snapshot = nil
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+
+        if report == nil {
+            loadState = .loading
+        }
         let interval = DateInterval(
             start: Calendar.current.date(byAdding: .day, value: -30, to: generatedAt) ?? generatedAt,
             end: generatedAt
@@ -71,6 +75,7 @@ final class HolisticDashboardState {
             .appleStandTime, .flightsClimbed, .distanceWalkingRunning, .vo2Max
         ]
         for type in requestedTypes {
+            guard !Task.isCancelled else { return }
             let result = forceRefresh
                 ? try? await cache.refresh(type, in: interval)
                 : try? await cache.data(for: type, in: interval)
@@ -78,13 +83,14 @@ final class HolisticDashboardState {
         }
         let healthWorkouts = (try? await cache.workoutData(in: interval)) ?? []
         let strengthWorkouts = workouts.compactMap(\.strengthSummaryInput)
-        let calculator = HealthMetricsCalculator()
-        guard let vitalSnapshot = calculator.physiologicalSnapshot(
-            from: points,
+        guard let snapshot = await Self.synthesizeSnapshotOffMainActor(
+            points: points,
             workouts: healthWorkouts,
             strengthWorkouts: strengthWorkouts,
             generatedAt: generatedAt
-        ), let snapshot = bridge(vitalSnapshot) else {
+        ) else {
+            report = nil
+            self.snapshot = nil
             loadState = .empty
             return
         }
@@ -113,6 +119,25 @@ final class HolisticDashboardState {
             }
         }
         loadState = .populated
+    }
+
+    nonisolated private static func synthesizeSnapshotOffMainActor(
+        points: [HealthDataPoint],
+        workouts: [HealthWorkoutRecord],
+        strengthWorkouts: [VitalModels.StrengthWorkoutSummaryInput],
+        generatedAt: Date
+    ) async -> AIService.PhysiologicalSnapshot? {
+        let calculator = HealthMetricsCalculator()
+        guard let vitalSnapshot = calculator.physiologicalSnapshot(
+            from: points,
+            workouts: workouts,
+            strengthWorkouts: strengthWorkouts,
+            generatedAt: generatedAt
+        ),
+        let data = try? JSONEncoder().encode(vitalSnapshot) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(AIService.PhysiologicalSnapshot.self, from: data)
     }
 
     func markError() {
@@ -163,15 +188,9 @@ final class HolisticDashboardState {
                   let modelID = configuration.modelID,
                   !modelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
             if configuration.provider == .jevGateway, configuration.allowsUnauthenticatedGateway { return true }
-            guard let service = configuration.keychainService,
-                  let secret = try? KeychainHelper().load(service: service) else { return false }
-            return !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            guard let service = configuration.keychainService else { return false }
+            return AIModelSettingsStore.hasSecretCached(for: service)
         }
-    }
-
-    private func bridge(_ snapshot: VitalModels.PhysiologicalSnapshot) -> AIService.PhysiologicalSnapshot? {
-        guard let data = try? JSONEncoder().encode(snapshot) else { return nil }
-        return try? JSONDecoder().decode(AIService.PhysiologicalSnapshot.self, from: data)
     }
 }
 

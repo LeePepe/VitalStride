@@ -367,13 +367,58 @@ private struct L1DomainCard: View {
     }
 }
 
+struct Compact7DayTrendSummary: Equatable, Sendable {
+    struct BarPoint: Identifiable, Equatable, Sendable {
+        let id: Int
+        let rawValue: Double
+        let normalizedHeight: Double
+    }
+
+    let points: [BarPoint]
+    let average: Double
+    let minimum: Double
+    let maximum: Double
+    let averageFormatted: String
+    let minimumFormatted: String
+    let maximumFormatted: String
+
+    init(values: [Double]) {
+        let cleaned = values.filter { $0.isFinite && $0 >= 0 }
+        let slice = cleaned.isEmpty ? [0] : Array(cleaned.prefix(7))
+        let minVal = slice.min() ?? 0
+        let maxVal = slice.max() ?? 0
+        let avgVal = slice.reduce(0, +) / Double(slice.count)
+        let denom = max(maxVal, 1)
+        self.points = slice.enumerated().map { index, value in
+            BarPoint(
+                id: index,
+                rawValue: value,
+                normalizedHeight: min(max(value / denom, 0), 1)
+            )
+        }
+        self.average = avgVal
+        self.minimum = minVal
+        self.maximum = maxVal
+        self.averageFormatted = FourLayerCopy.number(avgVal)
+        self.minimumFormatted = FourLayerCopy.number(minVal)
+        self.maximumFormatted = FourLayerCopy.number(maxVal)
+    }
+}
+
 struct PlatformHealthDetailActionButton: View {
     @Environment(\.theme) private var theme
     @Environment(\.openURL) private var openURL
     let title: String
     let trend: [Double]
+    let summary: Compact7DayTrendSummary
     @State private var showFallback = false
     @State private var showTrend = false
+
+    init(title: String, trend: [Double]) {
+        self.title = title
+        self.trend = trend
+        self.summary = Compact7DayTrendSummary(values: trend)
+    }
 
     var body: some View {
         #if os(iOS)
@@ -407,7 +452,7 @@ struct PlatformHealthDetailActionButton: View {
         }
         .buttonStyle(.plain)
         .popover(isPresented: $showTrend) {
-            Compact7DayTrendPopover(values: trend)
+            Compact7DayTrendPopover(summary: summary)
                 .padding(Space.md)
                 .frame(width: 320, height: 260)
         }
@@ -415,27 +460,42 @@ struct PlatformHealthDetailActionButton: View {
     }
 }
 
-struct Compact7DayTrendPopover: View {
+struct Compact7DayTrendPopover: View, Equatable {
     @Environment(\.theme) private var theme
-    let values: [Double]
+    let summary: Compact7DayTrendSummary
+
+    init(values: [Double]) {
+        self.summary = Compact7DayTrendSummary(values: values)
+    }
+
+    init(summary: Compact7DayTrendSummary) {
+        self.summary = summary
+    }
+
+    nonisolated static func == (lhs: Compact7DayTrendPopover, rhs: Compact7DayTrendPopover) -> Bool {
+        lhs.summary == rhs.summary
+    }
 
     var body: some View {
+        let barAreaHeight: CGFloat = 96
         VStack(alignment: .leading, spacing: Space.sm) {
             SectionHeader(FourLayerCopy.trendTitle, icon: "chart.bar.xaxis")
-            GeometryReader { proxy in
-                HStack(alignment: .bottom, spacing: Space.xxs) {
-                    ForEach(Array(normalizedValues.enumerated()), id: \.offset) { _, value in
-                        Capsule()
-                            .fill(theme.chart(0))
-                            .frame(maxWidth: .infinity, maxHeight: max(4, proxy.size.height * value))
-                    }
+            HStack(alignment: .bottom, spacing: Space.xxs) {
+                ForEach(summary.points) { point in
+                    Capsule()
+                        .fill(theme.chart(0))
+                        .frame(
+                            maxWidth: .infinity,
+                            minHeight: 4,
+                            maxHeight: max(4, barAreaHeight * point.normalizedHeight)
+                        )
                 }
             }
-            .frame(height: 96)
+            .frame(height: barAreaHeight, alignment: .bottom)
             HStack(spacing: Space.sm) {
-                trendStat(FourLayerCopy.average, average)
-                trendStat(FourLayerCopy.minimum, minimum)
-                trendStat(FourLayerCopy.maximum, maximum)
+                trendStat(FourLayerCopy.average, summary.averageFormatted)
+                trendStat(FourLayerCopy.minimum, summary.minimumFormatted)
+                trendStat(FourLayerCopy.maximum, summary.maximumFormatted)
             }
         }
         .padding(Space.sm)
@@ -443,27 +503,14 @@ struct Compact7DayTrendPopover: View {
     }
 
     @ViewBuilder
-    private func trendStat(_ title: String, _ value: Double) -> some View {
+    private func trendStat(_ title: String, _ formattedValue: String) -> some View {
         VStack(alignment: .leading, spacing: Space.xxs) {
             Text(title).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground)
-            Text(FourLayerCopy.number(value))
+            Text(formattedValue)
                 .font(TypeScale.num)
                 .metricIntegrity()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var cleanValues: [Double] {
-        let cleaned = values.filter { $0.isFinite && $0 >= 0 }
-        return cleaned.isEmpty ? [0] : Array(cleaned.prefix(7))
-    }
-
-    private var minimum: Double { cleanValues.min() ?? 0 }
-    private var maximum: Double { cleanValues.max() ?? 0 }
-    private var average: Double { cleanValues.reduce(0, +) / Double(cleanValues.count) }
-    private var normalizedValues: [Double] {
-        let maxValue = max(maximum, 1)
-        return cleanValues.map { min(max($0 / maxValue, 0), 1) }
     }
 }
 

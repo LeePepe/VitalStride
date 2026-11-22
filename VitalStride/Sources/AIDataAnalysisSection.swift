@@ -19,6 +19,7 @@ struct AIDataAnalysisSection: View {
     let sampleType: HealthSampleType
 
     @State private var state: AnalysisState = .idle
+    @State private var isRefreshingAnalysis = false
     @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
     @Environment(\.modelContext) private var modelContext
     @Environment(\.healthDataCache) private var healthDataCache
@@ -134,6 +135,7 @@ struct AIDataAnalysisSection: View {
             }
             Spacer()
             Button {
+                guard !isRefreshingAnalysis else { return }
                 Task { await loadAnalysis(forceRefresh: true) }
             } label: {
                 Label(
@@ -142,6 +144,7 @@ struct AIDataAnalysisSection: View {
                 )
                 .font(.caption)
             }
+            .disabled(isRefreshingAnalysis)
             .frame(minWidth: 44, minHeight: 44)
             .accessibilityLabel(String(localized: "刷新 AI 分析", comment: "Refresh AI analysis a11y"))
         }
@@ -158,6 +161,10 @@ struct AIDataAnalysisSection: View {
     // MARK: - Data Loading
 
     private func loadAnalysis(forceRefresh: Bool) async {
+        guard !isRefreshingAnalysis else { return }
+        isRefreshingAnalysis = true
+        defer { isRefreshingAnalysis = false }
+
         let sampleTypeRaw = sampleType.rawValue
 
         if let identifier = TelemetryIdentifier(validating: sampleTypeRaw) {
@@ -185,7 +192,9 @@ struct AIDataAnalysisSection: View {
         let start = ContinuousClock.now
 
         do {
-            let apiKey = try keychainHelper.load(service: apiKeyService)
+            guard let apiKey = AIModelSettingsStore.loadSecretCached(for: apiKeyService, keychain: keychainHelper) else {
+                throw KeychainError.itemNotFound
+            }
             let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let provider = RouterBackedProvider(router: router, kind: AICallSite.dataTrend.kind)
             let service = AIAnalysisService(
@@ -419,6 +428,7 @@ enum AIDataAnalysisPreloader {
     private static let logger = Logger(subsystem: "com.vitalstride", category: "AIDataAnalysisPreloader")
     private static let signposter = OSSignposter(subsystem: "com.vitalstride", category: "AIDataAnalysisPreloader")
 
+    @MainActor
     static func pregenerateTopInterestsIfConsented(
         modelContainer: ModelContainer,
         healthDataCache: HealthDataCache,
@@ -436,6 +446,7 @@ enum AIDataAnalysisPreloader {
         )
     }
 
+    @MainActor
     static func pregenerateTopInterests(
         modelContainer: ModelContainer,
         healthDataCache: HealthDataCache,
@@ -449,7 +460,10 @@ enum AIDataAnalysisPreloader {
         let keychainHelper = KeychainHelper()
         let apiKeyService = AISettingsSection.apiKeyKeychainService
 
-        guard let apiKey = try? keychainHelper.load(service: apiKeyService) else {
+        guard let apiKey = AIModelSettingsStore.loadSecretCached(
+            for: apiKeyService,
+            keychain: keychainHelper
+        ) else {
             logger.debug("pregenerate skipped: no API key configured")
             return
         }

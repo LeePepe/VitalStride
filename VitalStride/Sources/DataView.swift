@@ -16,7 +16,8 @@ import VitalModels
 struct DataView: View {
     @State private var needsAuthorization = false
     @State private var isCheckingAuth = true
-    @State private var authCheckToken = UUID()
+    @State private var authCheckRevision: UInt64 = 0
+    @State private var tapInterestTask: Task<Void, Never>?
     @State private var availableTypes: Set<HealthSampleType>?
     @State private var aiSummaryState = DataAISummaryState()
     @AppStorage(aiPrivacyConsentKey) private var aiPrivacyConsented = false
@@ -92,7 +93,7 @@ struct DataView: View {
                 }
             }
             .navigationTitle(String(localized: "数据", comment: "Data tab title"))
-            .task(id: authCheckToken) {
+            .task(id: authCheckRevision) {
                 await checkAuthorizationStatus()
                 if aiPrivacyConsented, let types = availableTypes, !types.isEmpty {
                     aiSummaryState.signalStore = signalStore
@@ -104,12 +105,16 @@ struct DataView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .healthKitAuthorizationChanged)) { _ in
-                authCheckToken = UUID()
+                authCheckRevision &+= 1
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active, !isCheckingAuth {
-                    authCheckToken = UUID()
+                    authCheckRevision &+= 1
                 }
+            }
+            .onDisappear {
+                tapInterestTask?.cancel()
+                tapInterestTask = nil
             }
             .onChange(of: isCheckingAuth) { _, newValue in
                 if !newValue, !needsAuthorization {
@@ -582,7 +587,8 @@ struct DataView: View {
             TelemetryService.shared.trackNonisolated(.dataDetailOpened(sampleType: identifier))
         }
         let container = modelContext.container
-        Task.detached {
+        tapInterestTask?.cancel()
+        tapInterestTask = Task {
             let context = ModelContext(container)
             UserInterestTracker.recordTap(for: sampleType, in: context)
         }

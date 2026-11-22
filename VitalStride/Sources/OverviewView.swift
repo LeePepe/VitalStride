@@ -17,7 +17,7 @@ struct OverviewView: View {
     @State private var snapshotState = HealthSnapshotState()
     @State private var dynamicState = OverviewDynamicState()
     @State private var holisticState = HolisticDashboardState()
-    @State private var authCheckToken = UUID()
+    @State private var authCheckRevision: UInt64 = 0
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.healthDataCache) private var healthDataCache
     @Environment(\.healthKitService) private var healthKitService
@@ -73,7 +73,7 @@ struct OverviewView: View {
                     workouts: recentWorkouts
                 )
             }
-            .task(id: authCheckToken) {
+            .task(id: authCheckRevision) {
                 dynamicState.signalStore = signalStore
                 await snapshotState.load(cache: healthDataCache, service: healthKitService)
             }
@@ -88,11 +88,11 @@ struct OverviewView: View {
                 )
             }
             .onReceive(NotificationCenter.default.publisher(for: .healthKitAuthorizationChanged)) { _ in
-                authCheckToken = UUID()
+                authCheckRevision &+= 1
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active, !snapshotState.isLoading {
-                    authCheckToken = UUID()
+                    authCheckRevision &+= 1
                 }
             }
             .snackbar(isPresented: $dynamicState.showRefreshError, edge: .top) {
@@ -118,6 +118,7 @@ struct OverviewView: View {
     private var hasWorkoutData: Bool { !recentWorkouts.isEmpty }
 
     private func retryHolisticDashboard() {
+        guard !holisticState.isRefreshing else { return }
         Task {
             await holisticState.load(cache: healthDataCache, workouts: recentWorkouts, forceRefresh: true)
         }

@@ -18,6 +18,7 @@ final class HeartSleepCouplingState {
     private(set) var provider: PluggableAIProvider
     private(set) var heart: VitalModels.HeartDomainSnapshot
     private(set) var sleep: VitalModels.SleepDomainSnapshot
+    private(set) var isRefreshing: Bool = false
     var onRetry: (() -> Void)?
     private(set) var hasLoaded: Bool
 
@@ -37,6 +38,10 @@ final class HeartSleepCouplingState {
     }
 
     func load(cache: HealthDataCache, workouts: [Workout] = [], generatedAt: Date = Date()) async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+
         loadState = .loading
         hasLoaded = false
         let interval = DateInterval(
@@ -54,18 +59,12 @@ final class HeartSleepCouplingState {
         }
         let healthWorkouts = (try? await cache.workoutData(in: interval)) ?? []
         let strengthWorkouts = workouts.compactMap(\.strengthSummaryInput)
-        let calculator = HealthMetricsCalculator()
-        let hasHeartOrSleep = points.contains { point in
-            point.sampleType == .restingHeartRate || point.sampleType == .heartRateVariabilitySDNN || point.sampleType == .heartRate || point.sampleType == .sleepAnalysis
-        }
-        guard hasHeartOrSleep,
-              let vitalSnapshot = calculator.physiologicalSnapshot(
-                from: points,
-                workouts: healthWorkouts,
-                strengthWorkouts: strengthWorkouts,
-                generatedAt: generatedAt
-              ),
-              let aiSnapshot = bridge(vitalSnapshot) else {
+        guard let (vitalSnapshot, aiSnapshot) = await Self.synthesizeSnapshotsOffMainActor(
+            points: points,
+            workouts: healthWorkouts,
+            strengthWorkouts: strengthWorkouts,
+            generatedAt: generatedAt
+        ) else {
             self.snapshot = nil
             self.report = nil
             self.heart = Self.emptyHeart
@@ -98,9 +97,36 @@ final class HeartSleepCouplingState {
             loadState = .error
             hasLoaded = true
             onRetry = { [weak self, cache] in
-                Task { @MainActor in await self?.load(cache: cache, workouts: workouts) }
+                guard let self, !self.isRefreshing else { return }
+                Task { @MainActor in await self.load(cache: cache, workouts: workouts) }
             }
         }
+    }
+
+    nonisolated private static func synthesizeSnapshotsOffMainActor(
+        points: [HealthDataPoint],
+        workouts: [HealthWorkoutRecord],
+        strengthWorkouts: [VitalModels.StrengthWorkoutSummaryInput],
+        generatedAt: Date
+    ) async -> (VitalModels.PhysiologicalSnapshot, AIService.PhysiologicalSnapshot)? {
+        let hasHeartOrSleep = points.contains { point in
+            point.sampleType == .restingHeartRate
+                || point.sampleType == .heartRateVariabilitySDNN
+                || point.sampleType == .heartRate
+                || point.sampleType == .sleepAnalysis
+        }
+        guard hasHeartOrSleep,
+              let vitalSnapshot = HealthMetricsCalculator().physiologicalSnapshot(
+                from: points,
+                workouts: workouts,
+                strengthWorkouts: strengthWorkouts,
+                generatedAt: generatedAt
+              ),
+              let data = try? JSONEncoder().encode(vitalSnapshot),
+              let aiSnapshot = try? JSONDecoder().decode(AIService.PhysiologicalSnapshot.self, from: data) else {
+            return nil
+        }
+        return (vitalSnapshot, aiSnapshot)
     }
 
     func markEmpty() { report = nil; loadState = .empty; hasLoaded = true }
@@ -143,19 +169,14 @@ final class HeartSleepCouplingState {
     )
     private static let emptySleep = VitalModels.SleepDomainSnapshot(architecture: .init(), debt: .init(sevenDayDebt: 0, fourteenDayDebt: 0, baselineSleepDuration: 0, targetSleepDuration: 8 * 3600, observedNightCount7d: 0, missingNightCount7d: 7, observedNightCount14d: 0, missingNightCount14d: 14, isAvailable: false))
 
-    private func bridge(_ value: VitalModels.PhysiologicalSnapshot) -> AIService.PhysiologicalSnapshot? {
-        guard let data = try? JSONEncoder().encode(value) else { return nil }
-        return try? JSONDecoder().decode(AIService.PhysiologicalSnapshot.self, from: data)
-    }
-
     private func isConfigured(_ configuration: UserAIModelConfiguration) -> Bool {
         switch configuration.provider {
         case .foundationModels: return AppleIntelligenceProvider.isAvailable
         case .jevGateway, .customOpenAICompatible:
             guard let url = configuration.baseURL, url.host != nil, let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else { return false }
             if configuration.provider == .jevGateway && configuration.allowsUnauthenticatedGateway { return true }
-            guard let service = configuration.keychainService, let key = try? KeychainHelper().load(service: service) else { return false }
-            return !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            guard let service = configuration.keychainService else { return false }
+            return AIModelSettingsStore.hasSecretCached(for: service)
         case .deterministicFallback: return true
         }
     }

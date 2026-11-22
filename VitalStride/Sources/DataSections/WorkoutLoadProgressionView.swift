@@ -17,6 +17,7 @@ final class WorkoutLoadProgressionState {
     private(set) var snapshot: VitalModels.PhysiologicalSnapshot?
     private(set) var report: AIService.HolisticFourLayerReport?
     private(set) var provider: PluggableAIProvider
+    private(set) var isRefreshing: Bool = false
     var onRetry: (() -> Void)?
     private(set) var hasLoaded: Bool
 
@@ -34,6 +35,10 @@ final class WorkoutLoadProgressionState {
     }
 
     func load(cache: HealthDataCache, workouts: [Workout] = [], generatedAt: Date = Date()) async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+
         loadState = .loading
         hasLoaded = false
         let interval = DateInterval(
@@ -53,15 +58,12 @@ final class WorkoutLoadProgressionState {
         }
         let healthWorkouts = (try? await cache.workoutData(in: interval)) ?? []
         let strengthWorkouts = workouts.compactMap(\.strengthSummaryInput)
-        let calculator = HealthMetricsCalculator()
-        guard let vitalSnapshot = calculator.physiologicalSnapshot(
-            from: points,
+        guard let (vitalSnapshot, aiSnapshot) = await Self.synthesizeSnapshotsOffMainActor(
+            points: points,
             workouts: healthWorkouts,
             strengthWorkouts: strengthWorkouts,
             generatedAt: generatedAt
-        ),
-        vitalSnapshot.trainingLoad.isAvailable || vitalSnapshot.aerobic.isAvailable || vitalSnapshot.heart.zoneDistribution.totalDuration > 0,
-        let aiSnapshot = bridge(vitalSnapshot) else {
+        ) else {
             snapshot = nil
             report = nil
             loadState = .empty
@@ -90,9 +92,30 @@ final class WorkoutLoadProgressionState {
             loadState = .error
             hasLoaded = true
             onRetry = { [weak self, cache] in
-                Task { @MainActor in await self?.load(cache: cache, workouts: workouts) }
+                guard let self, !self.isRefreshing else { return }
+                Task { @MainActor in await self.load(cache: cache, workouts: workouts) }
             }
         }
+    }
+
+    nonisolated private static func synthesizeSnapshotsOffMainActor(
+        points: [HealthDataPoint],
+        workouts: [HealthWorkoutRecord],
+        strengthWorkouts: [VitalModels.StrengthWorkoutSummaryInput],
+        generatedAt: Date
+    ) async -> (VitalModels.PhysiologicalSnapshot, AIService.PhysiologicalSnapshot)? {
+        guard let vitalSnapshot = HealthMetricsCalculator().physiologicalSnapshot(
+            from: points,
+            workouts: workouts,
+            strengthWorkouts: strengthWorkouts,
+            generatedAt: generatedAt
+        ),
+        vitalSnapshot.trainingLoad.isAvailable || vitalSnapshot.aerobic.isAvailable || vitalSnapshot.heart.zoneDistribution.totalDuration > 0,
+        let data = try? JSONEncoder().encode(vitalSnapshot),
+        let aiSnapshot = try? JSONDecoder().decode(AIService.PhysiologicalSnapshot.self, from: data) else {
+            return nil
+        }
+        return (vitalSnapshot, aiSnapshot)
     }
 
     func markEmpty() { snapshot = nil; report = nil; loadState = .empty; hasLoaded = true }
@@ -150,7 +173,7 @@ final class WorkoutLoadProgressionState {
         if let data = defaults.data(forKey: "userAIModelConfiguration"), let stored = try? JSONDecoder().decode(UserAIModelConfiguration.self, from: data) { return stored }
         if AppleIntelligenceProvider.isAvailable { return UserAIModelConfiguration(provider: .foundationModels) }
         let service = "\(KeychainHelper.defaultServicePrefix).apikey"
-        if let key = try? keychain.load(service: service), !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if AIModelSettingsStore.hasSecretCached(for: service, keychain: keychain) {
             return UserAIModelConfiguration(provider: .customOpenAICompatible, baseURL: URL(string: "https://open.bigmodel.cn/api/paas/v4"), modelID: "glm-4-flash", keychainService: service)
         }
         return UserAIModelConfiguration(provider: .deterministicFallback)
@@ -163,14 +186,8 @@ final class WorkoutLoadProgressionState {
         case .jevGateway, .customOpenAICompatible:
             guard let url = configuration.baseURL, let host = url.host, !host.isEmpty, ["http", "https"].contains(url.scheme?.lowercased()), let service = configuration.keychainService else { return false }
             if configuration.provider == .jevGateway, configuration.allowsUnauthenticatedGateway { return true }
-            guard let key = try? KeychainHelper().load(service: service) else { return false }
-            return !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            return AIModelSettingsStore.hasSecretCached(for: service)
         }
-    }
-
-    private func bridge(_ value: VitalModels.PhysiologicalSnapshot) -> AIService.PhysiologicalSnapshot? {
-        guard let data = try? JSONEncoder().encode(value) else { return nil }
-        return try? JSONDecoder().decode(AIService.PhysiologicalSnapshot.self, from: data)
     }
 }
 

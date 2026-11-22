@@ -270,12 +270,10 @@ final class AIViewState {
     private var analysisTasks: [QuickAnalysisType: Task<Void, Never>] = [:]
 
     func checkAPIKey() {
-        do {
-            let key = try keychainHelper.load(service: apiKeyService)
-            hasAPIKey = !key.isEmpty
-        } catch {
-            hasAPIKey = false
-        }
+        hasAPIKey = AIModelSettingsStore.hasSecretCached(
+            for: apiKeyService,
+            keychain: keychainHelper
+        )
     }
 
     func loadPrivacyConsent() {
@@ -319,7 +317,12 @@ final class AIViewState {
         let start = ContinuousClock.now
 
         do {
-            let apiKey = try keychainHelper.load(service: apiKeyService)
+            guard let apiKey = AIModelSettingsStore.loadSecretCached(
+                for: apiKeyService,
+                keychain: keychainHelper
+            ) else {
+                throw KeychainError.itemNotFound
+            }
             let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let healthService = HealthKitService(deviceIdentifier: "ios-ai")
 

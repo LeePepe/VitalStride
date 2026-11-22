@@ -316,7 +316,12 @@ final class TrainingAdviceViewModel {
         let start = ContinuousClock.now
 
         do {
-            let apiKey = try keychainHelper.load(service: apiKeyService)
+            guard let apiKey = AIModelSettingsStore.loadSecretCached(
+                for: apiKeyService,
+                keychain: keychainHelper
+            ) else {
+                throw KeychainError.itemNotFound
+            }
             let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let provider = RouterBackedProvider(router: router, kind: AICallSite.trainingAdvice.kind)
             let container = modelContext.container

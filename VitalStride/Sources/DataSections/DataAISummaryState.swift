@@ -70,7 +70,7 @@ final class DataAISummaryState {
 
         let keychainHelper = KeychainHelper()
         let apiKeyService = AISettingsSection.apiKeyKeychainService
-        guard let apiKey = try? keychainHelper.load(service: apiKeyService) else {
+        guard let apiKey = AIModelSettingsStore.loadSecretCached(for: apiKeyService, keychain: keychainHelper) else {
             logger.debug("AI summary skipped: no API key configured")
             let cacheResults = loadAllFromCache(
                 types: targetTypes,
