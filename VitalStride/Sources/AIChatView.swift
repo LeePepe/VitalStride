@@ -142,7 +142,12 @@ final class AIChatViewModel {
         messages.append(AIChatMessage(id: assistantId, role: .assistant, content: "", state: .streaming))
 
         do {
-            let apiKey = try keychainHelper.load(service: apiKeyService)
+            guard let apiKey = AIModelSettingsStore.loadSecretCached(
+                for: apiKeyService,
+                keychain: keychainHelper
+            ) else {
+                throw KeychainError.itemNotFound
+            }
             let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let healthService = HealthKitService(deviceIdentifier: "ios-ai")
 

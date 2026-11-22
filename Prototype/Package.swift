@@ -93,5 +93,13 @@ let package = Package(
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        .testTarget(
+            name: "PrototypeTests",
+            dependencies: [
+                "Prototype",
+                .product(name: "DesignKit", package: "DesignKit"),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
     ]
 )

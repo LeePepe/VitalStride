@@ -76,6 +76,49 @@ struct FourLayerSummaryComponentsTests {
         }
     }
 
+    @Test("preview host receipt writer and viewport isolation contract")
+    func previewHostHotPathContract() throws {
+        let source = try String(contentsOfFile: sourcePath("Prototype/Sources/Prototype/VitalStridePreviewHostBoard.swift"), encoding: .utf8)
+        #expect(source.contains("\"com.vitalstride.previewhost.receipt-writer\""))
+        #expect(source.contains("debounceInterval: TimeInterval = 0.15"))
+        #expect(source.contains("public func flush()"))
+        #expect(source.contains("public struct IsolatedPreviewViewportHost: View, Equatable"))
+        #expect(source.contains("PreviewViewportRenderDiagnostics.recordEvaluation"))
+        #expect(source.contains(".equatable()"))
+        #expect(!source.contains("@unchecked Sendable"))
+        #expect(!source.contains("nonisolated(unsafe)"))
+    }
+
+    @MainActor
+    @Test("Compact7DayTrendSummary precomputes stats in < 5ms and Compact7DayTrendPopover is Equatable")
+    func compact7DayTrendPrecomputationAndEquality() {
+        let sample = [72.0, 69.0, 74.0, 71.0, 76.0, 75.0, 78.0]
+        let summary = Compact7DayTrendSummary(values: sample)
+        #expect(summary.points.count == 7)
+        #expect(summary.minimum == 69.0)
+        #expect(summary.maximum == 78.0)
+        #expect(abs(summary.average - 73.5714) < 0.01)
+
+        let popoverA = Compact7DayTrendPopover(values: sample)
+        let popoverB = Compact7DayTrendPopover(summary: summary)
+        let popoverC = Compact7DayTrendPopover(values: [60.0, 62.0, 64.0])
+        #expect(popoverA == popoverB)
+        #expect(popoverA != popoverC)
+
+        let iterations = 20
+        let clock = ContinuousClock()
+        let elapsed = clock.measure {
+            for idx in 0..<iterations {
+                let values = sample.map { $0 + Double(idx % 3) }
+                _ = Compact7DayTrendSummary(values: values)
+            }
+        }
+        let totalElapsedMs = Double(elapsed.components.seconds) * 1_000.0
+            + Double(elapsed.components.attoseconds) / 1_000_000_000_000_000.0
+        let perClickMs = totalElapsedMs / Double(iterations)
+        #expect(perClickMs < 5.0, "Expected < 5ms per Compact7DayTrendSummary precomputation, got \(perClickMs)ms")
+    }
+
     private func sourcePath(_ relativePath: String) -> String {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

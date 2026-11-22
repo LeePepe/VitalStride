@@ -142,11 +142,14 @@ private enum VitalStridePreviewHostRunner {
         defaultAppearance: String,
         explicitRound: Int?
     ) throws {
-        let writer = PreviewSelectionReceiptWriter(fileURL: fileURL, defaultAppearance: defaultAppearance)
+        let writer = PreviewSelectionReceiptWriter(fileURL: receiptURL(fileURL), defaultAppearance: defaultAppearance)
         let result = try writer.archiveAndResetRound(explicitRound: explicitRound, defaultAppearance: defaultAppearance)
+        writer.flush()
         if let archived = result.archivedURL { print("Archived \(label) -> \(archived.path)") }
         print("Reset \(label) -> \(fileURL.path)")
     }
+
+    private static func receiptURL(_ url: URL) -> URL { url }
 
     static func renderBoardSnapshot(page: VitalStridePreviewPageTab, to destination: URL) throws {
         let size = CGSize(width: 2140, height: 1440)
@@ -243,7 +246,7 @@ final class VitalStridePreviewHostAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         for ctrl in coordinator.allControllers {
-            ctrl.settlePendingDraftNotes()
+            ctrl.flush()
         }
     }
 

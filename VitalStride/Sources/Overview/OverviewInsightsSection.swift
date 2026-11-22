@@ -37,7 +37,12 @@ final class OverviewInsightsState {
         }
 
         do {
-            let apiKey = try keychainHelper.load(service: apiKeyService)
+            guard let apiKey = AIModelSettingsStore.loadSecretCached(
+                for: apiKeyService,
+                keychain: keychainHelper
+            ) else {
+                throw KeychainError.itemNotFound
+            }
             let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let provider = RouterBackedProvider(router: router, kind: AICallSite.overviewInsights.kind)
             let container = modelContext.container

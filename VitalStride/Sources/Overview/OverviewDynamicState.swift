@@ -60,7 +60,9 @@ final class OverviewDynamicState {
 
         do {
             let context = buildContext(snapshot: snapshot, workouts: workouts)
-            let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
+            guard let apiKey = AIModelSettingsStore.loadSecretCached(for: AISettingsSection.apiKeyKeychainService) else {
+                throw KeychainError.itemNotFound
+            }
             let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let provider = RouterBackedProvider(router: router, kind: AICallSite.overviewInsights.kind)
             let service = AIAnalysisService(modelContainer: container, provider: provider)
@@ -125,7 +127,9 @@ final class OverviewDynamicState {
         let start = ContinuousClock.now
         do {
             let context = buildContext(snapshot: snapshot, workouts: workouts)
-            let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
+            guard let apiKey = AIModelSettingsStore.loadSecretCached(for: AISettingsSection.apiKeyKeychainService) else {
+                throw KeychainError.itemNotFound
+            }
             let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let provider = RouterBackedProvider(router: router, kind: AICallSite.overviewInsights.kind)
             let service = AIAnalysisService(modelContainer: container, provider: provider)
@@ -177,7 +181,9 @@ final class OverviewDynamicState {
 
         do {
             let context = buildContext(snapshot: snapshot, workouts: workouts)
-            let apiKey = try KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
+            guard let apiKey = AIModelSettingsStore.loadSecretCached(for: AISettingsSection.apiKeyKeychainService) else {
+                throw KeychainError.itemNotFound
+            }
             let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
             let provider = RouterBackedProvider(router: router, kind: AICallSite.overviewInsights.kind)
             let service = AIAnalysisService(modelContainer: container, provider: provider)

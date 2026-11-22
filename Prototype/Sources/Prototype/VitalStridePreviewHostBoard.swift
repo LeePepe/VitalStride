@@ -23,7 +23,12 @@ public enum PreviewSpeedMultiplier: Double, CaseIterable, Identifiable, Codable,
         }
     }
 
-    public func scaledSpring(response: Double = 0.30, dampingFraction: Double = 0.90) -> Animation {
+    public func scaledSpring(
+        response: Double = 0.30,
+        dampingFraction: Double = 0.90,
+        reduceMotion: Bool = false
+    ) -> Animation? {
+        guard !reduceMotion else { return nil }
         let scale = max(0.1, 1.0 / max(0.1, rawValue))
         return .spring(response: response * scale, dampingFraction: dampingFraction)
     }
@@ -109,8 +114,12 @@ public struct PreviewVariantDescriptor: Identifiable, Equatable, Hashable, Codab
         self.dampingFraction = dampingFraction
     }
 
-    public func spring(for speed: PreviewSpeedMultiplier) -> Animation {
-        speed.scaledSpring(response: baseSpringResponse, dampingFraction: dampingFraction)
+    public func spring(for speed: PreviewSpeedMultiplier, reduceMotion: Bool = false) -> Animation? {
+        speed.scaledSpring(
+            response: baseSpringResponse,
+            dampingFraction: dampingFraction,
+            reduceMotion: reduceMotion
+        )
     }
 }
 
@@ -344,18 +353,60 @@ public enum VitalStridePreviewPageTab: Int, CaseIterable, Identifiable, Sendable
     }
 }
 
-// MARK: - Receipt Persistence Writer
+// MARK: - Viewport Render Diagnostics & Receipt Persistence Writer
+
+/// MainActor-isolated diagnostics counter tracking body evaluations of `IsolatedPreviewViewportHost`
+/// so unit tests can deterministically prove 0 viewport re-evaluations on `SELECT / STAR / NOTES` mutations.
+@MainActor
+public enum PreviewViewportRenderDiagnostics {
+    private static var totalBodyEvaluations: Int = 0
+    private static var evaluationsByKey: [String: Int] = [:]
+
+    public static func reset() {
+        totalBodyEvaluations = 0
+        evaluationsByKey.removeAll()
+    }
+
+    public static func recordEvaluation(boardIdentity: String, variantID: String) {
+        totalBodyEvaluations += 1
+        let key = "\(boardIdentity)::\(variantID)"
+        evaluationsByKey[key, default: 0] += 1
+    }
+
+    public static var evaluationCount: Int {
+        totalBodyEvaluations
+    }
+
+    public static func evaluationCount(boardIdentity: String, variantID: String) -> Int {
+        evaluationsByKey["\(boardIdentity)::\(variantID)", default: 0]
+    }
+}
 
 /// MainActor-isolated JSON receipt writer for persisting Owner `SELECT / STAR / NOTES` choices
-/// to `~/Development/handoff/<goal>/receipts/preview-selection.json` and archiving prior rounds.
+/// to `~/Development/handoff/<goal>/receipts/preview-selection.json` with sub-millisecond
+/// in-memory state updates and 150ms debounced background serial disk I/O.
 @MainActor
 public final class PreviewSelectionReceiptWriter {
     public let fileURL: URL
     public let fallbackFileURL: URL
+    public let debounceInterval: TimeInterval
+    private let ioQueue = DispatchQueue(
+        label: "com.vitalstride.previewhost.receipt-writer",
+        qos: .utility
+    )
     private var state: PreviewSelectionReceipt = PreviewSelectionReceipt()
+    private var pendingSnapshot: PreviewSelectionReceipt?
+    private var lastMutationClock: ContinuousClock.Instant = .now
+    private var debounceTask: Task<Void, Never>?
 
-    public init(fileURL: URL, fallbackRootDirectory: URL? = nil, defaultAppearance: String = "light") {
+    public init(
+        fileURL: URL,
+        fallbackRootDirectory: URL? = nil,
+        defaultAppearance: String = "light",
+        debounceInterval: TimeInterval = 0.15
+    ) {
         self.fileURL = fileURL
+        self.debounceInterval = max(0, debounceInterval)
         let moduleDirectory = fileURL
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -380,60 +431,57 @@ public final class PreviewSelectionReceiptWriter {
 
     @discardableResult
     public func selectVariant(_ variantID: String?, now: Date = Date()) throws -> PreviewSelectionReceipt {
-        let normalized = (variantID?.isEmpty == true) ? nil : variantID
-        state.selectedVariantID = normalized
-        for key in state.variants.keys {
-            state.variants[key]?.isSelected = (key == normalized)
-            state.variants[key]?.updatedAt = now
+        mutateAsync(now: now) { receipt in
+            let normalized = (variantID?.isEmpty == true) ? nil : variantID
+            receipt.selectedVariantID = normalized
+            for key in receipt.variants.keys {
+                receipt.variants[key]?.isSelected = (key == normalized)
+                receipt.variants[key]?.updatedAt = now
+            }
+            if let normalized {
+                var entry = receipt.variants[normalized] ?? PreviewVariantFeedback(variantID: normalized, updatedAt: now)
+                entry.isSelected = true
+                entry.updatedAt = now
+                receipt.variants[normalized] = entry
+            }
         }
-        if let normalized {
-            var entry = state.variants[normalized] ?? PreviewVariantFeedback(variantID: normalized, updatedAt: now)
-            entry.isSelected = true
-            entry.updatedAt = now
-            state.variants[normalized] = entry
-        }
-        state.updatedAt = now
-        try persistReceipt(state)
-        return state
     }
 
     @discardableResult
     public func toggleStar(for variantID: String, now: Date = Date()) throws -> PreviewSelectionReceipt {
-        var entry = state.variants[variantID] ?? PreviewVariantFeedback(variantID: variantID, updatedAt: now)
-        if state.starredVariantIDs.contains(variantID) {
-            entry.isStarred = false
-        } else {
-            entry.isStarred = true
+        mutateAsync(now: now) { receipt in
+            var entry = receipt.variants[variantID] ?? PreviewVariantFeedback(variantID: variantID, updatedAt: now)
+            if receipt.starredVariantIDs.contains(variantID) {
+                entry.isStarred = false
+            } else {
+                entry.isStarred = true
+            }
+            entry.updatedAt = now
+            receipt.variants[variantID] = entry
+            var set = Set(receipt.starredVariantIDs)
+            if entry.isStarred {
+                set.insert(variantID)
+            } else {
+                set.remove(variantID)
+            }
+            receipt.starredVariantIDs = set.sorted()
         }
-        entry.updatedAt = now
-        state.variants[variantID] = entry
-        var set = Set(state.starredVariantIDs)
-        if entry.isStarred {
-            set.insert(variantID)
-        } else {
-            set.remove(variantID)
-        }
-        state.starredVariantIDs = set.sorted()
-        state.updatedAt = now
-        try persistReceipt(state)
-        return state
     }
 
     @discardableResult
     public func updateNotes(for variantID: String, notes: String, now: Date = Date()) throws -> PreviewSelectionReceipt {
-        let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        var entry = state.variants[variantID] ?? PreviewVariantFeedback(variantID: variantID, updatedAt: now)
-        entry.notes = trimmed
-        entry.updatedAt = now
-        state.variants[variantID] = entry
-        if trimmed.isEmpty {
-            state.notesByVariant.removeValue(forKey: variantID)
-        } else {
-            state.notesByVariant[variantID] = trimmed
+        mutateAsync(now: now) { receipt in
+            let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+            var entry = receipt.variants[variantID] ?? PreviewVariantFeedback(variantID: variantID, updatedAt: now)
+            entry.notes = trimmed
+            entry.updatedAt = now
+            receipt.variants[variantID] = entry
+            if trimmed.isEmpty {
+                receipt.notesByVariant.removeValue(forKey: variantID)
+            } else {
+                receipt.notesByVariant[variantID] = trimmed
+            }
         }
-        state.updatedAt = now
-        try persistReceipt(state)
-        return state
     }
 
     @discardableResult
@@ -444,13 +492,28 @@ public final class PreviewSelectionReceiptWriter {
         allExpanded: Bool,
         now: Date = Date()
     ) throws -> PreviewSelectionReceipt {
-        state.speedMultiplier = speedMultiplier.rawValue
-        state.appearance = appearance
-        state.dataState = dataState.rawValue
-        state.allExpanded = allExpanded
-        state.updatedAt = now
-        try persistReceipt(state)
-        return state
+        mutateAsync(now: now) { receipt in
+            receipt.speedMultiplier = speedMultiplier.rawValue
+            receipt.appearance = appearance
+            receipt.dataState = dataState.rawValue
+            receipt.allExpanded = allExpanded
+        }
+    }
+
+    /// Synchronously drains pending coalesced receipt writes to disk for CLI commands,
+    /// app termination (`applicationWillTerminate`), and deterministic unit tests.
+    public func flush() {
+        debounceTask?.cancel()
+        debounceTask = nil
+        let snapshot = pendingSnapshot
+        pendingSnapshot = nil
+        let fileURL = self.fileURL
+        let fallbackFileURL = self.fallbackFileURL
+        ioQueue.sync {
+            if let snapshot {
+                try? Self.persistReceipt(snapshot, fileURL: fileURL, fallbackFileURL: fallbackFileURL)
+            }
+        }
     }
 
     @discardableResult
@@ -459,6 +522,64 @@ public final class PreviewSelectionReceiptWriter {
         defaultAppearance: String? = nil,
         now: Date = Date()
     ) throws -> (archivedURL: URL?, resetReceipt: PreviewSelectionReceipt) {
+        debounceTask?.cancel()
+        debounceTask = nil
+        let current = state
+        let reset = PreviewSelectionReceipt(
+            schema: PreviewSelectionReceipt.currentSchemaVersion,
+            selectedVariantID: nil,
+            starredVariantIDs: [],
+            notesByVariant: [:],
+            variants: [:],
+            speedMultiplier: current.speedMultiplier,
+            appearance: defaultAppearance ?? current.appearance,
+            dataState: VitalStridePreviewDataState.populated.rawValue,
+            allExpanded: true,
+            updatedAt: now
+        )
+        state = reset
+        pendingSnapshot = nil
+
+        let fileURL = self.fileURL
+        let fallbackFileURL = self.fallbackFileURL
+        let predictedArchiveURL = Self.nextArchiveDestination(
+            fileURL: fileURL,
+            current: current,
+            explicitRound: explicitRound
+        )
+
+        ioQueue.async {
+            Self.performArchiveWrite(
+                fileURL: fileURL,
+                fallbackFileURL: fallbackFileURL,
+                current: current,
+                explicitRound: explicitRound
+            )
+            try? Self.persistReceipt(reset, fileURL: fileURL, fallbackFileURL: fallbackFileURL)
+        }
+
+        return (predictedArchiveURL, reset)
+    }
+
+    private static func nextArchiveDestination(
+        fileURL: URL,
+        current: PreviewSelectionReceipt,
+        explicitRound: Int?
+    ) -> URL? {
+        guard current.hasActiveFeedback || FileManager.default.fileExists(atPath: fileURL.path) else {
+            return nil
+        }
+        let directory = fileURL.deletingLastPathComponent()
+        let round = max(explicitRound ?? 1, 1)
+        return directory.appendingPathComponent("preview-selection.round-\(round).json")
+    }
+
+    nonisolated private static func performArchiveWrite(
+        fileURL: URL,
+        fallbackFileURL: URL,
+        current: PreviewSelectionReceipt,
+        explicitRound: Int?
+    ) {
         let primaryDirectory = fileURL.deletingLastPathComponent()
         let directory: URL
         do {
@@ -466,7 +587,7 @@ public final class PreviewSelectionReceiptWriter {
             directory = primaryDirectory
         } catch {
             directory = fallbackFileURL.deletingLastPathComponent()
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
 
         let existingFiles = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
@@ -482,33 +603,57 @@ public final class PreviewSelectionReceiptWriter {
         }
 
         let round = max(explicitRound ?? ((existingRounds.max() ?? 0) + 1), 1)
-        var archivedURL: URL?
-        if FileManager.default.fileExists(atPath: fileURL.path) || state.hasActiveFeedback {
+        if FileManager.default.fileExists(atPath: fileURL.path) || current.hasActiveFeedback {
             let roundTarget = directory.appendingPathComponent("preview-selection.round-\(round).json")
             let shortTarget = directory.appendingPathComponent("preview-selection-r\(round).json")
-            try Self.writeReceipt(state, to: roundTarget)
-            try? Self.writeReceipt(state, to: shortTarget)
-            archivedURL = roundTarget
+            try? Self.writeReceipt(current, to: roundTarget)
+            try? Self.writeReceipt(current, to: shortTarget)
         }
-
-        let reset = PreviewSelectionReceipt(
-            schema: PreviewSelectionReceipt.currentSchemaVersion,
-            selectedVariantID: nil,
-            starredVariantIDs: [],
-            notesByVariant: [:],
-            variants: [:],
-            speedMultiplier: state.speedMultiplier,
-            appearance: defaultAppearance ?? state.appearance,
-            dataState: VitalStridePreviewDataState.populated.rawValue,
-            allExpanded: true,
-            updatedAt: now
-        )
-        state = reset
-        try persistReceipt(reset)
-        return (archivedURL, reset)
     }
 
-    private func persistReceipt(_ receipt: PreviewSelectionReceipt) throws {
+    private func mutateAsync(
+        now: Date,
+        _ block: (inout PreviewSelectionReceipt) -> Void
+    ) -> PreviewSelectionReceipt {
+        block(&state)
+        state.updatedAt = now
+        pendingSnapshot = state
+        lastMutationClock = ContinuousClock.now
+        scheduleDebouncedWriteIfNeeded()
+        return state
+    }
+
+    private func scheduleDebouncedWriteIfNeeded() {
+        guard debounceTask == nil else { return }
+        let intervalMs = max(1, Int((debounceInterval * 1_000).rounded()))
+        debounceTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                let elapsed = ContinuousClock.now - self.lastMutationClock
+                let remaining = Duration.milliseconds(intervalMs) - elapsed
+                if remaining > .zero {
+                    try? await Task.sleep(for: remaining)
+                } else {
+                    break
+                }
+            }
+            guard !Task.isCancelled, let self else { return }
+            self.debounceTask = nil
+            guard let snapshot = self.pendingSnapshot else { return }
+            self.pendingSnapshot = nil
+            let fileURL = self.fileURL
+            let fallbackFileURL = self.fallbackFileURL
+            self.ioQueue.async {
+                try? Self.persistReceipt(snapshot, fileURL: fileURL, fallbackFileURL: fallbackFileURL)
+            }
+        }
+    }
+
+    nonisolated private static func persistReceipt(
+        _ receipt: PreviewSelectionReceipt,
+        fileURL: URL,
+        fallbackFileURL: URL
+    ) throws {
         do {
             try Self.writeReceipt(receipt, to: fileURL)
             try? Self.writeReceipt(receipt, to: fallbackFileURL)
@@ -517,14 +662,14 @@ public final class PreviewSelectionReceiptWriter {
         }
     }
 
-    private static func readReceipt(from url: URL) throws -> PreviewSelectionReceipt {
+    nonisolated private static func readReceipt(from url: URL) throws -> PreviewSelectionReceipt {
         let data = try Data(contentsOf: url)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode(PreviewSelectionReceipt.self, from: data)
     }
 
-    private static func writeReceipt(_ receipt: PreviewSelectionReceipt, to url: URL) throws {
+    nonisolated private static func writeReceipt(_ receipt: PreviewSelectionReceipt, to url: URL) throws {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -634,11 +779,12 @@ public final class VitalStridePagePreviewController: ObservableObject {
         expandedByVariant[variantID] ?? allExpanded
     }
 
-    public func toggleExpanded(for variantID: String, animated: Bool = true) {
+    public func toggleExpanded(for variantID: String, animated: Bool = true, reduceMotion: Bool = false) {
         let next = !(expandedByVariant[variantID] ?? allExpanded)
         let descriptor = variants.first { $0.id == variantID }
-        let anim = descriptor?.spring(for: speedMultiplier) ?? speedMultiplier.scaledSpring()
-        if animated {
+        let anim = descriptor?.spring(for: speedMultiplier, reduceMotion: reduceMotion)
+            ?? speedMultiplier.scaledSpring(reduceMotion: reduceMotion)
+        if animated, let anim {
             withAnimation(anim) {
                 expandedByVariant[variantID] = next
             }
@@ -651,16 +797,16 @@ public final class VitalStridePagePreviewController: ObservableObject {
         dataState = .populated
     }
 
-    public func toggleAllExpanded(animated: Bool = true) {
+    public func toggleAllExpanded(animated: Bool = true, reduceMotion: Bool = false) {
         let next = !allExpanded
-        let anim = speedMultiplier.scaledSpring()
+        let anim = speedMultiplier.scaledSpring(reduceMotion: reduceMotion)
         let apply = {
             self.allExpanded = next
             for variant in self.variants {
                 self.expandedByVariant[variant.id] = next
             }
         }
-        if animated {
+        if animated, let anim {
             withAnimation(anim, apply)
         } else {
             apply()
@@ -713,6 +859,11 @@ public final class VitalStridePagePreviewController: ObservableObject {
             notesByVariant[variantID] = trimmed
         }
         _ = try? receiptWriter.updateNotes(for: variantID, notes: trimmed)
+    }
+
+    public func flush() {
+        settlePendingDraftNotes()
+        receiptWriter.flush()
     }
 
     @discardableResult
@@ -827,6 +978,14 @@ public struct PreviewViewportContext: Sendable, Equatable {
     public let speedMultiplier: PreviewSpeedMultiplier
     public let colorScheme: ColorScheme
 
+    public var variantNumber: Int {
+        Int(descriptor.id.dropFirst()) ?? 1
+    }
+
+    public var appearance: String {
+        colorScheme == .dark ? "dark" : "light"
+    }
+
     public init(
         page: VitalStridePreviewPageTab,
         descriptor: PreviewVariantDescriptor,
@@ -844,22 +1003,36 @@ public struct PreviewViewportContext: Sendable, Equatable {
     }
 }
 
+/// Explicit `Equatable` isolation wrapper ensuring `SELECT / STAR / NOTES` mutations trigger ZERO
+/// `body` re-evaluations of the 10 candidate chart/summary viewports.
 @MainActor
-public struct IsolatedCandidateViewportHost: View, Equatable {
+public struct IsolatedPreviewViewportHost: View, Equatable {
+    public let boardIdentity: String
     public let context: PreviewViewportContext
 
-    public init(context: PreviewViewportContext) {
+    public init(boardIdentity: String? = nil, context: PreviewViewportContext) {
+        self.boardIdentity = boardIdentity ?? context.page.goalSlug
         self.context = context
     }
 
     public nonisolated static func == (
-        lhs: IsolatedCandidateViewportHost,
-        rhs: IsolatedCandidateViewportHost
+        lhs: IsolatedPreviewViewportHost,
+        rhs: IsolatedPreviewViewportHost
     ) -> Bool {
-        lhs.context == rhs.context
+        lhs.boardIdentity == rhs.boardIdentity
+            && lhs.context.page == rhs.context.page
+            && lhs.context.variantNumber == rhs.context.variantNumber
+            && lhs.context.dataState == rhs.context.dataState
+            && lhs.context.appearance == rhs.context.appearance
+            && lhs.context.speedMultiplier == rhs.context.speedMultiplier
+            && lhs.context.isExpanded == rhs.context.isExpanded
     }
 
     public var body: some View {
+        let _ = PreviewViewportRenderDiagnostics.recordEvaluation(
+            boardIdentity: boardIdentity,
+            variantID: context.descriptor.id
+        )
         let isDark = context.colorScheme == .dark
         let resolvedTheme = Theme(seed: .teal, neutral: .slate, isDark: isDark)
         candidateBody
@@ -872,17 +1045,18 @@ public struct IsolatedCandidateViewportHost: View, Equatable {
 
     @ViewBuilder
     private var candidateBody: some View {
-        let variantNumber = Int(context.descriptor.id.dropFirst()) ?? 1
         let layer = LayeredComponentLayer(rawValue: context.page.rawValue) ?? .l1
         LayeredComponentCandidateView(
             data: LayeredComponentGalleryPreviewData(
                 layer: layer,
-                variant: variantNumber,
+                variant: context.variantNumber,
                 state: context.dataState
             )
         )
     }
 }
+
+public typealias IsolatedCandidateViewportHost = IsolatedPreviewViewportHost
 
 // MARK: - Per-Card SELECT / STAR / NOTES Action Bar
 
@@ -1049,6 +1223,7 @@ private struct VitalStridePreviewHostBoardContent: View {
     @ObservedObject var coordinator: VitalStridePreviewBoardCoordinator
     @Environment(\.vsPreviewSnapshotMode) private var snapshotMode
     @Environment(\.colorScheme) private var envColorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var currentController: VitalStridePagePreviewController {
         coordinator.currentController
@@ -1097,7 +1272,7 @@ private struct VitalStridePreviewHostBoardContent: View {
                 let tabController = coordinator.controller(for: tab)
                 Button {
                     guard !snapshotMode else { return }
-                    coordinator.switchPage(to: tab, animated: true)
+                    coordinator.switchPage(to: tab, animated: !reduceMotion)
                 } label: {
                     HStack(spacing: 6) {
                         Text(tab.tabTitle)
@@ -1148,6 +1323,7 @@ private struct VitalStrideSinglePageGalleryView: View {
     @ObservedObject var controller: VitalStridePagePreviewController
     let theme: Theme
     @Environment(\.vsPreviewSnapshotMode) private var snapshotMode
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var interactiveVariantRows: [[PreviewVariantDescriptor]] {
         let columnCount = 3
@@ -1288,7 +1464,7 @@ private struct VitalStrideSinglePageGalleryView: View {
 
             Button {
                 guard !snapshotMode else { return }
-                controller.toggleAllExpanded(animated: true)
+                controller.toggleAllExpanded(animated: !reduceMotion, reduceMotion: reduceMotion)
             } label: {
                 Label(
                     controller.allExpanded ? "紧凑视图" : "展开全高",
@@ -1367,7 +1543,11 @@ private struct VitalStrideSinglePageGalleryView: View {
 
                 if !snapshotMode {
                     Button {
-                        controller.toggleExpanded(for: descriptor.id, animated: true)
+                        controller.toggleExpanded(
+                            for: descriptor.id,
+                            animated: !reduceMotion,
+                            reduceMotion: reduceMotion
+                        )
                     } label: {
                         Image(systemName: expanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                             .font(.caption.weight(.bold))
@@ -1426,7 +1606,7 @@ private struct VitalStrideSinglePageGalleryView: View {
             )
             .id("\(controller.page.goalSlug)::\(descriptor.id)::\(controller.roundEpoch)")
 
-            IsolatedCandidateViewportHost(context: context)
+            IsolatedPreviewViewportHost(boardIdentity: controller.page.goalSlug, context: context)
                 .equatable()
                 .frame(width: 393, height: cardHeight, alignment: .top)
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
@@ -1532,7 +1712,8 @@ private struct CandidateFullSheetModal: View {
             ScrollView {
                 HStack {
                     Spacer()
-                    IsolatedCandidateViewportHost(context: context)
+                    IsolatedPreviewViewportHost(boardIdentity: "\(page.goalSlug)::modal", context: context)
+                        .equatable()
                         .frame(width: 430, height: 880, alignment: .top)
                         .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
                         .overlay {

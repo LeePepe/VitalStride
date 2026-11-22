@@ -1238,7 +1238,7 @@ struct ActiveWorkoutView: View {
         container: ModelContainer
     ) async -> ExerciseSubstituteSheet.ViewState {
         let messages = SubstitutePromptBuilder.build(for: request)
-        let apiKey = try? KeychainHelper().load(service: AISettingsSection.apiKeyKeychainService)
+        let apiKey = AIModelSettingsStore.loadSecretCached(for: AISettingsSection.apiKeyKeychainService)
         let router = AIRouterFactory.makeDefault(zhipuAPIKey: apiKey, signalSink: signalStore)
 
         let response: ChatResponse

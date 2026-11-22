@@ -14,18 +14,32 @@ final class StepsBodyRecoveryState {
     private(set) var snapshot: VitalModels.PhysiologicalSnapshot?
     private(set) var report: AIService.HolisticFourLayerReport?
     private(set) var provider: PluggableAIProvider
-    private(set) var weightPoints: [WeightDataPoint] = []
+    private(set) var weightPoints: [WeightDataPoint] = [] {
+        didSet { recomputeWeightSummary() }
+    }
+    private(set) var weightStatistics: WeightStatistics = WeightStatistics(latest: nil, change: nil, max: nil, min: nil)
+    private(set) var weightMovingAverage: [WeightDataPoint] = []
     private(set) var bodyFatPercentage: Double?
     private(set) var leanBodyMassKg: Double?
     private(set) var bmi: Double?
     private(set) var hasLoaded: Bool
+    private(set) var isRefreshing: Bool = false
     var onRetry: (() -> Void)?
 
     init(snapshot: VitalModels.PhysiologicalSnapshot? = nil, report: AIService.HolisticFourLayerReport? = nil, provider: PluggableAIProvider = .deterministicFallback, loadState: LoadState = .loading) {
         self.snapshot = snapshot; self.report = report; self.provider = provider; self.loadState = loadState; self.hasLoaded = snapshot != nil || report != nil || loadState != .loading
     }
 
+    private func recomputeWeightSummary() {
+        weightStatistics = WeightAnalyzer.computeStatistics(from: weightPoints)
+        weightMovingAverage = WeightAnalyzer.movingAverage(of: weightPoints)
+    }
+
     func load(cache: HealthDataCache, workouts: [Workout] = [], generatedAt: Date = Date()) async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+
         loadState = .loading; hasLoaded = false
         let interval = DateInterval(start: Calendar.current.date(byAdding: .day, value: -59, to: generatedAt) ?? generatedAt, end: generatedAt)
         let requested: Set<HealthSampleType> = [.stepCount, .activeEnergyBurned, .basalEnergyBurned, .appleStandTime, .flightsClimbed, .bodyMass, .bodyFatPercentage, .leanBodyMass, .bodyMassIndex, .restingHeartRate, .heartRateVariabilitySDNN, .heartRate, .sleepAnalysis, .distanceWalkingRunning, .vo2Max]
@@ -35,31 +49,86 @@ final class StepsBodyRecoveryState {
             if let values = try? await cache.data(for: type, in: interval) { points.append(contentsOf: values) }
         }
         let healthWorkouts = (try? await cache.workoutData(in: interval)) ?? []
-        let vitalSnapshot = HealthMetricsCalculator().physiologicalSnapshot(from: points, workouts: healthWorkouts, strengthWorkouts: workouts.compactMap(\.strengthSummaryInput), generatedAt: generatedAt)
+        let strengthWorkouts = workouts.compactMap(\.strengthSummaryInput)
+        guard let synthesized = await Self.synthesizeRecoveryEvidenceOffMainActor(
+            points: points,
+            workouts: healthWorkouts,
+            strengthWorkouts: strengthWorkouts,
+            generatedAt: generatedAt
+        ) else {
+            markEmpty()
+            return
+        }
+        snapshot = synthesized.vitalSnapshot
+        weightPoints = synthesized.weightPoints
+        weightStatistics = synthesized.weightStatistics
+        weightMovingAverage = synthesized.weightMovingAverage
+        bodyFatPercentage = synthesized.bodyFatPercentage
+        leanBodyMassKg = synthesized.leanBodyMassKg
+        bmi = synthesized.bmi
+        let settings = AIModelSettingsStore(defaults: .standard)
+        let configuration = settings.configuration
+        provider = configuration.provider
+        if configuration.provider == .deterministicFallback || !settings.isSelectedProviderReady {
+            report = await FourLayerAdviceEngine().generate(snapshot: synthesized.aiSnapshot, model: configuration.modelID)
+            provider = .deterministicFallback; loadState = .populated; hasLoaded = true; return
+        }
+        do {
+            report = try await FourLayerAdviceEngine(provider: configuration.makeProvider()).generateCancellable(snapshot: synthesized.aiSnapshot, model: configuration.modelID)
+            loadState = .populated; hasLoaded = true
+        } catch {
+            report = nil; loadState = .error; hasLoaded = true
+            onRetry = { [weak self, cache] in
+                guard let self, !self.isRefreshing else { return }
+                Task { @MainActor in await self.load(cache: cache, workouts: workouts, generatedAt: generatedAt) }
+            }
+        }
+    }
+
+    private struct RecoverySynthesisResult: Sendable {
+        let vitalSnapshot: VitalModels.PhysiologicalSnapshot
+        let aiSnapshot: AIService.PhysiologicalSnapshot
+        let weightPoints: [WeightDataPoint]
+        let weightStatistics: WeightStatistics
+        let weightMovingAverage: [WeightDataPoint]
+        let bodyFatPercentage: Double?
+        let leanBodyMassKg: Double?
+        let bmi: Double?
+    }
+
+    nonisolated private static func synthesizeRecoveryEvidenceOffMainActor(
+        points: [HealthDataPoint],
+        workouts: [HealthWorkoutRecord],
+        strengthWorkouts: [VitalModels.StrengthWorkoutSummaryInput],
+        generatedAt: Date
+    ) async -> RecoverySynthesisResult? {
+        let vitalSnapshot = HealthMetricsCalculator().physiologicalSnapshot(
+            from: points,
+            workouts: workouts,
+            strengthWorkouts: strengthWorkouts,
+            generatedAt: generatedAt
+        )
         let weightWindowStart = Calendar.current.date(byAdding: .day, value: -7, to: generatedAt) ?? generatedAt
         let pointsForWeight = points.filter { $0.sampleType == .bodyMass && $0.startDate >= weightWindowStart }
             .map { WeightDataPoint(date: $0.startDate, weight: $0.value) }
             .sorted { $0.date < $1.date }
         let hasEvidence = vitalSnapshot?.neat.isAvailable == true || !pointsForWeight.isEmpty
-        guard hasEvidence, let vitalSnapshot, let aiSnapshot = bridge(vitalSnapshot) else { markEmpty(); return }
-        snapshot = vitalSnapshot; weightPoints = pointsForWeight
-        bodyFatPercentage = latest(points, type: .bodyFatPercentage)
-        leanBodyMassKg = latest(points, type: .leanBodyMass)
-        bmi = latest(points, type: .bodyMassIndex)
-        let settings = AIModelSettingsStore(defaults: .standard)
-        let configuration = settings.configuration
-        provider = configuration.provider
-        if configuration.provider == .deterministicFallback || !settings.isSelectedProviderReady {
-            report = await FourLayerAdviceEngine().generate(snapshot: aiSnapshot, model: configuration.modelID)
-            provider = .deterministicFallback; loadState = .populated; hasLoaded = true; return
+        guard hasEvidence,
+              let vitalSnapshot,
+              let data = try? JSONEncoder().encode(vitalSnapshot),
+              let aiSnapshot = try? JSONDecoder().decode(AIService.PhysiologicalSnapshot.self, from: data) else {
+            return nil
         }
-        do {
-            report = try await FourLayerAdviceEngine(provider: configuration.makeProvider()).generateCancellable(snapshot: aiSnapshot, model: configuration.modelID)
-            loadState = .populated; hasLoaded = true
-        } catch {
-            report = nil; loadState = .error; hasLoaded = true
-            onRetry = { [weak self, cache] in Task { @MainActor in await self?.load(cache: cache, workouts: workouts, generatedAt: generatedAt) } }
-        }
+        return RecoverySynthesisResult(
+            vitalSnapshot: vitalSnapshot,
+            aiSnapshot: aiSnapshot,
+            weightPoints: pointsForWeight,
+            weightStatistics: WeightAnalyzer.computeStatistics(from: pointsForWeight),
+            weightMovingAverage: WeightAnalyzer.movingAverage(of: pointsForWeight),
+            bodyFatPercentage: latest(points, type: .bodyFatPercentage),
+            leanBodyMassKg: latest(points, type: .leanBodyMass),
+            bmi: latest(points, type: .bodyMassIndex)
+        )
     }
 
     func markEmpty() { snapshot = nil; report = nil; loadState = .empty; hasLoaded = true }
@@ -73,12 +142,12 @@ final class StepsBodyRecoveryState {
         let state = StepsBodyRecoveryState(snapshot: snapshot, report: report, provider: .deterministicFallback, loadState: .populated); state.bodyFatPercentage = 15.8; state.leanBodyMassKg = 61.8; state.bmi = 22.4; state.weightPoints = [74.0, 73.9, 73.8, 73.7, 73.6, 73.5, 73.4].enumerated().map { WeightDataPoint(date: Date(timeIntervalSinceReferenceDate: Double($0.offset) * 86_400), weight: $0.element) }; return state
     }
 
-    private func latest(_ points: [HealthDataPoint], type: HealthSampleType) -> Double? { points.filter { $0.sampleType == type }.max { $0.startDate < $1.startDate }?.value }
-    private func bridge(_ value: VitalModels.PhysiologicalSnapshot) -> AIService.PhysiologicalSnapshot? { guard let data = try? JSONEncoder().encode(value) else { return nil }; return try? JSONDecoder().decode(AIService.PhysiologicalSnapshot.self, from: data) }
+    nonisolated private static func latest(_ points: [HealthDataPoint], type: HealthSampleType) -> Double? { points.filter { $0.sampleType == type }.max { $0.startDate < $1.startDate }?.value }
 }
 
 struct StepsBodyRecoveryView: View {
     @State private var state: StepsBodyRecoveryState
+    @State private var settingsStore = AIModelSettingsStore()
     @Query(sort: \Workout.startDate, order: .reverse) private var workouts: [Workout]
     @Environment(\.healthDataCache) private var cache
     @Environment(\.theme) private var theme
@@ -118,7 +187,6 @@ struct StepsBodyRecoveryView: View {
     @ViewBuilder private func populated(snapshot: VitalModels.PhysiologicalSnapshot, report: AIService.HolisticFourLayerReport) -> some View {
         let neat = snapshot.neat
         let coupling = report.l2.first(where: { $0.relationship == "stepsBodyCoupling" }) ?? report.l2.first
-        let settings = AIModelSettingsStore()
         Card {
             HStack { SectionHeader(StepsBodyCopy.couplingHeader, icon: "figure.walk.motion"); Spacer(); StatusPill(StepsBodyCopy.provider(state.provider), tone: .primary) }
             HStack(spacing: Space.sm) { CompactMetric(title: StepsBodyCopy.neat, value: formattedSteps(neat.nonWorkoutSteps)); CompactMetric(title: StepsBodyCopy.readiness, value: "\(report.l3.readinessScore)"); Text(StepsBodyCopy.burden(neat)).font(TypeScale.meta).monospacedDigit().lineLimit(1).minimumScaleFactor(0.85) }
@@ -128,12 +196,12 @@ struct StepsBodyRecoveryView: View {
         neatCard(neat)
         bodyCard
         Card {
-            HStack { SectionHeader(StepsBodyCopy.aiHeader, icon: "cpu.fill"); Spacer(); StatusPill(settings.status.0, tone: settings.status.1) }
-            NavigationLink { AIModelConfigurationView() } label: {
+            HStack { SectionHeader(StepsBodyCopy.aiHeader, icon: "cpu.fill"); Spacer(); StatusPill(settingsStore.status.0, tone: settingsStore.status.1) }
+            NavigationLink { AIModelConfigurationView(store: settingsStore) } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: Space.hair) {
                         Text(StepsBodyCopy.provider(state.provider)).font(TypeScale.title)
-                        Text(settings.chainSummary).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1).minimumScaleFactor(0.85)
+                        Text(settingsStore.chainSummary).font(TypeScale.meta).foregroundStyle(theme.secondaryForeground).lineLimit(1).minimumScaleFactor(0.85)
                     }
                     Spacer()
                     Image(systemName: "chevron.right").foregroundStyle(theme.tertiaryForeground).accessibilityHidden(true)
@@ -156,8 +224,8 @@ struct StepsBodyRecoveryView: View {
     }
 
     private var bodyCard: some View {
-        let statistics = WeightAnalyzer.computeStatistics(from: state.weightPoints)
-        let movingAverage = WeightAnalyzer.movingAverage(of: state.weightPoints)
+        let statistics = state.weightStatistics
+        let movingAverage = state.weightMovingAverage
         return Card {
             HStack { SectionHeader(StepsBodyCopy.bodyHeader, icon: "scalemass.fill"); Spacer(); StatusPill(StepsBodyCopy.weightDelta(statistics.change, unit: weightUnit), tone: .neutral) }
             HStack(spacing: Space.sm) {

@@ -352,8 +352,10 @@ struct StepsDetailView: View {
                             .font(.caption)
                             .foregroundStyle(theme.secondaryForeground)
                         Button(String(localized: "holistic_retry_action", defaultValue: "Retry", comment: "Retry loading steps")) {
+                            guard !isLoading else { return }
                             Task { await loadData() }
                         }
+                        .disabled(isLoading)
                         .font(.caption.weight(.semibold))
                     }
                     .frame(maxWidth: .infinity)
