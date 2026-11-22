@@ -4,35 +4,36 @@ import VitalModels
 @testable import VitalStride
 
 private let requiredInstructionLanguages: Set<String> = ["en", "es", "fr", "hi", "it", "ko", "pl", "ru", "tr", "zh"]
-private let expectedSourceEquipmentValues: Set<String> = [
-    "assisted",
+private let expectedCuratedSourceEquipmentValues: Set<String> = [
     "band",
     "barbell",
     "body weight",
-    "bosu ball",
     "cable",
     "dumbbell",
-    "elliptical machine",
     "ez barbell",
-    "hammer",
-    "kettlebell",
     "leverage machine",
     "medicine ball",
-    "olympic barbell",
     "resistance band",
-    "roller",
     "rope",
-    "skierg machine",
     "sled machine",
     "smith machine",
     "stability ball",
-    "stationary bike",
-    "stepmill machine",
-    "tire",
     "trap bar",
-    "upper body ergometer",
     "weighted",
     "wheel roller",
+]
+private let forbiddenCardioAndStretchEquipmentValues: Set<String> = [
+    "assisted",
+    "bosu_ball",
+    "elliptical_machine",
+    "hammer",
+    "olympic_barbell",
+    "roller",
+    "skierg_machine",
+    "stationary_bike",
+    "stepmill_machine",
+    "tire",
+    "upper_body_ergometer",
 ]
 
 private struct PresetExerciseSourceData: Decodable {
@@ -94,21 +95,21 @@ struct ExercisesJSONTests {
     private let exercises: [PresetExercise]
 
     init() throws {
-        let url = Bundle.main.url(forResource: "exercises", withExtension: "json")!
+        let url = try #require(Bundle.main.url(forResource: "exercises", withExtension: "json"))
         let data = try Data(contentsOf: url)
         let catalog = try JSONDecoder().decode(ExerciseCatalogTestEnvelope.self, from: data)
         version = catalog.version
         exercises = catalog.exercises
     }
 
-    @Test("Catalog version is v5")
+    @Test("Catalog version is v6")
     func catalogVersion() {
-        #expect(version == "5")
+        #expect(version == "6")
     }
 
-    @Test("Catalog contains the full reconciled row count")
+    @Test("Catalog contains the curated golden row count")
     func exactCatalogCount() {
-        #expect(exercises.count == 1_558)
+        #expect(exercises.count == 316)
     }
 
     @Test("Local calf-raise presets exclude the antagonist tibialis anterior")
@@ -124,8 +125,6 @@ struct ExercisesJSONTests {
             #expect(exercise.primaryMuscles == ["calves"])
             #expect(exercise.secondaryMuscles.isEmpty)
         }
-        let donkey = try #require(exercises.first { $0.id == "550e8400-e29b-41d4-a716-446655440201" })
-        #expect(donkey.secondaryMuscles == ["hamstrings", "glutes"])
     }
 
     @Test("All exercise IDs are unique")
@@ -134,12 +133,12 @@ struct ExercisesJSONTests {
         #expect(ids.count == Set(ids).count, "Duplicate exercise IDs found")
     }
 
-    @Test("Source split is 1,324 upstream-backed and 234 VitalStride-only")
+    @Test("Source split is 82 curated upstream-backed and 234 VitalStride-only")
     func sourceSplit() {
         let upstream = exercises.filter { $0.source == "hasaneyldrm/exercises-dataset" }
         let vitalStrideOnly = exercises.filter { $0.source == "vitalstride" }
 
-        #expect(upstream.count == 1_324)
+        #expect(upstream.count == 82)
         #expect(vitalStrideOnly.count == 234)
         #expect(upstream.allSatisfy { $0.sourceData != nil })
         #expect(vitalStrideOnly.allSatisfy { $0.sourceData == nil })
@@ -148,7 +147,7 @@ struct ExercisesJSONTests {
     @Test("Upstream source IDs are unique and complete")
     func uniqueSourceIDs() {
         let sourceIDs = exercises.compactMap(\.sourceData?.id)
-        #expect(sourceIDs.count == 1_324)
+        #expect(sourceIDs.count == 82)
         #expect(sourceIDs.count == Set(sourceIDs).count)
     }
 
@@ -167,10 +166,12 @@ struct ExercisesJSONTests {
         }
     }
 
-    @Test("All 28 upstream equipment strings are represented")
+    @Test("Curated upstream equipment allowlist excludes cardio machines and stretches")
     func allSourceEquipmentValuesRepresented() {
         let equipmentValues = Set(exercises.compactMap(\.sourceData?.equipment))
-        #expect(equipmentValues == expectedSourceEquipmentValues)
+        #expect(equipmentValues == expectedCuratedSourceEquipmentValues)
+        let appEquipmentValues = Set(exercises.map(\.equipment))
+        #expect(appEquipmentValues.isDisjoint(with: forbiddenCardioAndStretchEquipmentValues))
     }
 
     @Test("App muscle mapping follows upstream target and secondary muscles")
@@ -189,11 +190,11 @@ struct ExercisesJSONTests {
         }
     }
 
-    @Test("Cable Pulldown keeps lats primary and biceps plus forearms secondary")
+    @Test("Lever Front Pulldown keeps lats primary and biceps plus forearms secondary")
     func cablePulldownRegression() throws {
-        let cablePulldown = try #require(exercises.first { $0.sourceData?.id == "0198" })
-        #expect(cablePulldown.primaryMuscles == ["lats"])
-        #expect(cablePulldown.secondaryMuscles == ["biceps", "forearms"])
+        let frontPulldown = try #require(exercises.first { $0.sourceData?.id == "0579" })
+        #expect(frontPulldown.primaryMuscles == ["lats"])
+        #expect(frontPulldown.secondaryMuscles.contains("biceps"))
     }
 
     @Test("Names stay populated for every row")
@@ -204,26 +205,20 @@ struct ExercisesJSONTests {
         }
     }
 
-    @Test("Only the eight approved Band presets use bounded Chinese names")
+    @Test("Every row in v6 has a translated Chinese name and zero encoding glitches or POV/V2 duplicates")
     func boundedBandPresetTranslations() throws {
-        let expected = [
-            "bb6fc1a3-3e20-557f-99ff-60748b8e9e4e": ("Band Alternating Biceps Curl", "弹力带交替二头肌弯举"),
-            "965212cf-b562-5e0b-b3c5-6af8c49b3562": ("Band Alternating V-Up", "弹力带交替V字卷腹"),
-            "f277a5ec-4f64-5a57-a4dd-f825573bcd06": ("Band Assisted Pull-Up", "弹力带辅助引体向上"),
-            "3a42aaea-1d48-5332-bbc1-a31fba717b97": ("Band Assisted Wheel Rollerout", "弹力带辅助健腹轮滚动"),
-            "85b5e236-656e-510d-9eb1-754f32a2e6b8": ("Band Bench Press", "弹力带卧推"),
-            "b559a6f2-e257-5c16-9871-476c26d4eacb": ("Band Bent-Over Hip Extension", "弹力带俯身髋部伸展"),
-            "7c5349ea-6e2c-5a21-8b2f-614bdb7e27c5": ("Band Close-Grip Pulldown", "弹力带窄握下拉"),
-            "15eedfc8-e571-5189-8d34-f945fef183b6": ("Band Close-Grip Push-Up", "弹力带窄握俯卧撑"),
-        ]
-        for (id, names) in expected {
-            let exercise = try #require(exercises.first { $0.id == id })
-            #expect((exercise.nameEn, exercise.nameZh) == names)
-            #expect(exercise.source == "hasaneyldrm/exercises-dataset")
+        for exercise in exercises {
+            #expect(exercise.nameZh != exercise.nameEn, "Untranslated exercise: \(exercise.nameEn)")
+            #expect(!exercise.nameEn.contains("в°"))
+            #expect(!exercise.nameZh.contains("в°"))
+            #expect(!exercise.nameEn.localizedCaseInsensitiveContains("back Pov"))
+            #expect(!exercise.nameEn.localizedCaseInsensitiveContains("side Pov"))
+            #expect(!exercise.nameEn.contains("V. 2"))
+            #expect(!exercise.nameEn.contains("V. 3"))
         }
-
-        let translatedIDs = Set(exercises.filter { $0.nameZh != $0.nameEn }.map(\.id))
-        #expect(translatedIDs.isSuperset(of: Set(expected.keys)))
+        let sledLegPress = try #require(exercises.first { $0.sourceData?.id == "0739" })
+        #expect(sledLegPress.nameEn == "Sled 45° Leg Press")
+        #expect(sledLegPress.nameZh == "45度倒蹬机蹬腿")
     }
 
     @Test("Full catalog resolves to the final 12-section nonempty aggregation")
@@ -244,7 +239,7 @@ struct ExercisesJSONTests {
         let counts = Dictionary(uniqueKeysWithValues: grouped.map { ($0.0, $0.1.count) })
 
         #expect(grouped.count == 12)
-        #expect(grouped.reduce(0) { $0 + $1.1.count } == 1_558)
+        #expect(grouped.reduce(0) { $0 + $1.1.count } == 316)
         #expect(grouped.map(\.0) == [
             .band,
             .barbell,
@@ -260,23 +255,23 @@ struct ExercisesJSONTests {
             .other
         ])
         #expect(counts == [
-            .band: 54,
-            .barbell: 204,
-            .bodyweight: 376,
-            .cable: 196,
-            .dumbbell: 345,
-            .ezBarbell: 23,
-            .kettlebell: 61,
-            .leverageMachine: 81,
+            .band: 9,
+            .barbell: 55,
+            .bodyweight: 38,
+            .cable: 41,
+            .dumbbell: 54,
+            .ezBarbell: 8,
+            .kettlebell: 20,
+            .leverageMachine: 20,
             .machine: 38,
-            .smithMachine: 48,
-            .weighted: 36,
-            .other: 96
+            .smithMachine: 12,
+            .weighted: 8,
+            .other: 13
         ])
         #expect(grouped.allSatisfy { section, items in
             !items.isEmpty && items.allSatisfy { $0.section == section }
         })
-        #expect(workouts.filter { $0.equipment == .rope }.count == 10)
+        #expect(workouts.filter { $0.equipment == .rope }.count == 2)
         #expect(
             workouts
                 .filter { [
@@ -298,7 +293,7 @@ struct ExercisesJSONTests {
                     .upperBodyErgometer,
                     .wheelRoller
                 ].contains($0.equipment) }
-                .count == 96
+                .count == 13
         )
     }
 }

@@ -51,7 +51,7 @@ struct ExerciseSeederTests {
     }
 
     private func makeUserDefaults() -> UserDefaults {
-        UserDefaults(suiteName: suiteName)!
+        UserDefaults(suiteName: suiteName) ?? .standard
     }
 
     private func cleanUp(_ userDefaults: UserDefaults) {
@@ -60,7 +60,7 @@ struct ExerciseSeederTests {
 
     private func makeCatalogData(version: String, exercises: [[String: Any]]) -> Data {
         let catalog: [String: Any] = ["version": version, "exercises": exercises]
-        return try! JSONSerialization.data(withJSONObject: catalog)
+        return (try? JSONSerialization.data(withJSONObject: catalog)) ?? Data()
     }
 
     private func makeExerciseJSON(
@@ -455,27 +455,42 @@ struct ExerciseSeederTests {
         let defaults = makeUserDefaults()
         defer { cleanUp(defaults) }
 
-        ExerciseSeeder.seedIfNeeded(context: context, userDefaults: defaults)
-        let ids = [
-            "bb6fc1a3-3e20-557f-99ff-60748b8e9e4e",
-            "965212cf-b562-5e0b-b3c5-6af8c49b3562",
-            "f277a5ec-4f64-5a57-a4dd-f825573bcd06",
-            "3a42aaea-1d48-5332-bbc1-a31fba717b97",
-            "85b5e236-656e-510d-9eb1-754f32a2e6b8",
-            "b559a6f2-e257-5c16-9871-476c26d4eacb",
-            "7c5349ea-6e2c-5a21-8b2f-614bdb7e27c5",
-            "15eedfc8-e571-5189-8d34-f945fef183b6",
+        let rows: [(id: String, sourceID: String, nameEn: String, nameZh: String)] = [
+            ("bb6fc1a3-3e20-557f-99ff-60748b8e9e4e", "0968", "Band Alternating Biceps Curl", "弹力带交替二头肌弯举"),
+            ("965212cf-b562-5e0b-b3c5-6af8c49b3562", "0969", "Band Alternating V-Up", "弹力带交替V字卷腹"),
+            ("f277a5ec-4f64-5a57-a4dd-f825573bcd06", "0970", "Band Assisted Pull-Up", "弹力带辅助引体向上"),
+            ("3a42aaea-1d48-5332-bbc1-a31fba717b97", "0971", "Band Assisted Wheel Rollerout", "弹力带辅助健腹轮滚动"),
+            ("85b5e236-656e-510d-9eb1-754f32a2e6b8", "1254", "Band Bench Press", "弹力带卧推"),
+            ("b559a6f2-e257-5c16-9871-476c26d4eacb", "0980", "Band Bent-Over Hip Extension", "弹力带俯身髋部伸展"),
+            ("7c5349ea-6e2c-5a21-8b2f-614bdb7e27c5", "0974", "Band Close-Grip Pulldown", "弹力带窄握下拉"),
+            ("15eedfc8-e571-5189-8d34-f945fef183b6", "0975", "Band Close-Grip Push-Up", "弹力带窄握俯卧撑"),
         ]
-        let expectedNames = [
-            "弹力带交替二头肌弯举",
-            "弹力带交替V字卷腹",
-            "弹力带辅助引体向上",
-            "弹力带辅助健腹轮滚动",
-            "弹力带卧推",
-            "弹力带俯身髋部伸展",
-            "弹力带窄握下拉",
-            "弹力带窄握俯卧撑",
-        ]
+        let catalogV5 = makeCatalogData(
+            version: "5",
+            exercises: rows.map { row in
+                makeExerciseJSON(
+                    id: row.id,
+                    nameEn: row.nameEn,
+                    nameZh: row.nameZh,
+                    equipment: "band",
+                    primaryMuscles: ["biceps"],
+                    secondaryMuscles: ["forearms"],
+                    source: "hasaneyldrm/exercises-dataset",
+                    sourceData: makeSourceDataJSON(
+                        id: row.sourceID,
+                        name: row.nameEn.lowercased(),
+                        equipment: "band",
+                        target: "biceps",
+                        muscleGroup: "forearms",
+                        secondaryMuscles: ["forearms"]
+                    )
+                )
+            }
+        )
+
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV5)
+        let ids = rows.map(\.id)
+        let expectedNames = rows.map(\.nameZh)
         let exercises = try ids.map { try #require(try fetchExercise(presetId: $0, context: context)) }
         for exercise in exercises {
             exercise.nameZh = exercise.nameEn
@@ -490,8 +505,7 @@ struct ExerciseSeederTests {
         defaults.set("5", forKey: ExerciseSeeder.seedVersionKey)
 
         var saveCount = 0
-        try ExerciseSeeder.seed(context: context, userDefaults: defaults,
-                                catalogData: try Data(contentsOf: #require(Bundle.main.url(forResource: "exercises", withExtension: "json")))) {
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV5) {
             saveCount += 1
             try $0.save()
         }
@@ -509,13 +523,158 @@ struct ExerciseSeederTests {
         #expect(saveCount == 1)
 
         var repeatSaveCount = 0
-        try ExerciseSeeder.seed(context: context, userDefaults: defaults,
-                                catalogData: try Data(contentsOf: #require(Bundle.main.url(forResource: "exercises", withExtension: "json")))) {
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV5) {
             repeatSaveCount += 1
             try $0.save()
         }
         #expect(repeatSaveCount == 0)
-        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == bundledCatalogPresetCount())
+        #expect(try context.fetchCount(FetchDescriptor<Exercise>()) == rows.count)
+    }
+
+    @Test("Catalog v6 prunes unused retired presets while preserving WorkoutExercise and TemplateExercise references")
+    func v6PrunesUnusedRetiredPresetsAndPreservesReferencedRows() throws {
+        let container = try ModelContainerConfiguration.makeTestContainer()
+        let context = ModelContext(container)
+        let defaults = makeUserDefaults()
+        defer { cleanUp(defaults) }
+
+        let catalogV5 = makeCatalogData(version: "5", exercises: [
+            makeExerciseJSON(
+                id: "kept-sled",
+                nameEn: "Sled 45в° Leg Press",
+                nameZh: "Sled 45в° Leg Press",
+                muscleGroup: "legs",
+                equipment: "sled_machine",
+                primaryMuscles: ["glutes"],
+                secondaryMuscles: ["quads"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "0739",
+                    name: "sled 45° leg press",
+                    equipment: "sled machine",
+                    target: "glutes",
+                    muscleGroup: "quads",
+                    secondaryMuscles: ["quads"]
+                )
+            ),
+            makeExerciseJSON(
+                id: "retired-unused",
+                nameEn: "Cycle Cross Trainer",
+                nameZh: "椭圆机",
+                muscleGroup: "fullBody",
+                equipment: "leverage_machine",
+                primaryMuscles: ["quads"],
+                secondaryMuscles: ["calves"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "2331",
+                    name: "cycle cross trainer",
+                    equipment: "leverage machine",
+                    target: "quads",
+                    muscleGroup: "calves",
+                    secondaryMuscles: ["calves"]
+                )
+            ),
+            makeExerciseJSON(
+                id: "retired-workout-ref",
+                nameEn: "Stationary Bike Walk",
+                nameZh: "动感单车慢骑",
+                muscleGroup: "fullBody",
+                equipment: "leverage_machine",
+                primaryMuscles: ["quads"],
+                secondaryMuscles: ["calves"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "0798",
+                    name: "stationary bike walk",
+                    equipment: "leverage machine",
+                    target: "quads",
+                    muscleGroup: "calves",
+                    secondaryMuscles: ["calves"]
+                )
+            ),
+            makeExerciseJSON(
+                id: "retired-template-ref",
+                nameEn: "Walking On Incline Treadmill",
+                nameZh: "跑步机爬坡快走",
+                muscleGroup: "fullBody",
+                equipment: "leverage_machine",
+                primaryMuscles: ["quads"],
+                secondaryMuscles: ["calves"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "3666",
+                    name: "walking on incline treadmill",
+                    equipment: "leverage machine",
+                    target: "quads",
+                    muscleGroup: "calves",
+                    secondaryMuscles: ["calves"]
+                )
+            ),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV5)
+
+        let workoutReferenced = try #require(try fetchExercise(presetId: "retired-workout-ref", context: context))
+        let templateReferenced = try #require(try fetchExercise(presetId: "retired-template-ref", context: context))
+        let custom = Exercise(
+            nameEn: "Custom Hold",
+            nameZh: "自定义动作",
+            muscleGroup: .core,
+            equipment: .bodyweight,
+            isCustom: true
+        )
+        let workout = Workout(
+            type: .strength,
+            startDate: .now,
+            exercises: [WorkoutExercise(order: 0, exercise: workoutReferenced)]
+        )
+        let template = WorkoutTemplate(
+            name: "Warmup Template",
+            exercises: [TemplateExercise(exercise: templateReferenced, targetSets: 3, order: 0)]
+        )
+        context.insert(custom)
+        context.insert(workout)
+        context.insert(template)
+        try context.save()
+
+        let catalogV6 = makeCatalogData(version: "6", exercises: [
+            makeExerciseJSON(
+                id: "kept-sled",
+                nameEn: "Sled 45° Leg Press",
+                nameZh: "45度倒蹬机蹬腿",
+                muscleGroup: "legs",
+                equipment: "sled_machine",
+                primaryMuscles: ["glutes"],
+                secondaryMuscles: ["quads"],
+                source: "hasaneyldrm/exercises-dataset",
+                sourceData: makeSourceDataJSON(
+                    id: "0739",
+                    name: "sled 45° leg press",
+                    equipment: "sled machine",
+                    target: "glutes",
+                    muscleGroup: "quads",
+                    secondaryMuscles: ["quads"]
+                )
+            ),
+        ])
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV6)
+
+        #expect(try fetchExercise(presetId: "retired-unused", context: context) == nil)
+        let preservedWorkoutRef = try #require(try fetchExercise(presetId: "retired-workout-ref", context: context))
+        let preservedTemplateRef = try #require(try fetchExercise(presetId: "retired-template-ref", context: context))
+        let updatedSled = try #require(try fetchExercise(presetId: "kept-sled", context: context))
+        #expect(preservedWorkoutRef.workoutExercises?.count == 1)
+        #expect(preservedTemplateRef.templateExercises?.count == 1)
+        #expect(updatedSled.nameEn == "Sled 45° Leg Press")
+        #expect(updatedSled.nameZh == "45度倒蹬机蹬腿")
+        #expect(defaults.string(forKey: ExerciseSeeder.seedVersionKey) == "6")
+
+        var repeatSaveCount = 0
+        try ExerciseSeeder.seed(context: context, userDefaults: defaults, catalogData: catalogV6) {
+            repeatSaveCount += 1
+            try $0.save()
+        }
+        #expect(repeatSaveCount == 0)
     }
 
     // MARK: - Version Skip + Empty DB Recovery

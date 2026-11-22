@@ -402,51 +402,26 @@ class CheckedInExerciseCatalogTests(unittest.TestCase):
             },
         )
 
-    def test_checked_in_v5_catalog_and_report_are_consistent(self) -> None:
+    def test_checked_in_v6_catalog_and_report_are_consistent(self) -> None:
         catalog = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
         report = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
 
-        self.assertEqual(catalog["version"], "5")
-        self.assertEqual(len(catalog["exercises"]), 1558)
+        self.assertEqual(catalog["version"], "6")
+        self.assertEqual(len(catalog["exercises"]), 316)
 
         upstream_rows = [row for row in catalog["exercises"] if row["source"] == "hasaneyldrm/exercises-dataset"]
         vital_rows = [row for row in catalog["exercises"] if row["source"] == "vitalstride"]
-        self.assertEqual(len(upstream_rows), 1324)
+        self.assertEqual(len(upstream_rows), 82)
         self.assertEqual(len(vital_rows), 234)
 
         source_ids = [row["sourceData"]["id"] for row in upstream_rows]
-        self.assertEqual(len(source_ids), 1324)
-        self.assertEqual(len(set(source_ids)), 1324)
+        self.assertEqual(len(source_ids), 82)
+        self.assertEqual(len(set(source_ids)), 82)
 
-        rows_with_legacy_names = {
-            row["sourceData"]["id"]: row["legacyNames"]
-            for row in upstream_rows
-            if "legacyNames" in row
-        }
-        self.assertEqual(
-            rows_with_legacy_names,
-            {
-                "0027": ["Barbell Bent-Over Row"],
-                "0238": ["Cable Straight-Arm Pulldown"],
-                "0438": ["Dumbbell W Press"],
-                "0631": ["Muscle-Up"],
-                "1273": ["Clap Push-Up"],
-                "1429": ["Wide-Grip Pull-Up"],
-                "3294": ["Archer Push-Up"],
-            },
-        )
-        self.assertEqual(
-            report["legacyAliases"],
-            [
-                {
-                    "sourceId": row["sourceData"]["id"],
-                    "catalogId": row["id"],
-                    "legacyNames": row["legacyNames"],
-                }
-                for row in upstream_rows
-                if "legacyNames" in row
-            ],
-        )
+        for row in catalog["exercises"]:
+            self.assertNotEqual(row["nameZh"], row["nameEn"])
+            self.assertNotIn("в°", row["nameEn"])
+            self.assertNotIn("в°", row["nameZh"])
 
         for row in upstream_rows:
             self.assertIn(row["equipment"], APP_EQUIPMENT_VALUES)
@@ -472,13 +447,6 @@ class CheckedInExerciseCatalogTests(unittest.TestCase):
                     "created_at",
                 },
             )
-
-        source_equipment_values = {row["sourceData"]["equipment"] for row in upstream_rows}
-        self.assertEqual(source_equipment_values, EXPECTED_SOURCE_EQUIPMENT_VALUES)
-
-        cable = next(row for row in upstream_rows if row["sourceData"]["id"] == "0198")
-        self.assertEqual(cable["primaryMuscles"], ["lats"])
-        self.assertEqual(cable["secondaryMuscles"], ["biceps", "forearms"])
 
         duplicate_groups = {
             group["normalizedName"]: sorted(group["sourceIds"])

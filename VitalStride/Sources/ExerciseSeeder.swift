@@ -7,6 +7,8 @@ enum ExerciseSeeder {
     private static let logger = Logger(subsystem: "com.vitalstride", category: "ExerciseSeeder")
     private static let upstreamSource = "hasaneyldrm/exercises-dataset"
     private static let vitalStrideSource = "vitalstride"
+    private static let validatedCatalogVersions: Set<String> = ["5", "6"]
+    private static let pruningCatalogVersions: Set<String> = ["6"]
     private static let requiredInstructionLanguages: Set<String> = ["en", "es", "fr", "hi", "it", "ko", "pl", "ru", "tr", "zh"]
     private static let boundedV5ChineseNameIDs: Set<String> = [
         "bb6fc1a3-3e20-557f-99ff-60748b8e9e4e",
@@ -149,23 +151,49 @@ enum ExerciseSeeder {
                 )
                 let existingPresets = try context.fetch(presetDescriptor)
                 let existingIDs = Set(existingPresets.compactMap(\.presetId))
-                if existingPresets.count == catalogIDs.count, existingIDs == catalogIDs {
+                let isSameVersionReady: Bool
+                if pruningCatalogVersions.contains(catalog.version) {
+                    let hasUnprunedRetiredPresets = existingPresets.contains { exercise in
+                        guard !exercise.isCustom,
+                              let presetID = exercise.presetId,
+                              !catalogIDs.contains(presetID) else {
+                            return false
+                        }
+                        return (exercise.workoutExercises ?? []).isEmpty
+                            && (exercise.templateExercises ?? []).isEmpty
+                    }
+                    isSameVersionReady = existingIDs.count == existingPresets.count
+                        && existingIDs.isSuperset(of: catalogIDs)
+                        && !hasUnprunedRetiredPresets
+                } else {
+                    isSameVersionReady = existingPresets.count == catalogIDs.count
+                        && existingIDs == catalogIDs
+                }
+                if isSameVersionReady {
                     if repairedCalfMuscles || repairedChineseNames { try save(context) }
                     logger.debug("Seed skipped: version \(catalog.version) unchanged")
                     return
                 }
             }
 
-            if catalog.version == "5" {
-                try updateExistingUpstreamExercises(context: context, dtos: catalog.exercises)
+            if validatedCatalogVersions.contains(catalog.version) {
+                try updateExistingUpstreamExercises(
+                    context: context,
+                    dtos: catalog.exercises,
+                    version: catalog.version
+                )
             }
 
             let insertedCount = try insertNewExercises(context: context, dtos: catalog.exercises)
 
-            // Legacy catalogs use nil-only backfill semantics on upgrade. V5
+            // Legacy catalogs use nil-only backfill semantics on upgrade. V5+
             // preserves all non-canonical fields exactly and skips this phase.
-            if storedVersion != catalog.version, catalog.version != "5" {
+            if storedVersion != catalog.version, !validatedCatalogVersions.contains(catalog.version) {
                 try backfillDefaults(context: context, dtos: catalog.exercises)
+            }
+
+            if pruningCatalogVersions.contains(catalog.version) {
+                try pruneUnusedRetiredPresets(context: context, catalogIDs: catalogIDs)
             }
 
             try save(context)
@@ -179,7 +207,7 @@ enum ExerciseSeeder {
     }
 
     private static func repairCalfRaiseMuscles(context: ModelContext, catalog: ExerciseCatalog) throws -> Bool {
-        guard catalog.version == "5" else { return false }
+        guard validatedCatalogVersions.contains(catalog.version) else { return false }
         let affectedIDs: Set<String> = [
             "550e8400-e29b-41d4-a716-446655440039",
             "550e8400-e29b-41d4-a716-446655440199",
@@ -209,11 +237,15 @@ enum ExerciseSeeder {
         context: ModelContext,
         catalog: ExerciseCatalog
     ) throws -> Bool {
-        guard catalog.version == "5" else { return false }
+        guard validatedCatalogVersions.contains(catalog.version) else { return false }
 
         let canonicalDTOs = Dictionary(
             catalog.exercises.compactMap { dto -> (String, ExerciseDTO)? in
-                guard boundedV5ChineseNameIDs.contains(dto.id) else { return nil }
+                if catalog.version == "5" {
+                    guard boundedV5ChineseNameIDs.contains(dto.id) else { return nil }
+                } else {
+                    guard dto.source == upstreamSource else { return nil }
+                }
                 return (dto.id, dto)
             },
             uniquingKeysWith: { first, _ in first }
@@ -227,17 +259,24 @@ enum ExerciseSeeder {
         for exercise in try context.fetch(descriptor) {
             guard let presetID = exercise.presetId,
                   let dto = canonicalDTOs[presetID],
-                  exercise.nameEn == dto.nameEn,
-                  exercise.nameZh == exercise.nameEn,
-                  let translation = canonicalDTOs[presetID]?.nameZh,
                   !(exercise.workoutExercises ?? []).contains(where: { workoutExercise in
                       guard let source = workoutExercise.workout?.source else { return false }
                       return source == .imported || source == .healthkit
                   }) else {
                 continue
             }
-            exercise.nameZh = translation
-            changed = true
+            if catalog.version == "5" {
+                guard exercise.nameEn == dto.nameEn,
+                      exercise.nameZh == exercise.nameEn else { continue }
+                exercise.nameZh = dto.nameZh
+                changed = true
+            } else if exercise.nameZh == exercise.nameEn || exercise.nameZh.contains("в°") || exercise.nameEn.contains("в°") {
+                if exercise.nameEn.contains("в°") {
+                    exercise.nameEn = dto.nameEn
+                }
+                exercise.nameZh = dto.nameZh
+                changed = true
+            }
         }
         return changed
     }
@@ -294,7 +333,8 @@ enum ExerciseSeeder {
 
     private static func updateExistingUpstreamExercises(
         context: ModelContext,
-        dtos: [ExerciseDTO]
+        dtos: [ExerciseDTO],
+        version: String
     ) throws {
         let descriptor = FetchDescriptor<Exercise>(
             predicate: #Predicate { $0.presetId != nil && $0.isCustom == false }
@@ -311,20 +351,44 @@ enum ExerciseSeeder {
 
         for dto in dtos where dto.source == upstreamSource {
             guard let exercise = existingByID[dto.id] else { continue }
-            if boundedV5ChineseNameIDs.contains(dto.id) {
-                guard exercise.nameEn == dto.nameEn,
-                      !(exercise.workoutExercises ?? []).contains(where: { workoutExercise in
-                          guard let source = workoutExercise.workout?.source else { return false }
-                          return source == .imported || source == .healthkit
-                      }) else {
+            let hasProtectedWorkoutSource = (exercise.workoutExercises ?? []).contains(where: { workoutExercise in
+                guard let source = workoutExercise.workout?.source else { return false }
+                return source == .imported || source == .healthkit
+            })
+            if version == "5" && boundedV5ChineseNameIDs.contains(dto.id) {
+                guard exercise.nameEn == dto.nameEn, !hasProtectedWorkoutSource else {
                     continue
                 }
+            }
+            if version == "6", !hasProtectedWorkoutSource,
+               exercise.nameZh == exercise.nameEn || exercise.nameZh.contains("в°") || exercise.nameEn.contains("в°") {
+                exercise.nameZh = dto.nameZh
             }
             exercise.nameEn = dto.nameEn
             exercise.muscleGroup = dto.muscleGroup
             exercise.equipment = dto.equipment
             exercise.primaryMuscles = dto.primaryMuscles
             exercise.secondaryMuscles = dto.secondaryMuscles
+        }
+    }
+
+    private static func pruneUnusedRetiredPresets(
+        context: ModelContext,
+        catalogIDs: Set<String>
+    ) throws {
+        let descriptor = FetchDescriptor<Exercise>(
+            predicate: #Predicate { $0.presetId != nil && $0.isCustom == false }
+        )
+        let existingPresets = try context.fetch(descriptor)
+        for exercise in existingPresets {
+            guard let presetID = exercise.presetId, !catalogIDs.contains(presetID) else {
+                continue
+            }
+            let hasWorkouts = !(exercise.workoutExercises ?? []).isEmpty
+            let hasTemplates = !(exercise.templateExercises ?? []).isEmpty
+            if !hasWorkouts && !hasTemplates {
+                context.delete(exercise)
+            }
         }
     }
 
@@ -363,7 +427,7 @@ enum ExerciseSeeder {
     }
 
     private static func validateCatalogIfNeeded(_ catalog: ExerciseCatalog) throws {
-        guard catalog.version == "5" else { return }
+        guard validatedCatalogVersions.contains(catalog.version) else { return }
 
         var seenExerciseIDs = Set<String>()
         var seenSourceIDs = Set<String>()
